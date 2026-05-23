@@ -1,0 +1,52 @@
+{
+  "project_id": "Glossa",
+  "version": 2,
+  "task_states": {
+    "task-admin": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-cli": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-consumer-migration": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-deploy": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-elements": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-go-api": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-icu-subset": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-sdk": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-sse": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    }
+  },
+  "updated_at": "2026-05-23T21:46:53.323578+02:00"
+}

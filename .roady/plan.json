@@ -1,0 +1,117 @@
+{
+  "id": "plan-Glossa-1779565717",
+  "spec_id": "Glossa",
+  "tasks": [
+    {
+      "id": "task-sdk",
+      "title": "Implement Glossa SDK (@glossa/sdk)",
+      "description": "Framework-agnostic HTTP fetch + cache + SSE subscription. Client(config) factory; client.bundle(locale) with etag/304; client.subscribe(); in-memory cache invalidated on SSE; client.scan() for CLI. Pluggable transport. Acceptance: vitest happy path + 304 + reconnect + miss; \u003c5kb gzipped (native fetch); works in Node + browser.",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": [
+        "task-go-api",
+        "task-sse"
+      ],
+      "feature_id": "glossa-sdk-(@glossa/sdk)",
+      "source": {}
+    },
+    {
+      "id": "task-deploy",
+      "title": "Deployment (k3s on edge-1)",
+      "description": "Mirror IRI/Brotwerk k3s patterns. Distroless API Dockerfile, nginx admin Dockerfile, GHA release.yml building both images on tag push + k3s rollout. Postgres StatefulSet (20Gi PVC). Ingress + cert-manager TLS. Daily backup CronJob via rclone + Hetzner Storage Box. Acceptance: git tag v0.1.0 → both images ship + roll; admin reachable over HTTPS; Postgres survives pod restart; backup target receives daily dump.",
+      "priority": "medium",
+      "estimate": "1w",
+      "depends_on": [
+        "task-go-api",
+        "task-admin"
+      ],
+      "feature_id": "deployment-(k3s-on-edge-1)",
+      "source": {}
+    },
+    {
+      "id": "task-elements",
+      "title": "Implement Lit web components (@glossa/elements)",
+      "description": "\u003cglossa-provider\u003e, \u003cglossa-text\u003e, \u003cglossa-rich\u003e, \u003cglossa-plural\u003e, \u003cglossa-select\u003e. ReactiveController exposes context; SSE updates flow into a Lit signal. Slot content is fallback. Strict mode logs missing keys. A11y: rendered text inherits parent semantics. Acceptance: demo page mounts every component, locale toggle swaps every string; component tests via vitest+jsdom; \u003c10kb gzipped.",
+      "priority": "high",
+      "estimate": "2w",
+      "depends_on": [
+        "task-icu-subset",
+        "task-sdk"
+      ],
+      "feature_id": "lit-web-components-(@glossa/elements)",
+      "source": {}
+    },
+    {
+      "id": "task-cli",
+      "title": "Implement CLI (@glossa/cli)",
+      "description": "glossa init / scan / pull / push. Honours .gitignore (nox-style). Deterministic JSON output for meaningful diffs. Exit codes 0/1/2/3. Acceptance: fixture-project tested; npx works without global install; pull output stable across runs.",
+      "priority": "medium",
+      "estimate": "1w",
+      "depends_on": [
+        "task-sdk"
+      ],
+      "feature_id": "cli-(@glossa/cli)",
+      "source": {}
+    },
+    {
+      "id": "task-consumer-migration",
+      "title": "First consumer migration (IRI or Brotwerk)",
+      "description": "Validate the whole stack against a real consumer. Pick the calmer project. Add \u003cglossa-provider\u003e to root layout. Replace 5-10 representative strings. Run glossa scan from consumer CI to seed keys. Wire fallback so consumer build still works when Glossa is offline. Acceptance: edit in admin → consumer updates within 5s without redeploy; consumer build works when Glossa is killed; one translator updates a key end-to-end without engineer involvement.",
+      "priority": "medium",
+      "estimate": "1w",
+      "depends_on": [
+        "task-deploy",
+        "task-cli"
+      ],
+      "feature_id": "first-consumer-migration-(iri-or-brotwerk)",
+      "source": {}
+    },
+    {
+      "id": "task-icu-subset",
+      "title": "Implement ICU subset (@glossa/format)",
+      "description": "Own ICU MessageFormat subset, ~200 LOC + ~150 LOC tests. Lands first — nothing else depends on it. Scope: variable interpolation, plural via Intl.PluralRules, select, nesting, apostrophe escaping. Defer numbers/dates/relative-time/list to Intl.* built-ins. Acceptance: vitest covering ICU edge cases, \u003c3kb gzipped, zero runtime deps, exports format() + parse().",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": [],
+      "feature_id": "icu-subset-(@glossa/format)",
+      "source": {}
+    },
+    {
+      "id": "task-admin",
+      "title": "Implement Admin UI (apps/admin)",
+      "description": "Lit + Vite translator interface. Dogfoods @glossa/elements + @glossa/sdk. Login (JWT), project switcher, key list with status filters, edit form with ICU live preview, bulk JSON import/export, diff view, project mgmt, per-user locale scoping. Acceptance: translator can sign in → edit → save → SSE event lands in demo consumer; keyboard-only flow works; \u003c250kb gzipped.",
+      "priority": "medium",
+      "estimate": "2w",
+      "depends_on": [
+        "task-elements"
+      ],
+      "feature_id": "admin-ui-(apps/admin)",
+      "source": {}
+    },
+    {
+      "id": "task-sse",
+      "title": "Implement SSE live-update channel",
+      "description": "GET /api/v1/projects/:slug/sse. Event envelope per docs/design.md §5.2. In-process fanout for MVP; Redis pubsub when multi-replica. Client-side reconnect with exponential backoff in SDK. Heartbeat every 30s. Per-tenant rate limit. Acceptance: edit-in-admin → SSE event within 1s; survives 60s idle; reconnect recovers via Last-Event-ID.",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": [
+        "task-go-api"
+      ],
+      "feature_id": "sse-live-update-channel",
+      "source": {}
+    },
+    {
+      "id": "task-go-api",
+      "title": "Implement Go API + Postgres schema (apps/api)",
+      "description": "REST + SSE service. Hex-arch mirror of IRI's apps/api. Scope: golang-migrate migrations per docs/design.md §6, sqlc repos, domain layer (Project/Locale/Key/Translation/Tenant), use cases (CreateProject, UpsertKeys, UpdateTranslation, ListBundle, RotateAPIKey), REST endpoints per §5.1, JWT + API-key auth, RLS policies for tenant isolation, /healthz + /readyz. Acceptance: go test ./... clean, RLS integration test, OpenAPI spec.",
+      "priority": "high",
+      "estimate": "2w",
+      "depends_on": [],
+      "feature_id": "go-api-+-postgres-schema-(apps/api)",
+      "source": {}
+    }
+  ],
+  "approval_status": "approved",
+  "created_at": "2026-05-23T21:48:37.083291+02:00",
+  "updated_at": "2026-05-23T21:50:39.228935+02:00"
+}
