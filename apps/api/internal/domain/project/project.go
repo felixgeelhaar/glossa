@@ -68,4 +68,8 @@ type Repository interface {
 	Find(ctx context.Context, tenantID uuid.UUID, slug Slug) (Project, error)
 	FindByAPIKeyHash(ctx context.Context, apiKeyHash []byte) (Project, error)
 	ListForTenant(ctx context.Context, tenantID uuid.UUID) ([]Project, error)
+	// RotateAPIKeyHash atomically swaps the project's api_key_hash
+	// to the new value. Existing consumers using the old key get
+	// 401s on the next request.
+	RotateAPIKeyHash(ctx context.Context, id uuid.UUID, hash []byte) error
 }

@@ -70,6 +70,14 @@ func (r *ProjectRepo) FindByAPIKeyHash(ctx context.Context, hash []byte) (projec
 	return fromGetProjectByAPIKeyHashRow(row)
 }
 
+// RotateAPIKeyHash atomically swaps the project's stored api_key_hash.
+func (r *ProjectRepo) RotateAPIKeyHash(ctx context.Context, id uuid.UUID, hash []byte) error {
+	return r.q.RotateProjectAPIKey(ctx, db.RotateProjectAPIKeyParams{
+		ID:         toPgUUID(id),
+		ApiKeyHash: hash,
+	})
+}
+
 // ListForTenant returns projects for the given tenant, newest first.
 func (r *ProjectRepo) ListForTenant(ctx context.Context, tenantID uuid.UUID) ([]project.Project, error) {
 	rows, err := r.q.ListProjectsForTenant(ctx, toPgUUID(tenantID))

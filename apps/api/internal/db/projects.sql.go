@@ -152,3 +152,17 @@ func (q *Queries) ListProjectsForTenant(ctx context.Context, tenantID pgtype.UUI
 	}
 	return items, nil
 }
+
+const rotateProjectAPIKey = `-- name: RotateProjectAPIKey :exec
+UPDATE projects SET api_key_hash = $2 WHERE id = $1
+`
+
+type RotateProjectAPIKeyParams struct {
+	ID         pgtype.UUID `json:"id"`
+	ApiKeyHash []byte      `json:"api_key_hash"`
+}
+
+func (q *Queries) RotateProjectAPIKey(ctx context.Context, arg RotateProjectAPIKeyParams) error {
+	_, err := q.db.Exec(ctx, rotateProjectAPIKey, arg.ID, arg.ApiKeyHash)
+	return err
+}

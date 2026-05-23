@@ -48,6 +48,18 @@ func (r *inMemoryRepo) ListForTenant(_ context.Context, _ uuid.UUID) ([]project.
 	return nil, errors.New("not used in these tests")
 }
 
+func (r *inMemoryRepo) RotateAPIKeyHash(_ context.Context, id uuid.UUID, hash []byte) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.projects[id]
+	if !ok {
+		return errors.New("project not found")
+	}
+	p.APIKeyHash = hash
+	r.projects[id] = p
+	return nil
+}
+
 func TestCreateProject_ReturnsRawAPIKeyAndStoresHash(t *testing.T) {
 	repo := newInMemoryRepo()
 	uc := projectapp.NewCreateProject(repo)

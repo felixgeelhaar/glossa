@@ -21,3 +21,6 @@ SELECT id, slug, name, default_locale, created_at
 FROM projects
 WHERE tenant_id = $1
 ORDER BY created_at DESC;
+
+-- name: RotateProjectAPIKey :exec
+UPDATE projects SET api_key_hash = $2 WHERE id = $1;
