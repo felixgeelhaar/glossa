@@ -26,6 +26,24 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9
 
+  packages/sdk:
+    devDependencies:
+      '@size-limit/preset-small-lib':
+        specifier: ^11.0.0
+        version: 11.2.0(size-limit@11.2.0)
+      prettier:
+        specifier: ^3.0.0
+        version: 3.8.3
+      size-limit:
+        specifier: ^11.0.0
+        version: 11.2.0
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9
+
 packages:
 
   '@esbuild/aix-ppc64@0.21.5':

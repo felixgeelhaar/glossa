@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 7,
+  "version": 9,
   "task_states": {
     "task-admin": {
       "status": "pending",
@@ -50,17 +50,23 @@
       "elapsed_minutes": 4
     },
     "task-sdk": {
-      "status": "pending",
-      "path": "",
-      "elapsed_minutes": 0
-    },
-    "task-sse": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-23T22:57:07.409856+02:00",
+      "started_at": "2026-05-23T23:03:41.377+02:00",
       "elapsed_minutes": 0
+    },
+    "task-sse": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Slice 1 + 2 (commits b9d8ae0 → HEAD on task-sse branch path). All three acceptance criteria green: TestSSE_DeliversBroadcastWithinOneSecond, TestSSE_LastEventIDReplaysMissed, TestSSE_HeartbeatKeepsConnectionAlive. Per-tenant broadcast rate-limit deferred — hub drops slow subs without back-pressure and acceptance doesn't gate on it."
+      ],
+      "started_at": "2026-05-23T22:57:07.409856+02:00",
+      "completed_at": "2026-05-23T23:01:48.892089+02:00",
+      "elapsed_minutes": 4
     }
   },
-  "updated_at": "2026-05-23T22:57:07.409856+02:00"
+  "updated_at": "2026-05-23T23:03:41.377+02:00"
 }
