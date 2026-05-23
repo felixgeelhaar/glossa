@@ -215,12 +215,16 @@ CREATE POLICY projects_isolation ON projects USING (tenant_id::text = current_se
 
 | Concern | Choice | Reason |
 |---|---|---|
-| Backend | Go (stdlib `net/http` + `chi`) | Matches IRI patterns; single binary deploy |
-| DB | Postgres 16 | Matches IRI/Brotwerk; RLS for tenancy |
-| Cache | Redis (optional, for SSE fanout) | Optional, in-process map suffices for MVP |
-| Admin UI | Lit + Vite + TS | Eat own dog food (same components ship to consumers) |
-| Components | Lit + own ICU subset | Smallest runtime; framework-agnostic |
-| Auth | JWT via `golang-jwt/jwt` (matches IRI) | Already proven |
+| HTTP framework | `gin-gonic/gin` | Matches Brotwerk; richer middleware ecosystem than chi for what we need (auth, rate limit, recovery) |
+| DB driver / query layer | `pgx/v5` + `sqlc` | Type-safe Go from `.sql` sources; matches Brotwerk/IRI |
+| Migrations | `golang-migrate` (CLI + Go embed) | Matches Brotwerk; init-container friendly |
+| DB engine | Postgres 16 | RLS for multi-tenant isolation |
+| Logging | `felixgeelhaar/bolt` (slog handler) | Own high-perf structured logger; already proven in Brotwerk |
+| Resilience | `felixgeelhaar/fortify` | Own library — rate-limit (per-tenant translator broadcasts), circuit-breaker (DeepL passthrough later), timeout, retry, typed errors via `ferrors` |
+| Cache | in-process map; Redis later | MVP doesn't need Redis until multi-replica SSE fanout |
+| Auth | `golang-jwt/jwt` for admin sessions; SHA-256-hashed API keys for consumer / CLI traffic | JWT proven across IRI + Brotwerk; API keys keep Lit-component install ergonomic |
+| Admin UI | Lit + Vite + TS | Dogfood the same components consumers ship |
+| Components | Lit + own ICU subset (`@glossa/format`) | Smallest runtime; framework-agnostic |
 | Hosting | k3s on `edge-1` (shared with IRI/Brotwerk) | Zero infra cost; mirror IRI deploy patterns |
 | TLS | cert-manager + Let's Encrypt | Already configured cluster-wide |
 

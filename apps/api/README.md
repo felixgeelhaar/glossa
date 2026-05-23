@@ -19,7 +19,16 @@ db/
   queries/           — sqlc .sql sources
 ```
 
-Mirrors IRI's apps/api layout intentionally — hex-arch, sqlc, golang-migrate.
+Mirrors IRI/Brotwerk's apps/api layout intentionally — hex-arch, sqlc, golang-migrate.
+
+## Library choices (locked)
+
+- **HTTP**: `gin-gonic/gin` (matches Brotwerk)
+- **DB**: `pgx/v5` driver + `sqlc`-generated query types
+- **Migrations**: `golang-migrate`
+- **Logging**: `felixgeelhaar/bolt` slog handler
+- **Resilience**: `felixgeelhaar/fortify` — `ratelimit`, `circuitbreaker`, `timeout`, `retry`, `ferrors` for typed errors
+- **Auth**: `golang-jwt/jwt` for admin sessions; SHA-256-hashed API keys for consumer / CLI
 
 ## Status
 

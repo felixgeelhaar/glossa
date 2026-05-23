@@ -5,7 +5,7 @@
     {
       "id": "task-sdk",
       "title": "Implement Glossa SDK (@glossa/sdk)",
-      "description": "Framework-agnostic HTTP fetch + cache + SSE subscription. Client(config) factory; client.bundle(locale) with etag/304; client.subscribe(); in-memory cache invalidated on SSE; client.scan() for CLI. Pluggable transport. Acceptance: vitest happy path + 304 + reconnect + miss; \u003c5kb gzipped (native fetch); works in Node + browser.",
+      "description": "Framework-agnostic HTTP fetch + cache + SSE subscription. Client(config) factory; client.bundle(locale) with etag/304; client.subscribe(); in-memory cache invalidated on SSE; client.scan() for CLI. Pluggable transport. Acceptance: vitest happy path + 304 + reconnect + miss; <5kb gzipped (native fetch); works in Node + browser.",
       "priority": "high",
       "estimate": "1w",
       "depends_on": [
@@ -31,7 +31,7 @@
     {
       "id": "task-elements",
       "title": "Implement Lit web components (@glossa/elements)",
-      "description": "\u003cglossa-provider\u003e, \u003cglossa-text\u003e, \u003cglossa-rich\u003e, \u003cglossa-plural\u003e, \u003cglossa-select\u003e. ReactiveController exposes context; SSE updates flow into a Lit signal. Slot content is fallback. Strict mode logs missing keys. A11y: rendered text inherits parent semantics. Acceptance: demo page mounts every component, locale toggle swaps every string; component tests via vitest+jsdom; \u003c10kb gzipped.",
+      "description": "<glossa-provider>, <glossa-text>, <glossa-rich>, <glossa-plural>, <glossa-select>. ReactiveController exposes context; SSE updates flow into a Lit signal. Slot content is fallback. Strict mode logs missing keys. A11y: rendered text inherits parent semantics. Acceptance: demo page mounts every component, locale toggle swaps every string; component tests via vitest+jsdom; <10kb gzipped.",
       "priority": "high",
       "estimate": "2w",
       "depends_on": [
@@ -56,7 +56,7 @@
     {
       "id": "task-consumer-migration",
       "title": "First consumer migration (IRI or Brotwerk)",
-      "description": "Validate the whole stack against a real consumer. Pick the calmer project. Add \u003cglossa-provider\u003e to root layout. Replace 5-10 representative strings. Run glossa scan from consumer CI to seed keys. Wire fallback so consumer build still works when Glossa is offline. Acceptance: edit in admin → consumer updates within 5s without redeploy; consumer build works when Glossa is killed; one translator updates a key end-to-end without engineer involvement.",
+      "description": "Validate the whole stack against a real consumer. Pick the calmer project. Add <glossa-provider> to root layout. Replace 5-10 representative strings. Run glossa scan from consumer CI to seed keys. Wire fallback so consumer build still works when Glossa is offline. Acceptance: edit in admin → consumer updates within 5s without redeploy; consumer build works when Glossa is killed; one translator updates a key end-to-end without engineer involvement.",
       "priority": "medium",
       "estimate": "1w",
       "depends_on": [
@@ -69,7 +69,7 @@
     {
       "id": "task-icu-subset",
       "title": "Implement ICU subset (@glossa/format)",
-      "description": "Own ICU MessageFormat subset, ~200 LOC + ~150 LOC tests. Lands first — nothing else depends on it. Scope: variable interpolation, plural via Intl.PluralRules, select, nesting, apostrophe escaping. Defer numbers/dates/relative-time/list to Intl.* built-ins. Acceptance: vitest covering ICU edge cases, \u003c3kb gzipped, zero runtime deps, exports format() + parse().",
+      "description": "Own ICU MessageFormat subset, ~200 LOC + ~150 LOC tests. Lands first — nothing else depends on it. Scope: variable interpolation, plural via Intl.PluralRules, select, nesting, apostrophe escaping. Defer numbers/dates/relative-time/list to Intl.* built-ins. Acceptance: vitest covering ICU edge cases, <3kb gzipped, zero runtime deps, exports format() + parse().",
       "priority": "high",
       "estimate": "1w",
       "depends_on": [],
@@ -79,7 +79,7 @@
     {
       "id": "task-admin",
       "title": "Implement Admin UI (apps/admin)",
-      "description": "Lit + Vite translator interface. Dogfoods @glossa/elements + @glossa/sdk. Login (JWT), project switcher, key list with status filters, edit form with ICU live preview, bulk JSON import/export, diff view, project mgmt, per-user locale scoping. Acceptance: translator can sign in → edit → save → SSE event lands in demo consumer; keyboard-only flow works; \u003c250kb gzipped.",
+      "description": "Lit + Vite translator interface. Dogfoods @glossa/elements + @glossa/sdk. Login (JWT), project switcher, key list with status filters, edit form with ICU live preview, bulk JSON import/export, diff view, project mgmt, per-user locale scoping. Acceptance: translator can sign in → edit → save → SSE event lands in demo consumer; keyboard-only flow works; <250kb gzipped.",
       "priority": "medium",
       "estimate": "2w",
       "depends_on": [
@@ -103,7 +103,7 @@
     {
       "id": "task-go-api",
       "title": "Implement Go API + Postgres schema (apps/api)",
-      "description": "REST + SSE service. Hex-arch mirror of IRI's apps/api. Scope: golang-migrate migrations per docs/design.md §6, sqlc repos, domain layer (Project/Locale/Key/Translation/Tenant), use cases (CreateProject, UpsertKeys, UpdateTranslation, ListBundle, RotateAPIKey), REST endpoints per §5.1, JWT + API-key auth, RLS policies for tenant isolation, /healthz + /readyz. Acceptance: go test ./... clean, RLS integration test, OpenAPI spec.",
+      "description": "REST + SSE service backing the admin UI and the Lit components. Mirrors Brotwerk's apps/api hex-arch (domain → app → interfaces → infra).\n\nLibrary picks (locked):\n- HTTP: gin-gonic/gin (matches Brotwerk)\n- DB: pgx/v5 + sqlc-generated query types\n- Migrations: golang-migrate\n- Logging: felixgeelhaar/bolt slog handler\n- Resilience: felixgeelhaar/fortify — ratelimit, circuitbreaker, timeout, retry, ferrors for typed errors\n- Auth: golang-jwt/jwt for admin sessions; SHA-256-hashed API keys for consumer/CLI traffic\n\nScope:\n- golang-migrate migrations for tenants, projects, locales, keys, translations, audit_log, users (schema per docs/design.md §6)\n- sqlc-generated repos for each table\n- Domain layer: Project, Locale, Key, Translation, Tenant value objects\n- Use cases: CreateProject, UpsertKeys (CLI scan), UpdateTranslation, ListBundle, RotateAPIKey\n- REST endpoints per docs/design.md §5.1, served via gin\n- JWT auth middleware (admin), API-key middleware (consumer/CLI), fortify ratelimit per-tenant\n- Row-Level Security policies enforcing tenant_id isolation (cross-tenant read impossible at DB layer)\n- bolt-backed slog handler for structured logs\n- /healthz + /readyz\n\nAcceptance:\n- `go test ./...` clean with table-driven coverage on each use case\n- Integration test against a real Postgres (testcontainers or docker compose) covering RLS isolation\n- OpenAPI spec generated from handlers, committed to api/openapi.yaml",
       "priority": "high",
       "estimate": "2w",
       "depends_on": [],

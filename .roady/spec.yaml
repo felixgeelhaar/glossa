@@ -39,7 +39,24 @@ features:
 - id: go-api-+-postgres-schema-(apps/api)
   title: Go API + Postgres schema (apps/api)
   description: 'REST + SSE service backing the admin UI and the Lit components. Mirrors
-    IRI''s apps/api hex-arch (domain → app → interfaces → infra).
+    Brotwerk''s apps/api hex-arch (domain → app → interfaces → infra).
+
+
+    Library picks (locked):
+
+    - HTTP: gin-gonic/gin (matches Brotwerk)
+
+    - DB: pgx/v5 + sqlc-generated query types
+
+    - Migrations: golang-migrate
+
+    - Logging: felixgeelhaar/bolt slog handler
+
+    - Resilience: felixgeelhaar/fortify — ratelimit, circuitbreaker, timeout, retry,
+    ferrors for typed errors
+
+    - Auth: golang-jwt/jwt for admin sessions; SHA-256-hashed API keys for consumer/CLI
+    traffic
 
 
     Scope:
@@ -54,12 +71,15 @@ features:
     - Use cases: CreateProject, UpsertKeys (CLI scan), UpdateTranslation, ListBundle,
     RotateAPIKey
 
-    - REST endpoints per docs/design.md §5.1
+    - REST endpoints per docs/design.md §5.1, served via gin
 
-    - JWT auth for admin UI, API-key auth for consumer/CLI traffic
+    - JWT auth middleware (admin), API-key middleware (consumer/CLI), fortify ratelimit
+    per-tenant
 
     - Row-Level Security policies enforcing tenant_id isolation (cross-tenant read
     impossible at DB layer)
+
+    - bolt-backed slog handler for structured logs
 
     - /healthz + /readyz
 
