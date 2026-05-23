@@ -11,6 +11,7 @@ import (
 
 	"github.com/felixgeelhaar/fortify/ratelimit"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
@@ -23,6 +24,12 @@ import (
 type Deps struct {
 	Logger      *slog.Logger
 	GlobalLimit ratelimit.RateLimiter // per-IP global throttle
+
+	// Pool is the pgx pool used by rlsTxMiddleware to open a
+	// per-request tx + SET LOCAL app.current_tenant. Required for
+	// every authed route group; unauth bootstrap (POST /projects)
+	// doesn't use it.
+	Pool *pgxpool.Pool
 
 	// Use cases.
 	CreateProj *projectapp.CreateProject
@@ -70,6 +77,7 @@ func New(d Deps) *gin.Engine {
 		// switch on it because auth is shared across them).
 		authed := v1.Group("/projects/:slug")
 		authed.Use(apiKeyAuth(d.ProjectRepo))
+		authed.Use(rlsTxMiddleware(d.Pool))
 		{
 			authed.GET("/locales", handleListLocales(d.Locales))
 			authed.POST("/locales", handleCreateLocale(d.Locales))

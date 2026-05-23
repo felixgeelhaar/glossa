@@ -78,6 +78,7 @@ func main() {
 	router := httpgin.New(httpgin.Deps{
 		Logger:      log,
 		GlobalLimit: limiter,
+		Pool:        pool,
 
 		CreateProj: createProj,
 		RotateKey:  rotateKey,

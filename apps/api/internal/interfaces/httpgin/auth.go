@@ -20,12 +20,10 @@ const (
 // owning tenant) via SHA-256 lookup, then stores both on the gin
 // context for downstream handlers.
 //
-// The middleware deliberately does NOT bind a DB connection here.
-// Each handler that needs RLS-aware reads opens a short-lived
-// `BEGIN; SET LOCAL app.current_tenant = '...'; ... COMMIT` block
-// around its queries via [WithTenant]. Stashing the tenant in the
-// context keeps the auth path independent from the DB-binding path
-// so handlers without DB access stay free of pool overhead.
+// Runs BEFORE [rlsTxMiddleware] so the tenant ID is available for the
+// `SET LOCAL app.current_tenant = '...'` call. The API-key lookup
+// itself bypasses RLS — the middleware can't know the tenant yet, so
+// it falls back to the pool-direct Queries via [db.QueriesFromContext].
 func apiKeyAuth(resolver APIKeyResolver) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		raw, ok := bearerToken(c.GetHeader("Authorization"))
@@ -45,7 +43,7 @@ func apiKeyAuth(resolver APIKeyResolver) gin.HandlerFunc {
 			return
 		}
 		c.Set(ctxKeyProject, p)
-		c.Set(ctxKeyTenantID, p.TenantID.String())
+		c.Set(ctxKeyTenantID, p.TenantID)
 		c.Next()
 	}
 }

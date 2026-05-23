@@ -22,7 +22,8 @@ func NewTranslationRepo(q *db.Queries) *TranslationRepo {
 
 // Upsert performs the (key, locale) merge on the translations table.
 func (r *TranslationRepo) Upsert(ctx context.Context, t translation.Translation) (translation.Translation, error) {
-	row, err := r.q.UpsertTranslation(ctx, db.UpsertTranslationParams{
+	q := db.QueriesFromContext(ctx, r.q)
+	row, err := q.UpsertTranslation(ctx, db.UpsertTranslationParams{
 		KeyID:     toPgUUID(t.KeyID),
 		LocaleID:  toPgUUID(t.LocaleID),
 		Value:     t.Value,
@@ -49,7 +50,8 @@ func (r *TranslationRepo) Upsert(ctx context.Context, t translation.Translation)
 // ListBundle returns every key for a project paired with its (maybe
 // empty) translation in the requested locale.
 func (r *TranslationRepo) ListBundle(ctx context.Context, projectID, localeID uuid.UUID) ([]translation.BundleEntry, error) {
-	rows, err := r.q.ListBundle(ctx, db.ListBundleParams{
+	q := db.QueriesFromContext(ctx, r.q)
+	rows, err := q.ListBundle(ctx, db.ListBundleParams{
 		ProjectID: toPgUUID(projectID),
 		LocaleID:  toPgUUID(localeID),
 	})

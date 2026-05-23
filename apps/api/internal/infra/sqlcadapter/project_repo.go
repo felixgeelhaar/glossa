@@ -31,7 +31,8 @@ func NewProjectRepo(q *db.Queries) *ProjectRepo {
 // only mutation we need pre-MVP is create-on-bootstrap.
 func (r *ProjectRepo) Save(ctx context.Context, p project.Project) error {
 	tenantID := toPgUUID(p.TenantID)
-	_, err := r.q.CreateProject(ctx, db.CreateProjectParams{
+	q := db.QueriesFromContext(ctx, r.q)
+	_, err := q.CreateProject(ctx, db.CreateProjectParams{
 		TenantID:      tenantID,
 		Slug:          p.Slug.String(),
 		Name:          p.Name.String(),
@@ -43,7 +44,8 @@ func (r *ProjectRepo) Save(ctx context.Context, p project.Project) error {
 
 // Find loads a project by (tenantID, slug).
 func (r *ProjectRepo) Find(ctx context.Context, tenantID uuid.UUID, slug project.Slug) (project.Project, error) {
-	row, err := r.q.GetProjectBySlug(ctx, db.GetProjectBySlugParams{
+	q := db.QueriesFromContext(ctx, r.q)
+	row, err := q.GetProjectBySlug(ctx, db.GetProjectBySlugParams{
 		TenantID: toPgUUID(tenantID),
 		Slug:     slug.String(),
 	})
@@ -72,7 +74,8 @@ func (r *ProjectRepo) FindByAPIKeyHash(ctx context.Context, hash []byte) (projec
 
 // RotateAPIKeyHash atomically swaps the project's stored api_key_hash.
 func (r *ProjectRepo) RotateAPIKeyHash(ctx context.Context, id uuid.UUID, hash []byte) error {
-	return r.q.RotateProjectAPIKey(ctx, db.RotateProjectAPIKeyParams{
+	q := db.QueriesFromContext(ctx, r.q)
+	return q.RotateProjectAPIKey(ctx, db.RotateProjectAPIKeyParams{
 		ID:         toPgUUID(id),
 		ApiKeyHash: hash,
 	})
@@ -80,7 +83,8 @@ func (r *ProjectRepo) RotateAPIKeyHash(ctx context.Context, id uuid.UUID, hash [
 
 // ListForTenant returns projects for the given tenant, newest first.
 func (r *ProjectRepo) ListForTenant(ctx context.Context, tenantID uuid.UUID) ([]project.Project, error) {
-	rows, err := r.q.ListProjectsForTenant(ctx, toPgUUID(tenantID))
+	q := db.QueriesFromContext(ctx, r.q)
+	rows, err := q.ListProjectsForTenant(ctx, toPgUUID(tenantID))
 	if err != nil {
 		return nil, err
 	}

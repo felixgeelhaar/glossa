@@ -23,7 +23,8 @@ func NewKeyRepo(q *db.Queries) *KeyRepo {
 
 // Upsert idempotently inserts (or updates the description of) a key.
 func (r *KeyRepo) Upsert(ctx context.Context, k translationkey.Key) (translationkey.Key, error) {
-	row, err := r.q.UpsertKey(ctx, db.UpsertKeyParams{
+	q := db.QueriesFromContext(ctx, r.q)
+	row, err := q.UpsertKey(ctx, db.UpsertKeyParams{
 		ProjectID:   toPgUUID(k.ProjectID),
 		Key:         k.Name.String(),
 		Description: optionalString(k.Description),
@@ -45,7 +46,8 @@ func (r *KeyRepo) Upsert(ctx context.Context, k translationkey.Key) (translation
 
 // ListForProject returns every key defined under a project.
 func (r *KeyRepo) ListForProject(ctx context.Context, projectID uuid.UUID) ([]translationkey.Key, error) {
-	rows, err := r.q.ListKeysForProject(ctx, toPgUUID(projectID))
+	q := db.QueriesFromContext(ctx, r.q)
+	rows, err := q.ListKeysForProject(ctx, toPgUUID(projectID))
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +69,8 @@ func (r *KeyRepo) ListForProject(ctx context.Context, projectID uuid.UUID) ([]tr
 
 // Find loads a single key by (projectID, name).
 func (r *KeyRepo) Find(ctx context.Context, projectID uuid.UUID, name translationkey.Name) (translationkey.Key, error) {
-	row, err := r.q.GetKey(ctx, db.GetKeyParams{
+	q := db.QueriesFromContext(ctx, r.q)
+	row, err := q.GetKey(ctx, db.GetKeyParams{
 		ProjectID: toPgUUID(projectID),
 		Key:       name.String(),
 	})

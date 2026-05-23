@@ -21,7 +21,8 @@ func NewLocaleRepo(q *db.Queries) *LocaleRepo {
 
 // Save creates a new locale row.
 func (r *LocaleRepo) Save(ctx context.Context, l locale.Locale) error {
-	_, err := r.q.CreateLocale(ctx, db.CreateLocaleParams{
+	q := db.QueriesFromContext(ctx, r.q)
+	_, err := q.CreateLocale(ctx, db.CreateLocaleParams{
 		ProjectID: toPgUUID(l.ProjectID),
 		Code:      l.Code.String(),
 		Label:     l.Label.String(),
@@ -32,7 +33,8 @@ func (r *LocaleRepo) Save(ctx context.Context, l locale.Locale) error {
 
 // ListForProject returns every locale defined under a project.
 func (r *LocaleRepo) ListForProject(ctx context.Context, projectID uuid.UUID) ([]locale.Locale, error) {
-	rows, err := r.q.ListLocalesForProject(ctx, toPgUUID(projectID))
+	q := db.QueriesFromContext(ctx, r.q)
+	rows, err := q.ListLocalesForProject(ctx, toPgUUID(projectID))
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +53,8 @@ func (r *LocaleRepo) ListForProject(ctx context.Context, projectID uuid.UUID) ([
 
 // SetEnabled flips the enabled flag on a locale.
 func (r *LocaleRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) error {
-	return r.q.SetLocaleEnabled(ctx, db.SetLocaleEnabledParams{
+	q := db.QueriesFromContext(ctx, r.q)
+	return q.SetLocaleEnabled(ctx, db.SetLocaleEnabledParams{
 		ID:      toPgUUID(id),
 		Enabled: enabled,
 	})
