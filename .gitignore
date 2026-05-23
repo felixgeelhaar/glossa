@@ -1,0 +1,32 @@
+.DS_Store
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Editor
+.idea/
+.vscode/
+
+# Go
+/apps/api/bin/
+/apps/api/glossa-api
+*.test
+*.out
+.cover/
+
+# Node / pnpm
+node_modules/
+dist/
+.turbo/
+.vite/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Claude Code session artifacts
+.claude/
