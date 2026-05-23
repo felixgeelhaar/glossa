@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 5,
+  "version": 7,
   "task_states": {
     "task-admin": {
       "status": "pending",
@@ -28,11 +28,15 @@
       "elapsed_minutes": 0
     },
     "task-go-api": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "felixgeelhaar",
+      "evidence": [
+        "commits b3de104, 1c9edf8, 4dd8c05, b9d8ae0, 418e382, 4f5e3b3 — acceptance met: go test ./... clean, RLS integration suite green against pg:16 via testcontainers (3 isolation contracts pinned), api/openapi.yaml committed and redocly-clean"
+      ],
       "started_at": "2026-05-23T22:17:33.339429+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-23T22:56:31.497692+02:00",
+      "elapsed_minutes": 38
     },
     "task-icu-subset": {
       "status": "done",
@@ -51,10 +55,12 @@
       "elapsed_minutes": 0
     },
     "task-sse": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-23T22:57:07.409856+02:00",
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-23T22:17:33.339429+02:00"
+  "updated_at": "2026-05-23T22:57:07.409856+02:00"
 }

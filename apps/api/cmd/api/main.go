@@ -67,6 +67,11 @@ func main() {
 	updateTr := translationapp.NewUpdateTranslation(translationRepo)
 	listBundle := translationapp.NewListBundle(translationRepo)
 
+	// In-process SSE hub. Single instance shared between the
+	// PATCH translation handler (publisher) and the /sse handler
+	// (subscriber side).
+	hub := translationapp.NewHub()
+
 	// Per-IP rate limit: 60 requests per minute. Bolt-backed slog +
 	// fortify ratelimit mirror Brotwerk's setup.
 	limiter := ratelimit.New(ratelimit.Config{
@@ -85,6 +90,7 @@ func main() {
 		UpsertKeys: upsertKeys,
 		UpdateTr:   updateTr,
 		ListBundle: listBundle,
+		Hub:        hub,
 
 		ProjectRepo: projectRepo,
 		Locales:     localeRepo,

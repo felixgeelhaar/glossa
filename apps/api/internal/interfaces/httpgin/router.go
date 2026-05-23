@@ -38,6 +38,11 @@ type Deps struct {
 	UpdateTr   *translationapp.UpdateTranslation
 	ListBundle *translationapp.ListBundle
 
+	// Hub fans translation.updated events from PATCH handlers to
+	// SSE subscribers. Single instance per process for the MVP;
+	// swap for a Redis-backed Publisher when we go multi-replica.
+	Hub *translationapp.Hub
+
 	// Repos used directly by handlers (locale lookups in the
 	// translation flow, project lookup in the auth middleware).
 	ProjectRepo APIKeyResolver
@@ -83,8 +88,9 @@ func New(d Deps) *gin.Engine {
 			authed.POST("/locales", handleCreateLocale(d.Locales))
 			authed.POST("/keys:scan", handleScanKeys(d.UpsertKeys))
 			authed.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.Locales))
-			authed.PATCH("/locales/:locale/keys/:key", handlePatchTranslation(d.UpdateTr, d.Locales, d.Keys))
+			authed.PATCH("/locales/:locale/keys/:key", handlePatchTranslation(d.UpdateTr, d.Locales, d.Keys, d.Hub))
 			authed.POST("/api-keys", handleRotateAPIKey(d.RotateKey))
+			authed.GET("/sse", handleSSE(d.Hub, 0))
 		}
 	}
 

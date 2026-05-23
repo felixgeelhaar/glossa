@@ -68,10 +68,16 @@ type patchTranslationReq struct {
 
 // handlePatchTranslation is the translator-edit endpoint.
 // PATCH /api/v1/projects/:slug/locales/:locale/keys/:key
+//
+// On a successful update the handler fans the change out to every
+// SSE subscriber on this project via the supplied [translationapp.Publisher]
+// so consumer apps see the new value within a couple of network
+// hops, no redeploy.
 func handlePatchTranslation(
 	uc *translationapp.UpdateTranslation,
 	locales locale.Repository,
 	keys keysFinder,
+	pub translationapp.Publisher,
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		p := authedProject(c)
@@ -121,6 +127,21 @@ func handlePatchTranslation(
 			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 			return
 		}
+
+		// Broadcast — the SSE handler picks this up via the same
+		// hub instance and delivers to every connected client.
+		// Publish AFTER a successful tx commit (handler is past
+		// any error returns), so subscribers never see a value
+		// that was rolled back.
+		pub.Publish(p.ID, translationapp.Event{
+			Type:    "translation.updated",
+			Project: p.Slug.String(),
+			Locale:  localeCode,
+			Key:     keyName,
+			Value:   out.Value,
+			Status:  string(out.Status),
+		})
+
 		c.JSON(http.StatusOK, gin.H{
 			"id":     out.ID.String(),
 			"value":  out.Value,
