@@ -13,18 +13,29 @@ import (
 	"github.com/gin-gonic/gin"
 
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
+	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
+	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 )
 
 // Deps carries every dependency the router needs. Constructed once
 // in cmd/api/main.go and passed in.
 type Deps struct {
-	Logger       *slog.Logger
-	CreateProj   *projectapp.CreateProject
-	GlobalLimit  ratelimit.RateLimiter // per-IP global throttle
-	// ProjectRepo is the lookup used by the API-key middleware to
-	// resolve a tenant from the inbound key. Wired separately from
-	// the use case so handlers don't see the underlying repo type.
+	Logger      *slog.Logger
+	GlobalLimit ratelimit.RateLimiter // per-IP global throttle
+
+	// Use cases.
+	CreateProj *projectapp.CreateProject
+	RotateKey  *projectapp.RotateAPIKey
+	UpsertKeys *keyapp.UpsertKeys
+	UpdateTr   *translationapp.UpdateTranslation
+	ListBundle *translationapp.ListBundle
+
+	// Repos used directly by handlers (locale lookups in the
+	// translation flow, project lookup in the auth middleware).
 	ProjectRepo APIKeyResolver
+	Locales     locale.Repository
+	Keys        keysFinder
 }
 
 // New builds the gin engine + mounts every route. gin's bundled
@@ -44,14 +55,29 @@ func New(d Deps) *gin.Engine {
 	r.GET("/healthz", healthz)
 	r.GET("/readyz", healthz)
 
-	// Public REST API. The /api/v1 group will grow auth + tenant
-	// scoping in follow-on commits (task-go-api scope §). For now we
-	// expose the unauthenticated project-create endpoint that an
-	// admin would otherwise drive through the admin UI — useful for
-	// bootstrap testing before the admin lands.
+	// Public REST API.
 	v1 := r.Group("/api/v1")
 	{
+		// Unauthenticated project bootstrap. Admin UI will drive
+		// this via JWT once the admin auth flow lands; for now
+		// any caller can create a project. Tightens with the
+		// admin task.
 		v1.POST("/projects", handleCreateProject(d.CreateProj))
+
+		// API-key-authenticated routes. The middleware resolves
+		// the project + tenant from the bearer token; :slug in
+		// the URL is descriptive only (the route group can't
+		// switch on it because auth is shared across them).
+		authed := v1.Group("/projects/:slug")
+		authed.Use(apiKeyAuth(d.ProjectRepo))
+		{
+			authed.GET("/locales", handleListLocales(d.Locales))
+			authed.POST("/locales", handleCreateLocale(d.Locales))
+			authed.POST("/keys:scan", handleScanKeys(d.UpsertKeys))
+			authed.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.Locales))
+			authed.PATCH("/locales/:locale/keys/:key", handlePatchTranslation(d.UpdateTr, d.Locales, d.Keys))
+			authed.POST("/api-keys", handleRotateAPIKey(d.RotateKey))
+		}
 	}
 
 	return r

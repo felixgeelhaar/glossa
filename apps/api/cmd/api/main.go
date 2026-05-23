@@ -17,8 +17,16 @@ import (
 	"time"
 
 	"github.com/felixgeelhaar/fortify/ratelimit"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
+	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
+	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/config"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/db"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/translationkey"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/infra/sqlcadapter"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/interfaces/httpgin"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/logging"
 )
@@ -27,13 +35,37 @@ func main() {
 	log := logging.New()
 	slog.SetDefault(log)
 
-	port := envDefault("PORT", "8080")
+	cfg, err := config.Load()
+	if err != nil {
+		log.Error("config load failed", slog.Any("err", err))
+		os.Exit(1)
+	}
 
-	// Use cases. The sqlc-backed project repo lands when we wire
-	// the DB pool — for now a nil repo keeps cmd/api buildable so
-	// the rest of the wiring is exercisable end-to-end during early
-	// development.
-	createProj := projectapp.NewCreateProject(nil)
+	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		log.Error("db pool open failed", slog.Any("err", err))
+		os.Exit(1)
+	}
+	defer pool.Close()
+	if err := pool.Ping(context.Background()); err != nil {
+		log.Error("db ping failed", slog.Any("err", err))
+		os.Exit(1)
+	}
+
+	queries := db.New(pool)
+
+	// Repos.
+	projectRepo := sqlcadapter.NewProjectRepo(queries)
+	localeRepo := sqlcadapter.NewLocaleRepo(queries)
+	keyRepo := sqlcadapter.NewKeyRepo(queries)
+	translationRepo := sqlcadapter.NewTranslationRepo(queries)
+
+	// Use cases.
+	createProj := projectapp.NewCreateProject(projectRepo)
+	rotateKey := projectapp.NewRotateAPIKey(projectRepo)
+	upsertKeys := keyapp.NewUpsertKeys(keyRepo)
+	updateTr := translationapp.NewUpdateTranslation(translationRepo)
+	listBundle := translationapp.NewListBundle(translationRepo)
 
 	// Per-IP rate limit: 60 requests per minute. Bolt-backed slog +
 	// fortify ratelimit mirror Brotwerk's setup.
@@ -45,12 +77,21 @@ func main() {
 
 	router := httpgin.New(httpgin.Deps{
 		Logger:      log,
-		CreateProj:  createProj,
 		GlobalLimit: limiter,
+
+		CreateProj: createProj,
+		RotateKey:  rotateKey,
+		UpsertKeys: upsertKeys,
+		UpdateTr:   updateTr,
+		ListBundle: listBundle,
+
+		ProjectRepo: projectRepo,
+		Locales:     localeRepo,
+		Keys:        keysFinderAdapter{keyRepo},
 	})
 
 	srv := &http.Server{
-		Addr:              ":" + port,
+		Addr:              ":" + cfg.Port,
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
@@ -76,9 +117,23 @@ func main() {
 	}
 }
 
-func envDefault(k, def string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
+// keysFinderAdapter bridges the existing translationkey.Repository
+// (which returns full Key aggregates) to the narrow `keysFinder`
+// port the HTTP translation-update handler needs (just the UUID).
+// Lives in main.go because it's a wiring concern, not a domain or
+// HTTP-layer abstraction.
+type keysFinderAdapter struct {
+	repo translationkey.Repository
+}
+
+func (a keysFinderAdapter) FindByName(ctx context.Context, projectID uuid.UUID, name string) (uuid.UUID, error) {
+	n, err := translationkey.NewName(name)
+	if err != nil {
+		return uuid.Nil, err
 	}
-	return def
+	k, err := a.repo.Find(ctx, projectID, n)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return k.ID, nil
 }
