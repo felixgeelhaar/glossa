@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 9,
+  "version": 11,
   "task_states": {
     "task-admin": {
       "status": "pending",
@@ -23,8 +23,10 @@
       "elapsed_minutes": 0
     },
     "task-elements": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-23T23:10:09.682188+02:00",
       "elapsed_minutes": 0
     },
     "task-go-api": {
@@ -50,11 +52,15 @@
       "elapsed_minutes": 4
     },
     "task-sdk": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "12 vitest specs green (9 client + 3 subscribe), 1.24 kB brotli'd against 5 kB budget, native fetch + std streams so Node+browser both work. ETag/304, SSE reconnect, key-miss → undefined all covered."
+      ],
       "started_at": "2026-05-23T23:03:41.377+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-23T23:07:29.715775+02:00",
+      "elapsed_minutes": 3
     },
     "task-sse": {
       "status": "done",
@@ -68,5 +74,5 @@
       "elapsed_minutes": 4
     }
   },
-  "updated_at": "2026-05-23T23:03:41.377+02:00"
+  "updated_at": "2026-05-23T23:10:09.682188+02:00"
 }
