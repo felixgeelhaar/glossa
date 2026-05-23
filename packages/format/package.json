@@ -1,0 +1,59 @@
+{
+  "name": "@glossa/format",
+  "version": "0.0.0",
+  "description": "ICU MessageFormat subset — variables, plurals, select, nesting. Backed by Intl.PluralRules; zero runtime deps.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "format": "prettier --write src",
+    "size": "size-limit"
+  },
+  "size-limit": [
+    {
+      "path": "dist/index.js",
+      "limit": "3 KB"
+    }
+  ],
+  "devDependencies": {
+    "@size-limit/preset-small-lib": "^11.0.0",
+    "prettier": "^3.0.0",
+    "size-limit": "^11.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "license": "MIT",
+  "author": "Felix Geelhaar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "directory": "packages/format"
+  },
+  "keywords": [
+    "icu",
+    "messageformat",
+    "i18n",
+    "translation",
+    "intl"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
