@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 11,
+  "version": 13,
   "task_states": {
     "task-admin": {
       "status": "pending",
@@ -8,8 +8,10 @@
       "elapsed_minutes": 0
     },
     "task-cli": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-23T23:15:32.280599+02:00",
       "elapsed_minutes": 0
     },
     "task-consumer-migration": {
@@ -23,11 +25,15 @@
       "elapsed_minutes": 0
     },
     "task-elements": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "7 vitest+jsdom specs green covering slot fallback, missing-key, locale switch, strict warn, rich/plural/select formatting. 3.49 kB brotli vs 10 kB budget. Demo page in apps/admin deferred to task-admin (admin app doesn't exist yet)."
+      ],
       "started_at": "2026-05-23T23:10:09.682188+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-23T23:14:35.65701+02:00",
+      "elapsed_minutes": 4
     },
     "task-go-api": {
       "status": "done",
@@ -74,5 +80,5 @@
       "elapsed_minutes": 4
     }
   },
-  "updated_at": "2026-05-23T23:10:09.682188+02:00"
+  "updated_at": "2026-05-23T23:15:32.280599+02:00"
 }
