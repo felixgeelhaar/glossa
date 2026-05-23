@@ -1,9 +1,6 @@
 // Package main wires Glossa's API binary. Loads config, builds the
-// logger, opens the DB pool, constructs the use cases, and starts
-// gin.
-//
-// Kept thin on purpose — every business decision lives in
-// internal/app or internal/domain.
+// logger, opens the DB pool, constructs the use cases, runs the
+// optional admin bootstrap, and starts gin.
 package main
 
 import (
@@ -20,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	authapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
@@ -54,26 +52,46 @@ func main() {
 
 	queries := db.New(pool)
 
-	// Repos.
+	tenantRepo := sqlcadapter.NewTenantRepo(queries)
 	projectRepo := sqlcadapter.NewProjectRepo(queries)
 	localeRepo := sqlcadapter.NewLocaleRepo(queries)
 	keyRepo := sqlcadapter.NewKeyRepo(queries)
 	translationRepo := sqlcadapter.NewTranslationRepo(queries)
+	userRepo := sqlcadapter.NewUserRepo(queries)
+	auditRepo := sqlcadapter.NewAuditRepo(queries)
 
-	// Use cases.
+	issuer, err := authapp.NewHMACIssuer([]byte(cfg.JWTSigningKey), "glossa", 24*time.Hour)
+	if err != nil {
+		log.Error("jwt issuer", slog.Any("err", err))
+		os.Exit(1)
+	}
+
 	createProj := projectapp.NewCreateProject(projectRepo)
 	rotateKey := projectapp.NewRotateAPIKey(projectRepo)
 	upsertKeys := keyapp.NewUpsertKeys(keyRepo)
 	updateTr := translationapp.NewUpdateTranslation(translationRepo)
 	listBundle := translationapp.NewListBundle(translationRepo)
+	login := authapp.NewLogin(userRepo, issuer)
 
-	// In-process SSE hub. Single instance shared between the
-	// PATCH translation handler (publisher) and the /sse handler
-	// (subscriber side).
-	hub := translationapp.NewHub()
+	if cfg.BootstrapTenantSlug != "" {
+		action, err := authapp.Bootstrap(context.Background(), tenantRepo, userRepo, authapp.BootstrapInput{
+			TenantSlug:    cfg.BootstrapTenantSlug,
+			TenantName:    nonEmpty(cfg.BootstrapTenantName, cfg.BootstrapTenantSlug),
+			AdminEmail:    cfg.BootstrapAdminEmail,
+			AdminPassword: cfg.BootstrapAdminPassword,
+		})
+		if err != nil {
+			log.Error("admin bootstrap failed", slog.Any("err", err))
+			os.Exit(1)
+		}
+		log.Info("admin bootstrap", slog.String("action", string(action)))
+	}
 
-	// Per-IP rate limit: 60 requests per minute. Bolt-backed slog +
-	// fortify ratelimit mirror Brotwerk's setup.
+	hub := translationapp.NewHubRateLimited(translationapp.HubLimits{
+		PerTenantPerSecond: 10,
+		PerTenantBurst:     20,
+	})
+
 	limiter := ratelimit.New(ratelimit.Config{
 		Rate:     60,
 		Burst:    60,
@@ -90,11 +108,16 @@ func main() {
 		UpsertKeys: upsertKeys,
 		UpdateTr:   updateTr,
 		ListBundle: listBundle,
+		Login:      login,
 		Hub:        hub,
+		JWTIssuer:  issuer,
 
 		ProjectRepo: projectRepo,
+		Tenants:     tenantRepo,
+		Users:       userRepo,
 		Locales:     localeRepo,
 		Keys:        keysFinderAdapter{keyRepo},
+		Audits:      auditRepo,
 	})
 
 	srv := &http.Server{
@@ -111,8 +134,6 @@ func main() {
 		}
 	}()
 
-	// Graceful shutdown on SIGINT/SIGTERM. Drain at most 10s before
-	// hard-closing the listener.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
@@ -124,11 +145,9 @@ func main() {
 	}
 }
 
-// keysFinderAdapter bridges the existing translationkey.Repository
-// (which returns full Key aggregates) to the narrow `keysFinder`
-// port the HTTP translation-update handler needs (just the UUID).
-// Lives in main.go because it's a wiring concern, not a domain or
-// HTTP-layer abstraction.
+// keysFinderAdapter bridges translationkey.Repository to the
+// narrow `keysFinder` port the HTTP translation-update handler
+// needs (just the UUID). Wiring concern; lives in main.go.
 type keysFinderAdapter struct {
 	repo translationkey.Repository
 }
@@ -143,4 +162,11 @@ func (a keysFinderAdapter) FindByName(ctx context.Context, projectID uuid.UUID, 
 		return uuid.Nil, err
 	}
 	return k.ID, nil
+}
+
+func nonEmpty(s, fallback string) string {
+	if s != "" {
+		return s
+	}
+	return fallback
 }

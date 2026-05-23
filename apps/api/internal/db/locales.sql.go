@@ -43,6 +43,35 @@ func (q *Queries) CreateLocale(ctx context.Context, arg CreateLocaleParams) (Loc
 	return i, err
 }
 
+const deleteLocale = `-- name: DeleteLocale :exec
+DELETE FROM locales WHERE id = $1
+`
+
+func (q *Queries) DeleteLocale(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteLocale, id)
+	return err
+}
+
+const getLocaleByID = `-- name: GetLocaleByID :one
+SELECT id, project_id, code, label, enabled, created_at
+FROM locales
+WHERE id = $1
+`
+
+func (q *Queries) GetLocaleByID(ctx context.Context, id pgtype.UUID) (Locale, error) {
+	row := q.db.QueryRow(ctx, getLocaleByID, id)
+	var i Locale
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Code,
+		&i.Label,
+		&i.Enabled,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listLocalesForProject = `-- name: ListLocalesForProject :many
 SELECT id, code, label, enabled, created_at
 FROM locales

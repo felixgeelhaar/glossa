@@ -53,6 +53,7 @@ type Hub struct {
 	subs    map[uuid.UUID]map[*Subscriber]struct{}
 	history map[uuid.UUID][]Event
 	seq     atomic.Uint64
+	limiter *tenantLimiter // nil = unlimited; set by NewHubRateLimited
 }
 
 // NewHub constructs an empty hub.
@@ -64,19 +65,30 @@ func NewHub() *Hub {
 }
 
 // Publisher is the seam the UpdateTranslation flow writes through.
-// The HTTP handler resolves slug/locale/key into display strings
-// (it already has them on hand from the URL + body) and calls
-// Publish so the domain layer doesn't grow a transport-only port.
+// Carries tenantID so the hub can enforce per-tenant rate limits;
+// the HTTP handler reads it off the gin context (set by either
+// auth middleware) and passes it in.
 type Publisher interface {
-	Publish(projectID uuid.UUID, e Event)
+	Publish(projectID uuid.UUID, tenantID uuid.UUID, e Event)
 }
 
-// Publish broadcasts e to every current subscriber of projectID and
-// records the event in the per-project ring for Last-Event-ID
-// replay. Non-blocking: a subscriber whose buffer is full gets
-// dropped (closed + removed) so a stalled client cannot back up
-// the publisher.
-func (h *Hub) Publish(projectID uuid.UUID, e Event) {
+// Publish broadcasts e to every current subscriber of projectID
+// and records the event in the per-project ring for Last-Event-ID
+// replay.
+//
+// Per-tenant rate limit: if the hub was constructed via
+// [NewHubRateLimited] and the tenant's bucket is empty, the
+// publish is dropped silently. SSE subscribers will still
+// reconnect with Last-Event-ID on the next allowed event and
+// pick up the trail — they won't see the dropped value, but the
+// rate-limit cap is doing its job by definition.
+//
+// Non-blocking on slow subscribers: a sub whose 32-event buffer
+// fills gets dropped + closed; clients reconnect via SDK backoff.
+func (h *Hub) Publish(projectID uuid.UUID, tenantID uuid.UUID, e Event) {
+	if !h.publishAllowed(tenantID) {
+		return
+	}
 	e.ID = h.seq.Add(1)
 
 	h.mu.Lock()
@@ -93,9 +105,6 @@ func (h *Hub) Publish(projectID uuid.UUID, e Event) {
 		select {
 		case s.C <- e:
 		default:
-			// Buffer full — drop the subscriber and let the client
-			// reconnect with Last-Event-ID rather than blocking
-			// every other subscriber on this one stall.
 			delete(h.subs[projectID], s)
 			close(s.C)
 		}

@@ -1,9 +1,18 @@
 // Package httpgin is the HTTP delivery layer. Each handler binds
-// request shape → use case → response shape. Handlers depend on use
-// cases (app/) only; never on the domain or infra directly.
+// request shape → use case → response shape. Handlers depend on
+// use cases (app/) only; never on the domain or infra directly.
 //
-// The router stitches together middleware (recovery, structured log,
-// fortify rate limit) and the public + admin route groups.
+// Three auth flows compose here:
+//
+//   - none           — health probes + JWT login.
+//   - api-key Bearer — CLI / SDK / consumer apps. `apiKeyAuth`
+//                      resolves the project + tenant from the
+//                      hashed key.
+//   - JWT Bearer     — admin SPA + translator UI. `jwtAuth` reads
+//                      tenant + role + locales out of the token.
+//
+// Both authed flows are wrapped in `rlsTxMiddleware` so every DB
+// query runs in a tx with `SET LOCAL app.current_tenant`.
 package httpgin
 
 import (
@@ -13,22 +22,25 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	authapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/tenant"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/user"
 )
 
 // Deps carries every dependency the router needs. Constructed once
 // in cmd/api/main.go and passed in.
 type Deps struct {
 	Logger      *slog.Logger
-	GlobalLimit ratelimit.RateLimiter // per-IP global throttle
+	GlobalLimit ratelimit.RateLimiter
 
-	// Pool is the pgx pool used by rlsTxMiddleware to open a
-	// per-request tx + SET LOCAL app.current_tenant. Required for
-	// every authed route group; unauth bootstrap (POST /projects)
-	// doesn't use it.
+	// Pool drives rlsTxMiddleware (BEGIN; SET LOCAL …) for every
+	// authed request.
 	Pool *pgxpool.Pool
 
 	// Use cases.
@@ -37,22 +49,24 @@ type Deps struct {
 	UpsertKeys *keyapp.UpsertKeys
 	UpdateTr   *translationapp.UpdateTranslation
 	ListBundle *translationapp.ListBundle
+	Login      *authapp.Login
 
 	// Hub fans translation.updated events from PATCH handlers to
-	// SSE subscribers. Single instance per process for the MVP;
-	// swap for a Redis-backed Publisher when we go multi-replica.
-	Hub *translationapp.Hub
+	// SSE subscribers. Single instance per process; swap for a
+	// Redis-backed Publisher when we go multi-replica.
+	Hub      *translationapp.Hub
+	JWTIssuer authapp.TokenIssuer
 
-	// Repos used directly by handlers (locale lookups in the
-	// translation flow, project lookup in the auth middleware).
-	ProjectRepo APIKeyResolver
+	// Repos.
+	ProjectRepo project.Repository
+	Tenants     tenant.Repository
+	Users       user.Repository
 	Locales     locale.Repository
 	Keys        keysFinder
+	Audits      audit.Repository
 }
 
-// New builds the gin engine + mounts every route. gin's bundled
-// recovery middleware handles panics; we add a structured logger and
-// a global rate-limiter on top.
+// New builds the gin engine + mounts every route.
 func New(d Deps) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -63,35 +77,75 @@ func New(d Deps) *gin.Engine {
 		r.Use(rateLimitMiddleware(d.GlobalLimit))
 	}
 
-	// Liveness + readiness — no auth, no rate limit beyond the global.
+	// Probes.
 	r.GET("/healthz", healthz)
 	r.GET("/readyz", healthz)
 
-	// Public REST API.
 	v1 := r.Group("/api/v1")
-	{
-		// Unauthenticated project bootstrap. Admin UI will drive
-		// this via JWT once the admin auth flow lands; for now
-		// any caller can create a project. Tightens with the
-		// admin task.
-		v1.POST("/projects", handleCreateProject(d.CreateProj))
 
-		// API-key-authenticated routes. The middleware resolves
-		// the project + tenant from the bearer token; :slug in
-		// the URL is descriptive only (the route group can't
-		// switch on it because auth is shared across them).
-		authed := v1.Group("/projects/:slug")
-		authed.Use(apiKeyAuth(d.ProjectRepo))
-		authed.Use(rlsTxMiddleware(d.Pool))
+	// ── Unauthenticated ──────────────────────────────────────────
+	v1.POST("/auth/login", handleLogin(d.Login, d.Tenants))
+
+	// ── API-key authed (consumer / CLI / SDK) ────────────────────
+	authed := v1.Group("/projects/:slug")
+	authed.Use(apiKeyAuth(d.ProjectRepo))
+	authed.Use(rlsTxMiddleware(d.Pool))
+	{
+		authed.GET("/locales", handleListLocales(d.Locales))
+		authed.POST("/locales", handleCreateLocale(d.Locales))
+		authed.POST("/keys:scan", handleScanKeys(d.UpsertKeys))
+		authed.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
+		authed.PATCH("/locales/:locale/keys/:key",
+			handlePatchTranslation(d.UpdateTr, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits))
+		authed.POST("/api-keys", handleRotateAPIKey(d.RotateKey))
+		authed.GET("/sse", handleSSE(d.Hub, 0))
+	}
+
+	// ── JWT authed (admin SPA / translator UI) ───────────────────
+	admin := v1.Group("/admin")
+	admin.Use(jwtAuth(d.JWTIssuer))
+	admin.Use(rlsTxMiddleware(d.Pool))
+	{
+		// Identity check used by the SPA on boot.
+		admin.GET("/me", handleMe())
+
+		// Project list + create. Create stays admin-only.
+		admin.GET("/projects", handleListProjects(d.ProjectRepo))
+		adminProjectsCreate := admin.Group("")
+		adminProjectsCreate.Use(requireAdmin())
+		adminProjectsCreate.POST("/projects", handleCreateProject(d.CreateProj))
+
+		// Per-project admin/translator routes. Translators can hit
+		// listBundle + PATCH (PATCH enforces per-locale scoping
+		// internally); admin-only ops are nested under requireAdmin.
+		proj := admin.Group("/projects/:slug")
 		{
-			authed.GET("/locales", handleListLocales(d.Locales))
-			authed.POST("/locales", handleCreateLocale(d.Locales))
-			authed.POST("/keys:scan", handleScanKeys(d.UpsertKeys))
-			authed.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.Locales))
-			authed.PATCH("/locales/:locale/keys/:key", handlePatchTranslation(d.UpdateTr, d.Locales, d.Keys, d.Hub))
-			authed.POST("/api-keys", handleRotateAPIKey(d.RotateKey))
-			authed.GET("/sse", handleSSE(d.Hub, 0))
+			proj.GET("/locales", handleListLocales(d.Locales))
+			proj.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
+			proj.PATCH("/locales/:locale/keys/:key",
+				handlePatchTranslation(d.UpdateTr, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits))
+			proj.GET("/sse", handleSSE(d.Hub, 0))
+
+			adminOnly := proj.Group("")
+			adminOnly.Use(requireAdmin())
+			adminOnly.POST("/locales", handleCreateLocale(d.Locales))
+			adminOnly.PATCH("/locales/:id", handleSetLocaleEnabled(d.Locales))
+			adminOnly.DELETE("/locales/:id", handleDeleteLocale(d.Locales))
+			adminOnly.POST("/keys:scan", handleScanKeys(d.UpsertKeys))
+			adminOnly.POST("/locales/:locale/bulk",
+				handleBulkImport(d.ProjectRepo, d.Locales, d.UpsertKeys, d.Keys, d.UpdateTr, d.Hub, d.Audits))
+			adminOnly.GET("/diff", handleBundleDiff(d.ProjectRepo, d.Locales, d.ListBundle))
+			adminOnly.POST("/api-keys", handleRotateAPIKey(d.RotateKey))
 		}
+
+		// Tenant-level admin endpoints.
+		tenantAdmin := admin.Group("")
+		tenantAdmin.Use(requireAdmin())
+		tenantAdmin.GET("/users", handleListUsers(d.Users))
+		tenantAdmin.POST("/users", handleCreateUser(d.Users))
+		tenantAdmin.PATCH("/users/:id/locales", handleUpdateUserLocales(d.Users))
+		tenantAdmin.DELETE("/users/:id", handleDeleteUser(d.Users))
+		tenantAdmin.GET("/audit", handleListAudit(d.Audits))
 	}
 
 	return r

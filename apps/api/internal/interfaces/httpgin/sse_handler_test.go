@@ -139,7 +139,7 @@ func TestSSE_DeliversBroadcastWithinOneSecond(t *testing.T) {
 	// handler uses in production.
 	go func() {
 		time.Sleep(50 * time.Millisecond) // let the client connect
-		hub.Publish(p.ID, translationapp.Event{
+		hub.Publish(p.ID, p.TenantID, translationapp.Event{
 			Type:    "translation.updated",
 			Project: p.Slug.String(),
 			Locale:  "de",
@@ -173,7 +173,7 @@ func TestSSE_LastEventIDReplaysMissed(t *testing.T) {
 	// Publish two events with no client connected — they land
 	// in the per-project history ring.
 	for i := 0; i < 2; i++ {
-		hub.Publish(p.ID, translationapp.Event{
+		hub.Publish(p.ID, p.TenantID, translationapp.Event{
 			Type:  "translation.updated",
 			Key:   fmt.Sprintf("k%d", i+1),
 			Value: fmt.Sprintf("v%d", i+1),

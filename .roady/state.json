@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 17,
+  "version": 18,
   "task_states": {
     "task-admin": {
       "status": "done",
@@ -30,11 +30,15 @@
       "elapsed_minutes": 0
     },
     "task-deploy": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "Dockerfiles (api distroless, admin nginx) + nginx SPA conf + k3s manifests (Postgres 20Gi StatefulSet, api+admin Deployments, Traefik ingress with cert-manager TLS, daily pg_dump backup CronJob to Hetzner Storage Box) + release workflow (build/push ghcr + tag-gated rollout with auto-rollback + smoke) + CI workflow. All YAMLs validate via kubectl --dry-run + kubectl kustomize; api Docker image built clean locally."
+      ],
       "started_at": "2026-05-23T23:42:13.766941+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-23T23:47:55.020725+02:00",
+      "elapsed_minutes": 5
     },
     "task-elements": {
       "status": "done",
@@ -92,5 +96,5 @@
       "elapsed_minutes": 4
     }
   },
-  "updated_at": "2026-05-23T23:42:13.766941+02:00"
+  "updated_at": "2026-05-23T23:47:55.020726+02:00"
 }

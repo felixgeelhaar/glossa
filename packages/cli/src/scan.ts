@@ -30,11 +30,39 @@ export interface KeyHit {
 }
 
 /**
- * Matches a `key="…"` or `key='…'` attribute on any glossa-*
- * custom element. Permissive on whitespace around `=` so JSX-ish
- * formatters don't break us.
+ * Patterns to extract translation keys from. Each must capture the
+ * key name in group 1 — everything else is shape. Order doesn't
+ * matter (we re-execute each per file); duplicates are de-duped
+ * downstream by [[toScanInputs]].
+ *
+ * Covers:
+ *  - <glossa-* key="…">             — the elements
+ *  - t("…") / t('…')                — common helper-style API
+ *  - i18n.t("…") / I18n.t("…")      — react-i18next / Rails style
+ *  - formatMessage({ id: "…" })     — formatjs / react-intl
+ *  - client.message(<locale>, "…")  — direct SDK call
+ *  - useGlossa("…") / useT("…")     — common hook names
+ *
+ * Key shape is restricted to dotted lowercase identifiers so we
+ * don't accept random string literals — same regex the API's
+ * domain layer enforces in translationkey.Name.
  */
-const KEY_RE = /<glossa-(?:text|rich|plural|select)\b[^>]*?\bkey\s*=\s*["']([^"']+)["']/g;
+const KEY_CHAR = "[a-z0-9_]+(?:\\.[a-z0-9_]+)*";
+
+const EXTRACTORS: RegExp[] = [
+  // <glossa-text|rich|plural|select key="…">
+  new RegExp(`<glossa-(?:text|rich|plural|select)\\b[^>]*?\\bkey\\s*=\\s*["'](${KEY_CHAR})["']`, "g"),
+  // t("…") / t('…')
+  new RegExp(`\\bt\\(\\s*["'](${KEY_CHAR})["']`, "g"),
+  // i18n.t("…") / I18n.t("…")
+  new RegExp(`\\b[iI]18n\\.t\\(\\s*["'](${KEY_CHAR})["']`, "g"),
+  // formatMessage({ id: "…" })
+  new RegExp(`\\bformatMessage\\(\\s*\\{[^}]*\\bid\\s*:\\s*["'](${KEY_CHAR})["']`, "g"),
+  // client.message(locale, "…")
+  new RegExp(`\\.message\\(\\s*[^,]+,\\s*["'](${KEY_CHAR})["']`, "g"),
+  // useGlossa("…") / useT("…")
+  new RegExp(`\\buse(?:Glossa|T)\\(\\s*["'](${KEY_CHAR})["']`, "g"),
+];
 
 /**
  * Walk every file under `cwd` matching `patterns`, honour
@@ -67,11 +95,13 @@ export async function scanSources(cwd: string, patterns: string[]): Promise<KeyH
 /** Pull every key occurrence out of one text buffer. */
 function extractFromText(text: string, file: string, hits: KeyHit[]): void {
   const lineStarts = computeLineStarts(text);
-  KEY_RE.lastIndex = 0;
-  for (let m = KEY_RE.exec(text); m !== null; m = KEY_RE.exec(text)) {
-    const name = m[1];
-    if (!name) continue;
-    hits.push({ name, file, line: lineFor(lineStarts, m.index) });
+  for (const re of EXTRACTORS) {
+    re.lastIndex = 0;
+    for (let m = re.exec(text); m !== null; m = re.exec(text)) {
+      const name = m[1];
+      if (!name) continue;
+      hits.push({ name, file, line: lineFor(lineStarts, m.index) });
+    }
   }
 }
 

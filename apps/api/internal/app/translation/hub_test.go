@@ -18,7 +18,7 @@ func TestHub_PublishFansOutToSubscribers(t *testing.T) {
 	defer h.Unsubscribe(projectID, s1)
 	defer h.Unsubscribe(projectID, s2)
 
-	h.Publish(projectID, translationapp.Event{Type: "translation.updated", Key: "x", Value: "v"})
+	h.Publish(projectID, uuid.New(), translationapp.Event{Type: "translation.updated", Key: "x", Value: "v"})
 
 	for _, sub := range []*translationapp.Subscriber{s1, s2} {
 		select {
@@ -41,7 +41,7 @@ func TestHub_IsolatesProjects(t *testing.T) {
 	defer h.Unsubscribe(a, sa)
 	defer h.Unsubscribe(b, sb)
 
-	h.Publish(a, translationapp.Event{Key: "for-a"})
+	h.Publish(a, uuid.New(), translationapp.Event{Key: "for-a"})
 
 	select {
 	case e := <-sa.C:
@@ -67,7 +67,7 @@ func TestHub_AssignsMonotonicIDs(t *testing.T) {
 	defer h.Unsubscribe(projectID, s)
 
 	for i := 0; i < 5; i++ {
-		h.Publish(projectID, translationapp.Event{Key: "k"})
+		h.Publish(projectID, uuid.New(), translationapp.Event{Key: "k"})
 	}
 
 	var last uint64
@@ -91,7 +91,7 @@ func TestHub_ReplaysHistoryAfterLastEventID(t *testing.T) {
 	// Publish three events with no subscriber — they land in the
 	// ring buffer.
 	for i := 0; i < 3; i++ {
-		h.Publish(projectID, translationapp.Event{Key: "k"})
+		h.Publish(projectID, uuid.New(), translationapp.Event{Key: "k"})
 	}
 
 	// Reconnect after the first event — should receive 2 + 3 only.
@@ -120,7 +120,7 @@ func TestHub_DropsSlowSubscriberWithoutBlockingPublisher(t *testing.T) {
 	// Overflow the 32-event buffer; once it fills, the next
 	// publish should drop the subscriber rather than block.
 	for i := 0; i < 64; i++ {
-		h.Publish(projectID, translationapp.Event{Key: "k"})
+		h.Publish(projectID, uuid.New(), translationapp.Event{Key: "k"})
 	}
 
 	// Drain — channel must be closed.

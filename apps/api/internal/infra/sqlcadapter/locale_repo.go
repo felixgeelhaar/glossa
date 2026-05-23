@@ -59,3 +59,10 @@ func (r *LocaleRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 		Enabled: enabled,
 	})
 }
+
+// Delete removes a locale and cascade-deletes any translations
+// against it (via the FK ON DELETE CASCADE in 0001_init.up.sql).
+func (r *LocaleRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	q := db.QueriesFromContext(ctx, r.q)
+	return q.DeleteLocale(ctx, toPgUUID(id))
+}

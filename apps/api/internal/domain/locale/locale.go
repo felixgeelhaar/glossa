@@ -62,4 +62,5 @@ type Repository interface {
 	Save(ctx context.Context, l Locale) error
 	ListForProject(ctx context.Context, projectID uuid.UUID) ([]Locale, error)
 	SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }

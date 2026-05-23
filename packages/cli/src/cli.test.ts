@@ -60,6 +60,16 @@ describe("scan extraction", () => {
     // cart.checkout appears in two files; should be reduced to one input.
     expect(names.filter((n) => n === "cart.checkout")).toHaveLength(1);
   });
+
+  it("extracts template-literal helper calls (t / i18n.t / formatMessage / client.message / useGlossa)", async () => {
+    const hits = await scanSources(fixture, ["src/**/*.tsx"]);
+    const names = hits.map((h) => h.name);
+    expect(names).toContain("buttons.save");
+    expect(names).toContain("buttons.cancel");
+    expect(names).toContain("buttons.delete");
+    expect(names).toContain("buttons.copy");
+    expect(names).toContain("buttons.share");
+  });
 });
 
 describe("config", () => {

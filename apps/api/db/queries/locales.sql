@@ -9,5 +9,13 @@ FROM locales
 WHERE project_id = $1
 ORDER BY code ASC;
 
+-- name: GetLocaleByID :one
+SELECT id, project_id, code, label, enabled, created_at
+FROM locales
+WHERE id = $1;
+
 -- name: SetLocaleEnabled :exec
 UPDATE locales SET enabled = $2 WHERE id = $1;
+
+-- name: DeleteLocale :exec
+DELETE FROM locales WHERE id = $1;
