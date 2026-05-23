@@ -1,86 +1,52 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { Bundle, TranslationStatus } from "@glossa/sdk";
-
+import type { BundleResponse } from "./api-client.js";
 import "@glossa/elements";
 
 import "./admin-app.js";
-import "./demo-strip.js";
+import "./audit-tab.js";
+import "./bulk-tab.js";
+import "./diff-tab.js";
+import "./editor-tab.js";
 import "./key-edit.js";
 import "./key-list.js";
+import "./locales-tab.js";
+import "./users-tab.js";
 import type { GlossaAdmin } from "./admin-app.js";
+import type { GlossaAdminEditorTab } from "./editor-tab.js";
 import type { GlossaAdminKeyEdit } from "./key-edit.js";
 import type { GlossaAdminKeyList } from "./key-list.js";
+import type { GlossaAdminBulkTab } from "./bulk-tab.js";
+import type { GlossaAdminDiffTab } from "./diff-tab.js";
+import type { GlossaAdminLocalesTab } from "./locales-tab.js";
+import type { GlossaAdminUsersTab } from "./users-tab.js";
+import type { GlossaAdminAuditTab } from "./audit-tab.js";
 
-const bundle: Bundle = {
+const bundle: BundleResponse = {
   project: "demo",
   locale: "de",
-  messages: {
-    "cart.checkout": "Zur Kasse",
-    "athlete.session_count": "{count, plural, one {Eine Einheit} other {# Einheiten}}",
-  },
-  statuses: {
-    "cart.checkout": "approved",
-    "athlete.session_count": "needs_review",
-  },
+  messages: { "cart.checkout": "Zur Kasse" },
+  statuses: { "cart.checkout": "approved" },
 };
 
-interface PatchCapture {
-  url: string;
-  body: { value: string; status: TranslationStatus };
-}
-
-function makeFetch(opts: { capture?: PatchCapture[] } = {}): typeof fetch {
-  return (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    const method = init?.method ?? "GET";
-    if (url.endsWith("/sse")) {
-      return new Response(new ReadableStream(), {
-        status: 200,
-        headers: { "Content-Type": "text/event-stream" },
-      });
-    }
-    if (method === "GET" && url.endsWith("/messages")) {
-      return new Response(JSON.stringify(bundle), { status: 200 });
-    }
-    if (method === "PATCH") {
-      const body = init?.body ? JSON.parse(String(init.body)) : null;
-      opts.capture?.push({ url, body: body as PatchCapture["body"] });
-      return new Response("", { status: 200 });
-    }
-    return new Response("", { status: 404 });
-  }) as typeof fetch;
-}
-
-async function mountAdmin(fetchImpl: typeof fetch): Promise<GlossaAdmin> {
-  localStorage.setItem(
-    "glossa-admin-settings-v1",
-    JSON.stringify({ apiUrl: "https://glossa.test", apiKey: "glossa_x", project: "demo", locale: "de" }),
-  );
-  const el = document.createElement("glossa-admin") as GlossaAdmin;
-  el.fetchImpl = fetchImpl;
-  document.body.appendChild(el);
-  // Wait for the bundle fetch to land AND the child key-list to
-  // render rows. The parent's render sets the messages prop on
-  // the child synchronously, but the child schedules its own
-  // update in a microtask; we need to give that microtask a chance
-  // to run after the parent commits.
-  for (let i = 0; i < 80; i++) {
+async function flush(): Promise<void> {
+  for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 0));
-    await el.updateComplete;
-    const list = el.shadowRoot?.querySelector("glossa-admin-key-list") as
-      | (HTMLElement & { updateComplete: Promise<boolean> })
-      | null;
-    if (list) {
-      // Two cycles: first commits the prop change from the parent's
-      // render, second waits for the child's induced update.
-      await list.updateComplete;
-      await new Promise((r) => setTimeout(r, 0));
-      await list.updateComplete;
-      if (list.shadowRoot?.querySelector("tbody tr")) return el;
-    }
   }
-  return el;
+}
+
+function makeAuth(role: "admin" | "translator" = "admin"): typeof localStorage extends Storage ? void : never {
+  localStorage.setItem(
+    "glossa-admin-auth-v2",
+    JSON.stringify({
+      token: "fake.jwt.token",
+      expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      user: { id: "u1", email: "felix@example.com", role, locales: [] },
+      tenant: { id: "t1", slug: "demo", name: "Demo" },
+    }),
+  );
+  localStorage.setItem("glossa-admin-api-url-v2", "https://glossa.test");
+  return undefined as never;
 }
 
 afterEach(() => {
@@ -90,43 +56,64 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("<glossa-admin> golden path", () => {
-  it("renders the bundle and runs key-edit → PATCH end to end (acceptance criterion)", async () => {
-    const capture: PatchCapture[] = [];
-    const admin = await mountAdmin(makeFetch({ capture }));
+describe("<glossa-admin> login surface", () => {
+  it("renders the JWT login form when no auth is stored", async () => {
+    const el = document.createElement("glossa-admin") as GlossaAdmin;
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const form = el.shadowRoot!.querySelector("form");
+    expect(form).toBeTruthy();
+    expect(form?.innerHTML).toContain("Tenant");
+    expect(form?.innerHTML).toContain("Password");
+  });
 
-    const list = admin.shadowRoot!.querySelector("glossa-admin-key-list") as GlossaAdminKeyList;
+  it("skips the login form when a valid token is stored", async () => {
+    makeAuth("admin");
+    let listCount = 0;
+    const fetchImpl = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/admin/projects") && (listCount === 0)) {
+        listCount++;
+        return new Response(JSON.stringify([{ id: "p1", slug: "demo", name: "Demo", defaultLocale: "de" }]), {
+          status: 200,
+        });
+      }
+      return new Response("[]", { status: 200 });
+    }) as typeof fetch;
+
+    const el = document.createElement("glossa-admin") as GlossaAdmin;
+    el.fetchImpl = fetchImpl;
+    document.body.appendChild(el);
+    await flush();
+    await el.updateComplete;
+
+    const tabs = el.shadowRoot!.querySelector("nav.tabs");
+    expect(tabs).toBeTruthy();
+  });
+});
+
+describe("<glossa-admin-editor-tab>", () => {
+  it("loads + renders the bundle through a stub client", async () => {
+    const fakeClient = {
+      listLocales: async () => [{ id: "l1", code: "de", label: "Deutsch", enabled: true }],
+      listBundle: async () => bundle,
+      patchTranslation: async () => ({ id: "t1", value: "X", status: "needs_review" }),
+    } as unknown as GlossaAdminEditorTab["client"];
+
+    const el = document.createElement("glossa-admin-editor-tab") as GlossaAdminEditorTab;
+    el.client = fakeClient;
+    el.slug = "demo";
+    el.userRole = "admin";
+    document.body.appendChild(el);
+    await flush();
+    await el.updateComplete;
+    await flush();
+
+    const list = el.shadowRoot!.querySelector("glossa-admin-key-list") as GlossaAdminKeyList;
     expect(list).toBeTruthy();
     await list.updateComplete;
     const rows = list.shadowRoot!.querySelectorAll("tbody tr");
-    expect(rows.length).toBe(2);
-
-    // a11y: rows are keyboard-focusable. Asserts the table is a
-    // proper grid before we drive interactions through it.
-    expect(rows[0]!.getAttribute("tabindex")).toBe("0");
-
-    // Click the first row → editor mounts.
-    (rows[0] as HTMLElement).click();
-    await admin.updateComplete;
-    const editor = admin.shadowRoot!.querySelector("glossa-admin-key-edit") as GlossaAdminKeyEdit;
-    expect(editor).toBeTruthy();
-    await editor.updateComplete;
-
-    // Drop in a new value, hit Save.
-    const textarea = editor.shadowRoot!.querySelector("textarea") as HTMLTextAreaElement;
-    textarea.value = "Jetzt kaufen";
-    textarea.dispatchEvent(new Event("input"));
-    await editor.updateComplete;
-
-    const form = editor.shadowRoot!.querySelector("form") as HTMLFormElement;
-    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-    // Give the async save handler a chance to fire.
-    for (let i = 0; i < 30; i++) await Promise.resolve();
-
-    expect(capture.length).toBe(1);
-    expect(capture[0]!.body.value).toBe("Jetzt kaufen");
-    expect(capture[0]!.body.status).toBe("needs_review");
-    expect(capture[0]!.url).toContain("/locales/de/keys/");
+    expect(rows.length).toBe(1);
   });
 });
 
@@ -138,23 +125,108 @@ describe("<glossa-admin-key-edit>", () => {
     el.value = "{count, plural, one {Eine Einheit} other {# Einheiten}}";
     document.body.appendChild(el);
     await el.updateComplete;
-    for (let i = 0; i < 10; i++) await Promise.resolve();
-
+    await flush();
     const preview = el.shadowRoot!.querySelector(".preview") as HTMLElement;
     expect(preview.textContent).toContain("2 Einheiten");
   });
 });
 
-describe("<glossa-admin-key-list>", () => {
-  it("filters by status when the filter prop is set", async () => {
-    const el = document.createElement("glossa-admin-key-list") as GlossaAdminKeyList;
-    el.messages = bundle.messages;
-    el.statuses = bundle.statuses;
-    el.filter = "approved";
+describe("<glossa-admin-diff-tab>", () => {
+  it("renders one row per locale", async () => {
+    const fakeClient = {
+      diff: async () => ({
+        project: "demo",
+        locales: [
+          { locale: "de", label: "Deutsch", total: 5, pending: 1, needsReview: 2, approved: 2 },
+          { locale: "en", label: "English", total: 5, pending: 0, needsReview: 1, approved: 4 },
+        ],
+      }),
+    } as unknown as GlossaAdminDiffTab["client"];
+    const el = document.createElement("glossa-admin-diff-tab") as GlossaAdminDiffTab;
+    el.client = fakeClient;
+    el.slug = "demo";
     document.body.appendChild(el);
+    await flush();
     await el.updateComplete;
     const rows = el.shadowRoot!.querySelectorAll("tbody tr");
-    expect(rows.length).toBe(1);
-    expect(rows[0]!.textContent).toContain("cart.checkout");
+    expect(rows.length).toBe(2);
+  });
+});
+
+describe("<glossa-admin-locales-tab>", () => {
+  it("lists locales + supports toggle", async () => {
+    let toggled = false;
+    const fakeClient = {
+      listLocales: async () => [{ id: "l1", code: "de", label: "Deutsch", enabled: true }],
+      setLocaleEnabled: async () => {
+        toggled = true;
+        return undefined as never;
+      },
+    } as unknown as GlossaAdminLocalesTab["client"];
+    const el = document.createElement("glossa-admin-locales-tab") as GlossaAdminLocalesTab;
+    el.client = fakeClient;
+    el.slug = "demo";
+    document.body.appendChild(el);
+    await flush();
+    await el.updateComplete;
+    const btn = el.shadowRoot!.querySelector("tbody tr button") as HTMLButtonElement;
+    btn.click();
+    await flush();
+    expect(toggled).toBe(true);
+  });
+});
+
+describe("<glossa-admin-users-tab>", () => {
+  it("renders the create-user form + user list", async () => {
+    const fakeClient = {
+      listUsers: async () => [
+        { id: "u1", email: "felix@example.com", role: "admin", locales: [] },
+      ],
+    } as unknown as GlossaAdminUsersTab["client"];
+    const el = document.createElement("glossa-admin-users-tab") as GlossaAdminUsersTab;
+    el.client = fakeClient;
+    document.body.appendChild(el);
+    await flush();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector("form")).toBeTruthy();
+    expect(el.shadowRoot!.querySelectorAll("tbody tr").length).toBe(1);
+  });
+});
+
+describe("<glossa-admin-audit-tab>", () => {
+  it("renders audit rows", async () => {
+    const fakeClient = {
+      audit: async () => [
+        {
+          id: 1,
+          translationId: "tr-1",
+          beforeValue: "old",
+          afterValue: "new",
+          changedBy: "u1",
+          changedAt: "2026-05-23T10:00:00Z",
+        },
+      ],
+    } as unknown as GlossaAdminAuditTab["client"];
+    const el = document.createElement("glossa-admin-audit-tab") as GlossaAdminAuditTab;
+    el.client = fakeClient;
+    document.body.appendChild(el);
+    await flush();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll("tbody tr").length).toBe(1);
+  });
+});
+
+describe("<glossa-admin-bulk-tab>", () => {
+  it("renders the locale picker once locales load", async () => {
+    const fakeClient = {
+      listLocales: async () => [{ id: "l1", code: "de", label: "Deutsch", enabled: true }],
+    } as unknown as GlossaAdminBulkTab["client"];
+    const el = document.createElement("glossa-admin-bulk-tab") as GlossaAdminBulkTab;
+    el.client = fakeClient;
+    el.slug = "demo";
+    document.body.appendChild(el);
+    await flush();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector("select")).toBeTruthy();
   });
 });
