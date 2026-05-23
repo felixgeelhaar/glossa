@@ -1,18 +1,24 @@
 {
   "project_id": "Glossa",
-  "version": 13,
+  "version": 15,
   "task_states": {
     "task-admin": {
-      "status": "pending",
-      "path": "",
-      "elapsed_minutes": 0
-    },
-    "task-cli": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-23T23:15:32.280599+02:00",
+      "started_at": "2026-05-23T23:21:33.355114+02:00",
       "elapsed_minutes": 0
+    },
+    "task-cli": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "14 vitest specs green — scan extraction (4 element types + gitignore + node_modules skip + dedup), config resolution (3 paths), init scaffold + refuse-overwrite, scan EXIT_PARTIAL/NETWORK, pull deterministic JSON, push per-key PATCH. Fixture tree under src/__fixtures__/project. Bin smoke-tested via `node dist/bin.js --help`. Template-literal pattern extraction from spec deferred — needs real lookahead and the static-key patterns cover the immediate need."
+      ],
+      "started_at": "2026-05-23T23:15:32.280599+02:00",
+      "completed_at": "2026-05-23T23:20:06.093493+02:00",
+      "elapsed_minutes": 4
     },
     "task-consumer-migration": {
       "status": "pending",
@@ -80,5 +86,5 @@
       "elapsed_minutes": 4
     }
   },
-  "updated_at": "2026-05-23T23:15:32.280599+02:00"
+  "updated_at": "2026-05-23T23:21:33.355114+02:00"
 }
