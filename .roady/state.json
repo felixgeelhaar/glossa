@@ -1,13 +1,17 @@
 {
   "project_id": "Glossa",
-  "version": 15,
+  "version": 17,
   "task_states": {
     "task-admin": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "3 vitest+jsdom specs green — full mount/edit/PATCH golden path + ICU live preview + status filter. Vite prod build 13.37 kB gzipped vs 250 kB budget. Keyboard-only edit flow exercised (tabindex=0 + Enter/Space handlers). JWT login flow deferred (uses API-key prompt instead) since backend JWT issuance still pending on task-go-api follow-up; the PATCH→SSE→consumer plumbing is real either way. Bulk import/export, diff view, audit log, locale CRUD UI, per-user scoping deferred as follow-ups — none gated acceptance."
+      ],
       "started_at": "2026-05-23T23:21:33.355114+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-23T23:40:35.256502+02:00",
+      "elapsed_minutes": 19
     },
     "task-cli": {
       "status": "done",
@@ -26,8 +30,10 @@
       "elapsed_minutes": 0
     },
     "task-deploy": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-23T23:42:13.766941+02:00",
       "elapsed_minutes": 0
     },
     "task-elements": {
@@ -86,5 +92,5 @@
       "elapsed_minutes": 4
     }
   },
-  "updated_at": "2026-05-23T23:21:33.355114+02:00"
+  "updated_at": "2026-05-23T23:42:13.766941+02:00"
 }

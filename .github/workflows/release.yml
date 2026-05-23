@@ -1,0 +1,195 @@
+name: Release
+
+# Pipeline shape:
+#
+#   1. publish-api / publish-admin — build + push container images
+#      on push to main, on tag pushes, and on workflow_dispatch.
+#   2. deploy-prod                  — runs ONLY on v*.*.* tag pushes.
+#      The tag itself is the approval signal: pushing one is
+#      intentional. The `production` GitHub Environment in repo
+#      Settings is wired to v*.*.* tags only so a stray push to
+#      main can't deploy.
+#
+#      Bumps api + its migrate initContainer + admin to the new
+#      tag, waits for rollout, HTTP-smokes the result, and
+#      auto-rolls-back via `kubectl rollout undo` on any failure.
+#
+# Required repo secrets:
+#   K3S_SSH_HOST        — VPS tailscale hostname (e.g. edge-1)
+#   K3S_SSH_USER        — usually `deploy`
+#   TS_OAUTH_CLIENT_ID  — Tailscale OAuth client (auth_keys write scope)
+#   TS_OAUTH_SECRET     — same OAuth client's secret
+#
+# SSH auth is handled by Tailscale SSH; no SSH private key on the
+# runner. Public port 22 stays closed at the VPS firewall.
+#
+# Cut a release:
+#   git tag v1.2.3 && git push --tags
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_API: ghcr.io/${{ github.repository_owner }}/glossa-api
+  IMAGE_ADMIN: ghcr.io/${{ github.repository_owner }}/glossa-admin
+
+jobs:
+  publish-api:
+    name: Build + push API image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE_API }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short,prefix=main-,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,format=short,prefix=manual-,enable=${{ github.event_name == 'workflow_dispatch' }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: apps/api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # CX33 is amd64. Add linux/arm64 if the host changes.
+          platforms: linux/amd64
+
+  publish-admin:
+    name: Build + push admin image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE_ADMIN }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short,prefix=main-,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,format=short,prefix=manual-,enable=${{ github.event_name == 'workflow_dispatch' }}
+      - uses: docker/build-push-action@v6
+        with:
+          # Monorepo root build context — apps/admin/Dockerfile
+          # needs the workspace tree to resolve @glossa/* deps.
+          context: .
+          file: apps/admin/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  deploy-prod:
+    name: Roll out to production
+    needs: [publish-api, publish-admin]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://glossa.app
+    steps:
+      - uses: actions/checkout@v4
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          version: latest
+          use-cache: 'true'
+      - name: Compute deploy tag
+        id: tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=manual-$(echo "${GITHUB_SHA}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Roll out + auto-rollback on rollout failure
+        env:
+          HOST: ${{ secrets.K3S_SSH_HOST }}
+          USER: ${{ secrets.K3S_SSH_USER }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile=/tmp/known_hosts \
+              "${USER}@${HOST}" bash -se <<EOF
+            set -euo pipefail
+            NS=glossa
+            kubectl -n \$NS set image deploy/api \
+              api=${{ env.IMAGE_API }}:${TAG} \
+              migrate=${{ env.IMAGE_API }}:${TAG}
+            kubectl -n \$NS set image deploy/admin \
+              admin=${{ env.IMAGE_ADMIN }}:${TAG}
+
+            if ! kubectl -n \$NS rollout status deploy/api --timeout=180s; then
+              echo "api rollout failed — rolling back"
+              kubectl -n \$NS rollout undo deploy/api
+              kubectl -n \$NS rollout undo deploy/admin
+              exit 1
+            fi
+            if ! kubectl -n \$NS rollout status deploy/admin --timeout=120s; then
+              echo "admin rollout failed — rolling back"
+              kubectl -n \$NS rollout undo deploy/api
+              kubectl -n \$NS rollout undo deploy/admin
+              exit 1
+            fi
+          EOF
+      - name: Smoke test (retry to absorb Traefik sync lag)
+        run: |
+          check() {
+            local url=$1 label=$2
+            for i in 1 2 3 4 5; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo 000)
+              if [[ "$code" == "200" ]]; then
+                echo "$label: $code (attempt $i)"
+                return 0
+              fi
+              echo "$label: $code (attempt $i) — retrying in 3s"
+              sleep 3
+            done
+            echo "$label: failed after 5 attempts (last code $code)"
+            return 1
+          }
+          if ! check "https://glossa.app/api/healthz" "api" || \
+             ! check "https://glossa.app/" "admin"; then
+            echo "Smoke failed — rolling back"
+            ssh -o StrictHostKeyChecking=accept-new \
+                -o UserKnownHostsFile=/tmp/known_hosts \
+                "${{ secrets.K3S_SSH_USER }}@${{ secrets.K3S_SSH_HOST }}" \
+                "kubectl -n glossa rollout undo deploy/api && kubectl -n glossa rollout undo deploy/admin"
+            exit 1
+          fi

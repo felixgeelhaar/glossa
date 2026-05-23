@@ -1,0 +1,105 @@
+# Traefik IngressRoute. Routing contract:
+#
+#   /api/*           → api service :8080
+#   everything else  → admin service :80
+#   www.glossa.app   → 308 redirect to apex
+#
+# TLS via cert-manager. Until staging is green flip issuerRef to
+# letsencrypt-staging to avoid burning Let's Encrypt prod quota.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: glossa-tls
+  namespace: glossa
+spec:
+  secretName: glossa-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - glossa.app
+    - www.glossa.app
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: www-to-apex
+  namespace: glossa
+spec:
+  redirectRegex:
+    regex: ^https://www\.glossa\.app/(.*)
+    replacement: https://glossa.app/${1}
+    permanent: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: compress
+  namespace: glossa
+spec:
+  compress: {}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: glossa
+  namespace: glossa
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`www.glossa.app`)
+      kind: Rule
+      priority: 100
+      middlewares:
+        - name: www-to-apex
+      services:
+        - name: admin
+          port: 80
+    - match: Host(`glossa.app`) && PathPrefix(`/api`)
+      kind: Rule
+      priority: 50
+      middlewares:
+        - name: compress
+      services:
+        - name: api
+          port: 8080
+    - match: Host(`glossa.app`)
+      kind: Rule
+      priority: 10
+      middlewares:
+        - name: compress
+      services:
+        - name: admin
+          port: 80
+  tls:
+    secretName: glossa-tls
+---
+# HTTP → HTTPS redirect. Excludes the ACME HTTP-01 path so
+# cert-manager's solver can answer the challenge.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: glossa-http-redirect
+  namespace: glossa
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: (Host(`glossa.app`) || Host(`www.glossa.app`)) && !PathPrefix(`/.well-known/acme-challenge/`)
+      kind: Rule
+      middlewares:
+        - name: https-redirect
+      services:
+        - name: admin
+          port: 80
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: https-redirect
+  namespace: glossa
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true

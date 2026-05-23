@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: Go API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Pulled from go.mod so the toolchain matches the module's
+          # declared go directive — same pattern as Brotwerk.
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - name: gofmt
+        run: |
+          diff=$(gofmt -l .)
+          if [ -n "$diff" ]; then
+            echo "::error::gofmt: files need formatting"
+            echo "$diff"
+            exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - name: go test (unit)
+        run: go test ./...
+      - name: go test (integration, RLS suite)
+        # testcontainers needs Docker, which the GitHub runner has.
+        run: go test -tags=integration -timeout=300s ./internal/infra/sqlcadapter/...
+
+  packages:
+    name: JS workspaces
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile=false
+      # Workspace deps need to be built before consumers can lint.
+      - name: build packages (in dep order)
+        run: |
+          pnpm --filter @glossa/format build
+          pnpm --filter @glossa/sdk build
+          pnpm --filter @glossa/elements build
+          pnpm --filter @glossa/cli build
+      - name: lint (tsc --noEmit)
+        run: pnpm -r lint
+      - name: test
+        run: pnpm -r test
+      - name: admin build (vite)
+        run: pnpm --filter @glossa/admin build
