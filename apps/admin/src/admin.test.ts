@@ -63,8 +63,11 @@ describe("<glossa-admin> login surface", () => {
     await el.updateComplete;
     const form = el.shadowRoot!.querySelector("form");
     expect(form).toBeTruthy();
-    expect(form?.innerHTML).toContain("Tenant");
+    // Tenant field removed in favour of /auth/discover. Email +
+    // Password are the only credentials the form asks for.
+    expect(form?.innerHTML).toContain("Email");
     expect(form?.innerHTML).toContain("Password");
+    expect(form?.innerHTML).not.toContain('label="Tenant"');
   });
 
   it("skips the login form when a valid token is stored", async () => {
@@ -87,7 +90,10 @@ describe("<glossa-admin> login surface", () => {
     await flush();
     await el.updateComplete;
 
-    const tabs = el.shadowRoot!.querySelector("nav.tabs");
+    // After login the SPA renders <gl-tabs>; the bare <nav.tabs>
+    // moved inside the primitive's shadow root, so we assert the
+    // host element instead.
+    const tabs = el.shadowRoot!.querySelector("gl-tabs");
     expect(tabs).toBeTruthy();
   });
 });
@@ -169,7 +175,13 @@ describe("<glossa-admin-locales-tab>", () => {
     document.body.appendChild(el);
     await flush();
     await el.updateComplete;
-    const btn = el.shadowRoot!.querySelector("tbody tr button") as HTMLButtonElement;
+    // First action button in the first row is the enable/disable
+    // toggle (gl-button wraps a native button inside its shadow
+    // root, so we drill through).
+    const ghost = el.shadowRoot!.querySelector("tbody tr gl-button") as HTMLElement & {
+      shadowRoot: ShadowRoot;
+    };
+    const btn = ghost.shadowRoot.querySelector("button") as HTMLButtonElement;
     btn.click();
     await flush();
     expect(toggled).toBe(true);
@@ -227,6 +239,9 @@ describe("<glossa-admin-bulk-tab>", () => {
     document.body.appendChild(el);
     await flush();
     await el.updateComplete;
-    expect(el.shadowRoot!.querySelector("select")).toBeTruthy();
+    // The picker is now a <gl-select> host whose internal
+    // <select> lives behind a shadow root. The host alone is
+    // proof the tab progressed past the loading state.
+    expect(el.shadowRoot!.querySelector("gl-select")).toBeTruthy();
   });
 });

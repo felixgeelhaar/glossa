@@ -1,9 +1,8 @@
 // User mgmt tab — list, create, update locale scope, delete.
-// Locale scope is comma-separated for simplicity; production users
-// will typically have 1-3 locales which fits well in a single
-// input. Backend enforces that the last admin can't be deleted.
 
-import { LitElement, css, html } from "lit";
+import { LitElement, css, html, unsafeCSS } from "lit";
+
+import { glTableStyles, toast } from "@glossa/ui";
 
 import type { adminClient, UserRow } from "./api-client.js";
 
@@ -11,23 +10,44 @@ type Client = ReturnType<typeof adminClient>;
 
 export class GlossaAdminUsersTab extends LitElement {
   static override styles = css`
-    :host { display: block; }
-    form { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; margin-bottom: 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th, td { padding: 6px 8px; border-bottom: 1px solid currentColor; text-align: left; }
-    .err { color: #b00020; font-size: 13px; }
-    label { display: inline-flex; flex-direction: column; font-size: 12px; }
+    :host {
+      display: block;
+    }
+    ${unsafeCSS(glTableStyles)}
+    .row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: var(--gl-space-3);
+      align-items: end;
+      margin-bottom: var(--gl-space-3);
+    }
+    .err {
+      color: var(--gl-danger);
+      font-size: var(--gl-text-sm);
+    }
+    .actions {
+      display: flex;
+      gap: var(--gl-space-2);
+    }
   `;
 
   static override properties = {
     client: { state: true },
     rows: { state: true },
     err: { state: true },
+    fEmail: { state: true },
+    fPassword: { state: true },
+    fRole: { state: true },
+    fLocales: { state: true },
   };
 
   public client!: Client;
   public rows: UserRow[] = [];
   public err = "";
+  public fEmail = "";
+  public fPassword = "";
+  public fRole = "translator";
+  public fLocales = "";
 
   public override willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("client")) void this.load();
@@ -44,22 +64,26 @@ export class GlossaAdminUsersTab extends LitElement {
 
   private async onCreate(e: Event): Promise<void> {
     e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const fd = new FormData(form);
-    const email = String(fd.get("email") ?? "");
-    const password = String(fd.get("password") ?? "");
-    const role = String(fd.get("role") ?? "translator");
-    const localesRaw = String(fd.get("locales") ?? "");
-    const locales = localesRaw
+    const locales = this.fLocales
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
     try {
-      await this.client.createUser({ email, password, role, locales });
-      form.reset();
+      await this.client.createUser({
+        email: this.fEmail,
+        password: this.fPassword,
+        role: this.fRole,
+        locales,
+      });
+      this.fEmail = "";
+      this.fPassword = "";
+      this.fLocales = "";
+      this.fRole = "translator";
       await this.load();
+      toast("User created.", "ok");
     } catch (ex) {
       this.err = (ex as Error).message;
+      toast(this.err, "err");
     }
   }
 
@@ -73,8 +97,10 @@ export class GlossaAdminUsersTab extends LitElement {
     try {
       await this.client.updateUserLocales(u.id, locales);
       await this.load();
+      toast("Scope updated.", "ok");
     } catch (ex) {
       this.err = (ex as Error).message;
+      toast(this.err, "err");
     }
   }
 
@@ -83,39 +109,78 @@ export class GlossaAdminUsersTab extends LitElement {
     try {
       await this.client.deleteUser(u.id);
       await this.load();
+      toast("User deleted.", "ok");
     } catch (ex) {
       this.err = (ex as Error).message;
+      toast(this.err, "err");
     }
   }
 
   protected override render() {
     return html`
       ${this.err ? html`<p class="err" role="alert">${this.err}</p>` : null}
-      <form @submit=${(e: Event) => void this.onCreate(e)}>
-        <label>Email <input name="email" type="email" required /></label>
-        <label>Password <input name="password" type="password" required /></label>
-        <label>
-          Role
-          <select name="role">
-            <option value="translator">translator</option>
-            <option value="admin">admin</option>
-          </select>
-        </label>
-        <label>Locales (csv) <input name="locales" placeholder="de,pt-BR" /></label>
-        <button type="submit">Create</button>
+      <form class="row" @submit=${(e: Event) => void this.onCreate(e)}>
+        <gl-input
+          label="Email"
+          type="email"
+          required
+          .value=${this.fEmail}
+          @gl-input=${(e: CustomEvent<{ value: string }>) => {
+            this.fEmail = e.detail.value;
+          }}
+        ></gl-input>
+        <gl-input
+          label="Password"
+          type="password"
+          required
+          .value=${this.fPassword}
+          @gl-input=${(e: CustomEvent<{ value: string }>) => {
+            this.fPassword = e.detail.value;
+          }}
+        ></gl-input>
+        <gl-select
+          label="Role"
+          .value=${this.fRole}
+          .options=${[
+            { value: "translator", label: "translator" },
+            { value: "admin", label: "admin" },
+          ]}
+          @gl-change=${(e: CustomEvent<{ value: string }>) => {
+            this.fRole = e.detail.value;
+          }}
+        ></gl-select>
+        <gl-input
+          label="Locales (csv)"
+          placeholder="de,pt-BR"
+          .value=${this.fLocales}
+          @gl-input=${(e: CustomEvent<{ value: string }>) => {
+            this.fLocales = e.detail.value;
+          }}
+        ></gl-input>
+        <gl-button variant="primary" type="submit">Create</gl-button>
       </form>
-      <table role="grid">
-        <thead><tr><th>Email</th><th>Role</th><th>Locales</th><th>Actions</th></tr></thead>
+      <table class="gl-table" role="grid">
+        <thead>
+          <tr><th>Email</th><th>Role</th><th>Locales</th><th>Actions</th></tr>
+        </thead>
         <tbody>
           ${this.rows.map(
             (u) => html`
               <tr>
                 <td>${u.email}</td>
-                <td>${u.role}</td>
-                <td>${u.locales.join(", ") || "(all)"}</td>
                 <td>
-                  <button type="button" @click=${() => void this.onScope(u)}>Scope</button>
-                  <button type="button" @click=${() => void this.onDelete(u)}>Delete</button>
+                  ${u.role === "admin"
+                    ? html`<gl-badge variant="accent">admin</gl-badge>`
+                    : html`<gl-badge>translator</gl-badge>`}
+                </td>
+                <td class="gl-cell-mono">${u.locales.join(", ") || "(all)"}</td>
+                <td>
+                  <div class="actions">
+                    <gl-button size="sm" @click=${() => void this.onScope(u)}>Scope</gl-button>
+                    <gl-button size="sm" variant="danger" @click=${() => void this.onDelete(u)}>
+                      Delete
+                    </gl-button>
+                  </div>
                 </td>
               </tr>
             `,

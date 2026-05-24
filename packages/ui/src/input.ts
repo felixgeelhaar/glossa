@@ -94,7 +94,7 @@ export class GlInput extends LitElement {
   }
 
   public override willUpdate(changed: Map<string, unknown>): void {
-    if (changed.has("value") && this.internals) {
+    if (changed.has("value") && this.internals && typeof this.internals.setFormValue === "function") {
       this.internals.setFormValue(this.value);
     }
   }
