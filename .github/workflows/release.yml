@@ -81,12 +81,11 @@ jobs:
       # tuned to project-specific allowlists; flip off once the
       # baseline is clean and we're confident the gate has no false
       # positives that would block a real fix.
-      - name: nox scan (api image)
-        uses: felixgeelhaar/nox-action@v1
-        continue-on-error: true
-        with:
-          image: ${{ env.IMAGE_API }}:${{ github.sha }}
-          severity: high
+      # Image scan via `felixgeelhaar/nox-action@v1` re-enables here
+      # once the action repo is published. Left as a no-op for now so
+      # the workflow setup phase doesn't fail trying to resolve it.
+      - name: nox scan (api image — placeholder)
+        run: echo "nox scan disabled until felixgeelhaar/nox-action is published"
 
   publish-admin:
     name: Build + push admin image
@@ -124,12 +123,8 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64
 
-      - name: nox scan (admin image)
-        uses: felixgeelhaar/nox-action@v1
-        continue-on-error: true
-        with:
-          image: ${{ env.IMAGE_ADMIN }}:${{ github.sha }}
-          severity: high
+      - name: nox scan (admin image — placeholder)
+        run: echo "nox scan disabled until felixgeelhaar/nox-action is published"
 
   deploy-prod:
     name: Roll out to production
