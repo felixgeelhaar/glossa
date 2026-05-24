@@ -79,6 +79,14 @@ export class GlossaAdmin extends LitElement {
     loginPassword: { state: true },
     discoveredTenants: { state: true },
     discoverPending: { state: true },
+    createOpen: { state: true },
+    createSlug: { state: true },
+    createName: { state: true },
+    createLocale: { state: true },
+    createPending: { state: true },
+    createError: { state: true },
+    revealedApiKey: { state: true },
+    revealedFor: { state: true },
   };
 
   public apiUrl: string = (typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_API_URL)) || "";
@@ -95,6 +103,21 @@ export class GlossaAdmin extends LitElement {
   public loginPassword = "";
   public discoveredTenants: TenantOption[] | null = null;
   public discoverPending = false;
+
+  // Create-project dialog state.
+  public createOpen = false;
+  public createSlug = "";
+  public createName = "";
+  public createLocale = "de";
+  public createPending = false;
+  public createError = "";
+
+  // One-shot API-key reveal. After a successful create or rotate
+  // the server hands back the raw key once — we show it in a
+  // dismissible panel with a copy button. Server only persists the
+  // hash, so dismiss = forever.
+  public revealedApiKey = "";
+  public revealedFor = "";
 
   public fetchImpl: typeof fetch | undefined;
 
@@ -188,8 +211,94 @@ export class GlossaAdmin extends LitElement {
     this.requestUpdate();
   }
 
+  private openCreate(): void {
+    this.createOpen = true;
+    this.createSlug = "";
+    this.createName = "";
+    this.createLocale = "de";
+    this.createError = "";
+    this.requestUpdate();
+  }
+
+  private closeCreate(): void {
+    this.createOpen = false;
+    this.createError = "";
+    this.requestUpdate();
+  }
+
+  private async onSubmitCreate(e: Event): Promise<void> {
+    e.preventDefault();
+    if (!this.auth) return;
+    const c = adminClient({
+      apiUrl: this.apiUrl,
+      token: this.auth.token,
+      ...(this.fetchImpl ? { fetch: this.fetchImpl } : {}),
+    });
+    this.createPending = true;
+    this.createError = "";
+    this.requestUpdate();
+    try {
+      const out = await c.createProject({
+        tenantId: this.auth.tenant.id,
+        slug: this.createSlug.trim(),
+        name: this.createName.trim(),
+        defaultLocale: this.createLocale.trim() || "de",
+      });
+      // Refresh the project list, switch to the new project, surface
+      // the API key once.
+      this.projects = await c.listProjects();
+      const created = this.projects.find((p) => p.slug === out.slug) ?? null;
+      if (created) {
+        this.activeProject = created;
+        localStorage.setItem(STORAGE_PROJECT, created.slug);
+      }
+      this.revealedApiKey = out.apiKey;
+      this.revealedFor = `${out.name} (${out.slug})`;
+      this.createOpen = false;
+    } catch (err) {
+      this.createError = (err as Error).message || "create failed";
+    } finally {
+      this.createPending = false;
+      this.requestUpdate();
+    }
+  }
+
+  private async onRotateApiKey(): Promise<void> {
+    if (!this.auth || !this.activeProject) return;
+    if (!confirm(`Rotate the API key for ${this.activeProject.name}? The old key stops working immediately.`)) return;
+    const c = adminClient({
+      apiUrl: this.apiUrl,
+      token: this.auth.token,
+      ...(this.fetchImpl ? { fetch: this.fetchImpl } : {}),
+    });
+    try {
+      const out = await c.rotateProjectApiKey(this.activeProject.slug);
+      this.revealedApiKey = out.apiKey;
+      this.revealedFor = `${this.activeProject.name} (${this.activeProject.slug})`;
+      this.requestUpdate();
+    } catch (err) {
+      alert("Rotate failed: " + ((err as Error).message || "unknown"));
+    }
+  }
+
+  private dismissRevealedKey(): void {
+    this.revealedApiKey = "";
+    this.revealedFor = "";
+    this.requestUpdate();
+  }
+
+  private async copyRevealedKey(): Promise<void> {
+    if (!this.revealedApiKey) return;
+    try {
+      await navigator.clipboard.writeText(this.revealedApiKey);
+    } catch {
+      /* clipboard blocked; the input is already select-all-able */
+    }
+  }
+
   protected override render() {
     if (!this.auth) return this.renderLogin();
+    const isAdmin = this.auth.user.role === "admin";
     return html`
       <gl-toolbar>
         <span slot="title">Glossa</span>
@@ -197,20 +306,115 @@ export class GlossaAdmin extends LitElement {
           ${this.auth.tenant.name} · ${this.auth.user.email} · ${this.auth.user.role}
         </span>
         <span slot="actions" class="row">
-          <gl-select
-            label=""
-            .value=${this.activeProject?.slug ?? ""}
-            .options=${this.projects.map((p) => ({ value: p.slug, label: p.name }))}
-            @gl-change=${(e: CustomEvent<{ value: string }>) => this.onProjectChange(e.detail.value)}
-          ></gl-select>
+          ${this.projects.length > 0
+            ? html`<gl-select
+                label=""
+                .value=${this.activeProject?.slug ?? ""}
+                .options=${this.projects.map((p) => ({ value: p.slug, label: p.name }))}
+                @gl-change=${(e: CustomEvent<{ value: string }>) => this.onProjectChange(e.detail.value)}
+              ></gl-select>`
+            : null}
+          ${isAdmin
+            ? html`<gl-button variant="outline" size="sm" @click=${() => this.openCreate()}>+ New project</gl-button>`
+            : null}
+          ${isAdmin && this.activeProject
+            ? html`<gl-button variant="ghost" size="sm" @click=${() => void this.onRotateApiKey()}>Rotate key</gl-button>`
+            : null}
           <gl-theme-toggle></gl-theme-toggle>
           <gl-button variant="ghost" size="sm" @click=${() => this.signOut()}>Sign out</gl-button>
         </span>
       </gl-toolbar>
 
       <div class="page">
-        ${this.activeProject ? this.renderTabs() : html`<p>Create a project to begin.</p>`}
+        ${this.revealedApiKey ? this.renderRevealedKey() : null}
+        ${this.createOpen ? this.renderCreateProject() : null}
+        ${this.activeProject
+          ? this.renderTabs()
+          : html`<gl-card class="panel">
+              <div slot="header">No projects yet</div>
+              <div style="padding: var(--gl-space-4);">
+                <p style="margin: 0 0 var(--gl-space-3); color: var(--gl-text-muted);">
+                  ${isAdmin
+                    ? "Create a project to seed translation keys, hand out an API key, and start translating."
+                    : "Your admin hasn't created a project yet."}
+                </p>
+                ${isAdmin
+                  ? html`<gl-button variant="primary" @click=${() => this.openCreate()}>Create project</gl-button>`
+                  : null}
+              </div>
+            </gl-card>`}
       </div>
+    `;
+  }
+
+  private renderCreateProject() {
+    return html`
+      <gl-card class="panel">
+        <div slot="header">New project</div>
+        <form
+          @submit=${(e: Event) => void this.onSubmitCreate(e)}
+          style="display: flex; flex-direction: column; gap: var(--gl-space-3); padding: var(--gl-space-4);"
+        >
+          <gl-input
+            label="Slug"
+            required
+            placeholder="brotwerk-site"
+            hint="Lowercase, dotted/dashed identifier. Used in API URLs."
+            .value=${this.createSlug}
+            @gl-input=${(e: CustomEvent<{ value: string }>) => {
+              this.createSlug = e.detail.value;
+            }}
+          ></gl-input>
+          <gl-input
+            label="Name"
+            required
+            placeholder="Brotwerk site"
+            .value=${this.createName}
+            @gl-input=${(e: CustomEvent<{ value: string }>) => {
+              this.createName = e.detail.value;
+            }}
+          ></gl-input>
+          <gl-input
+            label="Default locale"
+            placeholder="de"
+            hint="BCP-47 subtag. Source-of-truth locale for AI fan-out."
+            .value=${this.createLocale}
+            @gl-input=${(e: CustomEvent<{ value: string }>) => {
+              this.createLocale = e.detail.value;
+            }}
+          ></gl-input>
+          ${this.createError ? html`<div class="err" role="alert">${this.createError}</div>` : null}
+          <div class="row">
+            <gl-button variant="primary" type="submit" ?disabled=${this.createPending}>
+              ${this.createPending ? "Creating…" : "Create"}
+            </gl-button>
+            <gl-button variant="ghost" type="button" @click=${() => this.closeCreate()}>Cancel</gl-button>
+          </div>
+        </form>
+      </gl-card>
+    `;
+  }
+
+  private renderRevealedKey() {
+    return html`
+      <gl-card class="panel">
+        <div slot="header">API key for ${this.revealedFor}</div>
+        <div style="padding: var(--gl-space-4); display: flex; flex-direction: column; gap: var(--gl-space-3);">
+          <p style="margin: 0; color: var(--gl-text-muted);">
+            Copy this now. The server only stores its hash — once you dismiss this panel, the raw key is gone forever.
+            Anyone with this key can read + write every translation in this project.
+          </p>
+          <gl-input
+            label="Key"
+            readonly
+            .value=${this.revealedApiKey}
+          ></gl-input>
+          <div class="row">
+            <gl-button variant="primary" @click=${() => void this.copyRevealedKey()}>Copy</gl-button>
+            <gl-button variant="ghost" @click=${() => this.dismissRevealedKey()}>I've saved it</gl-button>
+          </div>
+        </div>
+      </gl-card>
     `;
   }
 

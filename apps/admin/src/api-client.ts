@@ -102,6 +102,8 @@ export function adminClient(cfg: AdminClientConfig) {
         method: "POST",
         body: JSON.stringify(input),
       }),
+    rotateProjectApiKey: (slug: string) =>
+      req<{ apiKey: string }>(`/projects/${encodeURIComponent(slug)}/api-keys`, { method: "POST" }),
 
     listLocales: (slug: string) => req<LocaleRow[]>(`/projects/${encodeURIComponent(slug)}/locales`),
     createLocale: (slug: string, input: { code: string; label: string }) =>
