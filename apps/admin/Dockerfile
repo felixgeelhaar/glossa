@@ -33,6 +33,7 @@ COPY . .
 RUN pnpm --filter @glossa/format build \
     && pnpm --filter @glossa/sdk build \
     && pnpm --filter @glossa/ui build \
+    && pnpm --filter @glossa/elements build \
     && pnpm --filter @glossa/admin build
 
 # ── Runtime stage ────────────────────────────────────────────────────
