@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels: {{- include "glossa.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: api
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: glossa-app-config
+  labels: {{- include "glossa.labels" . | nindent 4 }}
+data:
+  PORT: "8080"
+  LOG_LEVEL: "info"
+  {{- if .Values.api.corsOrigins }}
+  GLOSSA_CORS_ORIGINS: {{ join "," .Values.api.corsOrigins | quote }}
+  {{- end }}
+  {{- range $k, $v := .Values.api.extraEnv }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels: {{- include "glossa.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+        {{- include "glossa.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      initContainers:
+        - name: migrate
+          image: {{ include "glossa.api.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/migrate"]
+          args:
+            - -path
+            - /migrations
+            - -database
+            - $(DATABASE_URL)
+            - up
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "glossa.secretName" . }}
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+      containers:
+        - name: api
+          image: {{ include "glossa.api.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: glossa-app-config
+            - secretRef:
+                name: {{ include "glossa.secretName" . }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}

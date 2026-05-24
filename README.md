@@ -67,6 +67,28 @@ Boots Postgres 16, runs migrations, starts the API, and serves the admin at <htt
 
 To enable the AI translator, the dev compose file already provides a non-secret `GLOSSA_SECRETS_KEY`. Add a provider in the **AI translation** tab and any source-locale (project default) write will fan out.
 
+## Install on Kubernetes (Helm)
+
+```bash
+helm install glossa oci://ghcr.io/felixgeelhaar/charts/glossa \
+  --version 0.1.0 \
+  --namespace glossa --create-namespace \
+  --values my-values.yaml
+```
+
+The chart serves one Glossa instance behind any number of hostnames — each gets its own cert-manager `Certificate` and `IngressRoute`. Tenants are inferred per-request from the API key or JWT, so the host is purely routing / branding:
+
+```yaml
+ingress:
+  hosts:
+    - host: glossa.example.com
+      tls: { secretName: glossa-example-com-tls }
+    - host: glossa.other-tenant.com
+      tls: { secretName: glossa-other-tenant-com-tls }
+```
+
+Full chart docs: [`deploy/charts/glossa/README.md`](./deploy/charts/glossa/README.md). Raw kustomize manifests for a hand-rolled install live in [`deploy/k3s/glossa/`](./deploy/k3s/glossa/).
+
 ---
 
 ## Project layout
