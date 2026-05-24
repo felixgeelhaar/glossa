@@ -2,8 +2,10 @@ package sqlcadapter
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/felixgeelhaar/glossa/apps/api/internal/db"
@@ -68,6 +70,36 @@ func (r *TranslationRepo) ListBundle(ctx context.Context, projectID, localeID uu
 			entry.Status = translation.Status(*row.Status)
 		}
 		out = append(out, entry)
+	}
+	return out, nil
+}
+
+// Find loads the current row at (keyID, localeID). Returns
+// translation.ErrNotFound when no row exists yet so the audit
+// caller can record an empty BeforeValue without surfacing the
+// driver's sentinel.
+func (r *TranslationRepo) Find(ctx context.Context, keyID, localeID uuid.UUID) (translation.Translation, error) {
+	q := db.QueriesFromContext(ctx, r.q)
+	row, err := q.GetTranslation(ctx, db.GetTranslationParams{
+		KeyID:    toPgUUID(keyID),
+		LocaleID: toPgUUID(localeID),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return translation.Translation{}, translation.ErrNotFound
+		}
+		return translation.Translation{}, err
+	}
+	out := translation.Translation{
+		ID:        fromPgUUID(row.ID),
+		KeyID:     fromPgUUID(row.KeyID),
+		LocaleID:  fromPgUUID(row.LocaleID),
+		Value:     row.Value,
+		Status:    translation.Status(row.Status),
+		UpdatedAt: row.UpdatedAt.Time,
+	}
+	if row.UpdatedBy.Valid {
+		out.UpdatedBy = uuid.UUID(row.UpdatedBy.Bytes)
 	}
 	return out, nil
 }

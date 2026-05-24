@@ -30,6 +30,7 @@ import (
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/tenant"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/translation"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/user"
 )
 
@@ -38,6 +39,11 @@ import (
 type Deps struct {
 	Logger      *slog.Logger
 	GlobalLimit ratelimit.RateLimiter
+
+	// LoginLimit is a tighter per-IP limiter applied only to
+	// /api/v1/auth/login — defends bcrypt against brute force.
+	// Recommended: 5 req/min, burst 10.
+	LoginLimit ratelimit.RateLimiter
 
 	// Pool drives rlsTxMiddleware (BEGIN; SET LOCAL …) for every
 	// authed request.
@@ -58,12 +64,13 @@ type Deps struct {
 	JWTIssuer authapp.TokenIssuer
 
 	// Repos.
-	ProjectRepo project.Repository
-	Tenants     tenant.Repository
-	Users       user.Repository
-	Locales     locale.Repository
-	Keys        keysFinder
-	Audits      audit.Repository
+	ProjectRepo  project.Repository
+	Tenants      tenant.Repository
+	Users        user.Repository
+	Locales      locale.Repository
+	Keys         keysFinder
+	Audits       audit.Repository
+	Translations translation.Repository
 }
 
 // New builds the gin engine + mounts every route.
@@ -84,7 +91,12 @@ func New(d Deps) *gin.Engine {
 	v1 := r.Group("/api/v1")
 
 	// ── Unauthenticated ──────────────────────────────────────────
-	v1.POST("/auth/login", handleLogin(d.Login, d.Tenants))
+	loginHandlers := []gin.HandlerFunc{}
+	if d.LoginLimit != nil {
+		loginHandlers = append(loginHandlers, rateLimitMiddleware(d.LoginLimit))
+	}
+	loginHandlers = append(loginHandlers, handleLogin(d.Login, d.Tenants))
+	v1.POST("/auth/login", loginHandlers...)
 
 	// ── API-key authed (consumer / CLI / SDK) ────────────────────
 	authed := v1.Group("/projects/:slug")
@@ -96,7 +108,7 @@ func New(d Deps) *gin.Engine {
 		authed.POST("/keys:scan", handleScanKeys(d.UpsertKeys))
 		authed.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
 		authed.PATCH("/locales/:locale/keys/:key",
-			handlePatchTranslation(d.UpdateTr, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits))
+			handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits))
 		authed.POST("/api-keys", handleRotateAPIKey(d.RotateKey))
 		authed.GET("/sse", handleSSE(d.Hub, 0))
 	}
@@ -123,7 +135,7 @@ func New(d Deps) *gin.Engine {
 			proj.GET("/locales", handleListLocales(d.Locales))
 			proj.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
 			proj.PATCH("/locales/:locale/keys/:key",
-				handlePatchTranslation(d.UpdateTr, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits))
+				handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits))
 			proj.GET("/sse", handleSSE(d.Hub, 0))
 
 			adminOnly := proj.Group("")
@@ -133,7 +145,7 @@ func New(d Deps) *gin.Engine {
 			adminOnly.DELETE("/locales/:id", handleDeleteLocale(d.Locales))
 			adminOnly.POST("/keys:scan", handleScanKeys(d.UpsertKeys))
 			adminOnly.POST("/locales/:locale/bulk",
-				handleBulkImport(d.ProjectRepo, d.Locales, d.UpsertKeys, d.Keys, d.UpdateTr, d.Hub, d.Audits))
+				handleBulkImport(d.ProjectRepo, d.Locales, d.UpsertKeys, d.Keys, d.UpdateTr, d.Translations, d.Hub, d.Audits))
 			adminOnly.GET("/diff", handleBundleDiff(d.ProjectRepo, d.Locales, d.ListBundle))
 			adminOnly.POST("/api-keys", handleRotateAPIKey(d.RotateKey))
 		}

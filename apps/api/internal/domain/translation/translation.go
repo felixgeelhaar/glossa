@@ -59,8 +59,15 @@ type BundleEntry struct {
 	Status Status
 }
 
+// ErrNotFound is returned by [Repository.Find] when no row exists
+// at the given (key, locale). Distinct from a generic "no rows"
+// error so callers can branch on "first translation here" without
+// matching the driver's sentinel.
+var ErrNotFound = errors.New("translation: not found")
+
 // Repository is the persistence port.
 type Repository interface {
 	Upsert(ctx context.Context, t Translation) (Translation, error)
 	ListBundle(ctx context.Context, projectID, localeID uuid.UUID) ([]BundleEntry, error)
+	Find(ctx context.Context, keyID, localeID uuid.UUID) (Translation, error)
 }

@@ -2,6 +2,7 @@ package httpgin
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,7 @@ import (
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/translation"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/user"
 )
 
@@ -82,6 +84,7 @@ type patchTranslationReq struct {
 // log under the resolved tenant.
 func handlePatchTranslation(
 	uc *translationapp.UpdateTranslation,
+	translations translation.Repository,
 	projects project.Repository,
 	locales locale.Repository,
 	keys keysFinder,
@@ -147,6 +150,18 @@ func handlePatchTranslation(
 			actor, _ = uuid.Parse(req.UpdatedBy)
 		}
 
+		// Read the existing translation (if any) for the audit log
+		// before the upsert overwrites it. A first-time write hits
+		// translation.ErrNotFound — that's a valid before-state
+		// ("nothing"), so the audit row records an empty BeforeValue.
+		beforeValue := ""
+		if prev, err := translations.Find(contextOf(c), k, l.ID); err == nil {
+			beforeValue = prev.Value
+		} else if !errors.Is(err, translation.ErrNotFound) {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
 		out, err := uc.Execute(contextOf(c), translationapp.UpdateInput{
 			KeyID:     k,
 			LocaleID:  l.ID,
@@ -163,7 +178,7 @@ func handlePatchTranslation(
 		_ = audits.Append(contextOf(c), audit.Entry{
 			TenantID:      tenantID.(uuid.UUID),
 			TranslationID: out.ID,
-			BeforeValue:   "",
+			BeforeValue:   beforeValue,
 			AfterValue:    out.Value,
 			ChangedBy:     actor,
 		})

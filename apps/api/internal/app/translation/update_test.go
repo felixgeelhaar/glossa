@@ -23,6 +23,10 @@ func (r *inMemoryRepo) Upsert(_ context.Context, t translation.Translation) (tra
 	return t, nil
 }
 
+func (r *inMemoryRepo) Find(_ context.Context, _, _ uuid.UUID) (translation.Translation, error) {
+	return translation.Translation{}, translation.ErrNotFound
+}
+
 func (r *inMemoryRepo) ListBundle(_ context.Context, _, _ uuid.UUID) ([]translation.BundleEntry, error) {
 	return nil, errors.New("unused in these tests")
 }

@@ -76,6 +76,18 @@ jobs:
           # CX33 is amd64. Add linux/arm64 if the host changes.
           platforms: linux/amd64
 
+      # Image scan via nox. Failing thresholds gate the rollout —
+      # `continue-on-error: true` while the scanner is still being
+      # tuned to project-specific allowlists; flip off once the
+      # baseline is clean and we're confident the gate has no false
+      # positives that would block a real fix.
+      - name: nox scan (api image)
+        uses: felixgeelhaar/nox-action@v1
+        continue-on-error: true
+        with:
+          image: ${{ env.IMAGE_API }}:${{ github.sha }}
+          severity: high
+
   publish-admin:
     name: Build + push admin image
     runs-on: ubuntu-latest
@@ -111,6 +123,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
+
+      - name: nox scan (admin image)
+        uses: felixgeelhaar/nox-action@v1
+        continue-on-error: true
+        with:
+          image: ${{ env.IMAGE_ADMIN }}:${{ github.sha }}
+          severity: high
 
   deploy-prod:
     name: Roll out to production

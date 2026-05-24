@@ -1,6 +1,7 @@
 package httpgin
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,7 @@ func handleBulkImport(
 	keysUC *keyapp.UpsertKeys,
 	keysFind keysFinder,
 	uc *translationapp.UpdateTranslation,
+	translations translation.Repository,
 	pub translationapp.Publisher,
 	audits audit.Repository,
 ) gin.HandlerFunc {
@@ -95,6 +97,14 @@ func handleBulkImport(
 				results = append(results, gin.H{"key": name, "error": err.Error()})
 				continue
 			}
+			beforeValue := ""
+			if prev, perr := translations.Find(contextOf(c), keyID, l.ID); perr == nil {
+				beforeValue = prev.Value
+			} else if !errors.Is(perr, translation.ErrNotFound) {
+				failed++
+				results = append(results, gin.H{"key": name, "error": perr.Error()})
+				continue
+			}
 			out, err := uc.Execute(contextOf(c), translationapp.UpdateInput{
 				KeyID:     keyID,
 				LocaleID:  l.ID,
@@ -110,6 +120,7 @@ func handleBulkImport(
 			_ = audits.Append(contextOf(c), audit.Entry{
 				TenantID:      tenantID.(uuid.UUID),
 				TranslationID: out.ID,
+				BeforeValue:   beforeValue,
 				AfterValue:    out.Value,
 				ChangedBy:     actor,
 			})

@@ -18,3 +18,10 @@ LEFT JOIN translations t
   ON t.key_id = k.id AND t.locale_id = $2
 WHERE k.project_id = $1
 ORDER BY k.key ASC;
+
+-- name: GetTranslation :one
+-- Pre-edit lookup for the audit log: read the current value at
+-- (key, locale) so AuditEntry.BeforeValue isn't always empty.
+SELECT id, key_id, locale_id, value, status, updated_by, updated_at
+FROM translations
+WHERE key_id = $1 AND locale_id = $2;

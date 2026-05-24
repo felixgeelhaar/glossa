@@ -98,9 +98,19 @@ func main() {
 		Interval: time.Minute,
 	})
 
+	// Tighter limiter on /auth/login defends bcrypt against
+	// brute force. 5/min per IP with a burst of 10 absorbs the
+	// occasional typo without locking the user out.
+	loginLimiter := ratelimit.New(ratelimit.Config{
+		Rate:     5,
+		Burst:    10,
+		Interval: time.Minute,
+	})
+
 	router := httpgin.New(httpgin.Deps{
 		Logger:      log,
 		GlobalLimit: limiter,
+		LoginLimit:  loginLimiter,
 		Pool:        pool,
 
 		CreateProj: createProj,
@@ -112,12 +122,13 @@ func main() {
 		Hub:        hub,
 		JWTIssuer:  issuer,
 
-		ProjectRepo: projectRepo,
-		Tenants:     tenantRepo,
-		Users:       userRepo,
-		Locales:     localeRepo,
-		Keys:        keysFinderAdapter{keyRepo},
-		Audits:      auditRepo,
+		ProjectRepo:  projectRepo,
+		Tenants:      tenantRepo,
+		Users:        userRepo,
+		Locales:      localeRepo,
+		Keys:         keysFinderAdapter{keyRepo},
+		Audits:       auditRepo,
+		Translations: translationRepo,
 	})
 
 	srv := &http.Server{

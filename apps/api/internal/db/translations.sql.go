@@ -11,6 +11,34 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getTranslation = `-- name: GetTranslation :one
+SELECT id, key_id, locale_id, value, status, updated_by, updated_at
+FROM translations
+WHERE key_id = $1 AND locale_id = $2
+`
+
+type GetTranslationParams struct {
+	KeyID    pgtype.UUID `json:"key_id"`
+	LocaleID pgtype.UUID `json:"locale_id"`
+}
+
+// Pre-edit lookup for the audit log: read the current value at
+// (key, locale) so AuditEntry.BeforeValue isn't always empty.
+func (q *Queries) GetTranslation(ctx context.Context, arg GetTranslationParams) (Translation, error) {
+	row := q.db.QueryRow(ctx, getTranslation, arg.KeyID, arg.LocaleID)
+	var i Translation
+	err := row.Scan(
+		&i.ID,
+		&i.KeyID,
+		&i.LocaleID,
+		&i.Value,
+		&i.Status,
+		&i.UpdatedBy,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listBundle = `-- name: ListBundle :many
 SELECT k.key, t.value, t.status
 FROM keys k
