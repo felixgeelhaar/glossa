@@ -1,14 +1,6 @@
-// <glossa-admin-key-edit> — single-key editor. ICU live preview
-// runs the current value through @glossa/format using a sample
-// `{count}` value the translator can change, so plural / select
-// arms render against real data.
-//
-// Emits two events:
-//   save   — { key, value, status }
-//   cancel — no detail
-//
-// The parent (admin-app) owns the network round-trip; this
-// component is pure UI.
+// <glossa-admin-key-edit> — single-key editor. Uses @glossa/ui
+// primitives for inputs + buttons; ICU live preview via
+// @glossa/format unchanged.
 
 import { LitElement, css, html } from "lit";
 
@@ -17,51 +9,29 @@ import type { TranslationStatus } from "@glossa/sdk";
 
 export class GlossaAdminKeyEdit extends LitElement {
   static override styles = css`
-    :host {
-      display: block;
-    }
-    form {
-      display: grid;
-      gap: 12px;
-    }
-    label {
-      display: grid;
-      gap: 4px;
-      font-size: 13px;
-    }
-    textarea,
-    input,
-    select {
-      font: inherit;
-      padding: 6px 8px;
-      border: 1px solid currentColor;
-      border-radius: 4px;
-      background: transparent;
-      color: inherit;
-    }
-    textarea {
-      min-height: 80px;
-    }
+    :host { display: block; }
+    form { display: grid; gap: var(--gl-space-3); }
     .preview {
-      padding: 8px 12px;
-      border-left: 3px solid currentColor;
-      font-style: italic;
+      padding: var(--gl-space-3);
+      background: var(--gl-surface-sunken);
+      border-left: 3px solid var(--gl-accent);
+      border-radius: 0 var(--gl-radius-md) var(--gl-radius-md) 0;
+      color: var(--gl-text);
+      font-size: var(--gl-text-md);
+    }
+    .preview-meta {
+      color: var(--gl-text-muted);
+      font-size: var(--gl-text-xs);
+      font-family: var(--gl-font-mono);
     }
     .actions {
       display: flex;
-      gap: 8px;
+      gap: var(--gl-space-2);
     }
-    button {
-      font: inherit;
-      padding: 6px 12px;
-      border: 1px solid currentColor;
-      border-radius: 4px;
-      background: transparent;
-      color: inherit;
-      cursor: pointer;
-    }
-    button[type="submit"] {
-      font-weight: 600;
+    .grid-two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gl-space-3);
     }
   `;
 
@@ -69,7 +39,6 @@ export class GlossaAdminKeyEdit extends LitElement {
     keyName: { type: String },
     value: { type: String },
     locale: { type: String },
-    // Internal preview / form state.
     draftValue: { state: true },
     draftStatus: { state: true },
     sampleCount: { state: true },
@@ -110,55 +79,48 @@ export class GlossaAdminKeyEdit extends LitElement {
   protected override render() {
     return html`
       <form @submit=${(e: Event) => this.onSubmit(e)}>
-        <label>
-          Key
-          <input type="text" .value=${this.keyName} readonly aria-readonly="true" />
-        </label>
-        <label>
-          Value (${this.locale})
-          <textarea
-            .value=${this.draftValue}
-            @input=${(e: Event) => {
-              this.draftValue = (e.target as HTMLTextAreaElement).value;
-            }}
-            aria-label="Translation value"
-          ></textarea>
-        </label>
+        <gl-input label="Key" .value=${this.keyName} readonly mono></gl-input>
+        <gl-textarea
+          label=${`Value (${this.locale})`}
+          .value=${this.draftValue}
+          @gl-input=${(e: CustomEvent<{ value: string }>) => {
+            this.draftValue = e.detail.value;
+          }}
+        ></gl-textarea>
         <div class="preview" aria-live="polite">
-          Preview · count=${this.sampleCount} → ${this.renderPreview()}
+          ${this.renderPreview()}
+          <div class="preview-meta">preview · count=${this.sampleCount}</div>
         </div>
-        <label>
-          Sample count
-          <input
+        <div class="grid-two">
+          <gl-input
+            label="Sample count"
             type="number"
-            min="0"
             .value=${String(this.sampleCount)}
-            @input=${(e: Event) => {
-              this.sampleCount = Number((e.target as HTMLInputElement).value);
+            @gl-input=${(e: CustomEvent<{ value: string }>) => {
+              this.sampleCount = Number(e.detail.value);
             }}
-          />
-        </label>
-        <label>
-          Status on save
-          <select
+          ></gl-input>
+          <gl-select
+            label="Status on save"
             .value=${this.draftStatus}
-            @change=${(e: Event) => {
-              this.draftStatus = (e.target as HTMLSelectElement).value as TranslationStatus;
+            .options=${[
+              { value: "needs_review", label: "needs_review" },
+              { value: "approved", label: "approved" },
+              { value: "pending", label: "pending" },
+            ]}
+            @gl-change=${(e: CustomEvent<{ value: string }>) => {
+              this.draftStatus = e.detail.value as TranslationStatus;
             }}
-          >
-            <option value="needs_review">needs_review</option>
-            <option value="approved">approved</option>
-            <option value="pending">pending</option>
-          </select>
-        </label>
+          ></gl-select>
+        </div>
         <div class="actions">
-          <button type="submit">Save</button>
-          <button
-            type="button"
+          <gl-button variant="primary" type="submit">Save</gl-button>
+          <gl-button
+            variant="ghost"
             @click=${() => this.dispatchEvent(new CustomEvent("cancel", { bubbles: true, composed: true }))}
           >
             Cancel
-          </button>
+          </gl-button>
         </div>
       </form>
     `;

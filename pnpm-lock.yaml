@@ -19,6 +19,9 @@ importers:
       '@glossa/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
+      '@glossa/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       lit:
         specifier: ^3.2.0
         version: 3.3.3
@@ -124,6 +127,25 @@ importers:
       size-limit:
         specifier: ^11.0.0
         version: 11.2.0
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@22.19.19)(happy-dom@15.11.7)(jsdom@25.0.1)
+
+  packages/ui:
+    dependencies:
+      lit:
+        specifier: ^3.2.0
+        version: 3.3.3
+    devDependencies:
+      jsdom:
+        specifier: ^25.0.0
+        version: 25.0.1
+      prettier:
+        specifier: ^3.0.0
+        version: 3.8.3
       typescript:
         specifier: ^5.5.0
         version: 5.9.3

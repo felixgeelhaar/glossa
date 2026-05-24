@@ -1,9 +1,11 @@
 // <glossa-admin> — root SPA. Drives the JWT login flow, the
-// project switcher, and the per-project tab set (editor / bulk
-// import / diff / locales / users / audit). One element owns all
-// the state; the sub-components are pure-render views.
+// project switcher, and the per-project tab set. UI built from
+// @glossa/ui primitives so theming + dark mode work consistently.
 
 import { LitElement, css, html } from "lit";
+
+import "@glossa/ui";
+import type { GlTabs } from "@glossa/ui";
 
 import { adminClient, login, type AuthState, type ProjectRow } from "./api-client.js";
 
@@ -17,70 +19,45 @@ export class GlossaAdmin extends LitElement {
   static override styles = css`
     :host {
       display: block;
-      max-width: 1100px;
+      background: var(--gl-bg);
+      color: var(--gl-text);
+      font-family: var(--gl-font-ui);
+      min-height: 100vh;
+    }
+    .page {
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 24px;
-    }
-    header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-    nav.tabs {
-      display: flex;
-      gap: 6px;
-      border-bottom: 1px solid currentColor;
-      margin-bottom: 16px;
-    }
-    nav.tabs button {
-      background: transparent;
-      border: 1px solid currentColor;
-      border-bottom: none;
-      border-radius: 6px 6px 0 0;
-      padding: 6px 10px;
-      cursor: pointer;
-      font: inherit;
-      color: inherit;
-    }
-    nav.tabs button[aria-current="page"] {
-      font-weight: 600;
-      background: color-mix(in srgb, currentColor 10%, transparent);
-    }
-    button,
-    select,
-    input {
-      font: inherit;
-      padding: 6px 10px;
-      border: 1px solid currentColor;
-      border-radius: 4px;
-      background: transparent;
-      color: inherit;
-    }
-    .field {
-      display: inline-flex;
-      flex-direction: column;
-      gap: 2px;
-      font-size: 12px;
+      padding: var(--gl-space-5);
     }
     .panel {
-      border: 1px solid currentColor;
-      border-radius: 6px;
-      padding: 12px;
+      margin-top: var(--gl-space-4);
     }
-    h1 {
-      margin: 0;
-      font-size: 18px;
+    .err {
+      color: var(--gl-danger);
+      background: var(--gl-danger-bg);
+      border: 1px solid var(--gl-danger);
+      border-radius: var(--gl-radius-md);
+      padding: 10px 14px;
+      font-size: var(--gl-text-md);
+      margin: var(--gl-space-3) 0;
+    }
+    .ident {
+      color: var(--gl-text-muted);
+      font-size: var(--gl-text-sm);
+    }
+    .login-card {
+      max-width: 420px;
+      margin: var(--gl-space-7) auto;
+    }
+    .login-fields {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gl-space-3);
     }
     .row {
       display: flex;
-      gap: 8px;
+      gap: var(--gl-space-2);
       align-items: center;
-    }
-    .err {
-      color: #b00020;
-      font-size: 13px;
     }
   `;
 
@@ -93,10 +70,6 @@ export class GlossaAdmin extends LitElement {
     loginError: { state: true },
   };
 
-  // Default to same-origin (empty string). The api-client emits
-  // relative `/api/v1/...` URLs which the browser resolves against
-  // the page origin — works behind the production Traefik ingress
-  // and the docker-compose nginx proxy without CORS plumbing.
   public apiUrl: string = (typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_API_URL)) || "";
   public auth: AuthState | null = loadAuth();
   public projects: ProjectRow[] = [];
@@ -104,7 +77,6 @@ export class GlossaAdmin extends LitElement {
   public tab: Tab = "editor";
   public loginError = "";
 
-  /** Test seam — swaps the fetch global the api-client uses. */
   public fetchImpl: typeof fetch | undefined;
 
   public override connectedCallback(): void {
@@ -114,11 +86,14 @@ export class GlossaAdmin extends LitElement {
 
   private async afterLogin(): Promise<void> {
     if (!this.auth) return;
-    const c = adminClient({ apiUrl: this.apiUrl, token: this.auth.token, ...(this.fetchImpl ? { fetch: this.fetchImpl } : {}) });
+    const c = adminClient({
+      apiUrl: this.apiUrl,
+      token: this.auth.token,
+      ...(this.fetchImpl ? { fetch: this.fetchImpl } : {}),
+    });
     try {
       this.projects = await c.listProjects();
     } catch {
-      // Token may have expired — kick back to login.
       this.signOut();
       return;
     }
@@ -132,11 +107,13 @@ export class GlossaAdmin extends LitElement {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const fd = new FormData(form);
-    const tenantSlug = String(fd.get("tenant") ?? "");
-    const email = String(fd.get("email") ?? "");
-    const password = String(fd.get("password") ?? "");
     try {
-      this.auth = await login(this.apiUrl, tenantSlug, email, password);
+      this.auth = await login(
+        this.apiUrl,
+        String(fd.get("tenant") ?? ""),
+        String(fd.get("email") ?? ""),
+        String(fd.get("password") ?? ""),
+      );
       localStorage.setItem(STORAGE_AUTH, JSON.stringify(this.auth));
       localStorage.setItem(STORAGE_API_URL, this.apiUrl);
       this.loginError = "";
@@ -170,82 +147,65 @@ export class GlossaAdmin extends LitElement {
   protected override render() {
     if (!this.auth) return this.renderLogin();
     return html`
-      <header>
-        <h1>Glossa Admin</h1>
-        <span aria-live="polite">
-          ${this.auth.tenant.name} · ${this.auth.user.email} (${this.auth.user.role})
+      <gl-toolbar>
+        <span slot="title">Glossa</span>
+        <span slot="center" class="ident">
+          ${this.auth.tenant.name} · ${this.auth.user.email} · ${this.auth.user.role}
         </span>
-        <label class="field">
-          <span>Project</span>
-          <select
+        <span slot="actions" class="row">
+          <gl-select
+            label=""
             .value=${this.activeProject?.slug ?? ""}
-            @change=${(e: Event) => this.onProjectChange((e.target as HTMLSelectElement).value)}
-            aria-label="Project switcher"
-          >
-            ${this.projects.length === 0
-              ? html`<option value="">No projects yet</option>`
-              : this.projects.map((p) => html`<option value=${p.slug}>${p.name}</option>`)}
-          </select>
-        </label>
-        <button type="button" @click=${() => this.signOut()}>Sign out</button>
-      </header>
-      ${this.activeProject ? this.renderTabs() : html`<p>Create a project to begin.</p>`}
+            .options=${this.projects.map((p) => ({ value: p.slug, label: p.name }))}
+            @gl-change=${(e: CustomEvent<{ value: string }>) => this.onProjectChange(e.detail.value)}
+          ></gl-select>
+          <gl-theme-toggle></gl-theme-toggle>
+          <gl-button variant="ghost" size="sm" @click=${() => this.signOut()}>Sign out</gl-button>
+        </span>
+      </gl-toolbar>
+
+      <div class="page">
+        ${this.activeProject ? this.renderTabs() : html`<p>Create a project to begin.</p>`}
+      </div>
     `;
   }
 
   private renderLogin() {
     return html`
-      <header><h1>Glossa Admin — Sign in</h1></header>
-      <form class="panel" @submit=${(e: Event) => void this.onLogin(e)}>
-        <div class="row">
-          <label class="field">
-            <span>API URL</span>
-            <input
+      <div class="page">
+        <gl-card class="login-card">
+          <div slot="header">Sign in to Glossa</div>
+          <form @submit=${(e: Event) => void this.onLogin(e)} class="login-fields">
+            <gl-input
+              label="API URL"
               type="url"
               .value=${this.apiUrl}
-              @change=${(e: Event) => {
-                this.apiUrl = (e.target as HTMLInputElement).value;
+              hint="Leave empty for same-origin (recommended in production)."
+              @gl-input=${(e: CustomEvent<{ value: string }>) => {
+                this.apiUrl = e.detail.value;
               }}
-              aria-label="API URL"
-              required
-            />
-          </label>
-          <label class="field">
-            <span>Tenant</span>
-            <input type="text" name="tenant" required aria-label="Tenant slug" />
-          </label>
-          <label class="field">
-            <span>Email</span>
-            <input type="email" name="email" required autocomplete="username" aria-label="Email" />
-          </label>
-          <label class="field">
-            <span>Password</span>
-            <input
-              type="password"
-              name="password"
-              required
-              autocomplete="current-password"
-              aria-label="Password"
-            />
-          </label>
-          <button type="submit">Sign in</button>
-        </div>
-        ${this.loginError ? html`<p class="err" role="alert">${this.loginError}</p>` : null}
-      </form>
+            ></gl-input>
+            <gl-input label="Tenant" name="tenant" required autocomplete="organization"></gl-input>
+            <gl-input label="Email" name="email" type="email" required autocomplete="username"></gl-input>
+            <gl-input label="Password" name="password" type="password" required autocomplete="current-password"></gl-input>
+            <gl-button variant="primary" type="submit">Sign in</gl-button>
+            ${this.loginError ? html`<div class="err" role="alert">${this.loginError}</div>` : null}
+          </form>
+        </gl-card>
+      </div>
     `;
   }
 
   private renderTabs() {
     const isAdmin = this.auth?.user.role === "admin";
-    const tabs: Array<{ id: Tab; label: string; adminOnly: boolean }> = [
-      { id: "editor", label: "Editor", adminOnly: false },
-      { id: "bulk", label: "Bulk import/export", adminOnly: true },
-      { id: "diff", label: "Diff", adminOnly: true },
-      { id: "locales", label: "Locales", adminOnly: true },
-      { id: "users", label: "Users", adminOnly: true },
-      { id: "audit", label: "Audit log", adminOnly: true },
+    const tabs = [
+      { id: "editor", label: "Editor", hidden: false },
+      { id: "bulk", label: "Import / Export", hidden: !isAdmin },
+      { id: "diff", label: "Diff", hidden: !isAdmin },
+      { id: "locales", label: "Locales", hidden: !isAdmin },
+      { id: "users", label: "Users", hidden: !isAdmin },
+      { id: "audit", label: "Audit log", hidden: !isAdmin },
     ];
-    const visible = tabs.filter((t) => isAdmin || !t.adminOnly);
     const slug = this.activeProject!.slug;
     const c = adminClient({
       apiUrl: this.apiUrl,
@@ -253,44 +213,41 @@ export class GlossaAdmin extends LitElement {
       ...(this.fetchImpl ? { fetch: this.fetchImpl } : {}),
     });
     return html`
-      <nav class="tabs" aria-label="Sections">
-        ${visible.map(
-          (t) => html`
-            <button
-              type="button"
-              aria-current=${this.tab === t.id ? "page" : "false"}
-              @click=${() => {
-                this.tab = t.id;
-                this.requestUpdate();
-              }}
-            >
-              ${t.label}
-            </button>
-          `,
-        )}
-      </nav>
-      <section class="panel">
-        ${this.tab === "editor"
-          ? html`<glossa-admin-editor-tab .client=${c} .slug=${slug} .userRole=${this.auth!.user.role} .scopedLocales=${this.auth!.user.locales}></glossa-admin-editor-tab>`
-          : null}
-        ${this.tab === "bulk"
-          ? html`<glossa-admin-bulk-tab .client=${c} .slug=${slug}></glossa-admin-bulk-tab>`
-          : null}
-        ${this.tab === "diff"
-          ? html`<glossa-admin-diff-tab .client=${c} .slug=${slug}></glossa-admin-diff-tab>`
-          : null}
-        ${this.tab === "locales"
-          ? html`<glossa-admin-locales-tab .client=${c} .slug=${slug}></glossa-admin-locales-tab>`
-          : null}
-        ${this.tab === "users"
-          ? html`<glossa-admin-users-tab .client=${c}></glossa-admin-users-tab>`
-          : null}
-        ${this.tab === "audit"
-          ? html`<glossa-admin-audit-tab .client=${c}></glossa-admin-audit-tab>`
-          : null}
-      </section>
+      <gl-tabs
+        .current=${this.tab}
+        .items=${tabs}
+        @gl-tab-change=${(e: CustomEvent<{ id: string }>) => {
+          this.tab = e.detail.id as Tab;
+          this.requestUpdate();
+        }}
+      ></gl-tabs>
+      <gl-card class="panel" flush>
+        <div style="padding: var(--gl-space-4)">
+          ${this.tab === "editor"
+            ? html`<glossa-admin-editor-tab .client=${c} .slug=${slug} .userRole=${this.auth!.user.role} .scopedLocales=${this.auth!.user.locales}></glossa-admin-editor-tab>`
+            : null}
+          ${this.tab === "bulk"
+            ? html`<glossa-admin-bulk-tab .client=${c} .slug=${slug}></glossa-admin-bulk-tab>`
+            : null}
+          ${this.tab === "diff"
+            ? html`<glossa-admin-diff-tab .client=${c} .slug=${slug}></glossa-admin-diff-tab>`
+            : null}
+          ${this.tab === "locales"
+            ? html`<glossa-admin-locales-tab .client=${c} .slug=${slug}></glossa-admin-locales-tab>`
+            : null}
+          ${this.tab === "users"
+            ? html`<glossa-admin-users-tab .client=${c}></glossa-admin-users-tab>`
+            : null}
+          ${this.tab === "audit"
+            ? html`<glossa-admin-audit-tab .client=${c}></glossa-admin-audit-tab>`
+            : null}
+        </div>
+      </gl-card>
     `;
   }
+
+  // Keep the GlTabs type import alive at runtime.
+  private _refs: { tabs?: GlTabs } = {};
 }
 
 function loadAuth(): AuthState | null {

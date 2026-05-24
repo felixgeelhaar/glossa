@@ -1,9 +1,11 @@
-// <glossa-admin-key-list> — flat sortable list of keys. Status
-// filter is applied before render so the table only ever paints
-// what's actually shown.
+// <glossa-admin-key-list> — sortable, filterable list of keys.
+// Uses @glossa/ui tokens for styling + <gl-badge> for the status
+// pill so the lifecycle states share their color story with the
+// rest of the admin.
 
-import { LitElement, css, html } from "lit";
+import { LitElement, css, html, unsafeCSS } from "lit";
 
+import { glTableStyles } from "@glossa/ui";
 import type { TranslationStatus } from "@glossa/sdk";
 
 export class GlossaAdminKeyList extends LitElement {
@@ -11,29 +13,23 @@ export class GlossaAdminKeyList extends LitElement {
     :host {
       display: block;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
+    ${unsafeCSS(glTableStyles)}
+    .empty {
+      padding: var(--gl-space-4);
+      color: var(--gl-text-muted);
+      text-align: center;
     }
-    th,
-    td {
-      padding: 6px 8px;
-      text-align: left;
-      border-bottom: 1px solid currentColor;
+    .key {
+      font-family: var(--gl-font-mono);
+      font-size: var(--gl-text-sm);
+      color: var(--gl-text);
     }
-    tbody tr {
-      cursor: pointer;
-    }
-    tbody tr[aria-selected="true"] {
-      font-weight: 700;
-    }
-    .pill {
-      display: inline-block;
-      padding: 1px 6px;
-      border-radius: 999px;
-      font-size: 12px;
-      border: 1px solid currentColor;
+    .value {
+      color: var(--gl-text-muted);
+      max-width: 480px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   `;
 
@@ -51,9 +47,6 @@ export class GlossaAdminKeyList extends LitElement {
 
   private rows(): Array<{ key: string; value: string; status: TranslationStatus }> {
     const out: Array<{ key: string; value: string; status: TranslationStatus }> = [];
-    // Defensive defaults — Lit's accessor setup may briefly leave
-    // these undefined during the first render with property
-    // bindings driven from the parent.
     const messages = this.messages ?? {};
     const statuses = this.statuses ?? {};
     for (const key of Object.keys(messages).sort()) {
@@ -71,10 +64,10 @@ export class GlossaAdminKeyList extends LitElement {
   protected override render() {
     const rows = this.rows();
     if (rows.length === 0) {
-      return html`<p>No keys match the current filter.</p>`;
+      return html`<p class="empty">No keys match the current filter.</p>`;
     }
     return html`
-      <table role="grid">
+      <table class="gl-table" role="grid">
         <thead>
           <tr>
             <th scope="col">Key</th>
@@ -86,6 +79,7 @@ export class GlossaAdminKeyList extends LitElement {
           ${rows.map(
             (r) => html`
               <tr
+                class="gl-row-clickable"
                 tabindex="0"
                 role="row"
                 aria-selected=${r.key === this.selected}
@@ -97,9 +91,11 @@ export class GlossaAdminKeyList extends LitElement {
                   }
                 }}
               >
-                <td>${r.key}</td>
-                <td>${r.value}</td>
-                <td><span class="pill">${r.status}</span></td>
+                <td class="key">${r.key}</td>
+                <td class="value">${r.value}</td>
+                <td>
+                  <gl-badge variant=${badgeVariant(r.status)}>${r.status}</gl-badge>
+                </td>
               </tr>
             `,
           )}
@@ -107,6 +103,12 @@ export class GlossaAdminKeyList extends LitElement {
       </table>
     `;
   }
+}
+
+function badgeVariant(s: TranslationStatus): "pending" | "review" | "approved" {
+  if (s === "approved") return "approved";
+  if (s === "needs_review") return "review";
+  return "pending";
 }
 
 if (!customElements.get("glossa-admin-key-list")) {
