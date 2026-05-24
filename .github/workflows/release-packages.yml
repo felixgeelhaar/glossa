@@ -12,14 +12,23 @@ name: Release packages
 #      runs `changeset publish` which uploads every package whose
 #      version no longer matches what's on npm.
 #
-# Required repo secrets:
-#   NPM_TOKEN — npm automation token with publish access to the
-#               @felixgeelhaar scope.
+# Auth: npm trusted publishing (OIDC). No long-lived token.
+#   On npmjs.com, configure each package as a trusted publisher:
+#     Owner:        felixgeelhaar
+#     Repository:   glossa
+#     Workflow:     .github/workflows/release-packages.yml
+#     Environment:  (empty)
+#   Setup-node + pnpm exchange the workflow's OIDC token for a
+#   short-lived publish token at runtime. Provenance + signature
+#   are attached automatically.
 #
-# OIDC + provenance: each package has `publishConfig.provenance:
-# true`, which makes npm verify the build came from this exact
-# workflow run + commit. Requires the `id-token: write` permission
-# on this workflow.
+# Requires:
+#   - `id-token: write` permission on this workflow (declared below).
+#   - pnpm >= 10.6 (action-setup@v4 already pulls a recent enough
+#     version; pinning explicit version below to keep behaviour
+#     reproducible).
+#   - npm >= 11.5.1 inside the runner — Node 24 ships an npm new
+#     enough; for Node 22 we install the latest npm explicitly.
 
 on:
   push:
@@ -45,12 +54,17 @@ jobs:
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.0
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
+
+      - name: Pin npm to a trusted-publishing-capable version
+        run: npm install -g npm@latest
 
       - run: pnpm install --frozen-lockfile
 
@@ -71,5 +85,6 @@ jobs:
           title: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NPM_TOKEN: auth happens via npm trusted publishing.
+          # The runner exchanges its OIDC token for a short-lived
+          # publish credential automatically when no token is set.
