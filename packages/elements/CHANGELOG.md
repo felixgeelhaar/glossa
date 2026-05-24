@@ -1,5 +1,15 @@
 # @felixgeelhaar/glossa-elements
 
+## 0.1.1
+
+### Patch Changes
+
+- Rewrite package READMEs to describe the actual shipped implementation. The 0.1.0 versions inherited placeholder "Stub. Implementation lands…" READMEs from the planning phase, which made npm show every package as empty.
+
+- Updated dependencies []:
+  - @felixgeelhaar/glossa-format@0.1.1
+  - @felixgeelhaar/glossa-sdk@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes

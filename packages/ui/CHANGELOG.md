@@ -1,5 +1,11 @@
 # @felixgeelhaar/glossa-ui
 
+## 0.1.1
+
+### Patch Changes
+
+- Rewrite package READMEs to describe the actual shipped implementation. The 0.1.0 versions inherited placeholder "Stub. Implementation lands…" READMEs from the planning phase, which made npm show every package as empty.
+
 ## 0.1.0
 
 ### Minor Changes

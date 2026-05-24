@@ -1,26 +1,61 @@
-# `@felixgeelhaar/glossa-format` — ICU subset (~200 LOC)
+# `@felixgeelhaar/glossa-format`
 
-Stub. Implementation lands first in this monorepo — it has no dependencies on the rest.
+ICU MessageFormat subset — variable interpolation, plurals via `Intl.PluralRules`, select, nesting, apostrophe escaping. Zero runtime dependencies. ~400 LOC, ~9 KB unpacked.
 
-## Scope
+```bash
+pnpm add @felixgeelhaar/glossa-format
+```
 
-| ICU feature | Status | Backed by |
-|---|---|---|
-| Variable interpolation `{name}` | planned | own parser |
-| Plural `{count, plural, one {…} other {…}}` | planned | `Intl.PluralRules` |
-| Select `{gender, select, female {…} other {…}}` | planned | own parser |
-| Nested combinations | planned | recursive eval |
-| Apostrophe escaping | planned | own lexer |
+## Usage
 
-## Defer to browser built-ins
+```ts
+import { format, parse } from "@felixgeelhaar/glossa-format";
 
-- Numbers → `Intl.NumberFormat`
-- Dates → `Intl.DateTimeFormat`
-- Relative time → `Intl.RelativeTimeFormat`
-- Lists → `Intl.ListFormat`
+format("Hello, {name}!", "en", { name: "Sophia" });
+// → "Hello, Sophia!"
 
-## Out of scope (MVP)
+format(
+  "{count, plural, one {# session} other {# sessions}}",
+  "en",
+  { count: 3 },
+);
+// → "3 sessions"
 
-- Custom formatter extension API
-- Bi-di / RTL handling (defer until first RTL tenant)
-- Complex grammatical gender beyond binary + neutral
+format(
+  "{gender, select, female {She did it} male {He did it} other {They did it}}",
+  "en",
+  { gender: "female" },
+);
+// → "She did it"
+```
+
+For hot paths, parse once and reuse the AST:
+
+```ts
+const ast = parse("{count, plural, one {# tip} other {# tips}}");
+format(ast, "de", { count: 1 }); // → "1 Tipp"
+```
+
+## Supported ICU features
+
+| Feature | Example |
+|---|---|
+| Variable interpolation | `{name}` |
+| Plural categories | `{n, plural, zero{…} one{…} two{…} few{…} many{…} other{…}}` |
+| Numeric plural override | `{n, plural, =0{none} one{…} other{…}}` |
+| Hash placeholder inside plural | `{count, plural, one {# item} other {# items}}` |
+| Select | `{gender, select, female{…} male{…} other{…}}` |
+| Nested patterns | plurals inside select inside variable substitution |
+| Apostrophe escaping | `it''s` → `it's`, `'{literal}'` → `{literal}` |
+
+Plural keyword resolution defers to `Intl.PluralRules` so the package works across the ~100 locales the browser ships without bundling CLDR. Falls back to `"other"` on environments without `Intl.PluralRules`.
+
+## Out of scope
+
+- Numbers / dates / relative time — use `Intl.NumberFormat`, `Intl.DateTimeFormat`, `Intl.RelativeTimeFormat` directly.
+- Custom formatter extension API.
+- Bidi / RTL re-ordering.
+
+## License
+
+MIT
