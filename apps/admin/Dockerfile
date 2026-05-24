@@ -5,7 +5,7 @@
 #
 # Build context is the monorepo root (passed via the workflow) so
 # pnpm can resolve workspace deps — apps/admin alone wouldn't see
-# packages/{format,sdk,elements}.
+# packages/ui (and later, packages/{sdk,elements} once they land).
 
 # ── Build stage ──────────────────────────────────────────────────────
 FROM node:22-alpine AS build
@@ -17,19 +17,14 @@ WORKDIR /repo
 RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/admin/package.json apps/admin/
-COPY packages/format/package.json packages/format/
-COPY packages/sdk/package.json packages/sdk/
-COPY packages/elements/package.json packages/elements/
+COPY packages/ui/package.json packages/ui/
 RUN pnpm install --frozen-lockfile
 
-# Now copy the source and build. We build the workspace deps the
-# admin imports plus the admin itself; the size budget is enforced
-# at workspace level and the admin's vite build does its own
-# tree-shake on top.
+# Now copy the source and build. Build the workspace deps the admin
+# imports first (currently just @glossa/ui) so its dist/ + type
+# declarations are in place when admin's tsc runs.
 COPY . .
-RUN pnpm --filter @glossa/format build \
-    && pnpm --filter @glossa/sdk build \
-    && pnpm --filter @glossa/elements build \
+RUN pnpm --filter @glossa/ui build \
     && pnpm --filter @glossa/admin build
 
 # ── Runtime stage ────────────────────────────────────────────────────
