@@ -1,6 +1,6 @@
 {
   "name": "@glossa/ui",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Glossa design system — utilitarian Lit primitives + design tokens. Used by the admin SPA and any consumer surface embedding glossa.",
   "type": "module",
   "main": "./dist/index.js",
