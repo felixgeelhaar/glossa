@@ -1,11 +1,14 @@
 # syntax=docker/dockerfile:1.6
-# Builds the admin SPA from the monorepo root and serves the static
-# bundle from nginx. Two stages: pnpm install + vite build, then
-# copy `dist/` into an nginx:alpine final image.
+# Builds the admin SPA and serves the static bundle from nginx.
+# Two stages: pnpm install + vite build, then copy `dist/` into an
+# nginx:alpine final image.
 #
-# Build context is the monorepo root (passed via the workflow) so
-# pnpm can resolve workspace deps — apps/admin alone wouldn't see
-# packages/ui (and later, packages/{sdk,elements} once they land).
+# Admin deps are pinned to the published @felixgeelhaar/glossa-*
+# packages on npm — the Dockerfile no longer needs to copy or build
+# the workspace packages. `pnpm install` pulls everything from the
+# registry. Local dev still gets workspace linking because the same
+# packages live in packages/* with versions that satisfy the
+# admin's caret ranges.
 
 # ── Build stage ──────────────────────────────────────────────────────
 FROM node:22-alpine AS build
@@ -17,24 +20,10 @@ WORKDIR /repo
 RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/admin/package.json apps/admin/
-COPY packages/ui/package.json packages/ui/
-COPY packages/format/package.json packages/format/
-COPY packages/sdk/package.json packages/sdk/
-COPY packages/elements/package.json packages/elements/
-COPY packages/cli/package.json packages/cli/
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --filter @felixgeelhaar/glossa-admin...
 
-# Now copy the source and build. Build the workspace deps the admin
-# imports first (@felixgeelhaar/glossa-ui, format, sdk) so their dist/ + type
-# declarations are in place when admin's tsc runs. Elements + cli
-# aren't admin deps; they're built so a future workspace-wide
-# tsconfig project references graph stays clean.
-COPY . .
-RUN pnpm --filter @felixgeelhaar/glossa-format build \
-    && pnpm --filter @felixgeelhaar/glossa-sdk build \
-    && pnpm --filter @felixgeelhaar/glossa-ui build \
-    && pnpm --filter @felixgeelhaar/glossa-elements build \
-    && pnpm --filter @felixgeelhaar/glossa-admin build
+COPY apps/admin apps/admin
+RUN pnpm --filter @felixgeelhaar/glossa-admin build
 
 # ── Runtime stage ────────────────────────────────────────────────────
 # nginx:alpine is small and runs as nonroot by default in alpine

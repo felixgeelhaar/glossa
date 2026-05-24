@@ -18,17 +18,17 @@ importers:
   apps/admin:
     dependencies:
       '@felixgeelhaar/glossa-elements':
-        specifier: workspace:*
-        version: link:../../packages/elements
+        specifier: ^0.1.1
+        version: 0.1.1
       '@felixgeelhaar/glossa-format':
-        specifier: workspace:*
-        version: link:../../packages/format
+        specifier: ^0.1.1
+        version: 0.1.1
       '@felixgeelhaar/glossa-sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
+        specifier: ^0.1.1
+        version: 0.1.1
       '@felixgeelhaar/glossa-ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
+        specifier: ^0.1.1
+        version: 0.1.1
       lit:
         specifier: ^3.2.0
         version: 3.3.3
@@ -551,6 +551,22 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@felixgeelhaar/glossa-elements@0.1.1':
+    resolution: {integrity: sha512-dNE9j9pnFM9L25xTtWrM/JplQbNAg5oylteqas0Tp0YqP1GA+yPTNzJGRHlaIMuaIpfFY1dc1OprBcF9qX6+zA==}
+    engines: {node: '>=22'}
+
+  '@felixgeelhaar/glossa-format@0.1.1':
+    resolution: {integrity: sha512-j23biumL8GaKJKp8gu5krKq7/OC6p2sYPlddL8K59m25NDcx7mQT06gv8ceK4jrKuy7VFVIZGgDNskcf14xTRQ==}
+    engines: {node: '>=22'}
+
+  '@felixgeelhaar/glossa-sdk@0.1.1':
+    resolution: {integrity: sha512-TvnKGQyBnE8MLtGDebb2Cn3rNcH3HACh75JUqKzsuWDBV51oZ/rG247nX2S0an0LKQzKQsod3SO49cUiy0AyOg==}
+    engines: {node: '>=22'}
+
+  '@felixgeelhaar/glossa-ui@0.1.1':
+    resolution: {integrity: sha512-R9zq/dOFN6/jS0Q2+ZvIMeTvQmGx6J9ks6BvDrSD9RwjV6xKrAFm8xtntoLu3eNeS24jg5Thpy52RFSH8f7AoQ==}
+    engines: {node: '>=22'}
 
   '@inquirer/external-editor@1.0.3':
     resolution: {integrity: sha512-RWbSrDiYmO4LbejWY7ttpxczuwQyZLBUyygsA9Nsv95hpzUWwnNTVQmAq3xuh7vNwCp07UTmE5i11XAEExx4RA==}
@@ -1895,6 +1911,21 @@ snapshots:
 
   '@esbuild/win32-x64@0.25.12':
     optional: true
+
+  '@felixgeelhaar/glossa-elements@0.1.1':
+    dependencies:
+      '@felixgeelhaar/glossa-format': 0.1.1
+      '@felixgeelhaar/glossa-sdk': 0.1.1
+      '@lit/context': 1.1.6
+      lit: 3.3.3
+
+  '@felixgeelhaar/glossa-format@0.1.1': {}
+
+  '@felixgeelhaar/glossa-sdk@0.1.1': {}
+
+  '@felixgeelhaar/glossa-ui@0.1.1':
+    dependencies:
+      lit: 3.3.3
 
   '@inquirer/external-editor@1.0.3(@types/node@22.19.19)':
     dependencies:
