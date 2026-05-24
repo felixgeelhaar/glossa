@@ -1,0 +1,75 @@
+name: Release packages
+
+# Publishes the `@glossa/*` npm packages.
+#
+# Flow:
+#   1. PR lands on `main` with a `.changeset/*.md` file describing
+#      its impact + bump level.
+#   2. This workflow's `release` job opens (or updates) a "Version
+#      Packages" PR that consumes every pending changeset, bumps
+#      each affected package's version, and rewrites its CHANGELOG.
+#   3. Merging that PR re-fires this workflow; the `publish` step
+#      runs `changeset publish` which uploads every package whose
+#      version no longer matches what's on npm.
+#
+# Required repo secrets:
+#   NPM_TOKEN — npm automation token with publish access to the
+#               @glossa scope (and any other scopes used).
+#
+# OIDC + provenance: each package has `publishConfig.provenance:
+# true`, which makes npm verify the build came from this exact
+# workflow run + commit. Requires the `id-token: write` permission
+# on this workflow.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # let the action open the version PR
+  pull-requests: write
+  id-token: write   # required for npm publish --provenance
+
+concurrency:
+  group: release-packages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Version + publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: |
+          pnpm --filter @glossa/format build
+          pnpm --filter @glossa/sdk build
+          pnpm --filter @glossa/ui build
+          pnpm --filter @glossa/elements build
+          pnpm --filter @glossa/cli build
+
+      - uses: changesets/action@v1
+        id: changesets
+        with:
+          version: pnpm version-packages
+          publish: pnpm release
+          commit: "chore: version packages"
+          title: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

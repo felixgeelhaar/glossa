@@ -52,6 +52,9 @@
     "node": ">=22"
   },
   "publishConfig": {
-    "access": "public"
-  }
+    "access": "public",
+    "provenance": true
+  },
+  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/packages/cli#readme",
+  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
 }

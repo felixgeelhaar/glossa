@@ -27,7 +27,10 @@
     {
       "path": "dist/index.js",
       "limit": "10 KB",
-      "ignore": ["lit", "@lit/context"]
+      "ignore": [
+        "lit",
+        "@lit/context"
+      ]
     }
   ],
   "dependencies": {
@@ -62,6 +65,9 @@
     "node": ">=22"
   },
   "publishConfig": {
-    "access": "public"
-  }
+    "access": "public",
+    "provenance": true
+  },
+  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/packages/elements#readme",
+  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
 }

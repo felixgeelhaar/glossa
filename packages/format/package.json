@@ -1,7 +1,7 @@
 {
   "name": "@glossa/format",
   "version": "0.0.0",
-  "description": "ICU MessageFormat subset — variables, plurals, select, nesting. Backed by Intl.PluralRules; zero runtime deps.",
+  "description": "ICU MessageFormat subset \u2014 variables, plurals, select, nesting. Backed by Intl.PluralRules; zero runtime deps.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -54,6 +54,9 @@
     "node": ">=22"
   },
   "publishConfig": {
-    "access": "public"
-  }
+    "access": "public",
+    "provenance": true
+  },
+  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/packages/format#readme",
+  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
 }

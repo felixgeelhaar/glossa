@@ -34,10 +34,26 @@
   },
   "license": "MIT",
   "author": "Felix Geelhaar",
+  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/packages/ui#readme",
+  "bugs": "https://github.com/felixgeelhaar/glossa/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "directory": "packages/ui"
+  },
+  "keywords": [
+    "lit",
+    "web-components",
+    "design-system",
+    "ui",
+    "tokens",
+    "glossa"
+  ],
   "engines": {
     "node": ">=22"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   }
 }
