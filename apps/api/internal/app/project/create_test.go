@@ -10,8 +10,25 @@ import (
 	"github.com/google/uuid"
 
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 )
+
+// stubLocaleRepo captures Save calls so the test can assert the
+// default locale was seeded; nothing else is exercised here.
+type stubLocaleRepo struct {
+	saved []locale.Locale
+}
+
+func (r *stubLocaleRepo) Save(_ context.Context, l locale.Locale) error {
+	r.saved = append(r.saved, l)
+	return nil
+}
+func (r *stubLocaleRepo) ListForProject(context.Context, uuid.UUID) ([]locale.Locale, error) {
+	return nil, nil
+}
+func (r *stubLocaleRepo) SetEnabled(context.Context, uuid.UUID, bool) error { return nil }
+func (r *stubLocaleRepo) Delete(context.Context, uuid.UUID) error           { return nil }
 
 // inMemoryRepo is a test-only adapter so use-case tests don't reach
 // the DB. Lives in *_test.go per project convention (mirrors the
@@ -62,7 +79,7 @@ func (r *inMemoryRepo) RotateAPIKeyHash(_ context.Context, id uuid.UUID, hash []
 
 func TestCreateProject_ReturnsRawAPIKeyAndStoresHash(t *testing.T) {
 	repo := newInMemoryRepo()
-	uc := projectapp.NewCreateProject(repo)
+	uc := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
 
 	out, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		TenantID:      uuid.New(),
@@ -97,7 +114,7 @@ func TestCreateProject_ReturnsRawAPIKeyAndStoresHash(t *testing.T) {
 
 func TestCreateProject_DefaultsLocaleToDe(t *testing.T) {
 	repo := newInMemoryRepo()
-	uc := projectapp.NewCreateProject(repo)
+	uc := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
 
 	out, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		TenantID: uuid.New(),
@@ -112,9 +129,38 @@ func TestCreateProject_DefaultsLocaleToDe(t *testing.T) {
 	}
 }
 
+func TestCreateProject_SeedsDefaultLocaleRow(t *testing.T) {
+	repo := newInMemoryRepo()
+	locales := &stubLocaleRepo{}
+	uc := projectapp.NewCreateProject(repo, locales)
+
+	out, err := uc.Execute(context.Background(), projectapp.CreateInput{
+		TenantID:      uuid.New(),
+		Slug:          "brotwerk-site",
+		Name:          "Brotwerk",
+		DefaultLocale: "en-US",
+	})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(locales.saved) != 1 {
+		t.Fatalf("expected 1 locale seeded, got %d", len(locales.saved))
+	}
+	got := locales.saved[0]
+	if got.ProjectID != out.Project.ID {
+		t.Errorf("seeded locale.ProjectID = %s, want %s", got.ProjectID, out.Project.ID)
+	}
+	if got.Code.String() != "en-US" {
+		t.Errorf("seeded locale.Code = %q, want en-US", got.Code)
+	}
+	if !got.Enabled {
+		t.Error("seeded locale should be enabled by default")
+	}
+}
+
 func TestCreateProject_RejectsBlankTenantID(t *testing.T) {
 	repo := newInMemoryRepo()
-	uc := projectapp.NewCreateProject(repo)
+	uc := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
 
 	_, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		Slug: "x",
@@ -127,7 +173,7 @@ func TestCreateProject_RejectsBlankTenantID(t *testing.T) {
 
 func TestCreateProject_RejectsInvalidSlug(t *testing.T) {
 	repo := newInMemoryRepo()
-	uc := projectapp.NewCreateProject(repo)
+	uc := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
 
 	_, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		TenantID: uuid.New(),
@@ -142,7 +188,7 @@ func TestCreateProject_RejectsInvalidSlug(t *testing.T) {
 func TestCreateProject_PropagatesRepoFailure(t *testing.T) {
 	repo := newInMemoryRepo()
 	repo.saveOK = false
-	uc := projectapp.NewCreateProject(repo)
+	uc := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
 
 	_, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		TenantID: uuid.New(),

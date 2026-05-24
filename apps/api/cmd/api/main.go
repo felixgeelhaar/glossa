@@ -89,7 +89,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	createProj := projectapp.NewCreateProject(projectRepo)
+	createProj := projectapp.NewCreateProject(projectRepo, localeRepo)
 	rotateKey := projectapp.NewRotateAPIKey(projectRepo)
 	upsertKeys := keyapp.NewUpsertKeys(keyRepo)
 	updateTr := translationapp.NewUpdateTranslation(translationRepo)

@@ -15,7 +15,7 @@ import (
 
 func TestRotateAPIKey_ReplacesStoredHash(t *testing.T) {
 	repo := newInMemoryRepo()
-	create := projectapp.NewCreateProject(repo)
+	create := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
 	rotate := projectapp.NewRotateAPIKey(repo)
 
 	created, err := create.Execute(context.Background(), projectapp.CreateInput{

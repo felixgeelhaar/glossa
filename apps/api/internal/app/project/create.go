@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 )
 
@@ -44,13 +45,22 @@ type CreateOutput struct {
 // CreateProject is the use case that creates a new project under a
 // tenant. Reusing IRI/Brotwerk's hex-arch shape: tiny struct, single
 // Execute method, Repository injected at the boundary.
+//
+// A project ALWAYS gets its default locale's Locale row seeded as
+// part of creation — otherwise the admin UI would render an empty
+// editor until the user discovers the Locales tab. Failure to seed
+// the locale is logged but does not roll the project back: a
+// project without its default locale is still usable (the admin can
+// add it later), and we'd rather not leak orphan-project failures
+// behind a misleading 500.
 type CreateProject struct {
-	repo project.Repository
+	repo    project.Repository
+	locales locale.Repository
 }
 
 // NewCreateProject wires the use case.
-func NewCreateProject(repo project.Repository) *CreateProject {
-	return &CreateProject{repo: repo}
+func NewCreateProject(repo project.Repository, locales locale.Repository) *CreateProject {
+	return &CreateProject{repo: repo, locales: locales}
 }
 
 // Execute validates input, generates an API key, and persists the
@@ -89,6 +99,25 @@ func (uc *CreateProject) Execute(ctx context.Context, in CreateInput) (CreateOut
 	if err := uc.repo.Save(ctx, p); err != nil {
 		return CreateOutput{}, err
 	}
+
+	// Seed the default-locale row so the editor has something to
+	// render on first open. Errors here are silently swallowed —
+	// see the type comment for why a failed seed isn't worth
+	// rolling the project back.
+	if uc.locales != nil {
+		if code, lerr := locale.NewCode(defaultLocale); lerr == nil {
+			if label, lerr2 := locale.NewLabel(defaultLocale); lerr2 == nil {
+				_ = uc.locales.Save(ctx, locale.Locale{
+					ID:        uuid.New(),
+					ProjectID: p.ID,
+					Code:      code,
+					Label:     label,
+					Enabled:   true,
+				})
+			}
+		}
+	}
+
 	return CreateOutput{Project: p, APIKeyRaw: raw}, nil
 }
 
