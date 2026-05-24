@@ -1,129 +1,168 @@
 # Glossa
 
-> Cross-project translation management — REST API + Lit web components + own ICU subset.
+> Self-hosted, multi-tenant translation management. REST API + SSE live updates + Lit admin UI + optional AI translator agents.
 
-**Status**: planning. Build starts after IRI v0.2.0 stabilizes.
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
+![Postgres](https://img.shields.io/badge/Postgres-16-336791?logo=postgresql&logoColor=white)
+![Lit](https://img.shields.io/badge/Lit-3-324FFF?logo=lit&logoColor=white)
 
-## What
+Glossa is the translation-management backbone for [Brotwerk](https://brotwerk.felixgeelhaar.de), [IRI](https://github.com/felixgeelhaar/iri), and Kraftsport. One deployment, many tenants, end-to-end German-first but locale-agnostic.
 
-Translation management service that any project can consume:
+---
 
-- **Backend** (Go + Postgres) — REST + SSE; multi-tenant from day one
-- **Admin UI** (Lit + Vite) — translator interface
-- **Web components** (`@felixgeelhaar/glossa-elements`) — `<glossa-provider>`, `<glossa-text>`, `<glossa-rich>` drop into any framework (Vue, React, Svelte, Astro, plain HTML)
-- **ICU subset** (`@felixgeelhaar/glossa-format`, ~200 LOC) — vars + plurals via `Intl.PluralRules` + select + nesting. No `@formatjs/intl-messageformat` dependency.
-- **CLI** (`@felixgeelhaar/glossa-cli`) — `glossa init / scan / pull / push`
+## Features
 
-## Why
+- **Multi-tenant from day one.** Row-Level Security on every queryable table — a buggy handler that forgets `WHERE tenant_id = …` still cannot read across tenants. Tenancy is enforced via `SET LOCAL app.current_tenant` in a tx per request.
+- **REST + SSE.** Consumers fetch bundles over HTTP and subscribe to live updates over Server-Sent Events. Edit a key in the admin → connected clients render the new string within ~1s.
+- **Editorial lifecycle.** Translations move through `pending → ai_translated → needs_review → approved`. Status pills in the UI; status filter in the editor.
+- **AI translator agents (optional).** Configure OpenAI / Anthropic / Gemini / OpenAI-compatible endpoints per tenant. When a source-locale write lands, every other enabled locale gets an `ai_translated` row for reviewer approval. Existing approved / needs_review rows are never overwritten. API keys are AES-GCM encrypted at rest with `GLOSSA_SECRETS_KEY`.
+- **Email-first auth.** Login takes (email, password) — the tenant is inferred. Translators are scoped to specific locales; admins can do everything.
+- **Audit log.** Every translation mutation is recorded with before/after value, actor (`user` / `ai` / `system`), and timestamp.
+- **Design system.** `@glossa/ui` ships Lit primitives (`gl-button`, `gl-input`, `gl-select`, `gl-table`, `gl-badge`, …) with light/dark/system theming. The admin UI is built from those primitives.
+- **Bulk import / export.** Atomic upsert of full `{key: value}` bundles; per-row failures reported alongside successes.
+- **Diff view.** Per-locale untranslated + needs-review counts at a glance.
 
-IRI (sister project) just shipped 170+ files with hardcoded German strings. Adding EN / FR / IT requires re-editing all of them. Brotwerk + future projects face the same problem.
-
-Tolgee / Lokalise / Crowdin are options but:
-- Want cross-project translation memory in one place
-- Want full control over component API (Lit web components ship to any framework)
-- Want EU-hosted, MIT-licensed, self-controllable
-
-## Decisions locked (2026-05-23)
-
-| | |
-|---|---|
-| Repo | `github.com/felixgeelhaar/glossa` (private at start, public when stable) |
-| License | MIT |
-| Tenancy | Multi-tenant from day one |
-| Subdomain | TBD — `glossa.app` / `.io` / `.dev` all camped, alternative naming planned |
-| Build sequencing | IRI stabilization clears first, then Glossa kickoff |
+---
 
 ## Architecture
 
 ```
-┌─ Glossa Service ─────────────────────────────────┐
-│  Backend (Go + Postgres)                          │
-│   ├── REST API: projects, locales, keys, trans   │
-│   ├── SSE channel: live translation updates      │
-│   └── Optional: DeepL passthrough for MT drafts  │
-│                                                   │
-│  Admin UI (Lit + Vite, served at /admin)         │
-│   ├── Translator interface (key list, edit form) │
-│   ├── Project management                         │
-│   ├── Diff view (untranslated vs needs-review)   │
-│   └── Bulk import/export JSON                    │
-└───────────────────────────────────────────────────┘
-                │
-                │ HTTPS + SSE
-                ▼
-┌─ Glossa Lit Components (npm package) ────────────┐
-│  <glossa-provider>          // root: project +    │
-│                              // locale + api-url  │
-│  <glossa-text key="...">    // simple translation │
-│  <glossa-rich key="...">    // ICU MessageFormat  │
-│  <glossa-plural>            // plural variants    │
-│  <glossa-select>            // gender/select vars │
-│                                                   │
-│  Fallback rendering: slot content shown while     │
-│  loading or if key missing                        │
-└───────────────────────────────────────────────────┘
-                │
-                │ drops into any framework
-                ▼
-   ┌─────────┬─────────┬─────────┬─────────┐
-   │  IRI    │ Brotwerk│ Future1 │ Future2 │
-   │ Astro+V │  Astro  │  Next   │  Svelte │
-   └─────────┴─────────┴─────────┴─────────┘
+┌─ Glossa Service ──────────────────────────────────────┐
+│                                                        │
+│  apps/api  (Go + pgx/v5 + sqlc + gin)                  │
+│   ├── REST: projects / locales / keys / translations   │
+│   ├── SSE: live translation updates per (project,tnt)  │
+│   ├── Auth: JWT (admin SPA) + API key (consumer SDK)   │
+│   └── AI fan-out: source-locale write → N targets      │
+│                                                        │
+│  apps/admin  (Lit + Vite + @glossa/ui)                 │
+│   ├── Editor / Bulk / Diff / Locales / Users           │
+│   ├── AI translation (provider config + test)          │
+│   └── Audit log                                        │
+│                                                        │
+│  packages/ui  (Lit primitives + tokens)                │
+│                                                        │
+└────────────────────────────────────────────────────────┘
+                       │
+                       │ HTTPS + SSE
+                       ▼
+        ┌─────────────┬──────────────┬─────────────┐
+        │  Brotwerk   │     IRI      │  Kraftsport │
+        │   Astro     │  Astro+Vue   │     TBD     │
+        └─────────────┴──────────────┴─────────────┘
 ```
 
-## Monorepo layout (pnpm workspaces)
+---
+
+## Quick start (Docker)
+
+```bash
+git clone https://github.com/felixgeelhaar/glossa
+cd glossa
+docker compose up --build
+```
+
+Boots Postgres 16, runs migrations, starts the API, and serves the admin at <http://localhost:5173>. The first run bootstraps a `demo` tenant with admin `felix@example.com` / `hunter2hunter2`.
+
+To enable the AI translator, the dev compose file already provides a non-secret `GLOSSA_SECRETS_KEY`. Add a provider in the **AI translation** tab and any source-locale (project default) write will fan out.
+
+---
+
+## Project layout
 
 ```
 glossa/
 ├── apps/
-│   ├── api/                    # Go service (REST + SSE + admin auth)
-│   └── admin/                  # Lit admin UI
+│   ├── api/                    # Go service: hex arch (domain → app → interfaces → infra)
+│   │   ├── cmd/api/            # binary entry
+│   │   ├── db/migrations/      # numbered SQL migrations (run via `migrate`)
+│   │   ├── db/queries/         # sqlc input
+│   │   └── internal/
+│   │       ├── domain/         # aggregates + repository ports
+│   │       ├── app/            # use cases (per-feature subpackage)
+│   │       ├── interfaces/     # gin handlers
+│   │       └── infra/          # sqlc adapter, AES-GCM secrets, AI clients
+│   └── admin/                  # Lit SPA, served by nginx in compose
 ├── packages/
-│   ├── elements/               # @felixgeelhaar/glossa-elements
-│   ├── format/                 # @felixgeelhaar/glossa-format (ICU subset)
-│   ├── sdk/                    # @felixgeelhaar/glossa-sdk (plain JS)
-│   └── cli/                    # @felixgeelhaar/glossa-cli
-├── deploy/k3s/                 # k3s manifests (mirror IRI patterns)
-├── .github/workflows/release.yml
-├── docs/
-│   ├── design.md               # full design doc (see /docs)
-│   ├── adr/0001-monorepo.md
-│   ├── adr/0002-icu-subset.md
-│   ├── adr/0003-lit-components.md
-│   └── api.md
-├── pnpm-workspace.yaml
-└── README.md
+│   └── ui/                     # @glossa/ui — design system primitives
+├── deploy/k3s/                 # k3s manifests + Helm-free kustomize bases
+├── docs/                       # design doc + ADRs
+└── docker-compose.yml          # one-command dev stack
 ```
 
-## 10-day MVP plan
+---
 
-| Day | Work |
+## API surface (v1)
+
+### Consumer (API-key Bearer)
+| Method | Path | Purpose |
+|---|---|---|
+| `GET`  | `/api/v1/projects/:slug/locales/:locale/messages` | Bundle export |
+| `GET`  | `/api/v1/projects/:slug/sse` | Live updates |
+| `PATCH`| `/api/v1/projects/:slug/locales/:locale/keys/:key` | Update a translation |
+| `POST` | `/api/v1/projects/:slug/keys:scan` | Idempotent key seeding |
+
+### Admin (JWT)
+| Method | Path | Role |
+|---|---|---|
+| `GET / POST`   | `/api/v1/admin/projects` | admin |
+| `GET / PATCH`  | `/api/v1/admin/projects/:slug/locales/...` | translator + admin |
+| `POST`         | `/api/v1/admin/projects/:slug/locales/:locale/bulk` | admin |
+| `GET / POST / PATCH / DELETE` | `/api/v1/admin/users` | admin |
+| `GET / POST / PATCH / DELETE` | `/api/v1/admin/ai-providers` | admin |
+| `POST`         | `/api/v1/admin/ai-providers/:id/test` | admin |
+| `GET`          | `/api/v1/admin/audit` | admin |
+
+---
+
+## Security
+
+- API keys (tenant-scoped) are stored as SHA-256 hashes; comparison is constant-time at the driver level (Postgres byte equality on fixed-length BYTEA).
+- AI provider credentials are AES-256-GCM encrypted per-row with a fresh 12-byte nonce. The master key (`GLOSSA_SECRETS_KEY`, 64-char hex) lives in env only; plaintext lives in process memory just long enough to call the upstream LLM.
+- Login is rate-limited (5 req/min per IP, burst 10) to defend bcrypt against brute force.
+- All authed requests run inside a transaction with `SET LOCAL app.current_tenant` — RLS policies on every table enforce isolation.
+
+---
+
+## Development
+
+```bash
+# Backend
+cd apps/api
+go test ./...
+sqlc generate
+
+# Admin SPA
+cd apps/admin
+pnpm install
+pnpm dev   # http://localhost:5173 against running compose api
+
+# Design system
+cd packages/ui
+pnpm build
+```
+
+---
+
+## Roadmap
+
+| Status | Item |
 |---|---|
-| 1 | Repo scaffold + pnpm workspace + 3 ADRs (monorepo / ICU subset / Lit choice) |
-| 2 | `packages/format` — ICU subset parser + tests (vars / plurals via `Intl.PluralRules` / select / nesting) |
-| 3 | `packages/sdk` — fetch client + in-memory cache + SSE subscriber |
-| 4 | `packages/elements` — `<glossa-provider>` + `<glossa-text>` + `<glossa-rich>` |
-| 5 | Go API — Postgres schema (multi-tenant), REST endpoints, JWT |
-| 6 | Go API — SSE channel + Redis fanout |
-| 7 | `apps/admin` — translator UI (login, key list, edit modal, locale switcher) |
-| 8 | `packages/cli` — `glossa init / scan / pull / push` |
-| 9 | k3s deploy + GH Actions release (mirror IRI patterns) |
-| 10 | Wire IRI as first consumer — replace ~20 strings, verify end-to-end |
+| ✅ shipped | Multi-tenant API + Postgres schema + RLS |
+| ✅ shipped | Admin SPA + design system + dark mode |
+| ✅ shipped | Email-first login + tenant inference |
+| ✅ shipped | AI translator agents (OpenAI / Anthropic / Gemini) |
+| ✅ shipped | SSE live updates |
+| ✅ shipped | Audit log + actor attribution |
+| 🚧 next   | `packages/sdk` + `packages/elements` + `packages/cli` for consumer apps |
+| 🚧 next   | AI backfill button (translate every missing key in one pass) |
+| 🚧 next   | Translation memory across projects in a tenant |
+| 🔭 later  | DeepL passthrough as an alternative provider kind |
+| 🔭 later  | Plurals editor in admin (visual ICU builder) |
 
-## Sequencing
+---
 
-- **Blocked by**: IRI v0.2.0 stabilization (currently in production, awaiting BVDG-coach pilot feedback)
-- **Blocks**: i18n framework introduction to IRI (Roady #52) — that work absorbs into Glossa adoption
-- **Blocks**: bespoke API error sweep in IRI (Roady #53) — done as part of Glossa rollout
+## License
 
-## Open questions
-
-- Brand name / domain — `glossa` is the working name; all primary `.app/.io/.dev` TLDs camped. Alternative names on hunt list.
-- Translator workflow — initial: manual git + admin UI edits. Post-MVP: Tolgee-style sync API for external translator tools.
-- Machine translation passthrough — DeepL is the obvious EU pick; defer to post-MVP.
-- Plurals editor in admin UI — visual ICU MessageFormat builder vs raw textarea. Raw for MVP.
-
-## See also
-
-- `docs/design.md` — full system design (long-form)
-- Roady features #52, #53 (in IRI repo backlog) — track downstream work this enables
+[MIT](LICENSE)
