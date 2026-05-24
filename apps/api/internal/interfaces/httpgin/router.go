@@ -103,13 +103,13 @@ func New(d Deps) *gin.Engine {
 	authed.Use(apiKeyAuth(d.ProjectRepo))
 	authed.Use(rlsTxMiddleware(d.Pool))
 	{
-		authed.GET("/locales", handleListLocales(d.Locales))
-		authed.POST("/locales", handleCreateLocale(d.Locales))
-		authed.POST("/keys:scan", handleScanKeys(d.UpsertKeys))
+		authed.GET("/locales", handleListLocales(d.ProjectRepo, d.Locales))
+		authed.POST("/locales", handleCreateLocale(d.ProjectRepo, d.Locales))
+		authed.POST("/keys:scan", handleScanKeys(d.ProjectRepo, d.UpsertKeys))
 		authed.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
 		authed.PATCH("/locales/:locale/keys/:key",
 			handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits))
-		authed.POST("/api-keys", handleRotateAPIKey(d.RotateKey))
+		authed.POST("/api-keys", handleRotateAPIKey(d.ProjectRepo, d.RotateKey))
 		authed.GET("/sse", handleSSE(d.Hub, 0))
 	}
 
@@ -132,7 +132,7 @@ func New(d Deps) *gin.Engine {
 		// internally); admin-only ops are nested under requireAdmin.
 		proj := admin.Group("/projects/:slug")
 		{
-			proj.GET("/locales", handleListLocales(d.Locales))
+			proj.GET("/locales", handleListLocales(d.ProjectRepo, d.Locales))
 			proj.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
 			proj.PATCH("/locales/:locale/keys/:key",
 				handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits))
@@ -140,14 +140,17 @@ func New(d Deps) *gin.Engine {
 
 			adminOnly := proj.Group("")
 			adminOnly.Use(requireAdmin())
-			adminOnly.POST("/locales", handleCreateLocale(d.Locales))
-			adminOnly.PATCH("/locales/:id", handleSetLocaleEnabled(d.Locales))
-			adminOnly.DELETE("/locales/:id", handleDeleteLocale(d.Locales))
-			adminOnly.POST("/keys:scan", handleScanKeys(d.UpsertKeys))
+			adminOnly.POST("/locales", handleCreateLocale(d.ProjectRepo, d.Locales))
+			// Same wildcard name (`:locale`) as the bundle path so
+			// gin's trie doesn't reject the route group. The
+			// handler parses the value as a UUID.
+			adminOnly.PATCH("/locales/:locale/enabled", handleSetLocaleEnabled(d.Locales))
+			adminOnly.DELETE("/locales/:locale", handleDeleteLocale(d.Locales))
+			adminOnly.POST("/keys:scan", handleScanKeys(d.ProjectRepo, d.UpsertKeys))
 			adminOnly.POST("/locales/:locale/bulk",
 				handleBulkImport(d.ProjectRepo, d.Locales, d.UpsertKeys, d.Keys, d.UpdateTr, d.Translations, d.Hub, d.Audits))
 			adminOnly.GET("/diff", handleBundleDiff(d.ProjectRepo, d.Locales, d.ListBundle))
-			adminOnly.POST("/api-keys", handleRotateAPIKey(d.RotateKey))
+			adminOnly.POST("/api-keys", handleRotateAPIKey(d.ProjectRepo, d.RotateKey))
 		}
 
 		// Tenant-level admin endpoints.

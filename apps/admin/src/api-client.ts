@@ -110,7 +110,7 @@ export function adminClient(cfg: AdminClientConfig) {
         body: JSON.stringify(input),
       }),
     setLocaleEnabled: (slug: string, id: string, enabled: boolean) =>
-      req(`/projects/${encodeURIComponent(slug)}/locales/${id}`, {
+      req(`/projects/${encodeURIComponent(slug)}/locales/${id}/enabled`, {
         method: "PATCH",
         body: JSON.stringify({ enabled }),
       }),

@@ -93,7 +93,11 @@ export class GlossaAdmin extends LitElement {
     loginError: { state: true },
   };
 
-  public apiUrl: string = (typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_API_URL)) || "http://localhost:8080";
+  // Default to same-origin (empty string). The api-client emits
+  // relative `/api/v1/...` URLs which the browser resolves against
+  // the page origin — works behind the production Traefik ingress
+  // and the docker-compose nginx proxy without CORS plumbing.
+  public apiUrl: string = (typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_API_URL)) || "";
   public auth: AuthState | null = loadAuth();
   public projects: ProjectRow[] = [];
   public activeProject: ProjectRow | null = null;

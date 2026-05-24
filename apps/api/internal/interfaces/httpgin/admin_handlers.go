@@ -26,7 +26,7 @@ func handleSetLocaleEnabled(repo locale.Repository) gin.HandlerFunc {
 		Enabled bool `json:"enabled"`
 	}
 	return func(c *gin.Context) {
-		id, err := uuid.Parse(c.Param("id"))
+		id, err := uuid.Parse(c.Param("locale"))
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid locale id"})
 			return
@@ -46,7 +46,7 @@ func handleSetLocaleEnabled(repo locale.Repository) gin.HandlerFunc {
 
 func handleDeleteLocale(repo locale.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := uuid.Parse(c.Param("id"))
+		id, err := uuid.Parse(c.Param("locale"))
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid locale id"})
 			return

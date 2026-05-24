@@ -94,7 +94,10 @@ func Bootstrap(
 		Email:        email,
 		PasswordHash: hash,
 		Role:         user.RoleAdmin,
-		Locales:      nil,
+		// users.locales is NOT NULL DEFAULT '{}'; pgx encodes a
+		// nil Go slice as NULL, which violates the constraint.
+		// Empty []string round-trips as the empty array literal.
+		Locales: []string{},
 	})
 	if err != nil {
 		return BootstrapNoop, fmt.Errorf("bootstrap save admin: %w", err)

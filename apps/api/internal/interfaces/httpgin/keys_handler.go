@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 )
 
 type scanKeysReq struct {
@@ -20,9 +21,13 @@ type keyScanRow struct {
 // handleScanKeys is the batch UPSERT endpoint the CLI's `glossa scan`
 // command targets. Per-row errors are returned alongside per-row
 // successes so the CLI can map them back to source locations.
-func handleScanKeys(uc *keyapp.UpsertKeys) gin.HandlerFunc {
+func handleScanKeys(projects project.Repository, uc *keyapp.UpsertKeys) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		p := authedProject(c)
+		p, err := resolveProject(c, projects)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			return
+		}
 		var req scanKeysReq
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
