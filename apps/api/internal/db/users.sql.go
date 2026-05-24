@@ -126,6 +126,44 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	return i, err
 }
 
+const listTenantsForEmail = `-- name: ListTenantsForEmail :many
+SELECT t.id, t.slug, t.name
+FROM users u
+JOIN tenants t ON t.id = u.tenant_id
+WHERE u.email = $1
+ORDER BY t.name
+`
+
+type ListTenantsForEmailRow struct {
+	ID   pgtype.UUID `json:"id"`
+	Slug string      `json:"slug"`
+	Name string      `json:"name"`
+}
+
+// Email-first login discovery: given an email, return every
+// tenant the user has an account in. Empty result = "no such
+// user OR no memberships" — the handler treats both identically
+// to deny user-enumeration probes.
+func (q *Queries) ListTenantsForEmail(ctx context.Context, email string) ([]ListTenantsForEmailRow, error) {
+	rows, err := q.db.Query(ctx, listTenantsForEmail, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTenantsForEmailRow
+	for rows.Next() {
+		var i ListTenantsForEmailRow
+		if err := rows.Scan(&i.ID, &i.Slug, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUsersForTenant = `-- name: ListUsersForTenant :many
 SELECT id, tenant_id, email, role, locales, created_at
 FROM users

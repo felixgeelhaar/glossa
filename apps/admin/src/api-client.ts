@@ -144,7 +144,26 @@ export function adminClient(cfg: AdminClientConfig) {
   };
 }
 
-/** Plain POST /api/v1/auth/login — unauthenticated, separate from adminClient. */
+/** Tenant entry returned by /auth/discover. */
+export interface TenantOption {
+  slug: string;
+  name: string;
+}
+
+/** POST /api/v1/auth/discover — returns tenants the email belongs to. */
+export async function discoverTenants(apiUrl: string, email: string): Promise<TenantOption[]> {
+  const base = apiUrl.replace(/\/+$/, "");
+  const res = await fetch(base + "/api/v1/auth/discover", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new ApiError(res.statusText, res.status);
+  const body = (await res.json()) as { tenants: TenantOption[] };
+  return body.tenants ?? [];
+}
+
+/** POST /api/v1/auth/login — exchange (tenant, email, password) for a JWT. */
 export async function login(apiUrl: string, tenantSlug: string, email: string, password: string): Promise<AuthState> {
   const base = apiUrl.replace(/\/+$/, "");
   const res = await fetch(base + "/api/v1/auth/login", {

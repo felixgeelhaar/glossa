@@ -129,3 +129,22 @@ func (r *UserRepo) CountAdmins(ctx context.Context, tenantID uuid.UUID) (int64, 
 	q := db.QueriesFromContext(ctx, r.q)
 	return q.CountAdminsInTenant(ctx, toPgUUID(tenantID))
 }
+
+func (r *UserRepo) ListTenantsForEmail(ctx context.Context, email string) ([]user.TenantMembership, error) {
+	// Discovery runs BEFORE any auth, so RLS isn't active yet —
+	// always use the pool-direct Queries to bypass the (nil)
+	// app.current_tenant.
+	rows, err := r.q.ListTenantsForEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]user.TenantMembership, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, user.TenantMembership{
+			TenantID:   fromPgUUID(row.ID),
+			TenantSlug: row.Slug,
+			TenantName: row.Name,
+		})
+	}
+	return out, nil
+}

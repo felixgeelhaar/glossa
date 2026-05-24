@@ -56,6 +56,7 @@ type Deps struct {
 	UpdateTr   *translationapp.UpdateTranslation
 	ListBundle *translationapp.ListBundle
 	Login      *authapp.Login
+	Discover   *authapp.DiscoverTenants
 
 	// Hub fans translation.updated events from PATCH handlers to
 	// SSE subscribers. Single instance per process; swap for a
@@ -97,6 +98,13 @@ func New(d Deps) *gin.Engine {
 	}
 	loginHandlers = append(loginHandlers, handleLogin(d.Login, d.Tenants))
 	v1.POST("/auth/login", loginHandlers...)
+
+	discoverHandlers := []gin.HandlerFunc{}
+	if d.LoginLimit != nil {
+		discoverHandlers = append(discoverHandlers, rateLimitMiddleware(d.LoginLimit))
+	}
+	discoverHandlers = append(discoverHandlers, handleDiscoverTenants(d.Discover))
+	v1.POST("/auth/discover", discoverHandlers...)
 
 	// ── API-key authed (consumer / CLI / SDK) ────────────────────
 	authed := v1.Group("/projects/:slug")

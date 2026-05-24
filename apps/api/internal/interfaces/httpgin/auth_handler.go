@@ -11,6 +11,35 @@ import (
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/tenant"
 )
 
+type discoverReq struct {
+	Email string `json:"email" binding:"required"`
+}
+
+// handleDiscoverTenants — POST /api/v1/auth/discover.
+//
+// Two-step login UX: the SPA prompts for email + password, calls
+// this endpoint, and decides whether to auto-pick the tenant
+// (single match), show a tenant picker (multiple), or surface
+// "no account" (empty). Never differentiates "email unknown"
+// from "email present with zero memberships" — both return `[]`
+// to deny user-enumeration probes. Same per-IP rate limit as
+// /auth/login.
+func handleDiscoverTenants(uc *authapp.DiscoverTenants) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req discoverReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		opts, err := uc.Execute(c.Request.Context(), req.Email)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"tenants": opts})
+	}
+}
+
 type loginReq struct {
 	TenantSlug string `json:"tenantSlug" binding:"required"`
 	Email      string `json:"email" binding:"required"`

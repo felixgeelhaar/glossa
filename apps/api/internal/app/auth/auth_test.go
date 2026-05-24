@@ -41,6 +41,9 @@ func (f *fakeUserRepo) Delete(ctx context.Context, id uuid.UUID) error { return 
 func (f *fakeUserRepo) CountAdmins(ctx context.Context, tenantID uuid.UUID) (int64, error) {
 	return 0, nil
 }
+func (f *fakeUserRepo) ListTenantsForEmail(ctx context.Context, email string) ([]user.TenantMembership, error) {
+	return nil, nil
+}
 
 func TestHMACIssuer_RoundTrip(t *testing.T) {
 	iss, err := auth.NewHMACIssuer([]byte("01234567890123456789012345678901"), "glossa", time.Hour)

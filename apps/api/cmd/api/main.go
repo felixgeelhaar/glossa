@@ -72,6 +72,7 @@ func main() {
 	updateTr := translationapp.NewUpdateTranslation(translationRepo)
 	listBundle := translationapp.NewListBundle(translationRepo)
 	login := authapp.NewLogin(userRepo, issuer)
+	discover := authapp.NewDiscoverTenants(userRepo)
 
 	if cfg.BootstrapTenantSlug != "" {
 		action, err := authapp.Bootstrap(context.Background(), tenantRepo, userRepo, authapp.BootstrapInput{
@@ -119,6 +120,7 @@ func main() {
 		UpdateTr:   updateTr,
 		ListBundle: listBundle,
 		Login:      login,
+		Discover:   discover,
 		Hub:        hub,
 		JWTIssuer:  issuer,
 

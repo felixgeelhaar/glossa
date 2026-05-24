@@ -35,3 +35,14 @@ DELETE FROM users WHERE id = $1;
 
 -- name: CountAdminsInTenant :one
 SELECT COUNT(*) FROM users WHERE tenant_id = $1 AND role = 'admin';
+
+-- name: ListTenantsForEmail :many
+-- Email-first login discovery: given an email, return every
+-- tenant the user has an account in. Empty result = "no such
+-- user OR no memberships" — the handler treats both identically
+-- to deny user-enumeration probes.
+SELECT t.id, t.slug, t.name
+FROM users u
+JOIN tenants t ON t.id = u.tenant_id
+WHERE u.email = $1
+ORDER BY t.name;

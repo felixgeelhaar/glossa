@@ -7,7 +7,14 @@ import { LitElement, css, html } from "lit";
 import "@glossa/ui";
 import type { GlTabs } from "@glossa/ui";
 
-import { adminClient, login, type AuthState, type ProjectRow } from "./api-client.js";
+import {
+  adminClient,
+  discoverTenants,
+  login,
+  type AuthState,
+  type ProjectRow,
+  type TenantOption,
+} from "./api-client.js";
 
 const STORAGE_AUTH = "glossa-admin-auth-v2";
 const STORAGE_API_URL = "glossa-admin-api-url-v2";
@@ -68,6 +75,10 @@ export class GlossaAdmin extends LitElement {
     activeProject: { state: true },
     tab: { state: true },
     loginError: { state: true },
+    loginEmail: { state: true },
+    loginPassword: { state: true },
+    discoveredTenants: { state: true },
+    discoverPending: { state: true },
   };
 
   public apiUrl: string = (typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_API_URL)) || "";
@@ -76,6 +87,14 @@ export class GlossaAdmin extends LitElement {
   public activeProject: ProjectRow | null = null;
   public tab: Tab = "editor";
   public loginError = "";
+
+  // Two-step login state. The user types email + password, the SPA
+  // calls /auth/discover, and either auto-issues a /auth/login on
+  // the single match or shows a tenant picker.
+  public loginEmail = "";
+  public loginPassword = "";
+  public discoveredTenants: TenantOption[] | null = null;
+  public discoverPending = false;
 
   public fetchImpl: typeof fetch | undefined;
 
@@ -103,19 +122,44 @@ export class GlossaAdmin extends LitElement {
     this.requestUpdate();
   }
 
-  private async onLogin(e: Event): Promise<void> {
+  private async onSubmitCredentials(e: Event): Promise<void> {
     e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const fd = new FormData(form);
+    if (!this.loginEmail || !this.loginPassword) {
+      this.loginError = "email and password required";
+      this.requestUpdate();
+      return;
+    }
+    this.discoverPending = true;
+    this.loginError = "";
+    this.requestUpdate();
     try {
-      this.auth = await login(
-        this.apiUrl,
-        String(fd.get("tenant") ?? ""),
-        String(fd.get("email") ?? ""),
-        String(fd.get("password") ?? ""),
-      );
+      const tenants = await discoverTenants(this.apiUrl, this.loginEmail);
+      if (tenants.length === 0) {
+        this.loginError = "no account with that email";
+        this.discoveredTenants = null;
+      } else if (tenants.length === 1) {
+        // Single tenant: skip the picker.
+        await this.completeLogin(tenants[0]!.slug);
+      } else {
+        // Multiple tenants: render the picker.
+        this.discoveredTenants = tenants;
+      }
+    } catch (err) {
+      this.loginError = (err as Error).message || "login failed";
+    } finally {
+      this.discoverPending = false;
+      this.requestUpdate();
+    }
+  }
+
+  private async completeLogin(tenantSlug: string): Promise<void> {
+    try {
+      this.auth = await login(this.apiUrl, tenantSlug, this.loginEmail, this.loginPassword);
       localStorage.setItem(STORAGE_AUTH, JSON.stringify(this.auth));
       localStorage.setItem(STORAGE_API_URL, this.apiUrl);
+      this.loginEmail = "";
+      this.loginPassword = "";
+      this.discoveredTenants = null;
       this.loginError = "";
       await this.afterLogin();
     } catch (err) {
@@ -171,11 +215,16 @@ export class GlossaAdmin extends LitElement {
   }
 
   private renderLogin() {
+    // Multi-tenant picker takes over once /discover returns more
+    // than one match. Until then, just email + password.
+    if (this.discoveredTenants && this.discoveredTenants.length > 1) {
+      return this.renderTenantPicker(this.discoveredTenants);
+    }
     return html`
       <div class="page">
         <gl-card class="login-card">
           <div slot="header">Sign in to Glossa</div>
-          <form @submit=${(e: Event) => void this.onLogin(e)} class="login-fields">
+          <form @submit=${(e: Event) => void this.onSubmitCredentials(e)} class="login-fields">
             <gl-input
               label="API URL"
               type="url"
@@ -185,12 +234,71 @@ export class GlossaAdmin extends LitElement {
                 this.apiUrl = e.detail.value;
               }}
             ></gl-input>
-            <gl-input label="Tenant" name="tenant" required autocomplete="organization"></gl-input>
-            <gl-input label="Email" name="email" type="email" required autocomplete="username"></gl-input>
-            <gl-input label="Password" name="password" type="password" required autocomplete="current-password"></gl-input>
-            <gl-button variant="primary" type="submit">Sign in</gl-button>
+            <gl-input
+              label="Email"
+              type="email"
+              required
+              autocomplete="username"
+              .value=${this.loginEmail}
+              @gl-input=${(e: CustomEvent<{ value: string }>) => {
+                this.loginEmail = e.detail.value;
+              }}
+            ></gl-input>
+            <gl-input
+              label="Password"
+              type="password"
+              required
+              autocomplete="current-password"
+              .value=${this.loginPassword}
+              @gl-input=${(e: CustomEvent<{ value: string }>) => {
+                this.loginPassword = e.detail.value;
+              }}
+            ></gl-input>
+            <gl-button variant="primary" type="submit" ?disabled=${this.discoverPending}>
+              ${this.discoverPending ? "Checking…" : "Continue"}
+            </gl-button>
             ${this.loginError ? html`<div class="err" role="alert">${this.loginError}</div>` : null}
           </form>
+        </gl-card>
+      </div>
+    `;
+  }
+
+  private renderTenantPicker(tenants: TenantOption[]) {
+    return html`
+      <div class="page">
+        <gl-card class="login-card">
+          <div slot="header">Pick a workspace</div>
+          <div class="login-fields">
+            <p style="color: var(--gl-text-muted); font-size: var(--gl-text-md); margin: 0;">
+              ${this.loginEmail} is in multiple Glossa tenants. Choose one to continue.
+            </p>
+            ${tenants.map(
+              (t) => html`
+                <gl-button
+                  variant="outline"
+                  @click=${() => void this.completeLogin(t.slug)}
+                >
+                  ${t.name}
+                  <span style="opacity: 0.6; font-family: var(--gl-font-mono); font-size: var(--gl-text-xs);">
+                    ${t.slug}
+                  </span>
+                </gl-button>
+              `,
+            )}
+            <gl-button
+              variant="ghost"
+              size="sm"
+              @click=${() => {
+                this.discoveredTenants = null;
+                this.loginError = "";
+                this.requestUpdate();
+              }}
+            >
+              ← Back
+            </gl-button>
+            ${this.loginError ? html`<div class="err" role="alert">${this.loginError}</div>` : null}
+          </div>
         </gl-card>
       </div>
     `;
