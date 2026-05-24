@@ -138,7 +138,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     environment:
       name: production
-      url: https://glossa.app
+      url: https://glossa.felixgeelhaar.de
     steps:
       - uses: actions/checkout@v4
       - name: Connect to Tailscale
@@ -203,8 +203,8 @@ jobs:
             echo "$label: failed after 5 attempts (last code $code)"
             return 1
           }
-          if ! check "https://glossa.app/api/healthz" "api" || \
-             ! check "https://glossa.app/" "admin"; then
+          if ! check "https://glossa.felixgeelhaar.de/api/healthz" "api" || \
+             ! check "https://glossa.felixgeelhaar.de/" "admin"; then
             echo "Smoke failed — rolling back"
             ssh -o StrictHostKeyChecking=accept-new \
                 -o UserKnownHostsFile=/tmp/known_hosts \

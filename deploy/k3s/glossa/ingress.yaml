@@ -1,8 +1,12 @@
 # Traefik IngressRoute. Routing contract:
 #
-#   /api/*           → api service :8080
-#   everything else  → admin service :80
-#   www.glossa.app   → 308 redirect to apex
+#   /api/*                           → api service :8080
+#   everything else                  → admin service :80
+#   www.glossa.felixgeelhaar.de      → 308 redirect to apex
+#
+# Host: glossa.felixgeelhaar.de — a subdomain of the existing
+# felixgeelhaar.de zone, so no new TLD purchase is needed. Point
+# the A record at edge-1's public IP (same node Brotwerk lives on).
 #
 # TLS via cert-manager. Until staging is green flip issuerRef to
 # letsencrypt-staging to avoid burning Let's Encrypt prod quota.
@@ -17,8 +21,8 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-    - glossa.app
-    - www.glossa.app
+    - glossa.felixgeelhaar.de
+    - www.glossa.felixgeelhaar.de
 ---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
@@ -27,8 +31,8 @@ metadata:
   namespace: glossa
 spec:
   redirectRegex:
-    regex: ^https://www\.glossa\.app/(.*)
-    replacement: https://glossa.app/${1}
+    regex: ^https://www\.glossa\.felixgeelhaar\.de/(.*)
+    replacement: https://glossa.felixgeelhaar.de/${1}
     permanent: true
 ---
 apiVersion: traefik.io/v1alpha1
@@ -48,7 +52,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`www.glossa.app`)
+    - match: Host(`www.glossa.felixgeelhaar.de`)
       kind: Rule
       priority: 100
       middlewares:
@@ -56,7 +60,7 @@ spec:
       services:
         - name: admin
           port: 80
-    - match: Host(`glossa.app`) && PathPrefix(`/api`)
+    - match: Host(`glossa.felixgeelhaar.de`) && PathPrefix(`/api`)
       kind: Rule
       priority: 50
       middlewares:
@@ -64,7 +68,7 @@ spec:
       services:
         - name: api
           port: 8080
-    - match: Host(`glossa.app`)
+    - match: Host(`glossa.felixgeelhaar.de`)
       kind: Rule
       priority: 10
       middlewares:
@@ -86,7 +90,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: (Host(`glossa.app`) || Host(`www.glossa.app`)) && !PathPrefix(`/.well-known/acme-challenge/`)
+    - match: (Host(`glossa.felixgeelhaar.de`) || Host(`www.glossa.felixgeelhaar.de`)) && !PathPrefix(`/.well-known/acme-challenge/`)
       kind: Rule
       middlewares:
         - name: https-redirect

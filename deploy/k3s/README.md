@@ -37,8 +37,8 @@ kubectl apply -k deploy/k3s/glossa
    `kubectl rollout undo` if the new pod doesn't become Ready
    (covers bad migrations — the `migrate` initContainer fails
    visibly).
-4. HTTP smoke-tests `https://glossa.app/api/healthz` and
-   `https://glossa.app/`; on failure, also auto-rolls-back.
+4. HTTP smoke-tests `https://glossa.felixgeelhaar.de/api/healthz` and
+   `https://glossa.felixgeelhaar.de/`; on failure, also auto-rolls-back.
 
 ## Manual rollback
 
