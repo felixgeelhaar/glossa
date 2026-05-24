@@ -86,6 +86,12 @@ type Deps struct {
 	// Sealer encrypts/decrypts at-rest provider credentials. Required
 	// only when AIProviders is wired; otherwise leave nil.
 	Sealer Sealer
+
+	// CORSOrigins lists the cross-origin browser callers allowed to
+	// hit the API. Empty = "*" (any origin) — fine for the API-key
+	// protected surface, since auth is Bearer-only and no cookies
+	// cross the boundary. Pin once you know which consumers you serve.
+	CORSOrigins []string
 }
 
 // Sealer is the local view of the secrets port that AI provider
@@ -103,6 +109,7 @@ func New(d Deps) *gin.Engine {
 
 	r.Use(gin.Recovery())
 	r.Use(slogMiddleware(d.Logger))
+	r.Use(corsMiddleware(d.CORSOrigins))
 	if d.GlobalLimit != nil {
 		r.Use(rateLimitMiddleware(d.GlobalLimit))
 	}

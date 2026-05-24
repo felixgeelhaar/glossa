@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strings"
 )
 
 // Config is the resolved environment shape.
@@ -21,6 +22,12 @@ type Config struct {
 	// (AES-GCM). Required as 64-char hex if any AI translation
 	// provider is configured; otherwise optional.
 	SecretsKeyHex string
+
+	// CORS origins for cross-origin browser callers. Comma-separated
+	// list in env. Empty = "*" (any origin), safe for the API-key
+	// surface since auth is Bearer + no cookies. Pin once you know
+	// who you serve.
+	CORSOrigins []string
 
 	// Admin bootstrap. All four are optional; if BootstrapTenantSlug
 	// is empty, the bootstrap step is skipped entirely.
@@ -49,6 +56,8 @@ func Load() (Config, error) {
 
 		SecretsKeyHex: os.Getenv("GLOSSA_SECRETS_KEY"),
 
+		CORSOrigins: parseCSV(os.Getenv("GLOSSA_CORS_ORIGINS")),
+
 		BootstrapTenantSlug:    os.Getenv("BOOTSTRAP_TENANT_SLUG"),
 		BootstrapTenantName:    os.Getenv("BOOTSTRAP_TENANT_NAME"),
 		BootstrapAdminEmail:    os.Getenv("BOOTSTRAP_ADMIN_EMAIL"),
@@ -68,4 +77,18 @@ func envDefault(k, def string) string {
 		return v
 	}
 	return def
+}
+
+func parseCSV(v string) []string {
+	if v == "" {
+		return nil
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }

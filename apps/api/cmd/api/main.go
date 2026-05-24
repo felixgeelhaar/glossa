@@ -158,6 +158,7 @@ func main() {
 		AIFanOut:     aiFanOut,
 		AITranslator: aiTranslator,
 		Sealer:       sealer,
+		CORSOrigins:  cfg.CORSOrigins,
 	})
 
 	srv := &http.Server{
