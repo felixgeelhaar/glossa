@@ -6,7 +6,8 @@
 import { LitElement, css, html, unsafeCSS } from "lit";
 
 import { glTableStyles } from "@felixgeelhaar/glossa-ui";
-import type { TranslationStatus } from "@felixgeelhaar/glossa-sdk";
+
+type Status = "pending" | "needs_review" | "approved" | "ai_translated";
 
 export class GlossaAdminKeyList extends LitElement {
   static override styles = css`
@@ -31,6 +32,14 @@ export class GlossaAdminKeyList extends LitElement {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .check-col {
+      width: 36px;
+      padding-right: 0;
+    }
+    input[type="checkbox"] {
+      accent-color: var(--gl-accent);
+      cursor: pointer;
+    }
   `;
 
   static override properties = {
@@ -38,27 +47,33 @@ export class GlossaAdminKeyList extends LitElement {
     statuses: { attribute: false },
     filter: { type: String },
     selected: { type: String },
+    selectedKeys: { attribute: false },
   };
 
   public messages: Record<string, string> = {};
-  public statuses: Record<string, TranslationStatus> = {};
-  public filter: "" | TranslationStatus = "";
+  public statuses: Record<string, Status> = {};
+  public filter: "" | Status = "";
   public selected: string | null = null;
+  public selectedKeys: Set<string> = new Set();
 
-  private rows(): Array<{ key: string; value: string; status: TranslationStatus }> {
-    const out: Array<{ key: string; value: string; status: TranslationStatus }> = [];
+  private rows(): Array<{ key: string; value: string; status: Status }> {
+    const out: Array<{ key: string; value: string; status: Status }> = [];
     const messages = this.messages ?? {};
     const statuses = this.statuses ?? {};
     for (const key of Object.keys(messages).sort()) {
-      const status = statuses[key] ?? "pending";
+      const status = (statuses[key] as Status) ?? "pending";
       if (this.filter && status !== this.filter) continue;
       out.push({ key, value: messages[key] ?? "", status });
     }
     return out;
   }
 
-  private onClick(key: string): void {
+  private onSelect(key: string): void {
     this.dispatchEvent(new CustomEvent("select-key", { detail: { key }, bubbles: true, composed: true }));
+  }
+
+  private onToggle(key: string): void {
+    this.dispatchEvent(new CustomEvent("toggle-key", { detail: { key }, bubbles: true, composed: true }));
   }
 
   protected override render() {
@@ -70,6 +85,7 @@ export class GlossaAdminKeyList extends LitElement {
       <table class="gl-table" role="grid">
         <thead>
           <tr>
+            <th scope="col" class="check-col" aria-label="Select"></th>
             <th scope="col">Key</th>
             <th scope="col">Value</th>
             <th scope="col">Status</th>
@@ -80,20 +96,29 @@ export class GlossaAdminKeyList extends LitElement {
             (r) => html`
               <tr
                 class="gl-row-clickable"
-                tabindex="0"
                 role="row"
                 aria-selected=${r.key === this.selected}
-                @click=${() => this.onClick(r.key)}
-                @keydown=${(e: KeyboardEvent) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    this.onClick(r.key);
-                  }
-                }}
               >
-                <td class="key">${r.key}</td>
-                <td class="value">${r.value}</td>
-                <td>
+                <td class="check-col">
+                  <input
+                    type="checkbox"
+                    aria-label=${`Select ${r.key}`}
+                    .checked=${this.selectedKeys?.has(r.key) ?? false}
+                    @click=${(e: Event) => e.stopPropagation()}
+                    @change=${() => this.onToggle(r.key)}
+                  />
+                </td>
+                <td class="key" tabindex="0" @click=${() => this.onSelect(r.key)}
+                    @keydown=${(e: KeyboardEvent) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        this.onSelect(r.key);
+                      }
+                    }}>
+                  ${r.key}
+                </td>
+                <td class="value" @click=${() => this.onSelect(r.key)}>${r.value}</td>
+                <td @click=${() => this.onSelect(r.key)}>
                   <gl-badge variant=${badgeVariant(r.status)}>${r.status}</gl-badge>
                 </td>
               </tr>
@@ -105,9 +130,10 @@ export class GlossaAdminKeyList extends LitElement {
   }
 }
 
-function badgeVariant(s: TranslationStatus): "pending" | "review" | "approved" {
+function badgeVariant(s: Status): "pending" | "review" | "approved" | "accent" {
   if (s === "approved") return "approved";
   if (s === "needs_review") return "review";
+  if (s === "ai_translated") return "accent";
   return "pending";
 }
 

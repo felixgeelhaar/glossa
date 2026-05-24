@@ -54,7 +54,7 @@ export interface BundleResponse {
   project: string;
   locale: string;
   messages: Record<string, string>;
-  statuses: Record<string, "pending" | "needs_review" | "approved">;
+  statuses: Record<string, "pending" | "needs_review" | "approved" | "ai_translated">;
 }
 
 export class ApiError extends Error {
