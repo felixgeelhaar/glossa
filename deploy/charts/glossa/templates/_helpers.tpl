@@ -31,7 +31,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "glossa.postgres.image" -}}
-{{- printf "%s/%s:%s" .Values.image.registry .Values.postgres.image.repository .Values.postgres.image.tag -}}
+{{- $reg := .Values.postgres.image.registry | default "docker.io" -}}
+{{- printf "%s/%s:%s" $reg .Values.postgres.image.repository .Values.postgres.image.tag -}}
 {{- end -}}
 
 {{- define "glossa.secretName" -}}

@@ -52,6 +52,9 @@ admin:
 postgres:
   mode: bundled
   image:
+    # postgres lives on docker.io, not the global image.registry
+    # ghcr.io used for the glossa apps.
+    registry: docker.io
     repository: postgres
     tag: "16-alpine"
   storage:
