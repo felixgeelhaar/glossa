@@ -8,6 +8,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AiTranslationProvider struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	Kind        string             `json:"kind"`
+	Label       string             `json:"label"`
+	BaseUrl     string             `json:"base_url"`
+	Model       string             `json:"model"`
+	ApiKeyCt    []byte             `json:"api_key_ct"`
+	ApiKeyNonce []byte             `json:"api_key_nonce"`
+	Enabled     bool               `json:"enabled"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AuditLog struct {
 	ID            int64              `json:"id"`
 	TenantID      pgtype.UUID        `json:"tenant_id"`
@@ -16,6 +30,8 @@ type AuditLog struct {
 	AfterValue    *string            `json:"after_value"`
 	ChangedBy     pgtype.UUID        `json:"changed_by"`
 	ChangedAt     pgtype.Timestamptz `json:"changed_at"`
+	ActorKind     string             `json:"actor_kind"`
+	ActorLabel    string             `json:"actor_label"`
 }
 
 type Key struct {

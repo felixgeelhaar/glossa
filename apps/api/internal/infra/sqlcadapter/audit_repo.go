@@ -20,12 +20,18 @@ func NewAuditRepo(q *db.Queries) *AuditRepo {
 
 func (r *AuditRepo) Append(ctx context.Context, e audit.Entry) error {
 	q := db.QueriesFromContext(ctx, r.q)
+	kind := e.ActorKind
+	if kind == "" {
+		kind = "user"
+	}
 	return q.AppendAuditEntry(ctx, db.AppendAuditEntryParams{
 		TenantID:      toPgUUID(e.TenantID),
 		TranslationID: nullablePgUUID(e.TranslationID),
 		BeforeValue:   optionalStringText(e.BeforeValue),
 		AfterValue:    optionalStringText(e.AfterValue),
 		ChangedBy:     nullablePgUUID(e.ChangedBy),
+		ActorKind:     kind,
+		ActorLabel:    e.ActorLabel,
 	})
 }
 
@@ -42,9 +48,11 @@ func (r *AuditRepo) ListForTenant(ctx context.Context, tenantID uuid.UUID, limit
 	out := make([]audit.Entry, 0, len(rows))
 	for _, row := range rows {
 		entry := audit.Entry{
-			ID:        row.ID,
-			TenantID:  fromPgUUID(row.TenantID),
-			ChangedAt: row.ChangedAt.Time,
+			ID:         row.ID,
+			TenantID:   fromPgUUID(row.TenantID),
+			ChangedAt:  row.ChangedAt.Time,
+			ActorKind:  row.ActorKind,
+			ActorLabel: row.ActorLabel,
 		}
 		if row.TranslationID.Valid {
 			entry.TranslationID = uuid.UUID(row.TranslationID.Bytes)

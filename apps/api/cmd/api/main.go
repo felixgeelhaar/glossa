@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
 	authapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
@@ -24,6 +25,8 @@ import (
 	"github.com/felixgeelhaar/glossa/apps/api/internal/config"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/db"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/translationkey"
+	aitranslatorinfra "github.com/felixgeelhaar/glossa/apps/api/internal/infra/aitranslator"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/infra/secrets"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/infra/sqlcadapter"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/interfaces/httpgin"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/logging"
@@ -59,6 +62,26 @@ func main() {
 	translationRepo := sqlcadapter.NewTranslationRepo(queries)
 	userRepo := sqlcadapter.NewUserRepo(queries)
 	auditRepo := sqlcadapter.NewAuditRepo(queries)
+	aiProviderRepo := sqlcadapter.NewAIProviderRepo(queries)
+
+	// AI translator wiring is optional: only active if a secrets key
+	// is configured. Absence disables the feature gracefully — the
+	// admin UI surfaces an explanatory message instead of crashing.
+	var (
+		sealer       httpgin.Sealer
+		aiTranslator *aitranslatorinfra.Translator
+		aiFanOut     *aitranslatorapp.FanOut
+	)
+	if cfg.SecretsKeyHex != "" {
+		s, err := secrets.New(cfg.SecretsKeyHex)
+		if err != nil {
+			log.Error("secrets init failed", slog.Any("err", err))
+			os.Exit(1)
+		}
+		sealer = s
+		aiTranslator = aitranslatorinfra.New()
+		aiFanOut = aitranslatorapp.New(aiProviderRepo, localeRepo, translationRepo, auditRepo, aiTranslator, s, log)
+	}
 
 	issuer, err := authapp.NewHMACIssuer([]byte(cfg.JWTSigningKey), "glossa", 24*time.Hour)
 	if err != nil {
@@ -131,6 +154,10 @@ func main() {
 		Keys:         keysFinderAdapter{keyRepo},
 		Audits:       auditRepo,
 		Translations: translationRepo,
+		AIProviders:  aiProviderRepo,
+		AIFanOut:     aiFanOut,
+		AITranslator: aiTranslator,
+		Sealer:       sealer,
 	})
 
 	srv := &http.Server{

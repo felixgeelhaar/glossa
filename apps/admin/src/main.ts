@@ -12,6 +12,7 @@ initTheme();
 document.body.classList.add("gl-root");
 
 import "./admin-app.js";
+import "./ai-providers-tab.js";
 import "./audit-tab.js";
 import "./bulk-tab.js";
 import "./diff-tab.js";

@@ -12,22 +12,29 @@ import (
 
 // ErrInvalidStatus is returned when a status string is outside the
 // schema-enforced enum.
-var ErrInvalidStatus = errors.New("translation: status must be one of pending|needs_review|approved")
+var ErrInvalidStatus = errors.New("translation: status must be one of pending|ai_translated|needs_review|approved")
 
 // Status is the editorial lifecycle of a translation.
 type Status string
 
 // Status values. Mirrors the CHECK constraint on the translations
-// table.
+// table. StatusAITranslated marks a row produced by an AI translator
+// agent — distinct from human-authored pending and from
+// human-reviewed.
 const (
-	StatusPending     Status = "pending"
-	StatusNeedsReview Status = "needs_review"
-	StatusApproved    Status = "approved"
+	StatusPending      Status = "pending"
+	StatusAITranslated Status = "ai_translated"
+	StatusNeedsReview  Status = "needs_review"
+	StatusApproved     Status = "approved"
 )
 
 // IsValid reports whether the status is one of the enum members.
 func (s Status) IsValid() bool {
-	return s == StatusPending || s == StatusNeedsReview || s == StatusApproved
+	switch s {
+	case StatusPending, StatusAITranslated, StatusNeedsReview, StatusApproved:
+		return true
+	}
+	return false
 }
 
 // ParseStatus validates a raw status string from the wire.

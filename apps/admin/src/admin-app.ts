@@ -20,7 +20,7 @@ const STORAGE_AUTH = "glossa-admin-auth-v2";
 const STORAGE_API_URL = "glossa-admin-api-url-v2";
 const STORAGE_PROJECT = "glossa-admin-project-v2";
 
-export type Tab = "editor" | "bulk" | "diff" | "locales" | "users" | "audit";
+export type Tab = "editor" | "bulk" | "diff" | "locales" | "users" | "ai" | "audit";
 
 export class GlossaAdmin extends LitElement {
   static override styles = css`
@@ -312,6 +312,7 @@ export class GlossaAdmin extends LitElement {
       { id: "diff", label: "Diff", hidden: !isAdmin },
       { id: "locales", label: "Locales", hidden: !isAdmin },
       { id: "users", label: "Users", hidden: !isAdmin },
+      { id: "ai", label: "AI translation", hidden: !isAdmin },
       { id: "audit", label: "Audit log", hidden: !isAdmin },
     ];
     const slug = this.activeProject!.slug;
@@ -345,6 +346,9 @@ export class GlossaAdmin extends LitElement {
             : null}
           ${this.tab === "users"
             ? html`<glossa-admin-users-tab .client=${c}></glossa-admin-users-tab>`
+            : null}
+          ${this.tab === "ai"
+            ? html`<glossa-admin-ai-providers-tab .client=${c}></glossa-admin-ai-providers-tab>`
             : null}
           ${this.tab === "audit"
             ? html`<glossa-admin-audit-tab .client=${c}></glossa-admin-audit-tab>`

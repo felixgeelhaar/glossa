@@ -17,6 +17,11 @@ type Config struct {
 	// once per deployment — leak ⇒ rotate everywhere.
 	JWTSigningKey string
 
+	// Secrets key for at-rest encryption of provider credentials
+	// (AES-GCM). Required as 64-char hex if any AI translation
+	// provider is configured; otherwise optional.
+	SecretsKeyHex string
+
 	// Admin bootstrap. All four are optional; if BootstrapTenantSlug
 	// is empty, the bootstrap step is skipped entirely.
 	BootstrapTenantSlug    string
@@ -41,6 +46,8 @@ func Load() (Config, error) {
 		LogLevel:    envDefault("LOG_LEVEL", "info"),
 
 		JWTSigningKey: os.Getenv("JWT_SIGNING_KEY"),
+
+		SecretsKeyHex: os.Getenv("GLOSSA_SECRETS_KEY"),
 
 		BootstrapTenantSlug:    os.Getenv("BOOTSTRAP_TENANT_SLUG"),
 		BootstrapTenantName:    os.Getenv("BOOTSTRAP_TENANT_NAME"),

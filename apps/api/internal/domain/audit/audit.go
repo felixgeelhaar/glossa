@@ -16,7 +16,9 @@ type Entry struct {
 	TranslationID uuid.UUID
 	BeforeValue   string
 	AfterValue    string
-	ChangedBy     uuid.UUID // uuid.Nil for system-generated changes
+	ChangedBy     uuid.UUID // uuid.Nil for non-human changes
+	ActorKind     string    // "user" (default), "ai", or "system"
+	ActorLabel    string    // free-form ("openai", "gemini", "bootstrap")
 	ChangedAt     time.Time
 }
 

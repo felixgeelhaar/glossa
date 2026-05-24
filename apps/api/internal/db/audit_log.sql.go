@@ -13,8 +13,8 @@ import (
 
 const appendAuditEntry = `-- name: AppendAuditEntry :exec
 
-INSERT INTO audit_log (tenant_id, translation_id, before_value, after_value, changed_by)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO audit_log (tenant_id, translation_id, before_value, after_value, changed_by, actor_kind, actor_label)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type AppendAuditEntryParams struct {
@@ -23,6 +23,8 @@ type AppendAuditEntryParams struct {
 	BeforeValue   *string     `json:"before_value"`
 	AfterValue    *string     `json:"after_value"`
 	ChangedBy     pgtype.UUID `json:"changed_by"`
+	ActorKind     string      `json:"actor_kind"`
+	ActorLabel    string      `json:"actor_label"`
 }
 
 // Audit log — records every translation mutation. Append-only;
@@ -34,12 +36,14 @@ func (q *Queries) AppendAuditEntry(ctx context.Context, arg AppendAuditEntryPara
 		arg.BeforeValue,
 		arg.AfterValue,
 		arg.ChangedBy,
+		arg.ActorKind,
+		arg.ActorLabel,
 	)
 	return err
 }
 
 const listAuditForTenant = `-- name: ListAuditForTenant :many
-SELECT id, tenant_id, translation_id, before_value, after_value, changed_by, changed_at
+SELECT id, tenant_id, translation_id, before_value, after_value, changed_by, actor_kind, actor_label, changed_at
 FROM audit_log
 WHERE tenant_id = $1
 ORDER BY changed_at DESC
@@ -52,15 +56,27 @@ type ListAuditForTenantParams struct {
 	Offset   int32       `json:"offset"`
 }
 
-func (q *Queries) ListAuditForTenant(ctx context.Context, arg ListAuditForTenantParams) ([]AuditLog, error) {
+type ListAuditForTenantRow struct {
+	ID            int64              `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	TranslationID pgtype.UUID        `json:"translation_id"`
+	BeforeValue   *string            `json:"before_value"`
+	AfterValue    *string            `json:"after_value"`
+	ChangedBy     pgtype.UUID        `json:"changed_by"`
+	ActorKind     string             `json:"actor_kind"`
+	ActorLabel    string             `json:"actor_label"`
+	ChangedAt     pgtype.Timestamptz `json:"changed_at"`
+}
+
+func (q *Queries) ListAuditForTenant(ctx context.Context, arg ListAuditForTenantParams) ([]ListAuditForTenantRow, error) {
 	rows, err := q.db.Query(ctx, listAuditForTenant, arg.TenantID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AuditLog
+	var items []ListAuditForTenantRow
 	for rows.Next() {
-		var i AuditLog
+		var i ListAuditForTenantRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
@@ -68,6 +84,8 @@ func (q *Queries) ListAuditForTenant(ctx context.Context, arg ListAuditForTenant
 			&i.BeforeValue,
 			&i.AfterValue,
 			&i.ChangedBy,
+			&i.ActorKind,
+			&i.ActorLabel,
 			&i.ChangedAt,
 		); err != nil {
 			return nil, err

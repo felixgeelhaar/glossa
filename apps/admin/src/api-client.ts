@@ -141,7 +141,39 @@ export function adminClient(cfg: AdminClientConfig) {
     deleteUser: (id: string) => req(`/users/${id}`, { method: "DELETE" }),
 
     audit: (limit = 200) => req<AuditRow[]>(`/audit?limit=${limit}`),
+
+    listAIProviders: () => req<{ providers: AIProviderRow[] }>("/ai-providers"),
+    createAIProvider: (input: {
+      kind: string;
+      label: string;
+      baseUrl?: string;
+      model: string;
+      apiKey: string;
+      enabled?: boolean;
+    }) => req<AIProviderRow>("/ai-providers", { method: "POST", body: JSON.stringify(input) }),
+    updateAIProvider: (
+      id: string,
+      input: { label: string; baseUrl?: string; model: string; enabled: boolean; apiKey?: string },
+    ) =>
+      req(`/ai-providers/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+    deleteAIProvider: (id: string) => req(`/ai-providers/${id}`, { method: "DELETE" }),
+    testAIProvider: (id: string, source: string) =>
+      req<{ ok: boolean; translation?: string; provider?: string; error?: string }>(
+        `/ai-providers/${id}/test`,
+        { method: "POST", body: JSON.stringify({ source }) },
+      ),
   };
+}
+
+/** Row shape returned by /admin/ai-providers. */
+export interface AIProviderRow {
+  id: string;
+  kind: string;
+  label: string;
+  baseUrl: string;
+  model: string;
+  enabled: boolean;
+  createdAt: string;
 }
 
 /** Tenant entry returned by /auth/discover. */

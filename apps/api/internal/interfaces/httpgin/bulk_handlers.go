@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
@@ -30,6 +31,7 @@ func handleBulkImport(
 	translations translation.Repository,
 	pub translationapp.Publisher,
 	audits audit.Repository,
+	fanOut *aitranslatorapp.FanOut,
 ) gin.HandlerFunc {
 	type req struct {
 		Messages map[string]string `json:"messages" binding:"required"`
@@ -132,6 +134,17 @@ func handleBulkImport(
 				Value:   out.Value,
 				Status:  string(out.Status),
 			})
+			if fanOut != nil && localeCode == p.DefaultLocale {
+				fanOut.Trigger(aitranslatorapp.FanOutInput{
+					TenantID:       tenantID.(uuid.UUID),
+					ProjectID:      p.ID,
+					KeyID:          keyID,
+					KeyName:        name,
+					SourceLocaleID: l.ID,
+					SourceLocale:   localeCode,
+					SourceValue:    out.Value,
+				})
+			}
 			results = append(results, gin.H{"key": name, "id": out.ID.String()})
 		}
 		code := http.StatusOK

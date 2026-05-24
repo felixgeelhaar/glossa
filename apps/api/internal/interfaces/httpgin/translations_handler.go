@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
@@ -90,6 +91,7 @@ func handlePatchTranslation(
 	keys keysFinder,
 	pub translationapp.Publisher,
 	audits audit.Repository,
+	fanOut *aitranslatorapp.FanOut,
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
@@ -190,6 +192,21 @@ func handlePatchTranslation(
 			Value:   out.Value,
 			Status:  string(out.Status),
 		})
+
+		// Source-locale write → fan out AI translations to every other
+		// enabled locale that doesn't already have a reviewer-touched
+		// entry. Fire-and-forget; the response returns immediately.
+		if fanOut != nil && localeCode == p.DefaultLocale {
+			fanOut.Trigger(aitranslatorapp.FanOutInput{
+				TenantID:       tenantID.(uuid.UUID),
+				ProjectID:      p.ID,
+				KeyID:          k,
+				KeyName:        keyName,
+				SourceLocaleID: l.ID,
+				SourceLocale:   localeCode,
+				SourceValue:    out.Value,
+			})
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"id":     out.ID.String(),

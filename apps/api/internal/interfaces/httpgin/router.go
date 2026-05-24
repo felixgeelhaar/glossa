@@ -22,10 +22,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
 	authapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/aitranslator"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
@@ -72,6 +74,26 @@ type Deps struct {
 	Keys         keysFinder
 	Audits       audit.Repository
 	Translations translation.Repository
+	AIProviders  aitranslator.Repository
+
+	// AIFanOut is the optional source-locale fan-out hook. Nil disables
+	// AI translation for this process.
+	AIFanOut *aitranslatorapp.FanOut
+
+	// AITranslator drives one-shot test calls from the admin UI.
+	AITranslator aitranslator.Translator
+
+	// Sealer encrypts/decrypts at-rest provider credentials. Required
+	// only when AIProviders is wired; otherwise leave nil.
+	Sealer Sealer
+}
+
+// Sealer is the local view of the secrets port that AI provider
+// handlers need. Defined here to keep the infra/secrets package out
+// of the interfaces layer's import graph.
+type Sealer interface {
+	Seal(plaintext []byte) (ct, nonce []byte, err error)
+	Open(ct, nonce []byte) ([]byte, error)
 }
 
 // New builds the gin engine + mounts every route.
@@ -116,7 +138,7 @@ func New(d Deps) *gin.Engine {
 		authed.POST("/keys:scan", handleScanKeys(d.ProjectRepo, d.UpsertKeys))
 		authed.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
 		authed.PATCH("/locales/:locale/keys/:key",
-			handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits))
+			handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits, d.AIFanOut))
 		authed.POST("/api-keys", handleRotateAPIKey(d.ProjectRepo, d.RotateKey))
 		authed.GET("/sse", handleSSE(d.Hub, 0))
 	}
@@ -143,7 +165,7 @@ func New(d Deps) *gin.Engine {
 			proj.GET("/locales", handleListLocales(d.ProjectRepo, d.Locales))
 			proj.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
 			proj.PATCH("/locales/:locale/keys/:key",
-				handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits))
+				handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits, d.AIFanOut))
 			proj.GET("/sse", handleSSE(d.Hub, 0))
 
 			adminOnly := proj.Group("")
@@ -156,7 +178,7 @@ func New(d Deps) *gin.Engine {
 			adminOnly.DELETE("/locales/:locale", handleDeleteLocale(d.Locales))
 			adminOnly.POST("/keys:scan", handleScanKeys(d.ProjectRepo, d.UpsertKeys))
 			adminOnly.POST("/locales/:locale/bulk",
-				handleBulkImport(d.ProjectRepo, d.Locales, d.UpsertKeys, d.Keys, d.UpdateTr, d.Translations, d.Hub, d.Audits))
+				handleBulkImport(d.ProjectRepo, d.Locales, d.UpsertKeys, d.Keys, d.UpdateTr, d.Translations, d.Hub, d.Audits, d.AIFanOut))
 			adminOnly.GET("/diff", handleBundleDiff(d.ProjectRepo, d.Locales, d.ListBundle))
 			adminOnly.POST("/api-keys", handleRotateAPIKey(d.ProjectRepo, d.RotateKey))
 		}
@@ -169,6 +191,17 @@ func New(d Deps) *gin.Engine {
 		tenantAdmin.PATCH("/users/:id/locales", handleUpdateUserLocales(d.Users))
 		tenantAdmin.DELETE("/users/:id", handleDeleteUser(d.Users))
 		tenantAdmin.GET("/audit", handleListAudit(d.Audits))
+
+		// AI translator providers — credentials live here so admin-only.
+		if d.AIProviders != nil {
+			tenantAdmin.GET("/ai-providers", handleListAIProviders(d.AIProviders))
+			tenantAdmin.POST("/ai-providers", handleCreateAIProvider(d.AIProviders, d.Sealer))
+			tenantAdmin.PATCH("/ai-providers/:id", handleUpdateAIProvider(d.AIProviders, d.Sealer))
+			tenantAdmin.DELETE("/ai-providers/:id", handleDeleteAIProvider(d.AIProviders))
+			if d.AITranslator != nil {
+				tenantAdmin.POST("/ai-providers/:id/test", handleAITestProvider(d.AIProviders, d.Sealer, d.AITranslator))
+			}
+		}
 	}
 
 	return r
