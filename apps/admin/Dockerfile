@@ -18,13 +18,21 @@ RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/admin/package.json apps/admin/
 COPY packages/ui/package.json packages/ui/
+COPY packages/format/package.json packages/format/
+COPY packages/sdk/package.json packages/sdk/
+COPY packages/elements/package.json packages/elements/
+COPY packages/cli/package.json packages/cli/
 RUN pnpm install --frozen-lockfile
 
 # Now copy the source and build. Build the workspace deps the admin
-# imports first (currently just @glossa/ui) so its dist/ + type
-# declarations are in place when admin's tsc runs.
+# imports first (@glossa/ui, format, sdk) so their dist/ + type
+# declarations are in place when admin's tsc runs. Elements + cli
+# aren't admin deps; they're built so a future workspace-wide
+# tsconfig project references graph stays clean.
 COPY . .
-RUN pnpm --filter @glossa/ui build \
+RUN pnpm --filter @glossa/format build \
+    && pnpm --filter @glossa/sdk build \
+    && pnpm --filter @glossa/ui build \
     && pnpm --filter @glossa/admin build
 
 # ── Runtime stage ────────────────────────────────────────────────────
