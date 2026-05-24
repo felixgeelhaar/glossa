@@ -1,6 +1,6 @@
 {
   "name": "@felixgeelhaar/glossa-format",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "ICU MessageFormat subset \u2014 variables, plurals, select, nesting. Backed by Intl.PluralRules; zero runtime deps.",
   "type": "module",
   "main": "./dist/index.js",
