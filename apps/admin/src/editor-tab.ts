@@ -100,19 +100,15 @@ export class GlossaAdminEditorTab extends LitElement {
   protected override render() {
     return html`
       <header>
-        <label>
-          Locale
-          <select
-            .value=${this.locale}
-            @change=${(e: Event) => {
-              this.locale = (e.target as HTMLSelectElement).value;
-              void this.loadBundle();
-            }}
-            aria-label="Locale"
-          >
-            ${this.locales.map((l) => html`<option value=${l.code}>${l.label} (${l.code})</option>`)}
-          </select>
-        </label>
+        <gl-select
+          label="Locale"
+          .value=${this.locale}
+          .options=${this.locales.map((l) => ({ value: l.code, label: `${l.label} (${l.code})` }))}
+          @gl-change=${(e: CustomEvent<{ value: string }>) => {
+            this.locale = e.detail.value;
+            void this.loadBundle();
+          }}
+        ></gl-select>
       </header>
       ${this.err ? html`<p class="err" role="alert">${this.err}</p>` : null}
       <glossa-admin-key-list
