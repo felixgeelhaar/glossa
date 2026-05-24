@@ -358,7 +358,7 @@ export class GlossaAdmin extends LitElement {
           <gl-input
             label="Slug"
             required
-            placeholder="brotwerk-site"
+            placeholder="my-site"
             hint="Lowercase, dotted/dashed identifier. Used in API URLs."
             .value=${this.createSlug}
             @gl-input=${(e: CustomEvent<{ value: string }>) => {
@@ -368,7 +368,7 @@ export class GlossaAdmin extends LitElement {
           <gl-input
             label="Name"
             required
-            placeholder="Brotwerk site"
+            placeholder="My site"
             .value=${this.createName}
             @gl-input=${(e: CustomEvent<{ value: string }>) => {
               this.createName = e.detail.value;
