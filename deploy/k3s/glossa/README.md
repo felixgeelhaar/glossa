@@ -6,7 +6,7 @@ Reference manifests for self-hosting Glossa on a k3s cluster behind Traefik. Mir
 
 - k3s (or any Kubernetes ≥ 1.28) with the Traefik IngressController bundled by k3s.
 - `cert-manager` installed in-cluster with a `letsencrypt-prod` `ClusterIssuer` (flip to `letsencrypt-staging` in `ingress.yaml` until cert issuance is green to avoid burning Let's Encrypt prod quota).
-- DNS: `glossa.felixgeelhaar.de` A record pointing at the node's public IP. `www.glossa.felixgeelhaar.de` optional — `ingress.yaml` 308-redirects it to the apex.
+- DNS: `glossa.kraftsport-coach.de` A record pointing at the node's public IP. `www.glossa.kraftsport-coach.de` optional — `ingress.yaml` 308-redirects it to the apex.
 - An `ssh-host-keys` ConfigMap if you enable `backup-cronjob.yaml` (rclone offsite backup).
 
 ## One-time deploy
@@ -34,7 +34,7 @@ kubectl -n glossa rollout status deploy/api
 kubectl -n glossa rollout status deploy/admin
 ```
 
-After the rollout settles, the admin SPA is live at <https://glossa.felixgeelhaar.de> and the API at <https://glossa.felixgeelhaar.de/api/v1>.
+After the rollout settles, the admin SPA is live at <https://glossa.kraftsport-coach.de> and the API at <https://glossa.kraftsport-coach.de/api/v1>.
 
 ## Upgrade to a new image tag
 

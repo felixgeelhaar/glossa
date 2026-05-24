@@ -7,7 +7,7 @@
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?logo=postgresql&logoColor=white)
 ![Lit](https://img.shields.io/badge/Lit-3-324FFF?logo=lit&logoColor=white)
 
-Glossa is the translation-management backbone for [Brotwerk](https://brotwerk.felixgeelhaar.de), [IRI](https://github.com/felixgeelhaar/iri), and Kraftsport. One deployment, many tenants, end-to-end German-first but locale-agnostic.
+Glossa is the translation-management backbone for [Brotwerk](https://brotwerk.felixgeelhaar.de), [IRI](https://github.com/felixgeelhaar/iri), and [Kraftsport](https://kraftsport-coach.de). One deployment, many tenants, end-to-end German-first but locale-agnostic.
 
 ---
 

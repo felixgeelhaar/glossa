@@ -1,12 +1,13 @@
 # Traefik IngressRoute. Routing contract:
 #
-#   /api/*                           → api service :8080
-#   everything else                  → admin service :80
-#   www.glossa.felixgeelhaar.de      → 308 redirect to apex
+#   /api/*                              → api service :8080
+#   everything else                     → admin service :80
+#   www.glossa.kraftsport-coach.de      → 308 redirect to apex
 #
-# Host: glossa.felixgeelhaar.de — a subdomain of the existing
-# felixgeelhaar.de zone, so no new TLD purchase is needed. Point
-# the A record at edge-1's public IP (same node Brotwerk lives on).
+# Replace `glossa.kraftsport-coach.de` below with your own host.
+# For a multi-tenant install with several hosts on one backend,
+# use the Helm chart in deploy/charts/glossa/ instead — it
+# generates one Certificate + IngressRoute per host.
 #
 # TLS via cert-manager. Until staging is green flip issuerRef to
 # letsencrypt-staging to avoid burning Let's Encrypt prod quota.
@@ -21,8 +22,8 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-    - glossa.felixgeelhaar.de
-    - www.glossa.felixgeelhaar.de
+    - glossa.kraftsport-coach.de
+    - www.glossa.kraftsport-coach.de
 ---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
@@ -31,8 +32,8 @@ metadata:
   namespace: glossa
 spec:
   redirectRegex:
-    regex: ^https://www\.glossa\.felixgeelhaar\.de/(.*)
-    replacement: https://glossa.felixgeelhaar.de/${1}
+    regex: ^https://www\.glossa\.kraftsport-coach\.de/(.*)
+    replacement: https://glossa.kraftsport-coach.de/${1}
     permanent: true
 ---
 apiVersion: traefik.io/v1alpha1
@@ -52,7 +53,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`www.glossa.felixgeelhaar.de`)
+    - match: Host(`www.glossa.kraftsport-coach.de`)
       kind: Rule
       priority: 100
       middlewares:
@@ -60,7 +61,7 @@ spec:
       services:
         - name: admin
           port: 80
-    - match: Host(`glossa.felixgeelhaar.de`) && PathPrefix(`/api`)
+    - match: Host(`glossa.kraftsport-coach.de`) && PathPrefix(`/api`)
       kind: Rule
       priority: 50
       middlewares:
@@ -68,7 +69,7 @@ spec:
       services:
         - name: api
           port: 8080
-    - match: Host(`glossa.felixgeelhaar.de`)
+    - match: Host(`glossa.kraftsport-coach.de`)
       kind: Rule
       priority: 10
       middlewares:
@@ -90,7 +91,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: (Host(`glossa.felixgeelhaar.de`) || Host(`www.glossa.felixgeelhaar.de`)) && !PathPrefix(`/.well-known/acme-challenge/`)
+    - match: (Host(`glossa.kraftsport-coach.de`) || Host(`www.glossa.kraftsport-coach.de`)) && !PathPrefix(`/.well-known/acme-challenge/`)
       kind: Rule
       middlewares:
         - name: https-redirect

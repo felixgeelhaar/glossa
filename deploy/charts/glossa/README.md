@@ -29,19 +29,18 @@ ingress:
     enabled: true
     clusterIssuer: letsencrypt-prod
   hosts:
-    - host: glossa.felixgeelhaar.de
-      tls:
-        secretName: glossa-felixgeelhaar-de-tls
     - host: glossa.kraftsport-coach.de
       tls:
         secretName: glossa-kraftsport-coach-de-tls
+    - host: glossa.other-tenant.example
+      tls:
+        secretName: glossa-other-tenant-tls
 
 api:
   replicas: 2
   corsOrigins:
-    - https://brotwerk.felixgeelhaar.de
     - https://kraftsport-coach.de
-    - https://app.felixgeelhaar.de
+    - https://app.other-tenant.example
 
 postgres:
   mode: bundled         # or "external"
@@ -56,7 +55,7 @@ backup:
 
 ### Multi-domain
 
-One Glossa instance can sit behind multiple hostnames — listing two hosts above mounts the same backend at `glossa.felixgeelhaar.de` and `glossa.kraftsport-coach.de`. Tenants are resolved per-request from the API key (consumer apps) or JWT (admin SPA), so the hostname is purely a routing + branding concern. Each host gets its own cert-manager `Certificate`, its own `IngressRoute`, and an optional `www.<host>` → apex redirect.
+One Glossa instance can sit behind multiple hostnames — listing N hosts mounts the same backend at all of them. Tenants are resolved per-request from the API key (consumer apps) or JWT (admin SPA), so the hostname is purely a routing + branding concern. Each host gets its own cert-manager `Certificate`, its own `IngressRoute`, and an optional `www.<host>` → apex redirect.
 
 ### Secrets
 
