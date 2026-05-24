@@ -17,7 +17,11 @@ async function main(): Promise<number> {
   try {
     switch (cmd) {
       case "init":
-        return runInit({ cwd, force: rest.includes("--force") });
+        return runInit({
+          cwd,
+          force: rest.includes("--force"),
+          yes: rest.includes("--yes") || rest.includes("-y"),
+        });
       case "scan":
         return runScan({ cwd });
       case "pull":
@@ -54,7 +58,8 @@ function printHelp(): void {
   console.log(`glossa — translation pipeline CLI
 
 Usage:
-  glossa init [--force]        scaffold glossa.config.json
+  glossa init [--yes] [--force]  interactive scaffold of glossa.config.json
+                                 (--yes accepts every default for CI use)
   glossa scan                  walk source, push discovered keys
   glossa pull                  fetch all locale bundles to outDir
   glossa push <bundle.json>    push a translated bundle back

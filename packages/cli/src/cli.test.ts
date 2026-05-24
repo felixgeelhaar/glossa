@@ -135,6 +135,25 @@ describe("glossa init", () => {
     const code = await runInit({ cwd: tmp, project: "demo" }, log);
     expect(code).not.toBe(EXIT_OK);
   });
+
+  it("uses ask seam answers when interactive", async () => {
+    const answers: Record<string, string> = {
+      "Glossa API URL": "https://glossa.example.org",
+      "Project slug": "interactive-project",
+      "Locales (comma-separated)": "de,en,fr",
+    };
+    const ask = async (question: string, def?: string) => {
+      const match = Object.keys(answers).find((k) => question.startsWith(k));
+      return match ? answers[match]! : def ?? "";
+    };
+    const log = silentLog();
+    const code = await runInit({ cwd: tmp, ask }, log);
+    expect(code).toBe(EXIT_OK);
+    const cfg = await loadConfig(tmp);
+    expect(cfg.project).toBe("interactive-project");
+    expect(cfg.apiUrl).toBe("https://glossa.example.org");
+    expect(cfg.locales).toEqual(["de", "en", "fr"]);
+  });
 });
 
 describe("glossa scan command", () => {
