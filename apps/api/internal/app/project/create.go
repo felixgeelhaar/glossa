@@ -5,13 +5,12 @@ package projectapp
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 
 	"github.com/google/uuid"
 
+	apikeyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/apikey"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/apikey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 )
@@ -33,10 +32,11 @@ type CreateInput struct {
 	DefaultLocale string
 }
 
-// CreateOutput pairs the persisted Project with the freshly generated
-// raw API key. The raw key is the only artifact returned in cleartext
-// — only its SHA-256 hash hits the database. Callers MUST surface
-// the raw key to the human exactly once and then discard it.
+// CreateOutput pairs the persisted Project with the freshly minted
+// write-scope bootstrap key. The raw key is the only artifact
+// returned in cleartext — only its SHA-256 hash hits the database.
+// Callers MUST surface the raw key to the human exactly once and
+// then discard it.
 type CreateOutput struct {
 	Project   project.Project
 	APIKeyRaw string
@@ -56,11 +56,12 @@ type CreateOutput struct {
 type CreateProject struct {
 	repo    project.Repository
 	locales locale.Repository
+	keys    apikey.Repository
 }
 
 // NewCreateProject wires the use case.
-func NewCreateProject(repo project.Repository, locales locale.Repository) *CreateProject {
-	return &CreateProject{repo: repo, locales: locales}
+func NewCreateProject(repo project.Repository, locales locale.Repository, keys apikey.Repository) *CreateProject {
+	return &CreateProject{repo: repo, locales: locales, keys: keys}
 }
 
 // Execute validates input, generates an API key, and persists the
@@ -83,20 +84,26 @@ func (uc *CreateProject) Execute(ctx context.Context, in CreateInput) (CreateOut
 		defaultLocale = "de"
 	}
 
-	raw, hash, err := generateAPIKey()
-	if err != nil {
-		return CreateOutput{}, err
-	}
-
 	p := project.Project{
 		ID:            uuid.New(),
 		TenantID:      in.TenantID,
 		Slug:          slug,
 		Name:          name,
 		DefaultLocale: defaultLocale,
-		APIKeyHash:    hash,
 	}
 	if err := uc.repo.Save(ctx, p); err != nil {
+		return CreateOutput{}, err
+	}
+
+	// Mint a single write-scope bootstrap key labeled 'default' so the
+	// reveal-once UX still works on create. Operators can issue
+	// additional read-only or alternative-name keys after the fact
+	// via the keys panel.
+	raw, hash, err := apikeyapp.GenerateAPIKey()
+	if err != nil {
+		return CreateOutput{}, err
+	}
+	if _, err := uc.keys.Create(ctx, p.ID, hash, apikey.ScopeWrite, "default"); err != nil {
 		return CreateOutput{}, err
 	}
 
@@ -121,14 +128,3 @@ func (uc *CreateProject) Execute(ctx context.Context, in CreateInput) (CreateOut
 	return CreateOutput{Project: p, APIKeyRaw: raw}, nil
 }
 
-// generateAPIKey returns (raw, sha256hash). The raw key carries a
-// `glossa_` prefix so a leaked one is grep-able in customer logs.
-func generateAPIKey() (string, []byte, error) {
-	var b [32]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", nil, err
-	}
-	raw := "glossa_" + hex.EncodeToString(b[:])
-	sum := sha256.Sum256([]byte(raw))
-	return raw, sum[:], nil
-}

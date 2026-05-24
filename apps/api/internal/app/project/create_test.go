@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/apikey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 )
@@ -30,9 +31,34 @@ func (r *stubLocaleRepo) ListForProject(context.Context, uuid.UUID) ([]locale.Lo
 func (r *stubLocaleRepo) SetEnabled(context.Context, uuid.UUID, bool) error { return nil }
 func (r *stubLocaleRepo) Delete(context.Context, uuid.UUID) error           { return nil }
 
+// stubAPIKeyRepo captures the bootstrap key the use case mints when
+// a new project is created.
+type stubAPIKeyRepo struct {
+	created []apikey.Key
+}
+
+func (r *stubAPIKeyRepo) Create(_ context.Context, projectID uuid.UUID, hash []byte, scope apikey.Scope, label string) (apikey.Key, error) {
+	k := apikey.Key{
+		ID:        uuid.New(),
+		ProjectID: projectID,
+		Scope:     scope,
+		Label:     label,
+	}
+	_ = hash
+	r.created = append(r.created, k)
+	return k, nil
+}
+func (r *stubAPIKeyRepo) List(context.Context, uuid.UUID) ([]apikey.Key, error) {
+	return nil, nil
+}
+func (r *stubAPIKeyRepo) ResolveByHash(context.Context, []byte) (apikey.Resolution, error) {
+	return apikey.Resolution{}, apikey.ErrNotFound
+}
+func (r *stubAPIKeyRepo) Touch(context.Context, uuid.UUID) error  { return nil }
+func (r *stubAPIKeyRepo) Revoke(context.Context, uuid.UUID) error { return nil }
+
 // inMemoryRepo is a test-only adapter so use-case tests don't reach
-// the DB. Lives in *_test.go per project convention (mirrors the
-// brotwerk apps/api pattern).
+// the DB. Lives in *_test.go per project convention.
 type inMemoryRepo struct {
 	mu       sync.Mutex
 	projects map[uuid.UUID]project.Project
@@ -57,29 +83,18 @@ func (r *inMemoryRepo) Find(_ context.Context, _ uuid.UUID, _ project.Slug) (pro
 	return project.Project{}, errors.New("not used in these tests")
 }
 
-func (r *inMemoryRepo) FindByAPIKeyHash(_ context.Context, _ []byte) (project.Project, error) {
-	return project.Project{}, errors.New("not used in these tests")
-}
-
 func (r *inMemoryRepo) ListForTenant(_ context.Context, _ uuid.UUID) ([]project.Project, error) {
 	return nil, errors.New("not used in these tests")
 }
 
-func (r *inMemoryRepo) RotateAPIKeyHash(_ context.Context, id uuid.UUID, hash []byte) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	p, ok := r.projects[id]
-	if !ok {
-		return errors.New("project not found")
-	}
-	p.APIKeyHash = hash
-	r.projects[id] = p
-	return nil
+func newCreate(repo project.Repository) (*projectapp.CreateProject, *stubAPIKeyRepo) {
+	keys := &stubAPIKeyRepo{}
+	return projectapp.NewCreateProject(repo, &stubLocaleRepo{}, keys), keys
 }
 
-func TestCreateProject_ReturnsRawAPIKeyAndStoresHash(t *testing.T) {
+func TestCreateProject_MintsWriteScopeBootstrapKey(t *testing.T) {
 	repo := newInMemoryRepo()
-	uc := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
+	uc, keys := newCreate(repo)
 
 	out, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		TenantID:      uuid.New(),
@@ -97,24 +112,23 @@ func TestCreateProject_ReturnsRawAPIKeyAndStoresHash(t *testing.T) {
 	if len(out.APIKeyRaw) < 32 {
 		t.Errorf("raw key too short: %d", len(out.APIKeyRaw))
 	}
-
-	stored, ok := repo.projects[out.Project.ID]
-	if !ok {
+	if _, ok := repo.projects[out.Project.ID]; !ok {
 		t.Fatal("expected project to be persisted")
 	}
-	if len(stored.APIKeyHash) != 32 {
-		t.Errorf("expected SHA-256 hash (32 bytes), got %d", len(stored.APIKeyHash))
+	if len(keys.created) != 1 {
+		t.Fatalf("expected exactly one bootstrap key, got %d", len(keys.created))
 	}
-	// The stored hash MUST NOT equal the raw key bytes — sanity check
-	// that we didn't accidentally store cleartext.
-	if string(stored.APIKeyHash) == out.APIKeyRaw {
-		t.Error("api_key_hash equals the raw key — cleartext leak!")
+	if keys.created[0].Scope != apikey.ScopeWrite {
+		t.Errorf("bootstrap key scope = %q, want write", keys.created[0].Scope)
+	}
+	if keys.created[0].Label == "" {
+		t.Error("bootstrap key label should not be empty")
 	}
 }
 
 func TestCreateProject_DefaultsLocaleToDe(t *testing.T) {
 	repo := newInMemoryRepo()
-	uc := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
+	uc, _ := newCreate(repo)
 
 	out, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		TenantID: uuid.New(),
@@ -132,7 +146,8 @@ func TestCreateProject_DefaultsLocaleToDe(t *testing.T) {
 func TestCreateProject_SeedsDefaultLocaleRow(t *testing.T) {
 	repo := newInMemoryRepo()
 	locales := &stubLocaleRepo{}
-	uc := projectapp.NewCreateProject(repo, locales)
+	keys := &stubAPIKeyRepo{}
+	uc := projectapp.NewCreateProject(repo, locales, keys)
 
 	out, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		TenantID:      uuid.New(),
@@ -160,7 +175,7 @@ func TestCreateProject_SeedsDefaultLocaleRow(t *testing.T) {
 
 func TestCreateProject_RejectsBlankTenantID(t *testing.T) {
 	repo := newInMemoryRepo()
-	uc := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
+	uc, _ := newCreate(repo)
 
 	_, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		Slug: "x",
@@ -173,7 +188,7 @@ func TestCreateProject_RejectsBlankTenantID(t *testing.T) {
 
 func TestCreateProject_RejectsInvalidSlug(t *testing.T) {
 	repo := newInMemoryRepo()
-	uc := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
+	uc, _ := newCreate(repo)
 
 	_, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		TenantID: uuid.New(),
@@ -188,7 +203,7 @@ func TestCreateProject_RejectsInvalidSlug(t *testing.T) {
 func TestCreateProject_PropagatesRepoFailure(t *testing.T) {
 	repo := newInMemoryRepo()
 	repo.saveOK = false
-	uc := projectapp.NewCreateProject(repo, &stubLocaleRepo{})
+	uc, _ := newCreate(repo)
 
 	_, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		TenantID: uuid.New(),

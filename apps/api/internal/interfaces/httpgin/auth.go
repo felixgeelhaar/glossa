@@ -1,12 +1,15 @@
 package httpgin
 
 import (
+	"context"
 	"crypto/sha256"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/apikey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 )
 
@@ -14,16 +17,23 @@ import (
 const (
 	ctxKeyProject  = "glossa.project"
 	ctxKeyTenantID = "glossa.tenant_id"
+	ctxKeyScope    = "glossa.api_key_scope"
+	ctxKeyKeyID    = "glossa.api_key_id"
 )
 
-// apiKeyAuth resolves the inbound Bearer token to a Project (and its
-// owning tenant) via SHA-256 lookup, then stores both on the gin
-// context for downstream handlers.
+// APIKeyResolver is the narrow port apiKeyAuth needs.
+type APIKeyResolver interface {
+	ResolveByHash(ctx context.Context, hash []byte) (apikey.Resolution, error)
+	Touch(ctx context.Context, id uuid.UUID) error
+}
+
+// apiKeyAuth resolves the inbound Bearer token to an api-key
+// Resolution (project + tenant + scope), stores it on the gin
+// context, and best-effort updates last_used_at.
 //
 // Runs BEFORE [rlsTxMiddleware] so the tenant ID is available for the
 // `SET LOCAL app.current_tenant = '...'` call. The API-key lookup
-// itself bypasses RLS — the middleware can't know the tenant yet, so
-// it falls back to the pool-direct Queries via [db.QueriesFromContext].
+// itself bypasses RLS — pre-auth we don't know the tenant yet.
 func apiKeyAuth(resolver APIKeyResolver) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		raw, ok := bearerToken(c.GetHeader("Authorization"))
@@ -34,16 +44,49 @@ func apiKeyAuth(resolver APIKeyResolver) gin.HandlerFunc {
 			return
 		}
 		hash := sha256.Sum256([]byte(raw))
-		p, err := resolver.FindByAPIKeyHash(c.Request.Context(), hash[:])
+		res, err := resolver.ResolveByHash(c.Request.Context(), hash[:])
 		if err != nil {
-			// We treat every lookup failure as 401 to avoid leaking
-			// "key valid but project deleted" vs "no such key" via
-			// status-code probing.
+			// Every lookup failure is 401 — don't leak "key valid but
+			// project deleted" vs "no such key" via status-code probing.
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid api key"})
 			return
 		}
+		// Project shim so downstream code that wants a Project value
+		// (existing handlers) keeps working.
+		p := project.Project{
+			ID:            res.ProjectID,
+			TenantID:      res.TenantID,
+			Slug:          project.Slug(res.ProjectSlug),
+			Name:          project.Name(res.ProjectName),
+			DefaultLocale: res.DefaultLocale,
+		}
 		c.Set(ctxKeyProject, p)
-		c.Set(ctxKeyTenantID, p.TenantID)
+		c.Set(ctxKeyTenantID, res.TenantID)
+		c.Set(ctxKeyScope, res.Scope)
+		c.Set(ctxKeyKeyID, res.KeyID)
+		// Best-effort: bumping last_used_at is fire-and-forget so a
+		// transient DB hiccup never fails an otherwise valid request.
+		_ = resolver.Touch(c.Request.Context(), res.KeyID)
+		c.Next()
+	}
+}
+
+// requireScope returns a middleware that 403s unless the resolved
+// API key satisfies the required scope. Mount AFTER [apiKeyAuth].
+func requireScope(required apikey.Scope) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		v, ok := c.Get(ctxKeyScope)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "scope check requires api-key auth"})
+			return
+		}
+		got, _ := v.(apikey.Scope)
+		if !got.Allows(required) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error": "api key scope '" + string(got) + "' cannot perform '" + string(required) + "' operations",
+			})
+			return
+		}
 		c.Next()
 	}
 }

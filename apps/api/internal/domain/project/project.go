@@ -52,13 +52,15 @@ func (n Name) String() string { return string(n) }
 
 // Project is the root aggregate for a tenant's translation surface.
 // Locales, keys, and translations all hang off a Project.
+//
+// API keys live in their own aggregate (domain/apikey) since v0.2 —
+// a project can have any number of read- or write-scoped keys.
 type Project struct {
 	ID            uuid.UUID
 	TenantID      uuid.UUID
 	Slug          Slug
 	Name          Name
 	DefaultLocale string // BCP-47 tag; validated by [locale.Code] at the locale boundary
-	APIKeyHash    []byte // SHA-256 of the raw key; never the raw key itself
 }
 
 // Repository is the persistence port. Implementations live in
@@ -66,10 +68,5 @@ type Project struct {
 type Repository interface {
 	Save(ctx context.Context, p Project) error
 	Find(ctx context.Context, tenantID uuid.UUID, slug Slug) (Project, error)
-	FindByAPIKeyHash(ctx context.Context, apiKeyHash []byte) (Project, error)
 	ListForTenant(ctx context.Context, tenantID uuid.UUID) ([]Project, error)
-	// RotateAPIKeyHash atomically swaps the project's api_key_hash
-	// to the new value. Existing consumers using the old key get
-	// 401s on the next request.
-	RotateAPIKeyHash(ctx context.Context, id uuid.UUID, hash []byte) error
 }

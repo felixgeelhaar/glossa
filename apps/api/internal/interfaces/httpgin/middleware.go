@@ -1,25 +1,16 @@
 package httpgin
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/felixgeelhaar/fortify/ratelimit"
 	"github.com/gin-gonic/gin"
-
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 )
 
-// APIKeyResolver is the narrow port the API-key middleware needs.
-// Wider than necessary for now — the only operation is
-// FindByAPIKeyHash, mirrored from [project.Repository] — but kept
-// separate so consumer-side handlers can be tested without a real
-// project repo.
-type APIKeyResolver interface {
-	FindByAPIKeyHash(ctx context.Context, hash []byte) (project.Project, error)
-}
+// APIKeyResolver is defined in auth.go — wider port now that keys
+// carry scope + last-used tracking.
 
 // slogMiddleware emits one structured log line per request with
 // method, path, status, latency, and client IP. Uses the bolt-backed

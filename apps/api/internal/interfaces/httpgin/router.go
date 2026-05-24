@@ -23,11 +23,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
+	apikeyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/apikey"
 	authapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/aitranslator"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/apikey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
@@ -53,7 +55,8 @@ type Deps struct {
 
 	// Use cases.
 	CreateProj *projectapp.CreateProject
-	RotateKey  *projectapp.RotateAPIKey
+	IssueKey   *apikeyapp.IssueAPIKey
+	RevokeKey  *apikeyapp.RevokeAPIKey
 	UpsertKeys *keyapp.UpsertKeys
 	UpdateTr   *translationapp.UpdateTranslation
 	ListBundle *translationapp.ListBundle
@@ -68,6 +71,7 @@ type Deps struct {
 
 	// Repos.
 	ProjectRepo  project.Repository
+	APIKeys      apikey.Repository
 	Tenants      tenant.Repository
 	Users        user.Repository
 	Locales      locale.Repository
@@ -137,17 +141,23 @@ func New(d Deps) *gin.Engine {
 
 	// ── API-key authed (consumer / CLI / SDK) ────────────────────
 	authed := v1.Group("/projects/:slug")
-	authed.Use(apiKeyAuth(d.ProjectRepo))
+	authed.Use(apiKeyAuth(d.APIKeys))
 	authed.Use(rlsTxMiddleware(d.Pool))
 	{
-		authed.GET("/locales", handleListLocales(d.ProjectRepo, d.Locales))
-		authed.POST("/locales", handleCreateLocale(d.ProjectRepo, d.Locales))
-		authed.POST("/keys:scan", handleScanKeys(d.ProjectRepo, d.UpsertKeys))
-		authed.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
-		authed.PATCH("/locales/:locale/keys/:key",
+		// Read endpoints: read OR write scope.
+		readGuarded := authed.Group("")
+		readGuarded.Use(requireScope(apikey.ScopeRead))
+		readGuarded.GET("/locales", handleListLocales(d.ProjectRepo, d.Locales))
+		readGuarded.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
+		readGuarded.GET("/sse", handleSSE(d.Hub, 0))
+
+		// Write endpoints: write scope only.
+		writeGuarded := authed.Group("")
+		writeGuarded.Use(requireScope(apikey.ScopeWrite))
+		writeGuarded.POST("/locales", handleCreateLocale(d.ProjectRepo, d.Locales))
+		writeGuarded.POST("/keys:scan", handleScanKeys(d.ProjectRepo, d.UpsertKeys))
+		writeGuarded.PATCH("/locales/:locale/keys/:key",
 			handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits, d.AIFanOut))
-		authed.POST("/api-keys", handleRotateAPIKey(d.ProjectRepo, d.RotateKey))
-		authed.GET("/sse", handleSSE(d.Hub, 0))
 	}
 
 	// ── JWT authed (admin SPA / translator UI) ───────────────────
@@ -187,7 +197,9 @@ func New(d Deps) *gin.Engine {
 			adminOnly.POST("/locales/:locale/bulk",
 				handleBulkImport(d.ProjectRepo, d.Locales, d.UpsertKeys, d.Keys, d.UpdateTr, d.Translations, d.Hub, d.Audits, d.AIFanOut))
 			adminOnly.GET("/diff", handleBundleDiff(d.ProjectRepo, d.Locales, d.ListBundle))
-			adminOnly.POST("/api-keys", handleRotateAPIKey(d.ProjectRepo, d.RotateKey))
+			adminOnly.GET("/api-keys", handleListAPIKeys(d.ProjectRepo, d.APIKeys))
+			adminOnly.POST("/api-keys", handleIssueAPIKey(d.ProjectRepo, d.IssueKey))
+			adminOnly.DELETE("/api-keys/:id", handleRevokeAPIKey(d.RevokeKey))
 		}
 
 		// Tenant-level admin endpoints.

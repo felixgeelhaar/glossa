@@ -57,8 +57,18 @@ type Project struct {
 	Slug          string             `json:"slug"`
 	Name          string             `json:"name"`
 	DefaultLocale string             `json:"default_locale"`
-	ApiKeyHash    []byte             `json:"api_key_hash"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type ProjectApiKey struct {
+	ID         pgtype.UUID        `json:"id"`
+	ProjectID  pgtype.UUID        `json:"project_id"`
+	Hash       []byte             `json:"hash"`
+	Scope      string             `json:"scope"`
+	Label      string             `json:"label"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 }
 
 type Tenant struct {

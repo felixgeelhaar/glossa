@@ -19,5 +19,6 @@ import "./diff-tab.js";
 import "./editor-tab.js";
 import "./key-edit.js";
 import "./key-list.js";
+import "./keys-tab.js";
 import "./locales-tab.js";
 import "./users-tab.js";

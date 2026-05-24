@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
+	apikeyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/apikey"
 	authapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
@@ -63,6 +64,7 @@ func main() {
 	userRepo := sqlcadapter.NewUserRepo(queries)
 	auditRepo := sqlcadapter.NewAuditRepo(queries)
 	aiProviderRepo := sqlcadapter.NewAIProviderRepo(queries)
+	apiKeyRepo := sqlcadapter.NewAPIKeyRepo(queries)
 
 	// AI translator wiring is optional: only active if a secrets key
 	// is configured. Absence disables the feature gracefully — the
@@ -89,8 +91,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	createProj := projectapp.NewCreateProject(projectRepo, localeRepo)
-	rotateKey := projectapp.NewRotateAPIKey(projectRepo)
+	createProj := projectapp.NewCreateProject(projectRepo, localeRepo, apiKeyRepo)
+	issueKey := apikeyapp.NewIssueAPIKey(apiKeyRepo)
+	revokeKey := apikeyapp.NewRevokeAPIKey(apiKeyRepo)
 	upsertKeys := keyapp.NewUpsertKeys(keyRepo)
 	updateTr := translationapp.NewUpdateTranslation(translationRepo)
 	listBundle := translationapp.NewListBundle(translationRepo)
@@ -138,7 +141,8 @@ func main() {
 		Pool:        pool,
 
 		CreateProj: createProj,
-		RotateKey:  rotateKey,
+		IssueKey:   issueKey,
+		RevokeKey:  revokeKey,
 		UpsertKeys: upsertKeys,
 		UpdateTr:   updateTr,
 		ListBundle: listBundle,
@@ -148,6 +152,7 @@ func main() {
 		JWTIssuer:  issuer,
 
 		ProjectRepo:  projectRepo,
+		APIKeys:      apiKeyRepo,
 		Tenants:      tenantRepo,
 		Users:        userRepo,
 		Locales:      localeRepo,

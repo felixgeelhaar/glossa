@@ -20,7 +20,7 @@ const STORAGE_AUTH = "glossa-admin-auth-v2";
 const STORAGE_API_URL = "glossa-admin-api-url-v2";
 const STORAGE_PROJECT = "glossa-admin-project-v2";
 
-export type Tab = "editor" | "bulk" | "diff" | "locales" | "users" | "ai" | "audit";
+export type Tab = "editor" | "bulk" | "diff" | "locales" | "keys" | "users" | "ai" | "audit";
 
 export class GlossaAdmin extends LitElement {
   static override styles = css`
@@ -263,24 +263,6 @@ export class GlossaAdmin extends LitElement {
     }
   }
 
-  private async onRotateApiKey(): Promise<void> {
-    if (!this.auth || !this.activeProject) return;
-    if (!confirm(`Rotate the API key for ${this.activeProject.name}? The old key stops working immediately.`)) return;
-    const c = adminClient({
-      apiUrl: this.apiUrl,
-      token: this.auth.token,
-      ...(this.fetchImpl ? { fetch: this.fetchImpl } : {}),
-    });
-    try {
-      const out = await c.rotateProjectApiKey(this.activeProject.slug);
-      this.revealedApiKey = out.apiKey;
-      this.revealedFor = `${this.activeProject.name} (${this.activeProject.slug})`;
-      this.requestUpdate();
-    } catch (err) {
-      alert("Rotate failed: " + ((err as Error).message || "unknown"));
-    }
-  }
-
   private dismissRevealedKey(): void {
     this.revealedApiKey = "";
     this.revealedFor = "";
@@ -316,9 +298,6 @@ export class GlossaAdmin extends LitElement {
             : null}
           ${isAdmin
             ? html`<gl-button variant="outline" size="sm" @click=${() => this.openCreate()}>+ New project</gl-button>`
-            : null}
-          ${isAdmin && this.activeProject
-            ? html`<gl-button variant="ghost" size="sm" @click=${() => void this.onRotateApiKey()}>Rotate key</gl-button>`
             : null}
           <gl-theme-toggle></gl-theme-toggle>
           <gl-button variant="ghost" size="sm" @click=${() => this.signOut()}>Sign out</gl-button>
@@ -515,6 +494,7 @@ export class GlossaAdmin extends LitElement {
       { id: "bulk", label: "Import / Export", hidden: !isAdmin },
       { id: "diff", label: "Diff", hidden: !isAdmin },
       { id: "locales", label: "Locales", hidden: !isAdmin },
+      { id: "keys", label: "API keys", hidden: !isAdmin },
       { id: "users", label: "Users", hidden: !isAdmin },
       { id: "ai", label: "AI translation", hidden: !isAdmin },
       { id: "audit", label: "Audit log", hidden: !isAdmin },
@@ -547,6 +527,9 @@ export class GlossaAdmin extends LitElement {
             : null}
           ${this.tab === "locales"
             ? html`<glossa-admin-locales-tab .client=${c} .slug=${slug}></glossa-admin-locales-tab>`
+            : null}
+          ${this.tab === "keys"
+            ? html`<glossa-admin-keys-tab .client=${c} .slug=${slug}></glossa-admin-keys-tab>`
             : null}
           ${this.tab === "users"
             ? html`<glossa-admin-users-tab .client=${c}></glossa-admin-users-tab>`

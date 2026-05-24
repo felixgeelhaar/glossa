@@ -12,8 +12,8 @@ import (
 )
 
 const createProject = `-- name: CreateProject :one
-INSERT INTO projects (tenant_id, slug, name, default_locale, api_key_hash)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO projects (tenant_id, slug, name, default_locale)
+VALUES ($1, $2, $3, $4)
 RETURNING id, tenant_id, slug, name, default_locale, created_at
 `
 
@@ -22,59 +22,16 @@ type CreateProjectParams struct {
 	Slug          string      `json:"slug"`
 	Name          string      `json:"name"`
 	DefaultLocale string      `json:"default_locale"`
-	ApiKeyHash    []byte      `json:"api_key_hash"`
 }
 
-type CreateProjectRow struct {
-	ID            pgtype.UUID        `json:"id"`
-	TenantID      pgtype.UUID        `json:"tenant_id"`
-	Slug          string             `json:"slug"`
-	Name          string             `json:"name"`
-	DefaultLocale string             `json:"default_locale"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error) {
+func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error) {
 	row := q.db.QueryRow(ctx, createProject,
 		arg.TenantID,
 		arg.Slug,
 		arg.Name,
 		arg.DefaultLocale,
-		arg.ApiKeyHash,
 	)
-	var i CreateProjectRow
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Slug,
-		&i.Name,
-		&i.DefaultLocale,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getProjectByAPIKeyHash = `-- name: GetProjectByAPIKeyHash :one
-SELECT id, tenant_id, slug, name, default_locale, created_at
-FROM projects
-WHERE api_key_hash = $1
-`
-
-type GetProjectByAPIKeyHashRow struct {
-	ID            pgtype.UUID        `json:"id"`
-	TenantID      pgtype.UUID        `json:"tenant_id"`
-	Slug          string             `json:"slug"`
-	Name          string             `json:"name"`
-	DefaultLocale string             `json:"default_locale"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-}
-
-// Lookup used by the API-key auth middleware. The hash is SHA-256 of
-// the raw key; the comparison is timing-safe at the driver level
-// (Postgres byte equality on a fixed-length BYTEA).
-func (q *Queries) GetProjectByAPIKeyHash(ctx context.Context, apiKeyHash []byte) (GetProjectByAPIKeyHashRow, error) {
-	row := q.db.QueryRow(ctx, getProjectByAPIKeyHash, apiKeyHash)
-	var i GetProjectByAPIKeyHashRow
+	var i Project
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -87,7 +44,7 @@ func (q *Queries) GetProjectByAPIKeyHash(ctx context.Context, apiKeyHash []byte)
 }
 
 const getProjectBySlug = `-- name: GetProjectBySlug :one
-SELECT id, tenant_id, slug, name, default_locale, api_key_hash, created_at
+SELECT id, tenant_id, slug, name, default_locale, created_at
 FROM projects
 WHERE tenant_id = $1 AND slug = $2
 `
@@ -106,7 +63,6 @@ func (q *Queries) GetProjectBySlug(ctx context.Context, arg GetProjectBySlugPara
 		&i.Slug,
 		&i.Name,
 		&i.DefaultLocale,
-		&i.ApiKeyHash,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -151,18 +107,4 @@ func (q *Queries) ListProjectsForTenant(ctx context.Context, tenantID pgtype.UUI
 		return nil, err
 	}
 	return items, nil
-}
-
-const rotateProjectAPIKey = `-- name: RotateProjectAPIKey :exec
-UPDATE projects SET api_key_hash = $2 WHERE id = $1
-`
-
-type RotateProjectAPIKeyParams struct {
-	ID         pgtype.UUID `json:"id"`
-	ApiKeyHash []byte      `json:"api_key_hash"`
-}
-
-func (q *Queries) RotateProjectAPIKey(ctx context.Context, arg RotateProjectAPIKeyParams) error {
-	_, err := q.db.Exec(ctx, rotateProjectAPIKey, arg.ID, arg.ApiKeyHash)
-	return err
 }

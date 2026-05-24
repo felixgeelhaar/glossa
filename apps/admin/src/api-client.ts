@@ -102,8 +102,15 @@ export function adminClient(cfg: AdminClientConfig) {
         method: "POST",
         body: JSON.stringify(input),
       }),
-    rotateProjectApiKey: (slug: string) =>
-      req<{ apiKey: string }>(`/projects/${encodeURIComponent(slug)}/api-keys`, { method: "POST" }),
+    listProjectApiKeys: (slug: string) =>
+      req<{ keys: ProjectApiKeyRow[] }>(`/projects/${encodeURIComponent(slug)}/api-keys`),
+    issueProjectApiKey: (slug: string, input: { scope: "read" | "write"; label: string }) =>
+      req<{ key: ProjectApiKeyRow; apiKey: string }>(
+        `/projects/${encodeURIComponent(slug)}/api-keys`,
+        { method: "POST", body: JSON.stringify(input) },
+      ),
+    revokeProjectApiKey: (slug: string, id: string) =>
+      req(`/projects/${encodeURIComponent(slug)}/api-keys/${id}`, { method: "DELETE" }),
 
     listLocales: (slug: string) => req<LocaleRow[]>(`/projects/${encodeURIComponent(slug)}/locales`),
     createLocale: (slug: string, input: { code: string; label: string }) =>
@@ -165,6 +172,16 @@ export function adminClient(cfg: AdminClientConfig) {
         { method: "POST", body: JSON.stringify({ source }) },
       ),
   };
+}
+
+/** Row shape returned by /admin/projects/:slug/api-keys. */
+export interface ProjectApiKeyRow {
+  id: string;
+  scope: "read" | "write";
+  label: string;
+  createdAt: string;
+  lastUsedAt?: string | null;
+  revokedAt?: string | null;
 }
 
 /** Row shape returned by /admin/ai-providers. */

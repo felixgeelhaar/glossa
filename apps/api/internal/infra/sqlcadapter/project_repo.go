@@ -37,7 +37,6 @@ func (r *ProjectRepo) Save(ctx context.Context, p project.Project) error {
 		Slug:          p.Slug.String(),
 		Name:          p.Name.String(),
 		DefaultLocale: p.DefaultLocale,
-		ApiKeyHash:    p.APIKeyHash,
 	})
 	return err
 }
@@ -55,30 +54,13 @@ func (r *ProjectRepo) Find(ctx context.Context, tenantID uuid.UUID, slug project
 		}
 		return project.Project{}, err
 	}
-	return fromGetProjectBySlugRow(row)
-}
-
-// FindByAPIKeyHash powers the API-key auth middleware. Comparison is
-// timing-safe at the driver level: Postgres byte equality on a
-// fixed-length BYTEA.
-func (r *ProjectRepo) FindByAPIKeyHash(ctx context.Context, hash []byte) (project.Project, error) {
-	row, err := r.q.GetProjectByAPIKeyHash(ctx, hash)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return project.Project{}, ErrNotFound
-		}
-		return project.Project{}, err
-	}
-	return fromGetProjectByAPIKeyHashRow(row)
-}
-
-// RotateAPIKeyHash atomically swaps the project's stored api_key_hash.
-func (r *ProjectRepo) RotateAPIKeyHash(ctx context.Context, id uuid.UUID, hash []byte) error {
-	q := db.QueriesFromContext(ctx, r.q)
-	return q.RotateProjectAPIKey(ctx, db.RotateProjectAPIKeyParams{
-		ID:         toPgUUID(id),
-		ApiKeyHash: hash,
-	})
+	return project.Project{
+		ID:            fromPgUUID(row.ID),
+		TenantID:      fromPgUUID(row.TenantID),
+		Slug:          project.Slug(row.Slug),
+		Name:          project.Name(row.Name),
+		DefaultLocale: row.DefaultLocale,
+	}, nil
 }
 
 // ListForTenant returns projects for the given tenant, newest first.
@@ -99,27 +81,6 @@ func (r *ProjectRepo) ListForTenant(ctx context.Context, tenantID uuid.UUID) ([]
 		})
 	}
 	return out, nil
-}
-
-func fromGetProjectBySlugRow(row db.Project) (project.Project, error) {
-	return project.Project{
-		ID:            fromPgUUID(row.ID),
-		TenantID:      fromPgUUID(row.TenantID),
-		Slug:          project.Slug(row.Slug),
-		Name:          project.Name(row.Name),
-		DefaultLocale: row.DefaultLocale,
-		APIKeyHash:    row.ApiKeyHash,
-	}, nil
-}
-
-func fromGetProjectByAPIKeyHashRow(row db.GetProjectByAPIKeyHashRow) (project.Project, error) {
-	return project.Project{
-		ID:            fromPgUUID(row.ID),
-		TenantID:      fromPgUUID(row.TenantID),
-		Slug:          project.Slug(row.Slug),
-		Name:          project.Name(row.Name),
-		DefaultLocale: row.DefaultLocale,
-	}, nil
 }
 
 func toPgUUID(id uuid.UUID) pgtype.UUID {
