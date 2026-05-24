@@ -224,7 +224,7 @@ CREATE POLICY projects_isolation ON projects USING (tenant_id::text = current_se
 | Cache | in-process map; Redis later | MVP doesn't need Redis until multi-replica SSE fanout |
 | Auth | `golang-jwt/jwt` for admin sessions; SHA-256-hashed API keys for consumer / CLI traffic | JWT proven across IRI + Brotwerk; API keys keep Lit-component install ergonomic |
 | Admin UI | Lit + Vite + TS | Dogfood the same components consumers ship |
-| Components | Lit + own ICU subset (`@glossa/format`) | Smallest runtime; framework-agnostic |
+| Components | Lit + own ICU subset (`@felixgeelhaar/glossa-format`) | Smallest runtime; framework-agnostic |
 | Hosting | k3s on `edge-1` (shared with IRI/Brotwerk) | Zero infra cost; mirror IRI deploy patterns |
 | TLS | cert-manager + Let's Encrypt | Already configured cluster-wide |
 

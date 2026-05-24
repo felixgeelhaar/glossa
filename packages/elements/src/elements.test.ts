@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Bundle } from "@glossa/sdk";
+import type { Bundle } from "@felixgeelhaar/glossa-sdk";
 
 import "./index.js";
 import type { GlossaProvider } from "./glossa-provider.js";
@@ -151,7 +151,7 @@ describe("<glossa-provider> + <glossa-text>", () => {
 });
 
 describe("<glossa-rich>", () => {
-  it("interpolates vars via @glossa/format", async () => {
+  it("interpolates vars via @felixgeelhaar/glossa-format", async () => {
     const fetchImpl = makeFetch({ de });
     const provider = await mountProvider(
       `<glossa-provider project="demo" locale="de" api-url="https://glossa.test" api-key="glossa_x">

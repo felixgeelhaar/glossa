@@ -1,12 +1,12 @@
 // <glossa-admin-key-list> — sortable, filterable list of keys.
-// Uses @glossa/ui tokens for styling + <gl-badge> for the status
+// Uses @felixgeelhaar/glossa-ui tokens for styling + <gl-badge> for the status
 // pill so the lifecycle states share their color story with the
 // rest of the admin.
 
 import { LitElement, css, html, unsafeCSS } from "lit";
 
-import { glTableStyles } from "@glossa/ui";
-import type { TranslationStatus } from "@glossa/sdk";
+import { glTableStyles } from "@felixgeelhaar/glossa-ui";
+import type { TranslationStatus } from "@felixgeelhaar/glossa-sdk";
 
 export class GlossaAdminKeyList extends LitElement {
   static override styles = css`

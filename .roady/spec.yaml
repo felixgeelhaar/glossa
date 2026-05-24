@@ -3,8 +3,8 @@ title: Glossa
 description: Cross-project translation management — REST API + Lit web components
   + own ICU subset. See README.md and docs/design.md for the full architecture.
 features:
-- id: icu-subset-(@glossa/format)
-  title: ICU subset (@glossa/format)
+- id: icu-subset-(@felixgeelhaar/glossa-format)
+  title: ICU subset (@felixgeelhaar/glossa-format)
   description: 'Own ICU MessageFormat subset, ~200 LOC + ~150 LOC tests. Lands first
     because nothing else depends on it.
 
@@ -109,7 +109,7 @@ features:
 
     - Server-side fanout: in-process map per project for MVP; Redis pubsub when multi-replica
 
-    - Client-side reconnection with exponential backoff in @glossa/sdk
+    - Client-side reconnection with exponential backoff in @felixgeelhaar/glossa-sdk
 
     - Heartbeat every 30s so corporate proxies don''t kill the connection
 
@@ -126,8 +126,8 @@ features:
 
     - Reconnection recovers missed events using a `Last-Event-ID` cursor'
   requirements: []
-- id: glossa-sdk-(@glossa/sdk)
-  title: Glossa SDK (@glossa/sdk)
+- id: glossa-sdk-(@felixgeelhaar/glossa-sdk)
+  title: Glossa SDK (@felixgeelhaar/glossa-sdk)
   description: 'HTTP fetch + in-memory cache + SSE subscription, framework-agnostic.
     The boundary the Lit components and CLI both consume; owns network code so the
     components stay pure rendering.
@@ -158,8 +158,8 @@ features:
 
     - Works in Node (CLI) and browser (components)'
   requirements: []
-- id: lit-web-components-(@glossa/elements)
-  title: Lit web components (@glossa/elements)
+- id: lit-web-components-(@felixgeelhaar/glossa-elements)
+  title: Lit web components (@felixgeelhaar/glossa-elements)
   description: 'Framework-agnostic translation rendering. `<glossa-provider>` boots
     one SDK client; descendant `<glossa-text>` / `<glossa-rich>` / `<glossa-plural>`
     / `<glossa-select>` reactively render translations.
@@ -173,7 +173,7 @@ features:
     - `<glossa-text key>` — flat string lookup; slot content is fallback when key
     missing
 
-    - `<glossa-rich key vars>` — ICU MessageFormat via @glossa/format
+    - `<glossa-rich key vars>` — ICU MessageFormat via @felixgeelhaar/glossa-format
 
     - `<glossa-plural key count>` — convenience wrapper around rich for the most common
     case
@@ -203,8 +203,8 @@ features:
 
     - Total package bundle size <10kb gzipped'
   requirements: []
-- id: cli-(@glossa/cli)
-  title: CLI (@glossa/cli)
+- id: cli-(@felixgeelhaar/glossa-cli)
+  title: CLI (@felixgeelhaar/glossa-cli)
   description: 'Build-time integration: scan source for keys, pull/push bundles. Doesn''t
     own runtime behaviour — the SSE channel covers that.
 
@@ -235,11 +235,11 @@ features:
 
     - `pull` writes deterministic JSON output (stable key order) so the diff is meaningful
 
-    - Standalone npm install: `npx @glossa/cli scan` works without a global install'
+    - Standalone npm install: `npx @felixgeelhaar/glossa-cli scan` works without a global install'
   requirements: []
 - id: admin-ui-(apps/admin)
   title: Admin UI (apps/admin)
-  description: 'Translator interface. Lit + Vite, dogfoods @glossa/elements + @glossa/sdk
+  description: 'Translator interface. Lit + Vite, dogfoods @felixgeelhaar/glossa-elements + @felixgeelhaar/glossa-sdk
     so changes to the public packages get exercised every time the admin is touched.
 
 
@@ -251,7 +251,7 @@ features:
     / approved)
 
     - Edit form per key — supports the ICU subset with a live preview rendering via
-    @glossa/format
+    @felixgeelhaar/glossa-format
 
     - Bulk import / export JSON
 

@@ -1,5 +1,5 @@
 // <glossa-rich key="..." vars='{"name":"…"}'> — runs the message
-// through @glossa/format so ICU plurals / selects / interpolation
+// through @felixgeelhaar/glossa-format so ICU plurals / selects / interpolation
 // all work. The vars attribute is a JSON string for HTML-ergonomic
 // authoring; programmatic callers can also set the property
 // directly via `.vars = {...}`.
@@ -7,7 +7,7 @@
 import { ContextConsumer } from "@lit/context";
 import { LitElement, css, html } from "lit";
 
-import { format, type Values } from "@glossa/format";
+import { format, type Values } from "@felixgeelhaar/glossa-format";
 
 import { glossaContext, type GlossaContextValue } from "./context.js";
 

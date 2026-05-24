@@ -2,10 +2,10 @@
 // and apply the persisted theme before the first paint so the
 // admin doesn't flash light → dark.
 
-import "@glossa/ui/tokens.css";
-import { initTheme } from "@glossa/ui";
-import "@glossa/ui";
-import "@glossa/elements";
+import "@felixgeelhaar/glossa-ui/tokens.css";
+import { initTheme } from "@felixgeelhaar/glossa-ui";
+import "@felixgeelhaar/glossa-ui";
+import "@felixgeelhaar/glossa-elements";
 
 initTheme();
 

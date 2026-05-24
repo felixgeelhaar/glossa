@@ -100,7 +100,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           # Monorepo root build context — apps/admin/Dockerfile
-          # needs the workspace tree to resolve @glossa/* deps.
+          # needs the workspace tree to resolve @felixgeelhaar/glossa-* deps.
           context: .
           file: apps/admin/Dockerfile
           push: true

@@ -15,7 +15,7 @@
 import { ContextProvider } from "@lit/context";
 import { LitElement, css, html } from "lit";
 
-import { createClient, type Bundle, type Client } from "@glossa/sdk";
+import { createClient, type Bundle, type Client } from "@felixgeelhaar/glossa-sdk";
 
 import { glossaContext, type GlossaContextValue } from "./context.js";
 

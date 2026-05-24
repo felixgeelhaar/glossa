@@ -1,11 +1,11 @@
 // <glossa-admin> — root SPA. Drives the JWT login flow, the
 // project switcher, and the per-project tab set. UI built from
-// @glossa/ui primitives so theming + dark mode work consistently.
+// @felixgeelhaar/glossa-ui primitives so theming + dark mode work consistently.
 
 import { LitElement, css, html } from "lit";
 
-import "@glossa/ui";
-import type { GlTabs } from "@glossa/ui";
+import "@felixgeelhaar/glossa-ui";
+import type { GlTabs } from "@felixgeelhaar/glossa-ui";
 
 import {
   adminClient,

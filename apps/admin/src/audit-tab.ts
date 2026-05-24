@@ -2,7 +2,7 @@
 
 import { LitElement, css, html, unsafeCSS } from "lit";
 
-import { glTableStyles } from "@glossa/ui";
+import { glTableStyles } from "@felixgeelhaar/glossa-ui";
 
 import type { adminClient, AuditRow } from "./api-client.js";
 

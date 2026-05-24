@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { BundleResponse } from "./api-client.js";
-import "@glossa/elements";
+import "@felixgeelhaar/glossa-elements";
 
 import "./admin-app.js";
 import "./audit-tab.js";

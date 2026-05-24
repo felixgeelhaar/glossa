@@ -1,6 +1,6 @@
 name: Release packages
 
-# Publishes the `@glossa/*` npm packages.
+# Publishes the `@felixgeelhaar/glossa-*` npm packages.
 #
 # Flow:
 #   1. PR lands on `main` with a `.changeset/*.md` file describing
@@ -14,7 +14,7 @@ name: Release packages
 #
 # Required repo secrets:
 #   NPM_TOKEN — npm automation token with publish access to the
-#               @glossa scope (and any other scopes used).
+#               @felixgeelhaar scope.
 #
 # OIDC + provenance: each package has `publishConfig.provenance:
 # true`, which makes npm verify the build came from this exact
@@ -56,11 +56,11 @@ jobs:
 
       - name: Build workspace packages
         run: |
-          pnpm --filter @glossa/format build
-          pnpm --filter @glossa/sdk build
-          pnpm --filter @glossa/ui build
-          pnpm --filter @glossa/elements build
-          pnpm --filter @glossa/cli build
+          pnpm --filter @felixgeelhaar/glossa-format build
+          pnpm --filter @felixgeelhaar/glossa-sdk build
+          pnpm --filter @felixgeelhaar/glossa-ui build
+          pnpm --filter @felixgeelhaar/glossa-elements build
+          pnpm --filter @felixgeelhaar/glossa-cli build
 
       - uses: changesets/action@v1
         id: changesets

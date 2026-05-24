@@ -3,7 +3,7 @@
 //
 //   {gender, select, female {…} male {…} other {…}}
 //
-// The component hands `{ value }` to @glossa/format. The selector
+// The component hands `{ value }` to @felixgeelhaar/glossa-format. The selector
 // name inside the template can be anything — callers either match
 // it by passing `vars` explicitly, or use a convention. To keep
 // the markup simple we expose a single `value` attribute and
@@ -13,7 +13,7 @@
 import { ContextConsumer } from "@lit/context";
 import { LitElement, css, html } from "lit";
 
-import { format, type Values } from "@glossa/format";
+import { format, type Values } from "@felixgeelhaar/glossa-format";
 
 import { glossaContext, type GlossaContextValue } from "./context.js";
 

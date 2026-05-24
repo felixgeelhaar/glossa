@@ -1,4 +1,4 @@
-// <glossa-admin-demo-strip> — mounts every public @glossa/elements
+// <glossa-admin-demo-strip> — mounts every public @felixgeelhaar/glossa-elements
 // custom element on the same <glossa-provider> so any SSE update
 // arriving from the editor flows through the SDK cache into the
 // rendered strings. Lives in the admin page so the translator

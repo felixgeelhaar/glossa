@@ -3,13 +3,13 @@
 //
 //   {count, plural, =0 {none} one {one item} other {# items}}
 //
-// Internally we just hand `{ count }` to @glossa/format alongside
+// Internally we just hand `{ count }` to @felixgeelhaar/glossa-format alongside
 // any extra `vars` attribute the caller supplies.
 
 import { ContextConsumer } from "@lit/context";
 import { LitElement, css, html } from "lit";
 
-import { format, type Values } from "@glossa/format";
+import { format, type Values } from "@felixgeelhaar/glossa-format";
 
 import { glossaContext, type GlossaContextValue } from "./context.js";
 

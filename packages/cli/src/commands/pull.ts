@@ -6,7 +6,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { createClient } from "@glossa/sdk";
+import { createClient } from "@felixgeelhaar/glossa-sdk";
 
 import { loadConfig, resolveApiKey } from "../config.js";
 import { EXIT_NETWORK, EXIT_OK } from "../exit.js";

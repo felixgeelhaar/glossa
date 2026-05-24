@@ -1,4 +1,4 @@
-# `@glossa/format` — ICU subset (~200 LOC)
+# `@felixgeelhaar/glossa-format` — ICU subset (~200 LOC)
 
 Stub. Implementation lands first in this monorepo — it has no dependencies on the rest.
 

@@ -1,6 +1,6 @@
-# `@glossa/elements` — Lit web components
+# `@felixgeelhaar/glossa-elements` — Lit web components
 
-Stub. Implementation lands after `@glossa/format` + `@glossa/sdk` are ready.
+Stub. Implementation lands after `@felixgeelhaar/glossa-format` + `@felixgeelhaar/glossa-sdk` are ready.
 
 ## Public surface (planned)
 
@@ -25,4 +25,4 @@ Stub. Implementation lands after `@glossa/format` + `@glossa/sdk` are ready.
 
 - **Fallback always wins.** When the key is missing or the API is unreachable, slot content renders. Apps still work offline.
 - **Framework-agnostic.** Drops into Vue, React, Svelte, Astro, plain HTML.
-- **Smallest possible runtime.** Network code lives in `@glossa/sdk`; formatting in `@glossa/format`. This package is pure rendering + reactivity.
+- **Smallest possible runtime.** Network code lives in `@felixgeelhaar/glossa-sdk`; formatting in `@felixgeelhaar/glossa-format`. This package is pure rendering + reactivity.

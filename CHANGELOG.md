@@ -13,7 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · SemVer.
   `needs_review`, fan-out worker on source-locale writes. OpenAI /
   Anthropic / Gemini / OpenAI-compatible custom endpoints supported.
   Admin UI tab for provider management + live test calls.
-- **`@glossa/ui` design system.** Light / dark / system theme tokens,
+- **`@felixgeelhaar/glossa-ui` design system.** Light / dark / system theme tokens,
   primitives (`gl-button`, `gl-input`, `gl-select`, `gl-textarea`,
   `gl-card`, `gl-badge`, `gl-table`, `gl-tabs`, `gl-toast`, `gl-toolbar`,
   `gl-theme-toggle`). Every admin tab migrated.

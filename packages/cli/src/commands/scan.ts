@@ -5,7 +5,7 @@
 //   2  request itself failed (network / 5xx / auth)
 //   3  request succeeded but the API reported per-row errors
 
-import { createClient } from "@glossa/sdk";
+import { createClient } from "@felixgeelhaar/glossa-sdk";
 
 import { loadConfig, resolveApiKey } from "../config.js";
 import { EXIT_NETWORK, EXIT_OK, EXIT_PARTIAL } from "../exit.js";

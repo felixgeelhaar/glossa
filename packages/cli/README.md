@@ -1,4 +1,4 @@
-# `@glossa/cli` — build-pipeline integration
+# `@felixgeelhaar/glossa-cli` — build-pipeline integration
 
 Stub. Implementation lands after the API ships `keys:scan` and bundle endpoints.
 

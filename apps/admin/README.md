@@ -9,8 +9,8 @@ Translator interface — list keys per project/locale, edit translations inline,
 ## Stack
 
 - Lit 3 + Vite + TypeScript
-- Uses `@glossa/sdk` (this monorepo) for API calls
-- Uses `@glossa/elements` (this monorepo) to dogfood the same components consumer apps ship
+- Uses `@felixgeelhaar/glossa-sdk` (this monorepo) for API calls
+- Uses `@felixgeelhaar/glossa-elements` (this monorepo) to dogfood the same components consumer apps ship
 
 ## Status
 

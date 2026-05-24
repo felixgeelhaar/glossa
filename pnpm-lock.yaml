@@ -17,16 +17,16 @@ importers:
 
   apps/admin:
     dependencies:
-      '@glossa/elements':
+      '@felixgeelhaar/glossa-elements':
         specifier: workspace:*
         version: link:../../packages/elements
-      '@glossa/format':
+      '@felixgeelhaar/glossa-format':
         specifier: workspace:*
         version: link:../../packages/format
-      '@glossa/sdk':
+      '@felixgeelhaar/glossa-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@glossa/ui':
+      '@felixgeelhaar/glossa-ui':
         specifier: workspace:*
         version: link:../../packages/ui
       lit:
@@ -51,7 +51,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@glossa/sdk':
+      '@felixgeelhaar/glossa-sdk':
         specifier: workspace:*
         version: link:../sdk
       ignore:
@@ -73,10 +73,10 @@ importers:
 
   packages/elements:
     dependencies:
-      '@glossa/format':
+      '@felixgeelhaar/glossa-format':
         specifier: workspace:*
         version: link:../format
-      '@glossa/sdk':
+      '@felixgeelhaar/glossa-sdk':
         specifier: workspace:*
         version: link:../sdk
       '@lit/context':

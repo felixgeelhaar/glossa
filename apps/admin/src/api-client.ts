@@ -1,6 +1,6 @@
 // Thin admin-side HTTP client over the Glossa REST surface. Wraps
 // fetch with the JWT auth header + a tiny error type. Lives in
-// apps/admin (not @glossa/sdk) because the admin only ever talks
+// apps/admin (not @felixgeelhaar/glossa-sdk) because the admin only ever talks
 // to the admin endpoints — the SDK targets the public consumer
 // surface and stays narrow.
 

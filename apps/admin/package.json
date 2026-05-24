@@ -1,7 +1,7 @@
 {
-  "name": "@glossa/admin",
+  "name": "@felixgeelhaar/glossa-admin",
   "version": "0.0.0",
-  "description": "Glossa admin SPA — Lit + Vite. Dogfoods @glossa/elements and @glossa/sdk.",
+  "description": "Glossa admin SPA — Lit + Vite. Dogfoods @felixgeelhaar/glossa-elements and @felixgeelhaar/glossa-sdk.",
   "type": "module",
   "private": true,
   "scripts": {
@@ -13,10 +13,10 @@
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@glossa/elements": "workspace:*",
-    "@glossa/format": "workspace:*",
-    "@glossa/sdk": "workspace:*",
-    "@glossa/ui": "workspace:*",
+    "@felixgeelhaar/glossa-elements": "workspace:*",
+    "@felixgeelhaar/glossa-format": "workspace:*",
+    "@felixgeelhaar/glossa-sdk": "workspace:*",
+    "@felixgeelhaar/glossa-ui": "workspace:*",
     "lit": "^3.2.0"
   },
   "devDependencies": {

@@ -19,7 +19,7 @@ Glossa is the translation-management backbone for [Brotwerk](https://brotwerk.fe
 - **AI translator agents (optional).** Configure OpenAI / Anthropic / Gemini / OpenAI-compatible endpoints per tenant. When a source-locale write lands, every other enabled locale gets an `ai_translated` row for reviewer approval. Existing approved / needs_review rows are never overwritten. API keys are AES-GCM encrypted at rest with `GLOSSA_SECRETS_KEY`.
 - **Email-first auth.** Login takes (email, password) — the tenant is inferred. Translators are scoped to specific locales; admins can do everything.
 - **Audit log.** Every translation mutation is recorded with before/after value, actor (`user` / `ai` / `system`), and timestamp.
-- **Design system.** `@glossa/ui` ships Lit primitives (`gl-button`, `gl-input`, `gl-select`, `gl-table`, `gl-badge`, …) with light/dark/system theming. The admin UI is built from those primitives.
+- **Design system.** `@felixgeelhaar/glossa-ui` ships Lit primitives (`gl-button`, `gl-input`, `gl-select`, `gl-table`, `gl-badge`, …) with light/dark/system theming. The admin UI is built from those primitives.
 - **Bulk import / export.** Atomic upsert of full `{key: value}` bundles; per-row failures reported alongside successes.
 - **Diff view.** Per-locale untranslated + needs-review counts at a glance.
 
@@ -36,7 +36,7 @@ Glossa is the translation-management backbone for [Brotwerk](https://brotwerk.fe
 │   ├── Auth: JWT (admin SPA) + API key (consumer SDK)   │
 │   └── AI fan-out: source-locale write → N targets      │
 │                                                        │
-│  apps/admin  (Lit + Vite + @glossa/ui)                 │
+│  apps/admin  (Lit + Vite + @felixgeelhaar/glossa-ui)                 │
 │   ├── Editor / Bulk / Diff / Locales / Users           │
 │   ├── AI translation (provider config + test)          │
 │   └── Audit log                                        │
@@ -85,7 +85,7 @@ glossa/
 │   │       └── infra/          # sqlc adapter, AES-GCM secrets, AI clients
 │   └── admin/                  # Lit SPA, served by nginx in compose
 ├── packages/
-│   └── ui/                     # @glossa/ui — design system primitives
+│   └── ui/                     # @felixgeelhaar/glossa-ui — design system primitives
 ├── deploy/k3s/                 # k3s manifests + Helm-free kustomize bases
 ├── docs/                       # design doc + ADRs
 └── docker-compose.yml          # one-command dev stack

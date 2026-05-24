@@ -25,16 +25,16 @@ COPY packages/cli/package.json packages/cli/
 RUN pnpm install --frozen-lockfile
 
 # Now copy the source and build. Build the workspace deps the admin
-# imports first (@glossa/ui, format, sdk) so their dist/ + type
+# imports first (@felixgeelhaar/glossa-ui, format, sdk) so their dist/ + type
 # declarations are in place when admin's tsc runs. Elements + cli
 # aren't admin deps; they're built so a future workspace-wide
 # tsconfig project references graph stays clean.
 COPY . .
-RUN pnpm --filter @glossa/format build \
-    && pnpm --filter @glossa/sdk build \
-    && pnpm --filter @glossa/ui build \
-    && pnpm --filter @glossa/elements build \
-    && pnpm --filter @glossa/admin build
+RUN pnpm --filter @felixgeelhaar/glossa-format build \
+    && pnpm --filter @felixgeelhaar/glossa-sdk build \
+    && pnpm --filter @felixgeelhaar/glossa-ui build \
+    && pnpm --filter @felixgeelhaar/glossa-elements build \
+    && pnpm --filter @felixgeelhaar/glossa-admin build
 
 # ── Runtime stage ────────────────────────────────────────────────────
 # nginx:alpine is small and runs as nonroot by default in alpine

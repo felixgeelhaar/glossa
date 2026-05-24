@@ -1,5 +1,5 @@
 {
-  "name": "@glossa/cli",
+  "name": "@felixgeelhaar/glossa-cli",
   "version": "0.0.0",
   "description": "Build-time CLI for Glossa: init / scan / pull / push.",
   "type": "module",
@@ -26,7 +26,7 @@
     "format": "prettier --write src"
   },
   "dependencies": {
-    "@glossa/sdk": "workspace:*",
+    "@felixgeelhaar/glossa-sdk": "workspace:*",
     "ignore": "^6.0.0"
   },
   "devDependencies": {

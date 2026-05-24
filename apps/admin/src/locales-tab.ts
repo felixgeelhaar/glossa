@@ -2,7 +2,7 @@
 
 import { LitElement, css, html, unsafeCSS } from "lit";
 
-import { glTableStyles, toast } from "@glossa/ui";
+import { glTableStyles, toast } from "@felixgeelhaar/glossa-ui";
 
 import type { adminClient, LocaleRow } from "./api-client.js";
 

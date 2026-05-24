@@ -1,11 +1,11 @@
-// <glossa-admin-key-edit> — single-key editor. Uses @glossa/ui
+// <glossa-admin-key-edit> — single-key editor. Uses @felixgeelhaar/glossa-ui
 // primitives for inputs + buttons; ICU live preview via
-// @glossa/format unchanged.
+// @felixgeelhaar/glossa-format unchanged.
 
 import { LitElement, css, html } from "lit";
 
-import { format } from "@glossa/format";
-import type { TranslationStatus } from "@glossa/sdk";
+import { format } from "@felixgeelhaar/glossa-format";
+import type { TranslationStatus } from "@felixgeelhaar/glossa-sdk";
 
 export class GlossaAdminKeyEdit extends LitElement {
   static override styles = css`

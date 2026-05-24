@@ -1,5 +1,5 @@
 // Side-effect imports register the custom elements. Importing
-// `@glossa/ui` once at app boot is enough.
+// `@felixgeelhaar/glossa-ui` once at app boot is enough.
 import "./button.js";
 import "./input.js";
 import "./select.js";

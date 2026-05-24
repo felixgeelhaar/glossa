@@ -4,7 +4,7 @@
   "tasks": [
     {
       "id": "task-sdk",
-      "title": "Implement Glossa SDK (@glossa/sdk)",
+      "title": "Implement Glossa SDK (@felixgeelhaar/glossa-sdk)",
       "description": "Framework-agnostic HTTP fetch + cache + SSE subscription. Client(config) factory; client.bundle(locale) with etag/304; client.subscribe(); in-memory cache invalidated on SSE; client.scan() for CLI. Pluggable transport. Acceptance: vitest happy path + 304 + reconnect + miss; <5kb gzipped (native fetch); works in Node + browser.",
       "priority": "high",
       "estimate": "1w",
@@ -12,7 +12,7 @@
         "task-go-api",
         "task-sse"
       ],
-      "feature_id": "glossa-sdk-(@glossa/sdk)",
+      "feature_id": "glossa-sdk-(@felixgeelhaar/glossa-sdk)",
       "source": {}
     },
     {
@@ -30,7 +30,7 @@
     },
     {
       "id": "task-elements",
-      "title": "Implement Lit web components (@glossa/elements)",
+      "title": "Implement Lit web components (@felixgeelhaar/glossa-elements)",
       "description": "<glossa-provider>, <glossa-text>, <glossa-rich>, <glossa-plural>, <glossa-select>. ReactiveController exposes context; SSE updates flow into a Lit signal. Slot content is fallback. Strict mode logs missing keys. A11y: rendered text inherits parent semantics. Acceptance: demo page mounts every component, locale toggle swaps every string; component tests via vitest+jsdom; <10kb gzipped.",
       "priority": "high",
       "estimate": "2w",
@@ -38,19 +38,19 @@
         "task-icu-subset",
         "task-sdk"
       ],
-      "feature_id": "lit-web-components-(@glossa/elements)",
+      "feature_id": "lit-web-components-(@felixgeelhaar/glossa-elements)",
       "source": {}
     },
     {
       "id": "task-cli",
-      "title": "Implement CLI (@glossa/cli)",
+      "title": "Implement CLI (@felixgeelhaar/glossa-cli)",
       "description": "glossa init / scan / pull / push. Honours .gitignore (nox-style). Deterministic JSON output for meaningful diffs. Exit codes 0/1/2/3. Acceptance: fixture-project tested; npx works without global install; pull output stable across runs.",
       "priority": "medium",
       "estimate": "1w",
       "depends_on": [
         "task-sdk"
       ],
-      "feature_id": "cli-(@glossa/cli)",
+      "feature_id": "cli-(@felixgeelhaar/glossa-cli)",
       "source": {}
     },
     {
@@ -68,18 +68,18 @@
     },
     {
       "id": "task-icu-subset",
-      "title": "Implement ICU subset (@glossa/format)",
+      "title": "Implement ICU subset (@felixgeelhaar/glossa-format)",
       "description": "Own ICU MessageFormat subset, ~200 LOC + ~150 LOC tests. Lands first — nothing else depends on it. Scope: variable interpolation, plural via Intl.PluralRules, select, nesting, apostrophe escaping. Defer numbers/dates/relative-time/list to Intl.* built-ins. Acceptance: vitest covering ICU edge cases, <3kb gzipped, zero runtime deps, exports format() + parse().",
       "priority": "high",
       "estimate": "1w",
       "depends_on": [],
-      "feature_id": "icu-subset-(@glossa/format)",
+      "feature_id": "icu-subset-(@felixgeelhaar/glossa-format)",
       "source": {}
     },
     {
       "id": "task-admin",
       "title": "Implement Admin UI (apps/admin)",
-      "description": "Lit + Vite translator interface. Dogfoods @glossa/elements + @glossa/sdk. Login (JWT), project switcher, key list with status filters, edit form with ICU live preview, bulk JSON import/export, diff view, project mgmt, per-user locale scoping. Acceptance: translator can sign in → edit → save → SSE event lands in demo consumer; keyboard-only flow works; <250kb gzipped.",
+      "description": "Lit + Vite translator interface. Dogfoods @felixgeelhaar/glossa-elements + @felixgeelhaar/glossa-sdk. Login (JWT), project switcher, key list with status filters, edit form with ICU live preview, bulk JSON import/export, diff view, project mgmt, per-user locale scoping. Acceptance: translator can sign in → edit → save → SSE event lands in demo consumer; keyboard-only flow works; <250kb gzipped.",
       "priority": "medium",
       "estimate": "2w",
       "depends_on": [
