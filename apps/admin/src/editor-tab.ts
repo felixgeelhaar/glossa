@@ -137,6 +137,7 @@ export class GlossaAdminEditorTab extends LitElement {
     bulkSecondsLeft: { state: true },
     bulkAborted: { state: true },
     emptyPm: { state: true },
+    helpOpen: { state: true },
   };
 
   public client!: Client;
@@ -158,6 +159,85 @@ export class GlossaAdminEditorTab extends LitElement {
   public bulkSecondsLeft = 0;
   public bulkAborted = false;
   public emptyPm: "npm" | "pnpm" | "bun" | "yarn" = "pnpm";
+  public helpOpen = false;
+
+  private onGlobalKey = (e: KeyboardEvent): void => {
+    // Skip when typing in an input/textarea or the edit modal is open.
+    const target = e.target as HTMLElement | null;
+    if (target) {
+      const tag = target.tagName.toLowerCase();
+      if (tag === "input" || tag === "textarea" || target.isContentEditable) return;
+      // Custom elements that wrap inputs hide the real input in a
+      // shadow root; treat any element with role=textbox as input.
+      if (target.getAttribute?.("role") === "textbox") return;
+    }
+    if (this.editing) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        this.editing = null;
+        this.requestUpdate();
+      }
+      return;
+    }
+    if (e.key === "?") {
+      e.preventDefault();
+      this.helpOpen = !this.helpOpen;
+      this.requestUpdate();
+      return;
+    }
+    if (e.key === "/") {
+      e.preventDefault();
+      const search = this.renderRoot.querySelector<HTMLElement>(".search");
+      search?.focus();
+      return;
+    }
+    if (!this.bundle) return;
+    const keys = Object.keys(this.filteredMessages());
+    if (keys.length === 0) return;
+    const currentIdx = this.editing ? keys.indexOf(this.editing) : -1;
+    if (e.key === "j" || e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = keys[Math.min(currentIdx + 1, keys.length - 1)] ?? keys[0]!;
+      this.editing = next;
+      this.requestUpdate();
+    } else if (e.key === "k" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const prev = keys[Math.max(currentIdx - 1, 0)] ?? keys[0]!;
+      this.editing = prev;
+      this.requestUpdate();
+    } else if (e.key === "a" && this.editing) {
+      e.preventDefault();
+      void this.quickStatus(this.editing, "approved");
+    } else if (e.key === "r" && this.editing) {
+      e.preventDefault();
+      void this.quickStatus(this.editing, "needs_review");
+    }
+  };
+
+  private async quickStatus(key: string, status: "approved" | "needs_review"): Promise<void> {
+    if (!this.bundle) return;
+    const value = this.bundle.messages[key] ?? "";
+    try {
+      await this.client.patchTranslation(this.slug, this.locale, key, { value, status });
+      this.bundle = {
+        ...this.bundle,
+        statuses: { ...this.bundle.statuses, [key]: status },
+      };
+      this.requestUpdate();
+    } catch (e) {
+      this.err = (e as Error).message;
+    }
+  }
+
+  public override connectedCallback(): void {
+    super.connectedCallback();
+    document.addEventListener("keydown", this.onGlobalKey);
+  }
+
+  public override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    document.removeEventListener("keydown", this.onGlobalKey);
+  }
 
   public override willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("client") || changed.has("slug")) {
@@ -332,6 +412,34 @@ export class GlossaAdminEditorTab extends LitElement {
     this.requestUpdate();
   }
 
+  private renderHelp() {
+    const rows: [string, string][] = [
+      ["j / ↓", "Next key"],
+      ["k / ↑", "Previous key"],
+      ["a", "Approve current key"],
+      ["r", "Mark current key needs_review"],
+      ["Enter", "Open edit form"],
+      ["Esc", "Close edit form / dismiss"],
+      ["/", "Focus search"],
+      ["?", "Toggle this help"],
+    ];
+    return html`
+      <div class="empty-card" role="dialog" aria-modal="false" aria-label="Keyboard shortcuts">
+        <h3>Keyboard shortcuts</h3>
+        <table class="gl-table" style="margin-top: var(--gl-space-2);">
+          <tbody>
+            ${rows.map(
+              ([k, v]) => html`<tr><td><code>${k}</code></td><td>${v}</td></tr>`,
+            )}
+          </tbody>
+        </table>
+        <p style="margin-top: var(--gl-space-3);">
+          Shortcuts skip when an input is focused; press <code>?</code> again to close.
+        </p>
+      </div>
+    `;
+  }
+
   private renderEmptyBundle() {
     const snippets: Record<string, string> = {
       npm: `npm install -D @felixgeelhaar/glossa-cli
@@ -395,6 +503,7 @@ yarn glossa scan`,
       </header>
       ${this.err ? html`<p class="err" role="alert">${this.err}</p>` : null}
       ${totalKeys === 0 && this.locale && this.bundle ? this.renderEmptyBundle() : null}
+      ${this.helpOpen ? this.renderHelp() : null}
       ${totalKeys > 0
         ? html`
             <div class="toolbar">

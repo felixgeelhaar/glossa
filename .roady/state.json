@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 32,
+  "version": 38,
   "task_states": {
     "task-a11y": {
       "status": "pending",
@@ -62,8 +62,14 @@
       "elapsed_minutes": 0
     },
     "task-consumer-migration": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "b33f6d9"
+      ],
+      "started_at": "2026-05-25T08:16:16.015+02:00",
+      "completed_at": "2026-05-25T08:16:27.172973+02:00",
       "elapsed_minutes": 0
     },
     "task-delight": {
@@ -110,11 +116,15 @@
       "elapsed_minutes": 38
     },
     "task-hydration-ux": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "6ac25f0"
+      ],
       "started_at": "2026-05-25T08:13:06.606914+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-25T08:15:11.512332+02:00",
+      "elapsed_minutes": 2
     },
     "task-icu-subset": {
       "status": "done",
@@ -133,8 +143,10 @@
       "elapsed_minutes": 0
     },
     "task-keyboard": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-25T08:18:38.765209+02:00",
       "elapsed_minutes": 0
     },
     "task-microcopy": {
@@ -160,9 +172,15 @@
       "elapsed_minutes": 2
     },
     "task-ro-key-swap": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "brotwerk-web read-only key issued (3d855a88), legacy write key revoked, scope enforcement verified (PATCH=403, GET=200)"
+      ],
+      "started_at": "2026-05-25T08:16:40.126635+02:00",
+      "completed_at": "2026-05-25T08:18:00.944925+02:00",
+      "elapsed_minutes": 1
     },
     "task-sdk": {
       "status": "done",
@@ -214,5 +232,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-25T08:13:06.606914+02:00"
+  "updated_at": "2026-05-25T08:18:38.765209+02:00"
 }
