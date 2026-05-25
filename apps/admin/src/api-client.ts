@@ -38,6 +38,8 @@ export interface AuditRow {
   beforeValue: string;
   afterValue: string;
   changedBy: string | null;
+  actorKind?: "user" | "ai" | "system";
+  actorLabel?: string;
   changedAt: string;
 }
 

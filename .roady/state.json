@@ -1,13 +1,17 @@
 {
   "project_id": "Glossa",
-  "version": 42,
+  "version": 44,
   "task_states": {
     "task-a11y": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "0c33b97"
+      ],
       "started_at": "2026-05-25T08:27:28.780098+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-25T08:29:15.94679+02:00",
+      "elapsed_minutes": 1
     },
     "task-admin": {
       "status": "done",
@@ -26,8 +30,10 @@
       "elapsed_minutes": 0
     },
     "task-audit-filter": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-25T08:29:25.678264+02:00",
       "elapsed_minutes": 0
     },
     "task-bulk-undo": {
@@ -244,5 +250,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-25T08:27:28.780098+02:00"
+  "updated_at": "2026-05-25T08:29:25.678264+02:00"
 }

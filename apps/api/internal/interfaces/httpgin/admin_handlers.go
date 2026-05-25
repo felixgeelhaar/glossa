@@ -231,6 +231,8 @@ func handleListAudit(repo audit.Repository) gin.HandlerFunc {
 				"beforeValue":   e.BeforeValue,
 				"afterValue":    e.AfterValue,
 				"changedBy":     orNil(e.ChangedBy),
+				"actorKind":     e.ActorKind,
+				"actorLabel":    e.ActorLabel,
 				"changedAt":     e.ChangedAt,
 			})
 		}
