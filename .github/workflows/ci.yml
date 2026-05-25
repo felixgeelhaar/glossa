@@ -63,10 +63,13 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile=false
       # Workspace deps need to be built before consumers can lint.
+      # Order matters: ui ships its own .d.ts that admin consumes;
+      # elements depends on sdk; admin depends on all four.
       - name: build packages (in dep order)
         run: |
           pnpm --filter @felixgeelhaar/glossa-format build
           pnpm --filter @felixgeelhaar/glossa-sdk build
+          pnpm --filter @felixgeelhaar/glossa-ui build
           pnpm --filter @felixgeelhaar/glossa-elements build
           pnpm --filter @felixgeelhaar/glossa-cli build
       - name: lint (tsc --noEmit)
