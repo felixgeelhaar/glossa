@@ -92,6 +92,29 @@ export class GlossaAdminEditorTab extends LitElement {
       overflow-x: auto;
       margin: var(--gl-space-2) 0;
     }
+    .empty-card code {
+      font-family: var(--gl-font-mono);
+      font-size: 0.95em;
+      padding: 0 4px;
+      background: var(--gl-bg);
+      border-radius: 3px;
+    }
+    .pm-tabs { display: flex; gap: 4px; margin: var(--gl-space-2) 0 0; }
+    .pm-tab {
+      font: inherit;
+      font-size: var(--gl-text-sm);
+      padding: 4px 10px;
+      border-radius: 4px 4px 0 0;
+      border: 1px solid var(--gl-border);
+      border-bottom: none;
+      background: var(--gl-surface);
+      color: var(--gl-text-muted);
+      cursor: pointer;
+    }
+    .pm-tab[aria-selected="true"] {
+      background: var(--gl-bg);
+      color: var(--gl-text);
+    }
   `;
 
   static override properties = {
@@ -108,6 +131,12 @@ export class GlossaAdminEditorTab extends LitElement {
     statusFilter: { state: true },
     selectedKeys: { state: true },
     bulkPending: { state: true },
+    bulkPhase: { state: true },
+    bulkProgress: { state: true },
+    bulkTotal: { state: true },
+    bulkSecondsLeft: { state: true },
+    bulkAborted: { state: true },
+    emptyPm: { state: true },
   };
 
   public client!: Client;
@@ -123,6 +152,12 @@ export class GlossaAdminEditorTab extends LitElement {
   public statusFilter: "" | Status = "";
   public selectedKeys: Set<string> = new Set();
   public bulkPending = false;
+  public bulkPhase: "idle" | "countdown" | "running" = "idle";
+  public bulkProgress = 0;
+  public bulkTotal = 0;
+  public bulkSecondsLeft = 0;
+  public bulkAborted = false;
+  public emptyPm: "npm" | "pnpm" | "bun" | "yarn" = "pnpm";
 
   public override willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("client") || changed.has("slug")) {
@@ -213,17 +248,56 @@ export class GlossaAdminEditorTab extends LitElement {
     this.requestUpdate();
   }
 
+  // Bulk approve has a 5-second undo window before any API call
+  // fires. If the user clicks Undo (or starts a fresh selection) we
+  // bail out without side effects. After the window closes we walk
+  // the selection serially so audit log + SSE order stays stable;
+  // bulkProgress is updated per row so the user sees motion.
   private async bulkApprove(): Promise<void> {
     if (this.selectedKeys.size === 0 || !this.bundle) return;
     const keys = [...this.selectedKeys];
+
+    this.bulkAborted = false;
     this.bulkPending = true;
+    this.bulkPhase = "countdown";
+    this.bulkProgress = 0;
+    this.bulkTotal = keys.length;
+    this.requestUpdate();
+
+    // Countdown ticks every second so the user can read it.
+    let remaining = 5;
+    this.bulkSecondsLeft = remaining;
+    await new Promise<void>((resolve) => {
+      const id = setInterval(() => {
+        if (this.bulkAborted) {
+          clearInterval(id);
+          resolve();
+          return;
+        }
+        remaining--;
+        this.bulkSecondsLeft = remaining;
+        this.requestUpdate();
+        if (remaining <= 0) {
+          clearInterval(id);
+          resolve();
+        }
+      }, 1000);
+    });
+
+    if (this.bulkAborted) {
+      this.resetBulkState();
+      toast("Bulk approve cancelled.", "ok");
+      return;
+    }
+
+    this.bulkPhase = "running";
     this.requestUpdate();
     let ok = 0;
     let failed = 0;
-    // Serial on purpose — keeps audit log + SSE order stable.
     for (const key of keys) {
+      if (this.bulkAborted) break;
       try {
-        const value = this.bundle.messages[key] ?? "";
+        const value = this.bundle?.messages[key] ?? "";
         await this.client.patchTranslation(this.slug, this.locale, key, { value, status: "approved" });
         ok++;
         if (this.bundle) {
@@ -235,24 +309,67 @@ export class GlossaAdminEditorTab extends LitElement {
       } catch {
         failed++;
       }
+      this.bulkProgress = ok + failed;
+      this.requestUpdate();
     }
-    this.bulkPending = false;
-    this.selectedKeys = new Set();
-    this.requestUpdate();
+    this.resetBulkState();
     toast(`Approved ${ok}${failed ? ` · ${failed} failed` : ""}.`, failed ? "err" : "ok");
   }
 
+  private resetBulkState(): void {
+    this.bulkPending = false;
+    this.bulkPhase = "idle";
+    this.bulkProgress = 0;
+    this.bulkTotal = 0;
+    this.bulkSecondsLeft = 0;
+    this.bulkAborted = false;
+    this.selectedKeys = new Set();
+    this.requestUpdate();
+  }
+
+  private undoBulk(): void {
+    this.bulkAborted = true;
+    this.requestUpdate();
+  }
+
   private renderEmptyBundle() {
+    const snippets: Record<string, string> = {
+      npm: `npm install -D @felixgeelhaar/glossa-cli
+npx glossa init    # interactive config
+npx glossa scan    # extracts keys + POSTs them here`,
+      pnpm: `pnpm add -D @felixgeelhaar/glossa-cli
+pnpm exec glossa init
+pnpm exec glossa scan`,
+      bun: `bun add -d @felixgeelhaar/glossa-cli
+bunx glossa init
+bunx glossa scan`,
+      yarn: `yarn add -D @felixgeelhaar/glossa-cli
+yarn glossa init
+yarn glossa scan`,
+    };
+    const pm = this.emptyPm;
     return html`
       <div class="empty-card">
         <h3>No keys yet</h3>
         <p>
-          Add translation keys by scanning your codebase with the Glossa CLI,
+          <strong>Run <code>glossa scan</code></strong> in your codebase to extract keys,
           or paste a JSON bundle in <strong>Import / Export</strong>.
         </p>
-        <pre>pnpm add -D @felixgeelhaar/glossa-cli
-pnpx glossa init       # writes glossa.config.json
-pnpx glossa scan       # extracts keys + POSTs them here</pre>
+        <div class="pm-tabs" role="tablist" aria-label="Package manager">
+          ${Object.keys(snippets).map(
+            (k) => html`<button
+              role="tab"
+              type="button"
+              class="pm-tab"
+              aria-selected=${pm === k}
+              @click=${() => {
+                this.emptyPm = k as "npm" | "pnpm" | "bun" | "yarn";
+                this.requestUpdate();
+              }}
+            >${k}</button>`,
+          )}
+        </div>
+        <pre role="tabpanel">${snippets[pm]}</pre>
         <p>
           Already have a JSON bundle? Open the <strong>Import / Export</strong> tab and paste it in.
         </p>
@@ -305,16 +422,31 @@ pnpx glossa scan       # extracts keys + POSTs them here</pre>
                 )}
               </div>
             </div>
-            ${selCount > 0
+            ${this.bulkPending
               ? html`
-                  <div class="selection-bar">
+                  <div class="selection-bar" role="status" aria-live="polite" aria-busy="true">
+                    <span class="grow">
+                      ${this.bulkPhase === "countdown"
+                        ? html`Approving <strong>${this.bulkTotal}</strong> keys in <strong>${this.bulkSecondsLeft}s</strong>…`
+                        : html`Approved <strong>${this.bulkProgress}</strong> / ${this.bulkTotal}…`}
+                    </span>
+                    <gl-button variant="danger" size="sm" @click=${() => this.undoBulk()}>
+                      ${this.bulkPhase === "countdown" ? "Undo" : "Stop"}
+                    </gl-button>
+                  </div>
+                `
+              : selCount > 0
+              ? html`
+                  <div class="selection-bar" aria-live="polite">
                     <span class="grow"><strong>${selCount}</strong> selected</span>
                     <gl-button
                       variant="primary"
                       size="sm"
-                      ?disabled=${this.bulkPending}
-                      @click=${() => void this.bulkApprove()}
-                    >${this.bulkPending ? "Approving…" : "Approve selected"}</gl-button>
+                      @click=${() => {
+                        if (!confirm(`Approve ${selCount} keys?`)) return;
+                        void this.bulkApprove();
+                      }}
+                    >Approve selected</gl-button>
                     <gl-button variant="ghost" size="sm" @click=${() => this.clearSelection()}>Clear</gl-button>
                   </div>
                 `

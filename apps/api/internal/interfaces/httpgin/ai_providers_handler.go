@@ -51,7 +51,7 @@ type createAIProviderReq struct {
 	Enabled *bool  `json:"enabled"`
 }
 
-func handleCreateAIProvider(repo aitranslator.Repository, sealer Sealer) gin.HandlerFunc {
+func handleCreateAIProvider(repo aitranslator.Repository, sealer Sealer, translator aitranslator.Translator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if sealer == nil {
 			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
@@ -72,6 +72,25 @@ func handleCreateAIProvider(repo aitranslator.Repository, sealer Sealer) gin.Han
 		if strings.TrimSpace(req.APIKey) == "" {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "apiKey is required"})
 			return
+		}
+		// Validate-on-save (default true) catches typo'd keys before
+		// they pollute the DB. Skip with ?validate=false for power
+		// users who want to plant a row to edit later.
+		if c.DefaultQuery("validate", "true") != "false" && translator != nil {
+			tenantID, _ := c.Get(ctxKeyTenantID)
+			tmp := aitranslator.Provider{
+				TenantID: tenantID.(uuid.UUID), Kind: kind, BaseURL: req.BaseURL, Model: req.Model,
+			}
+			ctx, cancel := context.WithTimeout(contextOf(c), 20*time.Second)
+			defer cancel()
+			if _, verr := translator.Translate(ctx, tmp, []byte(req.APIKey), aitranslator.TranslateRequest{
+				Key: "validate.ping", SourceLocale: "de", TargetLocale: "en", Source: "Hallo",
+			}); verr != nil {
+				c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{
+					"error": "provider rejected the key: " + verr.Error(),
+				})
+				return
+			}
 		}
 		ct, nonce, err := sealer.Seal([]byte(req.APIKey))
 		if err != nil {

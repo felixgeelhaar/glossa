@@ -120,7 +120,7 @@ export class GlossaAdminKeysTab extends LitElement {
   }
 
   private async onRevoke(row: ProjectApiKeyRow): Promise<void> {
-    if (!confirm(`Revoke key "${row.label}" (${row.scope})? Consumers using it will start getting 401s.`)) return;
+    if (!confirm(`Revoke key "${row.label}" (${row.scope})?\n\nAny consumer using this key will stop working immediately.`)) return;
     try {
       await this.client.revokeProjectApiKey(this.slug, row.id);
       await this.load();

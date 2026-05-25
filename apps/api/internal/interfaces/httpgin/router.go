@@ -214,7 +214,7 @@ func New(d Deps) *gin.Engine {
 		// AI translator providers — credentials live here so admin-only.
 		if d.AIProviders != nil {
 			tenantAdmin.GET("/ai-providers", handleListAIProviders(d.AIProviders))
-			tenantAdmin.POST("/ai-providers", handleCreateAIProvider(d.AIProviders, d.Sealer))
+			tenantAdmin.POST("/ai-providers", handleCreateAIProvider(d.AIProviders, d.Sealer, d.AITranslator))
 			tenantAdmin.PATCH("/ai-providers/:id", handleUpdateAIProvider(d.AIProviders, d.Sealer))
 			tenantAdmin.DELETE("/ai-providers/:id", handleDeleteAIProvider(d.AIProviders))
 			if d.AITranslator != nil {

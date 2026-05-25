@@ -3,9 +3,41 @@
   "spec_id": "Glossa",
   "tasks": [
     {
+      "id": "task-icu-subset",
+      "title": "Implement ICU subset (@felixgeelhaar/glossa-format)",
+      "description": "Own ICU MessageFormat subset; variable interpolation, plural via Intl.PluralRules, select, nesting, apostrophe escaping.",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": null,
+      "feature_id": "icu-subset-(@felixgeelhaar/glossa-format)",
+      "source": {}
+    },
+    {
+      "id": "task-go-api",
+      "title": "Implement Go API + Postgres schema (apps/api)",
+      "description": "REST + SSE service backing admin UI and Lit components; hex-arch + sqlc + RLS.",
+      "priority": "high",
+      "estimate": "2w",
+      "depends_on": null,
+      "feature_id": "go-api-+-postgres-schema-(apps/api)",
+      "source": {}
+    },
+    {
+      "id": "task-sse",
+      "title": "Implement SSE live-update channel",
+      "description": "GET /api/v1/projects/:slug/sse with reconnect + heartbeats.",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": [
+        "task-go-api"
+      ],
+      "feature_id": "sse-live-update-channel",
+      "source": {}
+    },
+    {
       "id": "task-sdk",
       "title": "Implement Glossa SDK (@felixgeelhaar/glossa-sdk)",
-      "description": "Framework-agnostic HTTP fetch + cache + SSE subscription. Client(config) factory; client.bundle(locale) with etag/304; client.subscribe(); in-memory cache invalidated on SSE; client.scan() for CLI. Pluggable transport. Acceptance: vitest happy path + 304 + reconnect + miss; <5kb gzipped (native fetch); works in Node + browser.",
+      "description": "Framework-agnostic fetch + cache + SSE.",
       "priority": "high",
       "estimate": "1w",
       "depends_on": [
@@ -16,22 +48,9 @@
       "source": {}
     },
     {
-      "id": "task-deploy",
-      "title": "Deployment (k3s on edge-1)",
-      "description": "Mirror IRI/Brotwerk k3s patterns. Distroless API Dockerfile, nginx admin Dockerfile, GHA release.yml building both images on tag push + k3s rollout. Postgres StatefulSet (20Gi PVC). Ingress + cert-manager TLS. Daily backup CronJob via rclone + Hetzner Storage Box. Acceptance: git tag v0.1.0 → both images ship + roll; admin reachable over HTTPS; Postgres survives pod restart; backup target receives daily dump.",
-      "priority": "medium",
-      "estimate": "1w",
-      "depends_on": [
-        "task-go-api",
-        "task-admin"
-      ],
-      "feature_id": "deployment-(k3s-on-edge-1)",
-      "source": {}
-    },
-    {
       "id": "task-elements",
       "title": "Implement Lit web components (@felixgeelhaar/glossa-elements)",
-      "description": "<glossa-provider>, <glossa-text>, <glossa-rich>, <glossa-plural>, <glossa-select>. ReactiveController exposes context; SSE updates flow into a Lit signal. Slot content is fallback. Strict mode logs missing keys. A11y: rendered text inherits parent semantics. Acceptance: demo page mounts every component, locale toggle swaps every string; component tests via vitest+jsdom; <10kb gzipped.",
+      "description": "\u003cglossa-provider\u003e + text/rich/plural/select.",
       "priority": "high",
       "estimate": "2w",
       "depends_on": [
@@ -44,7 +63,7 @@
     {
       "id": "task-cli",
       "title": "Implement CLI (@felixgeelhaar/glossa-cli)",
-      "description": "glossa init / scan / pull / push. Honours .gitignore (nox-style). Deterministic JSON output for meaningful diffs. Exit codes 0/1/2/3. Acceptance: fixture-project tested; npx works without global install; pull output stable across runs.",
+      "description": "glossa init/scan/pull/push, gitignore-aware.",
       "priority": "medium",
       "estimate": "1w",
       "depends_on": [
@@ -54,9 +73,34 @@
       "source": {}
     },
     {
+      "id": "task-admin",
+      "title": "Implement Admin UI (apps/admin)",
+      "description": "Lit + Vite translator interface.",
+      "priority": "medium",
+      "estimate": "2w",
+      "depends_on": [
+        "task-elements"
+      ],
+      "feature_id": "admin-ui-(apps/admin)",
+      "source": {}
+    },
+    {
+      "id": "task-deploy",
+      "title": "Deployment (k3s on edge-1)",
+      "description": "Distroless images + GHA + Postgres StatefulSet + cert-manager + backup CronJob.",
+      "priority": "medium",
+      "estimate": "1w",
+      "depends_on": [
+        "task-go-api",
+        "task-admin"
+      ],
+      "feature_id": "deployment-(k3s-on-edge-1)",
+      "source": {}
+    },
+    {
       "id": "task-consumer-migration",
-      "title": "First consumer migration (IRI or Brotwerk)",
-      "description": "Validate the whole stack against a real consumer. Pick the calmer project. Add <glossa-provider> to root layout. Replace 5-10 representative strings. Run glossa scan from consumer CI to seed keys. Wire fallback so consumer build still works when Glossa is offline. Acceptance: edit in admin → consumer updates within 5s without redeploy; consumer build works when Glossa is killed; one translator updates a key end-to-end without engineer involvement.",
+      "title": "First consumer migration (Brotwerk)",
+      "description": "Wire \u003cglossa-provider\u003e + 5-10 strings; verify live updates.",
       "priority": "medium",
       "estimate": "1w",
       "depends_on": [
@@ -67,51 +111,171 @@
       "source": {}
     },
     {
-      "id": "task-icu-subset",
-      "title": "Implement ICU subset (@felixgeelhaar/glossa-format)",
-      "description": "Own ICU MessageFormat subset, ~200 LOC + ~150 LOC tests. Lands first — nothing else depends on it. Scope: variable interpolation, plural via Intl.PluralRules, select, nesting, apostrophe escaping. Defer numbers/dates/relative-time/list to Intl.* built-ins. Acceptance: vitest covering ICU edge cases, <3kb gzipped, zero runtime deps, exports format() + parse().",
+      "id": "task-ro-key-swap",
+      "title": "Swap brotwerk-prod to a read-only API key",
+      "description": "Issue 'brotwerk web' read-scope key via admin UI; replace GLOSSA_API_KEY in brotwerk apps/web/.env + CI build args; redeploy brotwerk; revoke the legacy write key. Validates the read-only path end-to-end and closes the embedded-write-key security gap.",
       "priority": "high",
-      "estimate": "1w",
-      "depends_on": [],
-      "feature_id": "icu-subset-(@felixgeelhaar/glossa-format)",
+      "estimate": "1d",
+      "depends_on": [
+        "task-consumer-migration"
+      ],
+      "feature_id": "read-only-api-key-for-brotwerk-prod-(ecp-swap)",
       "source": {}
     },
     {
-      "id": "task-admin",
-      "title": "Implement Admin UI (apps/admin)",
-      "description": "Lit + Vite translator interface. Dogfoods @felixgeelhaar/glossa-elements + @felixgeelhaar/glossa-sdk. Login (JWT), project switcher, key list with status filters, edit form with ICU live preview, bulk JSON import/export, diff view, project mgmt, per-user locale scoping. Acceptance: translator can sign in → edit → save → SSE event lands in demo consumer; keyboard-only flow works; <250kb gzipped.",
+      "id": "task-analytics",
+      "title": "Instrument onboarding analytics events",
+      "description": "Wire five named events server-side: project_created, first_key_synced, first_translation_edited, first_consumer_request, first_ai_translation. Add analytics_events table + /admin/metrics endpoint returning cohort funnel. Unlocks time-to-first-approved-translation as the North Star.",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": null,
+      "feature_id": "instrument-onboarding-analytics-events",
+      "source": {}
+    },
+    {
+      "id": "task-positioning",
+      "title": "Define ECP + positioning doc",
+      "description": "Pick one ECP between (a) EU SaaS founders self-hosting sovereign stacks, (b) German indie devs avoiding Crowdin pricing. Output docs/positioning.md with Dunford's 5 components; reflect in README hero + GHCR description.",
+      "priority": "high",
+      "estimate": "1d",
+      "depends_on": null,
+      "feature_id": "define-ecp-+-positioning-doc",
+      "source": {}
+    },
+    {
+      "id": "task-usability-test",
+      "title": "Run second-user usability test",
+      "description": "Watch one non-Felix human complete a 10-key German→English translation cold-start. Pre-write 5-question script; record screen+audio; transcribe to docs/usability-2026-Q2.md. Output: prioritized blocker list + go/no-go on next feature investment.",
+      "priority": "high",
+      "estimate": "1d",
+      "depends_on": [
+        "task-positioning"
+      ],
+      "feature_id": "run-second-user-usability-test",
+      "source": {}
+    },
+    {
+      "id": "task-switcher-fix",
+      "title": "Project switcher polish",
+      "description": "Hide switcher when projects.length===1; show project name inline next to tenant identity. When N\u003e1, fix the first-paint timing so the trigger shows the active project name immediately.",
+      "priority": "high",
+      "estimate": "1d",
+      "depends_on": null,
+      "feature_id": "project-switcher-polish-(hide-when-n=1,-show-name-on-first-paint)",
+      "source": {}
+    },
+    {
+      "id": "task-bulk-undo",
+      "title": "Bulk approve: progress UI + undo window",
+      "description": "Replace 'Approving…' with live counter (`12 / 200 approved…`). Add 5s 'Undo' toast that delays the actual PATCH calls; clicking Undo aborts. Covers the accidental select-all footgun without nag-modals.",
+      "priority": "high",
+      "estimate": "2d",
+      "depends_on": null,
+      "feature_id": "bulk-approve:-progress-ui-+-undo-window",
+      "source": {}
+    },
+    {
+      "id": "task-validate-ai-key",
+      "title": "AI provider: validate key inline on save",
+      "description": "Optionally trigger a single Translate call before persisting the new provider row; return 422 + upstream error on failure. `?validate=true` query param toggles behaviour.",
+      "priority": "high",
+      "estimate": "1d",
+      "depends_on": null,
+      "feature_id": "ai-provider:-validate-key-inline-on-save",
+      "source": {}
+    },
+    {
+      "id": "task-a11y",
+      "title": "Accessibility sweep",
+      "description": "aria-busy on bulk approve loop; aria-live='polite' on selected counter; focus management on reveal-key dismiss; visually-hidden header for the checkbox column; verify aria-selected on gl-tabs. Add axe-core to CI.",
+      "priority": "high",
+      "estimate": "3d",
+      "depends_on": null,
+      "feature_id": "accessibility-sweep:-aria-busy,-aria-live,-focus-management",
+      "source": {}
+    },
+    {
+      "id": "task-microcopy",
+      "title": "Microcopy + footer polish",
+      "description": "Lead empty-state body with the verb; revoke confirm names the consequence concretely; bulk-approve confirm shows count; add colophon (version + github + docs).",
       "priority": "medium",
-      "estimate": "2w",
-      "depends_on": [
-        "task-elements"
-      ],
-      "feature_id": "admin-ui-(apps/admin)",
+      "estimate": "1d",
+      "depends_on": null,
+      "feature_id": "microcopy-+-footer-polish",
       "source": {}
     },
     {
-      "id": "task-sse",
-      "title": "Implement SSE live-update channel",
-      "description": "GET /api/v1/projects/:slug/sse. Event envelope per docs/design.md §5.2. In-process fanout for MVP; Redis pubsub when multi-replica. Client-side reconnect with exponential backoff in SDK. Heartbeat every 30s. Per-tenant rate limit. Acceptance: edit-in-admin → SSE event within 1s; survives 60s idle; reconnect recovers via Last-Event-ID.",
-      "priority": "high",
+      "id": "task-cli-tabs",
+      "title": "CLI install snippet: package-manager tabs",
+      "description": "Replace hardcoded `pnpx` with tabs for npm / pnpm / bun / yarn so users on any of the four don't bounce. Uses gl-tabs primitive for keyboard nav.",
+      "priority": "medium",
+      "estimate": "1d",
+      "depends_on": null,
+      "feature_id": "cli-install-snippet:-package-manager-tabs",
+      "source": {}
+    },
+    {
+      "id": "task-hydration-ux",
+      "title": "SSR/hydration uncertainty UX in glossa-elements",
+      "description": "Differentiate fallback slot content from live-resolved content visually until the provider's first bundle resolves: italic / dotted underline / aria-busy + opacity 0.9. Triggered off provider's context version.",
+      "priority": "medium",
+      "estimate": "2d",
+      "depends_on": null,
+      "feature_id": "ssr/hydration-uncertainty-ux-in-glossa-elements",
+      "source": {}
+    },
+    {
+      "id": "task-keyboard",
+      "title": "Editor keyboard shortcuts (j/k/a/r)",
+      "description": "j/k navigate keys; Enter opens edit; Esc closes; a approves current; r marks needs_review; / focuses search; ? shows help dialog. Per-user preference toggle.",
+      "priority": "medium",
+      "estimate": "3d",
+      "depends_on": null,
+      "feature_id": "editor-keyboard-shortcuts-(j/k/a/r)",
+      "source": {}
+    },
+    {
+      "id": "task-audit-filter",
+      "title": "Audit log: filter UI",
+      "description": "Chips for actor_kind, date-range picker (1d/7d/30d/custom), substring search on before_value/after_value. Extend ListAuditForTenant with optional filter params.",
+      "priority": "medium",
+      "estimate": "3d",
+      "depends_on": null,
+      "feature_id": "audit-log:-filter-ui-(actor-kind,-date-range,-key/value-search)",
+      "source": {}
+    },
+    {
+      "id": "task-diff-kanban",
+      "title": "Diff view → Now/Next/Later columns",
+      "description": "Replace flat diff table with per-locale kanban: Now=pending+ai_translated, Next=needs_review, Later=approved. Click column header to filter editor by status.",
+      "priority": "medium",
+      "estimate": "3d",
+      "depends_on": null,
+      "feature_id": "diff-view-→-now-/-next-/-later-columns",
+      "source": {}
+    },
+    {
+      "id": "task-delight",
+      "title": "Three moments of delight",
+      "description": "First-approval celebration toast; AI fan-out row pulse; copy-key haptic. All behind a 'micro-interactions on/off' setting.",
+      "priority": "medium",
+      "estimate": "2d",
+      "depends_on": null,
+      "feature_id": "three-moments-of-delight-(walter)",
+      "source": {}
+    },
+    {
+      "id": "task-invites",
+      "title": "Translator invite + first-login flow",
+      "description": "invites table; POST /admin/invites mints single-use 48h token; POST /auth/accept-invite consumes; link sharing is manual (no SMTP). Translator lands in /editor scoped to assigned locales.",
+      "priority": "medium",
       "estimate": "1w",
-      "depends_on": [
-        "task-go-api"
-      ],
-      "feature_id": "sse-live-update-channel",
-      "source": {}
-    },
-    {
-      "id": "task-go-api",
-      "title": "Implement Go API + Postgres schema (apps/api)",
-      "description": "REST + SSE service backing the admin UI and the Lit components. Mirrors Brotwerk's apps/api hex-arch (domain → app → interfaces → infra).\n\nLibrary picks (locked):\n- HTTP: gin-gonic/gin (matches Brotwerk)\n- DB: pgx/v5 + sqlc-generated query types\n- Migrations: golang-migrate\n- Logging: felixgeelhaar/bolt slog handler\n- Resilience: felixgeelhaar/fortify — ratelimit, circuitbreaker, timeout, retry, ferrors for typed errors\n- Auth: golang-jwt/jwt for admin sessions; SHA-256-hashed API keys for consumer/CLI traffic\n\nScope:\n- golang-migrate migrations for tenants, projects, locales, keys, translations, audit_log, users (schema per docs/design.md §6)\n- sqlc-generated repos for each table\n- Domain layer: Project, Locale, Key, Translation, Tenant value objects\n- Use cases: CreateProject, UpsertKeys (CLI scan), UpdateTranslation, ListBundle, RotateAPIKey\n- REST endpoints per docs/design.md §5.1, served via gin\n- JWT auth middleware (admin), API-key middleware (consumer/CLI), fortify ratelimit per-tenant\n- Row-Level Security policies enforcing tenant_id isolation (cross-tenant read impossible at DB layer)\n- bolt-backed slog handler for structured logs\n- /healthz + /readyz\n\nAcceptance:\n- `go test ./...` clean with table-driven coverage on each use case\n- Integration test against a real Postgres (testcontainers or docker compose) covering RLS isolation\n- OpenAPI spec generated from handlers, committed to api/openapi.yaml",
-      "priority": "high",
-      "estimate": "2w",
-      "depends_on": [],
-      "feature_id": "go-api-+-postgres-schema-(apps/api)",
+      "depends_on": null,
+      "feature_id": "translator-invite-+-first-login-flow",
       "source": {}
     }
   ],
   "approval_status": "approved",
   "created_at": "2026-05-23T21:48:37.083291+02:00",
-  "updated_at": "2026-05-23T21:50:39.228935+02:00"
+  "updated_at": "2026-05-25T08:00:22.502803+02:00"
 }

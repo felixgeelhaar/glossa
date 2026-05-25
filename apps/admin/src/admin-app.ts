@@ -52,6 +52,27 @@ export class GlossaAdmin extends LitElement {
       color: var(--gl-text-muted);
       font-size: var(--gl-text-sm);
     }
+    .project-inline {
+      color: var(--gl-text);
+      font-weight: 500;
+    }
+    .colophon {
+      max-width: 1200px;
+      margin: var(--gl-space-7) auto var(--gl-space-5);
+      padding: 0 var(--gl-space-5);
+      display: flex;
+      gap: var(--gl-space-2);
+      color: var(--gl-text-muted);
+      font-size: var(--gl-text-sm);
+    }
+    .colophon a {
+      color: inherit;
+      text-decoration: underline dotted;
+      text-underline-offset: 3px;
+    }
+    .colophon a:hover, .colophon a:focus-visible {
+      color: var(--gl-text);
+    }
     .login-card {
       max-width: 420px;
       margin: var(--gl-space-7) auto;
@@ -286,9 +307,12 @@ export class GlossaAdmin extends LitElement {
         <span slot="title">Glossa</span>
         <span slot="center" class="ident">
           ${this.auth.tenant.name} · ${this.auth.user.email} · ${this.auth.user.role}
+          ${this.projects.length === 1 && this.activeProject
+            ? html`<span class="project-inline">· ${this.activeProject.name}</span>`
+            : null}
         </span>
         <span slot="actions" class="row">
-          ${this.projects.length > 0
+          ${this.projects.length > 1
             ? html`<gl-select
                 label=""
                 .value=${this.activeProject?.slug ?? ""}
@@ -323,6 +347,13 @@ export class GlossaAdmin extends LitElement {
               </div>
             </gl-card>`}
       </div>
+      <footer class="colophon" role="contentinfo">
+        <span>Glossa</span>
+        <span>·</span>
+        <a href="https://github.com/felixgeelhaar/glossa" target="_blank" rel="noreferrer noopener">github</a>
+        <span>·</span>
+        <a href="https://github.com/felixgeelhaar/glossa#readme" target="_blank" rel="noreferrer noopener">docs</a>
+      </footer>
     `;
   }
 

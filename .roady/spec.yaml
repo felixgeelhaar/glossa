@@ -1,340 +1,254 @@
 id: Glossa
 title: Glossa
-description: Cross-project translation management — REST API + Lit web components
-  + own ICU subset. See README.md and docs/design.md for the full architecture.
+description: Cross-project translation management — REST API + Lit web components + own ICU subset. See README.md and docs/design.md for the full architecture.
 features:
-- id: icu-subset-(@felixgeelhaar/glossa-format)
-  title: ICU subset (@felixgeelhaar/glossa-format)
-  description: 'Own ICU MessageFormat subset, ~200 LOC + ~150 LOC tests. Lands first
-    because nothing else depends on it.
-
-
-    Scope:
-
-    - Variable interpolation `{name}`
-
-    - Plural `{count, plural, one {…} other {…}}` backed by Intl.PluralRules
-
-    - Selection `{gender, select, female {…} male {…} other {…}}`
-
-    - Nested combinations
-
-    - Apostrophe escaping per ICU spec (`''{''` literal)
-
-    - Defer number/date/relative-time/list to Intl.* built-ins
-
-
-    Acceptance:
-
-    - Vitest suite covering ICU spec edge cases (negative counts, apostrophe literals,
-    deeply nested selects)
-
-    - Bundle size <3kb gzipped
-
-    - Zero external runtime dependencies
-
-    - Exports a `format(message, locale, values)` function + a `parse(message)` AST
-    helper for the admin lint pass'
-  requirements: []
-- id: go-api-+-postgres-schema-(apps/api)
-  title: Go API + Postgres schema (apps/api)
-  description: 'REST + SSE service backing the admin UI and the Lit components. Mirrors
-    Brotwerk''s apps/api hex-arch (domain → app → interfaces → infra).
-
-
-    Library picks (locked):
-
-    - HTTP: gin-gonic/gin (matches Brotwerk)
-
-    - DB: pgx/v5 + sqlc-generated query types
-
-    - Migrations: golang-migrate
-
-    - Logging: felixgeelhaar/bolt slog handler
-
-    - Resilience: felixgeelhaar/fortify — ratelimit, circuitbreaker, timeout, retry,
-    ferrors for typed errors
-
-    - Auth: golang-jwt/jwt for admin sessions; SHA-256-hashed API keys for consumer/CLI
-    traffic
-
-
-    Scope:
-
-    - golang-migrate migrations for tenants, projects, locales, keys, translations,
-    audit_log, users (schema per docs/design.md §6)
-
-    - sqlc-generated repos for each table
-
-    - Domain layer: Project, Locale, Key, Translation, Tenant value objects
-
-    - Use cases: CreateProject, UpsertKeys (CLI scan), UpdateTranslation, ListBundle,
-    RotateAPIKey
-
-    - REST endpoints per docs/design.md §5.1, served via gin
-
-    - JWT auth middleware (admin), API-key middleware (consumer/CLI), fortify ratelimit
-    per-tenant
-
-    - Row-Level Security policies enforcing tenant_id isolation (cross-tenant read
-    impossible at DB layer)
-
-    - bolt-backed slog handler for structured logs
-
-    - /healthz + /readyz
-
-
-    Acceptance:
-
-    - `go test ./...` clean with table-driven coverage on each use case
-
-    - Integration test against a real Postgres (testcontainers or docker compose)
-    covering RLS isolation
-
-    - OpenAPI spec generated from handlers, committed to api/openapi.yaml'
-  requirements: []
-- id: sse-live-update-channel
-  title: SSE live-update channel
-  description: 'Translator edits a key in the admin UI → consumer apps see the new
-    value within seconds without a deploy. Server-Sent Events because consumer side
-    is browser-first, no need for full WebSocket bidirectionality.
-
-
-    Scope:
-
-    - API endpoint `GET /api/v1/projects/:slug/sse` (per docs/design.md §5.1)
-
-    - Event envelope `{type: "translation.updated", project, locale, key, value, status}`
-    per §5.2
-
-    - Server-side fanout: in-process map per project for MVP; Redis pubsub when multi-replica
-
-    - Client-side reconnection with exponential backoff in @felixgeelhaar/glossa-sdk
-
-    - Heartbeat every 30s so corporate proxies don''t kill the connection
-
-    - Per-tenant rate limit on translator broadcasts (avoid one project spamming all
-    subscribers)
-
-
-    Acceptance:
-
-    - End-to-end test: edit a translation in admin → assert SSE event lands in a subscribing
-    consumer within 1s
-
-    - Connection survives a 60s idle window
-
-    - Reconnection recovers missed events using a `Last-Event-ID` cursor'
-  requirements: []
-- id: glossa-sdk-(@felixgeelhaar/glossa-sdk)
-  title: Glossa SDK (@felixgeelhaar/glossa-sdk)
-  description: 'HTTP fetch + in-memory cache + SSE subscription, framework-agnostic.
-    The boundary the Lit components and CLI both consume; owns network code so the
-    components stay pure rendering.
-
-
-    Scope:
-
-    - `Client(config)` factory: project, locale, apiUrl, apiKey
-
-    - `client.bundle(locale)` returns a Promise<Record<string, string>> with etag
-    + If-None-Match handling
-
-    - `client.subscribe(onEvent, onError)` opens SSE, auto-reconnects with backoff
-
-    - In-memory bundle cache keyed by `(project, locale)`; invalidated on SSE updates
-
-    - `client.scan(keys)` for the CLI side (batch upsert)
-
-    - Pluggable transport for tests (mock-fetch friendly)
-
-
-    Acceptance:
-
-    - Vitest covering happy path, 304 responses, SSE reconnect, key miss → undefined
-    return
-
-    - Bundle size <5kb gzipped (no axios/superagent — native fetch)
-
-    - Works in Node (CLI) and browser (components)'
-  requirements: []
-- id: lit-web-components-(@felixgeelhaar/glossa-elements)
-  title: Lit web components (@felixgeelhaar/glossa-elements)
-  description: 'Framework-agnostic translation rendering. `<glossa-provider>` boots
-    one SDK client; descendant `<glossa-text>` / `<glossa-rich>` / `<glossa-plural>`
-    / `<glossa-select>` reactively render translations.
-
-
-    Scope:
-
-    - `<glossa-provider project locale api-url api-key strict>` — root; exposes context
-    via a ReactiveController
-
-    - `<glossa-text key>` — flat string lookup; slot content is fallback when key
-    missing
-
-    - `<glossa-rich key vars>` — ICU MessageFormat via @felixgeelhaar/glossa-format
-
-    - `<glossa-plural key count>` — convenience wrapper around rich for the most common
-    case
-
-    - `<glossa-select key value>` — gender/select wrapper
-
-    - Locale switching: provider''s `locale` attribute change triggers re-render of
-    every descendant
-
-    - SSE event propagation: updates flow into a Lit signal that all components subscribe
-    to
-
-    - A11y: rendered text inherits parent element semantics (no extra wrapper that
-    breaks landmarks)
-
-    - Strict mode (`<glossa-provider strict>`) logs missing keys to console.warn in
-    dev
-
-
-    Acceptance:
-
-    - Demo page in apps/admin that mounts every component on the same provider; toggling
-    locale swaps every visible string
-
-    - Component tests using @open-wc/testing or vitest+jsdom for slot fallback, missing-key
-    behaviour, locale switch
-
-    - Total package bundle size <10kb gzipped'
-  requirements: []
-- id: cli-(@felixgeelhaar/glossa-cli)
-  title: CLI (@felixgeelhaar/glossa-cli)
-  description: 'Build-time integration: scan source for keys, pull/push bundles. Doesn''t
-    own runtime behaviour — the SSE channel covers that.
-
-
-    Scope:
-
-    - `glossa init` — scaffolds a `glossa.config.{ts,json}` with project slug, locales,
-    api-url, scan globs
-
-    - `glossa scan` — walks source matching the config globs, extracts `<glossa-text
-    key="…">` usages and matching template-literal patterns, POSTs to `/keys:scan`
-    as a batch upsert
-
-    - `glossa pull` — fetches all locale bundles to disk for build-time baking
-
-    - `glossa push <bundle.json>` — pushes a translated bundle (translator-export
-    workflow)
-
-    - Exit codes: 0 success, 1 config error, 2 network error, 3 partial scan failure
-
-    - Honours `.gitignore` when walking source (nox-style — avoid scanning node_modules)
-
-
-    Acceptance:
-
-    - Tested against a fixture project tree in the repo; `glossa scan` finds keys
-    correctly
-
-    - `pull` writes deterministic JSON output (stable key order) so the diff is meaningful
-
-    - Standalone npm install: `npx @felixgeelhaar/glossa-cli scan` works without a global install'
-  requirements: []
-- id: admin-ui-(apps/admin)
-  title: Admin UI (apps/admin)
-  description: 'Translator interface. Lit + Vite, dogfoods @felixgeelhaar/glossa-elements + @felixgeelhaar/glossa-sdk
-    so changes to the public packages get exercised every time the admin is touched.
-
-
-    Scope:
-
-    - Login (JWT) + project switcher
-
-    - Key list per (project, locale) with status filters (untranslated / needs-review
-    / approved)
-
-    - Edit form per key — supports the ICU subset with a live preview rendering via
-    @felixgeelhaar/glossa-format
-
-    - Bulk import / export JSON
-
-    - Diff view: "untranslated keys vs needs-review" snapshot
-
-    - Project management: locale CRUD, API-key rotation, audit log view
-
-    - Per-user access: scope a translator to specific locales (`users.locales[]` column)
-
-
-    Acceptance:
-
-    - A translator can sign in, pick a project, edit a key, save, see status flip
-    to "pending review", and the SSE event lands in the demo consumer
-
-    - A11y: keyboard-only key edit + save flow works end-to-end
-
-    - Bundle size budget: <250kb gzipped for the admin SPA'
-  requirements: []
-- id: deployment-(k3s-on-edge-1)
-  title: Deployment (k3s on edge-1)
-  description: 'Mirror IRI/Brotwerk''s k3s deploy patterns — single binary API + static
-    admin SPA + Postgres StatefulSet.
-
-
-    Scope:
-
-    - `apps/api/Dockerfile` (distroless final stage), `apps/admin/Dockerfile` (nginx
-    serving the static build)
-
-    - GHA workflow `.github/workflows/release.yml` that builds + pushes `ghcr.io/felixgeelhaar/glossa-api`
-    and `glossa-admin` on tag push, then patches the k3s deployments
-
-    - `deploy/k3s/` manifests: Postgres StatefulSet (20Gi PVC), api + admin Deployments
-    + Services, Ingress with cert-manager TLS, ConfigMap + Secret (API keys, JWT signing
-    key)
-
-    - Daily backup CronJob via the existing rclone-config + Hetzner Storage Box pattern
-
-    - Migration init-container on the API pod, same shape as Brotwerk
-
-
-    Acceptance:
-
-    - `git tag v0.1.0 && git push --tags` → release workflow ships both images and
-    rolls them out
-
-    - Admin reachable at the chosen subdomain over HTTPS with cert-manager-issued
-    cert
-
-    - Postgres survives a pod restart (PVC retained); backup target receives a daily
-    dump'
-  requirements: []
-- id: first-consumer-migration-(iri-or-brotwerk)
-  title: First consumer migration (IRI or Brotwerk)
-  description: 'Validate the whole stack against a real consumer. Pick whichever sister
-    project is calmer at the time — IRI has 170+ hard-coded German strings, Brotwerk
-    has fewer but a richer i18n already (de/en JSON bundles).
-
-
-    Scope:
-
-    - Add `<glossa-provider>` to the consumer''s root layout
-
-    - Replace 5–10 representative hardcoded strings with `<glossa-text>` / `<glossa-rich>`
-    to prove the end-to-end loop
-
-    - Run `glossa scan` from the consumer''s CI to seed Glossa with the key list
-
-    - Wire a fallback: if Glossa is unreachable, the consumer''s pre-existing i18n
-    JSON wins (don''t take a hard dependency on Glossa availability for the first
-    migration)
-
-
-    Acceptance:
-
-    - Editing a translation in the Glossa admin updates the consumer within 5s without
-    a redeploy
-
-    - Consumer build still works when Glossa is offline (verified by killing the API
-    pod during a build)
-
-    - One translator can update at least one key end-to-end without engineering involvement'
-  requirements: []
+    - id: icu-subset-(@felixgeelhaar/glossa-format)
+      title: ICU subset (@felixgeelhaar/glossa-format)
+      description: |-
+        Own ICU MessageFormat subset, ~200 LOC + ~150 LOC tests. Lands first because nothing else depends on it.
+
+        Scope:
+        - Variable interpolation `{name}`
+        - Plural `{count, plural, one {…} other {…}}` backed by Intl.PluralRules
+        - Selection `{gender, select, female {…} male {…} other {…}}`
+        - Nested combinations
+        - Apostrophe escaping per ICU spec (`'{'` literal)
+        - Defer number/date/relative-time/list to Intl.* built-ins
+
+        Acceptance:
+        - Vitest suite covering ICU spec edge cases (negative counts, apostrophe literals, deeply nested selects)
+        - Bundle size <3kb gzipped
+        - Zero external runtime dependencies
+        - Exports a `format(message, locale, values)` function + a `parse(message)` AST helper for the admin lint pass
+      requirements: []
+    - id: go-api-+-postgres-schema-(apps/api)
+      title: Go API + Postgres schema (apps/api)
+      description: |-
+        REST + SSE service backing the admin UI and the Lit components. Mirrors Brotwerk's apps/api hex-arch (domain → app → interfaces → infra).
+
+        Library picks (locked):
+        - HTTP: gin-gonic/gin (matches Brotwerk)
+        - DB: pgx/v5 + sqlc-generated query types
+        - Migrations: golang-migrate
+        - Logging: felixgeelhaar/bolt slog handler
+        - Resilience: felixgeelhaar/fortify — ratelimit, circuitbreaker, timeout, retry, ferrors for typed errors
+        - Auth: golang-jwt/jwt for admin sessions; SHA-256-hashed API keys for consumer/CLI traffic
+
+        Scope:
+        - golang-migrate migrations for tenants, projects, locales, keys, translations, audit_log, users (schema per docs/design.md §6)
+        - sqlc-generated repos for each table
+        - Domain layer: Project, Locale, Key, Translation, Tenant value objects
+        - Use cases: CreateProject, UpsertKeys (CLI scan), UpdateTranslation, ListBundle, RotateAPIKey
+        - REST endpoints per docs/design.md §5.1, served via gin
+        - JWT auth middleware (admin), API-key middleware (consumer/CLI), fortify ratelimit per-tenant
+        - Row-Level Security policies enforcing tenant_id isolation (cross-tenant read impossible at DB layer)
+        - bolt-backed slog handler for structured logs
+        - /healthz + /readyz
+
+        Acceptance:
+        - `go test ./...` clean with table-driven coverage on each use case
+        - Integration test against a real Postgres (testcontainers or docker compose) covering RLS isolation
+        - OpenAPI spec generated from handlers, committed to api/openapi.yaml
+      requirements: []
+    - id: sse-live-update-channel
+      title: SSE live-update channel
+      description: |-
+        Translator edits a key in the admin UI → consumer apps see the new value within seconds without a deploy. Server-Sent Events because consumer side is browser-first, no need for full WebSocket bidirectionality.
+
+        Scope:
+        - API endpoint `GET /api/v1/projects/:slug/sse` (per docs/design.md §5.1)
+        - Event envelope `{type: "translation.updated", project, locale, key, value, status}` per §5.2
+        - Server-side fanout: in-process map per project for MVP; Redis pubsub when multi-replica
+        - Client-side reconnection with exponential backoff in @felixgeelhaar/glossa-sdk
+        - Heartbeat every 30s so corporate proxies don't kill the connection
+        - Per-tenant rate limit on translator broadcasts (avoid one project spamming all subscribers)
+
+        Acceptance:
+        - End-to-end test: edit a translation in admin → assert SSE event lands in a subscribing consumer within 1s
+        - Connection survives a 60s idle window
+        - Reconnection recovers missed events using a `Last-Event-ID` cursor
+      requirements: []
+    - id: glossa-sdk-(@felixgeelhaar/glossa-sdk)
+      title: Glossa SDK (@felixgeelhaar/glossa-sdk)
+      description: |-
+        HTTP fetch + in-memory cache + SSE subscription, framework-agnostic. The boundary the Lit components and CLI both consume; owns network code so the components stay pure rendering.
+
+        Scope:
+        - `Client(config)` factory: project, locale, apiUrl, apiKey
+        - `client.bundle(locale)` returns a Promise<Record<string, string>> with etag + If-None-Match handling
+        - `client.subscribe(onEvent, onError)` opens SSE, auto-reconnects with backoff
+        - In-memory bundle cache keyed by `(project, locale)`; invalidated on SSE updates
+        - `client.scan(keys)` for the CLI side (batch upsert)
+        - Pluggable transport for tests (mock-fetch friendly)
+
+        Acceptance:
+        - Vitest covering happy path, 304 responses, SSE reconnect, key miss → undefined return
+        - Bundle size <5kb gzipped (no axios/superagent — native fetch)
+        - Works in Node (CLI) and browser (components)
+      requirements: []
+    - id: lit-web-components-(@felixgeelhaar/glossa-elements)
+      title: Lit web components (@felixgeelhaar/glossa-elements)
+      description: |-
+        Framework-agnostic translation rendering. `<glossa-provider>` boots one SDK client; descendant `<glossa-text>` / `<glossa-rich>` / `<glossa-plural>` / `<glossa-select>` reactively render translations.
+
+        Scope:
+        - `<glossa-provider project locale api-url api-key strict>` — root; exposes context via a ReactiveController
+        - `<glossa-text key>` — flat string lookup; slot content is fallback when key missing
+        - `<glossa-rich key vars>` — ICU MessageFormat via @felixgeelhaar/glossa-format
+        - `<glossa-plural key count>` — convenience wrapper around rich for the most common case
+        - `<glossa-select key value>` — gender/select wrapper
+        - Locale switching: provider's `locale` attribute change triggers re-render of every descendant
+        - SSE event propagation: updates flow into a Lit signal that all components subscribe to
+        - A11y: rendered text inherits parent element semantics (no extra wrapper that breaks landmarks)
+        - Strict mode (`<glossa-provider strict>`) logs missing keys to console.warn in dev
+
+        Acceptance:
+        - Demo page in apps/admin that mounts every component on the same provider; toggling locale swaps every visible string
+        - Component tests using @open-wc/testing or vitest+jsdom for slot fallback, missing-key behaviour, locale switch
+        - Total package bundle size <10kb gzipped
+      requirements: []
+    - id: cli-(@felixgeelhaar/glossa-cli)
+      title: CLI (@felixgeelhaar/glossa-cli)
+      description: |-
+        Build-time integration: scan source for keys, pull/push bundles. Doesn't own runtime behaviour — the SSE channel covers that.
+
+        Scope:
+        - `glossa init` — scaffolds a `glossa.config.{ts,json}` with project slug, locales, api-url, scan globs
+        - `glossa scan` — walks source matching the config globs, extracts `<glossa-text key="…">` usages and matching template-literal patterns, POSTs to `/keys:scan` as a batch upsert
+        - `glossa pull` — fetches all locale bundles to disk for build-time baking
+        - `glossa push <bundle.json>` — pushes a translated bundle (translator-export workflow)
+        - Exit codes: 0 success, 1 config error, 2 network error, 3 partial scan failure
+        - Honours `.gitignore` when walking source (nox-style — avoid scanning node_modules)
+
+        Acceptance:
+        - Tested against a fixture project tree in the repo; `glossa scan` finds keys correctly
+        - `pull` writes deterministic JSON output (stable key order) so the diff is meaningful
+        - Standalone npm install: `npx @felixgeelhaar/glossa-cli scan` works without a global install
+      requirements: []
+    - id: admin-ui-(apps/admin)
+      title: Admin UI (apps/admin)
+      description: |-
+        Translator interface. Lit + Vite, dogfoods @felixgeelhaar/glossa-elements + @felixgeelhaar/glossa-sdk so changes to the public packages get exercised every time the admin is touched.
+
+        Scope:
+        - Login (JWT) + project switcher
+        - Key list per (project, locale) with status filters (untranslated / needs-review / approved)
+        - Edit form per key — supports the ICU subset with a live preview rendering via @felixgeelhaar/glossa-format
+        - Bulk import / export JSON
+        - Diff view: "untranslated keys vs needs-review" snapshot
+        - Project management: locale CRUD, API-key rotation, audit log view
+        - Per-user access: scope a translator to specific locales (`users.locales[]` column)
+
+        Acceptance:
+        - A translator can sign in, pick a project, edit a key, save, see status flip to "pending review", and the SSE event lands in the demo consumer
+        - A11y: keyboard-only key edit + save flow works end-to-end
+        - Bundle size budget: <250kb gzipped for the admin SPA
+      requirements: []
+    - id: deployment-(k3s-on-edge-1)
+      title: Deployment (k3s on edge-1)
+      description: |-
+        Mirror IRI/Brotwerk's k3s deploy patterns — single binary API + static admin SPA + Postgres StatefulSet.
+
+        Scope:
+        - `apps/api/Dockerfile` (distroless final stage), `apps/admin/Dockerfile` (nginx serving the static build)
+        - GHA workflow `.github/workflows/release.yml` that builds + pushes `ghcr.io/felixgeelhaar/glossa-api` and `glossa-admin` on tag push, then patches the k3s deployments
+        - `deploy/k3s/` manifests: Postgres StatefulSet (20Gi PVC), api + admin Deployments + Services, Ingress with cert-manager TLS, ConfigMap + Secret (API keys, JWT signing key)
+        - Daily backup CronJob via the existing rclone-config + Hetzner Storage Box pattern
+        - Migration init-container on the API pod, same shape as Brotwerk
+
+        Acceptance:
+        - `git tag v0.1.0 && git push --tags` → release workflow ships both images and rolls them out
+        - Admin reachable at the chosen subdomain over HTTPS with cert-manager-issued cert
+        - Postgres survives a pod restart (PVC retained); backup target receives a daily dump
+      requirements: []
+    - id: first-consumer-migration-(iri-or-brotwerk)
+      title: First consumer migration (IRI or Brotwerk)
+      description: |-
+        Validate the whole stack against a real consumer. Pick whichever sister project is calmer at the time — IRI has 170+ hard-coded German strings, Brotwerk has fewer but a richer i18n already (de/en JSON bundles).
+
+        Scope:
+        - Add `<glossa-provider>` to the consumer's root layout
+        - Replace 5–10 representative hardcoded strings with `<glossa-text>` / `<glossa-rich>` to prove the end-to-end loop
+        - Run `glossa scan` from the consumer's CI to seed Glossa with the key list
+        - Wire a fallback: if Glossa is unreachable, the consumer's pre-existing i18n JSON wins (don't take a hard dependency on Glossa availability for the first migration)
+
+        Acceptance:
+        - Editing a translation in the Glossa admin updates the consumer within 5s without a redeploy
+        - Consumer build still works when Glossa is offline (verified by killing the API pod during a build)
+        - One translator can update at least one key end-to-end without engineering involvement
+      requirements: []
+    - id: instrument-onboarding-analytics-events
+      title: Instrument onboarding analytics events
+      description: |-
+        Closes the build-trap signal flagged in the expert review: every feature shipped so far ties to no metric. Wire five named events that capture the cold-start funnel for a brand-new operator:
+
+        1. project_created — admin POSTs /admin/projects successfully
+        2. first_key_synced — first translationkey upsert on a project (via CLI scan or bulk import)
+        3. first_translation_edited — first PATCH /translations on a project
+        4. first_consumer_request — first authed GET /messages on a project
+        5. first_ai_translation — first ai_translated row written by the fan-out worker
+
+        Events emitted server-side from the existing use cases (zero new dependencies). Store in a new audit_log-adjacent `analytics_events` table or fold into audit_log with a new event_kind column. The metric this unlocks: time-to-first-approved-translation per project, which is the proxy for whether onboarding works. Surface a /admin/metrics endpoint (admin-only) that returns the cohort funnel.
+      requirements: []
+    - id: define-ecp-+-positioning-doc
+      title: Define ECP + positioning doc
+      description: 'Critical Dunford/Voje finding. Today Glossa is positioned for ''Felix + three projects''; the next 100 users are someone else. Pick one ECP (small EU SaaS founders self-hosting the EU-sovereign stack, OR German-language indie devs avoiding Crowdin pricing) and lock the positioning brief: best-fit customer, alternatives, differentiated capabilities, differentiated value, category. Output as docs/positioning.md and reflect in README hero copy + landing GHCR description.'
+      requirements: []
+    - id: run-second-user-usability-test
+      title: Run second-user usability test
+      description: 'The single highest-leverage validation: watch one human who is NOT Felix complete a 10-key German→English translation cold-start. Goal: capture friction points in the first 15 minutes (login → first key → first approved translation rendering on a consumer page). Pre-write a 5-question script; record screen + audio with consent; transcribe findings into docs/usability-2026-Q2.md. Output: prioritized list of blockers + at least one go/no-go decision on next feature investment.'
+      requirements: []
+    - id: project-switcher-polish-(hide-when-n=1,-show-name-on-first-paint)
+      title: Project switcher polish (hide when N=1, show name on first paint)
+      description: Hick's Law violation. Hide the project switcher entirely when projects.length === 1; show the project name inline next to the tenant identity. When N>1, fix the first-paint timing so the trigger shows the active project's name immediately (Lit-select option timing bug — pass options before value, or render gl-select only after activeProject is non-null).
+      requirements: []
+    - id: bulk-approve:-progress-ui-+-undo-window
+      title: 'Bulk approve: progress UI + undo window'
+      description: Doherty Threshold + Krug undo>confirmation. Replace the silent 'Approving…' label with a live counter (`12 / 200 approved…`) updated per row. Add a 5-second 'Undo' toast that delays the actual PATCH calls; clicking Undo aborts before any side effects fire. Covers the accidental 'select all → approve' footgun without nagging the user with a modal on every bulk action.
+      requirements: []
+    - id: editor-keyboard-shortcuts-(j/k/a/r)
+      title: Editor keyboard shortcuts (j/k/a/r)
+      description: 'Translators editing 200+ keys live in the editor all day. Add: j (next key), k (previous key), Enter (open edit), Esc (close edit), a (approve current), r (mark needs_review), / (focus search). Show a keyboard help dialog via ? key. Setting toggle (default on for admins, off for translators until they ask). Persist preference per-user in users table via /admin/users/:id/preferences PATCH.'
+      requirements: []
+    - id: ai-provider:-validate-key-inline-on-save
+      title: 'AI provider: validate key inline on save'
+      description: Today the Test button surfaces auth errors AFTER the row lands in DB. Change handleCreateAIProvider to optionally trigger a single Translate call (with a tiny known-good source like 'Hello') BEFORE returning success; if it fails, return 422 with the upstream error and don't persist. Add `?validate=true` query param on the POST so the existing 'add without test' path stays available for power users who want to plant a row for later editing.
+      requirements: []
+    - id: ssr/hydration-uncertainty-ux-in-glossa-elements
+      title: SSR/hydration uncertainty UX in glossa-elements
+      description: 'AI UX pattern: fallback content shouldn''t look identical to live content. Today `<glossa-text>` slot content renders the same before + after hydration; users can''t tell what''s source-of-truth vs SSR cache. Add a subtle visual treatment until the provider''s first bundle resolves: italic font-style OR a 1px dotted underline OR an aria-busy attribute paired with a CSS opacity 0.9. Trigger off the provider''s context value (version 0 = pre-hydration).'
+      requirements: []
+    - id: translator-invite-+-first-login-flow
+      title: Translator invite + first-login flow
+      description: 'Today the only path to a translator account is admin creates user with a known password. Replace with invitation tokens: admin clicks ''Invite'' → backend mints a single-use invite token (expires in 48h) → admin shares the URL out-of-band (link, email, Slack) → translator follows link → sets password → lands in /editor on the locales they''re scoped to. New tables: invites (id, tenant_id, email, role, locales, token_hash, expires_at, accepted_at). Two new endpoints: POST /admin/invites (create), POST /auth/accept-invite (consume). Email integration is OUT OF SCOPE for v1 — link sharing is manual.'
+      requirements: []
+    - id: audit-log:-filter-ui-(actor-kind,-date-range,-key/value-search)
+      title: 'Audit log: filter UI (actor kind, date range, key/value search)'
+      description: 'Data model already supports actor_kind (''user'' | ''ai'' | ''system'') + actor_label + timestamps. UI is unfiltered. Add chip filters for actor_kind, a date-range picker (last 1d / 7d / 30d / custom), and a substring search on before_value/after_value. Server-side: extend ListAuditForTenant with optional filter params; keep the existing pagination story. Critical for compliance reviews + post-incident forensics.'
+      requirements: []
+    - id: microcopy-+-footer-polish
+      title: Microcopy + footer polish
+      description: 'Small Krug-style sweep: (1) lead empty-state body with the action verb (''Run `glossa scan`...'' instead of ''Add translation keys by scanning...''); (2) revoke confirm names the consequence concretely (''Any consumer using this key will stop working immediately''); (3) bulk approve confirm always shows the count (''Approve 47 keys?''); (4) add a colophon strip with `glossa v0.1.x · github · docs` so users can find help.'
+      requirements: []
+    - id: accessibility-sweep:-aria-busy,-aria-live,-focus-management
+      title: 'Accessibility sweep: aria-busy, aria-live, focus management'
+      description: '(1) Bulk approve sets aria-busy=true on the selection bar during the serial loop. (2) The ''X selected'' counter wraps in aria-live=''polite'' so screen readers announce changes. (3) After dismissing the reveal-once key panel, focus returns to the toolbar button that opened the flow. (4) Editor row checkbox: header column gets a visually-hidden ''Select'' label. (5) gl-tabs current-tab announce via aria-selected (verify already there; add if not). Test pass with VoiceOver + axe-core in CI.'
+      requirements: []
+    - id: three-moments-of-delight-(walter)
+      title: Three moments of delight (Walter)
+      description: 'Lift Glossa from usable → pleasurable with three small wins: (1) First-approval celebration toast when a project''s first key flips to ''approved'' — links to the consumer SDK snippet. (2) AI fan-out rows show a subtle violet pulse while the agent is mid-flight; settle to the ai_translated badge when done. (3) Copy-API-key button briefly says ''Copied'' + input border flashes violet (Doherty + Gestalt closure). Each is <30 lines. Land all three behind a single ''micro-interactions on/off'' setting in case translators find them distracting.'
+      requirements: []
+    - id: diff-view-→-now-/-next-/-later-columns
+      title: Diff view → Now / Next / Later columns
+      description: 'Today /diff is a flat table of (locale, total, pending, needs_review, approved). Reframe as a per-locale Now/Next/Later kanban (Ant Murphy): Now = pending + ai_translated (action needed), Next = needs_review (queued), Later = approved (done). Click a column header to filter the editor by that status. Visual story matches what reviewers actually do: ''work the Now column down''.'
+      requirements: []
+    - id: cli-install-snippet:-package-manager-tabs
+      title: 'CLI install snippet: package-manager tabs'
+      description: Editor empty-state hardcodes `pnpx`. Replace with a small tab UI that shows the install command for npm / pnpm / bun / yarn so users running any of the four don't bounce off the snippet. Three lines per tab, same shape. Use gl-tabs primitive so we get keyboard nav for free.
+      requirements: []
+    - id: read-only-api-key-for-brotwerk-prod-(ecp-swap)
+      title: Read-only API key for brotwerk-prod (ECP swap)
+      description: Operational follow-up to the scoped-keys feature. Today brotwerk uses the legacy write-scope key inherited from migration 0003. Issue a new 'read'-scope key via the admin UI ('brotwerk web' label), swap into brotwerk apps/web/.env + the CI build args, redeploy brotwerk, then revoke the legacy write key. Validates the read-only path end-to-end + closes the embedded-write-key security gap flagged earlier.
+      requirements: []
 constraints: []
 version: 0.1.0
