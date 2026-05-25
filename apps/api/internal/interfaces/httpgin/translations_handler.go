@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
@@ -16,6 +17,7 @@ import (
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/translation"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/user"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 // handleListBundle returns the full (project, locale) message map.
@@ -30,13 +32,13 @@ func handleListBundle(
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			ginerr.Send(c, errs.ProjectNotFound)
 			return
 		}
 		code := c.Param("locale")
 		all, err := locales.ListForProject(contextOf(c), p.ID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		var found locale.Locale
@@ -47,12 +49,12 @@ func handleListBundle(
 			}
 		}
 		if found.ID == uuid.Nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "locale not found for this project"})
+			ginerr.Send(c, errs.LocaleNotFoundForProject)
 			return
 		}
 		entries, err := uc.Execute(contextOf(c), p.ID, found.ID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		messages := make(map[string]string, len(entries))
@@ -114,7 +116,7 @@ func handlePatchTranslation(
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			ginerr.Send(c, errs.ProjectNotFound)
 			return
 		}
 		localeCode := c.Param("locale")
@@ -124,22 +126,20 @@ func handlePatchTranslation(
 		// so they're treated as service-level and skip this check.
 		if role, ok := c.Get(ctxKeyUserRole); ok && role == string(user.RoleTranslator) {
 			if !sliceContains(authedUserLocales(c), localeCode) {
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-					"error": "translator not scoped to this locale",
-				})
+				ginerr.Send(c, errs.TranslatorOutOfScopeLocale)
 				return
 			}
 		}
 
 		var req patchTranslationReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 
 		allLocales, err := locales.ListForProject(contextOf(c), p.ID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		var l locale.Locale
@@ -150,13 +150,13 @@ func handlePatchTranslation(
 			}
 		}
 		if l.ID == uuid.Nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "locale not found"})
+			ginerr.Send(c, errs.LocaleNotFound)
 			return
 		}
 
 		k, err := keys.FindByName(contextOf(c), p.ID, keyName)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "key not found for this project"})
+			ginerr.Send(c, errs.KeyNotFoundForProject)
 			return
 		}
 
@@ -178,7 +178,7 @@ func handlePatchTranslation(
 		if prev, err := translations.Find(contextOf(c), k, l.ID); err == nil {
 			beforeValue = prev.Value
 		} else if !errors.Is(err, translation.ErrNotFound) {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 
@@ -190,7 +190,7 @@ func handlePatchTranslation(
 			UpdatedBy: actor,
 		})
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 

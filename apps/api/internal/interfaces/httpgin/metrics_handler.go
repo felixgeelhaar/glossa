@@ -6,8 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 // handleProjectMetrics — GET /api/v1/admin/projects/:slug/metrics
@@ -20,12 +22,12 @@ func handleProjectMetrics(projects project.Repository, repo analytics.Repository
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			ginerr.Send(c, errs.ProjectNotFound)
 			return
 		}
 		rows, err := repo.ProjectFunnel(contextOf(c), p.TenantID, p.ID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		out := make([]gin.H, 0, len(rows))
@@ -53,7 +55,7 @@ func handleTenantMetrics(repo analytics.Repository) gin.HandlerFunc {
 		tenantID, _ := c.Get(ctxKeyTenantID)
 		rows, err := repo.TenantProjectsFirstEvents(contextOf(c), tenantID.(uuid.UUID))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		out := make([]gin.H, 0, len(rows))

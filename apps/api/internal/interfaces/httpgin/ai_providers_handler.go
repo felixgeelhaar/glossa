@@ -10,7 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/aitranslator"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 type aiProviderListItem struct {
@@ -28,7 +30,7 @@ func handleListAIProviders(repo aitranslator.Repository) gin.HandlerFunc {
 		tenantID, _ := c.Get(ctxKeyTenantID)
 		rows, err := repo.List(contextOf(c), tenantID.(uuid.UUID))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		out := make([]aiProviderListItem, 0, len(rows))
@@ -61,16 +63,16 @@ func handleCreateAIProvider(repo aitranslator.Repository, sealer Sealer, transla
 		}
 		var req createAIProviderReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		kind, err := aitranslator.ParseKind(req.Kind)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		if strings.TrimSpace(req.APIKey) == "" {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "apiKey is required"})
+			ginerr.Send(c, errs.ValidationAPIKeyRequired)
 			return
 		}
 		// Validate-on-save (default true) catches typo'd keys before
@@ -94,7 +96,7 @@ func handleCreateAIProvider(repo aitranslator.Repository, sealer Sealer, transla
 		}
 		ct, nonce, err := sealer.Seal([]byte(req.APIKey))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		enabled := true
@@ -113,7 +115,7 @@ func handleCreateAIProvider(repo aitranslator.Repository, sealer Sealer, transla
 			Enabled:     enabled,
 		})
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 		c.JSON(http.StatusCreated, aiProviderListItem{
@@ -135,16 +137,16 @@ func handleUpdateAIProvider(repo aitranslator.Repository, sealer Sealer) gin.Han
 	return func(c *gin.Context) {
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			ginerr.Send(c, errs.ValidationInvalidID)
 			return
 		}
 		var req updateAIProviderReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		if err := repo.Update(contextOf(c), id, req.Label, req.BaseURL, req.Model, req.Enabled); err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 		if strings.TrimSpace(req.APIKey) != "" {
@@ -156,11 +158,11 @@ func handleUpdateAIProvider(repo aitranslator.Repository, sealer Sealer) gin.Han
 			}
 			ct, nonce, err := sealer.Seal([]byte(req.APIKey))
 			if err != nil {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				ginerr.Send(c, errs.InternalFromErr(err))
 				return
 			}
 			if err := repo.UpdateKey(contextOf(c), id, ct, nonce); err != nil {
-				c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+				ginerr.Send(c, errs.UnprocessableFromErr(err))
 				return
 			}
 		}
@@ -172,11 +174,11 @@ func handleDeleteAIProvider(repo aitranslator.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			ginerr.Send(c, errs.ValidationInvalidID)
 			return
 		}
 		if err := repo.Delete(contextOf(c), id); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		c.Status(http.StatusNoContent)
@@ -197,31 +199,31 @@ func handleAITestProvider(
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if sealer == nil {
-			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "AI translation disabled"})
+			ginerr.Send(c, errs.AITranslationDisabled)
 			return
 		}
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			ginerr.Send(c, errs.ValidationInvalidID)
 			return
 		}
 		var req backfillReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		prov, err := repo.Get(contextOf(c), id)
 		if err != nil {
 			if errors.Is(err, aitranslator.ErrNotFound) {
-				c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "provider not found"})
+				ginerr.Send(c, errs.AIProviderNotFound)
 				return
 			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		key, err := sealer.Open(prov.APIKeyCT, prov.APIKeyNonce)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		ctx, cancel := context.WithTimeout(contextOf(c), 20*time.Second)

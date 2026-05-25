@@ -7,8 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	authapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/tenant"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 type discoverReq struct {
@@ -28,12 +30,12 @@ func handleDiscoverTenants(uc *authapp.DiscoverTenants) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req discoverReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		opts, err := uc.Execute(c.Request.Context(), req.Email)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"tenants": opts})
@@ -57,17 +59,17 @@ func handleLogin(uc *authapp.Login, tenants tenant.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req loginReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		slug, err := tenant.NewSlug(req.TenantSlug)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+			ginerr.Send(c, errs.AuthInvalidCredentials)
 			return
 		}
 		t, err := tenants.FindBySlug(c.Request.Context(), slug)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+			ginerr.Send(c, errs.AuthInvalidCredentials)
 			return
 		}
 		out, err := uc.Execute(c.Request.Context(), authapp.LoginInput{
@@ -77,10 +79,10 @@ func handleLogin(uc *authapp.Login, tenants tenant.Repository) gin.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, authapp.ErrInvalidCredentials) {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+				ginerr.Send(c, errs.AuthInvalidCredentials)
 				return
 			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{

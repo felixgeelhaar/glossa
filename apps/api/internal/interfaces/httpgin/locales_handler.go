@@ -6,8 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 type createLocaleReq struct {
@@ -19,22 +21,22 @@ func handleCreateLocale(projects project.Repository, repo locale.Repository) gin
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			ginerr.Send(c, errs.ProjectNotFound)
 			return
 		}
 		var req createLocaleReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		code, err := locale.NewCode(req.Code)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 		label, err := locale.NewLabel(req.Label)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 		l := locale.Locale{
@@ -45,7 +47,7 @@ func handleCreateLocale(projects project.Repository, repo locale.Repository) gin
 			Enabled:   true,
 		}
 		if err := repo.Save(c.Request.Context(), l); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		c.JSON(http.StatusCreated, gin.H{
@@ -61,12 +63,12 @@ func handleListLocales(projects project.Repository, repo locale.Repository) gin.
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			ginerr.Send(c, errs.ProjectNotFound)
 			return
 		}
 		rows, err := repo.ListForProject(c.Request.Context(), p.ID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		out := make([]gin.H, 0, len(rows))

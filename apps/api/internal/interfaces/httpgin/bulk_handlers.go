@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
@@ -15,6 +16,7 @@ import (
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/translation"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 // handleBulkImport — POST /api/v1/admin/projects/:slug/locales/:locale/bulk
@@ -42,13 +44,13 @@ func handleBulkImport(
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			ginerr.Send(c, errs.ProjectNotFound)
 			return
 		}
 		localeCode := c.Param("locale")
 		var body req
 		if err := c.ShouldBindJSON(&body); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		status := body.Status
@@ -58,7 +60,7 @@ func handleBulkImport(
 		// Resolve locale.
 		allLocales, err := locales.ListForProject(contextOf(c), p.ID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		var l locale.Locale
@@ -69,7 +71,7 @@ func handleBulkImport(
 			}
 		}
 		if l.ID == uuid.Nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "locale not found"})
+			ginerr.Send(c, errs.LocaleNotFound)
 			return
 		}
 
@@ -79,7 +81,7 @@ func handleBulkImport(
 			inputs = append(inputs, keyapp.UpsertInput{Name: name})
 		}
 		if _, err := keysUC.Execute(contextOf(c), p.ID, inputs); err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 
@@ -197,19 +199,19 @@ func handleBundleDiff(
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			ginerr.Send(c, errs.ProjectNotFound)
 			return
 		}
 		all, err := locales.ListForProject(contextOf(c), p.ID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		out := make([]gin.H, 0, len(all))
 		for _, l := range all {
 			entries, err := listBundle.Execute(contextOf(c), p.ID, l.ID)
 			if err != nil {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				ginerr.Send(c, errs.InternalFromErr(err))
 				return
 			}
 			pending, aiTranslated, needsReview, approved := 0, 0, 0, 0

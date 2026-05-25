@@ -7,8 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 type createProjectReq struct {
@@ -34,12 +36,12 @@ func handleCreateProject(uc *projectapp.CreateProject) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req createProjectReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		tenantID, err := uuid.Parse(req.TenantID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "tenantId must be a UUID"})
+			ginerr.Send(c, errs.ValidationTenantIDNotUUID)
 			return
 		}
 		out, err := uc.Execute(c.Request.Context(), projectapp.CreateInput{
@@ -53,9 +55,9 @@ func handleCreateProject(uc *projectapp.CreateProject) gin.HandlerFunc {
 			case errors.Is(err, project.ErrInvalidSlug),
 				errors.Is(err, project.ErrInvalidName),
 				errors.Is(err, projectapp.ErrInvalidTenantID):
-				c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+				ginerr.Send(c, errs.UnprocessableFromErr(err))
 			default:
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				ginerr.Send(c, errs.InternalFromErr(err))
 			}
 			return
 		}

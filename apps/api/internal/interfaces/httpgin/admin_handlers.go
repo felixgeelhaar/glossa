@@ -12,11 +12,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	authapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/user"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 // ─── Locales ─────────────────────────────────────────────────────
@@ -28,16 +30,16 @@ func handleSetLocaleEnabled(repo locale.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := uuid.Parse(c.Param("locale"))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid locale id"})
+			ginerr.Send(c, errs.ValidationInvalidLocaleID)
 			return
 		}
 		var body req
 		if err := c.ShouldBindJSON(&body); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		if err := repo.SetEnabled(c.Request.Context(), id, body.Enabled); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"id": id.String(), "enabled": body.Enabled})
@@ -48,11 +50,11 @@ func handleDeleteLocale(repo locale.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := uuid.Parse(c.Param("locale"))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid locale id"})
+			ginerr.Send(c, errs.ValidationInvalidLocaleID)
 			return
 		}
 		if err := repo.Delete(c.Request.Context(), id); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		c.Status(http.StatusNoContent)
@@ -66,7 +68,7 @@ func handleListUsers(repo user.Repository) gin.HandlerFunc {
 		tenantID, _ := c.Get(ctxKeyTenantID)
 		users, err := repo.ListForTenant(c.Request.Context(), tenantID.(uuid.UUID))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		out := make([]gin.H, 0, len(users))
@@ -92,22 +94,22 @@ func handleCreateUser(repo user.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var body req
 		if err := c.ShouldBindJSON(&body); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		email, err := user.NormalizeEmail(body.Email)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 		role, err := user.ParseRole(body.Role)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 		hash, err := authapp.HashPassword(body.Password)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 		tenantID, _ := c.Get(ctxKeyTenantID)
@@ -119,7 +121,7 @@ func handleCreateUser(repo user.Repository) gin.HandlerFunc {
 			Locales:      body.Locales,
 		})
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		c.JSON(http.StatusCreated, gin.H{
@@ -138,16 +140,16 @@ func handleUpdateUserLocales(repo user.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+			ginerr.Send(c, errs.ValidationInvalidUserID)
 			return
 		}
 		var body req
 		if err := c.ShouldBindJSON(&body); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		if err := repo.UpdateLocales(c.Request.Context(), id, body.Locales); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"id": id.String(), "locales": body.Locales})
@@ -158,7 +160,7 @@ func handleDeleteUser(repo user.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+			ginerr.Send(c, errs.ValidationInvalidUserID)
 			return
 		}
 		// Guard against locking the tenant out by deleting the last
@@ -167,22 +169,22 @@ func handleDeleteUser(repo user.Repository) gin.HandlerFunc {
 		tenantID, _ := c.Get(ctxKeyTenantID)
 		target, err := repo.FindByID(c.Request.Context(), id)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			ginerr.Send(c, errs.UserNotFound)
 			return
 		}
 		if target.Role == user.RoleAdmin {
 			count, err := repo.CountAdmins(c.Request.Context(), tenantID.(uuid.UUID))
 			if err != nil {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				ginerr.Send(c, errs.InternalFromErr(err))
 				return
 			}
 			if count <= 1 {
-				c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": "refuse to delete the last admin"})
+				ginerr.Send(c, errs.UserLastAdminConflict)
 				return
 			}
 		}
 		if err := repo.Delete(c.Request.Context(), id); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		c.Status(http.StatusNoContent)
@@ -196,7 +198,7 @@ func handleListProjects(repo project.Repository) gin.HandlerFunc {
 		tenantID, _ := c.Get(ctxKeyTenantID)
 		projects, err := repo.ListForTenant(c.Request.Context(), tenantID.(uuid.UUID))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		out := make([]gin.H, 0, len(projects))
@@ -220,7 +222,7 @@ func handleListAudit(repo audit.Repository) gin.HandlerFunc {
 		limit, offset := parseLimitOffset(c)
 		entries, err := repo.ListForTenant(c.Request.Context(), tenantID.(uuid.UUID), limit, offset)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		out := make([]gin.H, 0, len(entries))

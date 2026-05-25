@@ -9,8 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/apikey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 // Gin context keys for the API-key auth flow.
@@ -48,7 +50,7 @@ func apiKeyAuth(resolver APIKeyResolver) gin.HandlerFunc {
 		if err != nil {
 			// Every lookup failure is 401 — don't leak "key valid but
 			// project deleted" vs "no such key" via status-code probing.
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid api key"})
+			ginerr.Send(c, errs.AuthInvalidAPIKey)
 			return
 		}
 		// Project shim so downstream code that wants a Project value
@@ -77,7 +79,7 @@ func requireScope(required apikey.Scope) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		v, ok := c.Get(ctxKeyScope)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "scope check requires api-key auth"})
+			ginerr.Send(c, errs.AuthScopeRequiresAPIKey)
 			return
 		}
 		got, _ := v.(apikey.Scope)

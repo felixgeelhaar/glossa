@@ -6,8 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/user"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 // Gin context keys populated by [jwtAuth].
@@ -37,7 +39,7 @@ func jwtAuth(iss auth.TokenIssuer) gin.HandlerFunc {
 		}
 		claims, err := iss.Verify(raw)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			ginerr.Send(c, errs.AuthInvalidToken)
 			return
 		}
 		c.Set(ctxKeyUserID, claims.UserID)
@@ -57,7 +59,7 @@ func requireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, _ := c.Get(ctxKeyUserRole)
 		if role != string(user.RoleAdmin) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin role required"})
+			ginerr.Send(c, errs.AuthAdminRequired)
 			return
 		}
 		c.Next()

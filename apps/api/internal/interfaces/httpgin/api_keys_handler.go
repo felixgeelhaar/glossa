@@ -7,9 +7,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	apikeyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/apikey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/apikey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 type apiKeyRow struct {
@@ -43,12 +45,12 @@ func handleListAPIKeys(projects project.Repository, keys apikey.Repository) gin.
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			ginerr.Send(c, errs.ProjectNotFound)
 			return
 		}
 		rows, err := keys.List(contextOf(c), p.ID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		out := make([]apiKeyRow, 0, len(rows))
@@ -68,17 +70,17 @@ func handleIssueAPIKey(projects project.Repository, issue *apikeyapp.IssueAPIKey
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			ginerr.Send(c, errs.ProjectNotFound)
 			return
 		}
 		var req issueAPIKeyReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		scope, err := apikey.ParseScope(req.Scope)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		out, err := issue.Execute(contextOf(c), apikeyapp.IssueInput{
@@ -87,7 +89,7 @@ func handleIssueAPIKey(projects project.Repository, issue *apikeyapp.IssueAPIKey
 			Label:     req.Label,
 		})
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 		c.JSON(http.StatusCreated, gin.H{
@@ -101,11 +103,11 @@ func handleRevokeAPIKey(revoke *apikeyapp.RevokeAPIKey) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			ginerr.Send(c, errs.ValidationInvalidID)
 			return
 		}
 		if err := revoke.Execute(contextOf(c), id); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		c.Status(http.StatusNoContent)

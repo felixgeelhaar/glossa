@@ -8,7 +8,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/db"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 // rlsTxMiddleware enforces Postgres row-level-security tenant
@@ -45,7 +47,7 @@ func rlsTxMiddleware(pool *pgxpool.Pool) gin.HandlerFunc {
 		ctx := c.Request.Context()
 		tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "rls: begin tx: " + err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 		// Defer rollback as a safety net. Commit on success below
@@ -58,7 +60,7 @@ func rlsTxMiddleware(pool *pgxpool.Pool) gin.HandlerFunc {
 		// directly — uuid.UUID.String() is hex-only, no escaping
 		// concerns.
 		if _, err := tx.Exec(ctx, "SET LOCAL app.current_tenant = '"+tenantID.String()+"'"); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "rls: set tenant: " + err.Error()})
+			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
 

@@ -6,9 +6,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
 
 type scanKeysReq struct {
@@ -27,12 +29,12 @@ func handleScanKeys(projects project.Repository, uc *keyapp.UpsertKeys, rec anal
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			ginerr.Send(c, errs.ProjectNotFound)
 			return
 		}
 		var req scanKeysReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
 		inputs := make([]keyapp.UpsertInput, len(req.Keys))
@@ -41,7 +43,7 @@ func handleScanKeys(projects project.Repository, uc *keyapp.UpsertKeys, rec anal
 		}
 		results, err := uc.Execute(c.Request.Context(), p.ID, inputs)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
 		out := make([]gin.H, 0, len(results))
