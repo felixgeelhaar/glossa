@@ -1,5 +1,11 @@
 # @felixgeelhaar/glossa-ui
 
+## 0.2.0
+
+### Minor Changes
+
+- [`ab66bb0`](https://github.com/felixgeelhaar/glossa/commit/ab66bb0fcdbe930d5ee2bb02c147d3480aba4c2f) - `<gl-tabs>` now supports an overflow `More ▾` group. Items can opt in with `group: "more"` and are rendered inside a popover menu instead of inline; the trigger reflects an aria-current state when the active tab lives inside it. Closes on Esc, click outside, or selection. Existing call sites (no `group`) keep the previous inline-only behavior.
+
 ## 0.1.1
 
 ### Patch Changes

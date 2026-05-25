@@ -1,5 +1,11 @@
 # @felixgeelhaar/glossa-elements
 
+## 0.1.2
+
+### Patch Changes
+
+- [`6ac25f0`](https://github.com/felixgeelhaar/glossa/commit/6ac25f05ceac380c396fa667e46349988ea6b37a) - `<glossa-text>` now surfaces a hydration state on the host element so SSR fallback content is visually distinct from the live-resolved value: `aria-busy="true"` + `data-glossa-pending` while the provider's first bundle is in flight, `data-glossa-missing` when the key is genuinely absent post-hydration. Default styles dim pending content slightly and dotted-outline missing content; consumers can override via `::slotted()` selectors on their own page CSS.
+
 ## 0.1.1
 
 ### Patch Changes

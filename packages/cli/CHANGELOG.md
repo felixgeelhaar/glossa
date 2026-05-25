@@ -1,5 +1,11 @@
 # @felixgeelhaar/glossa-cli
 
+## 0.2.0
+
+### Minor Changes
+
+- [`a931d3b`](https://github.com/felixgeelhaar/glossa/commit/a931d3be960fa0ba9ef6efa799bb3b29b08d29f4) - `glossa init` is now interactive by default — prompts for API URL, project slug, locales, and API key. The previous non-interactive path remains available via `glossa init --yes` (CI-friendly) or programmatic callers that pass flags directly. Auto-skips prompts when stdin isn't a TTY so existing scripts keep working without a flag flip.
+
 ## 0.1.1
 
 ### Patch Changes

@@ -1,7 +1,7 @@
 {
   "name": "@felixgeelhaar/glossa-ui",
-  "version": "0.1.1",
-  "description": "Glossa design system \u2014 utilitarian Lit primitives + design tokens. Used by the admin SPA and any consumer surface embedding glossa.",
+  "version": "0.2.0",
+  "description": "Glossa design system — utilitarian Lit primitives + design tokens. Used by the admin SPA and any consumer surface embedding glossa.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
