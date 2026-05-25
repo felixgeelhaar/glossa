@@ -117,4 +117,3 @@ func writeEvent(w io.Writer, e translationapp.Event) error {
 	}
 	return nil
 }
-

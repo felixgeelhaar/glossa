@@ -4,10 +4,10 @@ import "testing"
 
 func TestBearerToken(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		wantTok  string
-		wantOK   bool
+		name    string
+		input   string
+		wantTok string
+		wantOK  bool
 	}{
 		{"happy", "Bearer glossa_abc", "glossa_abc", true},
 		{"trims trailing space", "Bearer glossa_abc ", "glossa_abc", true},

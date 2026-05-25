@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 
 	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
-	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
+	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
@@ -152,9 +152,9 @@ func handleBulkImport(
 			code = http.StatusUnprocessableEntity
 		}
 		c.JSON(code, gin.H{
-			"applied":  len(body.Messages) - failed,
-			"failed":   failed,
-			"results":  results,
+			"applied": len(body.Messages) - failed,
+			"failed":  failed,
+			"results": results,
 		})
 	}
 }

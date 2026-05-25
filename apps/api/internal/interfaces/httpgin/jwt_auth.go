@@ -12,11 +12,11 @@ import (
 
 // Gin context keys populated by [jwtAuth].
 const (
-	ctxKeyUserID       = "glossa.user_id"
-	ctxKeyUserRole     = "glossa.user_role"
-	ctxKeyUserEmail    = "glossa.user_email"
-	ctxKeyUserLocales  = "glossa.user_locales"
-	ctxKeyTokenClaims  = "glossa.token_claims"
+	ctxKeyUserID      = "glossa.user_id"
+	ctxKeyUserRole    = "glossa.user_role"
+	ctxKeyUserEmail   = "glossa.user_email"
+	ctxKeyUserLocales = "glossa.user_locales"
+	ctxKeyTokenClaims = "glossa.token_claims"
 )
 
 // jwtAuth parses a Bearer JWT and exposes the verified claims on

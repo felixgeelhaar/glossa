@@ -6,10 +6,10 @@
 //
 //   - none           — health probes + JWT login.
 //   - api-key Bearer — CLI / SDK / consumer apps. `apiKeyAuth`
-//                      resolves the project + tenant from the
-//                      hashed key.
+//     resolves the project + tenant from the
+//     hashed key.
 //   - JWT Bearer     — admin SPA + translator UI. `jwtAuth` reads
-//                      tenant + role + locales out of the token.
+//     tenant + role + locales out of the token.
 //
 // Both authed flows are wrapped in `rlsTxMiddleware` so every DB
 // query runs in a tx with `SET LOCAL app.current_tenant`.
@@ -67,7 +67,7 @@ type Deps struct {
 	// Hub fans translation.updated events from PATCH handlers to
 	// SSE subscribers. Single instance per process; swap for a
 	// Redis-backed Publisher when we go multi-replica.
-	Hub      *translationapp.Hub
+	Hub       *translationapp.Hub
 	JWTIssuer authapp.TokenIssuer
 
 	// Repos.

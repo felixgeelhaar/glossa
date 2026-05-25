@@ -33,8 +33,8 @@ type BootstrapInput struct {
 type BootstrapAction string
 
 const (
-	BootstrapNoop    BootstrapAction = "noop"
-	BootstrapSeeded  BootstrapAction = "seeded"
+	BootstrapNoop   BootstrapAction = "noop"
+	BootstrapSeeded BootstrapAction = "seeded"
 )
 
 // Bootstrap creates/looks-up the tenant and ensures it has at

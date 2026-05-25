@@ -42,10 +42,10 @@ type Claims struct {
 
 // HMACIssuer signs/verifies with HS256.
 type HMACIssuer struct {
-	key       []byte
-	issuer    string
-	tokenTTL  time.Duration
-	parser    *jwt.Parser
+	key      []byte
+	issuer   string
+	tokenTTL time.Duration
+	parser   *jwt.Parser
 }
 
 // NewHMACIssuer constructs an issuer. ttl is the access-token

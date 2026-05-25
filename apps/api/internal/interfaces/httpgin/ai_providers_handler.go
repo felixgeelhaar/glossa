@@ -239,4 +239,3 @@ func handleAITestProvider(
 		c.JSON(http.StatusOK, gin.H{"ok": true, "translation": res.Translation, "provider": res.Provider})
 	}
 }
-
