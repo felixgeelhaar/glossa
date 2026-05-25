@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -52,9 +53,22 @@ func setupPg(t *testing.T) *fixture {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	migrationPath, err := filepath.Abs("../../../db/migrations/0001_init.up.sql")
+	// Apply every .up.sql migration in numeric order so the test
+	// schema matches what production runs. Previously only 0001 was
+	// loaded; once 0003 dropped projects.api_key_hash the seed helper
+	// fell behind the live schema and every test that called
+	// seedProject failed on the now-missing NOT NULL column.
+	migrationDir, err := filepath.Abs("../../../db/migrations")
 	if err != nil {
-		t.Fatalf("locate migration: %v", err)
+		t.Fatalf("locate migration dir: %v", err)
+	}
+	upScripts, err := filepath.Glob(filepath.Join(migrationDir, "*.up.sql"))
+	if err != nil {
+		t.Fatalf("glob migrations: %v", err)
+	}
+	sort.Strings(upScripts)
+	if len(upScripts) == 0 {
+		t.Fatalf("no migrations found under %s", migrationDir)
 	}
 
 	pgC, err := tcpostgres.Run(ctx,
@@ -62,7 +76,7 @@ func setupPg(t *testing.T) *fixture {
 		tcpostgres.WithDatabase("glossa_test"),
 		tcpostgres.WithUsername("postgres"),
 		tcpostgres.WithPassword("postgres"),
-		tcpostgres.WithInitScripts(migrationPath),
+		tcpostgres.WithInitScripts(upScripts...),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
