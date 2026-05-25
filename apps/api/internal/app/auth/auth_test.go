@@ -73,8 +73,16 @@ func TestHMACIssuer_RoundTrip(t *testing.T) {
 func TestHMACIssuer_RejectsTamperedToken(t *testing.T) {
 	iss, _ := auth.NewHMACIssuer([]byte("01234567890123456789012345678901"), "glossa", time.Hour)
 	tok, _ := iss.Issue(auth.Claims{UserID: uuid.New(), TenantID: uuid.New(), Role: user.RoleAdmin})
-	// Flip the last char of the signature.
-	bad := tok[:len(tok)-1] + "x"
+	// Flip the last char of the signature to something guaranteed
+	// different. The previous version unconditionally appended "x",
+	// which was a no-op (and a CI flake) ~1/64 of the time when the
+	// issued signature already ended in 'x'.
+	last := tok[len(tok)-1]
+	replacement := byte('x')
+	if last == replacement {
+		replacement = 'y'
+	}
+	bad := tok[:len(tok)-1] + string(replacement)
 	if _, err := iss.Verify(bad); err == nil {
 		t.Fatal("expected verify to reject tampered token")
 	}
