@@ -1,7 +1,7 @@
 {
   "name": "@felixgeelhaar/glossa-elements",
-  "version": "0.1.3",
-  "description": "Framework-agnostic Lit web components for Glossa: <glossa-provider> + <glossa-text|rich|plural|select>.",
+  "version": "0.2.0",
+  "description": "Framework-agnostic Lit web components for Glossa: <glossa-provider> + <glossa-text|rich|plural|select|selector>.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

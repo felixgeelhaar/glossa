@@ -197,3 +197,123 @@ describe("<glossa-select>", () => {
     expect(renderedText(sel)).toBe("Er");
   });
 });
+
+describe("<glossa-selector>", () => {
+  it("emits glossa-locale-change with source=manual on user pick", async () => {
+    const fetchImpl = makeFetch({ de, en });
+    const provider = await mountProvider(
+      `<glossa-provider project="demo" locale="de" api-url="https://glossa.test" api-key="glossa_x">
+         <glossa-selector locales="en,de" labels="English,Deutsch"></glossa-selector>
+       </glossa-provider>`,
+      fetchImpl,
+    );
+    await provider.updateComplete;
+    await flush();
+
+    const selector = provider.querySelector("glossa-selector")!;
+    await (selector as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
+    const select = selector.shadowRoot!.querySelector("select")!;
+
+    const events: CustomEvent[] = [];
+    selector.addEventListener("glossa-locale-change", (e) => events.push(e as CustomEvent));
+
+    select.value = "en";
+    select.dispatchEvent(new Event("change"));
+
+    expect(events).toHaveLength(1);
+    expect(events[0].detail).toEqual({ locale: "en", source: "manual" });
+  });
+
+  it("emits source=auto on first connect when browser language differs", async () => {
+    const fetchImpl = makeFetch({ de, en });
+    const provider = await mountProvider(
+      `<glossa-provider project="demo" locale="de" api-url="https://glossa.test" api-key="glossa_x">
+         <glossa-selector locales="en,de" auto-detect></glossa-selector>
+       </glossa-provider>`,
+      fetchImpl,
+    );
+    await provider.updateComplete;
+    await flush();
+
+    const selector = provider.querySelector("glossa-selector") as HTMLElement & {
+      detectImpl?: () => string | undefined;
+    };
+    // Reset autoDetected so we can drive the path deterministically.
+    (selector as unknown as { autoDetected: boolean }).autoDetected = false;
+    selector.detectImpl = () => "en-GB";
+
+    const events: CustomEvent[] = [];
+    selector.addEventListener("glossa-locale-change", (e) => events.push(e as CustomEvent));
+
+    // Re-trigger the detect path by reattaching the element.
+    (selector as unknown as { maybeAutoDetect: () => void }).maybeAutoDetect();
+
+    expect(events).toHaveLength(1);
+    expect(events[0].detail).toEqual({ locale: "en", source: "auto" });
+  });
+
+  it("does NOT emit auto when browser language matches current locale", async () => {
+    const fetchImpl = makeFetch({ de, en });
+    const provider = await mountProvider(
+      `<glossa-provider project="demo" locale="de" api-url="https://glossa.test" api-key="glossa_x">
+         <glossa-selector locales="en,de" auto-detect></glossa-selector>
+       </glossa-provider>`,
+      fetchImpl,
+    );
+    await provider.updateComplete;
+    await flush();
+
+    const selector = provider.querySelector("glossa-selector") as HTMLElement & {
+      detectImpl?: () => string | undefined;
+    };
+    (selector as unknown as { autoDetected: boolean }).autoDetected = false;
+    selector.detectImpl = () => "de-DE";
+
+    const events: CustomEvent[] = [];
+    selector.addEventListener("glossa-locale-change", (e) => events.push(e as CustomEvent));
+
+    (selector as unknown as { maybeAutoDetect: () => void }).maybeAutoDetect();
+    expect(events).toHaveLength(0);
+  });
+
+  it("does NOT emit auto when browser language isn't in the locales list", async () => {
+    const fetchImpl = makeFetch({ de, en });
+    const provider = await mountProvider(
+      `<glossa-provider project="demo" locale="de" api-url="https://glossa.test" api-key="glossa_x">
+         <glossa-selector locales="en,de" auto-detect></glossa-selector>
+       </glossa-provider>`,
+      fetchImpl,
+    );
+    await provider.updateComplete;
+    await flush();
+
+    const selector = provider.querySelector("glossa-selector") as HTMLElement & {
+      detectImpl?: () => string | undefined;
+    };
+    (selector as unknown as { autoDetected: boolean }).autoDetected = false;
+    selector.detectImpl = () => "fr-FR";
+
+    const events: CustomEvent[] = [];
+    selector.addEventListener("glossa-locale-change", (e) => events.push(e as CustomEvent));
+
+    (selector as unknown as { maybeAutoDetect: () => void }).maybeAutoDetect();
+    expect(events).toHaveLength(0);
+  });
+
+  it("renders the current locale read-only when locales attribute is missing", async () => {
+    const fetchImpl = makeFetch({ de });
+    const provider = await mountProvider(
+      `<glossa-provider project="demo" locale="de" api-url="https://glossa.test" api-key="glossa_x">
+         <glossa-selector label="Sprache"></glossa-selector>
+       </glossa-provider>`,
+      fetchImpl,
+    );
+    await provider.updateComplete;
+    await flush();
+
+    const selector = provider.querySelector("glossa-selector")!;
+    expect(renderedText(selector)).toBe("de");
+    // No <select> element — read-only mode.
+    expect(selector.shadowRoot!.querySelector("select")).toBeNull();
+  });
+});
