@@ -69,8 +69,9 @@ func Bootstrap(
 		if !isNotFound(err) {
 			return BootstrapNoop, fmt.Errorf("bootstrap find tenant: %w", err)
 		}
-		// Need to create; assign an ID up front so we can set
-		// SET LOCAL = id before insert if the policy requires it.
+		// Need to create. tenants.Save now writes the caller-supplied
+		// ID through (matched the CreateTenant query to take id
+		// explicitly), so t.ID stays correct for the user insert below.
 		t = tenant.Tenant{ID: uuid.New(), Slug: slug, Name: name}
 		if err := tenants.Save(ctx, t); err != nil {
 			return BootstrapNoop, fmt.Errorf("bootstrap save tenant: %w", err)

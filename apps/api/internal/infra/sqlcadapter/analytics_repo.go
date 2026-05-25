@@ -12,13 +12,23 @@ import (
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
 )
 
-// pgtsTime unwraps a pgtype.Timestamptz into a time.Time. Invalid
-// timestamps surface as the zero value — analytics rows always have
-// occurred_at set, so the path should never actually hit the false
-// branch in practice.
+// pgtsTime unwraps the value pgx scans into an interface{} cell for
+// MIN(occurred_at) aggregates. Depending on pgx config / version the
+// concrete type is either pgtype.Timestamptz or plain time.Time, so
+// both shapes are handled. Invalid / zero values surface as the
+// time.Time zero — callers can detect via .IsZero().
 func pgtsTime(v any) time.Time {
-	if ts, ok := v.(pgtype.Timestamptz); ok && ts.Valid {
-		return ts.Time
+	switch ts := v.(type) {
+	case pgtype.Timestamptz:
+		if ts.Valid {
+			return ts.Time
+		}
+	case time.Time:
+		return ts
+	case *time.Time:
+		if ts != nil {
+			return *ts
+		}
 	}
 	return time.Time{}
 }

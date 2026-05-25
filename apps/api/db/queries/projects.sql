@@ -1,6 +1,6 @@
 -- name: CreateProject :one
-INSERT INTO projects (tenant_id, slug, name, default_locale)
-VALUES ($1, $2, $3, $4)
+INSERT INTO projects (id, tenant_id, slug, name, default_locale)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING id, tenant_id, slug, name, default_locale, created_at;
 
 -- name: GetProjectBySlug :one

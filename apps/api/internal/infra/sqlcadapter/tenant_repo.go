@@ -22,6 +22,7 @@ func NewTenantRepo(q *db.Queries) *TenantRepo {
 func (r *TenantRepo) Save(ctx context.Context, t tenant.Tenant) error {
 	q := db.QueriesFromContext(ctx, r.q)
 	_, err := q.CreateTenant(ctx, db.CreateTenantParams{
+		ID:   toPgUUID(t.ID),
 		Slug: t.Slug.String(),
 		Name: t.Name.String(),
 	})

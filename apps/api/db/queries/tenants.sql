@@ -1,6 +1,6 @@
 -- name: CreateTenant :one
-INSERT INTO tenants (slug, name)
-VALUES ($1, $2)
+INSERT INTO tenants (id, slug, name)
+VALUES ($1, $2, $3)
 RETURNING id, slug, name, created_at;
 
 -- name: GetTenantBySlug :one

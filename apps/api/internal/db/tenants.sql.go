@@ -12,18 +12,19 @@ import (
 )
 
 const createTenant = `-- name: CreateTenant :one
-INSERT INTO tenants (slug, name)
-VALUES ($1, $2)
+INSERT INTO tenants (id, slug, name)
+VALUES ($1, $2, $3)
 RETURNING id, slug, name, created_at
 `
 
 type CreateTenantParams struct {
-	Slug string `json:"slug"`
-	Name string `json:"name"`
+	ID   pgtype.UUID `json:"id"`
+	Slug string      `json:"slug"`
+	Name string      `json:"name"`
 }
 
 func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Tenant, error) {
-	row := q.db.QueryRow(ctx, createTenant, arg.Slug, arg.Name)
+	row := q.db.QueryRow(ctx, createTenant, arg.ID, arg.Slug, arg.Name)
 	var i Tenant
 	err := row.Scan(
 		&i.ID,

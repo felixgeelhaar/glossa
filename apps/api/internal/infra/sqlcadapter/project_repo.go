@@ -33,6 +33,7 @@ func (r *ProjectRepo) Save(ctx context.Context, p project.Project) error {
 	tenantID := toPgUUID(p.TenantID)
 	q := db.QueriesFromContext(ctx, r.q)
 	_, err := q.CreateProject(ctx, db.CreateProjectParams{
+		ID:            toPgUUID(p.ID),
 		TenantID:      tenantID,
 		Slug:          p.Slug.String(),
 		Name:          p.Name.String(),
