@@ -170,7 +170,7 @@ func seedTenant(ctx context.Context, t *testing.T, pool *pgxpool.Pool, slug, nam
 func seedProject(ctx context.Context, t *testing.T, pool *pgxpool.Pool, tenant uuid.UUID, slug, name string) project.Project {
 	t.Helper()
 	id := uuid.New()
-	hash := sha256.Sum256([]byte(slug + "-key"))
+	keyHash := sha256.Sum256([]byte(slug + "-key"))
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatalf("begin: %v", err)
@@ -180,9 +180,16 @@ func seedProject(ctx context.Context, t *testing.T, pool *pgxpool.Pool, tenant u
 		t.Fatalf("set tenant: %v", err)
 	}
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO projects (id, tenant_id, slug, name, api_key_hash) VALUES ($1, $2, $3, $4, $5)`,
-		id, tenant, slug, name, hash[:]); err != nil {
+		`INSERT INTO projects (id, tenant_id, slug, name) VALUES ($1, $2, $3, $4)`,
+		id, tenant, slug, name); err != nil {
 		t.Fatalf("seed project: %v", err)
+	}
+	// Migration 0003 moved keys to their own table. Seed one write-
+	// scope key so the legacy key-resolution test paths still pass.
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO project_api_keys (project_id, key_hash, scope, label) VALUES ($1, $2, 'write', 'legacy')`,
+		id, keyHash[:]); err != nil {
+		t.Fatalf("seed key: %v", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatalf("commit: %v", err)
@@ -191,7 +198,7 @@ func seedProject(ctx context.Context, t *testing.T, pool *pgxpool.Pool, tenant u
 	pName, _ := project.NewName(name)
 	return project.Project{
 		ID: id, TenantID: tenant, Slug: pSlug, Name: pName,
-		DefaultLocale: "de", APIKeyHash: hash[:],
+		DefaultLocale: "de",
 	}
 }
 
