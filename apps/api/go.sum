@@ -47,6 +47,10 @@ github.com/felixgeelhaar/bolt v1.4.0 h1:DmgW+pzbQVziU1GEMiauzd8wPc9NLDzxwjj/LaAn
 github.com/felixgeelhaar/bolt v1.4.0/go.mod h1:Wr/OmSGrffzerUMz4a/0TAwxauvbQLRKe6ySMqejIqU=
 github.com/felixgeelhaar/fortify v1.5.0 h1:mNgnVE5N4/+1jiuT44NSFnvsfoisl+GEEeKui2Y3hao=
 github.com/felixgeelhaar/fortify v1.5.0/go.mod h1:n4jrh2iyz/0aKeUuLG99ZOPKNvsLQbMklZEmVpvPD4Y=
+github.com/felixgeelhaar/glossa/apierr v0.0.0-20260525144025-17766830bcc3 h1:k6hqfq1Yfuub88OIULF04NfZHMTrN003OECF5OjxrfI=
+github.com/felixgeelhaar/glossa/apierr v0.0.0-20260525144025-17766830bcc3/go.mod h1:b4o3Uvvt/7399Yeckce0XJjITBUODcajgYgrL+boS4g=
+github.com/felixgeelhaar/glossa/apierr/ginerr v0.0.0-20260525144025-17766830bcc3 h1:j2PFMNjcn9wY8j/v8wXNf6lTj7NeVQj+gdDd416yMyA=
+github.com/felixgeelhaar/glossa/apierr/ginerr v0.0.0-20260525144025-17766830bcc3/go.mod h1:zEhMe5POoL3n6gLrX+2Uj/dwZ/banxspy//ew5oGyQM=
 github.com/gabriel-vasile/mimetype v1.4.12 h1:e9hWvmLYvtp846tLHam2o++qitpguFiYCKbn0w9jyqw=
 github.com/gabriel-vasile/mimetype v1.4.12/go.mod h1:d+9Oxyo1wTzWdyVUPMmXFvp4F9tea18J8ufA774AB3s=
 github.com/gin-contrib/sse v1.1.0 h1:n0w2GMuUpWDVp7qSpvze6fAu9iRxJY4Hmj6AmBOU05w=

@@ -12,7 +12,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 )
 
-require github.com/felixgeelhaar/glossa/apierr/ginerr v0.0.0-20260525131015-9a30270dc10f
+require github.com/felixgeelhaar/glossa/apierr/ginerr v0.0.0-20260525144025-17766830bcc3
 
 require (
 	dario.cat/mergo v1.0.2 // indirect
@@ -35,7 +35,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/felixgeelhaar/glossa/apierr v0.0.0
+	github.com/felixgeelhaar/glossa/apierr v0.0.0-20260525144025-17766830bcc3
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
@@ -99,7 +99,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/felixgeelhaar/glossa/apierr => ../../apierr
-
-replace github.com/felixgeelhaar/glossa/apierr/ginerr => ../../apierr/ginerr
