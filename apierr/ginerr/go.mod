@@ -3,7 +3,7 @@ module github.com/felixgeelhaar/glossa/apierr/ginerr
 go 1.26.3
 
 require (
-	github.com/felixgeelhaar/glossa/apierr v0.0.0
+	github.com/felixgeelhaar/glossa/apierr v0.0.0-20260525132450-82112f021e1a
 	github.com/gin-gonic/gin v1.10.0
 )
 
