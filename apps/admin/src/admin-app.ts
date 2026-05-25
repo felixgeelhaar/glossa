@@ -20,7 +20,16 @@ const STORAGE_AUTH = "glossa-admin-auth-v2";
 const STORAGE_API_URL = "glossa-admin-api-url-v2";
 const STORAGE_PROJECT = "glossa-admin-project-v2";
 
-export type Tab = "editor" | "bulk" | "diff" | "locales" | "keys" | "users" | "ai" | "audit";
+export type Tab =
+  | "editor"
+  | "bulk"
+  | "diff"
+  | "locales"
+  | "keys"
+  | "users"
+  | "ai"
+  | "audit"
+  | "metrics";
 
 export class GlossaAdmin extends LitElement {
   static override styles = css`
@@ -538,13 +547,14 @@ export class GlossaAdmin extends LitElement {
     const isAdmin = this.auth?.user.role === "admin";
     const tabs = [
       { id: "editor", label: "Editor", hidden: false },
-      { id: "bulk", label: "Import / Export", hidden: !isAdmin },
       { id: "diff", label: "Diff", hidden: !isAdmin },
-      { id: "locales", label: "Locales", hidden: !isAdmin },
+      { id: "bulk", label: "Import / Export", hidden: !isAdmin },
       { id: "keys", label: "API keys", hidden: !isAdmin },
-      { id: "users", label: "Users", hidden: !isAdmin },
-      { id: "ai", label: "AI translation", hidden: !isAdmin },
-      { id: "audit", label: "Audit log", hidden: !isAdmin },
+      { id: "metrics", label: "Metrics", hidden: !isAdmin, group: "more" as const },
+      { id: "locales", label: "Locales", hidden: !isAdmin, group: "more" as const },
+      { id: "users", label: "Users", hidden: !isAdmin, group: "more" as const },
+      { id: "ai", label: "AI translation", hidden: !isAdmin, group: "more" as const },
+      { id: "audit", label: "Audit log", hidden: !isAdmin, group: "more" as const },
     ];
     const slug = this.activeProject!.slug;
     const c = adminClient({
@@ -611,6 +621,9 @@ export class GlossaAdmin extends LitElement {
             : null}
           ${this.tab === "audit"
             ? html`<glossa-admin-audit-tab .client=${c}></glossa-admin-audit-tab>`
+            : null}
+          ${this.tab === "metrics"
+            ? html`<glossa-admin-metrics-tab .client=${c} .slug=${slug}></glossa-admin-metrics-tab>`
             : null}
         </div>
       </gl-card>

@@ -1,14 +1,19 @@
-// Diff tab — Now/Next/Later kanban per locale.
+// Diff tab — Pending / Approved kanban per locale.
 //
-// Maps the four translation statuses onto the three columns
+// Maps the four translation statuses onto the two columns
 // reviewers actually work:
-//   Now   = pending + ai_translated (action needed)
-//   Next  = needs_review (queued for a translator's eyes)
-//   Later = approved (done)
+//   Pending  = pending + ai_translated (action needed)
+//   Approved = approved (done)
 //
-// Clicking a column cell dispatches an `open-in-editor` event the
-// parent (admin-app) listens to so it can switch to the Editor tab
-// with the matching locale + status filter pre-set.
+// `needs_review` is surfaced as a small clickable pill on the
+// Pending cell when count > 0; it isn't worth a column of its own.
+// Empty state for an "all zero" locale collapses to a single
+// "Up to date — nothing waiting" cell so the row isn't a wall of
+// zero tiles.
+//
+// Clicking a cell or pill dispatches `open-in-editor` so admin-app
+// can switch to the Editor tab with the matching locale + status
+// filter pre-set.
 
 import { LitElement, css, html } from "lit";
 
@@ -31,7 +36,7 @@ export class GlossaAdminDiffTab extends LitElement {
     .grid { display: grid; gap: var(--gl-space-3); }
     .locale-row {
       display: grid;
-      grid-template-columns: minmax(180px, 1fr) repeat(3, minmax(160px, 1fr));
+      grid-template-columns: minmax(180px, 1fr) repeat(2, minmax(160px, 1fr));
       gap: var(--gl-space-3);
       align-items: stretch;
     }
@@ -41,9 +46,22 @@ export class GlossaAdminDiffTab extends LitElement {
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
+    .locale-row.empty {
+      grid-template-columns: minmax(180px, 1fr) 1fr;
+    }
     .meta { padding: var(--gl-space-3); }
     .meta strong { font-size: var(--gl-text-lg); display: block; }
-    .meta .code { font-family: var(--gl-font-mono); color: var(--gl-text-muted); }
+    .meta .code {
+      display: inline-block;
+      font-family: var(--gl-font-mono);
+      font-size: var(--gl-text-xs);
+      color: var(--gl-text-muted);
+      background: var(--gl-bg);
+      border: 1px solid var(--gl-border);
+      padding: 1px 6px;
+      border-radius: 999px;
+      margin-bottom: 4px;
+    }
     .cell {
       font: inherit;
       text-align: left;
@@ -57,6 +75,7 @@ export class GlossaAdminDiffTab extends LitElement {
       flex-direction: column;
       gap: 4px;
       transition: border-color var(--gl-duration-base) var(--gl-ease);
+      position: relative;
     }
     .cell:hover, .cell:focus-visible {
       border-color: var(--gl-accent);
@@ -70,8 +89,35 @@ export class GlossaAdminDiffTab extends LitElement {
     .cell.zero .count { color: var(--gl-text-muted); }
     .cell .label { font-size: var(--gl-text-sm); color: var(--gl-text-muted); }
     .cell.now { border-left: 3px solid var(--gl-pending-fg, var(--gl-accent)); }
-    .cell.next { border-left: 3px solid var(--gl-review-fg, var(--gl-accent)); }
     .cell.later { border-left: 3px solid var(--gl-approved-fg, var(--gl-success, #16a34a)); }
+    .needs-review-pill {
+      align-self: flex-start;
+      margin-top: 4px;
+      font: inherit;
+      font-size: var(--gl-text-xs);
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--gl-review-fg, var(--gl-warning, #b45309));
+      background: transparent;
+      color: var(--gl-review-fg, var(--gl-warning, #b45309));
+      cursor: pointer;
+    }
+    .needs-review-pill:hover, .needs-review-pill:focus-visible {
+      background: var(--gl-review-fg, var(--gl-warning, #b45309));
+      color: var(--gl-on-accent, white);
+      outline: none;
+    }
+    .uptodate {
+      padding: var(--gl-space-3);
+      border: 1px dashed var(--gl-border);
+      border-radius: var(--gl-radius-md);
+      color: var(--gl-text-muted);
+      font-size: var(--gl-text-sm);
+      display: flex;
+      align-items: center;
+      gap: var(--gl-space-2);
+    }
+    .uptodate .ok { color: var(--gl-success, #16a34a); font-weight: 600; }
   `;
 
   static override properties = {
@@ -125,39 +171,84 @@ export class GlossaAdminDiffTab extends LitElement {
       <div class="grid" role="table" aria-label="Translation status per locale">
         <div class="locale-row head" role="row">
           <div role="columnheader">Locale</div>
-          <div role="columnheader">Now (pending + AI)</div>
-          <div role="columnheader">Next (review)</div>
-          <div role="columnheader">Later (approved)</div>
+          <div role="columnheader">Pending</div>
+          <div role="columnheader">Approved</div>
         </div>
         ${this.rows.map((r) => {
           const t = this.totals(r);
+          if (t.now === 0 && t.next === 0 && t.later === 0) {
+            return html`
+              <div class="locale-row empty" role="row">
+                <div class="meta">
+                  <span class="code">${r.locale}</span>
+                  <strong>${r.label}</strong>
+                  <div class="label">${t.total} keys</div>
+                </div>
+                <div class="uptodate" role="cell">
+                  <span class="ok">✓</span>
+                  Up to date — no translations waiting.
+                </div>
+              </div>
+            `;
+          }
+          if (t.now === 0 && t.next === 0) {
+            // Only approved — show a friendlier collapsed row that still
+            // surfaces the "All approved" milestone without two zero
+            // cells fighting for attention.
+            return html`
+              <div class="locale-row" role="row">
+                <div class="meta">
+                  <span class="code">${r.locale}</span>
+                  <strong>${r.label}</strong>
+                  <div class="label">${t.total} keys</div>
+                </div>
+                <div class="uptodate" role="cell">
+                  <span class="ok">✓</span>
+                  All caught up.
+                </div>
+                <button
+                  class="cell later"
+                  @click=${() => this.openInEditor(r.locale, "later")}
+                  aria-label=${`Approved for ${r.locale}: ${t.later} keys`}
+                >
+                  <span class="count">${t.later}</span>
+                  <span class="label">approved</span>
+                </button>
+              </div>
+            `;
+          }
           return html`
             <div class="locale-row" role="row">
               <div class="meta">
-                <strong>${r.label}</strong>
                 <span class="code">${r.locale}</span>
+                <strong>${r.label}</strong>
                 <div class="label">${t.total} keys</div>
               </div>
               <button
                 class="cell now ${t.now === 0 ? "zero" : ""}"
                 @click=${() => this.openInEditor(r.locale, "now")}
-                aria-label=${`Now for ${r.locale}: ${t.now} keys`}
+                aria-label=${`Pending for ${r.locale}: ${t.now} keys`}
               >
                 <span class="count">${t.now}</span>
                 <span class="label">${this.nowDetail(r)}</span>
-              </button>
-              <button
-                class="cell next ${t.next === 0 ? "zero" : ""}"
-                @click=${() => this.openInEditor(r.locale, "next")}
-                aria-label=${`Next for ${r.locale}: ${t.next} keys awaiting review`}
-              >
-                <span class="count">${t.next}</span>
-                <span class="label">awaiting review</span>
+                ${t.next > 0
+                  ? html`<button
+                      class="needs-review-pill"
+                      type="button"
+                      @click=${(e: Event) => {
+                        e.stopPropagation();
+                        this.openInEditor(r.locale, "next");
+                      }}
+                      aria-label=${`Open ${t.next} keys awaiting review for ${r.locale}`}
+                    >
+                      ${t.next} needs review →
+                    </button>`
+                  : null}
               </button>
               <button
                 class="cell later ${t.later === 0 ? "zero" : ""}"
                 @click=${() => this.openInEditor(r.locale, "later")}
-                aria-label=${`Later for ${r.locale}: ${t.later} approved keys`}
+                aria-label=${`Approved for ${r.locale}: ${t.later} keys`}
               >
                 <span class="count">${t.later}</span>
                 <span class="label">approved</span>

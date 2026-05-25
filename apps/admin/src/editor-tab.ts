@@ -62,6 +62,12 @@ export class GlossaAdminEditorTab extends LitElement {
       color: var(--gl-on-accent, white);
       border-color: var(--gl-accent);
     }
+    .chip .count {
+      margin-left: 4px;
+      font-variant-numeric: tabular-nums;
+      opacity: 0.7;
+    }
+    .chip[aria-pressed="true"] .count { opacity: 0.85; }
     .selection-bar {
       display: flex;
       align-items: center;
@@ -320,6 +326,28 @@ export class GlossaAdminEditorTab extends LitElement {
     }
   }
 
+  // Per-status counts across the *unfiltered* bundle so the chips
+  // can advertise how many keys live in each bucket regardless of
+  // the active search/filter. Chip counts ignore the search box on
+  // purpose — they answer "where is the work" not "where is what I
+  // typed".
+  private statusCounts(): Record<"" | Status, number> {
+    const out: Record<"" | Status, number> = {
+      "": 0,
+      pending: 0,
+      needs_review: 0,
+      approved: 0,
+      ai_translated: 0,
+    };
+    if (!this.bundle) return out;
+    for (const k of Object.keys(this.bundle.messages)) {
+      const status = (this.bundle.statuses[k] ?? "pending") as Status;
+      out[""]++;
+      if (status in out) out[status]++;
+    }
+    return out;
+  }
+
   // Applies search + status filter on top of the bundle messages.
   // The result is the slice the list shows AND the slice bulk-approve
   // operates against.
@@ -544,17 +572,22 @@ yarn glossa scan`,
                 }}
               ></gl-input>
               <div class="filters" role="group" aria-label="Status filter">
-                ${STATUS_FILTERS.map(
-                  (f) => html`<button
-                    class="chip"
-                    type="button"
-                    aria-pressed=${this.statusFilter === f.value}
-                    @click=${() => {
-                      this.statusFilter = f.value;
-                      this.requestUpdate();
-                    }}
-                  >${f.label}</button>`,
-                )}
+                ${(() => {
+                  const counts = this.statusCounts();
+                  return STATUS_FILTERS.map(
+                    (f) => html`<button
+                      class="chip"
+                      type="button"
+                      aria-pressed=${this.statusFilter === f.value}
+                      @click=${() => {
+                        this.statusFilter = f.value;
+                        this.requestUpdate();
+                      }}
+                    >${f.label}
+                      <span class="count" aria-hidden="true">(${counts[f.value]})</span>
+                    </button>`,
+                  );
+                })()}
               </div>
             </div>
             ${this.bulkPending

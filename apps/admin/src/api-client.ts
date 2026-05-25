@@ -154,6 +154,12 @@ export function adminClient(cfg: AdminClientConfig) {
 
     audit: (limit = 200) => req<AuditRow[]>(`/audit?limit=${limit}`),
 
+    tenantMetrics: () => req<{ firstEvents: TenantFirstEventRow[] }>("/metrics"),
+    projectMetrics: (slug: string) =>
+      req<{ project: string; events: ProjectMetricRow[] }>(
+        `/projects/${encodeURIComponent(slug)}/metrics`,
+      ),
+
     listAIProviders: () => req<{ providers: AIProviderRow[] }>("/ai-providers"),
     createAIProvider: (input: {
       kind: string;
@@ -175,6 +181,29 @@ export function adminClient(cfg: AdminClientConfig) {
         { method: "POST", body: JSON.stringify({ source }) },
       ),
   };
+}
+
+/** Analytics event kinds emitted server-side. */
+export type AnalyticsKind =
+  | "project_created"
+  | "first_key_synced"
+  | "first_translation_edited"
+  | "first_consumer_request"
+  | "first_ai_translation"
+  | "translation_edited"
+  | "consumer_request"
+  | "ai_translation";
+
+export interface ProjectMetricRow {
+  kind: AnalyticsKind;
+  firstAt: string;
+  total: number;
+}
+
+export interface TenantFirstEventRow {
+  projectId: string;
+  kind: AnalyticsKind;
+  firstAt: string;
 }
 
 /** Row shape returned by /admin/projects/:slug/api-keys. */

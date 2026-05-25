@@ -21,4 +21,5 @@ import "./key-edit.js";
 import "./key-list.js";
 import "./keys-tab.js";
 import "./locales-tab.js";
+import "./metrics-tab.js";
 import "./users-tab.js";

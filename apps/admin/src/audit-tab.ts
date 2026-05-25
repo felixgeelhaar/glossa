@@ -168,7 +168,24 @@ export class GlossaAdminAuditTab extends LitElement {
       ${this.err ? html`<p class="err" role="alert">${this.err}</p>` : null}
       <p class="summary" aria-live="polite">${rows.length} of ${this.rows.length} entries</p>
       ${rows.length === 0
-        ? html`<p class="empty">No audit entries match the current filter.</p>`
+        ? this.rows.length === 0
+          ? html`<p class="empty">
+              No activity yet. Edit a translation or run a consumer request to see entries here.
+            </p>`
+          : html`<p class="empty">
+              No entries match the current filter.
+              ${this.range !== "all"
+                ? html` <button
+                    class="chip"
+                    type="button"
+                    style="vertical-align: middle;"
+                    @click=${() => {
+                      this.range = "all";
+                      this.requestUpdate();
+                    }}
+                  >Widen to all time</button>`
+                : null}
+            </p>`
         : html`
             <table class="gl-table" role="grid">
               <thead>

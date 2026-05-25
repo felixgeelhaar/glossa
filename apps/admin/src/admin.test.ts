@@ -157,7 +157,44 @@ describe("<glossa-admin-diff-tab>", () => {
     const rows = el.shadowRoot!.querySelectorAll(".locale-row:not(.head)");
     expect(rows.length).toBe(2);
     const cells = el.shadowRoot!.querySelectorAll(".locale-row:not(.head) .cell");
-    expect(cells.length).toBe(2 * 3);
+    expect(cells.length).toBe(2 * 2);
+    // de has pending=1 + needsReview=2 → pending cell carries pill
+    const pills = el.shadowRoot!.querySelectorAll(".needs-review-pill");
+    expect(pills.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("collapses to an Up-to-date cell when a locale has no work", async () => {
+    const fakeClient = {
+      diff: async () => ({
+        project: "demo",
+        locales: [{ locale: "de", label: "Deutsch", total: 0, pending: 0, needsReview: 0, approved: 0 }],
+      }),
+    } as unknown as GlossaAdminDiffTab["client"];
+    const el = document.createElement("glossa-admin-diff-tab") as GlossaAdminDiffTab;
+    el.client = fakeClient;
+    el.slug = "demo";
+    document.body.appendChild(el);
+    await flush();
+    await el.updateComplete;
+    const up = el.shadowRoot!.querySelector(".uptodate");
+    expect(up).toBeTruthy();
+  });
+
+  it("renders a locale code badge in the meta column", async () => {
+    const fakeClient = {
+      diff: async () => ({
+        project: "demo",
+        locales: [{ locale: "fr", label: "Français", total: 3, pending: 3, needsReview: 0, approved: 0 }],
+      }),
+    } as unknown as GlossaAdminDiffTab["client"];
+    const el = document.createElement("glossa-admin-diff-tab") as GlossaAdminDiffTab;
+    el.client = fakeClient;
+    el.slug = "demo";
+    document.body.appendChild(el);
+    await flush();
+    await el.updateComplete;
+    const code = el.shadowRoot!.querySelector(".meta .code");
+    expect(code?.textContent).toBe("fr");
   });
 });
 
