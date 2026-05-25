@@ -201,7 +201,7 @@ func seedProject(ctx context.Context, t *testing.T, pool *pgxpool.Pool, tenant u
 	// Migration 0003 moved keys to their own table. Seed one write-
 	// scope key so the legacy key-resolution test paths still pass.
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO project_api_keys (project_id, key_hash, scope, label) VALUES ($1, $2, 'write', 'legacy')`,
+		`INSERT INTO project_api_keys (project_id, hash, scope, label) VALUES ($1, $2, 'write', 'legacy')`,
 		id, keyHash[:]); err != nil {
 		t.Fatalf("seed key: %v", err)
 	}
