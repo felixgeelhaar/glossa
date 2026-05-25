@@ -1,5 +1,12 @@
 # @felixgeelhaar/glossa-cli
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [[`9a30270`](https://github.com/felixgeelhaar/glossa/commit/9a30270dc10ffd248996a6db400d3a804e7e4105)]:
+  - @felixgeelhaar/glossa-sdk@0.2.0
+
 ## 0.2.0
 
 ### Minor Changes

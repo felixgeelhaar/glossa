@@ -1,6 +1,6 @@
 {
   "name": "@felixgeelhaar/glossa-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Build-time CLI for Glossa: init / scan / pull / push.",
   "type": "module",
   "main": "./dist/index.js",
