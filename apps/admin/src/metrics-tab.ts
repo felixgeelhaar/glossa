@@ -22,24 +22,28 @@ interface Milestone {
   hint: string;
 }
 
+// Each milestone references the non-first event kind; firstAt is
+// derived server-side via MIN(occurred_at), so the same row's
+// firstAt is the time the milestone was reached. Total is shown
+// separately in the Activity totals grid below.
 const FIRST_MILESTONES: Milestone[] = [
   {
-    kind: "first_key_synced",
+    kind: "key_synced",
     label: "First key synced",
     hint: "First time `glossa scan` (or import) sent a key.",
   },
   {
-    kind: "first_translation_edited",
+    kind: "translation_edited",
     label: "First translation edited",
     hint: "First time someone saved a value in the editor.",
   },
   {
-    kind: "first_consumer_request",
+    kind: "consumer_request",
     label: "First consumer request",
     hint: "First time a downstream app hit GET /messages.",
   },
   {
-    kind: "first_ai_translation",
+    kind: "ai_translation",
     label: "First AI translation",
     hint: "First time the AI translator filled a key.",
   },

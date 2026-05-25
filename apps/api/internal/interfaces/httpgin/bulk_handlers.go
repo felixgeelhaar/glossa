@@ -10,6 +10,7 @@ import (
 	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
@@ -32,6 +33,7 @@ func handleBulkImport(
 	pub translationapp.Publisher,
 	audits audit.Repository,
 	fanOut *aitranslatorapp.FanOut,
+	rec analytics.Recorder,
 ) gin.HandlerFunc {
 	type req struct {
 		Messages map[string]string `json:"messages" binding:"required"`
@@ -147,6 +149,28 @@ func handleBulkImport(
 			}
 			results = append(results, gin.H{"key": name, "id": out.ID.String()})
 		}
+		applied := len(body.Messages) - failed
+		if rec != nil && applied > 0 {
+			pid := p.ID
+			tID, _ := tenantID.(uuid.UUID)
+			// Bulk import covers both first-key-sync (when the bundle
+			// includes keys we hadn't seen) and translation_edited
+			// activity. Emit both; first-time variants are derived at
+			// read time via MIN(occurred_at).
+			_ = rec.Record(contextOf(c), analytics.Event{
+				TenantID:  tID,
+				ProjectID: &pid,
+				Kind:      analytics.KindKeySynced,
+				Metadata:  map[string]any{"count": applied, "source": "bulk"},
+			})
+			_ = rec.Record(contextOf(c), analytics.Event{
+				TenantID:  tID,
+				ProjectID: &pid,
+				Kind:      analytics.KindTranslationEdited,
+				Metadata:  map[string]any{"count": applied, "locale": localeCode, "source": "bulk"},
+			})
+		}
+
 		code := http.StatusOK
 		if failed > 0 && failed == len(body.Messages) {
 			code = http.StatusUnprocessableEntity

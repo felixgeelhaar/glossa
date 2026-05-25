@@ -15,14 +15,11 @@ import (
 type Kind string
 
 const (
-	KindProjectCreated         Kind = "project_created"
-	KindFirstKeySynced         Kind = "first_key_synced"
-	KindFirstTranslationEdited Kind = "first_translation_edited"
-	KindFirstConsumerRequest   Kind = "first_consumer_request"
-	KindFirstAITranslation     Kind = "first_ai_translation"
-	KindTranslationEdited      Kind = "translation_edited"
-	KindConsumerRequest        Kind = "consumer_request"
-	KindAITranslation          Kind = "ai_translation"
+	KindProjectCreated    Kind = "project_created"
+	KindKeySynced         Kind = "key_synced"
+	KindTranslationEdited Kind = "translation_edited"
+	KindConsumerRequest   Kind = "consumer_request"
+	KindAITranslation     Kind = "ai_translation"
 )
 
 // Event is one row in analytics_events.

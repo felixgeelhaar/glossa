@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/aitranslator"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/translation"
@@ -44,10 +45,13 @@ type FanOut struct {
 	audits       audit.Repository
 	translator   aitranslator.Translator
 	sealer       Sealer
+	analytics    analytics.Recorder
 	log          *slog.Logger
 }
 
-// New wires the use case.
+// New wires the use case. analytics may be nil — the recorder is
+// best-effort and only used to record successful ai_translation
+// events for the metrics funnel.
 func New(
 	providers aitranslator.Repository,
 	locales locale.Repository,
@@ -55,6 +59,7 @@ func New(
 	audits audit.Repository,
 	translator aitranslator.Translator,
 	sealer Sealer,
+	analytics analytics.Recorder,
 	log *slog.Logger,
 ) *FanOut {
 	if log == nil {
@@ -67,6 +72,7 @@ func New(
 		audits:       audits,
 		translator:   translator,
 		sealer:       sealer,
+		analytics:    analytics,
 		log:          log,
 	}
 }
@@ -166,12 +172,29 @@ func (f *FanOut) translateOne(
 		return err
 	}
 
-	return f.audits.Append(ctx, audit.Entry{
+	if err := f.audits.Append(ctx, audit.Entry{
 		TenantID:      in.TenantID,
 		TranslationID: upserted.ID,
 		BeforeValue:   existing.Value,
 		AfterValue:    res.Translation,
 		ActorKind:     "ai",
 		ActorLabel:    res.Provider,
-	})
+	}); err != nil {
+		return err
+	}
+
+	if f.analytics != nil {
+		pid := in.ProjectID
+		_ = f.analytics.Record(ctx, analytics.Event{
+			TenantID:  in.TenantID,
+			ProjectID: &pid,
+			Kind:      analytics.KindAITranslation,
+			Metadata: map[string]any{
+				"key":      in.KeyName,
+				"locale":   loc.Code.String(),
+				"provider": res.Provider,
+			},
+		})
+	}
+	return nil
 }

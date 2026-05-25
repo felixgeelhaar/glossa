@@ -10,6 +10,7 @@ import (
 
 	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
@@ -24,6 +25,7 @@ func handleListBundle(
 	uc *translationapp.ListBundle,
 	projects project.Repository,
 	locales locale.Repository,
+	rec analytics.Recorder,
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
@@ -61,6 +63,21 @@ func handleListBundle(
 				statuses[e.Key] = string(e.Status)
 			}
 		}
+		// Emit a consumer_request event only when the caller is an
+		// API-key holder (no JWT user). Admin browsing the editor
+		// shouldn't bump the public-traffic funnel.
+		if _, isUser := c.Get(ctxKeyUserID); !isUser && rec != nil {
+			pid := p.ID
+			tid, _ := c.Get(ctxKeyTenantID)
+			tenantID, _ := tid.(uuid.UUID)
+			_ = rec.Record(contextOf(c), analytics.Event{
+				TenantID:  tenantID,
+				ProjectID: &pid,
+				Kind:      analytics.KindConsumerRequest,
+				Metadata:  map[string]any{"locale": code},
+			})
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"project":  p.Slug.String(),
 			"locale":   code,
@@ -92,6 +109,7 @@ func handlePatchTranslation(
 	pub translationapp.Publisher,
 	audits audit.Repository,
 	fanOut *aitranslatorapp.FanOut,
+	rec analytics.Recorder,
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
@@ -192,6 +210,20 @@ func handlePatchTranslation(
 			Value:   out.Value,
 			Status:  string(out.Status),
 		})
+
+		if rec != nil {
+			pid := p.ID
+			_ = rec.Record(contextOf(c), analytics.Event{
+				TenantID:  tenantID.(uuid.UUID),
+				ProjectID: &pid,
+				Kind:      analytics.KindTranslationEdited,
+				Metadata: map[string]any{
+					"locale": localeCode,
+					"key":    keyName,
+					"status": string(out.Status),
+				},
+			})
+		}
 
 		// Source-locale write → fan out AI translations to every other
 		// enabled locale that doesn't already have a reviewer-touched

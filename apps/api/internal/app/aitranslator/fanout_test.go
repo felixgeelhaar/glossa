@@ -119,7 +119,7 @@ func TestFanOutTranslatesIntoEveryEnabledNonSourceLocale(t *testing.T) {
 	auds := &stubAuditRepo{}
 	tx := &stubTranslator{}
 
-	uc := aitranslatorapp.New(provs, locs, trs, auds, tx, stubSealer{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	uc := aitranslatorapp.New(provs, locs, trs, auds, tx, stubSealer{}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	err := uc.Execute(context.Background(), aitranslatorapp.FanOutInput{
 		TenantID: tenantID, ProjectID: projectID, KeyID: keyID, KeyName: "greeting",
@@ -165,7 +165,7 @@ func TestFanOutSkipsApprovedAndNeedsReview(t *testing.T) {
 	auds := &stubAuditRepo{}
 	tx := &stubTranslator{}
 
-	uc := aitranslatorapp.New(provs, locs, trs, auds, tx, stubSealer{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	uc := aitranslatorapp.New(provs, locs, trs, auds, tx, stubSealer{}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err := uc.Execute(context.Background(), aitranslatorapp.FanOutInput{
 		ProjectID: uuid.New(), KeyID: uuid.New(), KeyName: "k",
 		SourceLocaleID: sourceID, SourceLocale: "de", SourceValue: "Hallo",
@@ -183,7 +183,7 @@ func TestFanOutNoEnabledProvidersIsNoOp(t *testing.T) {
 	trs := &stubTranslationRepo{existing: map[uuid.UUID]translation.Translation{}}
 	auds := &stubAuditRepo{}
 	tx := &stubTranslator{}
-	uc := aitranslatorapp.New(provs, locs, trs, auds, tx, stubSealer{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	uc := aitranslatorapp.New(provs, locs, trs, auds, tx, stubSealer{}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err := uc.Execute(context.Background(), aitranslatorapp.FanOutInput{
 		SourceLocaleID: uuid.New(),
 	}); err != nil {
@@ -195,7 +195,7 @@ func TestFanOutNoEnabledProvidersIsNoOp(t *testing.T) {
 }
 
 func TestFanOutRequiresSealer(t *testing.T) {
-	uc := aitranslatorapp.New(&stubProviderRepo{}, &stubLocaleRepo{}, &stubTranslationRepo{}, &stubAuditRepo{}, &stubTranslator{}, nil, nil)
+	uc := aitranslatorapp.New(&stubProviderRepo{}, &stubLocaleRepo{}, &stubTranslationRepo{}, &stubAuditRepo{}, &stubTranslator{}, nil, nil, nil)
 	err := uc.Execute(context.Background(), aitranslatorapp.FanOutInput{})
 	if err == nil || !errors.Is(err, err) {
 		t.Fatal("expected error when sealer nil")

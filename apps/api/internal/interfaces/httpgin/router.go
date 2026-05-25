@@ -150,16 +150,16 @@ func New(d Deps) *gin.Engine {
 		readGuarded := authed.Group("")
 		readGuarded.Use(requireScope(apikey.ScopeRead))
 		readGuarded.GET("/locales", handleListLocales(d.ProjectRepo, d.Locales))
-		readGuarded.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
+		readGuarded.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales, d.Analytics))
 		readGuarded.GET("/sse", handleSSE(d.Hub, 0))
 
 		// Write endpoints: write scope only.
 		writeGuarded := authed.Group("")
 		writeGuarded.Use(requireScope(apikey.ScopeWrite))
 		writeGuarded.POST("/locales", handleCreateLocale(d.ProjectRepo, d.Locales))
-		writeGuarded.POST("/keys:scan", handleScanKeys(d.ProjectRepo, d.UpsertKeys))
+		writeGuarded.POST("/keys:scan", handleScanKeys(d.ProjectRepo, d.UpsertKeys, d.Analytics))
 		writeGuarded.PATCH("/locales/:locale/keys/:key",
-			handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits, d.AIFanOut))
+			handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits, d.AIFanOut, d.Analytics))
 	}
 
 	// ── JWT authed (admin SPA / translator UI) ───────────────────
@@ -182,9 +182,9 @@ func New(d Deps) *gin.Engine {
 		proj := admin.Group("/projects/:slug")
 		{
 			proj.GET("/locales", handleListLocales(d.ProjectRepo, d.Locales))
-			proj.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales))
+			proj.GET("/locales/:locale/messages", handleListBundle(d.ListBundle, d.ProjectRepo, d.Locales, d.Analytics))
 			proj.PATCH("/locales/:locale/keys/:key",
-				handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits, d.AIFanOut))
+				handlePatchTranslation(d.UpdateTr, d.Translations, d.ProjectRepo, d.Locales, d.Keys, d.Hub, d.Audits, d.AIFanOut, d.Analytics))
 			proj.GET("/sse", handleSSE(d.Hub, 0))
 
 			adminOnly := proj.Group("")
@@ -195,9 +195,9 @@ func New(d Deps) *gin.Engine {
 			// handler parses the value as a UUID.
 			adminOnly.PATCH("/locales/:locale/enabled", handleSetLocaleEnabled(d.Locales))
 			adminOnly.DELETE("/locales/:locale", handleDeleteLocale(d.Locales))
-			adminOnly.POST("/keys:scan", handleScanKeys(d.ProjectRepo, d.UpsertKeys))
+			adminOnly.POST("/keys:scan", handleScanKeys(d.ProjectRepo, d.UpsertKeys, d.Analytics))
 			adminOnly.POST("/locales/:locale/bulk",
-				handleBulkImport(d.ProjectRepo, d.Locales, d.UpsertKeys, d.Keys, d.UpdateTr, d.Translations, d.Hub, d.Audits, d.AIFanOut))
+				handleBulkImport(d.ProjectRepo, d.Locales, d.UpsertKeys, d.Keys, d.UpdateTr, d.Translations, d.Hub, d.Audits, d.AIFanOut, d.Analytics))
 			adminOnly.GET("/diff", handleBundleDiff(d.ProjectRepo, d.Locales, d.ListBundle))
 			adminOnly.GET("/metrics", handleProjectMetrics(d.ProjectRepo, d.Analytics))
 			adminOnly.GET("/api-keys", handleListAPIKeys(d.ProjectRepo, d.APIKeys))

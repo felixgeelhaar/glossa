@@ -4,8 +4,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 )
 
@@ -21,7 +23,7 @@ type keyScanRow struct {
 // handleScanKeys is the batch UPSERT endpoint the CLI's `glossa scan`
 // command targets. Per-row errors are returned alongside per-row
 // successes so the CLI can map them back to source locations.
-func handleScanKeys(projects project.Repository, uc *keyapp.UpsertKeys) gin.HandlerFunc {
+func handleScanKeys(projects project.Repository, uc *keyapp.UpsertKeys, rec analytics.Recorder) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		p, err := resolveProject(c, projects)
 		if err != nil {
@@ -43,6 +45,7 @@ func handleScanKeys(projects project.Repository, uc *keyapp.UpsertKeys) gin.Hand
 			return
 		}
 		out := make([]gin.H, 0, len(results))
+		okCount := 0
 		for _, r := range results {
 			row := gin.H{"name": r.Input.Name}
 			if r.Err != nil {
@@ -50,8 +53,20 @@ func handleScanKeys(projects project.Repository, uc *keyapp.UpsertKeys) gin.Hand
 			} else {
 				row["id"] = r.Key.ID.String()
 				row["description"] = r.Key.Description
+				okCount++
 			}
 			out = append(out, row)
+		}
+		if rec != nil && okCount > 0 {
+			pid := p.ID
+			tid, _ := c.Get(ctxKeyTenantID)
+			tenantID, _ := tid.(uuid.UUID)
+			_ = rec.Record(c.Request.Context(), analytics.Event{
+				TenantID:  tenantID,
+				ProjectID: &pid,
+				Kind:      analytics.KindKeySynced,
+				Metadata:  map[string]any{"count": okCount},
+			})
 		}
 		c.JSON(http.StatusOK, gin.H{"results": out})
 	}

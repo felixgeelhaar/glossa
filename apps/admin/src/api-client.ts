@@ -183,13 +183,12 @@ export function adminClient(cfg: AdminClientConfig) {
   };
 }
 
-/** Analytics event kinds emitted server-side. */
+/** Analytics event kinds emitted server-side. First-occurrence
+ * timestamps for each kind are derived at read time via
+ * MIN(occurred_at) — there's no separate first_X kind on the wire. */
 export type AnalyticsKind =
   | "project_created"
-  | "first_key_synced"
-  | "first_translation_edited"
-  | "first_consumer_request"
-  | "first_ai_translation"
+  | "key_synced"
   | "translation_edited"
   | "consumer_request"
   | "ai_translation";

@@ -83,7 +83,7 @@ func main() {
 		}
 		sealer = s
 		aiTranslator = aitranslatorinfra.New()
-		aiFanOut = aitranslatorapp.New(aiProviderRepo, localeRepo, translationRepo, auditRepo, aiTranslator, s, log)
+		aiFanOut = aitranslatorapp.New(aiProviderRepo, localeRepo, translationRepo, auditRepo, aiTranslator, s, analyticsRepo, log)
 	}
 
 	issuer, err := authapp.NewHMACIssuer([]byte(cfg.JWTSigningKey), "glossa", 24*time.Hour)
