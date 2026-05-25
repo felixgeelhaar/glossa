@@ -29,6 +29,7 @@ import (
 	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
 	keyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translationkey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/aitranslator"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/apikey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
@@ -79,6 +80,7 @@ type Deps struct {
 	Audits       audit.Repository
 	Translations translation.Repository
 	AIProviders  aitranslator.Repository
+	Analytics    analytics.Repository
 
 	// AIFanOut is the optional source-locale fan-out hook. Nil disables
 	// AI translation for this process.
@@ -197,6 +199,7 @@ func New(d Deps) *gin.Engine {
 			adminOnly.POST("/locales/:locale/bulk",
 				handleBulkImport(d.ProjectRepo, d.Locales, d.UpsertKeys, d.Keys, d.UpdateTr, d.Translations, d.Hub, d.Audits, d.AIFanOut))
 			adminOnly.GET("/diff", handleBundleDiff(d.ProjectRepo, d.Locales, d.ListBundle))
+			adminOnly.GET("/metrics", handleProjectMetrics(d.ProjectRepo, d.Analytics))
 			adminOnly.GET("/api-keys", handleListAPIKeys(d.ProjectRepo, d.APIKeys))
 			adminOnly.POST("/api-keys", handleIssueAPIKey(d.ProjectRepo, d.IssueKey))
 			adminOnly.DELETE("/api-keys/:id", handleRevokeAPIKey(d.RevokeKey))
@@ -210,6 +213,7 @@ func New(d Deps) *gin.Engine {
 		tenantAdmin.PATCH("/users/:id/locales", handleUpdateUserLocales(d.Users))
 		tenantAdmin.DELETE("/users/:id", handleDeleteUser(d.Users))
 		tenantAdmin.GET("/audit", handleListAudit(d.Audits))
+		tenantAdmin.GET("/metrics", handleTenantMetrics(d.Analytics))
 
 		// AI translator providers — credentials live here so admin-only.
 		if d.AIProviders != nil {

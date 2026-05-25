@@ -65,6 +65,7 @@ func main() {
 	auditRepo := sqlcadapter.NewAuditRepo(queries)
 	aiProviderRepo := sqlcadapter.NewAIProviderRepo(queries)
 	apiKeyRepo := sqlcadapter.NewAPIKeyRepo(queries)
+	analyticsRepo := sqlcadapter.NewAnalyticsRepo(queries)
 
 	// AI translator wiring is optional: only active if a secrets key
 	// is configured. Absence disables the feature gracefully — the
@@ -91,7 +92,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	createProj := projectapp.NewCreateProject(projectRepo, localeRepo, apiKeyRepo)
+	createProj := projectapp.NewCreateProject(projectRepo, localeRepo, apiKeyRepo, analyticsRepo)
 	issueKey := apikeyapp.NewIssueAPIKey(apiKeyRepo)
 	revokeKey := apikeyapp.NewRevokeAPIKey(apiKeyRepo)
 	upsertKeys := keyapp.NewUpsertKeys(keyRepo)
@@ -153,6 +154,7 @@ func main() {
 
 		ProjectRepo:  projectRepo,
 		APIKeys:      apiKeyRepo,
+		Analytics:    analyticsRepo,
 		Tenants:      tenantRepo,
 		Users:        userRepo,
 		Locales:      localeRepo,

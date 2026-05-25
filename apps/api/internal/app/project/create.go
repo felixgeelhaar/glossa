@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	apikeyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/apikey"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/apikey"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
@@ -54,14 +55,16 @@ type CreateOutput struct {
 // add it later), and we'd rather not leak orphan-project failures
 // behind a misleading 500.
 type CreateProject struct {
-	repo    project.Repository
-	locales locale.Repository
-	keys    apikey.Repository
+	repo      project.Repository
+	locales   locale.Repository
+	keys      apikey.Repository
+	analytics analytics.Recorder
 }
 
-// NewCreateProject wires the use case.
-func NewCreateProject(repo project.Repository, locales locale.Repository, keys apikey.Repository) *CreateProject {
-	return &CreateProject{repo: repo, locales: locales, keys: keys}
+// NewCreateProject wires the use case. analytics may be nil — emit
+// calls are best-effort and gated on a non-nil recorder.
+func NewCreateProject(repo project.Repository, locales locale.Repository, keys apikey.Repository, analytics analytics.Recorder) *CreateProject {
+	return &CreateProject{repo: repo, locales: locales, keys: keys, analytics: analytics}
 }
 
 // Execute validates input, generates an API key, and persists the
@@ -123,6 +126,15 @@ func (uc *CreateProject) Execute(ctx context.Context, in CreateInput) (CreateOut
 				})
 			}
 		}
+	}
+
+	if uc.analytics != nil {
+		pid := p.ID
+		_ = uc.analytics.Record(ctx, analytics.Event{
+			TenantID:  p.TenantID,
+			ProjectID: &pid,
+			Kind:      analytics.KindProjectCreated,
+		})
 	}
 
 	return CreateOutput{Project: p, APIKeyRaw: raw}, nil

@@ -22,6 +22,15 @@ type AiTranslationProvider struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type AnalyticsEvent struct {
+	ID         int64              `json:"id"`
+	TenantID   pgtype.UUID        `json:"tenant_id"`
+	ProjectID  pgtype.UUID        `json:"project_id"`
+	Kind       string             `json:"kind"`
+	Metadata   []byte             `json:"metadata"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
 type AuditLog struct {
 	ID            int64              `json:"id"`
 	TenantID      pgtype.UUID        `json:"tenant_id"`

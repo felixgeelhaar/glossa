@@ -89,7 +89,7 @@ func (r *inMemoryRepo) ListForTenant(_ context.Context, _ uuid.UUID) ([]project.
 
 func newCreate(repo project.Repository) (*projectapp.CreateProject, *stubAPIKeyRepo) {
 	keys := &stubAPIKeyRepo{}
-	return projectapp.NewCreateProject(repo, &stubLocaleRepo{}, keys), keys
+	return projectapp.NewCreateProject(repo, &stubLocaleRepo{}, keys, nil), keys
 }
 
 func TestCreateProject_MintsWriteScopeBootstrapKey(t *testing.T) {
@@ -147,7 +147,7 @@ func TestCreateProject_SeedsDefaultLocaleRow(t *testing.T) {
 	repo := newInMemoryRepo()
 	locales := &stubLocaleRepo{}
 	keys := &stubAPIKeyRepo{}
-	uc := projectapp.NewCreateProject(repo, locales, keys)
+	uc := projectapp.NewCreateProject(repo, locales, keys, nil)
 
 	out, err := uc.Execute(context.Background(), projectapp.CreateInput{
 		TenantID:      uuid.New(),
