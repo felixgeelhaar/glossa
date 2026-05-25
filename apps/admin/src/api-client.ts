@@ -48,6 +48,7 @@ export interface DiffRow {
   label: string;
   total: number;
   pending: number;
+  aiTranslated?: number;
   needsReview: number;
   approved: number;
 }

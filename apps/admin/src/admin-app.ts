@@ -133,6 +133,12 @@ export class GlossaAdmin extends LitElement {
   public createPending = false;
   public createError = "";
 
+  // Deep-link state from the Diff tab → Editor: when the user
+  // clicks a Now/Next/Later cell, we stash the target locale +
+  // status filter and apply them when editor-tab next renders.
+  public pendingEditorLocale: string | null = null;
+  public pendingEditorFilter: "" | "pending" | "needs_review" | "approved" | "ai_translated" = "";
+
   // One-shot API-key reveal. After a successful create or rotate
   // the server hands back the raw key once — we show it in a
   // dismissible panel with a copy button. Server only persists the
@@ -558,13 +564,38 @@ export class GlossaAdmin extends LitElement {
       <gl-card class="panel" flush>
         <div style="padding: var(--gl-space-4)">
           ${this.tab === "editor"
-            ? html`<glossa-admin-editor-tab .client=${c} .slug=${slug} .userRole=${this.auth!.user.role} .scopedLocales=${this.auth!.user.locales}></glossa-admin-editor-tab>`
+            ? html`<glossa-admin-editor-tab
+                .client=${c}
+                .slug=${slug}
+                .userRole=${this.auth!.user.role}
+                .scopedLocales=${this.auth!.user.locales}
+                .initialLocale=${this.pendingEditorLocale ?? ""}
+                .initialStatusFilter=${this.pendingEditorFilter}
+                @consumed-initial=${() => {
+                  this.pendingEditorLocale = null;
+                  this.pendingEditorFilter = "";
+                }}
+              ></glossa-admin-editor-tab>`
             : null}
           ${this.tab === "bulk"
             ? html`<glossa-admin-bulk-tab .client=${c} .slug=${slug}></glossa-admin-bulk-tab>`
             : null}
           ${this.tab === "diff"
-            ? html`<glossa-admin-diff-tab .client=${c} .slug=${slug}></glossa-admin-diff-tab>`
+            ? html`<glossa-admin-diff-tab
+                .client=${c}
+                .slug=${slug}
+                @open-in-editor=${(e: CustomEvent<{ locale: string; column: "now" | "next" | "later" }>) => {
+                  this.pendingEditorLocale = e.detail.locale;
+                  this.pendingEditorFilter =
+                    e.detail.column === "next"
+                      ? "needs_review"
+                      : e.detail.column === "later"
+                        ? "approved"
+                        : "pending";
+                  this.tab = "editor";
+                  this.requestUpdate();
+                }}
+              ></glossa-admin-diff-tab>`
             : null}
           ${this.tab === "locales"
             ? html`<glossa-admin-locales-tab .client=${c} .slug=${slug}></glossa-admin-locales-tab>`

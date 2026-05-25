@@ -188,24 +188,27 @@ func handleBundleDiff(
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
-			pending, needsReview, approved := 0, 0, 0
+			pending, aiTranslated, needsReview, approved := 0, 0, 0, 0
 			for _, e := range entries {
 				switch e.Status {
 				case translation.StatusApproved:
 					approved++
 				case translation.StatusNeedsReview:
 					needsReview++
+				case translation.StatusAITranslated:
+					aiTranslated++
 				default:
 					pending++
 				}
 			}
 			out = append(out, gin.H{
-				"locale":      l.Code.String(),
-				"label":       l.Label.String(),
-				"total":       len(entries),
-				"pending":     pending,
-				"needsReview": needsReview,
-				"approved":    approved,
+				"locale":       l.Code.String(),
+				"label":        l.Label.String(),
+				"total":        len(entries),
+				"pending":      pending,
+				"aiTranslated": aiTranslated,
+				"needsReview":  needsReview,
+				"approved":     approved,
 			})
 		}
 		c.JSON(http.StatusOK, gin.H{"project": p.Slug.String(), "locales": out})

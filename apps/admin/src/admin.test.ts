@@ -154,8 +154,10 @@ describe("<glossa-admin-diff-tab>", () => {
     document.body.appendChild(el);
     await flush();
     await el.updateComplete;
-    const rows = el.shadowRoot!.querySelectorAll("tbody tr");
+    const rows = el.shadowRoot!.querySelectorAll(".locale-row:not(.head)");
     expect(rows.length).toBe(2);
+    const cells = el.shadowRoot!.querySelectorAll(".locale-row:not(.head) .cell");
+    expect(cells.length).toBe(2 * 3);
   });
 });
 

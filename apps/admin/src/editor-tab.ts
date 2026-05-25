@@ -138,6 +138,8 @@ export class GlossaAdminEditorTab extends LitElement {
     bulkAborted: { state: true },
     emptyPm: { state: true },
     helpOpen: { state: true },
+    initialLocale: { type: String },
+    initialStatusFilter: { type: String },
   };
 
   public client!: Client;
@@ -160,6 +162,8 @@ export class GlossaAdminEditorTab extends LitElement {
   public bulkAborted = false;
   public emptyPm: "npm" | "pnpm" | "bun" | "yarn" = "pnpm";
   public helpOpen = false;
+  public initialLocale = "";
+  public initialStatusFilter: "" | Status = "";
 
   private onGlobalKey = (e: KeyboardEvent): void => {
     // Skip when typing in an input/textarea or the edit modal is open.
@@ -242,6 +246,14 @@ export class GlossaAdminEditorTab extends LitElement {
   public override willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("client") || changed.has("slug")) {
       void this.loadLocales();
+    }
+    if (changed.has("initialLocale") && this.initialLocale && this.initialLocale !== this.locale) {
+      this.locale = this.initialLocale;
+      void this.loadBundle();
+      this.dispatchEvent(new CustomEvent("consumed-initial", { bubbles: true, composed: true }));
+    }
+    if (changed.has("initialStatusFilter") && this.initialStatusFilter !== undefined) {
+      this.statusFilter = this.initialStatusFilter as "" | Status;
     }
   }
 
