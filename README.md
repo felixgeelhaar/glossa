@@ -1,13 +1,13 @@
 # Glossa
 
-> Self-hosted, multi-tenant translation management. REST API + SSE live updates + Lit admin UI + optional AI translator agents.
+> **For small EU SaaS teams who want to localize without per-word fees, Glossa is a self-hosted translation backend that ships AI fan-out, live SSE updates, and drop-in web components.** Unlike Lokalise or Crowdin which meter on word count, Glossa runs on your own k3s with your own LLM keys — no per-translation cost, no vendor lock-in.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?logo=postgresql&logoColor=white)
 ![Lit](https://img.shields.io/badge/Lit-3-324FFF?logo=lit&logoColor=white)
 
-Glossa is the translation-management backbone for [Brotwerk](https://brotwerk.felixgeelhaar.de), [IRI](https://github.com/felixgeelhaar/iri), and [Kraftsport](https://kraftsport-coach.de). One deployment, many tenants, end-to-end German-first but locale-agnostic.
+Glossa is the translation-management backbone for [Brotwerk](https://brotwerk.felixgeelhaar.de), [IRI](https://github.com/felixgeelhaar/iri), and [Kraftsport](https://kraftsport-coach.de). One deployment, many tenants, end-to-end German-first but locale-agnostic. Full positioning rationale in [`docs/positioning.md`](./docs/positioning.md).
 
 ---
 
