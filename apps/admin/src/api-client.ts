@@ -62,11 +62,65 @@ export interface BundleResponse {
 
 export class ApiError extends Error {
   public readonly status: number;
-  public constructor(message: string, status: number) {
+  /** Stable machine-readable code from the server (e.g. "project_not_found"). */
+  public readonly code: string;
+  /** Glossa translation key the UI can resolve against its bundle. */
+  public readonly key: string;
+  /** Interpolation params for the key. */
+  public readonly params?: Record<string, unknown>;
+  /** Raw envelope body, kept for advanced callers (e.g. inspecting nested
+   *  validation errors). */
+  public readonly payload?: unknown;
+
+  public constructor(
+    message: string,
+    status: number,
+    init: { code?: string; key?: string; params?: Record<string, unknown>; payload?: unknown } = {},
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = init.code ?? "";
+    this.key = init.key ?? "";
+    if (init.params) this.params = init.params;
+    if (init.payload !== undefined) this.payload = init.payload;
   }
+}
+
+// Parse the canonical apierr envelope ({error: {...}}) or the legacy
+// {error: "string"} shape from a server response body. Returns an
+// ApiError with whatever fields could be extracted. Body parse failures
+// (HTML 5xx pages, gateway errors, etc.) fall back to statusText so the
+// caller still gets something to show.
+function buildApiErrorFromBody(text: string, status: number, statusText: string): ApiError {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    return new ApiError(text || statusText, status);
+  }
+  if (payload && typeof payload === "object") {
+    const env = payload as Record<string, unknown>;
+    const err = env.error;
+    if (err && typeof err === "object") {
+      const e = err as Record<string, unknown>;
+      const message =
+        (typeof e.message === "string" && e.message) || statusText || "Request failed";
+      return new ApiError(message, status, {
+        code: typeof e.code === "string" ? e.code : undefined,
+        key: typeof e.key === "string" ? e.key : undefined,
+        params:
+          e.params && typeof e.params === "object"
+            ? (e.params as Record<string, unknown>)
+            : undefined,
+        payload,
+      });
+    }
+    if (typeof err === "string") {
+      return new ApiError(err, status, { payload });
+    }
+  }
+  return new ApiError(text || statusText, status, { payload });
 }
 
 export interface AdminClientConfig {
@@ -91,7 +145,7 @@ export function adminClient(cfg: AdminClientConfig) {
     if (res.status === 204) return undefined as unknown as T;
     const text = await res.text();
     if (!res.ok) {
-      throw new ApiError(text || res.statusText, res.status);
+      throw buildApiErrorFromBody(text, res.status, res.statusText);
     }
     return text ? (JSON.parse(text) as T) : (undefined as unknown as T);
   }
@@ -240,7 +294,10 @@ export async function discoverTenants(apiUrl: string, email: string): Promise<Te
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ email }),
   });
-  if (!res.ok) throw new ApiError(res.statusText, res.status);
+  if (!res.ok) {
+    const text = await res.text();
+    throw buildApiErrorFromBody(text, res.status, res.statusText);
+  }
   const body = (await res.json()) as { tenants: TenantOption[] };
   return body.tenants ?? [];
 }
@@ -254,7 +311,8 @@ export async function login(apiUrl: string, tenantSlug: string, email: string, p
     body: JSON.stringify({ tenantSlug, email, password }),
   });
   if (!res.ok) {
-    throw new ApiError(res.statusText, res.status);
+    const text = await res.text();
+    throw buildApiErrorFromBody(text, res.status, res.statusText);
   }
   return (await res.json()) as AuthState;
 }
