@@ -1,6 +1,6 @@
 {
   "name": "@felixgeelhaar/glossa-sdk",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "HTTP fetch + in-memory bundle cache + SSE subscription for Glossa. Framework-agnostic; runs in Node and browsers.",
   "type": "module",
   "main": "./dist/index.js",
