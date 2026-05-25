@@ -3,12 +3,12 @@
 # Two stages: pnpm install + vite build, then copy `dist/` into an
 # nginx:alpine final image.
 #
-# Admin deps are pinned to the published @felixgeelhaar/glossa-*
-# packages on npm — the Dockerfile no longer needs to copy or build
-# the workspace packages. `pnpm install` pulls everything from the
-# registry. Local dev still gets workspace linking because the same
-# packages live in packages/* with versions that satisfy the
-# admin's caret ranges.
+# Admin deps point at the workspace packages (`workspace:^`) so the
+# admin always ships with the in-repo @felixgeelhaar/glossa-* code,
+# not whatever happens to be on npm. The Dockerfile therefore needs
+# the workspace package manifests + sources so pnpm install can
+# resolve them locally; the registry is still the source for non-
+# workspace deps like Lit.
 
 # ── Build stage ──────────────────────────────────────────────────────
 FROM node:22-alpine AS build
@@ -20,7 +20,23 @@ WORKDIR /repo
 RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/admin/package.json apps/admin/
+COPY packages/elements/package.json packages/elements/
+COPY packages/format/package.json packages/format/
+COPY packages/sdk/package.json packages/sdk/
+COPY packages/ui/package.json packages/ui/
+COPY packages/cli/package.json packages/cli/
 RUN pnpm install --frozen-lockfile --filter @felixgeelhaar/glossa-admin...
+
+# Sources for workspace deps the admin pulls in; cli isn't a runtime
+# dep so it's omitted from this layer.
+COPY packages/format packages/format
+COPY packages/sdk packages/sdk
+COPY packages/ui packages/ui
+COPY packages/elements packages/elements
+RUN pnpm --filter @felixgeelhaar/glossa-format build \
+  && pnpm --filter @felixgeelhaar/glossa-sdk build \
+  && pnpm --filter @felixgeelhaar/glossa-ui build \
+  && pnpm --filter @felixgeelhaar/glossa-elements build
 
 COPY apps/admin apps/admin
 RUN pnpm --filter @felixgeelhaar/glossa-admin build

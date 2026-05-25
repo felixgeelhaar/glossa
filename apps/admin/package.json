@@ -13,10 +13,10 @@
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@felixgeelhaar/glossa-elements": "^0.1.2",
-    "@felixgeelhaar/glossa-format": "^0.1.1",
-    "@felixgeelhaar/glossa-sdk": "^0.1.1",
-    "@felixgeelhaar/glossa-ui": "^0.2.0",
+    "@felixgeelhaar/glossa-elements": "workspace:^",
+    "@felixgeelhaar/glossa-format": "workspace:^",
+    "@felixgeelhaar/glossa-sdk": "workspace:^",
+    "@felixgeelhaar/glossa-ui": "workspace:^",
     "lit": "^3.2.0"
   },
   "devDependencies": {
