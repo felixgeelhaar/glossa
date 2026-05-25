@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 20,
+  "version": 32,
   "task_states": {
     "task-a11y": {
       "status": "pending",
@@ -29,8 +29,14 @@
       "elapsed_minutes": 0
     },
     "task-bulk-undo": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "f564c25"
+      ],
+      "started_at": "2026-05-25T08:09:24.591207+02:00",
+      "completed_at": "2026-05-25T08:09:33.995658+02:00",
       "elapsed_minutes": 0
     },
     "task-cli": {
@@ -45,8 +51,14 @@
       "elapsed_minutes": 4
     },
     "task-cli-tabs": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "f564c25"
+      ],
+      "started_at": "2026-05-25T08:10:18.830245+02:00",
+      "completed_at": "2026-05-25T08:10:30.137717+02:00",
       "elapsed_minutes": 0
     },
     "task-consumer-migration": {
@@ -98,8 +110,10 @@
       "elapsed_minutes": 38
     },
     "task-hydration-ux": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-25T08:13:06.606914+02:00",
       "elapsed_minutes": 0
     },
     "task-icu-subset": {
@@ -124,14 +138,26 @@
       "elapsed_minutes": 0
     },
     "task-microcopy": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "f564c25"
+      ],
+      "started_at": "2026-05-25T08:10:00.855235+02:00",
+      "completed_at": "2026-05-25T08:10:10.21297+02:00",
       "elapsed_minutes": 0
     },
     "task-positioning": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "f7642db"
+      ],
+      "started_at": "2026-05-25T08:10:46.822864+02:00",
+      "completed_at": "2026-05-25T08:12:55.943155+02:00",
+      "elapsed_minutes": 2
     },
     "task-ro-key-swap": {
       "status": "pending",
@@ -161,11 +187,15 @@
       "elapsed_minutes": 4
     },
     "task-switcher-fix": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "f564c25"
+      ],
       "started_at": "2026-05-25T08:01:20.045679+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-25T08:09:13.838094+02:00",
+      "elapsed_minutes": 7
     },
     "task-usability-test": {
       "status": "pending",
@@ -173,10 +203,16 @@
       "elapsed_minutes": 0
     },
     "task-validate-ai-key": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "f564c25"
+      ],
+      "started_at": "2026-05-25T08:09:43.188173+02:00",
+      "completed_at": "2026-05-25T08:09:52.058735+02:00",
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-25T08:01:20.045679+02:00"
+  "updated_at": "2026-05-25T08:13:06.606914+02:00"
 }

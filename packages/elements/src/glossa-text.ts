@@ -5,6 +5,13 @@
 // No wrapper element: the component renders <span style="display:
 // contents"> so it inherits the parent's semantics (a <button>
 // containing a <glossa-text> still announces as a button).
+//
+// Hydration UX: while the provider hasn't loaded its first bundle
+// yet (ctx.version === 0), the fallback slot is marked with
+// `data-glossa-pending` + aria-busy so consumers can style the
+// pre-hydration state distinctly. After hydration, a missing key
+// surfaces as `data-glossa-missing` instead — useful for strict
+// dev builds that want to flag broken keys visually.
 
 import { ContextConsumer } from "@lit/context";
 import { LitElement, css, html } from "lit";
@@ -15,6 +22,13 @@ export class GlossaText extends LitElement {
   static override styles = css`
     :host {
       display: contents;
+    }
+    :host([data-glossa-pending]) ::slotted(*) {
+      opacity: 0.85;
+    }
+    :host([data-glossa-missing]) ::slotted(*) {
+      outline: 1px dotted currentColor;
+      outline-offset: 2px;
     }
   `;
 
@@ -30,8 +44,25 @@ export class GlossaText extends LitElement {
   });
 
   protected override render() {
-    const value = this.lookup(this.ctx.value);
-    return value === undefined ? html`<slot></slot>` : html`${value}`;
+    const ctx = this.ctx.value;
+    const value = this.lookup(ctx);
+    if (value !== undefined) {
+      this.removeAttribute("aria-busy");
+      this.removeAttribute("data-glossa-pending");
+      this.removeAttribute("data-glossa-missing");
+      return html`${value}`;
+    }
+    const pending = !ctx || ctx.version === 0;
+    if (pending) {
+      this.setAttribute("aria-busy", "true");
+      this.setAttribute("data-glossa-pending", "");
+      this.removeAttribute("data-glossa-missing");
+    } else {
+      this.removeAttribute("aria-busy");
+      this.removeAttribute("data-glossa-pending");
+      this.setAttribute("data-glossa-missing", "");
+    }
+    return html`<slot></slot>`;
   }
 
   private lookup(ctx: GlossaContextValue | undefined): string | undefined {
