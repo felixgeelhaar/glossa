@@ -290,10 +290,18 @@ export class GlossaAdmin extends LitElement {
     this.requestUpdate();
   }
 
+  private revealedCopied = false;
+
   private async copyRevealedKey(): Promise<void> {
     if (!this.revealedApiKey) return;
     try {
       await navigator.clipboard.writeText(this.revealedApiKey);
+      this.revealedCopied = true;
+      this.requestUpdate();
+      setTimeout(() => {
+        this.revealedCopied = false;
+        this.requestUpdate();
+      }, 1400);
     } catch {
       /* clipboard blocked; the input is already select-all-able */
     }
@@ -420,7 +428,9 @@ export class GlossaAdmin extends LitElement {
             .value=${this.revealedApiKey}
           ></gl-input>
           <div class="row">
-            <gl-button variant="primary" @click=${() => void this.copyRevealedKey()}>Copy</gl-button>
+            <gl-button variant="primary" @click=${() => void this.copyRevealedKey()}>
+              ${this.revealedCopied ? "✓ Copied" : "Copy"}
+            </gl-button>
             <gl-button variant="ghost" @click=${() => this.dismissRevealedKey()}>I've saved it</gl-button>
           </div>
         </div>

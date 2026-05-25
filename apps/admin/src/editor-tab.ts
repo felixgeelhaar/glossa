@@ -277,15 +277,29 @@ export class GlossaAdminEditorTab extends LitElement {
         value: detail.value,
         status: detail.status,
       });
+      const newStatus = (detail.status as Status) ?? "needs_review";
       if (this.bundle) {
         this.bundle = {
           ...this.bundle,
           messages: { ...this.bundle.messages, [detail.key]: detail.value },
           statuses: {
             ...this.bundle.statuses,
-            [detail.key]: (detail.status as Status) ?? "needs_review",
+            [detail.key]: newStatus,
           },
         };
+      }
+      // First-approval celebration. Triggers the first time a key on
+      // this project ever flips to 'approved'; persisted in
+      // localStorage so reloads don't re-fire it.
+      if (newStatus === "approved" && typeof localStorage !== "undefined") {
+        const flagKey = `glossa-first-approved:${this.slug}`;
+        if (!localStorage.getItem(flagKey)) {
+          localStorage.setItem(flagKey, new Date().toISOString());
+          toast(
+            "🎉 First translation approved. Wire <glossa-text key=\"…\"> into your consumer to render it.",
+            "ok",
+          );
+        }
       }
       this.editing = null;
       this.requestUpdate();
