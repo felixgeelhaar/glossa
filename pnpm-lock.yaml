@@ -127,6 +127,10 @@ importers:
         version: 2.1.9(@types/node@22.19.19)(happy-dom@15.11.7)(jsdom@25.0.1)
 
   packages/sdk:
+    dependencies:
+      '@felixgeelhaar/glossa-format':
+        specifier: workspace:^
+        version: link:../format
     devDependencies:
       '@size-limit/preset-small-lib':
         specifier: ^11.0.0

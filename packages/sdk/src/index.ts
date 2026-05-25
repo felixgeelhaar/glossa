@@ -10,3 +10,9 @@ export type {
   TranslationUpdatedEvent,
 } from "./types.js";
 export type { SubscribeOptions, Subscription } from "./subscribe.js";
+export { resolveApiError } from "./apierr.js";
+export type {
+  ApiErrorBody,
+  ApiErrorPayload,
+  ResolveOptions,
+} from "./apierr.js";

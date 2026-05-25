@@ -29,6 +29,9 @@
       "limit": "5 KB"
     }
   ],
+  "dependencies": {
+    "@felixgeelhaar/glossa-format": "workspace:^"
+  },
   "devDependencies": {
     "@size-limit/preset-small-lib": "^11.0.0",
     "prettier": "^3.0.0",
