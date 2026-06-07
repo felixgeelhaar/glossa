@@ -28,12 +28,31 @@ spec:
       labels:
         app: postgres
     spec:
+      # postgres:16-alpine runs as uid/gid 70; fsGroup makes the data PVC
+      # group-writable. PGDATA is a subdir so the fsGroup'd mount-point
+      # perms don't trip postgres's 0700 check. PodSecurity "restricted".
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: {{ include "glossa.postgres.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
             - containerPort: 5432
+          env:
+            # ⚠️ existing data is at the mount root → fresh DB on this
+            # subdir switch. Pre-launch (no users) so acceptable.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           envFrom:
             # Reuses POSTGRES_USER / PASSWORD / DB from the same
             # Secret the api reads its DATABASE_URL from. Keep both
