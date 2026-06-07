@@ -42,16 +42,15 @@ COPY apps/admin apps/admin
 RUN pnpm --filter @felixgeelhaar/glossa-admin build
 
 # ── Runtime stage ────────────────────────────────────────────────────
-# nginx:alpine is small and runs as nonroot by default in alpine
-# 1.27+. The default config serves /usr/share/nginx/html on :80; we
-# overlay a custom config so SPA deep-links fall back to index.html
-# (required because the admin uses client-side state, not a router).
-FROM nginx:alpine
+# nginx-unprivileged runs entirely as a non-root user (uid 101) and
+# listens on :8080 (no privileged port, no root master process). The
+# custom config serves /usr/share/nginx/html with SPA fallback so
+# deep-links survive a refresh (admin uses client-side state).
+FROM nginxinc/nginx-unprivileged:alpine
 COPY --from=build /repo/apps/admin/dist /usr/share/nginx/html
 COPY apps/admin/nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-# Healthcheck via the index.html — nginx returns 200 when the
-# static asset is present, which is exactly what readiness should
-# verify.
+EXPOSE 8080
+# Healthcheck via index.html — nginx returns 200 when the static asset
+# is present, which is exactly what readiness should verify.
 HEALTHCHECK --interval=10s --timeout=2s --retries=3 \
-  CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1
