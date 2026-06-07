@@ -53,6 +53,15 @@ spec:
         - name: migrate
           image: {{ include "glossa.api.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Hardening — image is distroless nonroot (uid 65532).
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
           command: ["/migrate"]
           args:
             - -path
@@ -76,6 +85,16 @@ spec:
         - name: api
           image: {{ include "glossa.api.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Hardening — image is distroless nonroot (uid 65532).
+          # Satisfies PodSecurity "restricted".
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
           ports:
             - containerPort: 8080
           envFrom:
