@@ -50,6 +50,34 @@ spec:
       {{- end }}
     spec:
       initContainers:
+        # Wait for postgres before migrate/api start. Absorbs a kube-router
+        # netpol ipset-sync race: a fresh pod's IP is added to the
+        # db-isolation NetworkPolicy source set ~20-40s after assignment,
+        # so an immediate DB dial is REJECTed. migrate runs only once the
+        # netpol allows it.
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z -w3 postgres 5432; do echo "waiting for postgres"; sleep 2; done
+              echo "postgres reachable"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 32Mi
         - name: migrate
           image: {{ include "glossa.api.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
