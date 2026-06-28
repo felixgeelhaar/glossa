@@ -105,4 +105,3 @@ spec:
                   storage: 5Gi
               volumeMode: Filesystem
   strategy: { type: rolling }
-  verification: shallow
