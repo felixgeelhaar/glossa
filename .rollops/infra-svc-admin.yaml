@@ -36,4 +36,3 @@ spec:
           sessionAffinity: None
           type: ClusterIP
   strategy: { type: rolling }
-  verification: shallow

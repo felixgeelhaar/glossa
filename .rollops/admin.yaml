@@ -77,6 +77,5 @@ spec:
               terminationGracePeriodSeconds: 30
   strategy:
     type: rolling
-  verification: shallow
   imagePolicy:
     mode: minor
