@@ -254,7 +254,9 @@ describe("<glossa-admin-audit-tab>", () => {
           beforeValue: "old",
           afterValue: "new",
           changedBy: "u1",
-          changedAt: "2026-05-23T10:00:00Z",
+          // Relative to now so the row stays inside the tab's default 7d
+          // range filter — a hardcoded date bit-rots out of the window.
+          changedAt: new Date().toISOString(),
         },
       ],
     } as unknown as GlossaAdminAuditTab["client"];

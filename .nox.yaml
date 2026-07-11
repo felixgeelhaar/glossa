@@ -1,0 +1,64 @@
+# nox configuration — the security/dependency gate that replaces dependabot.
+# Schema reference: https://github.com/nox-hq/nox
+#
+# Only GENERATED or PROSE artifacts are excluded here. First-party source
+# (packages/, apps/, apierr/, deploy/, .github/, docker-compose.yml) is scanned,
+# and — importantly — so are the lockfiles: nox builds the dependency graph from
+# pnpm-lock.yaml and the Go go.sum files (excluding them drops dependency
+# scanning to zero, which would defeat the dependabot replacement). Findings the
+# excludes below do NOT silence are surfaced by the report-only CI gate
+# (.github/workflows/nox-scan.yml); nothing is hidden by blanket source excludes.
+
+scan:
+  exclude:
+    # TypeScript build output (tsc -p / vite build → dist). Generated, not
+    # committed (see .gitignore), but excluded so a local `nox scan` after a
+    # build does not re-trip secret/slopsquat heuristics on emitted/.d.ts files.
+    # Classification: Acceptable Pattern (generated). Last reviewed: 2026-07-11
+    - dist/
+    - lib/
+    - build/
+    # Build/tooling caches and incremental-build metadata — generated.
+    # Classification: Acceptable Pattern (generated). Last reviewed: 2026-07-11
+    - .turbo/
+    - .vite/
+    - "*.tsbuildinfo"
+    # Vendored npm dependencies — nox reads the lockfile, not this tree; scanning
+    # the unpacked tree would double-count and re-trip heuristics on vendored code.
+    # Classification: Acceptable Pattern (vendored). Last reviewed: 2026-07-11
+    - node_modules/
+    # Go build output / test binaries (see .gitignore). Generated, not source.
+    # Classification: Acceptable Pattern (generated). Last reviewed: 2026-07-11
+    - apps/api/bin/
+    - "*.test"
+    - "*.out"
+    # nox's own baseline/cache and scan output — finding fingerprints are
+    # SHA-256 hex that re-trip the secret detector. Never scan the scanner.
+    # Classification: Acceptable Pattern. Last reviewed: 2026-07-11
+    - .nox/
+    - findings.json
+    - nox-results/
+    - "*.sarif"
+    # Markdown is prose. The entropy/secret rules can fire HIGH severity on
+    # ordinary README/CHANGELOG lines (a Postgres connection-string example in
+    # deploy/charts/glossa/README.md, long hex/base64 in docs, etc.) — false
+    # positives, no real secrets. Real secret patterns in code are still caught.
+    # Literal + globs are all required: "*.md" matches root files, "**/*.md"
+    # matches nested files (the "**/*.md" glob alone does NOT match files at the
+    # repo root in nox's matcher).
+    # Classification: False Positive (prose). Last reviewed: 2026-07-11
+    - README.md
+    - "*.md"
+    - "**/*.md"
+
+# NOTE: pnpm-lock.yaml and the Go go.sum files are deliberately NOT excluded so
+# dependency-vulnerability (OSV) scanning stays active across both ecosystems.
+# No baseline is committed: with zero baselined findings the CI gate
+# (.github/workflows/nox-scan.yml) is self-adjusting report-only, so adopting
+# this config never turns a required check red on day one. The remaining
+# critical/high are first-party infra/CI findings (mutable GitHub Action tags in
+# release workflows, dev-only docker-compose credentials, placeholder secrets in
+# deploy/k3s/glossa/secrets.example.yaml, a browser-SPA fetch taint FP) that
+# policy forbids source-blinding; they are surfaced for review, and — once
+# triaged — accepted explicitly with `nox baseline add <fingerprint>` + commit
+# .nox/, never by excluding first-party source.
