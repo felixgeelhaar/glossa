@@ -27,8 +27,10 @@ name: Release packages
 #   - pnpm >= 10.6 (action-setup@v4 already pulls a recent enough
 #     version; pinning explicit version below to keep behaviour
 #     reproducible).
-#   - npm >= 11.5.1 inside the runner — Node 24 ships an npm new
-#     enough; for Node 22 we install the latest npm explicitly.
+#   - npm >= 11.5.1 but < 12 inside the runner. 11.5.1+ is required for
+#     OIDC trusted publishing; npm 12 rejects the `--no-git-checks` flag
+#     that pnpm forwards to `npm publish` (EUNKNOWNCONFIG), so the pin
+#     below installs npm@11 explicitly rather than npm@latest.
 
 on:
   push:
@@ -62,7 +64,15 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Pin npm to a trusted-publishing-capable version
-        run: npm install -g npm@latest
+        # Must be npm >= 11.5.1 (OIDC trusted publishing) but < 12.
+        # `changeset publish` runs `pnpm publish --no-git-checks`, and pnpm
+        # forwards `--no-git-checks` to the underlying `npm publish`. npm 11
+        # only warns about that unknown flag and still publishes; npm 12 turns
+        # unknown CLI flags into a hard error (EUNKNOWNCONFIG "Unknown cli flag:
+        # --git-checks"), which aborted every publish. `npm@latest` now
+        # resolves to 12.x, so pin the major to 11 until the pnpm/changesets
+        # flag-forwarding is fixed upstream.
+        run: npm install -g npm@11
 
       - run: pnpm install --frozen-lockfile
 
