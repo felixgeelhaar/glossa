@@ -1,0 +1,65 @@
+# warden — local CI gate for glossa (sole hook manager; this repo has no
+# husky/lint-staged). glossa is a pnpm + Go monorepo, so the checks are wired
+# to the root Makefile's cross-cutting targets, which run BOTH ecosystems and
+# mirror the two CI jobs one-for-one:
+#   - `make lint` = `go vet ./...` (apps/api) + `pnpm -r lint` (tsc --noEmit)
+#     → CI "Go API" go-vet step + "JS workspaces" lint step.
+#   - `make test` = `go test ./...` + `pnpm -r test`
+#     → CI "Go API" unit tests + "JS workspaces" test step (the Docker-bound
+#       RLS integration suite stays CI-only).
+#   - `make packages` builds the TS packages in pnpm's topological dep order;
+#     it MUST run before the typecheck because sdk/elements/admin consume the
+#     built .d.ts of their workspace deps (a bare `pnpm -r lint` fails otherwise).
+#
+# pre-commit stays fast (gofmt check only — no TS build needed); pre-push runs
+# the full build → typecheck → test → audit chain, so nothing leaves the machine
+# that CI would reject. symlink_deps brings node_modules into warden's isolated
+# verify worktree so the pnpm steps resolve without a reinstall per run.
+extends: ''
+agent: auto
+symlink_deps: true
+hooks:
+  pre_commit: true
+  pre_push: true
+commands:
+  # Non-mutating format gate. CI's "Go API" job fails the build on `gofmt -l`;
+  # mirror exactly. `make fmt` / `pnpm -r format` MUTATE (gofmt -w / prettier
+  # --write) so they are unsuitable as a verify-only check.
+  formatcheck: bash -c 'cd apps/api && out=$(gofmt -l .) && test -z "$out" || { echo "$out"; exit 1; }'
+  # `make packages` = `pnpm -r --filter "./packages/*" build` (topological order).
+  build: make packages
+  # `make lint` = go vet + pnpm -r lint (tsc --noEmit). Named 'typecheck' (not
+  # warden's built-in 'lint') so warden runs THIS exact command. Requires the
+  # build step above to have produced the workspace .d.ts.
+  typecheck: make lint
+  # `make test` = go test ./... + pnpm -r test. Named 'testcov' to run THIS
+  # command rather than warden's built-in 'test'.
+  testcov: make test
+  audit: pnpm audit --audit-level=high
+steps:
+  # Fast gate on commit: formatting only (gofmt -l). A TS typecheck needs the
+  # package build first, so it lives in pre-push, not here.
+  pre_commit:
+    - formatcheck
+  # Full CI parity on push: build the TS packages, then typecheck (go vet +
+  # tsc --noEmit) and test (go + vitest) both ecosystems, then dependency audit.
+  pre_push:
+    - rebase
+    - formatcheck
+    - build
+    - typecheck
+    - testcov
+    - audit
+timeouts: {}
+cache: {}
+agent_commands: {}
+parallel: null
+notify: null
+risk:
+  diff_lines_high: 400
+  files_touched_high: 15
+pr:
+  enabled: false
+  base: ''
+  comment: null
+rules: []
