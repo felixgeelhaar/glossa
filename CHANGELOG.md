@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · SemVer.
 
 ## [Unreleased]
 
+## 0.3.1 — 2026-08-12
+
+### Fixed
+
+- **The admin image had not built since #22.** That change pinned
+  `form-data`, `js-yaml`, `nanoid`, `postcss` and `vite` as root dependencies
+  to force patched transitive versions, without regenerating `pnpm-lock.yaml`.
+  The admin Dockerfile installs with `--frozen-lockfile`, which refuses a
+  lockfile whose specifiers disagree with `package.json`, so every admin build
+  failed with `ERR_PNPM_OUTDATED_LOCKFILE`. The API image builds from Go and
+  was unaffected, so releases looked partly successful rather than broken.
+  0.3.0 shipped an API image and no admin image; use this release instead.
+
 ## 0.3.0 — 2026-08-12
 
 ### Fixed
