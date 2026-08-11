@@ -10,7 +10,7 @@ spec:
     spec:
       namespace: glossa
       resource: deployment/api
-      image: ghcr.io/felixgeelhaar/glossa-api:v0.2.0
+      image: ghcr.io/felixgeelhaar/glossa-api:0.3.0@sha256:06325e544ef1dce3888f19efba20cc5fb872774310f5ab980625133167198291
       manifest: |
         apiVersion: apps/v1
         kind: Deployment
@@ -101,9 +101,9 @@ spec:
                 - -c
                 - 'until nc -z -w3 postgres 5432; do echo "waiting for postgres"; sleep 2;
                   done
-        
+
                   echo "postgres reachable"
-        
+
                   '
                 image: busybox:1.36
                 imagePullPolicy: IfNotPresent
