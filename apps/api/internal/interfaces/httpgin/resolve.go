@@ -23,9 +23,26 @@ import (
 // Returns an error so the handler can choose between 404 (no such
 // project) and 500 (DB outage); callers should distinguish via
 // errors.Is on the repo's ErrNotFound.
+// errSlugMismatch is returned when the URL names a project the API key does
+// not open. Callers map it to 404, the same as any other unreachable project —
+// distinguishing "wrong slug" from "no such project" would let a caller probe
+// which slugs exist.
+var errSlugMismatch = errors.New("resolve: url slug does not match the api key's project")
+
 func resolveProject(c *gin.Context, projects project.Repository) (project.Project, error) {
 	if v, ok := c.Get(ctxKeyProject); ok {
-		return v.(project.Project), nil
+		p, _ := v.(project.Project)
+
+		// The key is the authority on which project this is, but the URL must
+		// not contradict it. Without this the segment is decorative: a slug
+		// naming another project — or naming nothing at all — still returned
+		// 200 with the key's data, so a client pointed at the wrong project
+		// had no way to find out. Routes that carry no :slug are unaffected.
+		if slug := c.Param("slug"); slug != "" && slug != p.Slug.String() {
+			return project.Project{}, errSlugMismatch
+		}
+
+		return p, nil
 	}
 	tenantRaw, ok := c.Get(ctxKeyTenantID)
 	if !ok {
