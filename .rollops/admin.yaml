@@ -10,7 +10,7 @@ spec:
     spec:
       namespace: glossa
       resource: deployment/admin
-      image: ghcr.io/felixgeelhaar/glossa-admin:v0.2.0
+      image: ghcr.io/felixgeelhaar/glossa-admin:0.3.1@sha256:36a522f21225dd9e22e25b6c2b883fd993730c9a3e08615e8bd0f26229bfe7cc
       manifest: |
         apiVersion: apps/v1
         kind: Deployment
