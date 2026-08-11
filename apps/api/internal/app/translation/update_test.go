@@ -89,3 +89,53 @@ func TestUpdateTranslation_RejectsZeroIDs(t *testing.T) {
 		t.Fatalf("expected ErrInvalidIDs, got %v", err)
 	}
 }
+
+// An API-key caller has no user behind it. handlePatchTranslation says so
+// directly — "API-key path optionally reads it from the body; otherwise zero
+// (CLI / system change)" — and then passes that zero here, where the guard
+// rejected it. The two disagreed, and the result was that a write-scoped key
+// could not write: every CLI or service PATCH returned 422 unprocessable.
+//
+// updated_by is a nullable column with no foreign key, so a system write has
+// somewhere to land. KeyID and LocaleID stay required; those genuinely cannot
+// be nil.
+func TestUpdateTranslation_AllowsSystemActorForAPIKeyWrites(t *testing.T) {
+	repo := &inMemoryRepo{}
+	uc := translationapp.NewUpdateTranslation(repo)
+
+	got, err := uc.Execute(context.Background(), translationapp.UpdateInput{
+		KeyID:    uuid.New(),
+		LocaleID: uuid.New(),
+		Value:    "Veränderungen",
+		Status:   "approved",
+		// UpdatedBy deliberately left nil: this is the CLI / system path.
+	})
+	if err != nil {
+		t.Fatalf("system write rejected: %v", err)
+	}
+	if got.Value != "Veränderungen" {
+		t.Fatalf("value = %q, want %q", got.Value, "Veränderungen")
+	}
+	if got.UpdatedBy != uuid.Nil {
+		t.Fatalf("UpdatedBy = %v, want the nil UUID to mark a system change", got.UpdatedBy)
+	}
+}
+
+func TestUpdateTranslation_StillRejectsZeroKeyOrLocale(t *testing.T) {
+	repo := &inMemoryRepo{}
+	uc := translationapp.NewUpdateTranslation(repo)
+
+	for _, tc := range []struct {
+		name string
+		in   translationapp.UpdateInput
+	}{
+		{"no key", translationapp.UpdateInput{LocaleID: uuid.New(), UpdatedBy: uuid.New()}},
+		{"no locale", translationapp.UpdateInput{KeyID: uuid.New(), UpdatedBy: uuid.New()}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := uc.Execute(context.Background(), tc.in); !errors.Is(err, translationapp.ErrInvalidIDs) {
+				t.Fatalf("expected ErrInvalidIDs, got %v", err)
+			}
+		})
+	}
+}

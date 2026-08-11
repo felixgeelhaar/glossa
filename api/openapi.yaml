@@ -225,6 +225,23 @@ components:
         401 (no distinction between "no such key" and "key valid
         but project deleted") to deny status-code probing.
 
+        Keys carry a SCOPE, `read` or `write`, which this document
+        previously did not mention. Read endpoints require `read`;
+        POST /locales, POST /keys:scan and PATCH
+        /locales/{locale}/keys/{key} require `write` and answer 403
+        to a read key, naming the scope in the message. `write`
+        implies `read`. Omitting this made a read-only key look
+        capable of rewriting translations and rotating keys, which
+        is a spec that overstates a credential's power — the kind
+        of error that gets acted on.
+
+        The key also determines WHICH project a request reaches.
+        `{slug}` must name the key's own project; a slug naming any
+        other project returns 404, and it is not a way to reach one.
+        (Before that check existed the segment was ignored entirely,
+        so a mismatched or nonexistent slug returned 200 with the
+        key's data.)
+
   parameters:
     ProjectSlug:
       name: slug
@@ -353,7 +370,15 @@ components:
           type: string
           enum: [pending, needs_review, approved]
           description: Defaults to `needs_review` if omitted
-        updatedBy: { type: string, format: uuid }
+        updatedBy:
+          type: string
+          format: uuid
+          description: |
+            Audit actor. On the JWT path it is taken from the token and
+            any value here is ignored. On the API-key path there is no
+            user, so supply one to attribute the change — a CLI or agent
+            can pass a stable UUID of its own. Omitted, the change is
+            recorded against the nil UUID, meaning a system write.
 
     Translation:
       type: object

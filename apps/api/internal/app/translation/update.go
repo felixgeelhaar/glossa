@@ -12,7 +12,17 @@ import (
 
 // ErrInvalidIDs is the belt-and-suspenders guard against nil-UUID
 // inputs slipping through from a broken handler.
-var ErrInvalidIDs = errors.New("translationapp: keyId, localeId, and updatedBy must all be non-nil")
+//
+// UpdatedBy is deliberately NOT part of it. An API-key caller has no user
+// behind it, and handlePatchTranslation documents exactly that case — "API-key
+// path optionally reads it from the body; otherwise zero (CLI / system
+// change)" — before passing the zero here. Requiring it put the two in
+// contradiction, and the effect was that write-scoped API keys could not
+// write: every CLI or service PATCH answered 422, which reads as "your payload
+// is malformed" rather than "this path does not work". updated_by is a
+// nullable column with no foreign key, so nil is a representable actor meaning
+// "not a person".
+var ErrInvalidIDs = errors.New("translationapp: keyId and localeId must be non-nil")
 
 // UpdateInput captures the translator-edit shape.
 type UpdateInput struct {
@@ -37,7 +47,7 @@ func NewUpdateTranslation(repo translation.Repository) *UpdateTranslation {
 
 // Execute validates input and upserts the translation.
 func (uc *UpdateTranslation) Execute(ctx context.Context, in UpdateInput) (translation.Translation, error) {
-	if in.KeyID == uuid.Nil || in.LocaleID == uuid.Nil || in.UpdatedBy == uuid.Nil {
+	if in.KeyID == uuid.Nil || in.LocaleID == uuid.Nil {
 		return translation.Translation{}, ErrInvalidIDs
 	}
 	status := translation.Status(in.Status)
