@@ -6,6 +6,37 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · SemVer.
 
 ## [Unreleased]
 
+## 0.3.0 — 2026-08-12
+
+### Fixed
+
+- **`write`-scoped API keys could not write.** `handlePatchTranslation`
+  documents the API-key case as "otherwise zero (CLI / system change)" and
+  passes a nil actor; the use case rejected nil as a guard against a broken
+  handler. Every CLI or service `PATCH` returned `422 keyId, localeId, and
+  updatedBy must all be non-nil`, which reads as a malformed payload rather
+  than an unimplemented path. `updated_by` is nullable with no foreign key, so
+  nil is now accepted and means "not a person"; `keyId` and `localeId` stay
+  required. Pass `updatedBy` to attribute a change to a specific agent.
+- **The project in the URL was ignored.** `resolveProject` returned the API
+  key's project and never read `:slug`, so `/api/v1/projects/<any-other>/…` —
+  and even a slug naming nothing at all — answered `200` with the key's data.
+  Not a privilege escalation, since a key still reaches only its own project,
+  but a client pointed at the wrong project had no way to tell: a drift checker
+  querying one project while holding another's key compared two unrelated key
+  sets and reported everything fine.
+
+### Changed
+
+- **A `{slug}` that does not match the API key's project now returns 404** —
+  the same status as any unreachable project, so it cannot be used to probe
+  which slugs exist. Routes without a `:slug` are unaffected. Callers that
+  relied on the segment being ignored must send the key's own project slug.
+- `api/openapi.yaml` now documents the `read` / `write` scopes, the 403 a read
+  key receives from write endpoints, the slug rule, and `updatedBy` semantics.
+  It previously declared one unscoped scheme, which overstated what a
+  read-only key could do.
+
 ### Added
 
 - **AI translator agents.** New `ai_translation_providers` table (AES-GCM
