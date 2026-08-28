@@ -1,25 +1,28 @@
 # Daily Postgres backup → Hetzner Storage Box via rclone (SFTP).
 #
-# Provision the Storage Box once in the Hetzner console
-# (Robot → Storage Box). Add the `deploy` user's public key, build
-# the rclone.conf locally, then push it into the cluster:
+# The Storage Box (u596104) is shared by every tenant in this cluster, so this
+# job writes under db/glossa/ and prunes only that directory. An earlier
+# version of this file wrote to db/ and ran
+#   rclone delete --min-age 30d storagebox:db/
+# which deletes recursively: it would have taken every other tenant's dumps
+# with it. It also referenced a secret named glossa-postgres, which does not
+# exist — the credentials live in glossa-app.
 #
+# Provision once:
 #   kubectl -n glossa create secret generic rclone-config \
-#     --from-file=rclone.conf=/home/deploy/.config/rclone/rclone.conf \
-#     --from-file=id_storagebox=/home/deploy/.ssh/id_storagebox
+#     --from-file=rclone.conf --from-file=id_storagebox --from-file=known_hosts
 #
 # Verify a manual run:
-#
-#   kubectl -n glossa create job --from=cronjob/postgres-backup \
-#     manual-pg-$(date +%s)
----
+#   kubectl -n glossa create job --from=cronjob/postgres-backup manual-pg
+#   kubectl -n glossa logs job/manual-pg     # prints size + table count
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: postgres-backup
   namespace: glossa
+  labels: { app.kubernetes.io/name: postgres-backup }
 spec:
-  schedule: "0 3 * * *"   # 03:00 UTC daily
+  schedule: "20 3 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
@@ -31,34 +34,45 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: backup
-              image: postgres:16-alpine
+              image: postgres:17-alpine
               env:
+                - name: PGHOST
+                  value: "postgres"
+                - name: PGUSER
+                  valueFrom: { secretKeyRef: { name: glossa-app, key: POSTGRES_USER } }
+                - name: PGDATABASE
+                  valueFrom: { secretKeyRef: { name: glossa-app, key: POSTGRES_DB } }
                 - name: PGPASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: glossa-postgres
-                      key: POSTGRES_PASSWORD
-              command:
-                - sh
-                - -c
+                  valueFrom: { secretKeyRef: { name: glossa-app, key: POSTGRES_PASSWORD } }
+              command: ["sh","-ec"]
+              args:
                 - |
-                  set -euo pipefail
                   ts=$(date -u +%Y%m%dT%H%M%SZ)
+                  f=/tmp/glossa-$ts.sql.gz
                   apk add --no-cache rclone >/dev/null
-                  install -m 0600 /etc/rclone/id_storagebox /tmp/id_storagebox
-                  pg_dump -h postgres -U glossa glossa \
-                    | gzip > /tmp/glossa-$ts.sql.gz
-                  rclone --config /etc/rclone/rclone.conf \
-                    copy /tmp/glossa-$ts.sql.gz storagebox:db/
-                  # Retain 30 days on the remote.
-                  rclone --config /etc/rclone/rclone.conf \
-                    delete --min-age 30d storagebox:db/
+
+                  pg_dump | gzip > "$f"
+
+                  # A pg_dump that dies after the header still exits 0 through a
+                  # pipe. Verify the archive and that it carries real schema
+                  # before uploading: a job that cheerfully ships 20 bytes every
+                  # night reports success until the day it is needed.
+                  gzip -t "$f"
+                  ddl=$(gunzip -c "$f" | grep -c '^CREATE TABLE' || true)
+                  if [ "$ddl" -lt 1 ]; then
+                    echo "ERROR: dump has no CREATE TABLE statements" >&2; exit 3
+                  fi
+                  echo "dump $(stat -c %s "$f") bytes, $ddl tables"
+
+                  rclone --config /etc/rclone/rclone.conf copy "$f" storagebox:db/glossa/
+                  # Scoped to this application's own directory, so it can never
+                  # reach another tenant's history on the shared box.
+                  rclone --config /etc/rclone/rclone.conf delete --min-age 30d storagebox:db/glossa/
               volumeMounts:
-                - name: rclone-config
-                  mountPath: /etc/rclone
-                  readOnly: true
+                - { name: rclone-config, mountPath: /etc/rclone, readOnly: true }
+                - { name: scratch, mountPath: /tmp }
           volumes:
             - name: rclone-config
-              secret:
-                secretName: rclone-config
-                defaultMode: 0400
+              secret: { secretName: rclone-config, defaultMode: 0400 }
+            - name: scratch
+              emptyDir: {}
