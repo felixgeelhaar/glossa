@@ -70,9 +70,14 @@ spec:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: local-path
-        # Spec called for 20Gi; we honour it. Glossa data is small
-        # (TEXT translations + audit log) so this lasts years.
+        # Longhorn, three replicas. local-path is a directory on one node: it
+        # pinned this pod to edge-1, which is also the only control-plane node,
+        # so losing that machine lost the database and the cluster together.
+        # At 13 MB the replication costs essentially nothing.
+        storageClassName: longhorn
+        # Was 20Gi "because the spec called for it" against 13 MB of actual
+        # data. Longhorn schedules against the request on every replica, so
+        # an honest number is worth real capacity here.
         resources:
           requests:
-            storage: 20Gi
+            storage: 5Gi
