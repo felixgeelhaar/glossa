@@ -1,0 +1,130 @@
+# Weekly restore drill — proves the Postgres backup is actually restorable.
+#
+# WHY. backup-cronjob.yaml already verifies what it UPLOADS: gzip integrity and
+# that the archive carries CREATE TABLE statements, because "a pg_dump that
+# dies after the header still exits 0 through a pipe". That is the right check
+# on the producing side, and it is a different claim from "this file can be
+# loaded into a Postgres and come back as a database". A backup that has never
+# been restored is a hypothesis.
+#
+# Restores the newest dump into a scratch database, asserts the schema and the
+# core tables survived, then drops it. It never touches the live database: the
+# only statements issued against the application DB are CREATE/DROP of a
+# scratch database whose name cannot collide with it.
+#
+# Runs Sundays 05:20 UTC — after the 03:20 dump, and offset from the sibling
+# drills in other namespaces so several restores never contend for the same
+# Storage Box at once.
+#
+# Verify a run manually:
+#
+#   kubectl -n glossa create job --from=cronjob/postgres-restore-test \
+#     manual-restore-$(date +%s)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-restore-test
+  namespace: glossa
+spec:
+  schedule: "20 5 * * 0"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: restore-test
+              # Must match the server major (16.x) — see header.
+              image: postgres:16-alpine
+              # Same connection the backup uses. PGDATABASE points at the app
+              # DB; the psql calls below pass -d explicitly where they must
+              # reach `postgres` instead, so the two never get confused.
+              env:
+                - name: PGHOST
+                  value: postgres
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: glossa-app
+                      key: POSTGRES_USER
+                - name: PGDATABASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: glossa-app
+                      key: POSTGRES_DB
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: glossa-app
+                      key: POSTGRES_PASSWORD
+              volumeMounts:
+                - name: rclone-config
+                  mountPath: /etc/rclone
+                  readOnly: true
+              command:
+                - sh
+                - -c
+                - |
+                  set -euo pipefail
+                  apk add --no-cache rclone >/dev/null
+
+                  # Anchored on our own prefix even though db/glossa/ is a
+                  # private directory: a bare `sort | tail -1` would happily
+                  # return anything that lands there later, and a drill that
+                  # rehearses the wrong file reports success while proving
+                  # nothing.
+                  latest=$(rclone --config /etc/rclone/rclone.conf \
+                    lsf --files-only storagebox:db/glossa/ \
+                    | grep '^glossa-' | sort | tail -1)
+                  if [ -z "$latest" ]; then
+                    echo "ERROR: no glossa dumps on the storage box" >&2
+                    exit 3
+                  fi
+                  echo "restoring $latest"
+
+                  rclone --config /etc/rclone/rclone.conf \
+                    copy "storagebox:db/glossa/$latest" /tmp/
+                  # Catches a truncated or partial upload before we go looking
+                  # for the fault inside Postgres.
+                  gzip -t "/tmp/$latest"
+
+                  scratch=glossa_restore_test
+                  psql -d postgres -v ON_ERROR_STOP=1 \
+                    -c "DROP DATABASE IF EXISTS $scratch" \
+                    -c "CREATE DATABASE $scratch"
+
+                  gunzip -c "/tmp/$latest" \
+                    | psql -d $scratch -v ON_ERROR_STOP=1 -q
+
+                  # ASSERT THE POST-STATE, never that psql exited 0. An empty
+                  # schema restores perfectly and is worthless.
+                  ver=$(psql -d $scratch -tA \
+                    -c "SELECT COUNT(*) FROM schema_migrations")
+                  if [ "$ver" -lt 1 ]; then
+                    echo "ERROR: schema_migrations empty — restored schema is not usable" >&2
+                    psql -d postgres -c "DROP DATABASE $scratch" || true
+                    exit 4
+                  fi
+                  # The two tables that carry the product: the translated
+                  # strings and the keys they hang off. If a dump ever comes
+                  # back with the schema but no content, this is where it shows.
+                  tr=$(psql -d $scratch -tA -c "SELECT COUNT(*) FROM translations")
+                  ky=$(psql -d $scratch -tA -c "SELECT COUNT(*) FROM keys")
+                  if [ "$tr" -lt 1 ] || [ "$ky" -lt 1 ]; then
+                    echo "ERROR: restored translations=$tr keys=$ky — schema came back empty" >&2
+                    psql -d postgres -c "DROP DATABASE $scratch" || true
+                    exit 5
+                  fi
+                  echo "restored: schema_migrations=$ver translations=$tr keys=$ky"
+
+                  psql -d postgres -v ON_ERROR_STOP=1 -c "DROP DATABASE $scratch"
+                  echo "restore drill OK ($latest)"
+          volumes:
+            - name: rclone-config
+              secret:
+                secretName: rclone-config
+                optional: true

@@ -7,5 +7,6 @@ resources:
   - admin.yaml
   - ingress.yaml
   - backup-cronjob.yaml
+  - restore-test-cronjob.yaml
 # secrets.example.yaml is intentionally NOT listed — secrets are
 # applied out of band so example values never ship to prod.
