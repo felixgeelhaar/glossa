@@ -2,7 +2,7 @@
   "name": "glossa",
   "private": true,
   "version": "0.0.0",
-  "description": "Cross-project translation management \u2014 REST API + Lit web components + own ICU subset",
+  "description": "Cross-project translation management — REST API + Lit web components + own ICU subset",
   "license": "MIT",
   "author": "Felix Geelhaar",
   "repository": {
@@ -31,5 +31,8 @@
       "js-yaml@3": "^3.15.1",
       "vite": "^6.4.3"
     }
+  },
+  "dependencies": {
+    "@vitest/mocker": "^4.1.11"
   }
 }
