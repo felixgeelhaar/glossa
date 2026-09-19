@@ -121,6 +121,7 @@ To render message `id`, walk the chain and use the first locale whose loaded art
 - Runtimes format with an MF2 interpreter over the data model, as `@glossa/runtime` does. They MUST pass the runtime cases of the Unicode MessageFormat suite and `messageformat/testdata/glossa/runtime-format.json` (implementation-defined outputs excepted, and documented).
 - Formatting MUST NOT throw. A failing expression renders its MF2 fallback representation (`{$name}`), and the error is reported (§6).
 - Bidi isolation is on by default, per the MF2 spec. The active locale's `direction` from the manifest is exposed to the application, so it can set `dir`.
+- Runtimes that render MF2 markup as HTML MUST follow [`testdata/markup.json`](./testdata/markup.json): only markup named on its `safeTags` list becomes an element, markup options never become attributes (a translation can't add a link), text is escaped, and other markup renders just its content.
 
 ## 6. Observability
 

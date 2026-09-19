@@ -44,3 +44,12 @@ written by hand, unlike the generated files above. [`gen/check_usages.py`](./gen
 validates them. It also validates `schemas/usages.v1.schema.json`,
 `schemas/captures.v1.schema.json` and their [`examples/`](./schemas/examples). CI runs it next to
 `generate.py --check`. The contract itself is in [`usages/README.md`](./usages/README.md).
+
+## `markup.json` (formatted parts → HTML, SPEC §5)
+
+| Field | Meaning |
+|---|---|
+| `safeTags` | The only markup names that become HTML elements. `@glossa/elements` (`SAFE_TAGS`) and the Go runtime (`HTML`, `th`) are tested against this list |
+| `voidTags` | Safe tags rendered without children or a closing tag (`<br>`) |
+| `cases[].parts` | Formatted parts in the MF2 shape (`text`, `markup`, `bidiIsolation`, `string`, `number` with `parts`, `fallback` with `source`) |
+| `cases[].html` | Expected HTML: markup options dropped, text escaped (`&`, `<`, `>`), unsafe markup reduced to its content |

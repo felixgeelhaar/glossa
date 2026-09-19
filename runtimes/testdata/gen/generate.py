@@ -291,6 +291,89 @@ def loading_sequences():
     }
 
 
+# ── Safe markup (formatted parts → HTML) ────────────────────────────────
+
+# Inline, attribute-free phrasing elements a translation may produce. The
+# single source of truth: @glossa/elements' SAFE_TAGS and the Go runtime's
+# safeTags are tested against this list.
+SAFE_TAGS = ("b strong i em u s small mark sub sup code kbd samp var abbr cite dfn q "
+             "del ins bdi span br wbr").split()
+VOID_TAGS = ["br", "wbr"]
+
+
+def t(value):
+    return {"type": "text", "value": value}
+
+
+def mk(kind, name, **options):
+    p = {"type": "markup", "kind": kind, "name": name}
+    if options:
+        p["options"] = options
+    return p
+
+
+def markup_fixture():
+    open_, close, alone = (lambda n, **o: mk("open", n, **o)), (lambda n: mk("close", n)), (lambda n: mk("standalone", n))
+
+    def case(description, parts, html):
+        return {"description": description, "parts": parts, "html": html}
+
+    return {
+        "$comment": "Formatted parts -> HTML, the rules of @glossa/elements/parts and the Go runtime's HTML/th. "
+                    "`safeTags`: the only markup names that become elements; `voidTags`: the safe tags rendered "
+                    "without children or a closing tag. Markup options are always dropped. Text is escaped "
+                    "(& < >). Unsafe markup keeps just its content. Unclosed markup closes at the end; a close "
+                    "closes everything opened after its matching open; a close without an open is ignored. "
+                    "Non-markup parts render as their text: `value`, the joined `parts` values of numbers and "
+                    "dates, or `{source}` for a fallback.",
+        "safeTags": SAFE_TAGS,
+        "voidTags": VOID_TAGS,
+        "cases": [
+            case("text, isolation, values and fallbacks join into one text node",
+                 [t("Hallo "), {"type": "bidiIsolation", "value": "⁨"}, {"type": "string", "value": "Lina"},
+                  {"type": "bidiIsolation", "value": "⁩"}, t(", du hast "),
+                  {"type": "number", "parts": [{"type": "integer", "value": "1"}, {"type": "group", "value": "."},
+                                               {"type": "integer", "value": "000"}]},
+                  t(" Punkte "), {"type": "fallback", "source": "$missing"}],
+                 "Hallo ⁨Lina⁩, du hast 1.000 Punkte {$missing}"),
+            case("safe markup becomes nested elements",
+                 [t("Tippe "), open_("b"), t("hier "), open_("em"), t("jetzt"), close("em"), close("b"), t(".")],
+                 "Tippe <b>hier <em>jetzt</em></b>."),
+            case("standalone void markup", [t("a"), alone("br"), t("b"), alone("wbr")], "a<br>b<wbr>"),
+            case("an opened void tag renders once, without children", [open_("br"), t("x"), close("br")], "<br>x"),
+            case("standalone non-void markup renders nothing", [t("a"), alone("b"), t("c")], "ac"),
+            case("unsafe markup keeps only its content",
+                 [t("Klick "), open_("link"), t("hier"), close("link"), open_("script"), t("x"), close("script"),
+                  alone("img")],
+                 "Klick hierx"),
+            case("a link from a translation stays text (en link markup)",
+                 [t("By continuing you accept the "), open_("link", href="/terms"), t("terms of service"),
+                  close("link"), t(".")],
+                 "By continuing you accept the terms of service."),
+            case("options are dropped, so a translation can't add attributes",
+                 [open_("b", onclick="alert(1)", **{"class": "x"}), t("x"), close("b"),
+                  open_("span", style="color:red", title="t"), t("y"), close("span")],
+                 "<b>x</b><span>y</span>"),
+            case("safe markup inside unsafe markup", [open_("a", href="javascript:alert(1)"), open_("b"), t("x"),
+                                                      close("b"), close("a")], "<b>x</b>"),
+            case("unclosed markup closes at the end", [open_("b"), t("x"), open_("i"), t("y")], "<b>x<i>y</i></b>"),
+            case("a close without an open is ignored", [t("x"), close("b"), t("y")], "xy"),
+            case("a close closes everything opened after its open",
+                 [open_("b"), t("1"), open_("i"), t("2"), close("b"), t("3"), close("i")],
+                 "<b>1<i>2</i></b>3"),
+            case("a close for unsafe markup ends the safe markup inside it",
+                 [open_("link"), t("1"), open_("b"), t("2"), close("link"), t("3")],
+                 "1<b>2</b>3"),
+            case("text is escaped, quotes are kept",
+                 [t("<img src=x onerror=alert(1)> & "), open_("strong"), t('"fett" \'x\''), close("strong"),
+                  alone("br")],
+                 "&lt;img src=x onerror=alert(1)&gt; &amp; <strong>\"fett\" 'x'</strong><br>"),
+            case("markup names are case-sensitive", [open_("B"), t("x"), close("B")], "x"),
+            case("empty safe elements are kept", [open_("b"), close("b"), t("x")], "<b></b>x"),
+        ],
+    }
+
+
 # ── Validation and output ───────────────────────────────────────────────
 
 def validators():
@@ -329,6 +412,7 @@ def main():
             if m.get("status") == 200:
                 validate_release(m["body"], {}, v)
         outputs[ROOT / "loading" / f"{name}.json"] = render(seq)
+    outputs[ROOT / "markup.json"] = render(markup_fixture())
     drift = [p for p, content in outputs.items() if not p.exists() or p.read_text() != content]
     if check:
         if drift:

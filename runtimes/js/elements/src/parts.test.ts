@@ -1,6 +1,31 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { Part } from "@glossa/runtime";
-import { parseVars, partsToTree, treeToHtml } from "./parts.js";
+import { SAFE_TAGS, parseVars, partsToTree, treeToHtml } from "./parts.js";
+
+/** runtimes/testdata/markup.json: the safe-markup rules shared with the Go runtime. */
+const markup = JSON.parse(
+  readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "../../../testdata/markup.json"),
+    "utf8",
+  ),
+) as {
+  safeTags: string[];
+  voidTags: string[];
+  cases: Array<{ description: string; parts: Part[]; html: string }>;
+};
+
+describe("runtimes/testdata/markup.json", () => {
+  it("SAFE_TAGS is the shared list", () => {
+    expect([...SAFE_TAGS].sort()).toEqual([...markup.safeTags].sort());
+  });
+
+  it.each(markup.cases.map((c) => [c.description, c] as const))("%s", (_name, c) => {
+    expect(treeToHtml(partsToTree(c.parts))).toBe(c.html);
+  });
+});
 
 const open = (name: string): Part => ({ type: "markup", kind: "open", name });
 const close = (name: string): Part => ({ type: "markup", kind: "close", name });
