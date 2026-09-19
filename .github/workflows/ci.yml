@@ -158,6 +158,11 @@ jobs:
         run: pnpm -r lint
       - name: test
         run: pnpm -r test
+      # Capture-mode geometry needs a real layout engine (RFC 0004 §3.1).
+      - name: install Chromium
+        run: pnpm --filter @glossa/capture exec playwright install --with-deps chromium
+      - name: capture mode in Chromium (Playwright)
+        run: pnpm --filter @glossa/capture test:browser
       - name: admin build (vite)
         run: pnpm --filter @felixgeelhaar/glossa-admin build
 

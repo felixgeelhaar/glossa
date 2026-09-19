@@ -244,6 +244,63 @@ importers:
         specifier: 3.5.43
         version: 3.5.43(typescript@5.9.3)
 
+  runtimes/js/capture:
+    devDependencies:
+      '@glossa/elements':
+        specifier: workspace:*
+        version: link:../elements
+      '@glossa/react':
+        specifier: workspace:*
+        version: link:../react
+      '@glossa/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@glossa/vue':
+        specifier: workspace:*
+        version: link:../vue
+      '@playwright/test':
+        specifier: 1.63.0
+        version: 1.63.0
+      '@size-limit/preset-small-lib':
+        specifier: 11.2.0
+        version: 11.2.0(size-limit@11.2.0)
+      '@types/node':
+        specifier: 22.19.19
+        version: 22.19.19
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: 19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      jsdom:
+        specifier: 25.0.1
+        version: 25.0.1
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      size-limit:
+        specifier: 11.2.0
+        version: 11.2.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.0
+        version: 4.1.0(@types/node@22.19.19)(happy-dom@20.14.5)(jsdom@25.0.1)(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
+      vue:
+        specifier: 3.5.43
+        version: 3.5.43(typescript@5.9.3)
+
   runtimes/js/elements:
     dependencies:
       '@glossa/runtime':
