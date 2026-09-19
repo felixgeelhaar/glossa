@@ -1,0 +1,67 @@
+{
+  "name": "@glossa/vue",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Glossa for Vue 3.5+: a plugin, reactive useGlossa()/useMessages() composables and <GlossaText>, SSR- and hydration-safe, on @glossa/runtime.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit -p tsconfig.test.json",
+    "size": "size-limit"
+  },
+  "size-limit": [
+    {
+      "name": "@glossa/vue, own code (vue and @glossa/runtime excluded)",
+      "path": "dist/index.js",
+      "ignore": ["vue", "@glossa/runtime"],
+      "limit": "1.5 KB"
+    },
+    {
+      "name": "@glossa/vue with @glossa/runtime (vue excluded)",
+      "path": "dist/index.js",
+      "ignore": ["vue"],
+      "limit": "8 KB"
+    }
+  ],
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "dependencies": {
+    "@glossa/elements": "workspace:*",
+    "@glossa/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@size-limit/preset-small-lib": "11.2.0",
+    "@types/node": "22.19.19",
+    "jsdom": "25.0.1",
+    "size-limit": "11.2.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0",
+    "vue": "3.5.43"
+  },
+  "license": "MIT",
+  "author": "Felix Geelhaar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "directory": "runtimes/js/vue"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
