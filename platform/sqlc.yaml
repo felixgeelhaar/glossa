@@ -128,3 +128,16 @@ sql:
         emit_interface: false
         emit_exported_queries: false
         omit_unused_structs: true
+
+  - name: integration
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/integration
+    gen:
+      go:
+        package: integrationsql
+        out: internal/integration/adapters/postgres/integrationsql
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_exported_queries: false
+        omit_unused_structs: true

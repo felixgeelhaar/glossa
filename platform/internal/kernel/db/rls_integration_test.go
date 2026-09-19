@@ -61,6 +61,10 @@ var systemPolicies = map[string][]string{
 	// intelligence.jobs) under each tenant's concurrency cap.
 	"intelligence_jobs":     {"intelligence_jobs_system_select", "intelligence_jobs_system_update"},
 	"intelligence_settings": {"intelligence_settings_system_select"},
+	// Integration's job workers claim import and export jobs, and its
+	// retention sweep deletes expired files, across tenants (system
+	// scope integration.jobs).
+	"integration_jobs": {"integration_jobs_system_select", "integration_jobs_system_update"},
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
 	// Identity's global tables are system scope only (see systemTables).
