@@ -5,6 +5,7 @@ import "errors"
 // Domain errors. The HTTP adapter maps each to a problem code.
 var (
 	ErrUnitRetired = errors.New("knowledge: the TM unit is already retired")
+	ErrInvalidUnit = errors.New("knowledge: invalid TM unit")
 
 	ErrInvalidConcept      = errors.New("knowledge: invalid concept")
 	ErrInvalidTerm         = errors.New("knowledge: invalid term")

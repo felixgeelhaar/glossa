@@ -326,6 +326,42 @@ func (q *Queries) ExactTMMatches(ctx context.Context, arg ExactTMMatchesParams) 
 	return items, nil
 }
 
+const findActiveTMUnit = `-- name: FindActiveTMUnit :one
+SELECT id FROM knowledge_tm_units
+WHERE retired_at IS NULL
+  AND project_id IS NOT DISTINCT FROM $1
+  AND source_locale = $2 AND target_locale = $3
+  AND source_hash = $4
+  AND source_mf2 = $5 AND target_mf2 = $6
+LIMIT 1
+`
+
+type FindActiveTMUnitParams struct {
+	ProjectID    uuid.NullUUID
+	SourceLocale string
+	TargetLocale string
+	SourceHash   string
+	SourceMf2    string
+	TargetMf2    string
+}
+
+// An active unit with exactly this text in the locale pair and scope
+// (project, or tenant-wide when NULL): what makes a TMX import
+// idempotent.
+func (q *Queries) FindActiveTMUnit(ctx context.Context, arg FindActiveTMUnitParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, findActiveTMUnit,
+		arg.ProjectID,
+		arg.SourceLocale,
+		arg.TargetLocale,
+		arg.SourceHash,
+		arg.SourceMf2,
+		arg.TargetMf2,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const fuzzyTMMatches = `-- name: FuzzyTMMatches :many
 SELECT knowledge_tm_units.id, knowledge_tm_units.tenant_id, knowledge_tm_units.project_id, knowledge_tm_units.origin, knowledge_tm_units.translation_id, knowledge_tm_units.translation_revision, knowledge_tm_units.message_id, knowledge_tm_units.message_key, knowledge_tm_units.namespace, knowledge_tm_units.source_locale, knowledge_tm_units.target_locale, knowledge_tm_units.source_mf2, knowledge_tm_units.target_mf2, knowledge_tm_units.target_model, knowledge_tm_units.source_normalized, knowledge_tm_units.target_normalized, knowledge_tm_units.source_hash, knowledge_tm_units.signature, knowledge_tm_units.source_vars, knowledge_tm_units.hit_count, knowledge_tm_units.last_hit_at, knowledge_tm_units.created_by, knowledge_tm_units.created_at, knowledge_tm_units.updated_at, knowledge_tm_units.retired_at, knowledge_tm_units.retired_reason, knowledge_tm_units.retired_by,
        similarity(knowledge_tm_units.source_normalized, $1::text)::float8 AS similarity

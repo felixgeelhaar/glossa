@@ -2,6 +2,7 @@ package domain_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -107,6 +108,35 @@ func TestFuzzyScore(t *testing.T) {
 	for _, tc := range tests {
 		if got := domain.FuzzyScore(tc.similarity); got != tc.want {
 			t.Errorf("FuzzyScore(%v) = %d, want %d", tc.similarity, got, tc.want)
+		}
+	}
+}
+
+func TestNewImportedUnit(t *testing.T) {
+	project := uuid.MustParse("0192a1b2-0000-7000-8000-0000000000aa")
+	en, de := bcp47.MustParse("en"), bcp47.MustParse("de")
+	u, err := domain.NewImportedUnit(domain.ImportedText{
+		ProjectID: &project, SourceLocale: en, TargetLocale: de,
+		Source: mf2(t, "Pay {$amount}"), Target: mf2(t, "{$amount} zahlen"),
+	}, "person:x", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Origin != domain.OriginImport || u.TranslationID != nil || u.MessageID != nil || *u.ProjectID != project {
+		t.Errorf("provenance = %+v", u)
+	}
+	if u.SourceNorm.Text != "Pay {1}" || u.TargetMF2 != "{$amount} zahlen" || u.CreatedBy != "person:x" || !u.Active() {
+		t.Errorf("unit = %+v", u)
+	}
+	for name, bad := range map[string]domain.ImportedText{
+		"same locales": {SourceLocale: en, TargetLocale: en, Source: mf2(t, "a"), Target: mf2(t, "b")},
+		"no locale":    {TargetLocale: de, Source: mf2(t, "a"), Target: mf2(t, "b")},
+		"empty source": {SourceLocale: en, TargetLocale: de, Source: mf2(t, ""), Target: mf2(t, "b")},
+		"empty target": {SourceLocale: en, TargetLocale: de, Source: mf2(t, "a"), Target: mf2(t, "")},
+		"too long":     {SourceLocale: en, TargetLocale: de, Source: mf2(t, "a"), Target: mf2(t, strings.Repeat("x", domain.MaxUnitTextBytes+1))},
+	} {
+		if _, err := domain.NewImportedUnit(bad, "person:x", now); !errors.Is(err, domain.ErrInvalidUnit) {
+			t.Errorf("%s: err = %v, want ErrInvalidUnit", name, err)
 		}
 	}
 }

@@ -227,6 +227,17 @@ func (s *store) RetireUnit(ctx context.Context, u domain.TMUnit) error {
 	return nil
 }
 
+func (s *store) HasActiveUnit(ctx context.Context, u domain.TMUnit) (bool, error) {
+	_, err := s.q.FindActiveTMUnit(ctx, knowledgesql.FindActiveTMUnitParams{
+		ProjectID: nullUUID(u.ProjectID), SourceLocale: u.SourceLocale.String(), TargetLocale: u.TargetLocale.String(),
+		SourceHash: u.SourceNorm.Hash, SourceMf2: u.SourceMF2, TargetMf2: u.TargetMF2,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, storeError(err)
+}
+
 func (s *store) Unit(ctx context.Context, id uuid.UUID) (domain.TMUnit, error) {
 	r, err := s.q.GetTMUnit(ctx, id)
 	if err != nil {

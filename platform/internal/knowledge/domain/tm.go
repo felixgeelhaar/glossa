@@ -123,6 +123,48 @@ func (u *TMUnit) Retire(reason RetireReason, by string, now time.Time) error {
 	return nil
 }
 
+// MaxUnitTextBytes bounds each side's MF2 syntax (the table's check).
+const MaxUnitTextBytes = 100_000
+
+// ImportedText is a unit read from a translation memory file (TMX).
+type ImportedText struct {
+	// ProjectID scopes the unit to one project; nil means tenant-wide.
+	ProjectID    *uuid.UUID
+	SourceLocale bcp47.Tag
+	TargetLocale bcp47.Tag
+	Source       mf.Message
+	Target       mf.Message
+}
+
+// NewImportedUnit makes an import's unit: origin import, no translation
+// behind it, both sides non-empty in two different locales.
+func NewImportedUnit(in ImportedText, by string, now time.Time) (TMUnit, error) {
+	if in.SourceLocale.IsZero() || in.TargetLocale.IsZero() || in.SourceLocale == in.TargetLocale {
+		return TMUnit{}, fmt.Errorf("%w: a unit needs two different locales", ErrInvalidUnit)
+	}
+	sourceMF2, err := mf.Stringify(in.Source)
+	if err != nil {
+		return TMUnit{}, fmt.Errorf("%w: source: %v", ErrInvalidUnit, err)
+	}
+	targetMF2, err := mf.Stringify(in.Target)
+	if err != nil {
+		return TMUnit{}, fmt.Errorf("%w: target: %v", ErrInvalidUnit, err)
+	}
+	switch {
+	case sourceMF2 == "" || targetMF2 == "":
+		return TMUnit{}, fmt.Errorf("%w: both sides need text", ErrInvalidUnit)
+	case len(sourceMF2) > MaxUnitTextBytes || len(targetMF2) > MaxUnitTextBytes:
+		return TMUnit{}, fmt.Errorf("%w: a side is longer than %d bytes", ErrInvalidUnit, MaxUnitTextBytes)
+	}
+	return TMUnit{
+		ID: uuid.Must(uuid.NewV7()), ProjectID: in.ProjectID, Origin: OriginImport,
+		SourceLocale: in.SourceLocale, TargetLocale: in.TargetLocale,
+		SourceMF2: sourceMF2, TargetMF2: targetMF2, Target: in.Target,
+		SourceNorm: Normalize(in.Source), TargetNorm: Normalize(in.Target),
+		CreatedBy: by, CreatedAt: now, UpdatedAt: now,
+	}, nil
+}
+
 // ApprovedText is what Localization says about a translation right now:
 // its latest revision's source and target, and where it belongs.
 type ApprovedText struct {

@@ -151,6 +151,9 @@ type Store interface {
 	// LockActiveUnit returns the translation's active unit, nil if none.
 	LockActiveUnit(ctx context.Context, translation uuid.UUID) (*domain.TMUnit, error)
 	InsertUnit(ctx context.Context, u domain.TMUnit) error
+	// HasActiveUnit reports whether an active unit in u's scope and
+	// locale pair has exactly u's source and target.
+	HasActiveUnit(ctx context.Context, u domain.TMUnit) (bool, error)
 	TouchUnit(ctx context.Context, id uuid.UUID, revision int, at time.Time) error
 	// RetireUnit stores u's retirement (ErrNotFound if already retired).
 	RetireUnit(ctx context.Context, u domain.TMUnit) error

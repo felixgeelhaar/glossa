@@ -70,6 +70,18 @@ WHERE id > sqlc.arg(after)
 ORDER BY id
 LIMIT sqlc.arg(max_rows);
 
+-- name: FindActiveTMUnit :one
+-- An active unit with exactly this text in the locale pair and scope
+-- (project, or tenant-wide when NULL): what makes a TMX import
+-- idempotent.
+SELECT id FROM knowledge_tm_units
+WHERE retired_at IS NULL
+  AND project_id IS NOT DISTINCT FROM sqlc.narg(project_id)
+  AND source_locale = sqlc.arg(source_locale) AND target_locale = sqlc.arg(target_locale)
+  AND source_hash = sqlc.arg(source_hash)
+  AND source_mf2 = sqlc.arg(source_mf2) AND target_mf2 = sqlc.arg(target_mf2)
+LIMIT 1;
+
 -- name: CountTMHits :exec
 UPDATE knowledge_tm_units SET hit_count = hit_count + 1, last_hit_at = sqlc.arg(hit_at)
 WHERE id = ANY (sqlc.arg(ids)::uuid[]);
