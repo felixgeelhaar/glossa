@@ -8394,10 +8394,12 @@ type ClientInterface interface {
 
 	// CreateEnvironmentWithBody Add a custom environment
 	//
-	// A branch preview, a QA stage. Without `policy` it ships
-	// everything not rejected. Needs `releases.publish`. Problem codes:
-	// `environment_exists` (409), `invalid_environment`,
-	// `invalid_policy` (400).
+	// A QA stage of your own. Without `policy` it ships everything not
+	// rejected. Branch previews are not created here: they follow
+	// their branch, and their names (`pr-<n>`, `br-<hash>`) are
+	// reserved. Needs `releases.publish`. Problem codes:
+	// `environment_exists`, `too_many_branches` (409),
+	// `invalid_environment`, `invalid_policy` (400).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -8406,10 +8408,12 @@ type ClientInterface interface {
 
 	// CreateEnvironment Add a custom environment
 	//
-	// A branch preview, a QA stage. Without `policy` it ships
-	// everything not rejected. Needs `releases.publish`. Problem codes:
-	// `environment_exists` (409), `invalid_environment`,
-	// `invalid_policy` (400).
+	// A QA stage of your own. Without `policy` it ships everything not
+	// rejected. Branch previews are not created here: they follow
+	// their branch, and their names (`pr-<n>`, `br-<hash>`) are
+	// reserved. Needs `releases.publish`. Problem codes:
+	// `environment_exists`, `too_many_branches` (409),
+	// `invalid_environment`, `invalid_policy` (400).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -8461,9 +8465,12 @@ type ClientInterface interface {
 	// text, like production) and promote that release to `production`.
 	// `release_ineligible`'s detail names both policies and what
 	// differs. Promoting the release already served changes nothing,
-	// so a retry is safe. Needs `releases.publish`. Problem codes:
-	// `release_not_found` (404), `release_ineligible` (409),
-	// `storage_unavailable` (503).
+	// so a retry is safe. A branch release is never promoted
+	// (`branch_release_not_promotable`): it holds text that exists only
+	// on its branch. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `release_ineligible`,
+	// `branch_release_not_promotable` (409), `storage_unavailable`
+	// (503).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -8479,9 +8486,12 @@ type ClientInterface interface {
 	// text, like production) and promote that release to `production`.
 	// `release_ineligible`'s detail names both policies and what
 	// differs. Promoting the release already served changes nothing,
-	// so a retry is safe. Needs `releases.publish`. Problem codes:
-	// `release_not_found` (404), `release_ineligible` (409),
-	// `storage_unavailable` (503).
+	// so a retry is safe. A branch release is never promoted
+	// (`branch_release_not_promotable`): it holds text that exists only
+	// on its branch. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `release_ineligible`,
+	// `branch_release_not_promotable` (409), `storage_unavailable`
+	// (503).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -8961,9 +8971,12 @@ type ClientInterface interface {
 	// eligible, stores the ones storage doesn't have yet, records the
 	// immutable release and points the environment at it; the edge
 	// serves it within seconds. Publishing an unchanged catalog
-	// uploads nothing. Needs `releases.publish`. Problem codes:
-	// `invalid_environment`, `invalid_note` (400),
-	// `not_releasable` (422), `storage_unavailable` (503).
+	// uploads nothing. A branch environment (`kind: branch`) is built
+	// from the main catalog plus its branch's overlay; it publishes
+	// itself when the branch changes, so publishing one by hand is
+	// rarely needed. Needs `releases.publish`. Problem codes:
+	// `invalid_environment`, `invalid_note` (400), `not_releasable`
+	// (422), `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -8977,9 +8990,12 @@ type ClientInterface interface {
 	// eligible, stores the ones storage doesn't have yet, records the
 	// immutable release and points the environment at it; the edge
 	// serves it within seconds. Publishing an unchanged catalog
-	// uploads nothing. Needs `releases.publish`. Problem codes:
-	// `invalid_environment`, `invalid_note` (400),
-	// `not_releasable` (422), `storage_unavailable` (503).
+	// uploads nothing. A branch environment (`kind: branch`) is built
+	// from the main catalog plus its branch's overlay; it publishes
+	// itself when the branch changes, so publishing one by hand is
+	// rarely needed. Needs `releases.publish`. Problem codes:
+	// `invalid_environment`, `invalid_note` (400), `not_releasable`
+	// (422), `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -12856,10 +12872,12 @@ func (c *Client) ListEnvironments(ctx context.Context, tenant TenantPath, projec
 
 // CreateEnvironmentWithBody Add a custom environment
 //
-// A branch preview, a QA stage. Without `policy` it ships
-// everything not rejected. Needs `releases.publish`. Problem codes:
-// `environment_exists` (409), `invalid_environment`,
-// `invalid_policy` (400).
+// A QA stage of your own. Without `policy` it ships everything not
+// rejected. Branch previews are not created here: they follow
+// their branch, and their names (`pr-<n>`, `br-<hash>`) are
+// reserved. Needs `releases.publish`. Problem codes:
+// `environment_exists`, `too_many_branches` (409),
+// `invalid_environment`, `invalid_policy` (400).
 //
 // Takes any type of body and a specified content type.
 //
@@ -12878,10 +12896,12 @@ func (c *Client) CreateEnvironmentWithBody(ctx context.Context, tenant TenantPat
 
 // CreateEnvironment Add a custom environment
 //
-// A branch preview, a QA stage. Without `policy` it ships
-// everything not rejected. Needs `releases.publish`. Problem codes:
-// `environment_exists` (409), `invalid_environment`,
-// `invalid_policy` (400).
+// A QA stage of your own. Without `policy` it ships everything not
+// rejected. Branch previews are not created here: they follow
+// their branch, and their names (`pr-<n>`, `br-<hash>`) are
+// reserved. Needs `releases.publish`. Problem codes:
+// `environment_exists`, `too_many_branches` (409),
+// `invalid_environment`, `invalid_policy` (400).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -12983,9 +13003,12 @@ func (c *Client) ListDeployments(ctx context.Context, tenant TenantPath, project
 // text, like production) and promote that release to `production`.
 // `release_ineligible`'s detail names both policies and what
 // differs. Promoting the release already served changes nothing,
-// so a retry is safe. Needs `releases.publish`. Problem codes:
-// `release_not_found` (404), `release_ineligible` (409),
-// `storage_unavailable` (503).
+// so a retry is safe. A branch release is never promoted
+// (`branch_release_not_promotable`): it holds text that exists only
+// on its branch. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `release_ineligible`,
+// `branch_release_not_promotable` (409), `storage_unavailable`
+// (503).
 //
 // Takes any type of body and a specified content type.
 //
@@ -13011,9 +13034,12 @@ func (c *Client) PromoteReleaseWithBody(ctx context.Context, tenant TenantPath, 
 // text, like production) and promote that release to `production`.
 // `release_ineligible`'s detail names both policies and what
 // differs. Promoting the release already served changes nothing,
-// so a retry is safe. Needs `releases.publish`. Problem codes:
-// `release_not_found` (404), `release_ineligible` (409),
-// `storage_unavailable` (503).
+// so a retry is safe. A branch release is never promoted
+// (`branch_release_not_promotable`): it holds text that exists only
+// on its branch. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `release_ineligible`,
+// `branch_release_not_promotable` (409), `storage_unavailable`
+// (503).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -13873,9 +13899,12 @@ func (c *Client) ListReleases(ctx context.Context, tenant TenantPath, project Pr
 // eligible, stores the ones storage doesn't have yet, records the
 // immutable release and points the environment at it; the edge
 // serves it within seconds. Publishing an unchanged catalog
-// uploads nothing. Needs `releases.publish`. Problem codes:
-// `invalid_environment`, `invalid_note` (400),
-// `not_releasable` (422), `storage_unavailable` (503).
+// uploads nothing. A branch environment (`kind: branch`) is built
+// from the main catalog plus its branch's overlay; it publishes
+// itself when the branch changes, so publishing one by hand is
+// rarely needed. Needs `releases.publish`. Problem codes:
+// `invalid_environment`, `invalid_note` (400), `not_releasable`
+// (422), `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type.
 //
@@ -13899,9 +13928,12 @@ func (c *Client) PublishReleaseWithBody(ctx context.Context, tenant TenantPath, 
 // eligible, stores the ones storage doesn't have yet, records the
 // immutable release and points the environment at it; the edge
 // serves it within seconds. Publishing an unchanged catalog
-// uploads nothing. Needs `releases.publish`. Problem codes:
-// `invalid_environment`, `invalid_note` (400),
-// `not_releasable` (422), `storage_unavailable` (503).
+// uploads nothing. A branch environment (`kind: branch`) is built
+// from the main catalog plus its branch's overlay; it publishes
+// itself when the branch changes, so publishing one by hand is
+// rarely needed. Needs `releases.publish`. Problem codes:
+// `invalid_environment`, `invalid_note` (400), `not_releasable`
+// (422), `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -28123,10 +28155,12 @@ type ClientWithResponsesInterface interface {
 
 	// CreateEnvironmentWithBodyWithResponse Add a custom environment
 	//
-	// A branch preview, a QA stage. Without `policy` it ships
-	// everything not rejected. Needs `releases.publish`. Problem codes:
-	// `environment_exists` (409), `invalid_environment`,
-	// `invalid_policy` (400).
+	// A QA stage of your own. Without `policy` it ships everything not
+	// rejected. Branch previews are not created here: they follow
+	// their branch, and their names (`pr-<n>`, `br-<hash>`) are
+	// reserved. Needs `releases.publish`. Problem codes:
+	// `environment_exists`, `too_many_branches` (409),
+	// `invalid_environment`, `invalid_policy` (400).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -28135,10 +28169,12 @@ type ClientWithResponsesInterface interface {
 
 	// CreateEnvironmentWithResponse Add a custom environment
 	//
-	// A branch preview, a QA stage. Without `policy` it ships
-	// everything not rejected. Needs `releases.publish`. Problem codes:
-	// `environment_exists` (409), `invalid_environment`,
-	// `invalid_policy` (400).
+	// A QA stage of your own. Without `policy` it ships everything not
+	// rejected. Branch previews are not created here: they follow
+	// their branch, and their names (`pr-<n>`, `br-<hash>`) are
+	// reserved. Needs `releases.publish`. Problem codes:
+	// `environment_exists`, `too_many_branches` (409),
+	// `invalid_environment`, `invalid_policy` (400).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -28194,9 +28230,12 @@ type ClientWithResponsesInterface interface {
 	// text, like production) and promote that release to `production`.
 	// `release_ineligible`'s detail names both policies and what
 	// differs. Promoting the release already served changes nothing,
-	// so a retry is safe. Needs `releases.publish`. Problem codes:
-	// `release_not_found` (404), `release_ineligible` (409),
-	// `storage_unavailable` (503).
+	// so a retry is safe. A branch release is never promoted
+	// (`branch_release_not_promotable`): it holds text that exists only
+	// on its branch. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `release_ineligible`,
+	// `branch_release_not_promotable` (409), `storage_unavailable`
+	// (503).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -28212,9 +28251,12 @@ type ClientWithResponsesInterface interface {
 	// text, like production) and promote that release to `production`.
 	// `release_ineligible`'s detail names both policies and what
 	// differs. Promoting the release already served changes nothing,
-	// so a retry is safe. Needs `releases.publish`. Problem codes:
-	// `release_not_found` (404), `release_ineligible` (409),
-	// `storage_unavailable` (503).
+	// so a retry is safe. A branch release is never promoted
+	// (`branch_release_not_promotable`): it holds text that exists only
+	// on its branch. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `release_ineligible`,
+	// `branch_release_not_promotable` (409), `storage_unavailable`
+	// (503).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -28728,9 +28770,12 @@ type ClientWithResponsesInterface interface {
 	// eligible, stores the ones storage doesn't have yet, records the
 	// immutable release and points the environment at it; the edge
 	// serves it within seconds. Publishing an unchanged catalog
-	// uploads nothing. Needs `releases.publish`. Problem codes:
-	// `invalid_environment`, `invalid_note` (400),
-	// `not_releasable` (422), `storage_unavailable` (503).
+	// uploads nothing. A branch environment (`kind: branch`) is built
+	// from the main catalog plus its branch's overlay; it publishes
+	// itself when the branch changes, so publishing one by hand is
+	// rarely needed. Needs `releases.publish`. Problem codes:
+	// `invalid_environment`, `invalid_note` (400), `not_releasable`
+	// (422), `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -28744,9 +28789,12 @@ type ClientWithResponsesInterface interface {
 	// eligible, stores the ones storage doesn't have yet, records the
 	// immutable release and points the environment at it; the edge
 	// serves it within seconds. Publishing an unchanged catalog
-	// uploads nothing. Needs `releases.publish`. Problem codes:
-	// `invalid_environment`, `invalid_note` (400),
-	// `not_releasable` (422), `storage_unavailable` (503).
+	// uploads nothing. A branch environment (`kind: branch`) is built
+	// from the main catalog plus its branch's overlay; it publishes
+	// itself when the branch changes, so publishing one by hand is
+	// rarely needed. Needs `releases.publish`. Problem codes:
+	// `invalid_environment`, `invalid_note` (400), `not_releasable`
+	// (422), `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44599,10 +44647,12 @@ func (c *ClientWithResponses) ListEnvironmentsWithResponse(ctx context.Context, 
 
 // CreateEnvironmentWithBodyWithResponse Add a custom environment
 //
-// A branch preview, a QA stage. Without `policy` it ships
-// everything not rejected. Needs `releases.publish`. Problem codes:
-// `environment_exists` (409), `invalid_environment`,
-// `invalid_policy` (400).
+// A QA stage of your own. Without `policy` it ships everything not
+// rejected. Branch previews are not created here: they follow
+// their branch, and their names (`pr-<n>`, `br-<hash>`) are
+// reserved. Needs `releases.publish`. Problem codes:
+// `environment_exists`, `too_many_branches` (409),
+// `invalid_environment`, `invalid_policy` (400).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -44617,10 +44667,12 @@ func (c *ClientWithResponses) CreateEnvironmentWithBodyWithResponse(ctx context.
 
 // CreateEnvironmentWithResponse Add a custom environment
 //
-// A branch preview, a QA stage. Without `policy` it ships
-// everything not rejected. Needs `releases.publish`. Problem codes:
-// `environment_exists` (409), `invalid_environment`,
-// `invalid_policy` (400).
+// A QA stage of your own. Without `policy` it ships everything not
+// rejected. Branch previews are not created here: they follow
+// their branch, and their names (`pr-<n>`, `br-<hash>`) are
+// reserved. Needs `releases.publish`. Problem codes:
+// `environment_exists`, `too_many_branches` (409),
+// `invalid_environment`, `invalid_policy` (400).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -44706,9 +44758,12 @@ func (c *ClientWithResponses) ListDeploymentsWithResponse(ctx context.Context, t
 // text, like production) and promote that release to `production`.
 // `release_ineligible`'s detail names both policies and what
 // differs. Promoting the release already served changes nothing,
-// so a retry is safe. Needs `releases.publish`. Problem codes:
-// `release_not_found` (404), `release_ineligible` (409),
-// `storage_unavailable` (503).
+// so a retry is safe. A branch release is never promoted
+// (`branch_release_not_promotable`): it holds text that exists only
+// on its branch. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `release_ineligible`,
+// `branch_release_not_promotable` (409), `storage_unavailable`
+// (503).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -44730,9 +44785,12 @@ func (c *ClientWithResponses) PromoteReleaseWithBodyWithResponse(ctx context.Con
 // text, like production) and promote that release to `production`.
 // `release_ineligible`'s detail names both policies and what
 // differs. Promoting the release already served changes nothing,
-// so a retry is safe. Needs `releases.publish`. Problem codes:
-// `release_not_found` (404), `release_ineligible` (409),
-// `storage_unavailable` (503).
+// so a retry is safe. A branch release is never promoted
+// (`branch_release_not_promotable`): it holds text that exists only
+// on its branch. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `release_ineligible`,
+// `branch_release_not_promotable` (409), `storage_unavailable`
+// (503).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -45474,9 +45532,12 @@ func (c *ClientWithResponses) ListReleasesWithResponse(ctx context.Context, tena
 // eligible, stores the ones storage doesn't have yet, records the
 // immutable release and points the environment at it; the edge
 // serves it within seconds. Publishing an unchanged catalog
-// uploads nothing. Needs `releases.publish`. Problem codes:
-// `invalid_environment`, `invalid_note` (400),
-// `not_releasable` (422), `storage_unavailable` (503).
+// uploads nothing. A branch environment (`kind: branch`) is built
+// from the main catalog plus its branch's overlay; it publishes
+// itself when the branch changes, so publishing one by hand is
+// rarely needed. Needs `releases.publish`. Problem codes:
+// `invalid_environment`, `invalid_note` (400), `not_releasable`
+// (422), `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -45496,9 +45557,12 @@ func (c *ClientWithResponses) PublishReleaseWithBodyWithResponse(ctx context.Con
 // eligible, stores the ones storage doesn't have yet, records the
 // immutable release and points the environment at it; the edge
 // serves it within seconds. Publishing an unchanged catalog
-// uploads nothing. Needs `releases.publish`. Problem codes:
-// `invalid_environment`, `invalid_note` (400),
-// `not_releasable` (422), `storage_unavailable` (503).
+// uploads nothing. A branch environment (`kind: branch`) is built
+// from the main catalog plus its branch's overlay; it publishes
+// itself when the branch changes, so publishing one by hand is
+// rarely needed. Needs `releases.publish`. Problem codes:
+// `invalid_environment`, `invalid_note` (400), `not_releasable`
+// (422), `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
