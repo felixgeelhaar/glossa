@@ -84,11 +84,13 @@ The source locale is always the implicit last step. `lookupLocale`
 ### How loading behaves
 
 - **Order** (SPEC §3): the release in memory, then persisted last-good, then the
-  edge, then the bundle, then the inline default or message ID. Each artifact is
-  looked up in the same order by its hash, so a partly cached release only
-  fetches what's missing, and only for the active fallback chain.
-- **Atomic activation.** A manifest is checked (schema major version first,
-  then the signature), every artifact of the chain is verified against its
+  edge, then the bundle, then the inline default or message ID. Artifacts are
+  content-addressed, so each one is looked up by its hash in memory, the
+  persisted release, the bundle and only then the edge: a partly cached or
+  bundled release only fetches what it has nowhere else, and only for the
+  active fallback chain.
+- **Atomic activation.** A manifest is checked (schema major version and
+  environment first, then the signature), every artifact of the chain is verified against its
   SHA-256, and only then does the release switch, in one step. Until then the
   previous release keeps serving. Activations are serialized, so a locale
   switch during a release update can't resurrect the old release.
@@ -103,6 +105,11 @@ The source locale is always the implicit last step. `lookupLocale`
 - **Persistence** stores the manifest, its ETag and the verified bytes of every
   artifact of that release the runtime has loaded, across restarts. Storage
   failures only cost persistence.
+- **Bad messages.** A message in an artifact that isn't an MF2 data-model
+  message is dropped with a `schema` error (with its `messageId`) and resolves
+  as missing, so the fallback chain covers it; it never blocks the release.
+- **Never blank.** A message that formats to the empty string renders the
+  inline default, or the message ID.
 
 ## `format` and `formatToParts`
 
@@ -176,14 +183,14 @@ line is what an app that imports only that pays:
 
 | Import | Size | Budget |
 |---|---|---|
-| `{ format, formatToParts }` (interpreter only) | 3.11 kB | 4 kB |
-| `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`) | 5.85 kB | 6.5 kB |
-| `{ createRuntime, resolveLocales, acceptLanguage }` | 6.0 kB | 6.5 kB |
+| `{ format, formatToParts }` (interpreter only) | 3.13 kB | 4 kB |
+| `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`) | 5.99 kB | 6.5 kB |
+| `{ createRuntime, resolveLocales, acceptLanguage }` | 6.15 kB | 6.5 kB |
 | `@glossa/runtime/idb` | 0.26 kB | 0.5 kB |
 
 RFC 0002 §8 set 4 kB for the whole JS core. The interpreter alone fits it; the
 contract's loader, SHA-256 and Ed25519 verification, JCS, the fallback graph,
-persistence, background refresh and `explain` add about 2.7 kB. The 6.5 kB
+persistence, background refresh and `explain` add about 2.9 kB. The 6.5 kB
 budget keeps ~0.5 kB for namespace-level lazy loading (bundle splitting).
 Framework adapters are separate packages with their own budgets. If the budget
 gets tight, trim here before dropping contract behaviour: the `Intl.Locale`

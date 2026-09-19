@@ -42,12 +42,16 @@ export function jcs(value: unknown): string {
 
 /**
  * Why a manifest can't be used, or `undefined`. A different major schema
- * version is rejected (SPEC §1.1); unknown fields are ignored.
+ * version is rejected (SPEC §1.1), and so is a manifest for another
+ * environment than `env` (SPEC §3); unknown fields are ignored.
  */
-export function checkManifest(m: unknown): string | undefined {
+export function checkManifest(m: unknown, env?: string): string | undefined {
   const x = m as Partial<Manifest> | null;
   if (!/^glossa\.manifest\/v1\b/.test(String(x?.schema))) {
     return `unsupported manifest schema ${String(x?.schema)}`;
+  }
+  if (env !== undefined && x!.environment !== env) {
+    return `manifest is for environment ${String(x!.environment)}, not ${env}`;
   }
   const ok =
     typeof x!.release?.id === "string" &&
