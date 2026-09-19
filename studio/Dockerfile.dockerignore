@@ -1,0 +1,18 @@
+# Build context is the repository root (see Dockerfile). Send only the
+# workspace files Studio's build needs; never local installs, builds or
+# the design-system checkout scripts/klarlabs-ui.mjs makes.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!messageformat/js/
+!studio/
+**/node_modules/
+**/dist/
+**/*.test.ts
+studio/.klarlabs-ui
+studio/.klarlabs-ui-src/
+studio/e2e/
+studio/test-results/
+studio/playwright-report/
+**/.DS_Store
