@@ -408,6 +408,38 @@ func (q *Queries) ListProviders(ctx context.Context, arg ListProvidersParams) ([
 	return items, nil
 }
 
+const listRoutingPolicies = `-- name: ListRoutingPolicies :many
+SELECT id, tenant_id, project_id, policy, version, updated_by, updated_at FROM intelligence_routing_policies ORDER BY project_id NULLS FIRST
+`
+
+func (q *Queries) ListRoutingPolicies(ctx context.Context) ([]IntelligenceRoutingPolicy, error) {
+	rows, err := q.db.Query(ctx, listRoutingPolicies)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IntelligenceRoutingPolicy
+	for rows.Next() {
+		var i IntelligenceRoutingPolicy
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ProjectID,
+			&i.Policy,
+			&i.Version,
+			&i.UpdatedBy,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSpend = `-- name: ListSpend :many
 SELECT id, tenant_id, job_id, project_id, task, provider, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_micro_usd, priced, occurred_at FROM intelligence_spend
 WHERE tenant_id = app_current_tenant() AND occurred_at >= $1

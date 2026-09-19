@@ -89,6 +89,9 @@ WHERE project_id = sqlc.arg(project_id) AND version = sqlc.arg(expected_version)
 SELECT * FROM intelligence_routing_policies
 WHERE project_id IS NOT DISTINCT FROM sqlc.narg(project_id)::uuid;
 
+-- name: ListRoutingPolicies :many
+SELECT * FROM intelligence_routing_policies ORDER BY project_id NULLS FIRST;
+
 -- name: InsertRoutingPolicy :execrows
 INSERT INTO intelligence_routing_policies (id, tenant_id, project_id, policy, version, updated_by, updated_at)
 VALUES (sqlc.arg(id), app_current_tenant(), sqlc.narg(project_id), sqlc.arg(policy), 1, sqlc.arg(updated_by), sqlc.arg(updated_at))

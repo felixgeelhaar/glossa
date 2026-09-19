@@ -71,6 +71,7 @@ const (
 	SkipSuperseded = "superseded"
 	SkipUpToDate   = "up_to_date"
 	SkipMessage    = "message_gone"
+	SkipLocale     = "locale_gone"
 )
 
 // Job is one message × locale to translate.
