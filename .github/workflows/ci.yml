@@ -126,3 +126,43 @@ jobs:
         run: pnpm -r test
       - name: admin build (vite)
         run: pnpm --filter @felixgeelhaar/glossa-admin build
+
+  studio-e2e:
+    name: Studio e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: platform/go.mod
+          cache-dependency-path: platform/go.sum
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile=false
+      - name: build @glossa/messageformat
+        run: pnpm --filter @glossa/messageformat build
+      # Also clones and builds @klarlabs-studio/ui at the commit pinned in
+      # studio/package.json (see studio/README.md, "Design system").
+      - name: build Studio
+        run: pnpm --filter @glossa/studio build
+      - name: initial bundle size (budget 250 kB gzip)
+        run: pnpm --filter @glossa/studio size
+      - name: install Chromium
+        run: pnpm --filter @glossa/studio exec playwright install --with-deps chromium
+      # Postgres via testcontainers and glossa-server built from platform/;
+      # the runner has Docker.
+      - name: Playwright against glossa-server
+        run: pnpm --filter @glossa/studio test:e2e
+      - name: keep the report and server log
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: studio-e2e
+          path: |
+            studio/playwright-report
+            studio/test-results
+            studio/e2e/.state/server.log
+          retention-days: 7
