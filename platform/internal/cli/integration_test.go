@@ -392,6 +392,7 @@ func TestCLIAgainstGlossaServer(t *testing.T) {
 	r.run(cli.ExitOK, nil, "generate", "--check")
 	r.run(cli.ExitOK, nil, "diff", "--exit-code")
 
+	contextLoop(t, r, s, session{cookie: cookie, csrf: csrf}, base+"/projects/"+project.ID)
 	releaseLoop(t, r)
 	knowledgeLoop(t, r, s, session{cookie: cookie, csrf: csrf}, base, project.ID)
 	interchangeLoop(t, r)

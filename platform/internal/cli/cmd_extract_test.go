@@ -1,14 +1,10 @@
 package cli
 
 import (
-	"encoding/json"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/extract"
@@ -129,77 +125,39 @@ func TestExtractReadsTheCommitFromGit(t *testing.T) {
 	}
 }
 
-// contextBuilds records uploads to the Context API's context builds.
-type contextBuilds struct {
-	mu      sync.Mutex
-	queries []string
-	docs    []extract.Document
-}
-
-func (c *contextBuilds) route(f *fakeServer) {
-	f.srv.Config.Handler = wrapRoute(f.srv.Config.Handler, "POST /v1/tenants/ten_1/projects/prj_1/context-builds", func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer "+testToken || r.Header.Get("Content-Type") != "application/json" {
-			problemResp(w, 401, "unauthenticated", "invalid token")
-			return
-		}
-		raw, _ := io.ReadAll(r.Body)
-		var doc extract.Document
-		if err := json.Unmarshal(raw, &doc); err != nil {
-			problemResp(w, 400, "invalid_upload", err.Error())
-			return
-		}
-		c.mu.Lock()
-		defer c.mu.Unlock()
-		c.queries = append(c.queries, r.URL.RawQuery)
-		c.docs = append(c.docs, doc)
-		writeJSONResp(w, 201, map[string]any{"id": "bld_1", "unknown_keys": 2, "replayed": len(c.docs) > 1})
-	})
-}
-
-func wrapRoute(next http.Handler, pattern string, h http.HandlerFunc) http.Handler {
-	mux := http.NewServeMux()
-	mux.Handle("/", next)
-	mux.HandleFunc(pattern, h)
-	return mux
-}
-
 func TestExtractUploadsTheDocument(t *testing.T) {
 	srv := newFakeServer(t)
-	builds := &contextBuilds{}
-	builds.route(srv)
 	w := extractWorkspace(t, srv)
-	w.env["GLOSSA_DEFAULT_BRANCH"] = "main"
 	args := []string{"extract", "--upload", "--application", "web", "--commit", testCommit, "--branch", "main"}
 	r := w.run(args...)
 	r.want(t, ExitOK)
 	if !strings.Contains(r.stdout, "Uploaded the usages of web at 0123456789ab (main) as build bld_1") {
 		t.Errorf("output:\n%s", r.stdout)
 	}
-	if len(builds.docs) != 1 || len(builds.docs[0].Usages) != 5 || builds.docs[0].Commit != testCommit {
-		t.Fatalf("uploaded = %+v", builds.docs)
-	}
-	if builds.queries[0] != "default_branch=main&source=extract" {
-		t.Errorf("query = %s", builds.queries[0])
+	ups := srv.ctx.uploads
+	if len(ups) != 1 || ups[0].source != "extract" || len(ups[0].doc.Usages) != 5 || ups[0].doc.Commit != testCommit ||
+		ups[0].doc.Tool.Name != "glossa" {
+		t.Fatalf("uploaded = %+v", ups)
 	}
 	var doc extract.Document
 	w.json(&doc, args...).want(t, ExitOK)
 	if doc.Application != "web" || len(doc.Usages) != 5 {
 		t.Errorf("--json with --upload = %+v", doc)
 	}
-	if r := w.run(args...); !strings.Contains(r.stdout, "Already uploaded") {
+	if r := w.run(args...); !strings.Contains(r.stdout, "Already uploaded the usages of web") || !strings.Contains(r.stdout, "build bld_1") {
 		t.Errorf("replayed upload:\n%s", r.stdout)
 	}
 }
 
 func TestExtractUploadExplainsAPIErrors(t *testing.T) {
 	srv := newFakeServer(t)
-	srv.srv.Config.Handler = wrapRoute(srv.srv.Config.Handler, "POST /v1/tenants/ten_1/projects/prj_1/context-builds", func(w http.ResponseWriter, _ *http.Request) {
-		problemResp(w, 404, "application_not_found", "no application web in project shop")
-	})
 	w := extractWorkspace(t, srv)
 	var e errorDoc
-	w.json(&e, "extract", "--upload", "--application", "web", "--commit", testCommit, "--branch", "main").want(t, ExitNetwork)
-	if !strings.Contains(e.Error.Why, "no application web") {
+	// The server refusing the document is a usage error.
+	w.json(&e, "extract", "--upload", "--application", "ios", "--commit", testCommit, "--branch", "main").want(t, ExitUsage)
+	if e.Error.Code != "unknown_application" || !strings.Contains(e.Error.Why, "no application") {
 		t.Errorf("error = %+v", e.Error)
 	}
+	w.env["GLOSSA_TOKEN"] = "glossa_api_" + strings.Repeat("B", 43)
+	w.json(&e, "extract", "--upload", "--application", "web", "--commit", testCommit, "--branch", "main").want(t, ExitNetwork)
 }

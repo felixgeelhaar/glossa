@@ -16,8 +16,6 @@ type buildRef struct {
 	Commit string
 	// Branch is the short branch name (feat/checkout-copy).
 	Branch string
-	// DefaultBranch is the repository's default branch, when known.
-	DefaultBranch string
 }
 
 // The usages document's commit and branch (glossa.usages/v1).
@@ -28,30 +26,28 @@ var (
 
 func validBranch(b string) bool { return len(b) <= 255 && branchPattern.MatchString(b) }
 
-// detectBuild finds the commit and branch: GLOSSA_COMMIT, GLOSSA_BRANCH
-// and GLOSSA_DEFAULT_BRANCH first, then GitHub Actions and GitLab CI, then
-// git in dir. Fields it can't find stay empty.
+// detectBuild finds the commit and branch: GLOSSA_COMMIT and
+// GLOSSA_BRANCH first, then GitHub Actions and GitLab CI, then git in
+// dir. Fields it can't find stay empty.
 func detectBuild(ctx context.Context, getenv func(string) string, dir string) buildRef {
 	var ref buildRef
 	for _, source := range []func() buildRef{
 		func() buildRef {
-			return buildRef{Commit: getenv("GLOSSA_COMMIT"), Branch: getenv("GLOSSA_BRANCH"), DefaultBranch: getenv("GLOSSA_DEFAULT_BRANCH")}
+			return buildRef{Commit: getenv("GLOSSA_COMMIT"), Branch: getenv("GLOSSA_BRANCH")}
 		},
 		func() buildRef { return githubBuild(getenv) },
 		func() buildRef {
 			return buildRef{Commit: getenv("CI_COMMIT_SHA"),
-				Branch:        firstOf(getenv("CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"), getenv("CI_COMMIT_BRANCH")),
-				DefaultBranch: getenv("CI_DEFAULT_BRANCH")}
+				Branch: firstOf(getenv("CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"), getenv("CI_COMMIT_BRANCH"))}
 		},
 		func() buildRef { return gitBuild(ctx, dir) },
 	} {
-		if ref.Commit != "" && ref.Branch != "" && ref.DefaultBranch != "" {
+		if ref.Commit != "" && ref.Branch != "" {
 			break
 		}
 		next := source()
 		ref.Commit = firstOf(ref.Commit, strings.ToLower(strings.TrimSpace(next.Commit)))
 		ref.Branch = firstOf(ref.Branch, strings.TrimSpace(next.Branch))
-		ref.DefaultBranch = firstOf(ref.DefaultBranch, strings.TrimSpace(next.DefaultBranch))
 	}
 	return ref
 }
@@ -73,13 +69,9 @@ func githubBuild(getenv func(string) string) buildRef {
 				Ref string `json:"ref"`
 			} `json:"head"`
 		} `json:"pull_request"`
-		Repository struct {
-			DefaultBranch string `json:"default_branch"`
-		} `json:"repository"`
 	}
 	if p := getenv("GITHUB_EVENT_PATH"); p != "" {
 		if raw, err := os.ReadFile(p); err == nil && json.Unmarshal(raw, &event) == nil { //nolint:gosec // the runner's event file
-			ref.DefaultBranch = event.Repository.DefaultBranch
 			if pr := event.PullRequest; pr != nil {
 				ref.Commit, ref.Branch = pr.Head.SHA, firstOf(ref.Branch, pr.Head.Ref)
 			}
@@ -88,8 +80,8 @@ func githubBuild(getenv func(string) string) buildRef {
 	return ref
 }
 
-// gitBuild asks git: HEAD, the checked-out branch (none when detached)
-// and origin's default branch.
+// gitBuild asks git: HEAD and the checked-out branch (none when
+// detached). The default branch is the project's setting on the server.
 func gitBuild(ctx context.Context, dir string) buildRef {
 	git := func(args ...string) string {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -109,7 +101,6 @@ func gitBuild(ctx context.Context, dir string) buildRef {
 	if b := git("symbolic-ref", "--quiet", "--short", "HEAD"); b != "" {
 		ref.Branch = b
 	}
-	ref.DefaultBranch = strings.TrimPrefix(git("symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"), "origin/")
 	return ref
 }
 

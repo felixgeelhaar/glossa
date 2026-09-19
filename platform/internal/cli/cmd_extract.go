@@ -13,13 +13,9 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 )
 
-// extractSource is the collector name the Context API records for
-// `glossa extract` builds.
-const extractSource = "extract"
-
 type extractFlags struct {
-	strict, upload                             bool
-	application, commit, branch, defaultBranch string
+	strict, upload              bool
+	application, commit, branch string
 }
 
 // extractReport is what extract found, beyond the document: the human
@@ -34,7 +30,7 @@ type extractReport struct {
 	// unused are catalog keys no code uses (dynamic keys can't be seen).
 	unused      []string
 	catalogSize int
-	uploaded    *remote.ContextBuild
+	uploaded    *remote.UploadedBuild
 }
 
 type unknownKey struct {
@@ -51,7 +47,6 @@ func runExtract(ctx context.Context, inv *invocation, args []string) error {
 	fs.StringVar(&f.application, "application", "", "the application's slug (default: extract.application, GLOSSA_APPLICATION)")
 	fs.StringVar(&f.commit, "commit", "", "the commit the usages are from (default: CI, else git HEAD)")
 	fs.StringVar(&f.branch, "branch", "", "the branch the usages are from (default: CI, else git)")
-	fs.StringVar(&f.defaultBranch, "default-branch", "", "the repository's default branch, for --upload (default: CI, else origin/HEAD)")
 	if _, err := inv.parse(fs, args); err != nil {
 		return err
 	}
@@ -69,7 +64,7 @@ func runExtract(ctx context.Context, inv *invocation, args []string) error {
 		}
 	}
 	if f.upload {
-		if rep.uploaded, err = inv.uploadUsages(ctx, cfg, rep.doc, f.defaultBranch); err != nil {
+		if rep.uploaded, err = inv.uploadUsages(ctx, cfg, rep.doc); err != nil {
 			return err
 		}
 	}
@@ -143,12 +138,11 @@ func (inv *invocation) usagesHeader(ctx context.Context, cfg *config.Config, f *
 		return doc, usageError(inv.name, "--application %q is not an application slug (lowercase letters, digits and -, e.g. web)", doc.Application)
 	}
 	detected := buildRef{}
-	if f.commit == "" || f.branch == "" || (f.upload && f.defaultBranch == "") {
+	if f.commit == "" || f.branch == "" {
 		detected = detectBuild(ctx, inv.env.getenv, cfg.Dir())
 	}
 	doc.Commit = strings.ToLower(firstOf(f.commit, detected.Commit))
 	doc.Branch = strings.TrimPrefix(firstOf(f.branch, detected.Branch), "refs/heads/")
-	f.defaultBranch = firstOf(f.defaultBranch, detected.DefaultBranch)
 	switch {
 	case doc.Commit == "":
 		return doc, &Error{Exit: ExitUsage, Code: "commit_unknown", What: "which commit are these usages from?",
@@ -179,21 +173,14 @@ func semver(v string) string {
 	return "0.0.0-dev"
 }
 
-// uploadUsages sends the document to the project's context builds.
-func (inv *invocation) uploadUsages(ctx context.Context, cfg *config.Config, doc extract.Document, defaultBranch string) (*remote.ContextBuild, error) {
+// uploadUsages sends the document to the project's context builds as an
+// extract build, like `glossa context push` would.
+func (inv *invocation) uploadUsages(ctx context.Context, cfg *config.Config, doc extract.Document) (*remote.UploadedBuild, error) {
 	raw, err := json.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}
-	p, err := inv.connectWith(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	b, err := p.client.UploadUsages(ctx, p.scope, raw, extractSource, defaultBranch)
-	if err != nil {
-		return nil, inv.apiError(err, "can't upload the usages")
-	}
-	return &b, nil
+	return inv.pushUsages(ctx, cfg, raw, remote.SourceExtract)
 }
 
 func printExtract(p *printer, rep extractReport) {
@@ -229,13 +216,8 @@ func printExtract(p *printer, rep extractReport) {
 			p.line("  %s", k)
 		}
 	}
-	if b := rep.uploaded; b != nil {
-		what := "Uploaded"
-		if b.Replayed {
-			what = "Already uploaded"
-		}
-		p.line("%s %s the usages of %s at %s (%s) as build %s", p.pass(), what, rep.doc.Application,
-			shortCommit(rep.doc.Commit), rep.doc.Branch, b.ID)
+	if up := rep.uploaded; up != nil {
+		printUpload(p, rep.doc.Application, rep.doc.Commit, rep.doc.Branch, up)
 	}
 }
 
