@@ -127,6 +127,8 @@ github.com/google/go-tpm-tools v0.3.13-0.20230620182252-4639ecce2aba/go.mod h1:E
 github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
+github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 h1:/Tnpcb2E0Pz/tN9s3bfEY2Q8ePCEX9iuS+cneUwncnw=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0/go.mod h1:zOBXOsUaBSjKgmH4OGzV1esUpR3oUSCPYVd2cUBjKYY=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
@@ -326,6 +328,8 @@ go.klarlabs.de/bolt v1.7.0 h1:BwYaNBXpyAk6YCaSPmlN4UHDZHQVGMeuWWo9TZxOoCg=
 go.klarlabs.de/bolt v1.7.0/go.mod h1:KAA1eX8qgHP6R3sKAGizm4hbR3F0lrqCKHtAuvCsmpQ=
 go.klarlabs.de/fortify v1.10.0 h1:uJYHoAgjYg2fzTCxDAY9rSZ5UbKh70ENsXYcjDmbPWE=
 go.klarlabs.de/fortify v1.10.0/go.mod h1:NMnP89eeGi4Sk7jxNFSbwbDRFUOg0t7U9I+d/Nmz7Qc=
+go.klarlabs.de/scout v1.15.3 h1:QRGUJVVtQjdxKv8E1L9oYuLkEkclGE6OA/MZ1dooZUs=
+go.klarlabs.de/scout v1.15.3/go.mod h1:SjvWGIO4//nBdb5BV9hh5IAQIEOdV4YSFog54Fty8ug=
 go.klarlabs.de/statekit v1.13.2 h1:jhq2lJMMRo6CeVoryL2aEUj/DV5JldNscBOio9TEvmQ=
 go.klarlabs.de/statekit v1.13.2/go.mod h1:/0OfP+tXhnjz6t2FACqv4q5BDeNcqMytx+vMniPxxWc=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=

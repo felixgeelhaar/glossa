@@ -29,6 +29,7 @@ require (
 	go.klarlabs.de/axi v1.5.0
 	go.klarlabs.de/bolt v1.7.0
 	go.klarlabs.de/fortify v1.10.0
+	go.klarlabs.de/scout v1.15.3
 	go.klarlabs.de/statekit v1.13.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
 	go.opentelemetry.io/otel v1.46.0
@@ -83,6 +84,7 @@ require (
 	github.com/go-webauthn/x v0.2.6 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa // indirect

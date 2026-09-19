@@ -1,13 +1,14 @@
 /**
- * The fixture app of the `glossa capture` integration test
- * (platform/internal/cli/integration_capture_test.go), bundled by
+ * The fixture app of the `glossa capture` integration tests
+ * (platform/internal/cli/capture/browser_integration_test.go and
+ * platform/internal/cli/integration_capture_test.go), bundled by
  * `pnpm build:cli` into platform/internal/cli/capture/testdata/app/app.js.
  *
  * It renders a bundled release like an application would: `t()` text, a
  * `<glossa-text>` component host, an attribute, a hidden message, a message
- * only wide viewports show, and an element marked `data-glossa-redact`. The
- * query selects the locale (`?lang=`) and the manifest's environment
- * (`?env=production` for the refusal test). Test-only.
+ * only wide viewports show, a dialog a playbook opens, and an element marked
+ * `data-glossa-redact`. The query selects the locale (`?lang=`) and the
+ * manifest's environment (`?env=production` for the refusal test). Test-only.
  */
 import { createRuntime } from "@glossa/runtime";
 import type { Artifact, BundledRelease, Manifest, Message } from "@glossa/runtime";
@@ -23,6 +24,7 @@ const catalogs: Record<string, Record<string, string>> = {
     "hidden.note": "Unsichtbar",
     "desktop.hint": "Nur auf großen Bildschirmen",
     "account.label": "Konto",
+    "dialog.body": "Dialoginhalt",
   },
   ja: {
     "home.title": "ようこそ",
@@ -72,10 +74,18 @@ function render() {
   $("hidden").textContent = runtime.t("hidden.note");
   $("desktop").textContent = runtime.t("desktop.hint");
   $("account-label").textContent = runtime.t("account.label");
+  $("dialog").textContent = runtime.t("dialog.body");
   const provider = $("provider") as HTMLElement & { runtime?: unknown };
   if (provider.runtime !== runtime) provider.runtime = runtime;
 }
 
+function start() {
+  render();
+  document.getElementById("open")!.addEventListener("click", () => {
+    document.getElementById("dialog")!.hidden = false;
+  });
+}
+
 runtime.subscribe(render);
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", render);
-else render();
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+else start();
