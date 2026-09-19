@@ -7,16 +7,24 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/coverage"
 	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
 	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
+	intelligenceapi "github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/httpapi"
+	intelligencemetrics "github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/metrics"
+	intelligencepg "github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/postgres"
+	intelligenceproviders "github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/providers"
+	intelligencesources "github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/sources"
+	intelligenceapp "github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/configured"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/sealing"
 	knowledgeapi "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/httpapi"
 	knowledgepg "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/postgres"
 	knowledgesources "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/sources"
@@ -39,15 +47,19 @@ import (
 // contexts are the bounded contexts besides Identity, wired to each
 // other only through their application ports: Localization reads the
 // catalog through catalogport, Catalog asks Localization for
-// translation coverage through coverage, and Release and Knowledge read
-// both through their sources adapters.
+// translation coverage through coverage, Release and Knowledge read
+// both through their sources adapters, and Intelligence reads (and
+// writes translations) through its own.
 type contexts struct {
 	catalogAPI      *catalogapi.API
 	localizationAPI *localizationapi.API
 	releaseAPI      *releaseapi.API
 	knowledgeAPI    *knowledgeapi.API
+	intelligenceAPI *intelligenceapi.API
 	// previewAPI is the stateless message preview (no database).
 	previewAPI *previewapi.API
+	// aiWorker runs Intelligence's jobs; nil when disabled.
+	aiWorker *intelligenceapp.Worker
 }
 
 // contextDeps are what the contexts need beyond the database.
@@ -55,10 +67,15 @@ type contextDeps struct {
 	objects objectstore.Store
 	signer  *releasedomain.Signer
 	logger  *slog.Logger
+	// sealKey seals tenants' provider keys (derived from the auth
+	// secret).
+	sealKey    []byte
+	registerer prometheus.Registerer
+	ai         config.Intelligence
 }
 
 // buildContexts opens object storage and the signer, then the contexts.
-func buildContexts(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, events *outbox.Registry) (contexts, error) {
+func buildContexts(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, events *outbox.Registry, reg prometheus.Registerer) (contexts, error) {
 	objects, err := configured.Open(cfg.Storage)
 	if err != nil {
 		return contexts{}, err
@@ -67,7 +84,13 @@ func buildContexts(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, e
 	if err != nil {
 		return contexts{}, err
 	}
-	return newContexts(pool, events, contextDeps{objects: objects, signer: signer, logger: logger})
+	sealKey, err := deriveKey(cfg.Identity.AuthKey(), "secret-seal")
+	if err != nil {
+		return contexts{}, err
+	}
+	return newContexts(pool, events, contextDeps{
+		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
+	})
 }
 
 // newContexts builds Catalog, Localization and Release and subscribes
@@ -90,11 +113,55 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err := release.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
-	return contexts{
+	intelligence, err := newIntelligence(uow, catalog, localization, release, knowledge, deps)
+	if err != nil {
+		return contexts{}, err
+	}
+	if err := intelligence.Subscribe(events); err != nil {
+		return contexts{}, err
+	}
+	aiAPI, err := intelligenceapi.New(intelligence)
+	if err != nil {
+		return contexts{}, err
+	}
+	c := contexts{
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
-		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge),
+		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
 		previewAPI: previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),
-	}, nil
+	}
+	if deps.ai.WorkersEnabled {
+		c.aiWorker = intelligenceapp.NewWorker(intelligence, intelligencepg.NewClaimer(uow), intelligenceapp.WorkerConfig{
+			Workers: deps.ai.Workers, PollInterval: deps.ai.PollInterval, Lease: deps.ai.Lease, JobTimeout: deps.ai.JobTimeout,
+		})
+	}
+	return c, nil
+}
+
+// newIntelligence wires the Intelligence context: its Postgres store,
+// the other contexts' services through its sources adapters, providers
+// built from tenants' configuration over an SSRF-safe client, sealed
+// keys and Prometheus metrics.
+func newIntelligence(uow *db.UnitOfWork, catalog *catalogapp.Service, localization *localizationapp.Service,
+	release *releaseapp.Service, knowledge *knowledgeapp.Service, deps contextDeps,
+) (*intelligenceapp.Service, error) {
+	sealer, err := sealing.New(deps.sealKey)
+	if err != nil {
+		return nil, err
+	}
+	return intelligenceapp.NewService(intelligenceapp.Deps{
+		Tx:           intelligencepg.NewTransactor(uow),
+		Catalog:      intelligencesources.NewCatalog(catalog),
+		Localization: intelligencesources.NewLocalization(localization, catalog),
+		Environments: intelligencesources.NewEnvironments(release),
+		Knowledge:    intelligencesources.NewKnowledge(knowledge),
+		Providers: intelligenceproviders.New(intelligenceproviders.Config{
+			AllowPrivate: deps.ai.AllowPrivateEndpoints, Concurrency: deps.ai.ProviderConcurrency, Logger: deps.logger,
+		}),
+		Sealer:                sealer,
+		Metrics:               intelligencemetrics.New(deps.registerer),
+		Logger:                deps.logger,
+		AllowPrivateEndpoints: deps.ai.AllowPrivateEndpoints,
+	})
 }
 
 // newSigner builds the manifest signer from GLOSSA_RELEASE_SIGNING_KEYS

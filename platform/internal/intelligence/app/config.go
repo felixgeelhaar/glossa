@@ -351,8 +351,14 @@ func (s *Service) GetBudget(ctx context.Context) (Budget, error) {
 	return b, err
 }
 
-// ListSpend lists the ledger from since on, newest first. Needs
-// intelligence.read.
+// CanRead checks intelligence.read (reads that touch no store, like the
+// eval baseline).
+func (s *Service) CanRead(ctx context.Context) error {
+	return authz.Require(ctx, authz.IntelligenceRead)
+}
+
+// ListSpend lists the ledger from since on (this month when zero),
+// newest first. Needs intelligence.read.
 func (s *Service) ListSpend(ctx context.Context, since time.Time, page pagination.Page) ([]SpendEntry, *string, error) {
 	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
 		return nil, nil, err
@@ -360,6 +366,9 @@ func (s *Service) ListSpend(ctx context.Context, since time.Time, page paginatio
 	before, err := parseCursor(page.After)
 	if err != nil {
 		return nil, nil, err
+	}
+	if since.IsZero() {
+		since = monthStart(s.Now())
 	}
 	var rows []SpendEntry
 	err = s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {

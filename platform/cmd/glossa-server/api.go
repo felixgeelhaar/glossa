@@ -17,6 +17,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/passkey"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/postgres"
 	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	intelligenceapi "github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	knowledgeapi "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/httpapi"
@@ -34,6 +35,7 @@ type apiServer struct {
 	*localizationAPI
 	*releaseAPI
 	*knowledgeAPI
+	*intelligenceAPI
 	*previewAPI
 	*metaAPI
 }
@@ -45,6 +47,7 @@ type (
 	localizationAPI = localizationapi.API
 	releaseAPI      = releaseapi.API
 	knowledgeAPI    = knowledgeapi.API
+	intelligenceAPI = intelligenceapi.API
 	previewAPI      = previewapi.API
 )
 
@@ -55,8 +58,8 @@ var _ apiv1.StrictServerInterface = apiServer{}
 // error hooks render every failure as problem details.
 func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts) func(*http.ServeMux) {
 	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
-		knowledgeAPI: c.knowledgeAPI,
-		previewAPI:   c.previewAPI, metaAPI: meta}
+		knowledgeAPI: c.knowledgeAPI, intelligenceAPI: c.intelligenceAPI,
+		previewAPI: c.previewAPI, metaAPI: meta}
 	return func(mux *http.ServeMux) {
 		strict := apiv1.NewStrictHandlerWithOptions(server, nil, apiv1.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  identity.RequestError,

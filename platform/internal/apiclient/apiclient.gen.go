@@ -18,6 +18,294 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AIAction.
+const (
+	ApproveRecommended AIAction = "approve_recommended"
+	AutoApprove        AIAction = "auto_approve"
+	ReviewRequired     AIAction = "review_required"
+)
+
+// Valid indicates whether the value is a known member of the AIAction enum.
+func (e AIAction) Valid() bool {
+	switch e {
+	case ApproveRecommended:
+		return true
+	case AutoApprove:
+		return true
+	case ReviewRequired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AIFillTrigger.
+const (
+	AIFillTriggerFill        AIFillTrigger = "fill"
+	AIFillTriggerLocaleAdded AIFillTrigger = "locale_added"
+)
+
+// Valid indicates whether the value is a known member of the AIFillTrigger enum.
+func (e AIFillTrigger) Valid() bool {
+	switch e {
+	case AIFillTriggerFill:
+		return true
+	case AIFillTriggerLocaleAdded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AIJobState.
+const (
+	AIJobStateCancelled AIJobState = "cancelled"
+	AIJobStateDead      AIJobState = "dead"
+	AIJobStateFailed    AIJobState = "failed"
+	AIJobStateQueued    AIJobState = "queued"
+	AIJobStateRunning   AIJobState = "running"
+	AIJobStateSkipped   AIJobState = "skipped"
+	AIJobStateSucceeded AIJobState = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the AIJobState enum.
+func (e AIJobState) Valid() bool {
+	switch e {
+	case AIJobStateCancelled:
+		return true
+	case AIJobStateDead:
+		return true
+	case AIJobStateFailed:
+		return true
+	case AIJobStateQueued:
+		return true
+	case AIJobStateRunning:
+		return true
+	case AIJobStateSkipped:
+		return true
+	case AIJobStateSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AINamespaceTag.
+const (
+	Legal     AINamespaceTag = "legal"
+	Marketing AINamespaceTag = "marketing"
+	Sensitive AINamespaceTag = "sensitive"
+)
+
+// Valid indicates whether the value is a known member of the AINamespaceTag enum.
+func (e AINamespaceTag) Valid() bool {
+	switch e {
+	case Legal:
+		return true
+	case Marketing:
+		return true
+	case Sensitive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AIProvenanceOrigin.
+const (
+	AIProvenanceOriginAi                AIProvenanceOrigin = "ai"
+	AIProvenanceOriginTranslationMemory AIProvenanceOrigin = "translation_memory"
+)
+
+// Valid indicates whether the value is a known member of the AIProvenanceOrigin enum.
+func (e AIProvenanceOrigin) Valid() bool {
+	switch e {
+	case AIProvenanceOriginAi:
+		return true
+	case AIProvenanceOriginTranslationMemory:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AIProviderKind.
+const (
+	Anthropic        AIProviderKind = "anthropic"
+	Gemini           AIProviderKind = "gemini"
+	OpenaiCompatible AIProviderKind = "openai_compatible"
+)
+
+// Valid indicates whether the value is a known member of the AIProviderKind enum.
+func (e AIProviderKind) Valid() bool {
+	switch e {
+	case Anthropic:
+		return true
+	case Gemini:
+		return true
+	case OpenaiCompatible:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AIRouteEffort.
+const (
+	High   AIRouteEffort = "high"
+	Low    AIRouteEffort = "low"
+	Max    AIRouteEffort = "max"
+	Medium AIRouteEffort = "medium"
+)
+
+// Valid indicates whether the value is a known member of the AIRouteEffort enum.
+func (e AIRouteEffort) Valid() bool {
+	switch e {
+	case High:
+		return true
+	case Low:
+		return true
+	case Max:
+		return true
+	case Medium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AIRoutingPolicyViewSource.
+const (
+	AIRoutingPolicyViewSourceDefault AIRoutingPolicyViewSource = "default"
+	AIRoutingPolicyViewSourceProject AIRoutingPolicyViewSource = "project"
+	AIRoutingPolicyViewSourceTenant  AIRoutingPolicyViewSource = "tenant"
+)
+
+// Valid indicates whether the value is a known member of the AIRoutingPolicyViewSource enum.
+func (e AIRoutingPolicyViewSource) Valid() bool {
+	switch e {
+	case AIRoutingPolicyViewSourceDefault:
+		return true
+	case AIRoutingPolicyViewSourceProject:
+		return true
+	case AIRoutingPolicyViewSourceTenant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AISentMessageRole.
+const (
+	Assistant AISentMessageRole = "assistant"
+	User      AISentMessageRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the AISentMessageRole enum.
+func (e AISentMessageRole) Valid() bool {
+	switch e {
+	case Assistant:
+		return true
+	case User:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AISuggestionStatus.
+const (
+	AISuggestionStatusAccepted    AISuggestionStatus = "accepted"
+	AISuggestionStatusAutoApplied AISuggestionStatus = "auto_applied"
+	AISuggestionStatusPending     AISuggestionStatus = "pending"
+	AISuggestionStatusRejected    AISuggestionStatus = "rejected"
+	AISuggestionStatusSuperseded  AISuggestionStatus = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the AISuggestionStatus enum.
+func (e AISuggestionStatus) Valid() bool {
+	switch e {
+	case AISuggestionStatusAccepted:
+		return true
+	case AISuggestionStatusAutoApplied:
+		return true
+	case AISuggestionStatusPending:
+		return true
+	case AISuggestionStatusRejected:
+		return true
+	case AISuggestionStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AITask.
+const (
+	AITaskAssess    AITask = "assess"
+	AITaskExplain   AITask = "explain"
+	AITaskReview    AITask = "review"
+	AITaskTranslate AITask = "translate"
+)
+
+// Valid indicates whether the value is a known member of the AITask enum.
+func (e AITask) Valid() bool {
+	switch e {
+	case AITaskAssess:
+		return true
+	case AITaskExplain:
+		return true
+	case AITaskReview:
+		return true
+	case AITaskTranslate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AITermFindingCode.
+const (
+	AITermFindingCodeTermForbidden AITermFindingCode = "term_forbidden"
+	AITermFindingCodeTermMissing   AITermFindingCode = "term_missing"
+)
+
+// Valid indicates whether the value is a known member of the AITermFindingCode enum.
+func (e AITermFindingCode) Valid() bool {
+	switch e {
+	case AITermFindingCodeTermForbidden:
+		return true
+	case AITermFindingCodeTermMissing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AITrigger.
+const (
+	AITriggerFill                AITrigger = "fill"
+	AITriggerLocaleAdded         AITrigger = "locale_added"
+	AITriggerMessageCreated      AITrigger = "message_created"
+	AITriggerTranslationOutdated AITrigger = "translation_outdated"
+)
+
+// Valid indicates whether the value is a known member of the AITrigger enum.
+func (e AITrigger) Valid() bool {
+	switch e {
+	case AITriggerFill:
+		return true
+	case AITriggerLocaleAdded:
+		return true
+	case AITriggerMessageCreated:
+		return true
+	case AITriggerTranslationOutdated:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ArgumentSelectorKind.
 const (
 	ArgumentSelectorKindExact   ArgumentSelectorKind = "exact"
@@ -662,16 +950,16 @@ func (e TenantKind) Valid() bool {
 
 // Defines values for TermFindingCode.
 const (
-	TermForbidden TermFindingCode = "term_forbidden"
-	TermMissing   TermFindingCode = "term_missing"
+	TermFindingCodeTermForbidden TermFindingCode = "term_forbidden"
+	TermFindingCodeTermMissing   TermFindingCode = "term_missing"
 )
 
 // Valid indicates whether the value is a known member of the TermFindingCode enum.
 func (e TermFindingCode) Valid() bool {
 	switch e {
-	case TermForbidden:
+	case TermFindingCodeTermForbidden:
 		return true
-	case TermMissing:
+	case TermFindingCodeTermMissing:
 		return true
 	default:
 		return false
@@ -764,16 +1052,16 @@ func (e TranslationImportItemResultStatus) Valid() bool {
 
 // Defines values for TranslationRevisionKind.
 const (
-	Content TranslationRevisionKind = "content"
-	Review  TranslationRevisionKind = "review"
+	TranslationRevisionKindContent TranslationRevisionKind = "content"
+	TranslationRevisionKindReview  TranslationRevisionKind = "review"
 )
 
 // Valid indicates whether the value is a known member of the TranslationRevisionKind enum.
 func (e TranslationRevisionKind) Valid() bool {
 	switch e {
-	case Content:
+	case TranslationRevisionKindContent:
 		return true
-	case Review:
+	case TranslationRevisionKindReview:
 		return true
 	default:
 		return false
@@ -817,6 +1105,635 @@ func (e ListTranslationMemoryUnitsParamsState) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// AIAction defines model for AIAction.
+type AIAction string
+
+// AIAuditEntry defines model for AIAuditEntry.
+type AIAuditEntry struct {
+	// At RFC 3339, UTC.
+	At Timestamp `json:"at"`
+
+	// Output The tool's result, as recorded.
+	Output interface{} `json:"output"`
+
+	// Tool `tm_lookup`, `term_lookup`, `style_rules`, `message_context`, `validate`, `draft`, `assess`.
+	Tool string `json:"tool"`
+}
+
+// AIBudget defines model for AIBudget.
+type AIBudget struct {
+	ByProvider []AIProviderSpend `json:"by_provider"`
+	Calls      int               `json:"calls"`
+
+	// MonthStart RFC 3339, UTC.
+	MonthStart Timestamp `json:"month_start"`
+
+	// MonthlyBudgetMicroUsd Money in millionths of a US dollar (1 USD = 1000000).
+	MonthlyBudgetMicroUsd MicroUSD `json:"monthly_budget_micro_usd"`
+
+	// RemainingMicroUsd Money in millionths of a US dollar (1 USD = 1000000).
+	RemainingMicroUsd MicroUSD `json:"remaining_micro_usd"`
+
+	// SpentMicroUsd Money in millionths of a US dollar (1 USD = 1000000).
+	SpentMicroUsd MicroUSD `json:"spent_micro_usd"`
+}
+
+// AICall defines model for AICall.
+type AICall struct {
+	// CostMicroUsd Money in millionths of a US dollar (1 USD = 1000000).
+	CostMicroUsd  MicroUSD `json:"cost_micro_usd"`
+	Model         string   `json:"model"`
+	PromptVersion string   `json:"prompt_version"`
+	Provider      string   `json:"provider"`
+	Task          AITask   `json:"task"`
+	Usage         AIUsage  `json:"usage"`
+}
+
+// AIConfidenceFactor defines model for AIConfidenceFactor.
+type AIConfidenceFactor struct {
+	// Contribution How much it moved the score (negative lowers it).
+	Contribution float64 `json:"contribution"`
+
+	// Factor `origin`, `tm_match`, `term_forbidden`, `term_missing`, `repairs`, `qa_warnings`, `self_assessment`, `formality`, `max_length`, `length_ratio`, `risk_tag`, `markup_density`, `missing_plural_categories`.
+	Factor string  `json:"factor"`
+	Reason string  `json:"reason"`
+	Value  float64 `json:"value"`
+}
+
+// AIDecision defines model for AIDecision.
+type AIDecision struct {
+	Edit   *AIEditDiff `json:"edit,omitempty"`
+	Reason *string     `json:"reason,omitempty"`
+}
+
+// AIDisclosure defines model for AIDisclosure.
+type AIDisclosure struct {
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// JobId An opaque identifier.
+	JobId Id `json:"job_id"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// MessageId An opaque identifier.
+	MessageId Id     `json:"message_id"`
+	Model     string `json:"model"`
+
+	// OccurredAt RFC 3339, UTC.
+	OccurredAt Timestamp `json:"occurred_at"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id     `json:"project_id"`
+	Provider  string `json:"provider"`
+
+	// Sent Exactly what the provider received.
+	Sent []AISentMessage `json:"sent"`
+
+	// SystemSha256 Identifies the (versioned, data-free) system prompt.
+	SystemSha256 string `json:"system_sha256"`
+	Task         AITask `json:"task"`
+}
+
+// AIDisclosureList defines model for AIDisclosureList.
+type AIDisclosureList struct {
+	Items         []AIDisclosure `json:"items"`
+	NextPageToken *string        `json:"next_page_token,omitempty"`
+}
+
+// AIEditDiff defines model for AIEditDiff.
+type AIEditDiff struct {
+	// Distance Character edit distance of the visible text.
+	Distance int `json:"distance"`
+
+	// Ratio The distance over the longer text's length.
+	Ratio float64 `json:"ratio"`
+
+	// StyleFields Style fields whose use changed: `quotes`, `dash`, `ellipsis`, `space_before_punctuation`, `pronoun`.
+	StyleFields  *[]string `json:"style_fields,omitempty"`
+	TermsAdded   *[]string `json:"terms_added,omitempty"`
+	TermsRemoved *[]string `json:"terms_removed,omitempty"`
+}
+
+// AIEvalBaseline defines model for AIEvalBaseline.
+type AIEvalBaseline struct {
+	// Pairs A locale pair (`en-de`) or `all` to its tracked metrics.
+	Pairs map[string]AIEvalMetrics `json:"pairs"`
+}
+
+// AIEvalMetrics defines model for AIEvalMetrics.
+type AIEvalMetrics struct {
+	Cases                 int     `json:"cases"`
+	FormalityCompliance   float64 `json:"formality_compliance"`
+	MeanEditRatio         float64 `json:"mean_edit_ratio"`
+	OriginAccuracy        float64 `json:"origin_accuracy"`
+	StructuralPassRate    float64 `json:"structural_pass_rate"`
+	TerminologyCompliance float64 `json:"terminology_compliance"`
+}
+
+// AIFill defines model for AIFill.
+type AIFill struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Id An opaque identifier.
+	Id              Id    `json:"id"`
+	IncludeOutdated *bool `json:"include_outdated,omitempty"`
+
+	// JobStates The fill's jobs by state.
+	JobStates map[string]int `json:"job_states"`
+
+	// JobsCreated Jobs queued, new or queued again.
+	JobsCreated int `json:"jobs_created"`
+
+	// JobsExisting Jobs that already existed for the same message, locale, source revision and knowledge.
+	JobsExisting int       `json:"jobs_existing"`
+	KeyPrefix    *string   `json:"key_prefix,omitempty"`
+	Keys         *[]string `json:"keys,omitempty"`
+	Locales      []Locale  `json:"locales"`
+	Namespace    *string   `json:"namespace,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId   Id     `json:"project_id"`
+	RequestedBy string `json:"requested_by"`
+
+	// Skipped Messages left out, by reason: `sensitive`, `up_to_date`, `limit`.
+	Skipped map[string]int `json:"skipped"`
+	Trigger AIFillTrigger  `json:"trigger"`
+
+	// Warnings `provider_consent_off`, `no_budget`, `no_provider`.
+	Warnings []string `json:"warnings"`
+}
+
+// AIFillTrigger defines model for AIFill.Trigger.
+type AIFillTrigger string
+
+// AIJob defines model for AIJob.
+type AIJob struct {
+	Attempts int             `json:"attempts"`
+	Audit    *[]AIAuditEntry `json:"audit,omitempty"`
+
+	// AvailableAt RFC 3339, UTC.
+	AvailableAt Timestamp `json:"available_at"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// FailureCode Why it failed, was skipped or died (see the listing).
+	FailureCode *string `json:"failure_code,omitempty"`
+
+	// FillId An opaque identifier.
+	FillId *Id `json:"fill_id,omitempty"`
+
+	// FinishedAt RFC 3339, UTC.
+	FinishedAt *Timestamp `json:"finished_at,omitempty"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// KnowledgeFingerprint Digest of the prompts, style guides and termbase the job was queued against.
+	KnowledgeFingerprint string  `json:"knowledge_fingerprint"`
+	LastError            *string `json:"last_error,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale      Locale `json:"locale"`
+	MaxAttempts int    `json:"max_attempts"`
+
+	// MessageId An opaque identifier.
+	MessageId Id `json:"message_id"`
+
+	// MessageKey A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	MessageKey MessageKey `json:"message_key"`
+	Namespace  string     `json:"namespace"`
+
+	// ProjectId An opaque identifier.
+	ProjectId      Id  `json:"project_id"`
+	SourceRevision int `json:"source_revision"`
+
+	// StartedAt RFC 3339, UTC.
+	StartedAt *Timestamp `json:"started_at,omitempty"`
+	State     AIJobState `json:"state"`
+
+	// SuggestionId An opaque identifier.
+	SuggestionId *Id       `json:"suggestion_id,omitempty"`
+	Trigger      AITrigger `json:"trigger"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// AIJobList defines model for AIJobList.
+type AIJobList struct {
+	Items         []AIJob `json:"items"`
+	NextPageToken *string `json:"next_page_token,omitempty"`
+}
+
+// AIJobState defines model for AIJobState.
+type AIJobState string
+
+// AILocaleMetrics defines model for AILocaleMetrics.
+type AILocaleMetrics struct {
+	// AcceptanceRate accepted / (accepted + rejected).
+	AcceptanceRate float64 `json:"acceptance_rate"`
+	Accepted       int     `json:"accepted"`
+
+	// Edited Accepted after an edit.
+	Edited int `json:"edited"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale           Locale  `json:"locale"`
+	MeanEditDistance float64 `json:"mean_edit_distance"`
+	MeanEditRatio    float64 `json:"mean_edit_ratio"`
+	Rejected         int     `json:"rejected"`
+}
+
+// AIMetrics defines model for AIMetrics.
+type AIMetrics struct {
+	Locales []AILocaleMetrics `json:"locales"`
+
+	// Since RFC 3339, UTC.
+	Since Timestamp `json:"since"`
+}
+
+// AINamespaceTag defines model for AINamespaceTag.
+type AINamespaceTag string
+
+// AIPrice defines model for AIPrice.
+type AIPrice struct {
+	CacheReadPerMtok  *float64 `json:"cache_read_per_mtok,omitempty"`
+	CacheWritePerMtok *float64 `json:"cache_write_per_mtok,omitempty"`
+
+	// InputPerMtok USD per million input tokens.
+	InputPerMtok  float64 `json:"input_per_mtok"`
+	OutputPerMtok float64 `json:"output_per_mtok"`
+}
+
+// AIPriceTable `<provider>/<model>` to its price.
+type AIPriceTable map[string]AIPrice
+
+// AIPrices defines model for AIPrices.
+type AIPrices struct {
+	// Defaults `<provider>/<model>` to its price.
+	Defaults AIPriceTable `json:"defaults"`
+
+	// Effective `<provider>/<model>` to its price.
+	Effective AIPriceTable `json:"effective"`
+
+	// Overrides `<provider>/<model>` to its price.
+	Overrides AIPriceTable `json:"overrides"`
+
+	// Version The settings' version.
+	Version int `json:"version"`
+}
+
+// AIProjectSettings defines model for AIProjectSettings.
+type AIProjectSettings struct {
+	AutoTranslateLocales []Locale `json:"auto_translate_locales"`
+
+	// NamespaceTags A namespace to its policy tags.
+	NamespaceTags map[string][]AINamespaceTag `json:"namespace_tags"`
+	Review        AIReviewPolicy              `json:"review"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt *Timestamp `json:"updated_at,omitempty"`
+	UpdatedBy *string    `json:"updated_by,omitempty"`
+
+	// Version 0 until saved.
+	Version int `json:"version"`
+}
+
+// AIProvenance defines model for AIProvenance.
+type AIProvenance struct {
+	Model         *string            `json:"model,omitempty"`
+	Origin        AIProvenanceOrigin `json:"origin"`
+	PromptVersion *string            `json:"prompt_version,omitempty"`
+	Provider      *string            `json:"provider,omitempty"`
+	Repairs       int                `json:"repairs"`
+	StyleVersion  *string            `json:"style_version,omitempty"`
+	TermIds       *[]string          `json:"term_ids,omitempty"`
+	TmUnitIds     *[]string          `json:"tm_unit_ids,omitempty"`
+}
+
+// AIProvenanceOrigin defines model for AIProvenance.Origin.
+type AIProvenanceOrigin string
+
+// AIProvider defines model for AIProvider.
+type AIProvider struct {
+	// ApiKeySet Whether a key is stored. The key itself is never returned.
+	ApiKeySet bool `json:"api_key_set"`
+
+	// BaseUrl The endpoint; absent for the kind's default.
+	BaseUrl *string `json:"base_url,omitempty"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+	Enabled   bool      `json:"enabled"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Kind The API a provider speaks: the Anthropic Messages API, an
+	// OpenAI-compatible `/chat/completions` endpoint (OpenAI, Mistral,
+	// self-hosted servers) or Gemini.
+	Kind AIProviderKind `json:"kind"`
+
+	// Models The model allow-list; empty allows any model.
+	Models []string `json:"models"`
+
+	// Name What routing policies route to, e.g. `anthropic` or `mistral-eu`.
+	Name AIProviderName `json:"name"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+	UpdatedBy string    `json:"updated_by"`
+	Version   int       `json:"version"`
+}
+
+// AIProviderKind The API a provider speaks: the Anthropic Messages API, an
+// OpenAI-compatible `/chat/completions` endpoint (OpenAI, Mistral,
+// self-hosted servers) or Gemini.
+type AIProviderKind string
+
+// AIProviderList defines model for AIProviderList.
+type AIProviderList struct {
+	Items         []AIProvider `json:"items"`
+	NextPageToken *string      `json:"next_page_token,omitempty"`
+}
+
+// AIProviderName What routing policies route to, e.g. `anthropic` or `mistral-eu`.
+type AIProviderName = string
+
+// AIProviderSpend defines model for AIProviderSpend.
+type AIProviderSpend struct {
+	Calls int `json:"calls"`
+
+	// CostMicroUsd Money in millionths of a US dollar (1 USD = 1000000).
+	CostMicroUsd MicroUSD `json:"cost_micro_usd"`
+	InputTokens  int64    `json:"input_tokens"`
+	Model        string   `json:"model"`
+	OutputTokens int64    `json:"output_tokens"`
+	Provider     string   `json:"provider"`
+}
+
+// AIReviewPolicy defines model for AIReviewPolicy.
+type AIReviewPolicy struct {
+	// AutoApprove Off by default.
+	AutoApprove bool `json:"auto_approve"`
+
+	// AutoApproveEnvironments The environments auto-approved text ships to; each must ship approved translations.
+	AutoApproveEnvironments *[]EnvironmentName `json:"auto_approve_environments,omitempty"`
+
+	// AutoApproveMin Scores at or above it are `auto_approve` (when on).
+	AutoApproveMin float64 `json:"auto_approve_min"`
+
+	// ForceReview Explanation factors that require review whatever the score (`missing_plural_categories` always does).
+	ForceReview *[]string `json:"force_review,omitempty"`
+
+	// RecommendMin Scores at or above it are `approve_recommended`; below, `review_required`.
+	RecommendMin float64 `json:"recommend_min"`
+}
+
+// AIRoute defines model for AIRoute.
+type AIRoute struct {
+	Effort    *AIRouteEffort `json:"effort,omitempty"`
+	MaxTokens int            `json:"max_tokens"`
+	Model     string         `json:"model"`
+
+	// Provider What routing policies route to, e.g. `anthropic` or `mistral-eu`.
+	Provider    AIProviderName `json:"provider"`
+	Temperature *float64       `json:"temperature,omitempty"`
+}
+
+// AIRouteEffort defines model for AIRoute.Effort.
+type AIRouteEffort string
+
+// AIRoutingPolicy defines model for AIRoutingPolicy.
+type AIRoutingPolicy struct {
+	Rules []AIRoutingRule `json:"rules"`
+}
+
+// AIRoutingPolicyView defines model for AIRoutingPolicyView.
+type AIRoutingPolicyView struct {
+	Policy AIRoutingPolicy `json:"policy"`
+
+	// Source Where the policy in effect comes from.
+	Source AIRoutingPolicyViewSource `json:"source"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt *Timestamp `json:"updated_at,omitempty"`
+	UpdatedBy *string    `json:"updated_by,omitempty"`
+
+	// Version The stored policy's version; 0 for the default.
+	Version int `json:"version"`
+}
+
+// AIRoutingPolicyViewSource Where the policy in effect comes from.
+type AIRoutingPolicyViewSource string
+
+// AIRoutingRule defines model for AIRoutingRule.
+type AIRoutingRule struct {
+	// Locales Target locales the rule applies to (a language covers its regions); empty applies to all.
+	Locales *[]Locale `json:"locales,omitempty"`
+
+	// Routes The preferred route first, then fallbacks.
+	Routes []AIRoute `json:"routes"`
+	Task   AITask    `json:"task"`
+}
+
+// AISentMessage defines model for AISentMessage.
+type AISentMessage struct {
+	Role AISentMessageRole `json:"role"`
+	Text string            `json:"text"`
+}
+
+// AISentMessageRole defines model for AISentMessage.Role.
+type AISentMessageRole string
+
+// AISettings defines model for AISettings.
+type AISettings struct {
+	// ConsentChangedAt RFC 3339, UTC.
+	ConsentChangedAt *Timestamp `json:"consent_changed_at,omitempty"`
+	ConsentChangedBy *string    `json:"consent_changed_by,omitempty"`
+
+	// MaxConcurrentJobs The tenant's running jobs across replicas.
+	MaxConcurrentJobs int `json:"max_concurrent_jobs"`
+
+	// MonthlyBudgetMicroUsd Provider spend per calendar month (UTC); 0 allows none.
+	MonthlyBudgetMicroUsd MicroUSD `json:"monthly_budget_micro_usd"`
+
+	// ProviderConsent The tenant's explicit permission to send text to AI providers
+	// (RFC 0003 §7). Off by default; without it only exact
+	// translation-memory matches are reused.
+	ProviderConsent bool `json:"provider_consent"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt *Timestamp `json:"updated_at,omitempty"`
+	UpdatedBy *string    `json:"updated_by,omitempty"`
+
+	// Version 0 until saved.
+	Version int `json:"version"`
+}
+
+// AISpendEntry defines model for AISpendEntry.
+type AISpendEntry struct {
+	// CostMicroUsd Money in millionths of a US dollar (1 USD = 1000000).
+	CostMicroUsd MicroUSD `json:"cost_micro_usd"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// JobId An opaque identifier.
+	JobId *Id    `json:"job_id,omitempty"`
+	Model string `json:"model"`
+
+	// OccurredAt RFC 3339, UTC.
+	OccurredAt Timestamp `json:"occurred_at"`
+
+	// Priced false when the price table has no price for the model (cost 0).
+	Priced bool `json:"priced"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id     `json:"project_id,omitempty"`
+	Provider  string  `json:"provider"`
+	Task      AITask  `json:"task"`
+	Usage     AIUsage `json:"usage"`
+}
+
+// AISpendList defines model for AISpendList.
+type AISpendList struct {
+	Items         []AISpendEntry `json:"items"`
+	NextPageToken *string        `json:"next_page_token,omitempty"`
+}
+
+// AISuggestion defines model for AISuggestion.
+type AISuggestion struct {
+	Action AIAction `json:"action"`
+
+	// ActionNote Why the routed action differs from what the bands alone say.
+	ActionNote *string  `json:"action_note,omitempty"`
+	Calls      []AICall `json:"calls"`
+
+	// CostMicroUsd Money in millionths of a US dollar (1 USD = 1000000).
+	CostMicroUsd MicroUSD `json:"cost_micro_usd"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// DecidedAt RFC 3339, UTC.
+	DecidedAt   *Timestamp           `json:"decided_at,omitempty"`
+	DecidedBy   *string              `json:"decided_by,omitempty"`
+	Decision    *AIDecision          `json:"decision,omitempty"`
+	Explanation []AIConfidenceFactor `json:"explanation"`
+
+	// Findings Structural warnings (errors never reach a suggestion).
+	Findings []QAFinding `json:"findings"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// JobId An opaque identifier.
+	JobId Id `json:"job_id"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// Message The translation in canonical MF2 syntax.
+	Message string `json:"message"`
+
+	// MessageId An opaque identifier.
+	MessageId Id `json:"message_id"`
+
+	// MessageKey A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	MessageKey MessageKey `json:"message_key"`
+
+	// Model A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	Model     MF2Message `json:"model"`
+	Namespace string     `json:"namespace"`
+
+	// ProjectId An opaque identifier.
+	ProjectId      Id                 `json:"project_id"`
+	Provenance     AIProvenance       `json:"provenance"`
+	RiskTags       []string           `json:"risk_tags"`
+	Score          float64            `json:"score"`
+	SourceRevision int                `json:"source_revision"`
+	Status         AISuggestionStatus `json:"status"`
+	TermFindings   []AITermFinding    `json:"term_findings"`
+
+	// TranslationRevision The revision it became, once accepted or auto-applied.
+	TranslationRevision *int    `json:"translation_revision,omitempty"`
+	Usage               AIUsage `json:"usage"`
+	Version             int     `json:"version"`
+}
+
+// AISuggestionList defines model for AISuggestionList.
+type AISuggestionList struct {
+	Items         []AISuggestion `json:"items"`
+	NextPageToken *string        `json:"next_page_token,omitempty"`
+}
+
+// AISuggestionStatus defines model for AISuggestionStatus.
+type AISuggestionStatus string
+
+// AITask defines model for AITask.
+type AITask string
+
+// AITermFinding defines model for AITermFinding.
+type AITermFinding struct {
+	Code      AITermFindingCode `json:"code"`
+	ConceptId string            `json:"concept_id"`
+	Message   string            `json:"message"`
+	Term      string            `json:"term"`
+	TermId    *string           `json:"term_id,omitempty"`
+}
+
+// AITermFindingCode defines model for AITermFinding.Code.
+type AITermFindingCode string
+
+// AITrigger defines model for AITrigger.
+type AITrigger string
+
+// AIUsage defines model for AIUsage.
+type AIUsage struct {
+	CacheReadTokens  *int64 `json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens *int64 `json:"cache_write_tokens,omitempty"`
+	InputTokens      int64  `json:"input_tokens"`
+	OutputTokens     int64  `json:"output_tokens"`
+}
+
+// AcceptAISuggestion defines model for AcceptAISuggestion.
+type AcceptAISuggestion struct {
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax *Syntax `json:"syntax,omitempty"`
+
+	// Text An edit to accept instead of the suggestion.
+	Text *string `json:"text,omitempty"`
 }
 
 // AddLocale defines model for AddLocale.
@@ -875,6 +1792,36 @@ type ArgumentSelectorKind string
 
 // ArgumentType defines model for Argument.Type.
 type ArgumentType string
+
+// CreateAIFill defines model for CreateAIFill.
+type CreateAIFill struct {
+	IncludeOutdated *bool         `json:"include_outdated,omitempty"`
+	KeyPrefix       *string       `json:"key_prefix,omitempty"`
+	Keys            *[]MessageKey `json:"keys,omitempty"`
+	Locales         []Locale      `json:"locales"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+}
+
+// CreateAIProvider defines model for CreateAIProvider.
+type CreateAIProvider struct {
+	// ApiKey Sealed at rest; never returned.
+	ApiKey *string `json:"api_key,omitempty"`
+
+	// BaseUrl Required for `openai_compatible`; https only unless the deployment allows private endpoints.
+	BaseUrl *string `json:"base_url,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
+
+	// Kind The API a provider speaks: the Anthropic Messages API, an
+	// OpenAI-compatible `/chat/completions` endpoint (OpenAI, Mistral,
+	// self-hosted servers) or Gemini.
+	Kind   AIProviderKind `json:"kind"`
+	Models *[]string      `json:"models,omitempty"`
+
+	// Name What routing policies route to, e.g. `anthropic` or `mistral-eu`.
+	Name AIProviderName `json:"name"`
+}
 
 // CreateApplication defines model for CreateApplication.
 type CreateApplication struct {
@@ -1426,6 +2373,9 @@ type Meta struct {
 // MetaSignInMethods defines model for Meta.SignInMethods.
 type MetaSignInMethods string
 
+// MicroUSD Money in millionths of a US dollar (1 USD = 1000000).
+type MicroUSD = int64
+
 // Namespace Groups messages into separately loadable bundles. Default `default`.
 type Namespace = string
 
@@ -1646,6 +2596,11 @@ type PublishRelease struct {
 	Note        *string         `json:"note,omitempty"`
 }
 
+// PutAIPrices defines model for PutAIPrices.
+type PutAIPrices struct {
+	Overrides map[string]AIPrice `json:"overrides"`
+}
+
 // PutFallbackGraph defines model for PutFallbackGraph.
 type PutFallbackGraph struct {
 	Fallback map[string][]Locale `json:"fallback"`
@@ -1702,6 +2657,11 @@ type Registration struct {
 	DisplayName *string `json:"display_name,omitempty"`
 	Email       Email   `json:"email"`
 	Password    string  `json:"password"`
+}
+
+// RejectAISuggestion defines model for RejectAISuggestion.
+type RejectAISuggestion struct {
+	Reason *string `json:"reason,omitempty"`
 }
 
 // Release defines model for Release.
@@ -2708,6 +3668,37 @@ type TranslationStats struct {
 	Messages int `json:"messages"`
 }
 
+// UpdateAIProjectSettings defines model for UpdateAIProjectSettings.
+type UpdateAIProjectSettings struct {
+	AutoTranslateLocales *[]Locale                    `json:"auto_translate_locales,omitempty"`
+	NamespaceTags        *map[string][]AINamespaceTag `json:"namespace_tags,omitempty"`
+	Review               *AIReviewPolicy              `json:"review,omitempty"`
+}
+
+// UpdateAIProvider defines model for UpdateAIProvider.
+type UpdateAIProvider struct {
+	// ApiKey Replaces the key.
+	ApiKey  *string `json:"api_key,omitempty"`
+	BaseUrl *string `json:"base_url,omitempty"`
+
+	// ClearApiKey Removes the key.
+	ClearApiKey *bool     `json:"clear_api_key,omitempty"`
+	Enabled     *bool     `json:"enabled,omitempty"`
+	Models      *[]string `json:"models,omitempty"`
+
+	// Name What routing policies route to, e.g. `anthropic` or `mistral-eu`.
+	Name *AIProviderName `json:"name,omitempty"`
+}
+
+// UpdateAISettings defines model for UpdateAISettings.
+type UpdateAISettings struct {
+	MaxConcurrentJobs *int `json:"max_concurrent_jobs,omitempty"`
+
+	// MonthlyBudgetMicroUsd Money in millionths of a US dollar (1 USD = 1000000).
+	MonthlyBudgetMicroUsd *MicroUSD `json:"monthly_budget_micro_usd,omitempty"`
+	ProviderConsent       *bool     `json:"provider_consent,omitempty"`
+}
+
 // UpdateApplication defines model for UpdateApplication.
 type UpdateApplication struct {
 	Name     *string   `json:"name,omitempty"`
@@ -2750,6 +3741,18 @@ type UpdateProject struct {
 
 // WebAuthnResponse The `PublicKeyCredential` from the browser, serialized as JSON.
 type WebAuthnResponse map[string]interface{}
+
+// AIFillPath An opaque identifier.
+type AIFillPath = Id
+
+// AIJobPath An opaque identifier.
+type AIJobPath = Id
+
+// AIProviderPath An opaque identifier.
+type AIProviderPath = Id
+
+// AISuggestionPath An opaque identifier.
+type AISuggestionPath = Id
 
 // ApplicationPath An opaque identifier.
 type ApplicationPath = Id
@@ -2885,6 +3888,120 @@ type CreateTenantParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// ListAIDisclosuresParams defines parameters for ListAIDisclosures.
+type ListAIDisclosuresParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Job A job `id`.
+	Job *Id `form:"job,omitempty" json:"job,omitempty"`
+
+	// Message A message `id`.
+	Message *Id `form:"message,omitempty" json:"message,omitempty"`
+
+	// Project A project `id`.
+	Project  *Id     `form:"project,omitempty" json:"project,omitempty"`
+	Provider *string `form:"provider,omitempty" json:"provider,omitempty"`
+}
+
+// ListAIJobsParams defines parameters for ListAIJobs.
+type ListAIJobsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Project A project `id`.
+	Project *Id         `form:"project,omitempty" json:"project,omitempty"`
+	State   *AIJobState `form:"state,omitempty" json:"state,omitempty"`
+	Locale  *Locale     `form:"locale,omitempty" json:"locale,omitempty"`
+
+	// Fill A fill `id`.
+	Fill *Id `form:"fill,omitempty" json:"fill,omitempty"`
+
+	// Message A message `id`.
+	Message *Id `form:"message,omitempty" json:"message,omitempty"`
+}
+
+// PutAIPricesParams defines parameters for PutAIPrices.
+type PutAIPricesParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ListAIProvidersParams defines parameters for ListAIProviders.
+type ListAIProvidersParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// CreateAIProviderParams defines parameters for CreateAIProvider.
+type CreateAIProviderParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// UpdateAIProviderParams defines parameters for UpdateAIProvider.
+type UpdateAIProviderParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// PutAIRoutingPolicyParams defines parameters for PutAIRoutingPolicy.
+type PutAIRoutingPolicyParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// PutAISettingsParams defines parameters for PutAISettings.
+type PutAISettingsParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ListAISpendParams defines parameters for ListAISpend.
+type ListAISpendParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+	Since     *Timestamp `form:"since,omitempty" json:"since,omitempty"`
+}
+
+// ListAISuggestionsParams defines parameters for ListAISuggestions.
+type ListAISuggestionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Project A project `id`.
+	Project *Id                 `form:"project,omitempty" json:"project,omitempty"`
+	Status  *AISuggestionStatus `form:"status,omitempty" json:"status,omitempty"`
+	Locale  *Locale             `form:"locale,omitempty" json:"locale,omitempty"`
+
+	// Message A message `id`.
+	Message *Id `form:"message,omitempty" json:"message,omitempty"`
+
+	// Job A job `id`.
+	Job *Id `form:"job,omitempty" json:"job,omitempty"`
+}
+
+// AcceptAISuggestionParams defines parameters for AcceptAISuggestion.
+type AcceptAISuggestionParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// RejectAISuggestionParams defines parameters for RejectAISuggestion.
+type RejectAISuggestionParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
 // GetEffectiveStyleGuideParams defines parameters for GetEffectiveStyleGuide.
 type GetEffectiveStyleGuideParams struct {
 	// Project A project `id`.
@@ -2941,6 +4058,37 @@ type DeleteProjectParams struct {
 type UpdateProjectParams struct {
 	// IfMatch The `ETag` the change is based on.
 	IfMatch IfMatch `json:"If-Match"`
+}
+
+// CreateAIFillParams defines parameters for CreateAIFill.
+type CreateAIFillParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// GetAIMetricsParams defines parameters for GetAIMetrics.
+type GetAIMetricsParams struct {
+	Since *Timestamp `form:"since,omitempty" json:"since,omitempty"`
+}
+
+// GetAIReviewQueueParams defines parameters for GetAIReviewQueue.
+type GetAIReviewQueueParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+	Locale    *[]Locale  `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// PutProjectAIRoutingPolicyParams defines parameters for PutProjectAIRoutingPolicy.
+type PutProjectAIRoutingPolicyParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// PutProjectAISettingsParams defines parameters for PutProjectAISettings.
+type PutProjectAISettingsParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
 }
 
 // ListApplicationsParams defines parameters for ListApplications.
@@ -3314,6 +4462,27 @@ type PreviewMessageJSONRequestBody = MessagePreviewRequest
 // CreateTenantJSONRequestBody defines body for CreateTenant for application/json ContentType.
 type CreateTenantJSONRequestBody = CreateTenant
 
+// PutAIPricesJSONRequestBody defines body for PutAIPrices for application/json ContentType.
+type PutAIPricesJSONRequestBody = PutAIPrices
+
+// CreateAIProviderJSONRequestBody defines body for CreateAIProvider for application/json ContentType.
+type CreateAIProviderJSONRequestBody = CreateAIProvider
+
+// UpdateAIProviderJSONRequestBody defines body for UpdateAIProvider for application/json ContentType.
+type UpdateAIProviderJSONRequestBody = UpdateAIProvider
+
+// PutAIRoutingPolicyJSONRequestBody defines body for PutAIRoutingPolicy for application/json ContentType.
+type PutAIRoutingPolicyJSONRequestBody = AIRoutingPolicy
+
+// PutAISettingsJSONRequestBody defines body for PutAISettings for application/json ContentType.
+type PutAISettingsJSONRequestBody = UpdateAISettings
+
+// AcceptAISuggestionJSONRequestBody defines body for AcceptAISuggestion for application/json ContentType.
+type AcceptAISuggestionJSONRequestBody = AcceptAISuggestion
+
+// RejectAISuggestionJSONRequestBody defines body for RejectAISuggestion for application/json ContentType.
+type RejectAISuggestionJSONRequestBody = RejectAISuggestion
+
 // AddMemberJSONRequestBody defines body for AddMember for application/json ContentType.
 type AddMemberJSONRequestBody = AddMember
 
@@ -3325,6 +4494,15 @@ type CreateProjectJSONRequestBody = CreateProject
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProject
+
+// CreateAIFillJSONRequestBody defines body for CreateAIFill for application/json ContentType.
+type CreateAIFillJSONRequestBody = CreateAIFill
+
+// PutProjectAIRoutingPolicyJSONRequestBody defines body for PutProjectAIRoutingPolicy for application/json ContentType.
+type PutProjectAIRoutingPolicyJSONRequestBody = AIRoutingPolicy
+
+// PutProjectAISettingsJSONRequestBody defines body for PutProjectAISettings for application/json ContentType.
+type PutProjectAISettingsJSONRequestBody = UpdateAIProjectSettings
 
 // CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.
 type CreateApplicationJSONRequestBody = CreateApplication
@@ -3871,6 +5049,349 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant} (the `GetTenant` operationId).
 	GetTenant(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetAIBudget The monthly budget and this month's spend
+	//
+	// The cap (set with `ai-settings`), what this calendar month (UTC)
+	// spent, what remains and the spend per provider and model. A call
+	// whose upper-bound estimate would pass the cap is refused before
+	// anything is sent. Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-budget (the `GetAIBudget` operationId).
+	GetAIBudget(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAIDisclosures Which provider saw which message
+	//
+	// Every provider call a job made, even a failed one, with exactly
+	// what the provider was sent (RFC 0003 §7), newest first. Needs
+	// `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-disclosures (the `ListAIDisclosures` operationId).
+	ListAIDisclosures(ctx context.Context, tenant TenantPath, params *ListAIDisclosuresParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAIEvalBaseline The translation agent's eval baseline
+	//
+	// The tracked metrics of the golden-set evals per locale pair and
+	// overall (`all`), as committed with the server
+	// (`internal/intelligence/evals/testdata/baseline.json`): a prompt
+	// or model change may not regress them (RFC 0003 §4). Needs
+	// `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-eval-baseline (the `GetAIEvalBaseline` operationId).
+	GetAIEvalBaseline(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAIFill A fill and its jobs' states
+	//
+	// Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-fills/{ai_fill} (the `GetAIFill` operationId).
+	GetAIFill(ctx context.Context, tenant TenantPath, aiFill AIFillPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelAIFill Cancel a fill's queued jobs
+	//
+	// Running jobs finish. Cancelling twice changes nothing. Needs
+	// `intelligence.translate` for the fill's locales.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-fills/{ai_fill}/cancellation (the `CancelAIFill` operationId).
+	CancelAIFill(ctx context.Context, tenant TenantPath, aiFill AIFillPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAIJobs AI translation jobs
+	//
+	// Newest first. A job is `queued` → `running` → `succeeded`
+	// (with a suggestion), `skipped` (the message changed, was
+	// translated meanwhile or is gone), `failed` (for good:
+	// `failure_code` says why — `provider_consent`, `sensitive`,
+	// `invalid_output`, `budget_exceeded`, `no_route`,
+	// `provider_error`, `invalid_source`), `dead` (transient failures
+	// exhausted its attempts) or `cancelled`. Needs
+	// `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-jobs (the `ListAIJobs` operationId).
+	ListAIJobs(ctx context.Context, tenant TenantPath, params *ListAIJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAIJob A job with its audit ledger
+	//
+	// `audit` is the agent's ledger: every tool result in order — what
+	// it looked up, what it sent and what came back. Needs
+	// `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-jobs/{ai_job} (the `GetAIJob` operationId).
+	GetAIJob(ctx context.Context, tenant TenantPath, aiJob AIJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelAIJob Cancel a queued job
+	//
+	// Only queued jobs can be cancelled; cancelling a cancelled job
+	// changes nothing. Needs `intelligence.translate` for its locale.
+	// Problem code: `job_not_cancellable` (409).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-jobs/{ai_job}/cancellation (the `CancelAIJob` operationId).
+	CancelAIJob(ctx context.Context, tenant TenantPath, aiJob AIJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAIPrices The AI price table
+	//
+	// USD per million tokens by `<provider>/<model>`: the deployment's
+	// defaults, the tenant's overrides and the effective table budgets
+	// are charged with (an unpriced model costs 0 and its spend is
+	// flagged `priced: false`). The ETag is the settings'. Needs
+	// `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-prices (the `GetAIPrices` operationId).
+	GetAIPrices(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutAIPricesWithBody Replace the tenant's price overrides
+	//
+	// Needs `intelligence.manage`. Problem code: `invalid_prices` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-prices (the `PutAIPrices` operationId).
+	PutAIPricesWithBody(ctx context.Context, tenant TenantPath, params *PutAIPricesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutAIPrices Replace the tenant's price overrides
+	//
+	// Needs `intelligence.manage`. Problem code: `invalid_prices` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-prices (the `PutAIPrices` operationId).
+	PutAIPrices(ctx context.Context, tenant TenantPath, params *PutAIPricesParams, body PutAIPricesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAIProviders Configured AI providers
+	//
+	// The tenant's providers by name — never their API keys
+	// (`api_key_set` says whether one is stored). Needs
+	// `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-providers (the `ListAIProviders` operationId).
+	ListAIProviders(ctx context.Context, tenant TenantPath, params *ListAIProvidersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAIProviderWithBody Configure an AI provider with the tenant's own key
+	//
+	// `name` is what routing policies route to (the default routing
+	// uses `anthropic`). `api_key` is write-only: it is sealed at rest
+	// (AES-256-GCM, bound to the tenant and provider) and never
+	// returned. `base_url` must be https and may not point at private
+	// or loopback addresses unless the deployment allows it
+	// (`GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS`); `models` is an allow-list
+	// (empty allows any). Needs `intelligence.manage`. Problem codes:
+	// `invalid_provider` (400), `provider_name_taken` (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-providers (the `CreateAIProvider` operationId).
+	CreateAIProviderWithBody(ctx context.Context, tenant TenantPath, params *CreateAIProviderParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAIProvider Configure an AI provider with the tenant's own key
+	//
+	// `name` is what routing policies route to (the default routing
+	// uses `anthropic`). `api_key` is write-only: it is sealed at rest
+	// (AES-256-GCM, bound to the tenant and provider) and never
+	// returned. `base_url` must be https and may not point at private
+	// or loopback addresses unless the deployment allows it
+	// (`GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS`); `models` is an allow-list
+	// (empty allows any). Needs `intelligence.manage`. Problem codes:
+	// `invalid_provider` (400), `provider_name_taken` (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-providers (the `CreateAIProvider` operationId).
+	CreateAIProvider(ctx context.Context, tenant TenantPath, params *CreateAIProviderParams, body CreateAIProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAIProvider Remove an AI provider
+	//
+	// Refused while a stored routing policy routes to it. Needs
+	// `intelligence.manage`. Problem code: `provider_in_use` (409).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `DeleteAIProvider` operationId).
+	DeleteAIProvider(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAIProvider An AI provider
+	//
+	// Never its key. Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `GetAIProvider` operationId).
+	GetAIProvider(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAIProviderWithBody Change an AI provider
+	//
+	// Absent members keep their value. `api_key` replaces the key,
+	// `clear_api_key` removes it. Renaming a provider a stored routing
+	// policy routes to is refused. Needs `intelligence.manage`.
+	// Problem codes: `invalid_provider` (400), `provider_name_taken`,
+	// `provider_in_use` (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `UpdateAIProvider` operationId).
+	UpdateAIProviderWithBody(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, params *UpdateAIProviderParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAIProvider Change an AI provider
+	//
+	// Absent members keep their value. `api_key` replaces the key,
+	// `clear_api_key` removes it. Renaming a provider a stored routing
+	// policy routes to is refused. Needs `intelligence.manage`.
+	// Problem codes: `invalid_provider` (400), `provider_name_taken`,
+	// `provider_in_use` (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `UpdateAIProvider` operationId).
+	UpdateAIProvider(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, params *UpdateAIProviderParams, body UpdateAIProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAIRoutingPolicy The tenant's AI routing policy
+	//
+	// Which provider and model each task (`translate`, `review`,
+	// `explain`, `assess`) runs on, per target locale, with ordered
+	// fallbacks. Without a stored policy the default applies
+	// (`source: default`: Anthropic Claude Sonnet 5 for translate and
+	// review, Claude Haiku 4.5 for the self-assessment). Needs
+	// `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-routing-policy (the `GetAIRoutingPolicy` operationId).
+	GetAIRoutingPolicy(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutAIRoutingPolicyWithBody Replace the tenant's AI routing policy
+	//
+	// Every route must name a configured provider whose model
+	// allow-list admits the model. Needs `intelligence.manage`.
+	// Problem code: `invalid_routing_policy` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-routing-policy (the `PutAIRoutingPolicy` operationId).
+	PutAIRoutingPolicyWithBody(ctx context.Context, tenant TenantPath, params *PutAIRoutingPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutAIRoutingPolicy Replace the tenant's AI routing policy
+	//
+	// Every route must name a configured provider whose model
+	// allow-list admits the model. Needs `intelligence.manage`.
+	// Problem code: `invalid_routing_policy` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-routing-policy (the `PutAIRoutingPolicy` operationId).
+	PutAIRoutingPolicy(ctx context.Context, tenant TenantPath, params *PutAIRoutingPolicyParams, body PutAIRoutingPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAISettings The tenant's AI settings
+	//
+	// Consent to send text to AI providers (off until someone turns it
+	// on; who and when is kept), the concurrency cap on running jobs
+	// and the monthly budget in micro-USD (0 allows no provider calls:
+	// a hard stop). Defaults until saved, at version 0. Needs
+	// `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-settings (the `GetAISettings` operationId).
+	GetAISettings(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutAISettingsWithBody Change the tenant's AI settings
+	//
+	// Absent members keep their value; `If-Match` applies when sent.
+	// Needs `intelligence.manage`. Problem code: `invalid_settings`
+	// (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-settings (the `PutAISettings` operationId).
+	PutAISettingsWithBody(ctx context.Context, tenant TenantPath, params *PutAISettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutAISettings Change the tenant's AI settings
+	//
+	// Absent members keep their value; `If-Match` applies when sent.
+	// Needs `intelligence.manage`. Problem code: `invalid_settings`
+	// (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-settings (the `PutAISettings` operationId).
+	PutAISettings(ctx context.Context, tenant TenantPath, params *PutAISettingsParams, body PutAISettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAISpend The spend ledger
+	//
+	// Every priced provider call since `since` (default: the start of
+	// this month), newest first. Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-spend (the `ListAISpend` operationId).
+	ListAISpend(ctx context.Context, tenant TenantPath, params *ListAISpendParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAISuggestions AI suggestions
+	//
+	// Newest first. Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-suggestions (the `ListAISuggestions` operationId).
+	ListAISuggestions(ctx context.Context, tenant TenantPath, params *ListAISuggestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAISuggestion An AI suggestion with its confidence explanation
+	//
+	// `score` (0–1) prioritizes review; it is never a promise of
+	// correctness. `explanation` lists each factor and its
+	// contribution ("why this?"); `provenance` names the provider,
+	// model, prompt version, translation-memory units, terms and
+	// style-guide version. Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion} (the `GetAISuggestion` operationId).
+	GetAISuggestion(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptAISuggestionWithBody Accept a suggestion, as is or edited
+	//
+	// Writes the message's translation: a revision with origin `ai`
+	// or `translation_memory` and an `origin_detail` naming provider,
+	// model, prompt version, TM units, terms, style version, score and
+	// explanation. It is `approved` when the caller may review the
+	// locale, else what the project's review policy says. With `text`
+	// (MF2 by default) the edit is accepted instead and its structured
+	// diff (edit distance, terms and style fields changed) recorded for
+	// the metrics. Needs `intelligence.translate` and
+	// `translations.write` for the locale. Problem codes:
+	// `suggestion_decided`, `suggestion_outdated`,
+	// `translation_conflict` (409), `translation_rejected` (422),
+	// `invalid_message`, `invalid_syntax` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/acceptance (the `AcceptAISuggestion` operationId).
+	AcceptAISuggestionWithBody(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *AcceptAISuggestionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptAISuggestion Accept a suggestion, as is or edited
+	//
+	// Writes the message's translation: a revision with origin `ai`
+	// or `translation_memory` and an `origin_detail` naming provider,
+	// model, prompt version, TM units, terms, style version, score and
+	// explanation. It is `approved` when the caller may review the
+	// locale, else what the project's review policy says. With `text`
+	// (MF2 by default) the edit is accepted instead and its structured
+	// diff (edit distance, terms and style fields changed) recorded for
+	// the metrics. Needs `intelligence.translate` and
+	// `translations.write` for the locale. Problem codes:
+	// `suggestion_decided`, `suggestion_outdated`,
+	// `translation_conflict` (409), `translation_rejected` (422),
+	// `invalid_message`, `invalid_syntax` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/acceptance (the `AcceptAISuggestion` operationId).
+	AcceptAISuggestion(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *AcceptAISuggestionParams, body AcceptAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RejectAISuggestionWithBody Reject a suggestion
+	//
+	// Nothing is written. Needs `intelligence.translate` for the
+	// locale. Problem codes: `suggestion_decided` (409),
+	// `invalid_reason` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
+	RejectAISuggestionWithBody(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RejectAISuggestion Reject a suggestion
+	//
+	// Nothing is written. Needs `intelligence.translate` for the
+	// locale. Problem codes: `suggestion_decided` (409),
+	// `invalid_reason` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
+	RejectAISuggestion(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, body RejectAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetEffectiveStyleGuide The style that applies to a project, locale and namespace
 	//
 	// Every applicable guide merged field by field, the narrowest
@@ -4024,6 +5545,148 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project} (the `UpdateProject` operationId).
 	UpdateProject(ctx context.Context, tenant TenantPath, project ProjectPath, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAIFillWithBody Fill locales with AI ("Fill with AI", `glossa translate`)
+	//
+	// Queues one job per message missing in each locale (and, with
+	// `include_outdated`, outdated there), or per listed `keys` that
+	// are missing or outdated, narrowed by `namespace` and
+	// `key_prefix`. Messages in `sensitive` namespaces are skipped
+	// (`skipped.sensitive`). A job exists once per message, locale,
+	// source revision and knowledge fingerprint: an existing one is
+	// reused (`jobs_existing`), a failed, dead or cancelled one queued
+	// again. `warnings` say when jobs will do little: consent off (only
+	// exact translation-memory matches are reused), no budget, no
+	// provider. Needs `intelligence.translate` for every locale.
+	// Problem codes: `too_many_locales`, `too_many_keys`,
+	// `invalid_locale` (400), `locale_not_found` (404).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fills (the `CreateAIFill` operationId).
+	CreateAIFillWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateAIFillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAIFill Fill locales with AI ("Fill with AI", `glossa translate`)
+	//
+	// Queues one job per message missing in each locale (and, with
+	// `include_outdated`, outdated there), or per listed `keys` that
+	// are missing or outdated, narrowed by `namespace` and
+	// `key_prefix`. Messages in `sensitive` namespaces are skipped
+	// (`skipped.sensitive`). A job exists once per message, locale,
+	// source revision and knowledge fingerprint: an existing one is
+	// reused (`jobs_existing`), a failed, dead or cancelled one queued
+	// again. `warnings` say when jobs will do little: consent off (only
+	// exact translation-memory matches are reused), no budget, no
+	// provider. Needs `intelligence.translate` for every locale.
+	// Problem codes: `too_many_locales`, `too_many_keys`,
+	// `invalid_locale` (400), `locale_not_found` (404).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fills (the `CreateAIFill` operationId).
+	CreateAIFill(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateAIFillParams, body CreateAIFillJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAIMetrics Acceptance rate and edit distance per locale
+	//
+	// People's decisions on the project's suggestions since `since`
+	// (default: 30 days ago), per locale: accepted (as is or edited),
+	// rejected, the acceptance rate and the mean edit distance of
+	// accepted suggestions (0 for those accepted as is). Needs
+	// `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-metrics (the `GetAIMetrics` operationId).
+	GetAIMetrics(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetAIMetricsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAIReviewQueue The review queue, riskiest first
+	//
+	// Pending suggestions ordered by risk, not by key: lowest score
+	// first, then the most `risk_tags` (legal and marketing
+	// namespaces, forbidden terms, max length, missing plural
+	// categories). `locale` (repeatable) narrows it. Needs
+	// `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-review-queue (the `GetAIReviewQueue` operationId).
+	GetAIReviewQueue(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetAIReviewQueueParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProjectAIRoutingPolicy Remove a project's AI routing policy
+	//
+	// The tenant's (or the default) applies again. Needs `intelligence.manage`.
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `DeleteProjectAIRoutingPolicy` operationId).
+	DeleteProjectAIRoutingPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectAIRoutingPolicy The AI routing policy in effect for a project
+	//
+	// The project's own (`source: project`), else the tenant's, else
+	// the default. Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `GetProjectAIRoutingPolicy` operationId).
+	GetProjectAIRoutingPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutProjectAIRoutingPolicyWithBody Replace a project's AI routing policy
+	//
+	// As the tenant's, for one project. Needs `intelligence.manage`.
+	// Problem code: `invalid_routing_policy` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `PutProjectAIRoutingPolicy` operationId).
+	PutProjectAIRoutingPolicyWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAIRoutingPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutProjectAIRoutingPolicy Replace a project's AI routing policy
+	//
+	// As the tenant's, for one project. Needs `intelligence.manage`.
+	// Problem code: `invalid_routing_policy` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `PutProjectAIRoutingPolicy` operationId).
+	PutProjectAIRoutingPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAIRoutingPolicyParams, body PutProjectAIRoutingPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectAISettings A project's AI settings
+	//
+	// Namespace policy tags (`sensitive`: never sent to a provider,
+	// always translated by people; `legal` and `marketing`: riskier,
+	// reviewed first), the locales auto-translate is on for (none by
+	// default) and the review routing of suggestions by confidence.
+	// Defaults until saved, at version 0. Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-settings (the `GetProjectAISettings` operationId).
+	GetProjectAISettings(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutProjectAISettingsWithBody Change a project's AI settings
+	//
+	// Absent members keep their value. `review.auto_approve` (off by
+	// default) is accepted only with `auto_approve_environments` that
+	// all exist and ship approved translations (Release's eligibility
+	// policies), and is re-checked for every suggestion: when an
+	// environment stops shipping approved text, suggestions are routed
+	// `approve_recommended` instead, with an `action_note`. Needs
+	// `intelligence.manage`. Problem codes: `invalid_namespace_tags`,
+	// `invalid_review_policy`, `invalid_locale` (400),
+	// `auto_approve_ineligible` (422).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-settings (the `PutProjectAISettings` operationId).
+	PutProjectAISettingsWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAISettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutProjectAISettings Change a project's AI settings
+	//
+	// Absent members keep their value. `review.auto_approve` (off by
+	// default) is accepted only with `auto_approve_environments` that
+	// all exist and ship approved translations (Release's eligibility
+	// policies), and is re-checked for every suggestion: when an
+	// environment stops shipping approved text, suggestions are routed
+	// `approve_recommended` instead, with an `action_note`. Needs
+	// `intelligence.manage`. Problem codes: `invalid_namespace_tags`,
+	// `invalid_review_policy`, `invalid_locale` (400),
+	// `auto_approve_ineligible` (422).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-settings (the `PutProjectAISettings` operationId).
+	PutProjectAISettings(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAISettingsParams, body PutProjectAISettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListApplications Applications of a project
 	//
@@ -5899,6 +7562,659 @@ func (c *Client) GetTenant(ctx context.Context, tenant TenantPath, reqEditors ..
 	return c.Client.Do(req)
 }
 
+// GetAIBudget The monthly budget and this month's spend
+//
+// The cap (set with `ai-settings`), what this calendar month (UTC)
+// spent, what remains and the spend per provider and model. A call
+// whose upper-bound estimate would pass the cap is refused before
+// anything is sent. Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-budget (the `GetAIBudget` operationId).
+func (c *Client) GetAIBudget(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAIBudgetRequest(c.Server, tenant)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAIDisclosures Which provider saw which message
+//
+// Every provider call a job made, even a failed one, with exactly
+// what the provider was sent (RFC 0003 §7), newest first. Needs
+// `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-disclosures (the `ListAIDisclosures` operationId).
+func (c *Client) ListAIDisclosures(ctx context.Context, tenant TenantPath, params *ListAIDisclosuresParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAIDisclosuresRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAIEvalBaseline The translation agent's eval baseline
+//
+// The tracked metrics of the golden-set evals per locale pair and
+// overall (`all`), as committed with the server
+// (`internal/intelligence/evals/testdata/baseline.json`): a prompt
+// or model change may not regress them (RFC 0003 §4). Needs
+// `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-eval-baseline (the `GetAIEvalBaseline` operationId).
+func (c *Client) GetAIEvalBaseline(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAIEvalBaselineRequest(c.Server, tenant)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAIFill A fill and its jobs' states
+//
+// Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-fills/{ai_fill} (the `GetAIFill` operationId).
+func (c *Client) GetAIFill(ctx context.Context, tenant TenantPath, aiFill AIFillPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAIFillRequest(c.Server, tenant, aiFill)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CancelAIFill Cancel a fill's queued jobs
+//
+// Running jobs finish. Cancelling twice changes nothing. Needs
+// `intelligence.translate` for the fill's locales.
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-fills/{ai_fill}/cancellation (the `CancelAIFill` operationId).
+func (c *Client) CancelAIFill(ctx context.Context, tenant TenantPath, aiFill AIFillPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelAIFillRequest(c.Server, tenant, aiFill)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAIJobs AI translation jobs
+//
+// Newest first. A job is `queued` → `running` → `succeeded`
+// (with a suggestion), `skipped` (the message changed, was
+// translated meanwhile or is gone), `failed` (for good:
+// `failure_code` says why — `provider_consent`, `sensitive`,
+// `invalid_output`, `budget_exceeded`, `no_route`,
+// `provider_error`, `invalid_source`), `dead` (transient failures
+// exhausted its attempts) or `cancelled`. Needs
+// `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-jobs (the `ListAIJobs` operationId).
+func (c *Client) ListAIJobs(ctx context.Context, tenant TenantPath, params *ListAIJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAIJobsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAIJob A job with its audit ledger
+//
+// `audit` is the agent's ledger: every tool result in order — what
+// it looked up, what it sent and what came back. Needs
+// `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-jobs/{ai_job} (the `GetAIJob` operationId).
+func (c *Client) GetAIJob(ctx context.Context, tenant TenantPath, aiJob AIJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAIJobRequest(c.Server, tenant, aiJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CancelAIJob Cancel a queued job
+//
+// Only queued jobs can be cancelled; cancelling a cancelled job
+// changes nothing. Needs `intelligence.translate` for its locale.
+// Problem code: `job_not_cancellable` (409).
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-jobs/{ai_job}/cancellation (the `CancelAIJob` operationId).
+func (c *Client) CancelAIJob(ctx context.Context, tenant TenantPath, aiJob AIJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelAIJobRequest(c.Server, tenant, aiJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAIPrices The AI price table
+//
+// USD per million tokens by `<provider>/<model>`: the deployment's
+// defaults, the tenant's overrides and the effective table budgets
+// are charged with (an unpriced model costs 0 and its spend is
+// flagged `priced: false`). The ETag is the settings'. Needs
+// `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-prices (the `GetAIPrices` operationId).
+func (c *Client) GetAIPrices(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAIPricesRequest(c.Server, tenant)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutAIPricesWithBody Replace the tenant's price overrides
+//
+// Needs `intelligence.manage`. Problem code: `invalid_prices` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-prices (the `PutAIPrices` operationId).
+func (c *Client) PutAIPricesWithBody(ctx context.Context, tenant TenantPath, params *PutAIPricesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutAIPricesRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutAIPrices Replace the tenant's price overrides
+//
+// Needs `intelligence.manage`. Problem code: `invalid_prices` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-prices (the `PutAIPrices` operationId).
+func (c *Client) PutAIPrices(ctx context.Context, tenant TenantPath, params *PutAIPricesParams, body PutAIPricesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutAIPricesRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAIProviders Configured AI providers
+//
+// The tenant's providers by name — never their API keys
+// (`api_key_set` says whether one is stored). Needs
+// `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-providers (the `ListAIProviders` operationId).
+func (c *Client) ListAIProviders(ctx context.Context, tenant TenantPath, params *ListAIProvidersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAIProvidersRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAIProviderWithBody Configure an AI provider with the tenant's own key
+//
+// `name` is what routing policies route to (the default routing
+// uses `anthropic`). `api_key` is write-only: it is sealed at rest
+// (AES-256-GCM, bound to the tenant and provider) and never
+// returned. `base_url` must be https and may not point at private
+// or loopback addresses unless the deployment allows it
+// (`GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS`); `models` is an allow-list
+// (empty allows any). Needs `intelligence.manage`. Problem codes:
+// `invalid_provider` (400), `provider_name_taken` (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-providers (the `CreateAIProvider` operationId).
+func (c *Client) CreateAIProviderWithBody(ctx context.Context, tenant TenantPath, params *CreateAIProviderParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAIProviderRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAIProvider Configure an AI provider with the tenant's own key
+//
+// `name` is what routing policies route to (the default routing
+// uses `anthropic`). `api_key` is write-only: it is sealed at rest
+// (AES-256-GCM, bound to the tenant and provider) and never
+// returned. `base_url` must be https and may not point at private
+// or loopback addresses unless the deployment allows it
+// (`GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS`); `models` is an allow-list
+// (empty allows any). Needs `intelligence.manage`. Problem codes:
+// `invalid_provider` (400), `provider_name_taken` (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-providers (the `CreateAIProvider` operationId).
+func (c *Client) CreateAIProvider(ctx context.Context, tenant TenantPath, params *CreateAIProviderParams, body CreateAIProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAIProviderRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteAIProvider Remove an AI provider
+//
+// Refused while a stored routing policy routes to it. Needs
+// `intelligence.manage`. Problem code: `provider_in_use` (409).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `DeleteAIProvider` operationId).
+func (c *Client) DeleteAIProvider(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAIProviderRequest(c.Server, tenant, aiProvider)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAIProvider An AI provider
+//
+// Never its key. Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `GetAIProvider` operationId).
+func (c *Client) GetAIProvider(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAIProviderRequest(c.Server, tenant, aiProvider)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateAIProviderWithBody Change an AI provider
+//
+// Absent members keep their value. `api_key` replaces the key,
+// `clear_api_key` removes it. Renaming a provider a stored routing
+// policy routes to is refused. Needs `intelligence.manage`.
+// Problem codes: `invalid_provider` (400), `provider_name_taken`,
+// `provider_in_use` (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `UpdateAIProvider` operationId).
+func (c *Client) UpdateAIProviderWithBody(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, params *UpdateAIProviderParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAIProviderRequestWithBody(c.Server, tenant, aiProvider, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateAIProvider Change an AI provider
+//
+// Absent members keep their value. `api_key` replaces the key,
+// `clear_api_key` removes it. Renaming a provider a stored routing
+// policy routes to is refused. Needs `intelligence.manage`.
+// Problem codes: `invalid_provider` (400), `provider_name_taken`,
+// `provider_in_use` (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `UpdateAIProvider` operationId).
+func (c *Client) UpdateAIProvider(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, params *UpdateAIProviderParams, body UpdateAIProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAIProviderRequest(c.Server, tenant, aiProvider, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAIRoutingPolicy The tenant's AI routing policy
+//
+// Which provider and model each task (`translate`, `review`,
+// `explain`, `assess`) runs on, per target locale, with ordered
+// fallbacks. Without a stored policy the default applies
+// (`source: default`: Anthropic Claude Sonnet 5 for translate and
+// review, Claude Haiku 4.5 for the self-assessment). Needs
+// `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-routing-policy (the `GetAIRoutingPolicy` operationId).
+func (c *Client) GetAIRoutingPolicy(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAIRoutingPolicyRequest(c.Server, tenant)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutAIRoutingPolicyWithBody Replace the tenant's AI routing policy
+//
+// Every route must name a configured provider whose model
+// allow-list admits the model. Needs `intelligence.manage`.
+// Problem code: `invalid_routing_policy` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-routing-policy (the `PutAIRoutingPolicy` operationId).
+func (c *Client) PutAIRoutingPolicyWithBody(ctx context.Context, tenant TenantPath, params *PutAIRoutingPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutAIRoutingPolicyRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutAIRoutingPolicy Replace the tenant's AI routing policy
+//
+// Every route must name a configured provider whose model
+// allow-list admits the model. Needs `intelligence.manage`.
+// Problem code: `invalid_routing_policy` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-routing-policy (the `PutAIRoutingPolicy` operationId).
+func (c *Client) PutAIRoutingPolicy(ctx context.Context, tenant TenantPath, params *PutAIRoutingPolicyParams, body PutAIRoutingPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutAIRoutingPolicyRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAISettings The tenant's AI settings
+//
+// Consent to send text to AI providers (off until someone turns it
+// on; who and when is kept), the concurrency cap on running jobs
+// and the monthly budget in micro-USD (0 allows no provider calls:
+// a hard stop). Defaults until saved, at version 0. Needs
+// `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-settings (the `GetAISettings` operationId).
+func (c *Client) GetAISettings(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAISettingsRequest(c.Server, tenant)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutAISettingsWithBody Change the tenant's AI settings
+//
+// Absent members keep their value; `If-Match` applies when sent.
+// Needs `intelligence.manage`. Problem code: `invalid_settings`
+// (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-settings (the `PutAISettings` operationId).
+func (c *Client) PutAISettingsWithBody(ctx context.Context, tenant TenantPath, params *PutAISettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutAISettingsRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutAISettings Change the tenant's AI settings
+//
+// Absent members keep their value; `If-Match` applies when sent.
+// Needs `intelligence.manage`. Problem code: `invalid_settings`
+// (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-settings (the `PutAISettings` operationId).
+func (c *Client) PutAISettings(ctx context.Context, tenant TenantPath, params *PutAISettingsParams, body PutAISettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutAISettingsRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAISpend The spend ledger
+//
+// Every priced provider call since `since` (default: the start of
+// this month), newest first. Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-spend (the `ListAISpend` operationId).
+func (c *Client) ListAISpend(ctx context.Context, tenant TenantPath, params *ListAISpendParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAISpendRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAISuggestions AI suggestions
+//
+// Newest first. Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-suggestions (the `ListAISuggestions` operationId).
+func (c *Client) ListAISuggestions(ctx context.Context, tenant TenantPath, params *ListAISuggestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAISuggestionsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAISuggestion An AI suggestion with its confidence explanation
+//
+// `score` (0–1) prioritizes review; it is never a promise of
+// correctness. `explanation` lists each factor and its
+// contribution ("why this?"); `provenance` names the provider,
+// model, prompt version, translation-memory units, terms and
+// style-guide version. Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion} (the `GetAISuggestion` operationId).
+func (c *Client) GetAISuggestion(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAISuggestionRequest(c.Server, tenant, aiSuggestion)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptAISuggestionWithBody Accept a suggestion, as is or edited
+//
+// Writes the message's translation: a revision with origin `ai`
+// or `translation_memory` and an `origin_detail` naming provider,
+// model, prompt version, TM units, terms, style version, score and
+// explanation. It is `approved` when the caller may review the
+// locale, else what the project's review policy says. With `text`
+// (MF2 by default) the edit is accepted instead and its structured
+// diff (edit distance, terms and style fields changed) recorded for
+// the metrics. Needs `intelligence.translate` and
+// `translations.write` for the locale. Problem codes:
+// `suggestion_decided`, `suggestion_outdated`,
+// `translation_conflict` (409), `translation_rejected` (422),
+// `invalid_message`, `invalid_syntax` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/acceptance (the `AcceptAISuggestion` operationId).
+func (c *Client) AcceptAISuggestionWithBody(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *AcceptAISuggestionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptAISuggestionRequestWithBody(c.Server, tenant, aiSuggestion, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptAISuggestion Accept a suggestion, as is or edited
+//
+// Writes the message's translation: a revision with origin `ai`
+// or `translation_memory` and an `origin_detail` naming provider,
+// model, prompt version, TM units, terms, style version, score and
+// explanation. It is `approved` when the caller may review the
+// locale, else what the project's review policy says. With `text`
+// (MF2 by default) the edit is accepted instead and its structured
+// diff (edit distance, terms and style fields changed) recorded for
+// the metrics. Needs `intelligence.translate` and
+// `translations.write` for the locale. Problem codes:
+// `suggestion_decided`, `suggestion_outdated`,
+// `translation_conflict` (409), `translation_rejected` (422),
+// `invalid_message`, `invalid_syntax` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/acceptance (the `AcceptAISuggestion` operationId).
+func (c *Client) AcceptAISuggestion(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *AcceptAISuggestionParams, body AcceptAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptAISuggestionRequest(c.Server, tenant, aiSuggestion, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RejectAISuggestionWithBody Reject a suggestion
+//
+// Nothing is written. Needs `intelligence.translate` for the
+// locale. Problem codes: `suggestion_decided` (409),
+// `invalid_reason` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
+func (c *Client) RejectAISuggestionWithBody(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRejectAISuggestionRequestWithBody(c.Server, tenant, aiSuggestion, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RejectAISuggestion Reject a suggestion
+//
+// Nothing is written. Needs `intelligence.translate` for the
+// locale. Problem codes: `suggestion_decided` (409),
+// `invalid_reason` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
+func (c *Client) RejectAISuggestion(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, body RejectAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRejectAISuggestionRequest(c.Server, tenant, aiSuggestion, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetEffectiveStyleGuide The style that applies to a project, locale and namespace
 //
 // Every applicable guide merged field by field, the narrowest
@@ -6193,6 +8509,258 @@ func (c *Client) UpdateProjectWithBody(ctx context.Context, tenant TenantPath, p
 // Corresponds with PATCH /v1/tenants/{tenant}/projects/{project} (the `UpdateProject` operationId).
 func (c *Client) UpdateProject(ctx context.Context, tenant TenantPath, project ProjectPath, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateProjectRequest(c.Server, tenant, project, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAIFillWithBody Fill locales with AI ("Fill with AI", `glossa translate`)
+//
+// Queues one job per message missing in each locale (and, with
+// `include_outdated`, outdated there), or per listed `keys` that
+// are missing or outdated, narrowed by `namespace` and
+// `key_prefix`. Messages in `sensitive` namespaces are skipped
+// (`skipped.sensitive`). A job exists once per message, locale,
+// source revision and knowledge fingerprint: an existing one is
+// reused (`jobs_existing`), a failed, dead or cancelled one queued
+// again. `warnings` say when jobs will do little: consent off (only
+// exact translation-memory matches are reused), no budget, no
+// provider. Needs `intelligence.translate` for every locale.
+// Problem codes: `too_many_locales`, `too_many_keys`,
+// `invalid_locale` (400), `locale_not_found` (404).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fills (the `CreateAIFill` operationId).
+func (c *Client) CreateAIFillWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateAIFillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAIFillRequestWithBody(c.Server, tenant, project, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAIFill Fill locales with AI ("Fill with AI", `glossa translate`)
+//
+// Queues one job per message missing in each locale (and, with
+// `include_outdated`, outdated there), or per listed `keys` that
+// are missing or outdated, narrowed by `namespace` and
+// `key_prefix`. Messages in `sensitive` namespaces are skipped
+// (`skipped.sensitive`). A job exists once per message, locale,
+// source revision and knowledge fingerprint: an existing one is
+// reused (`jobs_existing`), a failed, dead or cancelled one queued
+// again. `warnings` say when jobs will do little: consent off (only
+// exact translation-memory matches are reused), no budget, no
+// provider. Needs `intelligence.translate` for every locale.
+// Problem codes: `too_many_locales`, `too_many_keys`,
+// `invalid_locale` (400), `locale_not_found` (404).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fills (the `CreateAIFill` operationId).
+func (c *Client) CreateAIFill(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateAIFillParams, body CreateAIFillJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAIFillRequest(c.Server, tenant, project, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAIMetrics Acceptance rate and edit distance per locale
+//
+// People's decisions on the project's suggestions since `since`
+// (default: 30 days ago), per locale: accepted (as is or edited),
+// rejected, the acceptance rate and the mean edit distance of
+// accepted suggestions (0 for those accepted as is). Needs
+// `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-metrics (the `GetAIMetrics` operationId).
+func (c *Client) GetAIMetrics(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetAIMetricsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAIMetricsRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAIReviewQueue The review queue, riskiest first
+//
+// Pending suggestions ordered by risk, not by key: lowest score
+// first, then the most `risk_tags` (legal and marketing
+// namespaces, forbidden terms, max length, missing plural
+// categories). `locale` (repeatable) narrows it. Needs
+// `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-review-queue (the `GetAIReviewQueue` operationId).
+func (c *Client) GetAIReviewQueue(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetAIReviewQueueParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAIReviewQueueRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteProjectAIRoutingPolicy Remove a project's AI routing policy
+//
+// The tenant's (or the default) applies again. Needs `intelligence.manage`.
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `DeleteProjectAIRoutingPolicy` operationId).
+func (c *Client) DeleteProjectAIRoutingPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectAIRoutingPolicyRequest(c.Server, tenant, project)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetProjectAIRoutingPolicy The AI routing policy in effect for a project
+//
+// The project's own (`source: project`), else the tenant's, else
+// the default. Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `GetProjectAIRoutingPolicy` operationId).
+func (c *Client) GetProjectAIRoutingPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectAIRoutingPolicyRequest(c.Server, tenant, project)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutProjectAIRoutingPolicyWithBody Replace a project's AI routing policy
+//
+// As the tenant's, for one project. Needs `intelligence.manage`.
+// Problem code: `invalid_routing_policy` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `PutProjectAIRoutingPolicy` operationId).
+func (c *Client) PutProjectAIRoutingPolicyWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAIRoutingPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutProjectAIRoutingPolicyRequestWithBody(c.Server, tenant, project, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutProjectAIRoutingPolicy Replace a project's AI routing policy
+//
+// As the tenant's, for one project. Needs `intelligence.manage`.
+// Problem code: `invalid_routing_policy` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `PutProjectAIRoutingPolicy` operationId).
+func (c *Client) PutProjectAIRoutingPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAIRoutingPolicyParams, body PutProjectAIRoutingPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutProjectAIRoutingPolicyRequest(c.Server, tenant, project, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetProjectAISettings A project's AI settings
+//
+// Namespace policy tags (`sensitive`: never sent to a provider,
+// always translated by people; `legal` and `marketing`: riskier,
+// reviewed first), the locales auto-translate is on for (none by
+// default) and the review routing of suggestions by confidence.
+// Defaults until saved, at version 0. Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-settings (the `GetProjectAISettings` operationId).
+func (c *Client) GetProjectAISettings(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectAISettingsRequest(c.Server, tenant, project)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutProjectAISettingsWithBody Change a project's AI settings
+//
+// Absent members keep their value. `review.auto_approve` (off by
+// default) is accepted only with `auto_approve_environments` that
+// all exist and ship approved translations (Release's eligibility
+// policies), and is re-checked for every suggestion: when an
+// environment stops shipping approved text, suggestions are routed
+// `approve_recommended` instead, with an `action_note`. Needs
+// `intelligence.manage`. Problem codes: `invalid_namespace_tags`,
+// `invalid_review_policy`, `invalid_locale` (400),
+// `auto_approve_ineligible` (422).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-settings (the `PutProjectAISettings` operationId).
+func (c *Client) PutProjectAISettingsWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAISettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutProjectAISettingsRequestWithBody(c.Server, tenant, project, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutProjectAISettings Change a project's AI settings
+//
+// Absent members keep their value. `review.auto_approve` (off by
+// default) is accepted only with `auto_approve_environments` that
+// all exist and ship approved translations (Release's eligibility
+// policies), and is re-checked for every suggestion: when an
+// environment stops shipping approved text, suggestions are routed
+// `approve_recommended` instead, with an `action_note`. Needs
+// `intelligence.manage`. Problem codes: `invalid_namespace_tags`,
+// `invalid_review_policy`, `invalid_locale` (400),
+// `auto_approve_ineligible` (422).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-settings (the `PutProjectAISettings` operationId).
+func (c *Client) PutProjectAISettings(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAISettingsParams, body PutProjectAISettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutProjectAISettingsRequest(c.Server, tenant, project, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9204,6 +11772,1461 @@ func NewGetTenantRequest(server string, tenant TenantPath) (*http.Request, error
 	return req, nil
 }
 
+// NewGetAIBudgetRequest constructs an http.Request for the GetAIBudget method
+func NewGetAIBudgetRequest(server string, tenant TenantPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-budget", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAIDisclosuresRequest constructs an http.Request for the ListAIDisclosures method
+func NewListAIDisclosuresRequest(server string, tenant TenantPath, params *ListAIDisclosuresParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-disclosures", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Job != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "job", *params.Job, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Message != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message", *params.Message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Provider != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAIEvalBaselineRequest constructs an http.Request for the GetAIEvalBaseline method
+func NewGetAIEvalBaselineRequest(server string, tenant TenantPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-eval-baseline", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAIFillRequest constructs an http.Request for the GetAIFill method
+func NewGetAIFillRequest(server string, tenant TenantPath, aiFill AIFillPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ai_fill", aiFill, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-fills/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCancelAIFillRequest constructs an http.Request for the CancelAIFill method
+func NewCancelAIFillRequest(server string, tenant TenantPath, aiFill AIFillPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ai_fill", aiFill, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-fills/%s/cancellation", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAIJobsRequest constructs an http.Request for the ListAIJobs method
+func NewListAIJobsRequest(server string, tenant TenantPath, params *ListAIJobsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Fill != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "fill", *params.Fill, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Message != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message", *params.Message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAIJobRequest constructs an http.Request for the GetAIJob method
+func NewGetAIJobRequest(server string, tenant TenantPath, aiJob AIJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ai_job", aiJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-jobs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCancelAIJobRequest constructs an http.Request for the CancelAIJob method
+func NewCancelAIJobRequest(server string, tenant TenantPath, aiJob AIJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ai_job", aiJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-jobs/%s/cancellation", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAIPricesRequest constructs an http.Request for the GetAIPrices method
+func NewGetAIPricesRequest(server string, tenant TenantPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-prices", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutAIPricesRequest calls the generic PutAIPrices builder with application/json body
+func NewPutAIPricesRequest(server string, tenant TenantPath, params *PutAIPricesParams, body PutAIPricesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutAIPricesRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewPutAIPricesRequestWithBody constructs an http.Request for the PutAIPrices method, with any body, and a specified content type
+func NewPutAIPricesRequestWithBody(server string, tenant TenantPath, params *PutAIPricesParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-prices", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListAIProvidersRequest constructs an http.Request for the ListAIProviders method
+func NewListAIProvidersRequest(server string, tenant TenantPath, params *ListAIProvidersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-providers", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAIProviderRequest calls the generic CreateAIProvider builder with application/json body
+func NewCreateAIProviderRequest(server string, tenant TenantPath, params *CreateAIProviderParams, body CreateAIProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAIProviderRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateAIProviderRequestWithBody constructs an http.Request for the CreateAIProvider method, with any body, and a specified content type
+func NewCreateAIProviderRequestWithBody(server string, tenant TenantPath, params *CreateAIProviderParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-providers", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteAIProviderRequest constructs an http.Request for the DeleteAIProvider method
+func NewDeleteAIProviderRequest(server string, tenant TenantPath, aiProvider AIProviderPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ai_provider", aiProvider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-providers/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAIProviderRequest constructs an http.Request for the GetAIProvider method
+func NewGetAIProviderRequest(server string, tenant TenantPath, aiProvider AIProviderPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ai_provider", aiProvider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-providers/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateAIProviderRequest calls the generic UpdateAIProvider builder with application/json body
+func NewUpdateAIProviderRequest(server string, tenant TenantPath, aiProvider AIProviderPath, params *UpdateAIProviderParams, body UpdateAIProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateAIProviderRequestWithBody(server, tenant, aiProvider, params, "application/json", bodyReader)
+}
+
+// NewUpdateAIProviderRequestWithBody constructs an http.Request for the UpdateAIProvider method, with any body, and a specified content type
+func NewUpdateAIProviderRequestWithBody(server string, tenant TenantPath, aiProvider AIProviderPath, params *UpdateAIProviderParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ai_provider", aiProvider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-providers/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewGetAIRoutingPolicyRequest constructs an http.Request for the GetAIRoutingPolicy method
+func NewGetAIRoutingPolicyRequest(server string, tenant TenantPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-routing-policy", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutAIRoutingPolicyRequest calls the generic PutAIRoutingPolicy builder with application/json body
+func NewPutAIRoutingPolicyRequest(server string, tenant TenantPath, params *PutAIRoutingPolicyParams, body PutAIRoutingPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutAIRoutingPolicyRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewPutAIRoutingPolicyRequestWithBody constructs an http.Request for the PutAIRoutingPolicy method, with any body, and a specified content type
+func NewPutAIRoutingPolicyRequestWithBody(server string, tenant TenantPath, params *PutAIRoutingPolicyParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-routing-policy", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetAISettingsRequest constructs an http.Request for the GetAISettings method
+func NewGetAISettingsRequest(server string, tenant TenantPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-settings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutAISettingsRequest calls the generic PutAISettings builder with application/json body
+func NewPutAISettingsRequest(server string, tenant TenantPath, params *PutAISettingsParams, body PutAISettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutAISettingsRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewPutAISettingsRequestWithBody constructs an http.Request for the PutAISettings method, with any body, and a specified content type
+func NewPutAISettingsRequestWithBody(server string, tenant TenantPath, params *PutAISettingsParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-settings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListAISpendRequest constructs an http.Request for the ListAISpend method
+func NewListAISpendRequest(server string, tenant TenantPath, params *ListAISpendParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-spend", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Since != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "since", *params.Since, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAISuggestionsRequest constructs an http.Request for the ListAISuggestions method
+func NewListAISuggestionsRequest(server string, tenant TenantPath, params *ListAISuggestionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-suggestions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Message != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message", *params.Message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Job != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "job", *params.Job, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAISuggestionRequest constructs an http.Request for the GetAISuggestion method
+func NewGetAISuggestionRequest(server string, tenant TenantPath, aiSuggestion AISuggestionPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ai_suggestion", aiSuggestion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-suggestions/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAcceptAISuggestionRequest calls the generic AcceptAISuggestion builder with application/json body
+func NewAcceptAISuggestionRequest(server string, tenant TenantPath, aiSuggestion AISuggestionPath, params *AcceptAISuggestionParams, body AcceptAISuggestionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAcceptAISuggestionRequestWithBody(server, tenant, aiSuggestion, params, "application/json", bodyReader)
+}
+
+// NewAcceptAISuggestionRequestWithBody constructs an http.Request for the AcceptAISuggestion method, with any body, and a specified content type
+func NewAcceptAISuggestionRequestWithBody(server string, tenant TenantPath, aiSuggestion AISuggestionPath, params *AcceptAISuggestionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ai_suggestion", aiSuggestion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-suggestions/%s/acceptance", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRejectAISuggestionRequest calls the generic RejectAISuggestion builder with application/json body
+func NewRejectAISuggestionRequest(server string, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, body RejectAISuggestionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRejectAISuggestionRequestWithBody(server, tenant, aiSuggestion, params, "application/json", bodyReader)
+}
+
+// NewRejectAISuggestionRequestWithBody constructs an http.Request for the RejectAISuggestion method, with any body, and a specified content type
+func NewRejectAISuggestionRequestWithBody(server string, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ai_suggestion", aiSuggestion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/ai-suggestions/%s/rejection", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewGetEffectiveStyleGuideRequest constructs an http.Request for the GetEffectiveStyleGuide method
 func NewGetEffectiveStyleGuideRequest(server string, tenant TenantPath, params *GetEffectiveStyleGuideParams) (*http.Request, error) {
 	var err error
@@ -9881,6 +13904,496 @@ func NewUpdateProjectRequestWithBody(server string, tenant TenantPath, project P
 		}
 
 		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewCreateAIFillRequest calls the generic CreateAIFill builder with application/json body
+func NewCreateAIFillRequest(server string, tenant TenantPath, project ProjectPath, params *CreateAIFillParams, body CreateAIFillJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAIFillRequestWithBody(server, tenant, project, params, "application/json", bodyReader)
+}
+
+// NewCreateAIFillRequestWithBody constructs an http.Request for the CreateAIFill method, with any body, and a specified content type
+func NewCreateAIFillRequestWithBody(server string, tenant TenantPath, project ProjectPath, params *CreateAIFillParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/ai-fills", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetAIMetricsRequest constructs an http.Request for the GetAIMetrics method
+func NewGetAIMetricsRequest(server string, tenant TenantPath, project ProjectPath, params *GetAIMetricsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/ai-metrics", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Since != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "since", *params.Since, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAIReviewQueueRequest constructs an http.Request for the GetAIReviewQueue method
+func NewGetAIReviewQueueRequest(server string, tenant TenantPath, project ProjectPath, params *GetAIReviewQueueParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/ai-review-queue", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteProjectAIRoutingPolicyRequest constructs an http.Request for the DeleteProjectAIRoutingPolicy method
+func NewDeleteProjectAIRoutingPolicyRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/ai-routing-policy", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetProjectAIRoutingPolicyRequest constructs an http.Request for the GetProjectAIRoutingPolicy method
+func NewGetProjectAIRoutingPolicyRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/ai-routing-policy", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutProjectAIRoutingPolicyRequest calls the generic PutProjectAIRoutingPolicy builder with application/json body
+func NewPutProjectAIRoutingPolicyRequest(server string, tenant TenantPath, project ProjectPath, params *PutProjectAIRoutingPolicyParams, body PutProjectAIRoutingPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutProjectAIRoutingPolicyRequestWithBody(server, tenant, project, params, "application/json", bodyReader)
+}
+
+// NewPutProjectAIRoutingPolicyRequestWithBody constructs an http.Request for the PutProjectAIRoutingPolicy method, with any body, and a specified content type
+func NewPutProjectAIRoutingPolicyRequestWithBody(server string, tenant TenantPath, project ProjectPath, params *PutProjectAIRoutingPolicyParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/ai-routing-policy", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetProjectAISettingsRequest constructs an http.Request for the GetProjectAISettings method
+func NewGetProjectAISettingsRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/ai-settings", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutProjectAISettingsRequest calls the generic PutProjectAISettings builder with application/json body
+func NewPutProjectAISettingsRequest(server string, tenant TenantPath, project ProjectPath, params *PutProjectAISettingsParams, body PutProjectAISettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutProjectAISettingsRequestWithBody(server, tenant, project, params, "application/json", bodyReader)
+}
+
+// NewPutProjectAISettingsRequestWithBody constructs an http.Request for the PutProjectAISettings method, with any body, and a specified content type
+func NewPutProjectAISettingsRequestWithBody(server string, tenant TenantPath, project ProjectPath, params *PutProjectAISettingsParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/ai-settings", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
 
 	}
 
@@ -15043,6 +19556,383 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant} (the `GetTenant` operationId).
 	GetTenantWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetTenantResponse, error)
 
+	// GetAIBudgetWithResponse The monthly budget and this month's spend
+	//
+	// The cap (set with `ai-settings`), what this calendar month (UTC)
+	// spent, what remains and the spend per provider and model. A call
+	// whose upper-bound estimate would pass the cap is refused before
+	// anything is sent. Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-budget (the `GetAIBudget` operationId).
+	GetAIBudgetWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetAIBudgetResponse, error)
+
+	// ListAIDisclosuresWithResponse Which provider saw which message
+	//
+	// Every provider call a job made, even a failed one, with exactly
+	// what the provider was sent (RFC 0003 §7), newest first. Needs
+	// `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-disclosures (the `ListAIDisclosures` operationId).
+	ListAIDisclosuresWithResponse(ctx context.Context, tenant TenantPath, params *ListAIDisclosuresParams, reqEditors ...RequestEditorFn) (*ListAIDisclosuresResponse, error)
+
+	// GetAIEvalBaselineWithResponse The translation agent's eval baseline
+	//
+	// The tracked metrics of the golden-set evals per locale pair and
+	// overall (`all`), as committed with the server
+	// (`internal/intelligence/evals/testdata/baseline.json`): a prompt
+	// or model change may not regress them (RFC 0003 §4). Needs
+	// `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-eval-baseline (the `GetAIEvalBaseline` operationId).
+	GetAIEvalBaselineWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetAIEvalBaselineResponse, error)
+
+	// GetAIFillWithResponse A fill and its jobs' states
+	//
+	// Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-fills/{ai_fill} (the `GetAIFill` operationId).
+	GetAIFillWithResponse(ctx context.Context, tenant TenantPath, aiFill AIFillPath, reqEditors ...RequestEditorFn) (*GetAIFillResponse, error)
+
+	// CancelAIFillWithResponse Cancel a fill's queued jobs
+	//
+	// Running jobs finish. Cancelling twice changes nothing. Needs
+	// `intelligence.translate` for the fill's locales.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-fills/{ai_fill}/cancellation (the `CancelAIFill` operationId).
+	CancelAIFillWithResponse(ctx context.Context, tenant TenantPath, aiFill AIFillPath, reqEditors ...RequestEditorFn) (*CancelAIFillResponse, error)
+
+	// ListAIJobsWithResponse AI translation jobs
+	//
+	// Newest first. A job is `queued` → `running` → `succeeded`
+	// (with a suggestion), `skipped` (the message changed, was
+	// translated meanwhile or is gone), `failed` (for good:
+	// `failure_code` says why — `provider_consent`, `sensitive`,
+	// `invalid_output`, `budget_exceeded`, `no_route`,
+	// `provider_error`, `invalid_source`), `dead` (transient failures
+	// exhausted its attempts) or `cancelled`. Needs
+	// `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-jobs (the `ListAIJobs` operationId).
+	ListAIJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListAIJobsParams, reqEditors ...RequestEditorFn) (*ListAIJobsResponse, error)
+
+	// GetAIJobWithResponse A job with its audit ledger
+	//
+	// `audit` is the agent's ledger: every tool result in order — what
+	// it looked up, what it sent and what came back. Needs
+	// `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-jobs/{ai_job} (the `GetAIJob` operationId).
+	GetAIJobWithResponse(ctx context.Context, tenant TenantPath, aiJob AIJobPath, reqEditors ...RequestEditorFn) (*GetAIJobResponse, error)
+
+	// CancelAIJobWithResponse Cancel a queued job
+	//
+	// Only queued jobs can be cancelled; cancelling a cancelled job
+	// changes nothing. Needs `intelligence.translate` for its locale.
+	// Problem code: `job_not_cancellable` (409).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-jobs/{ai_job}/cancellation (the `CancelAIJob` operationId).
+	CancelAIJobWithResponse(ctx context.Context, tenant TenantPath, aiJob AIJobPath, reqEditors ...RequestEditorFn) (*CancelAIJobResponse, error)
+
+	// GetAIPricesWithResponse The AI price table
+	//
+	// USD per million tokens by `<provider>/<model>`: the deployment's
+	// defaults, the tenant's overrides and the effective table budgets
+	// are charged with (an unpriced model costs 0 and its spend is
+	// flagged `priced: false`). The ETag is the settings'. Needs
+	// `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-prices (the `GetAIPrices` operationId).
+	GetAIPricesWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetAIPricesResponse, error)
+
+	// PutAIPricesWithBodyWithResponse Replace the tenant's price overrides
+	//
+	// Needs `intelligence.manage`. Problem code: `invalid_prices` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-prices (the `PutAIPrices` operationId).
+	PutAIPricesWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *PutAIPricesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAIPricesResponse, error)
+
+	// PutAIPricesWithResponse Replace the tenant's price overrides
+	//
+	// Needs `intelligence.manage`. Problem code: `invalid_prices` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-prices (the `PutAIPrices` operationId).
+	PutAIPricesWithResponse(ctx context.Context, tenant TenantPath, params *PutAIPricesParams, body PutAIPricesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAIPricesResponse, error)
+
+	// ListAIProvidersWithResponse Configured AI providers
+	//
+	// The tenant's providers by name — never their API keys
+	// (`api_key_set` says whether one is stored). Needs
+	// `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-providers (the `ListAIProviders` operationId).
+	ListAIProvidersWithResponse(ctx context.Context, tenant TenantPath, params *ListAIProvidersParams, reqEditors ...RequestEditorFn) (*ListAIProvidersResponse, error)
+
+	// CreateAIProviderWithBodyWithResponse Configure an AI provider with the tenant's own key
+	//
+	// `name` is what routing policies route to (the default routing
+	// uses `anthropic`). `api_key` is write-only: it is sealed at rest
+	// (AES-256-GCM, bound to the tenant and provider) and never
+	// returned. `base_url` must be https and may not point at private
+	// or loopback addresses unless the deployment allows it
+	// (`GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS`); `models` is an allow-list
+	// (empty allows any). Needs `intelligence.manage`. Problem codes:
+	// `invalid_provider` (400), `provider_name_taken` (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-providers (the `CreateAIProvider` operationId).
+	CreateAIProviderWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateAIProviderParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAIProviderResponse, error)
+
+	// CreateAIProviderWithResponse Configure an AI provider with the tenant's own key
+	//
+	// `name` is what routing policies route to (the default routing
+	// uses `anthropic`). `api_key` is write-only: it is sealed at rest
+	// (AES-256-GCM, bound to the tenant and provider) and never
+	// returned. `base_url` must be https and may not point at private
+	// or loopback addresses unless the deployment allows it
+	// (`GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS`); `models` is an allow-list
+	// (empty allows any). Needs `intelligence.manage`. Problem codes:
+	// `invalid_provider` (400), `provider_name_taken` (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-providers (the `CreateAIProvider` operationId).
+	CreateAIProviderWithResponse(ctx context.Context, tenant TenantPath, params *CreateAIProviderParams, body CreateAIProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAIProviderResponse, error)
+
+	// DeleteAIProviderWithResponse Remove an AI provider
+	//
+	// Refused while a stored routing policy routes to it. Needs
+	// `intelligence.manage`. Problem code: `provider_in_use` (409).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `DeleteAIProvider` operationId).
+	DeleteAIProviderWithResponse(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, reqEditors ...RequestEditorFn) (*DeleteAIProviderResponse, error)
+
+	// GetAIProviderWithResponse An AI provider
+	//
+	// Never its key. Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `GetAIProvider` operationId).
+	GetAIProviderWithResponse(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, reqEditors ...RequestEditorFn) (*GetAIProviderResponse, error)
+
+	// UpdateAIProviderWithBodyWithResponse Change an AI provider
+	//
+	// Absent members keep their value. `api_key` replaces the key,
+	// `clear_api_key` removes it. Renaming a provider a stored routing
+	// policy routes to is refused. Needs `intelligence.manage`.
+	// Problem codes: `invalid_provider` (400), `provider_name_taken`,
+	// `provider_in_use` (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `UpdateAIProvider` operationId).
+	UpdateAIProviderWithBodyWithResponse(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, params *UpdateAIProviderParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAIProviderResponse, error)
+
+	// UpdateAIProviderWithResponse Change an AI provider
+	//
+	// Absent members keep their value. `api_key` replaces the key,
+	// `clear_api_key` removes it. Renaming a provider a stored routing
+	// policy routes to is refused. Needs `intelligence.manage`.
+	// Problem codes: `invalid_provider` (400), `provider_name_taken`,
+	// `provider_in_use` (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `UpdateAIProvider` operationId).
+	UpdateAIProviderWithResponse(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, params *UpdateAIProviderParams, body UpdateAIProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAIProviderResponse, error)
+
+	// GetAIRoutingPolicyWithResponse The tenant's AI routing policy
+	//
+	// Which provider and model each task (`translate`, `review`,
+	// `explain`, `assess`) runs on, per target locale, with ordered
+	// fallbacks. Without a stored policy the default applies
+	// (`source: default`: Anthropic Claude Sonnet 5 for translate and
+	// review, Claude Haiku 4.5 for the self-assessment). Needs
+	// `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-routing-policy (the `GetAIRoutingPolicy` operationId).
+	GetAIRoutingPolicyWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetAIRoutingPolicyResponse, error)
+
+	// PutAIRoutingPolicyWithBodyWithResponse Replace the tenant's AI routing policy
+	//
+	// Every route must name a configured provider whose model
+	// allow-list admits the model. Needs `intelligence.manage`.
+	// Problem code: `invalid_routing_policy` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-routing-policy (the `PutAIRoutingPolicy` operationId).
+	PutAIRoutingPolicyWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *PutAIRoutingPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAIRoutingPolicyResponse, error)
+
+	// PutAIRoutingPolicyWithResponse Replace the tenant's AI routing policy
+	//
+	// Every route must name a configured provider whose model
+	// allow-list admits the model. Needs `intelligence.manage`.
+	// Problem code: `invalid_routing_policy` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-routing-policy (the `PutAIRoutingPolicy` operationId).
+	PutAIRoutingPolicyWithResponse(ctx context.Context, tenant TenantPath, params *PutAIRoutingPolicyParams, body PutAIRoutingPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAIRoutingPolicyResponse, error)
+
+	// GetAISettingsWithResponse The tenant's AI settings
+	//
+	// Consent to send text to AI providers (off until someone turns it
+	// on; who and when is kept), the concurrency cap on running jobs
+	// and the monthly budget in micro-USD (0 allows no provider calls:
+	// a hard stop). Defaults until saved, at version 0. Needs
+	// `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-settings (the `GetAISettings` operationId).
+	GetAISettingsWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetAISettingsResponse, error)
+
+	// PutAISettingsWithBodyWithResponse Change the tenant's AI settings
+	//
+	// Absent members keep their value; `If-Match` applies when sent.
+	// Needs `intelligence.manage`. Problem code: `invalid_settings`
+	// (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-settings (the `PutAISettings` operationId).
+	PutAISettingsWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *PutAISettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAISettingsResponse, error)
+
+	// PutAISettingsWithResponse Change the tenant's AI settings
+	//
+	// Absent members keep their value; `If-Match` applies when sent.
+	// Needs `intelligence.manage`. Problem code: `invalid_settings`
+	// (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/ai-settings (the `PutAISettings` operationId).
+	PutAISettingsWithResponse(ctx context.Context, tenant TenantPath, params *PutAISettingsParams, body PutAISettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAISettingsResponse, error)
+
+	// ListAISpendWithResponse The spend ledger
+	//
+	// Every priced provider call since `since` (default: the start of
+	// this month), newest first. Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-spend (the `ListAISpend` operationId).
+	ListAISpendWithResponse(ctx context.Context, tenant TenantPath, params *ListAISpendParams, reqEditors ...RequestEditorFn) (*ListAISpendResponse, error)
+
+	// ListAISuggestionsWithResponse AI suggestions
+	//
+	// Newest first. Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-suggestions (the `ListAISuggestions` operationId).
+	ListAISuggestionsWithResponse(ctx context.Context, tenant TenantPath, params *ListAISuggestionsParams, reqEditors ...RequestEditorFn) (*ListAISuggestionsResponse, error)
+
+	// GetAISuggestionWithResponse An AI suggestion with its confidence explanation
+	//
+	// `score` (0–1) prioritizes review; it is never a promise of
+	// correctness. `explanation` lists each factor and its
+	// contribution ("why this?"); `provenance` names the provider,
+	// model, prompt version, translation-memory units, terms and
+	// style-guide version. Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion} (the `GetAISuggestion` operationId).
+	GetAISuggestionWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, reqEditors ...RequestEditorFn) (*GetAISuggestionResponse, error)
+
+	// AcceptAISuggestionWithBodyWithResponse Accept a suggestion, as is or edited
+	//
+	// Writes the message's translation: a revision with origin `ai`
+	// or `translation_memory` and an `origin_detail` naming provider,
+	// model, prompt version, TM units, terms, style version, score and
+	// explanation. It is `approved` when the caller may review the
+	// locale, else what the project's review policy says. With `text`
+	// (MF2 by default) the edit is accepted instead and its structured
+	// diff (edit distance, terms and style fields changed) recorded for
+	// the metrics. Needs `intelligence.translate` and
+	// `translations.write` for the locale. Problem codes:
+	// `suggestion_decided`, `suggestion_outdated`,
+	// `translation_conflict` (409), `translation_rejected` (422),
+	// `invalid_message`, `invalid_syntax` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/acceptance (the `AcceptAISuggestion` operationId).
+	AcceptAISuggestionWithBodyWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *AcceptAISuggestionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptAISuggestionResponse, error)
+
+	// AcceptAISuggestionWithResponse Accept a suggestion, as is or edited
+	//
+	// Writes the message's translation: a revision with origin `ai`
+	// or `translation_memory` and an `origin_detail` naming provider,
+	// model, prompt version, TM units, terms, style version, score and
+	// explanation. It is `approved` when the caller may review the
+	// locale, else what the project's review policy says. With `text`
+	// (MF2 by default) the edit is accepted instead and its structured
+	// diff (edit distance, terms and style fields changed) recorded for
+	// the metrics. Needs `intelligence.translate` and
+	// `translations.write` for the locale. Problem codes:
+	// `suggestion_decided`, `suggestion_outdated`,
+	// `translation_conflict` (409), `translation_rejected` (422),
+	// `invalid_message`, `invalid_syntax` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/acceptance (the `AcceptAISuggestion` operationId).
+	AcceptAISuggestionWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *AcceptAISuggestionParams, body AcceptAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptAISuggestionResponse, error)
+
+	// RejectAISuggestionWithBodyWithResponse Reject a suggestion
+	//
+	// Nothing is written. Needs `intelligence.translate` for the
+	// locale. Problem codes: `suggestion_decided` (409),
+	// `invalid_reason` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
+	RejectAISuggestionWithBodyWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RejectAISuggestionResponse, error)
+
+	// RejectAISuggestionWithResponse Reject a suggestion
+	//
+	// Nothing is written. Needs `intelligence.translate` for the
+	// locale. Problem codes: `suggestion_decided` (409),
+	// `invalid_reason` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
+	RejectAISuggestionWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, body RejectAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectAISuggestionResponse, error)
+
 	// GetEffectiveStyleGuideWithResponse The style that applies to a project, locale and namespace
 	//
 	// Every applicable guide merged field by field, the narrowest
@@ -15210,6 +20100,158 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project} (the `UpdateProject` operationId).
 	UpdateProjectWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
+
+	// CreateAIFillWithBodyWithResponse Fill locales with AI ("Fill with AI", `glossa translate`)
+	//
+	// Queues one job per message missing in each locale (and, with
+	// `include_outdated`, outdated there), or per listed `keys` that
+	// are missing or outdated, narrowed by `namespace` and
+	// `key_prefix`. Messages in `sensitive` namespaces are skipped
+	// (`skipped.sensitive`). A job exists once per message, locale,
+	// source revision and knowledge fingerprint: an existing one is
+	// reused (`jobs_existing`), a failed, dead or cancelled one queued
+	// again. `warnings` say when jobs will do little: consent off (only
+	// exact translation-memory matches are reused), no budget, no
+	// provider. Needs `intelligence.translate` for every locale.
+	// Problem codes: `too_many_locales`, `too_many_keys`,
+	// `invalid_locale` (400), `locale_not_found` (404).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fills (the `CreateAIFill` operationId).
+	CreateAIFillWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateAIFillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAIFillResponse, error)
+
+	// CreateAIFillWithResponse Fill locales with AI ("Fill with AI", `glossa translate`)
+	//
+	// Queues one job per message missing in each locale (and, with
+	// `include_outdated`, outdated there), or per listed `keys` that
+	// are missing or outdated, narrowed by `namespace` and
+	// `key_prefix`. Messages in `sensitive` namespaces are skipped
+	// (`skipped.sensitive`). A job exists once per message, locale,
+	// source revision and knowledge fingerprint: an existing one is
+	// reused (`jobs_existing`), a failed, dead or cancelled one queued
+	// again. `warnings` say when jobs will do little: consent off (only
+	// exact translation-memory matches are reused), no budget, no
+	// provider. Needs `intelligence.translate` for every locale.
+	// Problem codes: `too_many_locales`, `too_many_keys`,
+	// `invalid_locale` (400), `locale_not_found` (404).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fills (the `CreateAIFill` operationId).
+	CreateAIFillWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateAIFillParams, body CreateAIFillJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAIFillResponse, error)
+
+	// GetAIMetricsWithResponse Acceptance rate and edit distance per locale
+	//
+	// People's decisions on the project's suggestions since `since`
+	// (default: 30 days ago), per locale: accepted (as is or edited),
+	// rejected, the acceptance rate and the mean edit distance of
+	// accepted suggestions (0 for those accepted as is). Needs
+	// `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-metrics (the `GetAIMetrics` operationId).
+	GetAIMetricsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetAIMetricsParams, reqEditors ...RequestEditorFn) (*GetAIMetricsResponse, error)
+
+	// GetAIReviewQueueWithResponse The review queue, riskiest first
+	//
+	// Pending suggestions ordered by risk, not by key: lowest score
+	// first, then the most `risk_tags` (legal and marketing
+	// namespaces, forbidden terms, max length, missing plural
+	// categories). `locale` (repeatable) narrows it. Needs
+	// `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-review-queue (the `GetAIReviewQueue` operationId).
+	GetAIReviewQueueWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetAIReviewQueueParams, reqEditors ...RequestEditorFn) (*GetAIReviewQueueResponse, error)
+
+	// DeleteProjectAIRoutingPolicyWithResponse Remove a project's AI routing policy
+	//
+	// The tenant's (or the default) applies again. Needs `intelligence.manage`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `DeleteProjectAIRoutingPolicy` operationId).
+	DeleteProjectAIRoutingPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*DeleteProjectAIRoutingPolicyResponse, error)
+
+	// GetProjectAIRoutingPolicyWithResponse The AI routing policy in effect for a project
+	//
+	// The project's own (`source: project`), else the tenant's, else
+	// the default. Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `GetProjectAIRoutingPolicy` operationId).
+	GetProjectAIRoutingPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*GetProjectAIRoutingPolicyResponse, error)
+
+	// PutProjectAIRoutingPolicyWithBodyWithResponse Replace a project's AI routing policy
+	//
+	// As the tenant's, for one project. Needs `intelligence.manage`.
+	// Problem code: `invalid_routing_policy` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `PutProjectAIRoutingPolicy` operationId).
+	PutProjectAIRoutingPolicyWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAIRoutingPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutProjectAIRoutingPolicyResponse, error)
+
+	// PutProjectAIRoutingPolicyWithResponse Replace a project's AI routing policy
+	//
+	// As the tenant's, for one project. Needs `intelligence.manage`.
+	// Problem code: `invalid_routing_policy` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `PutProjectAIRoutingPolicy` operationId).
+	PutProjectAIRoutingPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAIRoutingPolicyParams, body PutProjectAIRoutingPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectAIRoutingPolicyResponse, error)
+
+	// GetProjectAISettingsWithResponse A project's AI settings
+	//
+	// Namespace policy tags (`sensitive`: never sent to a provider,
+	// always translated by people; `legal` and `marketing`: riskier,
+	// reviewed first), the locales auto-translate is on for (none by
+	// default) and the review routing of suggestions by confidence.
+	// Defaults until saved, at version 0. Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-settings (the `GetProjectAISettings` operationId).
+	GetProjectAISettingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*GetProjectAISettingsResponse, error)
+
+	// PutProjectAISettingsWithBodyWithResponse Change a project's AI settings
+	//
+	// Absent members keep their value. `review.auto_approve` (off by
+	// default) is accepted only with `auto_approve_environments` that
+	// all exist and ship approved translations (Release's eligibility
+	// policies), and is re-checked for every suggestion: when an
+	// environment stops shipping approved text, suggestions are routed
+	// `approve_recommended` instead, with an `action_note`. Needs
+	// `intelligence.manage`. Problem codes: `invalid_namespace_tags`,
+	// `invalid_review_policy`, `invalid_locale` (400),
+	// `auto_approve_ineligible` (422).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-settings (the `PutProjectAISettings` operationId).
+	PutProjectAISettingsWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAISettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutProjectAISettingsResponse, error)
+
+	// PutProjectAISettingsWithResponse Change a project's AI settings
+	//
+	// Absent members keep their value. `review.auto_approve` (off by
+	// default) is accepted only with `auto_approve_environments` that
+	// all exist and ship approved translations (Release's eligibility
+	// policies), and is re-checked for every suggestion: when an
+	// environment stops shipping approved text, suggestions are routed
+	// `approve_recommended` instead, with an `action_note`. Needs
+	// `intelligence.manage`. Problem codes: `invalid_namespace_tags`,
+	// `invalid_review_policy`, `invalid_locale` (400),
+	// `auto_approve_ineligible` (422).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-settings (the `PutProjectAISettings` operationId).
+	PutProjectAISettingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAISettingsParams, body PutProjectAISettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectAISettingsResponse, error)
 
 	// ListApplicationsWithResponse Applications of a project
 	//
@@ -17789,6 +22831,1664 @@ func (r GetTenantResponse) ContentType() string {
 	return ""
 }
 
+type GetAIBudgetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIBudget
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAIBudgetResponse) GetJSON200() *AIBudget {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAIBudgetResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAIBudgetResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAIBudgetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAIBudgetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAIBudgetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAIBudgetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAIDisclosuresResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIDisclosureList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAIDisclosuresResponse) GetJSON200() *AIDisclosureList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListAIDisclosuresResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListAIDisclosuresResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListAIDisclosuresResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAIDisclosuresResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAIDisclosuresResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAIDisclosuresResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAIDisclosuresResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAIEvalBaselineResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIEvalBaseline
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAIEvalBaselineResponse) GetJSON200() *AIEvalBaseline {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAIEvalBaselineResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAIEvalBaselineResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAIEvalBaselineResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAIEvalBaselineResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAIEvalBaselineResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAIEvalBaselineResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAIFillResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIFill
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAIFillResponse) GetJSON200() *AIFill {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAIFillResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAIFillResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAIFillResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAIFillResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAIFillResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAIFillResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAIFillResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CancelAIFillResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIFill
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelAIFillResponse) GetJSON200() *AIFill {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CancelAIFillResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CancelAIFillResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CancelAIFillResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r CancelAIFillResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelAIFillResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelAIFillResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CancelAIFillResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAIJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIJobList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAIJobsResponse) GetJSON200() *AIJobList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListAIJobsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListAIJobsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListAIJobsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAIJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAIJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAIJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAIJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAIJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIJob
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAIJobResponse) GetJSON200() *AIJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAIJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAIJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAIJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAIJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAIJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAIJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAIJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CancelAIJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIJob
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelAIJobResponse) GetJSON200() *AIJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CancelAIJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CancelAIJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CancelAIJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CancelAIJobResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CancelAIJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelAIJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelAIJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CancelAIJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetAIPricesResponse200Headers the declared response headers of an HTTP 200 response for GetAIPrices
+type GetAIPricesResponse200Headers struct {
+	ETag *string
+}
+
+type GetAIPricesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIPrices
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetAIPricesResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAIPricesResponse) GetJSON200() *AIPrices {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAIPricesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAIPricesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAIPricesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAIPricesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAIPricesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAIPricesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// PutAIPricesResponse200Headers the declared response headers of an HTTP 200 response for PutAIPrices
+type PutAIPricesResponse200Headers struct {
+	ETag *string
+}
+
+type PutAIPricesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIPrices
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *PutAIPricesResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutAIPricesResponse) GetJSON200() *AIPrices {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r PutAIPricesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PutAIPricesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PutAIPricesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r PutAIPricesResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetBody returns the raw response body bytes
+func (r PutAIPricesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutAIPricesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutAIPricesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutAIPricesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAIProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIProviderList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAIProvidersResponse) GetJSON200() *AIProviderList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListAIProvidersResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListAIProvidersResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListAIProvidersResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAIProvidersResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAIProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAIProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAIProvidersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateAIProviderResponse201Headers the declared response headers of an HTTP 201 response for CreateAIProvider
+type CreateAIProviderResponse201Headers struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateAIProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *AIProvider
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateAIProviderResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateAIProviderResponse) GetJSON201() *AIProvider {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateAIProviderResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateAIProviderResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateAIProviderResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateAIProviderResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateAIProviderResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateAIProviderResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAIProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAIProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAIProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteAIProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeleteAIProviderResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeleteAIProviderResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeleteAIProviderResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r DeleteAIProviderResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteAIProviderResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteAIProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteAIProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteAIProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetAIProviderResponse200Headers the declared response headers of an HTTP 200 response for GetAIProvider
+type GetAIProviderResponse200Headers struct {
+	ETag *string
+}
+
+type GetAIProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIProvider
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetAIProviderResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAIProviderResponse) GetJSON200() *AIProvider {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAIProviderResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAIProviderResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAIProviderResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAIProviderResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAIProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAIProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAIProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// UpdateAIProviderResponse200Headers the declared response headers of an HTTP 200 response for UpdateAIProvider
+type UpdateAIProviderResponse200Headers struct {
+	ETag *string
+}
+
+type UpdateAIProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIProvider
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *UpdateAIProviderResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateAIProviderResponse) GetJSON200() *AIProvider {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r UpdateAIProviderResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r UpdateAIProviderResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r UpdateAIProviderResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r UpdateAIProviderResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r UpdateAIProviderResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r UpdateAIProviderResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r UpdateAIProviderResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateAIProviderResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateAIProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateAIProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateAIProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetAIRoutingPolicyResponse200Headers the declared response headers of an HTTP 200 response for GetAIRoutingPolicy
+type GetAIRoutingPolicyResponse200Headers struct {
+	ETag *string
+}
+
+type GetAIRoutingPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIRoutingPolicyView
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetAIRoutingPolicyResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAIRoutingPolicyResponse) GetJSON200() *AIRoutingPolicyView {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAIRoutingPolicyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAIRoutingPolicyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAIRoutingPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAIRoutingPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAIRoutingPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAIRoutingPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// PutAIRoutingPolicyResponse200Headers the declared response headers of an HTTP 200 response for PutAIRoutingPolicy
+type PutAIRoutingPolicyResponse200Headers struct {
+	ETag *string
+}
+
+type PutAIRoutingPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIRoutingPolicyView
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *PutAIRoutingPolicyResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutAIRoutingPolicyResponse) GetJSON200() *AIRoutingPolicyView {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r PutAIRoutingPolicyResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PutAIRoutingPolicyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PutAIRoutingPolicyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r PutAIRoutingPolicyResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetBody returns the raw response body bytes
+func (r PutAIRoutingPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutAIRoutingPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutAIRoutingPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutAIRoutingPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetAISettingsResponse200Headers the declared response headers of an HTTP 200 response for GetAISettings
+type GetAISettingsResponse200Headers struct {
+	ETag *string
+}
+
+type GetAISettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AISettings
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetAISettingsResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAISettingsResponse) GetJSON200() *AISettings {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAISettingsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAISettingsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAISettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAISettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAISettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAISettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// PutAISettingsResponse200Headers the declared response headers of an HTTP 200 response for PutAISettings
+type PutAISettingsResponse200Headers struct {
+	ETag *string
+}
+
+type PutAISettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AISettings
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *PutAISettingsResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutAISettingsResponse) GetJSON200() *AISettings {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r PutAISettingsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PutAISettingsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PutAISettingsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r PutAISettingsResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetBody returns the raw response body bytes
+func (r PutAISettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutAISettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutAISettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutAISettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAISpendResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AISpendList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAISpendResponse) GetJSON200() *AISpendList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListAISpendResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListAISpendResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListAISpendResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAISpendResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAISpendResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAISpendResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAISpendResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAISuggestionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AISuggestionList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAISuggestionsResponse) GetJSON200() *AISuggestionList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListAISuggestionsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListAISuggestionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListAISuggestionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAISuggestionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAISuggestionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAISuggestionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAISuggestionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetAISuggestionResponse200Headers the declared response headers of an HTTP 200 response for GetAISuggestion
+type GetAISuggestionResponse200Headers struct {
+	ETag *string
+}
+
+type GetAISuggestionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AISuggestion
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetAISuggestionResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAISuggestionResponse) GetJSON200() *AISuggestion {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAISuggestionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAISuggestionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAISuggestionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAISuggestionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAISuggestionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAISuggestionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAISuggestionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// AcceptAISuggestionResponse200Headers the declared response headers of an HTTP 200 response for AcceptAISuggestion
+type AcceptAISuggestionResponse200Headers struct {
+	ETag *string
+}
+
+type AcceptAISuggestionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AISuggestion
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *AcceptAISuggestionResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AcceptAISuggestionResponse) GetJSON200() *AISuggestion {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r AcceptAISuggestionResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r AcceptAISuggestionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r AcceptAISuggestionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r AcceptAISuggestionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r AcceptAISuggestionResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r AcceptAISuggestionResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r AcceptAISuggestionResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r AcceptAISuggestionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AcceptAISuggestionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AcceptAISuggestionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AcceptAISuggestionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// RejectAISuggestionResponse200Headers the declared response headers of an HTTP 200 response for RejectAISuggestion
+type RejectAISuggestionResponse200Headers struct {
+	ETag *string
+}
+
+type RejectAISuggestionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AISuggestion
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *RejectAISuggestionResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RejectAISuggestionResponse) GetJSON200() *AISuggestion {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r RejectAISuggestionResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RejectAISuggestionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RejectAISuggestionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RejectAISuggestionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r RejectAISuggestionResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r RejectAISuggestionResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetBody returns the raw response body bytes
+func (r RejectAISuggestionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RejectAISuggestionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RejectAISuggestionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RejectAISuggestionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetEffectiveStyleGuideResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -18602,6 +25302,594 @@ func (r UpdateProjectResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateAIFillResponse201Headers the declared response headers of an HTTP 201 response for CreateAIFill
+type CreateAIFillResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateAIFillResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *AIFill
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateAIFillResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateAIFillResponse) GetJSON201() *AIFill {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateAIFillResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateAIFillResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateAIFillResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateAIFillResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateAIFillResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateAIFillResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAIFillResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAIFillResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAIFillResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAIMetricsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIMetrics
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAIMetricsResponse) GetJSON200() *AIMetrics {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r GetAIMetricsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAIMetricsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAIMetricsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAIMetricsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAIMetricsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAIMetricsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAIMetricsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAIMetricsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAIReviewQueueResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AISuggestionList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAIReviewQueueResponse) GetJSON200() *AISuggestionList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r GetAIReviewQueueResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAIReviewQueueResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAIReviewQueueResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAIReviewQueueResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAIReviewQueueResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAIReviewQueueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAIReviewQueueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAIReviewQueueResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteProjectAIRoutingPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeleteProjectAIRoutingPolicyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeleteProjectAIRoutingPolicyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeleteProjectAIRoutingPolicyResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteProjectAIRoutingPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProjectAIRoutingPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProjectAIRoutingPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteProjectAIRoutingPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetProjectAIRoutingPolicyResponse200Headers the declared response headers of an HTTP 200 response for GetProjectAIRoutingPolicy
+type GetProjectAIRoutingPolicyResponse200Headers struct {
+	ETag *string
+}
+
+type GetProjectAIRoutingPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIRoutingPolicyView
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetProjectAIRoutingPolicyResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetProjectAIRoutingPolicyResponse) GetJSON200() *AIRoutingPolicyView {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetProjectAIRoutingPolicyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetProjectAIRoutingPolicyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetProjectAIRoutingPolicyResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetProjectAIRoutingPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectAIRoutingPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectAIRoutingPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectAIRoutingPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// PutProjectAIRoutingPolicyResponse200Headers the declared response headers of an HTTP 200 response for PutProjectAIRoutingPolicy
+type PutProjectAIRoutingPolicyResponse200Headers struct {
+	ETag *string
+}
+
+type PutProjectAIRoutingPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIRoutingPolicyView
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *PutProjectAIRoutingPolicyResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutProjectAIRoutingPolicyResponse) GetJSON200() *AIRoutingPolicyView {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r PutProjectAIRoutingPolicyResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PutProjectAIRoutingPolicyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PutProjectAIRoutingPolicyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r PutProjectAIRoutingPolicyResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r PutProjectAIRoutingPolicyResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetBody returns the raw response body bytes
+func (r PutProjectAIRoutingPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutProjectAIRoutingPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutProjectAIRoutingPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutProjectAIRoutingPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetProjectAISettingsResponse200Headers the declared response headers of an HTTP 200 response for GetProjectAISettings
+type GetProjectAISettingsResponse200Headers struct {
+	ETag *string
+}
+
+type GetProjectAISettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIProjectSettings
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetProjectAISettingsResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetProjectAISettingsResponse) GetJSON200() *AIProjectSettings {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetProjectAISettingsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetProjectAISettingsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetProjectAISettingsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetProjectAISettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectAISettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectAISettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectAISettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// PutProjectAISettingsResponse200Headers the declared response headers of an HTTP 200 response for PutProjectAISettings
+type PutProjectAISettingsResponse200Headers struct {
+	ETag *string
+}
+
+type PutProjectAISettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIProjectSettings
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *PutProjectAISettingsResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutProjectAISettingsResponse) GetJSON200() *AIProjectSettings {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r PutProjectAISettingsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PutProjectAISettingsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PutProjectAISettingsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r PutProjectAISettingsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r PutProjectAISettingsResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r PutProjectAISettingsResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r PutProjectAISettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutProjectAISettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutProjectAISettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutProjectAISettingsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -24313,6 +31601,569 @@ func (c *ClientWithResponses) GetTenantWithResponse(ctx context.Context, tenant 
 	return ParseGetTenantResponse(rsp)
 }
 
+// GetAIBudgetWithResponse The monthly budget and this month's spend
+//
+// The cap (set with `ai-settings`), what this calendar month (UTC)
+// spent, what remains and the spend per provider and model. A call
+// whose upper-bound estimate would pass the cap is refused before
+// anything is sent. Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-budget (the `GetAIBudget` operationId).
+func (c *ClientWithResponses) GetAIBudgetWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetAIBudgetResponse, error) {
+	rsp, err := c.GetAIBudget(ctx, tenant, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAIBudgetResponse(rsp)
+}
+
+// ListAIDisclosuresWithResponse Which provider saw which message
+//
+// Every provider call a job made, even a failed one, with exactly
+// what the provider was sent (RFC 0003 §7), newest first. Needs
+// `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-disclosures (the `ListAIDisclosures` operationId).
+func (c *ClientWithResponses) ListAIDisclosuresWithResponse(ctx context.Context, tenant TenantPath, params *ListAIDisclosuresParams, reqEditors ...RequestEditorFn) (*ListAIDisclosuresResponse, error) {
+	rsp, err := c.ListAIDisclosures(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAIDisclosuresResponse(rsp)
+}
+
+// GetAIEvalBaselineWithResponse The translation agent's eval baseline
+//
+// The tracked metrics of the golden-set evals per locale pair and
+// overall (`all`), as committed with the server
+// (`internal/intelligence/evals/testdata/baseline.json`): a prompt
+// or model change may not regress them (RFC 0003 §4). Needs
+// `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-eval-baseline (the `GetAIEvalBaseline` operationId).
+func (c *ClientWithResponses) GetAIEvalBaselineWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetAIEvalBaselineResponse, error) {
+	rsp, err := c.GetAIEvalBaseline(ctx, tenant, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAIEvalBaselineResponse(rsp)
+}
+
+// GetAIFillWithResponse A fill and its jobs' states
+//
+// Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-fills/{ai_fill} (the `GetAIFill` operationId).
+func (c *ClientWithResponses) GetAIFillWithResponse(ctx context.Context, tenant TenantPath, aiFill AIFillPath, reqEditors ...RequestEditorFn) (*GetAIFillResponse, error) {
+	rsp, err := c.GetAIFill(ctx, tenant, aiFill, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAIFillResponse(rsp)
+}
+
+// CancelAIFillWithResponse Cancel a fill's queued jobs
+//
+// Running jobs finish. Cancelling twice changes nothing. Needs
+// `intelligence.translate` for the fill's locales.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-fills/{ai_fill}/cancellation (the `CancelAIFill` operationId).
+func (c *ClientWithResponses) CancelAIFillWithResponse(ctx context.Context, tenant TenantPath, aiFill AIFillPath, reqEditors ...RequestEditorFn) (*CancelAIFillResponse, error) {
+	rsp, err := c.CancelAIFill(ctx, tenant, aiFill, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelAIFillResponse(rsp)
+}
+
+// ListAIJobsWithResponse AI translation jobs
+//
+// Newest first. A job is `queued` → `running` → `succeeded`
+// (with a suggestion), `skipped` (the message changed, was
+// translated meanwhile or is gone), `failed` (for good:
+// `failure_code` says why — `provider_consent`, `sensitive`,
+// `invalid_output`, `budget_exceeded`, `no_route`,
+// `provider_error`, `invalid_source`), `dead` (transient failures
+// exhausted its attempts) or `cancelled`. Needs
+// `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-jobs (the `ListAIJobs` operationId).
+func (c *ClientWithResponses) ListAIJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListAIJobsParams, reqEditors ...RequestEditorFn) (*ListAIJobsResponse, error) {
+	rsp, err := c.ListAIJobs(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAIJobsResponse(rsp)
+}
+
+// GetAIJobWithResponse A job with its audit ledger
+//
+// `audit` is the agent's ledger: every tool result in order — what
+// it looked up, what it sent and what came back. Needs
+// `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-jobs/{ai_job} (the `GetAIJob` operationId).
+func (c *ClientWithResponses) GetAIJobWithResponse(ctx context.Context, tenant TenantPath, aiJob AIJobPath, reqEditors ...RequestEditorFn) (*GetAIJobResponse, error) {
+	rsp, err := c.GetAIJob(ctx, tenant, aiJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAIJobResponse(rsp)
+}
+
+// CancelAIJobWithResponse Cancel a queued job
+//
+// Only queued jobs can be cancelled; cancelling a cancelled job
+// changes nothing. Needs `intelligence.translate` for its locale.
+// Problem code: `job_not_cancellable` (409).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-jobs/{ai_job}/cancellation (the `CancelAIJob` operationId).
+func (c *ClientWithResponses) CancelAIJobWithResponse(ctx context.Context, tenant TenantPath, aiJob AIJobPath, reqEditors ...RequestEditorFn) (*CancelAIJobResponse, error) {
+	rsp, err := c.CancelAIJob(ctx, tenant, aiJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelAIJobResponse(rsp)
+}
+
+// GetAIPricesWithResponse The AI price table
+//
+// USD per million tokens by `<provider>/<model>`: the deployment's
+// defaults, the tenant's overrides and the effective table budgets
+// are charged with (an unpriced model costs 0 and its spend is
+// flagged `priced: false`). The ETag is the settings'. Needs
+// `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-prices (the `GetAIPrices` operationId).
+func (c *ClientWithResponses) GetAIPricesWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetAIPricesResponse, error) {
+	rsp, err := c.GetAIPrices(ctx, tenant, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAIPricesResponse(rsp)
+}
+
+// PutAIPricesWithBodyWithResponse Replace the tenant's price overrides
+//
+// Needs `intelligence.manage`. Problem code: `invalid_prices` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-prices (the `PutAIPrices` operationId).
+func (c *ClientWithResponses) PutAIPricesWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *PutAIPricesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAIPricesResponse, error) {
+	rsp, err := c.PutAIPricesWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutAIPricesResponse(rsp)
+}
+
+// PutAIPricesWithResponse Replace the tenant's price overrides
+//
+// Needs `intelligence.manage`. Problem code: `invalid_prices` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-prices (the `PutAIPrices` operationId).
+func (c *ClientWithResponses) PutAIPricesWithResponse(ctx context.Context, tenant TenantPath, params *PutAIPricesParams, body PutAIPricesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAIPricesResponse, error) {
+	rsp, err := c.PutAIPrices(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutAIPricesResponse(rsp)
+}
+
+// ListAIProvidersWithResponse Configured AI providers
+//
+// The tenant's providers by name — never their API keys
+// (`api_key_set` says whether one is stored). Needs
+// `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-providers (the `ListAIProviders` operationId).
+func (c *ClientWithResponses) ListAIProvidersWithResponse(ctx context.Context, tenant TenantPath, params *ListAIProvidersParams, reqEditors ...RequestEditorFn) (*ListAIProvidersResponse, error) {
+	rsp, err := c.ListAIProviders(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAIProvidersResponse(rsp)
+}
+
+// CreateAIProviderWithBodyWithResponse Configure an AI provider with the tenant's own key
+//
+// `name` is what routing policies route to (the default routing
+// uses `anthropic`). `api_key` is write-only: it is sealed at rest
+// (AES-256-GCM, bound to the tenant and provider) and never
+// returned. `base_url` must be https and may not point at private
+// or loopback addresses unless the deployment allows it
+// (`GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS`); `models` is an allow-list
+// (empty allows any). Needs `intelligence.manage`. Problem codes:
+// `invalid_provider` (400), `provider_name_taken` (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-providers (the `CreateAIProvider` operationId).
+func (c *ClientWithResponses) CreateAIProviderWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateAIProviderParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAIProviderResponse, error) {
+	rsp, err := c.CreateAIProviderWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAIProviderResponse(rsp)
+}
+
+// CreateAIProviderWithResponse Configure an AI provider with the tenant's own key
+//
+// `name` is what routing policies route to (the default routing
+// uses `anthropic`). `api_key` is write-only: it is sealed at rest
+// (AES-256-GCM, bound to the tenant and provider) and never
+// returned. `base_url` must be https and may not point at private
+// or loopback addresses unless the deployment allows it
+// (`GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS`); `models` is an allow-list
+// (empty allows any). Needs `intelligence.manage`. Problem codes:
+// `invalid_provider` (400), `provider_name_taken` (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-providers (the `CreateAIProvider` operationId).
+func (c *ClientWithResponses) CreateAIProviderWithResponse(ctx context.Context, tenant TenantPath, params *CreateAIProviderParams, body CreateAIProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAIProviderResponse, error) {
+	rsp, err := c.CreateAIProvider(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAIProviderResponse(rsp)
+}
+
+// DeleteAIProviderWithResponse Remove an AI provider
+//
+// Refused while a stored routing policy routes to it. Needs
+// `intelligence.manage`. Problem code: `provider_in_use` (409).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `DeleteAIProvider` operationId).
+func (c *ClientWithResponses) DeleteAIProviderWithResponse(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, reqEditors ...RequestEditorFn) (*DeleteAIProviderResponse, error) {
+	rsp, err := c.DeleteAIProvider(ctx, tenant, aiProvider, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteAIProviderResponse(rsp)
+}
+
+// GetAIProviderWithResponse An AI provider
+//
+// Never its key. Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `GetAIProvider` operationId).
+func (c *ClientWithResponses) GetAIProviderWithResponse(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, reqEditors ...RequestEditorFn) (*GetAIProviderResponse, error) {
+	rsp, err := c.GetAIProvider(ctx, tenant, aiProvider, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAIProviderResponse(rsp)
+}
+
+// UpdateAIProviderWithBodyWithResponse Change an AI provider
+//
+// Absent members keep their value. `api_key` replaces the key,
+// `clear_api_key` removes it. Renaming a provider a stored routing
+// policy routes to is refused. Needs `intelligence.manage`.
+// Problem codes: `invalid_provider` (400), `provider_name_taken`,
+// `provider_in_use` (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `UpdateAIProvider` operationId).
+func (c *ClientWithResponses) UpdateAIProviderWithBodyWithResponse(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, params *UpdateAIProviderParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAIProviderResponse, error) {
+	rsp, err := c.UpdateAIProviderWithBody(ctx, tenant, aiProvider, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAIProviderResponse(rsp)
+}
+
+// UpdateAIProviderWithResponse Change an AI provider
+//
+// Absent members keep their value. `api_key` replaces the key,
+// `clear_api_key` removes it. Renaming a provider a stored routing
+// policy routes to is refused. Needs `intelligence.manage`.
+// Problem codes: `invalid_provider` (400), `provider_name_taken`,
+// `provider_in_use` (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/ai-providers/{ai_provider} (the `UpdateAIProvider` operationId).
+func (c *ClientWithResponses) UpdateAIProviderWithResponse(ctx context.Context, tenant TenantPath, aiProvider AIProviderPath, params *UpdateAIProviderParams, body UpdateAIProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAIProviderResponse, error) {
+	rsp, err := c.UpdateAIProvider(ctx, tenant, aiProvider, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAIProviderResponse(rsp)
+}
+
+// GetAIRoutingPolicyWithResponse The tenant's AI routing policy
+//
+// Which provider and model each task (`translate`, `review`,
+// `explain`, `assess`) runs on, per target locale, with ordered
+// fallbacks. Without a stored policy the default applies
+// (`source: default`: Anthropic Claude Sonnet 5 for translate and
+// review, Claude Haiku 4.5 for the self-assessment). Needs
+// `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-routing-policy (the `GetAIRoutingPolicy` operationId).
+func (c *ClientWithResponses) GetAIRoutingPolicyWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetAIRoutingPolicyResponse, error) {
+	rsp, err := c.GetAIRoutingPolicy(ctx, tenant, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAIRoutingPolicyResponse(rsp)
+}
+
+// PutAIRoutingPolicyWithBodyWithResponse Replace the tenant's AI routing policy
+//
+// Every route must name a configured provider whose model
+// allow-list admits the model. Needs `intelligence.manage`.
+// Problem code: `invalid_routing_policy` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-routing-policy (the `PutAIRoutingPolicy` operationId).
+func (c *ClientWithResponses) PutAIRoutingPolicyWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *PutAIRoutingPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAIRoutingPolicyResponse, error) {
+	rsp, err := c.PutAIRoutingPolicyWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutAIRoutingPolicyResponse(rsp)
+}
+
+// PutAIRoutingPolicyWithResponse Replace the tenant's AI routing policy
+//
+// Every route must name a configured provider whose model
+// allow-list admits the model. Needs `intelligence.manage`.
+// Problem code: `invalid_routing_policy` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-routing-policy (the `PutAIRoutingPolicy` operationId).
+func (c *ClientWithResponses) PutAIRoutingPolicyWithResponse(ctx context.Context, tenant TenantPath, params *PutAIRoutingPolicyParams, body PutAIRoutingPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAIRoutingPolicyResponse, error) {
+	rsp, err := c.PutAIRoutingPolicy(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutAIRoutingPolicyResponse(rsp)
+}
+
+// GetAISettingsWithResponse The tenant's AI settings
+//
+// Consent to send text to AI providers (off until someone turns it
+// on; who and when is kept), the concurrency cap on running jobs
+// and the monthly budget in micro-USD (0 allows no provider calls:
+// a hard stop). Defaults until saved, at version 0. Needs
+// `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-settings (the `GetAISettings` operationId).
+func (c *ClientWithResponses) GetAISettingsWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetAISettingsResponse, error) {
+	rsp, err := c.GetAISettings(ctx, tenant, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAISettingsResponse(rsp)
+}
+
+// PutAISettingsWithBodyWithResponse Change the tenant's AI settings
+//
+// Absent members keep their value; `If-Match` applies when sent.
+// Needs `intelligence.manage`. Problem code: `invalid_settings`
+// (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-settings (the `PutAISettings` operationId).
+func (c *ClientWithResponses) PutAISettingsWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *PutAISettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAISettingsResponse, error) {
+	rsp, err := c.PutAISettingsWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutAISettingsResponse(rsp)
+}
+
+// PutAISettingsWithResponse Change the tenant's AI settings
+//
+// Absent members keep their value; `If-Match` applies when sent.
+// Needs `intelligence.manage`. Problem code: `invalid_settings`
+// (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/ai-settings (the `PutAISettings` operationId).
+func (c *ClientWithResponses) PutAISettingsWithResponse(ctx context.Context, tenant TenantPath, params *PutAISettingsParams, body PutAISettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAISettingsResponse, error) {
+	rsp, err := c.PutAISettings(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutAISettingsResponse(rsp)
+}
+
+// ListAISpendWithResponse The spend ledger
+//
+// Every priced provider call since `since` (default: the start of
+// this month), newest first. Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-spend (the `ListAISpend` operationId).
+func (c *ClientWithResponses) ListAISpendWithResponse(ctx context.Context, tenant TenantPath, params *ListAISpendParams, reqEditors ...RequestEditorFn) (*ListAISpendResponse, error) {
+	rsp, err := c.ListAISpend(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAISpendResponse(rsp)
+}
+
+// ListAISuggestionsWithResponse AI suggestions
+//
+// Newest first. Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-suggestions (the `ListAISuggestions` operationId).
+func (c *ClientWithResponses) ListAISuggestionsWithResponse(ctx context.Context, tenant TenantPath, params *ListAISuggestionsParams, reqEditors ...RequestEditorFn) (*ListAISuggestionsResponse, error) {
+	rsp, err := c.ListAISuggestions(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAISuggestionsResponse(rsp)
+}
+
+// GetAISuggestionWithResponse An AI suggestion with its confidence explanation
+//
+// `score` (0–1) prioritizes review; it is never a promise of
+// correctness. `explanation` lists each factor and its
+// contribution ("why this?"); `provenance` names the provider,
+// model, prompt version, translation-memory units, terms and
+// style-guide version. Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion} (the `GetAISuggestion` operationId).
+func (c *ClientWithResponses) GetAISuggestionWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, reqEditors ...RequestEditorFn) (*GetAISuggestionResponse, error) {
+	rsp, err := c.GetAISuggestion(ctx, tenant, aiSuggestion, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAISuggestionResponse(rsp)
+}
+
+// AcceptAISuggestionWithBodyWithResponse Accept a suggestion, as is or edited
+//
+// Writes the message's translation: a revision with origin `ai`
+// or `translation_memory` and an `origin_detail` naming provider,
+// model, prompt version, TM units, terms, style version, score and
+// explanation. It is `approved` when the caller may review the
+// locale, else what the project's review policy says. With `text`
+// (MF2 by default) the edit is accepted instead and its structured
+// diff (edit distance, terms and style fields changed) recorded for
+// the metrics. Needs `intelligence.translate` and
+// `translations.write` for the locale. Problem codes:
+// `suggestion_decided`, `suggestion_outdated`,
+// `translation_conflict` (409), `translation_rejected` (422),
+// `invalid_message`, `invalid_syntax` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/acceptance (the `AcceptAISuggestion` operationId).
+func (c *ClientWithResponses) AcceptAISuggestionWithBodyWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *AcceptAISuggestionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptAISuggestionResponse, error) {
+	rsp, err := c.AcceptAISuggestionWithBody(ctx, tenant, aiSuggestion, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptAISuggestionResponse(rsp)
+}
+
+// AcceptAISuggestionWithResponse Accept a suggestion, as is or edited
+//
+// Writes the message's translation: a revision with origin `ai`
+// or `translation_memory` and an `origin_detail` naming provider,
+// model, prompt version, TM units, terms, style version, score and
+// explanation. It is `approved` when the caller may review the
+// locale, else what the project's review policy says. With `text`
+// (MF2 by default) the edit is accepted instead and its structured
+// diff (edit distance, terms and style fields changed) recorded for
+// the metrics. Needs `intelligence.translate` and
+// `translations.write` for the locale. Problem codes:
+// `suggestion_decided`, `suggestion_outdated`,
+// `translation_conflict` (409), `translation_rejected` (422),
+// `invalid_message`, `invalid_syntax` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/acceptance (the `AcceptAISuggestion` operationId).
+func (c *ClientWithResponses) AcceptAISuggestionWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *AcceptAISuggestionParams, body AcceptAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptAISuggestionResponse, error) {
+	rsp, err := c.AcceptAISuggestion(ctx, tenant, aiSuggestion, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptAISuggestionResponse(rsp)
+}
+
+// RejectAISuggestionWithBodyWithResponse Reject a suggestion
+//
+// Nothing is written. Needs `intelligence.translate` for the
+// locale. Problem codes: `suggestion_decided` (409),
+// `invalid_reason` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
+func (c *ClientWithResponses) RejectAISuggestionWithBodyWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RejectAISuggestionResponse, error) {
+	rsp, err := c.RejectAISuggestionWithBody(ctx, tenant, aiSuggestion, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRejectAISuggestionResponse(rsp)
+}
+
+// RejectAISuggestionWithResponse Reject a suggestion
+//
+// Nothing is written. Needs `intelligence.translate` for the
+// locale. Problem codes: `suggestion_decided` (409),
+// `invalid_reason` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
+func (c *ClientWithResponses) RejectAISuggestionWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, body RejectAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectAISuggestionResponse, error) {
+	rsp, err := c.RejectAISuggestion(ctx, tenant, aiSuggestion, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRejectAISuggestionResponse(rsp)
+}
+
 // GetEffectiveStyleGuideWithResponse The style that applies to a project, locale and namespace
 //
 // Every applicable guide merged field by field, the narrowest
@@ -24569,6 +32420,224 @@ func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, ten
 		return nil, err
 	}
 	return ParseUpdateProjectResponse(rsp)
+}
+
+// CreateAIFillWithBodyWithResponse Fill locales with AI ("Fill with AI", `glossa translate`)
+//
+// Queues one job per message missing in each locale (and, with
+// `include_outdated`, outdated there), or per listed `keys` that
+// are missing or outdated, narrowed by `namespace` and
+// `key_prefix`. Messages in `sensitive` namespaces are skipped
+// (`skipped.sensitive`). A job exists once per message, locale,
+// source revision and knowledge fingerprint: an existing one is
+// reused (`jobs_existing`), a failed, dead or cancelled one queued
+// again. `warnings` say when jobs will do little: consent off (only
+// exact translation-memory matches are reused), no budget, no
+// provider. Needs `intelligence.translate` for every locale.
+// Problem codes: `too_many_locales`, `too_many_keys`,
+// `invalid_locale` (400), `locale_not_found` (404).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fills (the `CreateAIFill` operationId).
+func (c *ClientWithResponses) CreateAIFillWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateAIFillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAIFillResponse, error) {
+	rsp, err := c.CreateAIFillWithBody(ctx, tenant, project, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAIFillResponse(rsp)
+}
+
+// CreateAIFillWithResponse Fill locales with AI ("Fill with AI", `glossa translate`)
+//
+// Queues one job per message missing in each locale (and, with
+// `include_outdated`, outdated there), or per listed `keys` that
+// are missing or outdated, narrowed by `namespace` and
+// `key_prefix`. Messages in `sensitive` namespaces are skipped
+// (`skipped.sensitive`). A job exists once per message, locale,
+// source revision and knowledge fingerprint: an existing one is
+// reused (`jobs_existing`), a failed, dead or cancelled one queued
+// again. `warnings` say when jobs will do little: consent off (only
+// exact translation-memory matches are reused), no budget, no
+// provider. Needs `intelligence.translate` for every locale.
+// Problem codes: `too_many_locales`, `too_many_keys`,
+// `invalid_locale` (400), `locale_not_found` (404).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fills (the `CreateAIFill` operationId).
+func (c *ClientWithResponses) CreateAIFillWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateAIFillParams, body CreateAIFillJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAIFillResponse, error) {
+	rsp, err := c.CreateAIFill(ctx, tenant, project, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAIFillResponse(rsp)
+}
+
+// GetAIMetricsWithResponse Acceptance rate and edit distance per locale
+//
+// People's decisions on the project's suggestions since `since`
+// (default: 30 days ago), per locale: accepted (as is or edited),
+// rejected, the acceptance rate and the mean edit distance of
+// accepted suggestions (0 for those accepted as is). Needs
+// `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-metrics (the `GetAIMetrics` operationId).
+func (c *ClientWithResponses) GetAIMetricsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetAIMetricsParams, reqEditors ...RequestEditorFn) (*GetAIMetricsResponse, error) {
+	rsp, err := c.GetAIMetrics(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAIMetricsResponse(rsp)
+}
+
+// GetAIReviewQueueWithResponse The review queue, riskiest first
+//
+// Pending suggestions ordered by risk, not by key: lowest score
+// first, then the most `risk_tags` (legal and marketing
+// namespaces, forbidden terms, max length, missing plural
+// categories). `locale` (repeatable) narrows it. Needs
+// `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-review-queue (the `GetAIReviewQueue` operationId).
+func (c *ClientWithResponses) GetAIReviewQueueWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetAIReviewQueueParams, reqEditors ...RequestEditorFn) (*GetAIReviewQueueResponse, error) {
+	rsp, err := c.GetAIReviewQueue(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAIReviewQueueResponse(rsp)
+}
+
+// DeleteProjectAIRoutingPolicyWithResponse Remove a project's AI routing policy
+//
+// The tenant's (or the default) applies again. Needs `intelligence.manage`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `DeleteProjectAIRoutingPolicy` operationId).
+func (c *ClientWithResponses) DeleteProjectAIRoutingPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*DeleteProjectAIRoutingPolicyResponse, error) {
+	rsp, err := c.DeleteProjectAIRoutingPolicy(ctx, tenant, project, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProjectAIRoutingPolicyResponse(rsp)
+}
+
+// GetProjectAIRoutingPolicyWithResponse The AI routing policy in effect for a project
+//
+// The project's own (`source: project`), else the tenant's, else
+// the default. Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `GetProjectAIRoutingPolicy` operationId).
+func (c *ClientWithResponses) GetProjectAIRoutingPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*GetProjectAIRoutingPolicyResponse, error) {
+	rsp, err := c.GetProjectAIRoutingPolicy(ctx, tenant, project, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectAIRoutingPolicyResponse(rsp)
+}
+
+// PutProjectAIRoutingPolicyWithBodyWithResponse Replace a project's AI routing policy
+//
+// As the tenant's, for one project. Needs `intelligence.manage`.
+// Problem code: `invalid_routing_policy` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `PutProjectAIRoutingPolicy` operationId).
+func (c *ClientWithResponses) PutProjectAIRoutingPolicyWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAIRoutingPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutProjectAIRoutingPolicyResponse, error) {
+	rsp, err := c.PutProjectAIRoutingPolicyWithBody(ctx, tenant, project, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutProjectAIRoutingPolicyResponse(rsp)
+}
+
+// PutProjectAIRoutingPolicyWithResponse Replace a project's AI routing policy
+//
+// As the tenant's, for one project. Needs `intelligence.manage`.
+// Problem code: `invalid_routing_policy` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `PutProjectAIRoutingPolicy` operationId).
+func (c *ClientWithResponses) PutProjectAIRoutingPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAIRoutingPolicyParams, body PutProjectAIRoutingPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectAIRoutingPolicyResponse, error) {
+	rsp, err := c.PutProjectAIRoutingPolicy(ctx, tenant, project, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutProjectAIRoutingPolicyResponse(rsp)
+}
+
+// GetProjectAISettingsWithResponse A project's AI settings
+//
+// Namespace policy tags (`sensitive`: never sent to a provider,
+// always translated by people; `legal` and `marketing`: riskier,
+// reviewed first), the locales auto-translate is on for (none by
+// default) and the review routing of suggestions by confidence.
+// Defaults until saved, at version 0. Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-settings (the `GetProjectAISettings` operationId).
+func (c *ClientWithResponses) GetProjectAISettingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*GetProjectAISettingsResponse, error) {
+	rsp, err := c.GetProjectAISettings(ctx, tenant, project, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectAISettingsResponse(rsp)
+}
+
+// PutProjectAISettingsWithBodyWithResponse Change a project's AI settings
+//
+// Absent members keep their value. `review.auto_approve` (off by
+// default) is accepted only with `auto_approve_environments` that
+// all exist and ship approved translations (Release's eligibility
+// policies), and is re-checked for every suggestion: when an
+// environment stops shipping approved text, suggestions are routed
+// `approve_recommended` instead, with an `action_note`. Needs
+// `intelligence.manage`. Problem codes: `invalid_namespace_tags`,
+// `invalid_review_policy`, `invalid_locale` (400),
+// `auto_approve_ineligible` (422).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-settings (the `PutProjectAISettings` operationId).
+func (c *ClientWithResponses) PutProjectAISettingsWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAISettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutProjectAISettingsResponse, error) {
+	rsp, err := c.PutProjectAISettingsWithBody(ctx, tenant, project, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutProjectAISettingsResponse(rsp)
+}
+
+// PutProjectAISettingsWithResponse Change a project's AI settings
+//
+// Absent members keep their value. `review.auto_approve` (off by
+// default) is accepted only with `auto_approve_environments` that
+// all exist and ship approved translations (Release's eligibility
+// policies), and is re-checked for every suggestion: when an
+// environment stops shipping approved text, suggestions are routed
+// `approve_recommended` instead, with an `action_note`. Needs
+// `intelligence.manage`. Problem codes: `invalid_namespace_tags`,
+// `invalid_review_policy`, `invalid_locale` (400),
+// `auto_approve_ineligible` (422).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/ai-settings (the `PutProjectAISettings` operationId).
+func (c *ClientWithResponses) PutProjectAISettingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutProjectAISettingsParams, body PutProjectAISettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectAISettingsResponse, error) {
+	rsp, err := c.PutProjectAISettings(ctx, tenant, project, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutProjectAISettingsResponse(rsp)
 }
 
 // ListApplicationsWithResponse Applications of a project
@@ -27454,6 +35523,1391 @@ func ParseGetTenantResponse(rsp *http.Response) (*GetTenantResponse, error) {
 	return response, nil
 }
 
+// ParseGetAIBudgetResponse parses an HTTP response from a GetAIBudgetWithResponse call
+func ParseGetAIBudgetResponse(rsp *http.Response) (*GetAIBudgetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAIBudgetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIBudget
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAIDisclosuresResponse parses an HTTP response from a ListAIDisclosuresWithResponse call
+func ParseListAIDisclosuresResponse(rsp *http.Response) (*ListAIDisclosuresResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAIDisclosuresResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIDisclosureList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAIEvalBaselineResponse parses an HTTP response from a GetAIEvalBaselineWithResponse call
+func ParseGetAIEvalBaselineResponse(rsp *http.Response) (*GetAIEvalBaselineResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAIEvalBaselineResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIEvalBaseline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAIFillResponse parses an HTTP response from a GetAIFillWithResponse call
+func ParseGetAIFillResponse(rsp *http.Response) (*GetAIFillResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAIFillResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIFill
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelAIFillResponse parses an HTTP response from a CancelAIFillWithResponse call
+func ParseCancelAIFillResponse(rsp *http.Response) (*CancelAIFillResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelAIFillResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIFill
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAIJobsResponse parses an HTTP response from a ListAIJobsWithResponse call
+func ParseListAIJobsResponse(rsp *http.Response) (*ListAIJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAIJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAIJobResponse parses an HTTP response from a GetAIJobWithResponse call
+func ParseGetAIJobResponse(rsp *http.Response) (*GetAIJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAIJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelAIJobResponse parses an HTTP response from a CancelAIJobWithResponse call
+func ParseCancelAIJobResponse(rsp *http.Response) (*CancelAIJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelAIJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAIPricesResponse parses an HTTP response from a GetAIPricesWithResponse call
+func ParseGetAIPricesResponse(rsp *http.Response) (*GetAIPricesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAIPricesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIPrices
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetAIPricesResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParsePutAIPricesResponse parses an HTTP response from a PutAIPricesWithResponse call
+func ParsePutAIPricesResponse(rsp *http.Response) (*PutAIPricesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutAIPricesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIPrices
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers PutAIPricesResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListAIProvidersResponse parses an HTTP response from a ListAIProvidersWithResponse call
+func ParseListAIProvidersResponse(rsp *http.Response) (*ListAIProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAIProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIProviderList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAIProviderResponse parses an HTTP response from a CreateAIProviderWithResponse call
+func ParseCreateAIProviderResponse(rsp *http.Response) (*CreateAIProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAIProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest AIProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateAIProviderResponse201Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeleteAIProviderResponse parses an HTTP response from a DeleteAIProviderWithResponse call
+func ParseDeleteAIProviderResponse(rsp *http.Response) (*DeleteAIProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteAIProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAIProviderResponse parses an HTTP response from a GetAIProviderWithResponse call
+func ParseGetAIProviderResponse(rsp *http.Response) (*GetAIProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAIProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetAIProviderResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseUpdateAIProviderResponse parses an HTTP response from a UpdateAIProviderWithResponse call
+func ParseUpdateAIProviderResponse(rsp *http.Response) (*UpdateAIProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateAIProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers UpdateAIProviderResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetAIRoutingPolicyResponse parses an HTTP response from a GetAIRoutingPolicyWithResponse call
+func ParseGetAIRoutingPolicyResponse(rsp *http.Response) (*GetAIRoutingPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAIRoutingPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIRoutingPolicyView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetAIRoutingPolicyResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParsePutAIRoutingPolicyResponse parses an HTTP response from a PutAIRoutingPolicyWithResponse call
+func ParsePutAIRoutingPolicyResponse(rsp *http.Response) (*PutAIRoutingPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutAIRoutingPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIRoutingPolicyView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers PutAIRoutingPolicyResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetAISettingsResponse parses an HTTP response from a GetAISettingsWithResponse call
+func ParseGetAISettingsResponse(rsp *http.Response) (*GetAISettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAISettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AISettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetAISettingsResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParsePutAISettingsResponse parses an HTTP response from a PutAISettingsWithResponse call
+func ParsePutAISettingsResponse(rsp *http.Response) (*PutAISettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutAISettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AISettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers PutAISettingsResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListAISpendResponse parses an HTTP response from a ListAISpendWithResponse call
+func ParseListAISpendResponse(rsp *http.Response) (*ListAISpendResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAISpendResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AISpendList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAISuggestionsResponse parses an HTTP response from a ListAISuggestionsWithResponse call
+func ParseListAISuggestionsResponse(rsp *http.Response) (*ListAISuggestionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAISuggestionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AISuggestionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAISuggestionResponse parses an HTTP response from a GetAISuggestionWithResponse call
+func ParseGetAISuggestionResponse(rsp *http.Response) (*GetAISuggestionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAISuggestionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AISuggestion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetAISuggestionResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseAcceptAISuggestionResponse parses an HTTP response from a AcceptAISuggestionWithResponse call
+func ParseAcceptAISuggestionResponse(rsp *http.Response) (*AcceptAISuggestionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AcceptAISuggestionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AISuggestion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers AcceptAISuggestionResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRejectAISuggestionResponse parses an HTTP response from a RejectAISuggestionWithResponse call
+func ParseRejectAISuggestionResponse(rsp *http.Response) (*RejectAISuggestionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RejectAISuggestionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AISuggestion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers RejectAISuggestionResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseGetEffectiveStyleGuideResponse parses an HTTP response from a GetEffectiveStyleGuideWithResponse call
 func ParseGetEffectiveStyleGuideResponse(rsp *http.Response) (*GetEffectiveStyleGuideResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -28161,6 +37615,513 @@ func ParseUpdateProjectResponse(rsp *http.Response) (*UpdateProjectResponse, err
 	switch {
 	case rsp.StatusCode == 200:
 		var headers UpdateProjectResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseCreateAIFillResponse parses an HTTP response from a CreateAIFillWithResponse call
+func ParseCreateAIFillResponse(rsp *http.Response) (*CreateAIFillResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAIFillResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest AIFill
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateAIFillResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetAIMetricsResponse parses an HTTP response from a GetAIMetricsWithResponse call
+func ParseGetAIMetricsResponse(rsp *http.Response) (*GetAIMetricsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAIMetricsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIMetrics
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAIReviewQueueResponse parses an HTTP response from a GetAIReviewQueueWithResponse call
+func ParseGetAIReviewQueueResponse(rsp *http.Response) (*GetAIReviewQueueResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAIReviewQueueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AISuggestionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProjectAIRoutingPolicyResponse parses an HTTP response from a DeleteProjectAIRoutingPolicyWithResponse call
+func ParseDeleteProjectAIRoutingPolicyResponse(rsp *http.Response) (*DeleteProjectAIRoutingPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProjectAIRoutingPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectAIRoutingPolicyResponse parses an HTTP response from a GetProjectAIRoutingPolicyWithResponse call
+func ParseGetProjectAIRoutingPolicyResponse(rsp *http.Response) (*GetProjectAIRoutingPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectAIRoutingPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIRoutingPolicyView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetProjectAIRoutingPolicyResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParsePutProjectAIRoutingPolicyResponse parses an HTTP response from a PutProjectAIRoutingPolicyWithResponse call
+func ParsePutProjectAIRoutingPolicyResponse(rsp *http.Response) (*PutProjectAIRoutingPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutProjectAIRoutingPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIRoutingPolicyView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers PutProjectAIRoutingPolicyResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectAISettingsResponse parses an HTTP response from a GetProjectAISettingsWithResponse call
+func ParseGetProjectAISettingsResponse(rsp *http.Response) (*GetProjectAISettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectAISettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIProjectSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetProjectAISettingsResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParsePutProjectAISettingsResponse parses an HTTP response from a PutProjectAISettingsWithResponse call
+func ParsePutProjectAISettingsResponse(rsp *http.Response) (*PutProjectAISettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutProjectAISettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIProjectSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers PutProjectAISettingsResponse200Headers
 		if values := rsp.Header.Values("ETag"); len(values) > 0 {
 			var value string
 			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {

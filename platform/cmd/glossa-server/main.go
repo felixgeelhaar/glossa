@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/trace"
 
+	intelligenceapp "github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/httpserver"
@@ -106,6 +107,8 @@ type app struct {
 	pool       *pgxpool.Pool
 	server     *httpserver.Server
 	dispatcher *outbox.Dispatcher
+	// aiWorker runs Intelligence's translation jobs; nil when disabled.
+	aiWorker   *intelligenceapp.Worker
 	shutdownTP observability.ShutdownFunc
 }
 
@@ -143,7 +146,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger) (*app, e
 		pool.Close()
 		return nil, err
 	}
-	bounded, err := buildContexts(cfg, logger, pool, events)
+	bounded, err := buildContexts(cfg, logger, pool, events, registry)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -155,7 +158,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger) (*app, e
 		Readiness:      []httpserver.Check{{Name: "postgres", Probe: pool.Ping}},
 		Routes:         apiRoutes(identity, &metaAPI{signIn: identitySvc, edgeURL: cfg.Release.EdgePublicURL}, bounded),
 	})
-	return &app{cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, shutdownTP: shutdownTP}, nil
+	return &app{cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, aiWorker: bounded.aiWorker, shutdownTP: shutdownTP}, nil
 }
 
 func newDispatcher(
@@ -187,6 +190,7 @@ func (a *app) run(ctx context.Context) error {
 	dispatchCtx, stopDispatch := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopDispatch()
 	dispatched := a.startDispatcher(dispatchCtx, errc)
+	worked := a.startWorker(dispatchCtx)
 
 	var runErr error
 	select {
@@ -195,7 +199,22 @@ func (a *app) run(ctx context.Context) error {
 	case runErr = <-errc:
 		a.logger.Error("component failed; shutting down", slog.Any("error", runErr))
 	}
-	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched))
+	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked))
+}
+
+// startWorker runs Intelligence's job workers until ctx ends; a job in
+// progress finishes first (bounded by its timeout).
+func (a *app) startWorker(ctx context.Context) <-chan struct{} {
+	done := make(chan struct{})
+	if a.aiWorker == nil {
+		close(done)
+		return done
+	}
+	go func() {
+		defer close(done)
+		_ = a.aiWorker.Run(ctx)
+	}()
+	return done
 }
 
 func (a *app) startDispatcher(ctx context.Context, errc chan<- error) <-chan struct{} {
@@ -213,7 +232,7 @@ func (a *app) startDispatcher(ctx context.Context, errc chan<- error) <-chan str
 	return done
 }
 
-func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched <-chan struct{}) error {
+func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched, worked <-chan struct{}) error {
 	ctx, cancel := context.WithTimeout(context.Background(), a.cfg.ShutdownTimeout)
 	defer cancel()
 	var errs []error
@@ -225,6 +244,11 @@ func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched <-chan struct
 	case <-dispatched:
 	case <-ctx.Done():
 		errs = append(errs, errors.New("outbox dispatcher did not stop before the shutdown timeout"))
+	}
+	select {
+	case <-worked:
+	case <-ctx.Done():
+		errs = append(errs, errors.New("AI job workers did not stop before the shutdown timeout; their jobs are claimed again when the lease ends"))
 	}
 	if err := a.shutdownTP(ctx); err != nil {
 		errs = append(errs, fmt.Errorf("flush traces: %w", err))

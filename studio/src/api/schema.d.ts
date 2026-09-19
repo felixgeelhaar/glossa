@@ -2162,6 +2162,700 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/ai-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Configured AI providers
+         * @description The tenant's providers by name — never their API keys
+         *     (`api_key_set` says whether one is stored). Needs
+         *     `intelligence.read`.
+         */
+        get: operations["listAIProviders"];
+        put?: never;
+        /**
+         * Configure an AI provider with the tenant's own key
+         * @description `name` is what routing policies route to (the default routing
+         *     uses `anthropic`). `api_key` is write-only: it is sealed at rest
+         *     (AES-256-GCM, bound to the tenant and provider) and never
+         *     returned. `base_url` must be https and may not point at private
+         *     or loopback addresses unless the deployment allows it
+         *     (`GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS`); `models` is an allow-list
+         *     (empty allows any). Needs `intelligence.manage`. Problem codes:
+         *     `invalid_provider` (400), `provider_name_taken` (409).
+         */
+        post: operations["createAIProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-providers/{ai_provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An AI provider `id`. */
+                ai_provider: components["parameters"]["AIProviderPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An AI provider
+         * @description Never its key. Needs `intelligence.read`.
+         */
+        get: operations["getAIProvider"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove an AI provider
+         * @description Refused while a stored routing policy routes to it. Needs
+         *     `intelligence.manage`. Problem code: `provider_in_use` (409).
+         */
+        delete: operations["deleteAIProvider"];
+        options?: never;
+        head?: never;
+        /**
+         * Change an AI provider
+         * @description Absent members keep their value. `api_key` replaces the key,
+         *     `clear_api_key` removes it. Renaming a provider a stored routing
+         *     policy routes to is refused. Needs `intelligence.manage`.
+         *     Problem codes: `invalid_provider` (400), `provider_name_taken`,
+         *     `provider_in_use` (409).
+         */
+        patch: operations["updateAIProvider"];
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The tenant's AI settings
+         * @description Consent to send text to AI providers (off until someone turns it
+         *     on; who and when is kept), the concurrency cap on running jobs
+         *     and the monthly budget in micro-USD (0 allows no provider calls:
+         *     a hard stop). Defaults until saved, at version 0. Needs
+         *     `intelligence.read`.
+         */
+        get: operations["getAISettings"];
+        /**
+         * Change the tenant's AI settings
+         * @description Absent members keep their value; `If-Match` applies when sent.
+         *     Needs `intelligence.manage`. Problem code: `invalid_settings`
+         *     (400).
+         */
+        put: operations["putAISettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The AI price table
+         * @description USD per million tokens by `<provider>/<model>`: the deployment's
+         *     defaults, the tenant's overrides and the effective table budgets
+         *     are charged with (an unpriced model costs 0 and its spend is
+         *     flagged `priced: false`). The ETag is the settings'. Needs
+         *     `intelligence.read`.
+         */
+        get: operations["getAIPrices"];
+        /**
+         * Replace the tenant's price overrides
+         * @description Needs `intelligence.manage`. Problem code: `invalid_prices` (400).
+         */
+        put: operations["putAIPrices"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The monthly budget and this month's spend
+         * @description The cap (set with `ai-settings`), what this calendar month (UTC)
+         *     spent, what remains and the spend per provider and model. A call
+         *     whose upper-bound estimate would pass the cap is refused before
+         *     anything is sent. Needs `intelligence.read`.
+         */
+        get: operations["getAIBudget"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The spend ledger
+         * @description Every priced provider call since `since` (default: the start of
+         *     this month), newest first. Needs `intelligence.read`.
+         */
+        get: operations["listAISpend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-routing-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The tenant's AI routing policy
+         * @description Which provider and model each task (`translate`, `review`,
+         *     `explain`, `assess`) runs on, per target locale, with ordered
+         *     fallbacks. Without a stored policy the default applies
+         *     (`source: default`: Anthropic Claude Sonnet 5 for translate and
+         *     review, Claude Haiku 4.5 for the self-assessment). Needs
+         *     `intelligence.read`.
+         */
+        get: operations["getAIRoutingPolicy"];
+        /**
+         * Replace the tenant's AI routing policy
+         * @description Every route must name a configured provider whose model
+         *     allow-list admits the model. Needs `intelligence.manage`.
+         *     Problem code: `invalid_routing_policy` (400).
+         */
+        put: operations["putAIRoutingPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/ai-routing-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The AI routing policy in effect for a project
+         * @description The project's own (`source: project`), else the tenant's, else
+         *     the default. Needs `intelligence.read`.
+         */
+        get: operations["getProjectAIRoutingPolicy"];
+        /**
+         * Replace a project's AI routing policy
+         * @description As the tenant's, for one project. Needs `intelligence.manage`.
+         *     Problem code: `invalid_routing_policy` (400).
+         */
+        put: operations["putProjectAIRoutingPolicy"];
+        post?: never;
+        /**
+         * Remove a project's AI routing policy
+         * @description The tenant's (or the default) applies again. Needs `intelligence.manage`.
+         */
+        delete: operations["deleteProjectAIRoutingPolicy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/ai-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A project's AI settings
+         * @description Namespace policy tags (`sensitive`: never sent to a provider,
+         *     always translated by people; `legal` and `marketing`: riskier,
+         *     reviewed first), the locales auto-translate is on for (none by
+         *     default) and the review routing of suggestions by confidence.
+         *     Defaults until saved, at version 0. Needs `intelligence.read`.
+         */
+        get: operations["getProjectAISettings"];
+        /**
+         * Change a project's AI settings
+         * @description Absent members keep their value. `review.auto_approve` (off by
+         *     default) is accepted only with `auto_approve_environments` that
+         *     all exist and ship approved translations (Release's eligibility
+         *     policies), and is re-checked for every suggestion: when an
+         *     environment stops shipping approved text, suggestions are routed
+         *     `approve_recommended` instead, with an `action_note`. Needs
+         *     `intelligence.manage`. Problem codes: `invalid_namespace_tags`,
+         *     `invalid_review_policy`, `invalid_locale` (400),
+         *     `auto_approve_ineligible` (422).
+         */
+        put: operations["putProjectAISettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/ai-fills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fill locales with AI ("Fill with AI", `glossa translate`)
+         * @description Queues one job per message missing in each locale (and, with
+         *     `include_outdated`, outdated there), or per listed `keys` that
+         *     are missing or outdated, narrowed by `namespace` and
+         *     `key_prefix`. Messages in `sensitive` namespaces are skipped
+         *     (`skipped.sensitive`). A job exists once per message, locale,
+         *     source revision and knowledge fingerprint: an existing one is
+         *     reused (`jobs_existing`), a failed, dead or cancelled one queued
+         *     again. `warnings` say when jobs will do little: consent off (only
+         *     exact translation-memory matches are reused), no budget, no
+         *     provider. Needs `intelligence.translate` for every locale.
+         *     Problem codes: `too_many_locales`, `too_many_keys`,
+         *     `invalid_locale` (400), `locale_not_found` (404).
+         */
+        post: operations["createAIFill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-fills/{ai_fill}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A fill `id`. */
+                ai_fill: components["parameters"]["AIFillPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A fill and its jobs' states
+         * @description Needs `intelligence.read`.
+         */
+        get: operations["getAIFill"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-fills/{ai_fill}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A fill `id`. */
+                ai_fill: components["parameters"]["AIFillPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a fill's queued jobs
+         * @description Running jobs finish. Cancelling twice changes nothing. Needs
+         *     `intelligence.translate` for the fill's locales.
+         */
+        post: operations["cancelAIFill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * AI translation jobs
+         * @description Newest first. A job is `queued` → `running` → `succeeded`
+         *     (with a suggestion), `skipped` (the message changed, was
+         *     translated meanwhile or is gone), `failed` (for good:
+         *     `failure_code` says why — `provider_consent`, `sensitive`,
+         *     `invalid_output`, `budget_exceeded`, `no_route`,
+         *     `provider_error`, `invalid_source`), `dead` (transient failures
+         *     exhausted its attempts) or `cancelled`. Needs
+         *     `intelligence.read`.
+         */
+        get: operations["listAIJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-jobs/{ai_job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A job `id`. */
+                ai_job: components["parameters"]["AIJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A job with its audit ledger
+         * @description `audit` is the agent's ledger: every tool result in order — what
+         *     it looked up, what it sent and what came back. Needs
+         *     `intelligence.read`.
+         */
+        get: operations["getAIJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-jobs/{ai_job}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A job `id`. */
+                ai_job: components["parameters"]["AIJobPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a queued job
+         * @description Only queued jobs can be cancelled; cancelling a cancelled job
+         *     changes nothing. Needs `intelligence.translate` for its locale.
+         *     Problem code: `job_not_cancellable` (409).
+         */
+        post: operations["cancelAIJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * AI suggestions
+         * @description Newest first. Needs `intelligence.read`.
+         */
+        get: operations["listAISuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A suggestion `id`. */
+                ai_suggestion: components["parameters"]["AISuggestionPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An AI suggestion with its confidence explanation
+         * @description `score` (0–1) prioritizes review; it is never a promise of
+         *     correctness. `explanation` lists each factor and its
+         *     contribution ("why this?"); `provenance` names the provider,
+         *     model, prompt version, translation-memory units, terms and
+         *     style-guide version. Needs `intelligence.read`.
+         */
+        get: operations["getAISuggestion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/acceptance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A suggestion `id`. */
+                ai_suggestion: components["parameters"]["AISuggestionPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a suggestion, as is or edited
+         * @description Writes the message's translation: a revision with origin `ai`
+         *     or `translation_memory` and an `origin_detail` naming provider,
+         *     model, prompt version, TM units, terms, style version, score and
+         *     explanation. It is `approved` when the caller may review the
+         *     locale, else what the project's review policy says. With `text`
+         *     (MF2 by default) the edit is accepted instead and its structured
+         *     diff (edit distance, terms and style fields changed) recorded for
+         *     the metrics. Needs `intelligence.translate` and
+         *     `translations.write` for the locale. Problem codes:
+         *     `suggestion_decided`, `suggestion_outdated`,
+         *     `translation_conflict` (409), `translation_rejected` (422),
+         *     `invalid_message`, `invalid_syntax` (400).
+         */
+        post: operations["acceptAISuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A suggestion `id`. */
+                ai_suggestion: components["parameters"]["AISuggestionPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a suggestion
+         * @description Nothing is written. Needs `intelligence.translate` for the
+         *     locale. Problem codes: `suggestion_decided` (409),
+         *     `invalid_reason` (400).
+         */
+        post: operations["rejectAISuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/ai-review-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The review queue, riskiest first
+         * @description Pending suggestions ordered by risk, not by key: lowest score
+         *     first, then the most `risk_tags` (legal and marketing
+         *     namespaces, forbidden terms, max length, missing plural
+         *     categories). `locale` (repeatable) narrows it. Needs
+         *     `intelligence.read`.
+         */
+        get: operations["getAIReviewQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-disclosures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Which provider saw which message
+         * @description Every provider call a job made, even a failed one, with exactly
+         *     what the provider was sent (RFC 0003 §7), newest first. Needs
+         *     `intelligence.read`.
+         */
+        get: operations["listAIDisclosures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/ai-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Acceptance rate and edit distance per locale
+         * @description People's decisions on the project's suggestions since `since`
+         *     (default: 30 days ago), per locale: accepted (as is or edited),
+         *     rejected, the acceptance rate and the mean edit distance of
+         *     accepted suggestions (0 for those accepted as is). Needs
+         *     `intelligence.read`.
+         */
+        get: operations["getAIMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/ai-eval-baseline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The translation agent's eval baseline
+         * @description The tracked metrics of the golden-set evals per locale pair and
+         *     overall (`all`), as committed with the server
+         *     (`internal/intelligence/evals/testdata/baseline.json`): a prompt
+         *     or model change may not regress them (RFC 0003 §4). Needs
+         *     `intelligence.read`.
+         */
+        get: operations["getAIEvalBaseline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3298,6 +3992,478 @@ export interface components {
             /** @description The guide versions merged, broadest first. */
             sources: components["schemas"]["StyleGuideSource"][];
         };
+        /**
+         * Format: int64
+         * @description Money in millionths of a US dollar (1 USD = 1000000).
+         */
+        MicroUSD: number;
+        /**
+         * @description The API a provider speaks: the Anthropic Messages API, an
+         *     OpenAI-compatible `/chat/completions` endpoint (OpenAI, Mistral,
+         *     self-hosted servers) or Gemini.
+         * @enum {string}
+         */
+        AIProviderKind: "anthropic" | "openai_compatible" | "gemini";
+        /** @description What routing policies route to, e.g. `anthropic` or `mistral-eu`. */
+        AIProviderName: string;
+        AIProvider: {
+            id: components["schemas"]["Id"];
+            name: components["schemas"]["AIProviderName"];
+            kind: components["schemas"]["AIProviderKind"];
+            /** @description The endpoint; absent for the kind's default. */
+            base_url?: string;
+            /** @description The model allow-list; empty allows any model. */
+            models: string[];
+            enabled: boolean;
+            /** @description Whether a key is stored. The key itself is never returned. */
+            api_key_set: boolean;
+            version: number;
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            updated_by: string;
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        AIProviderList: {
+            items: components["schemas"]["AIProvider"][];
+            next_page_token?: string;
+        };
+        CreateAIProvider: {
+            name: components["schemas"]["AIProviderName"];
+            kind: components["schemas"]["AIProviderKind"];
+            /** @description Required for `openai_compatible`; https only unless the deployment allows private endpoints. */
+            base_url?: string;
+            models?: string[];
+            /** @default true */
+            enabled: boolean;
+            /** @description Sealed at rest; never returned. */
+            api_key?: string;
+        };
+        UpdateAIProvider: {
+            name?: components["schemas"]["AIProviderName"];
+            base_url?: string;
+            models?: string[];
+            enabled?: boolean;
+            /** @description Replaces the key. */
+            api_key?: string;
+            /** @description Removes the key. */
+            clear_api_key?: boolean;
+        };
+        AISettings: {
+            /**
+             * @description The tenant's explicit permission to send text to AI providers
+             *     (RFC 0003 §7). Off by default; without it only exact
+             *     translation-memory matches are reused.
+             */
+            provider_consent: boolean;
+            consent_changed_by?: string;
+            consent_changed_at?: components["schemas"]["Timestamp"];
+            /** @description The tenant's running jobs across replicas. */
+            max_concurrent_jobs: number;
+            /** @description Provider spend per calendar month (UTC); 0 allows none. */
+            monthly_budget_micro_usd: components["schemas"]["MicroUSD"];
+            /** @description 0 until saved. */
+            version: number;
+            updated_by?: string;
+            updated_at?: components["schemas"]["Timestamp"];
+        };
+        UpdateAISettings: {
+            provider_consent?: boolean;
+            max_concurrent_jobs?: number;
+            monthly_budget_micro_usd?: components["schemas"]["MicroUSD"];
+        };
+        AIPrice: {
+            /**
+             * Format: double
+             * @description USD per million input tokens.
+             */
+            input_per_mtok: number;
+            /** Format: double */
+            output_per_mtok: number;
+            /** Format: double */
+            cache_read_per_mtok?: number;
+            /** Format: double */
+            cache_write_per_mtok?: number;
+        };
+        /** @description `<provider>/<model>` to its price. */
+        AIPriceTable: {
+            [key: string]: components["schemas"]["AIPrice"];
+        };
+        AIPrices: {
+            defaults: components["schemas"]["AIPriceTable"];
+            overrides: components["schemas"]["AIPriceTable"];
+            effective: components["schemas"]["AIPriceTable"];
+            /** @description The settings' version. */
+            version: number;
+        };
+        PutAIPrices: {
+            overrides: {
+                [key: string]: components["schemas"]["AIPrice"];
+            };
+        };
+        AIProviderSpend: {
+            provider: string;
+            model: string;
+            cost_micro_usd: components["schemas"]["MicroUSD"];
+            calls: number;
+            /** Format: int64 */
+            input_tokens: number;
+            /** Format: int64 */
+            output_tokens: number;
+        };
+        AIBudget: {
+            monthly_budget_micro_usd: components["schemas"]["MicroUSD"];
+            spent_micro_usd: components["schemas"]["MicroUSD"];
+            remaining_micro_usd: components["schemas"]["MicroUSD"];
+            calls: number;
+            month_start: components["schemas"]["Timestamp"];
+            by_provider: components["schemas"]["AIProviderSpend"][];
+        };
+        AIUsage: {
+            /** Format: int64 */
+            input_tokens: number;
+            /** Format: int64 */
+            output_tokens: number;
+            /** Format: int64 */
+            cache_read_tokens?: number;
+            /** Format: int64 */
+            cache_write_tokens?: number;
+        };
+        AISpendEntry: {
+            id: components["schemas"]["Id"];
+            job_id?: components["schemas"]["Id"];
+            project_id?: components["schemas"]["Id"];
+            task: components["schemas"]["AITask"];
+            provider: string;
+            model: string;
+            usage: components["schemas"]["AIUsage"];
+            cost_micro_usd: components["schemas"]["MicroUSD"];
+            /** @description false when the price table has no price for the model (cost 0). */
+            priced: boolean;
+            occurred_at: components["schemas"]["Timestamp"];
+        };
+        AISpendList: {
+            items: components["schemas"]["AISpendEntry"][];
+            next_page_token?: string;
+        };
+        /** @enum {string} */
+        AITask: "translate" | "review" | "explain" | "assess";
+        AIRoute: {
+            provider: components["schemas"]["AIProviderName"];
+            model: string;
+            max_tokens: number;
+            /** Format: double */
+            temperature?: number;
+            /** @enum {string} */
+            effort?: "low" | "medium" | "high" | "max";
+        };
+        AIRoutingRule: {
+            task: components["schemas"]["AITask"];
+            /** @description Target locales the rule applies to (a language covers its regions); empty applies to all. */
+            locales?: components["schemas"]["Locale"][];
+            /** @description The preferred route first, then fallbacks. */
+            routes: components["schemas"]["AIRoute"][];
+        };
+        AIRoutingPolicy: {
+            rules: components["schemas"]["AIRoutingRule"][];
+        };
+        AIRoutingPolicyView: {
+            policy: components["schemas"]["AIRoutingPolicy"];
+            /**
+             * @description Where the policy in effect comes from.
+             * @enum {string}
+             */
+            source: "default" | "tenant" | "project";
+            /** @description The stored policy's version; 0 for the default. */
+            version: number;
+            updated_by?: string;
+            updated_at?: components["schemas"]["Timestamp"];
+        };
+        /** @enum {string} */
+        AINamespaceTag: "sensitive" | "legal" | "marketing";
+        AIReviewPolicy: {
+            /** @description Off by default. */
+            auto_approve: boolean;
+            /**
+             * Format: double
+             * @description Scores at or above it are `auto_approve` (when on).
+             */
+            auto_approve_min: number;
+            /**
+             * Format: double
+             * @description Scores at or above it are `approve_recommended`; below, `review_required`.
+             */
+            recommend_min: number;
+            /** @description Explanation factors that require review whatever the score (`missing_plural_categories` always does). */
+            force_review?: string[];
+            /** @description The environments auto-approved text ships to; each must ship approved translations. */
+            auto_approve_environments?: components["schemas"]["EnvironmentName"][];
+        };
+        AIProjectSettings: {
+            /** @description A namespace to its policy tags. */
+            namespace_tags: {
+                [key: string]: components["schemas"]["AINamespaceTag"][];
+            };
+            auto_translate_locales: components["schemas"]["Locale"][];
+            review: components["schemas"]["AIReviewPolicy"];
+            /** @description 0 until saved. */
+            version: number;
+            updated_by?: string;
+            updated_at?: components["schemas"]["Timestamp"];
+        };
+        UpdateAIProjectSettings: {
+            namespace_tags?: {
+                [key: string]: components["schemas"]["AINamespaceTag"][];
+            };
+            auto_translate_locales?: components["schemas"]["Locale"][];
+            review?: components["schemas"]["AIReviewPolicy"];
+        };
+        CreateAIFill: {
+            locales: components["schemas"]["Locale"][];
+            namespace?: components["schemas"]["Namespace"];
+            key_prefix?: string;
+            keys?: components["schemas"]["MessageKey"][];
+            /** @default false */
+            include_outdated: boolean;
+        };
+        /** @enum {string} */
+        AIJobState: "queued" | "running" | "succeeded" | "skipped" | "failed" | "dead" | "cancelled";
+        /** @enum {string} */
+        AITrigger: "message_created" | "translation_outdated" | "locale_added" | "fill";
+        AIFill: {
+            id: components["schemas"]["Id"];
+            project_id: components["schemas"]["Id"];
+            /** @enum {string} */
+            trigger: "fill" | "locale_added";
+            locales: components["schemas"]["Locale"][];
+            namespace?: string;
+            key_prefix?: string;
+            keys?: string[];
+            include_outdated?: boolean;
+            /** @description Jobs queued, new or queued again. */
+            jobs_created: number;
+            /** @description Jobs that already existed for the same message, locale, source revision and knowledge. */
+            jobs_existing: number;
+            /** @description Messages left out, by reason: `sensitive`, `up_to_date`, `limit`. */
+            skipped: {
+                [key: string]: number;
+            };
+            /** @description The fill's jobs by state. */
+            job_states: {
+                [key: string]: number;
+            };
+            /** @description `provider_consent_off`, `no_budget`, `no_provider`. */
+            warnings: string[];
+            requested_by: string;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        AIAuditEntry: {
+            /** @description `tm_lookup`, `term_lookup`, `style_rules`, `message_context`, `validate`, `draft`, `assess`. */
+            tool: string;
+            /** @description The tool's result, as recorded. */
+            output: unknown;
+            at: components["schemas"]["Timestamp"];
+        };
+        AIJob: {
+            id: components["schemas"]["Id"];
+            project_id: components["schemas"]["Id"];
+            message_id: components["schemas"]["Id"];
+            message_key: components["schemas"]["MessageKey"];
+            namespace: string;
+            locale: components["schemas"]["Locale"];
+            source_revision: number;
+            /** @description Digest of the prompts, style guides and termbase the job was queued against. */
+            knowledge_fingerprint: string;
+            trigger: components["schemas"]["AITrigger"];
+            fill_id?: components["schemas"]["Id"];
+            state: components["schemas"]["AIJobState"];
+            attempts: number;
+            max_attempts: number;
+            available_at: components["schemas"]["Timestamp"];
+            /** @description Why it failed, was skipped or died (see the listing). */
+            failure_code?: string;
+            last_error?: string;
+            suggestion_id?: components["schemas"]["Id"];
+            audit?: components["schemas"]["AIAuditEntry"][];
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            started_at?: components["schemas"]["Timestamp"];
+            finished_at?: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        AIJobList: {
+            items: components["schemas"]["AIJob"][];
+            next_page_token?: string;
+        };
+        /** @enum {string} */
+        AIAction: "auto_approve" | "approve_recommended" | "review_required";
+        /** @enum {string} */
+        AISuggestionStatus: "pending" | "accepted" | "rejected" | "auto_applied" | "superseded";
+        AIConfidenceFactor: {
+            /** @description `origin`, `tm_match`, `term_forbidden`, `term_missing`, `repairs`, `qa_warnings`, `self_assessment`, `formality`, `max_length`, `length_ratio`, `risk_tag`, `markup_density`, `missing_plural_categories`. */
+            factor: string;
+            /** Format: double */
+            value: number;
+            /**
+             * Format: double
+             * @description How much it moved the score (negative lowers it).
+             */
+            contribution: number;
+            reason: string;
+        };
+        AITermFinding: {
+            /** @enum {string} */
+            code: "term_missing" | "term_forbidden";
+            concept_id: string;
+            term_id?: string;
+            term: string;
+            message: string;
+        };
+        AIProvenance: {
+            /** @enum {string} */
+            origin: "ai" | "translation_memory";
+            provider?: string;
+            model?: string;
+            prompt_version?: string;
+            tm_unit_ids?: string[];
+            term_ids?: string[];
+            style_version?: string;
+            repairs: number;
+        };
+        AICall: {
+            task: components["schemas"]["AITask"];
+            provider: string;
+            model: string;
+            prompt_version: string;
+            usage: components["schemas"]["AIUsage"];
+            cost_micro_usd: components["schemas"]["MicroUSD"];
+        };
+        AIEditDiff: {
+            /** @description Character edit distance of the visible text. */
+            distance: number;
+            /**
+             * Format: double
+             * @description The distance over the longer text's length.
+             */
+            ratio: number;
+            terms_added?: string[];
+            terms_removed?: string[];
+            /** @description Style fields whose use changed: `quotes`, `dash`, `ellipsis`, `space_before_punctuation`, `pronoun`. */
+            style_fields?: string[];
+        };
+        AIDecision: {
+            edit?: components["schemas"]["AIEditDiff"];
+            reason?: string;
+        };
+        AISuggestion: {
+            id: components["schemas"]["Id"];
+            job_id: components["schemas"]["Id"];
+            project_id: components["schemas"]["Id"];
+            message_id: components["schemas"]["Id"];
+            message_key: components["schemas"]["MessageKey"];
+            namespace: string;
+            locale: components["schemas"]["Locale"];
+            source_revision: number;
+            /** @description The translation in canonical MF2 syntax. */
+            message: string;
+            model: components["schemas"]["MF2Message"];
+            /** @description Structural warnings (errors never reach a suggestion). */
+            findings: components["schemas"]["QAFinding"][];
+            term_findings: components["schemas"]["AITermFinding"][];
+            provenance: components["schemas"]["AIProvenance"];
+            /** Format: double */
+            score: number;
+            explanation: components["schemas"]["AIConfidenceFactor"][];
+            action: components["schemas"]["AIAction"];
+            /** @description Why the routed action differs from what the bands alone say. */
+            action_note?: string;
+            risk_tags: string[];
+            calls: components["schemas"]["AICall"][];
+            usage: components["schemas"]["AIUsage"];
+            cost_micro_usd: components["schemas"]["MicroUSD"];
+            status: components["schemas"]["AISuggestionStatus"];
+            /** @description The revision it became, once accepted or auto-applied. */
+            translation_revision?: number;
+            decided_by?: string;
+            decided_at?: components["schemas"]["Timestamp"];
+            decision?: components["schemas"]["AIDecision"];
+            version: number;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        AISuggestionList: {
+            items: components["schemas"]["AISuggestion"][];
+            next_page_token?: string;
+        };
+        AcceptAISuggestion: {
+            /** @description An edit to accept instead of the suggestion. */
+            text?: string;
+            syntax?: components["schemas"]["Syntax"];
+        };
+        RejectAISuggestion: {
+            reason?: string;
+        };
+        AISentMessage: {
+            /** @enum {string} */
+            role: "user" | "assistant";
+            text: string;
+        };
+        AIDisclosure: {
+            id: components["schemas"]["Id"];
+            job_id: components["schemas"]["Id"];
+            project_id: components["schemas"]["Id"];
+            message_id: components["schemas"]["Id"];
+            locale: components["schemas"]["Locale"];
+            task: components["schemas"]["AITask"];
+            provider: string;
+            model: string;
+            /** @description Identifies the (versioned, data-free) system prompt. */
+            system_sha256: string;
+            /** @description Exactly what the provider received. */
+            sent: components["schemas"]["AISentMessage"][];
+            occurred_at: components["schemas"]["Timestamp"];
+        };
+        AIDisclosureList: {
+            items: components["schemas"]["AIDisclosure"][];
+            next_page_token?: string;
+        };
+        AILocaleMetrics: {
+            locale: components["schemas"]["Locale"];
+            accepted: number;
+            /** @description Accepted after an edit. */
+            edited: number;
+            rejected: number;
+            /**
+             * Format: double
+             * @description accepted / (accepted + rejected).
+             */
+            acceptance_rate: number;
+            /** Format: double */
+            mean_edit_distance: number;
+            /** Format: double */
+            mean_edit_ratio: number;
+        };
+        AIMetrics: {
+            since: components["schemas"]["Timestamp"];
+            locales: components["schemas"]["AILocaleMetrics"][];
+        };
+        AIEvalMetrics: {
+            cases: number;
+            /** Format: double */
+            structural_pass_rate: number;
+            /** Format: double */
+            terminology_compliance: number;
+            /** Format: double */
+            formality_compliance: number;
+            /** Format: double */
+            mean_edit_ratio: number;
+            /** Format: double */
+            origin_accuracy: number;
+        };
+        AIEvalBaseline: {
+            /** @description A locale pair (`en-de`) or `all` to its tracked metrics. */
+            pairs: {
+                [key: string]: components["schemas"]["AIEvalMetrics"];
+            };
+        };
     };
     responses: {
         /** @description Signed in. The session cookie is set. */
@@ -3442,6 +4608,14 @@ export interface components {
         ConceptPath: components["schemas"]["Id"];
         /** @description A style guide `id`. */
         StyleGuidePath: components["schemas"]["Id"];
+        /** @description An AI provider `id`. */
+        AIProviderPath: components["schemas"]["Id"];
+        /** @description A fill `id`. */
+        AIFillPath: components["schemas"]["Id"];
+        /** @description A job `id`. */
+        AIJobPath: components["schemas"]["Id"];
+        /** @description A suggestion `id`. */
+        AISuggestionPath: components["schemas"]["Id"];
         PageSize: number;
         /** @description The `next_page_token` of the previous page. */
         PageToken: string;
@@ -6781,6 +7955,1031 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listAIProviders: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of providers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIProviderList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createAIProvider: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAIProvider"];
+            };
+        };
+        responses: {
+            /** @description The provider. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIProvider"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getAIProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An AI provider `id`. */
+                ai_provider: components["parameters"]["AIProviderPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The provider. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIProvider"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAIProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An AI provider `id`. */
+                ai_provider: components["parameters"]["AIProviderPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateAIProvider: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An AI provider `id`. */
+                ai_provider: components["parameters"]["AIProviderPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAIProvider"];
+            };
+        };
+        responses: {
+            /** @description The provider. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIProvider"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    getAISettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISettings"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAISettings: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAISettings"];
+            };
+        };
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    getAIPrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The prices. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIPrices"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAIPrices: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutAIPrices"];
+            };
+        };
+        responses: {
+            /** @description The prices. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIPrices"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    getAIBudget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The budget. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIBudget"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listAISpend: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                since?: components["schemas"]["Timestamp"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of calls. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISpendList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAIRoutingPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy in effect. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIRoutingPolicyView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAIRoutingPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIRoutingPolicy"];
+            };
+        };
+        responses: {
+            /** @description The policy. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIRoutingPolicyView"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    getProjectAIRoutingPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy in effect. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIRoutingPolicyView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putProjectAIRoutingPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIRoutingPolicy"];
+            };
+        };
+        responses: {
+            /** @description The policy. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIRoutingPolicyView"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    deleteProjectAIRoutingPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getProjectAISettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIProjectSettings"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putProjectAISettings: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAIProjectSettings"];
+            };
+        };
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIProjectSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            412: components["responses"]["PreconditionFailed"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createAIFill: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAIFill"];
+            };
+        };
+        responses: {
+            /** @description The fill and its jobs' states. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIFill"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getAIFill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A fill `id`. */
+                ai_fill: components["parameters"]["AIFillPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The fill. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIFill"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cancelAIFill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A fill `id`. */
+                ai_fill: components["parameters"]["AIFillPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The fill. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIFill"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listAIJobs: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                state?: components["schemas"]["AIJobState"];
+                locale?: components["schemas"]["Locale"];
+                /** @description A fill `id`. */
+                fill?: components["schemas"]["Id"];
+                /** @description A message `id`. */
+                message?: components["schemas"]["Id"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of jobs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIJobList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAIJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A job `id`. */
+                ai_job: components["parameters"]["AIJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cancelAIJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A job `id`. */
+                ai_job: components["parameters"]["AIJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listAISuggestions: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                status?: components["schemas"]["AISuggestionStatus"];
+                locale?: components["schemas"]["Locale"];
+                /** @description A message `id`. */
+                message?: components["schemas"]["Id"];
+                /** @description A job `id`. */
+                job?: components["schemas"]["Id"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of suggestions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISuggestionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAISuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A suggestion `id`. */
+                ai_suggestion: components["parameters"]["AISuggestionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suggestion. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISuggestion"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    acceptAISuggestion: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A suggestion `id`. */
+                ai_suggestion: components["parameters"]["AISuggestionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptAISuggestion"];
+            };
+        };
+        responses: {
+            /** @description The accepted suggestion. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISuggestion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    rejectAISuggestion: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A suggestion `id`. */
+                ai_suggestion: components["parameters"]["AISuggestionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectAISuggestion"];
+            };
+        };
+        responses: {
+            /** @description The rejected suggestion. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISuggestion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    getAIReviewQueue: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                locale?: components["schemas"]["Locale"][];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the queue. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISuggestionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listAIDisclosures: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A job `id`. */
+                job?: components["schemas"]["Id"];
+                /** @description A message `id`. */
+                message?: components["schemas"]["Id"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                provider?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of disclosures. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIDisclosureList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAIMetrics: {
+        parameters: {
+            query?: {
+                since?: components["schemas"]["Timestamp"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The metrics. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIMetrics"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAIEvalBaseline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The baseline. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIEvalBaseline"];
+                };
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
         };

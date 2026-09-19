@@ -137,6 +137,27 @@ tags:
       tenant, a project, a locale and a namespace, and the effective
       style that applies to a message.
 
+  - name: ai-configuration
+    description: |
+      Intelligence: the tenant's AI providers (own keys, sealed and
+      write-only), routing policies, prices, budget and spend, consent
+      to send text to providers, and each project's sensitive
+      namespaces, auto-translate locales and review routing.
+  - name: ai-jobs
+    description: |
+      Intelligence: translation jobs, queued by new and outdated
+      messages in auto-translate locales, new locales and explicit
+      fills, and run by glossa-server's workers.
+  - name: ai-suggestions
+    description: |
+      Intelligence: suggestions with their confidence, explanation and
+      provenance, the risk-ordered review queue, and accepting (as is or
+      edited) or rejecting them.
+  - name: ai-insights
+    description: |
+      Intelligence: which provider saw which message, acceptance and
+      edit distance per locale, and the eval baseline.
+
 paths:
   # ── meta ────────────────────────────────────────────────────────────
   /v1/meta:
@@ -3173,6 +3194,969 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  # ── AI configuration ────────────────────────────────────────────────
+  /v1/tenants/{tenant}/ai-providers:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listAIProviders
+      tags: [ai-configuration]
+      summary: Configured AI providers
+      description: |
+        The tenant's providers by name — never their API keys
+        (`api_key_set` says whether one is stored). Needs
+        `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of providers.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIProviderList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createAIProvider
+      tags: [ai-configuration]
+      summary: Configure an AI provider with the tenant's own key
+      description: |
+        `name` is what routing policies route to (the default routing
+        uses `anthropic`). `api_key` is write-only: it is sealed at rest
+        (AES-256-GCM, bound to the tenant and provider) and never
+        returned. `base_url` must be https and may not point at private
+        or loopback addresses unless the deployment allows it
+        (`GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS`); `models` is an allow-list
+        (empty allows any). Needs `intelligence.manage`. Problem codes:
+        `invalid_provider` (400), `provider_name_taken` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateAIProvider" }
+      responses:
+        "201":
+          description: The provider.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIProvider" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/ai-providers/{ai_provider}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AIProviderPath"
+    get:
+      operationId: getAIProvider
+      tags: [ai-configuration]
+      summary: An AI provider
+      description: Never its key. Needs `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The provider.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIProvider" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateAIProvider
+      tags: [ai-configuration]
+      summary: Change an AI provider
+      description: |
+        Absent members keep their value. `api_key` replaces the key,
+        `clear_api_key` removes it. Renaming a provider a stored routing
+        policy routes to is refused. Needs `intelligence.manage`.
+        Problem codes: `invalid_provider` (400), `provider_name_taken`,
+        `provider_in_use` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateAIProvider" }
+      responses:
+        "200":
+          description: The provider.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIProvider" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+    delete:
+      operationId: deleteAIProvider
+      tags: [ai-configuration]
+      summary: Remove an AI provider
+      description: |
+        Refused while a stored routing policy routes to it. Needs
+        `intelligence.manage`. Problem code: `provider_in_use` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/ai-settings:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: getAISettings
+      tags: [ai-configuration]
+      summary: The tenant's AI settings
+      description: |
+        Consent to send text to AI providers (off until someone turns it
+        on; who and when is kept), the concurrency cap on running jobs
+        and the monthly budget in micro-USD (0 allows no provider calls:
+        a hard stop). Defaults until saved, at version 0. Needs
+        `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The settings.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AISettings" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    put:
+      operationId: putAISettings
+      tags: [ai-configuration]
+      summary: Change the tenant's AI settings
+      description: |
+        Absent members keep their value; `If-Match` applies when sent.
+        Needs `intelligence.manage`. Problem code: `invalid_settings`
+        (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateAISettings" }
+      responses:
+        "200":
+          description: The settings.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AISettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/tenants/{tenant}/ai-prices:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: getAIPrices
+      tags: [ai-configuration]
+      summary: The AI price table
+      description: |
+        USD per million tokens by `<provider>/<model>`: the deployment's
+        defaults, the tenant's overrides and the effective table budgets
+        are charged with (an unpriced model costs 0 and its spend is
+        flagged `priced: false`). The ETag is the settings'. Needs
+        `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The prices.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIPrices" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    put:
+      operationId: putAIPrices
+      tags: [ai-configuration]
+      summary: Replace the tenant's price overrides
+      description: |
+        Needs `intelligence.manage`. Problem code: `invalid_prices` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PutAIPrices" }
+      responses:
+        "200":
+          description: The prices.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIPrices" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/tenants/{tenant}/ai-budget:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: getAIBudget
+      tags: [ai-configuration]
+      summary: The monthly budget and this month's spend
+      description: |
+        The cap (set with `ai-settings`), what this calendar month (UTC)
+        spent, what remains and the spend per provider and model. A call
+        whose upper-bound estimate would pass the cap is refused before
+        anything is sent. Needs `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The budget.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIBudget" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/ai-spend:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listAISpend
+      tags: [ai-configuration]
+      summary: The spend ledger
+      description: |
+        Every priced provider call since `since` (default: the start of
+        this month), newest first. Needs `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: since, in: query, required: false, schema: { $ref: "#/components/schemas/Timestamp" } }
+      responses:
+        "200":
+          description: A page of calls.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AISpendList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/ai-routing-policy:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: getAIRoutingPolicy
+      tags: [ai-configuration]
+      summary: The tenant's AI routing policy
+      description: |
+        Which provider and model each task (`translate`, `review`,
+        `explain`, `assess`) runs on, per target locale, with ordered
+        fallbacks. Without a stored policy the default applies
+        (`source: default`: Anthropic Claude Sonnet 5 for translate and
+        review, Claude Haiku 4.5 for the self-assessment). Needs
+        `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The policy in effect.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIRoutingPolicyView" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    put:
+      operationId: putAIRoutingPolicy
+      tags: [ai-configuration]
+      summary: Replace the tenant's AI routing policy
+      description: |
+        Every route must name a configured provider whose model
+        allow-list admits the model. Needs `intelligence.manage`.
+        Problem code: `invalid_routing_policy` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AIRoutingPolicy" }
+      responses:
+        "200":
+          description: The policy.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIRoutingPolicyView" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/tenants/{tenant}/projects/{project}/ai-routing-policy:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: getProjectAIRoutingPolicy
+      tags: [ai-configuration]
+      summary: The AI routing policy in effect for a project
+      description: |
+        The project's own (`source: project`), else the tenant's, else
+        the default. Needs `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The policy in effect.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIRoutingPolicyView" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      operationId: putProjectAIRoutingPolicy
+      tags: [ai-configuration]
+      summary: Replace a project's AI routing policy
+      description: |
+        As the tenant's, for one project. Needs `intelligence.manage`.
+        Problem code: `invalid_routing_policy` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AIRoutingPolicy" }
+      responses:
+        "200":
+          description: The policy.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIRoutingPolicyView" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+    delete:
+      operationId: deleteProjectAIRoutingPolicy
+      tags: [ai-configuration]
+      summary: Remove a project's AI routing policy
+      description: The tenant's (or the default) applies again. Needs `intelligence.manage`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/ai-settings:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: getProjectAISettings
+      tags: [ai-configuration]
+      summary: A project's AI settings
+      description: |
+        Namespace policy tags (`sensitive`: never sent to a provider,
+        always translated by people; `legal` and `marketing`: riskier,
+        reviewed first), the locales auto-translate is on for (none by
+        default) and the review routing of suggestions by confidence.
+        Defaults until saved, at version 0. Needs `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The settings.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIProjectSettings" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      operationId: putProjectAISettings
+      tags: [ai-configuration]
+      summary: Change a project's AI settings
+      description: |
+        Absent members keep their value. `review.auto_approve` (off by
+        default) is accepted only with `auto_approve_environments` that
+        all exist and ship approved translations (Release's eligibility
+        policies), and is re-checked for every suggestion: when an
+        environment stops shipping approved text, suggestions are routed
+        `approve_recommended` instead, with an `action_note`. Needs
+        `intelligence.manage`. Problem codes: `invalid_namespace_tags`,
+        `invalid_review_policy`, `invalid_locale` (400),
+        `auto_approve_ineligible` (422).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateAIProjectSettings" }
+      responses:
+        "200":
+          description: The settings.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIProjectSettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  # ── AI jobs ─────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/ai-fills:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    post:
+      operationId: createAIFill
+      tags: [ai-jobs]
+      summary: Fill locales with AI ("Fill with AI", `glossa translate`)
+      description: |
+        Queues one job per message missing in each locale (and, with
+        `include_outdated`, outdated there), or per listed `keys` that
+        are missing or outdated, narrowed by `namespace` and
+        `key_prefix`. Messages in `sensitive` namespaces are skipped
+        (`skipped.sensitive`). A job exists once per message, locale,
+        source revision and knowledge fingerprint: an existing one is
+        reused (`jobs_existing`), a failed, dead or cancelled one queued
+        again. `warnings` say when jobs will do little: consent off (only
+        exact translation-memory matches are reused), no budget, no
+        provider. Needs `intelligence.translate` for every locale.
+        Problem codes: `too_many_locales`, `too_many_keys`,
+        `invalid_locale` (400), `locale_not_found` (404).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateAIFill" }
+      responses:
+        "201":
+          description: The fill and its jobs' states.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIFill" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/ai-fills/{ai_fill}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AIFillPath"
+    get:
+      operationId: getAIFill
+      tags: [ai-jobs]
+      summary: A fill and its jobs' states
+      description: Needs `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The fill.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIFill" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/ai-fills/{ai_fill}/cancellation:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AIFillPath"
+    post:
+      operationId: cancelAIFill
+      tags: [ai-jobs]
+      summary: Cancel a fill's queued jobs
+      description: |
+        Running jobs finish. Cancelling twice changes nothing. Needs
+        `intelligence.translate` for the fill's locales.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The fill.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIFill" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/ai-jobs:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listAIJobs
+      tags: [ai-jobs]
+      summary: AI translation jobs
+      description: |
+        Newest first. A job is `queued` → `running` → `succeeded`
+        (with a suggestion), `skipped` (the message changed, was
+        translated meanwhile or is gone), `failed` (for good:
+        `failure_code` says why — `provider_consent`, `sensitive`,
+        `invalid_output`, `budget_exceeded`, `no_route`,
+        `provider_error`, `invalid_source`), `dead` (transient failures
+        exhausted its attempts) or `cancelled`. Needs
+        `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/AIJobState" } }
+        - { name: locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: fill, in: query, required: false, description: A fill `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: message, in: query, required: false, description: A message `id`., schema: { $ref: "#/components/schemas/Id" } }
+      responses:
+        "200":
+          description: A page of jobs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIJobList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/ai-jobs/{ai_job}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AIJobPath"
+    get:
+      operationId: getAIJob
+      tags: [ai-jobs]
+      summary: A job with its audit ledger
+      description: |
+        `audit` is the agent's ledger: every tool result in order — what
+        it looked up, what it sent and what came back. Needs
+        `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIJob" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/ai-jobs/{ai_job}/cancellation:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AIJobPath"
+    post:
+      operationId: cancelAIJob
+      tags: [ai-jobs]
+      summary: Cancel a queued job
+      description: |
+        Only queued jobs can be cancelled; cancelling a cancelled job
+        changes nothing. Needs `intelligence.translate` for its locale.
+        Problem code: `job_not_cancellable` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIJob" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ── AI suggestions ──────────────────────────────────────────────────
+  /v1/tenants/{tenant}/ai-suggestions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listAISuggestions
+      tags: [ai-suggestions]
+      summary: AI suggestions
+      description: Newest first. Needs `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: status, in: query, required: false, schema: { $ref: "#/components/schemas/AISuggestionStatus" } }
+        - { name: locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: message, in: query, required: false, description: A message `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: job, in: query, required: false, description: A job `id`., schema: { $ref: "#/components/schemas/Id" } }
+      responses:
+        "200":
+          description: A page of suggestions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AISuggestionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AISuggestionPath"
+    get:
+      operationId: getAISuggestion
+      tags: [ai-suggestions]
+      summary: An AI suggestion with its confidence explanation
+      description: |
+        `score` (0–1) prioritizes review; it is never a promise of
+        correctness. `explanation` lists each factor and its
+        contribution ("why this?"); `provenance` names the provider,
+        model, prompt version, translation-memory units, terms and
+        style-guide version. Needs `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The suggestion.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AISuggestion" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/acceptance:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AISuggestionPath"
+    post:
+      operationId: acceptAISuggestion
+      tags: [ai-suggestions]
+      summary: Accept a suggestion, as is or edited
+      description: |
+        Writes the message's translation: a revision with origin `ai`
+        or `translation_memory` and an `origin_detail` naming provider,
+        model, prompt version, TM units, terms, style version, score and
+        explanation. It is `approved` when the caller may review the
+        locale, else what the project's review policy says. With `text`
+        (MF2 by default) the edit is accepted instead and its structured
+        diff (edit distance, terms and style fields changed) recorded for
+        the metrics. Needs `intelligence.translate` and
+        `translations.write` for the locale. Problem codes:
+        `suggestion_decided`, `suggestion_outdated`,
+        `translation_conflict` (409), `translation_rejected` (422),
+        `invalid_message`, `invalid_syntax` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AcceptAISuggestion" }
+      responses:
+        "200":
+          description: The accepted suggestion.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AISuggestion" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AISuggestionPath"
+    post:
+      operationId: rejectAISuggestion
+      tags: [ai-suggestions]
+      summary: Reject a suggestion
+      description: |
+        Nothing is written. Needs `intelligence.translate` for the
+        locale. Problem codes: `suggestion_decided` (409),
+        `invalid_reason` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RejectAISuggestion" }
+      responses:
+        "200":
+          description: The rejected suggestion.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AISuggestion" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/tenants/{tenant}/projects/{project}/ai-review-queue:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: getAIReviewQueue
+      tags: [ai-suggestions]
+      summary: The review queue, riskiest first
+      description: |
+        Pending suggestions ordered by risk, not by key: lowest score
+        first, then the most `risk_tags` (legal and marketing
+        namespaces, forbidden terms, max length, missing plural
+        categories). `locale` (repeatable) narrows it. Needs
+        `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - name: locale
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            items: { $ref: "#/components/schemas/Locale" }
+      responses:
+        "200":
+          description: A page of the queue.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AISuggestionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── AI insights ─────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/ai-disclosures:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listAIDisclosures
+      tags: [ai-insights]
+      summary: Which provider saw which message
+      description: |
+        Every provider call a job made, even a failed one, with exactly
+        what the provider was sent (RFC 0003 §7), newest first. Needs
+        `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: job, in: query, required: false, description: A job `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: message, in: query, required: false, description: A message `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: provider, in: query, required: false, schema: { type: string, maxLength: 63 } }
+      responses:
+        "200":
+          description: A page of disclosures.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIDisclosureList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/projects/{project}/ai-metrics:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: getAIMetrics
+      tags: [ai-insights]
+      summary: Acceptance rate and edit distance per locale
+      description: |
+        People's decisions on the project's suggestions since `since`
+        (default: 30 days ago), per locale: accepted (as is or edited),
+        rejected, the acceptance rate and the mean edit distance of
+        accepted suggestions (0 for those accepted as is). Needs
+        `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - { name: since, in: query, required: false, schema: { $ref: "#/components/schemas/Timestamp" } }
+      responses:
+        "200":
+          description: The metrics.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIMetrics" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/ai-eval-baseline:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: getAIEvalBaseline
+      tags: [ai-insights]
+      summary: The translation agent's eval baseline
+      description: |
+        The tracked metrics of the golden-set evals per locale pair and
+        overall (`all`), as committed with the server
+        (`internal/intelligence/evals/testdata/baseline.json`): a prompt
+        or model change may not regress them (RFC 0003 §4). Needs
+        `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The baseline.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIEvalBaseline" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
 components:
   securitySchemes:
     session:
@@ -3281,6 +4265,30 @@ components:
       in: path
       required: true
       description: A style guide `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    AIProviderPath:
+      name: ai_provider
+      in: path
+      required: true
+      description: An AI provider `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    AIFillPath:
+      name: ai_fill
+      in: path
+      required: true
+      description: A fill `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    AIJobPath:
+      name: ai_job
+      in: path
+      required: true
+      description: A job `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    AISuggestionPath:
+      name: ai_suggestion
+      in: path
+      required: true
+      description: A suggestion `id`.
       schema: { $ref: "#/components/schemas/Id" }
     PageSize:
       name: page_size
@@ -4914,3 +5922,501 @@ components:
           type: array
           description: The guide versions merged, broadest first.
           items: { $ref: "#/components/schemas/StyleGuideSource" }
+    # ── Intelligence ──────────────────────────────────────────────────
+    MicroUSD:
+      type: integer
+      format: int64
+      minimum: 0
+      description: Money in millionths of a US dollar (1 USD = 1000000).
+    AIProviderKind:
+      type: string
+      enum: [anthropic, openai_compatible, gemini]
+      description: |
+        The API a provider speaks: the Anthropic Messages API, an
+        OpenAI-compatible `/chat/completions` endpoint (OpenAI, Mistral,
+        self-hosted servers) or Gemini.
+    AIProviderName:
+      type: string
+      pattern: "^[a-z][a-z0-9-]{0,62}$"
+      description: What routing policies route to, e.g. `anthropic` or `mistral-eu`.
+    AIProvider:
+      type: object
+      required: [id, name, kind, models, enabled, api_key_set, version, created_by, created_at, updated_by, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { $ref: "#/components/schemas/AIProviderName" }
+        kind: { $ref: "#/components/schemas/AIProviderKind" }
+        base_url: { type: string, maxLength: 500, description: The endpoint; absent for the kind's default. }
+        models:
+          type: array
+          description: The model allow-list; empty allows any model.
+          items: { type: string, maxLength: 200 }
+        enabled: { type: boolean }
+        api_key_set: { type: boolean, description: Whether a key is stored. The key itself is never returned. }
+        version: { type: integer }
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_by: { type: string }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    AIProviderList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AIProvider" } }
+        next_page_token: { type: string }
+    CreateAIProvider:
+      type: object
+      required: [name, kind]
+      properties:
+        name: { $ref: "#/components/schemas/AIProviderName" }
+        kind: { $ref: "#/components/schemas/AIProviderKind" }
+        base_url: { type: string, maxLength: 500, description: "Required for `openai_compatible`; https only unless the deployment allows private endpoints." }
+        models: { type: array, maxItems: 50, items: { type: string, minLength: 1, maxLength: 200 } }
+        enabled: { type: boolean, default: true }
+        api_key: { type: string, maxLength: 1000, writeOnly: true, description: Sealed at rest; never returned. }
+    UpdateAIProvider:
+      type: object
+      properties:
+        name: { $ref: "#/components/schemas/AIProviderName" }
+        base_url: { type: string, maxLength: 500 }
+        models: { type: array, maxItems: 50, items: { type: string, minLength: 1, maxLength: 200 } }
+        enabled: { type: boolean }
+        api_key: { type: string, maxLength: 1000, writeOnly: true, description: Replaces the key. }
+        clear_api_key: { type: boolean, description: Removes the key. }
+    AISettings:
+      type: object
+      required: [provider_consent, max_concurrent_jobs, monthly_budget_micro_usd, version]
+      properties:
+        provider_consent:
+          type: boolean
+          description: |
+            The tenant's explicit permission to send text to AI providers
+            (RFC 0003 §7). Off by default; without it only exact
+            translation-memory matches are reused.
+        consent_changed_by: { type: string }
+        consent_changed_at: { $ref: "#/components/schemas/Timestamp" }
+        max_concurrent_jobs: { type: integer, minimum: 1, maximum: 64, description: The tenant's running jobs across replicas. }
+        monthly_budget_micro_usd:
+          allOf: [{ $ref: "#/components/schemas/MicroUSD" }]
+          description: Provider spend per calendar month (UTC); 0 allows none.
+        version: { type: integer, description: 0 until saved. }
+        updated_by: { type: string }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    UpdateAISettings:
+      type: object
+      properties:
+        provider_consent: { type: boolean }
+        max_concurrent_jobs: { type: integer, minimum: 1, maximum: 64 }
+        monthly_budget_micro_usd: { $ref: "#/components/schemas/MicroUSD" }
+    AIPrice:
+      type: object
+      required: [input_per_mtok, output_per_mtok]
+      properties:
+        input_per_mtok: { type: number, format: double, minimum: 0, description: USD per million input tokens. }
+        output_per_mtok: { type: number, format: double, minimum: 0 }
+        cache_read_per_mtok: { type: number, format: double, minimum: 0 }
+        cache_write_per_mtok: { type: number, format: double, minimum: 0 }
+    AIPriceTable:
+      type: object
+      description: "`<provider>/<model>` to its price."
+      additionalProperties: { $ref: "#/components/schemas/AIPrice" }
+    AIPrices:
+      type: object
+      required: [defaults, overrides, effective, version]
+      properties:
+        defaults: { $ref: "#/components/schemas/AIPriceTable" }
+        overrides: { $ref: "#/components/schemas/AIPriceTable" }
+        effective: { $ref: "#/components/schemas/AIPriceTable" }
+        version: { type: integer, description: The settings' version. }
+    PutAIPrices:
+      type: object
+      required: [overrides]
+      properties:
+        overrides:
+          type: object
+          maxProperties: 500
+          additionalProperties: { $ref: "#/components/schemas/AIPrice" }
+    AIProviderSpend:
+      type: object
+      required: [provider, model, cost_micro_usd, calls, input_tokens, output_tokens]
+      properties:
+        provider: { type: string }
+        model: { type: string }
+        cost_micro_usd: { $ref: "#/components/schemas/MicroUSD" }
+        calls: { type: integer }
+        input_tokens: { type: integer, format: int64 }
+        output_tokens: { type: integer, format: int64 }
+    AIBudget:
+      type: object
+      required: [monthly_budget_micro_usd, spent_micro_usd, remaining_micro_usd, calls, month_start, by_provider]
+      properties:
+        monthly_budget_micro_usd: { $ref: "#/components/schemas/MicroUSD" }
+        spent_micro_usd: { $ref: "#/components/schemas/MicroUSD" }
+        remaining_micro_usd: { $ref: "#/components/schemas/MicroUSD" }
+        calls: { type: integer }
+        month_start: { $ref: "#/components/schemas/Timestamp" }
+        by_provider: { type: array, items: { $ref: "#/components/schemas/AIProviderSpend" } }
+    AIUsage:
+      type: object
+      required: [input_tokens, output_tokens]
+      properties:
+        input_tokens: { type: integer, format: int64 }
+        output_tokens: { type: integer, format: int64 }
+        cache_read_tokens: { type: integer, format: int64 }
+        cache_write_tokens: { type: integer, format: int64 }
+    AISpendEntry:
+      type: object
+      required: [id, task, provider, model, usage, cost_micro_usd, priced, occurred_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        job_id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        task: { $ref: "#/components/schemas/AITask" }
+        provider: { type: string }
+        model: { type: string }
+        usage: { $ref: "#/components/schemas/AIUsage" }
+        cost_micro_usd: { $ref: "#/components/schemas/MicroUSD" }
+        priced: { type: boolean, description: false when the price table has no price for the model (cost 0). }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+    AISpendList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AISpendEntry" } }
+        next_page_token: { type: string }
+    AITask:
+      type: string
+      enum: [translate, review, explain, assess]
+    AIRoute:
+      type: object
+      required: [provider, model, max_tokens]
+      properties:
+        provider: { $ref: "#/components/schemas/AIProviderName" }
+        model: { type: string, minLength: 1, maxLength: 200 }
+        max_tokens: { type: integer, minimum: 1, maximum: 64000 }
+        temperature: { type: number, format: double, minimum: 0, maximum: 2 }
+        effort: { type: string, enum: [low, medium, high, max] }
+    AIRoutingRule:
+      type: object
+      required: [task, routes]
+      properties:
+        task: { $ref: "#/components/schemas/AITask" }
+        locales:
+          type: array
+          description: Target locales the rule applies to (a language covers its regions); empty applies to all.
+          items: { $ref: "#/components/schemas/Locale" }
+        routes:
+          type: array
+          minItems: 1
+          maxItems: 5
+          description: The preferred route first, then fallbacks.
+          items: { $ref: "#/components/schemas/AIRoute" }
+    AIRoutingPolicy:
+      type: object
+      required: [rules]
+      properties:
+        rules: { type: array, maxItems: 100, items: { $ref: "#/components/schemas/AIRoutingRule" } }
+    AIRoutingPolicyView:
+      type: object
+      required: [policy, source, version]
+      properties:
+        policy: { $ref: "#/components/schemas/AIRoutingPolicy" }
+        source: { type: string, enum: [default, tenant, project], description: Where the policy in effect comes from. }
+        version: { type: integer, description: The stored policy's version; 0 for the default. }
+        updated_by: { type: string }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    AINamespaceTag:
+      type: string
+      enum: [sensitive, legal, marketing]
+    AIReviewPolicy:
+      type: object
+      required: [auto_approve, auto_approve_min, recommend_min]
+      properties:
+        auto_approve: { type: boolean, description: Off by default. }
+        auto_approve_min: { type: number, format: double, exclusiveMinimum: 0, maximum: 1, description: "Scores at or above it are `auto_approve` (when on)." }
+        recommend_min: { type: number, format: double, exclusiveMinimum: 0, maximum: 1, description: "Scores at or above it are `approve_recommended`; below, `review_required`." }
+        force_review:
+          type: array
+          maxItems: 20
+          description: Explanation factors that require review whatever the score (`missing_plural_categories` always does).
+          items: { type: string }
+        auto_approve_environments:
+          type: array
+          maxItems: 20
+          description: The environments auto-approved text ships to; each must ship approved translations.
+          items: { $ref: "#/components/schemas/EnvironmentName" }
+    AIProjectSettings:
+      type: object
+      required: [namespace_tags, auto_translate_locales, review, version]
+      properties:
+        namespace_tags:
+          type: object
+          description: A namespace to its policy tags.
+          additionalProperties: { type: array, items: { $ref: "#/components/schemas/AINamespaceTag" } }
+        auto_translate_locales: { type: array, items: { $ref: "#/components/schemas/Locale" } }
+        review: { $ref: "#/components/schemas/AIReviewPolicy" }
+        version: { type: integer, description: 0 until saved. }
+        updated_by: { type: string }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    UpdateAIProjectSettings:
+      type: object
+      properties:
+        namespace_tags:
+          type: object
+          maxProperties: 500
+          additionalProperties: { type: array, maxItems: 3, items: { $ref: "#/components/schemas/AINamespaceTag" } }
+        auto_translate_locales: { type: array, maxItems: 200, items: { $ref: "#/components/schemas/Locale" } }
+        review: { $ref: "#/components/schemas/AIReviewPolicy" }
+    CreateAIFill:
+      type: object
+      required: [locales]
+      properties:
+        locales: { type: array, minItems: 1, maxItems: 20, items: { $ref: "#/components/schemas/Locale" } }
+        namespace: { $ref: "#/components/schemas/Namespace" }
+        key_prefix: { type: string, maxLength: 200 }
+        keys: { type: array, maxItems: 500, items: { $ref: "#/components/schemas/MessageKey" } }
+        include_outdated: { type: boolean, default: false }
+    AIJobState:
+      type: string
+      enum: [queued, running, succeeded, skipped, failed, dead, cancelled]
+    AITrigger:
+      type: string
+      enum: [message_created, translation_outdated, locale_added, fill]
+    AIFill:
+      type: object
+      required: [id, project_id, trigger, locales, jobs_created, jobs_existing, skipped, job_states, warnings, requested_by, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        trigger: { type: string, enum: [fill, locale_added] }
+        locales: { type: array, items: { $ref: "#/components/schemas/Locale" } }
+        namespace: { type: string }
+        key_prefix: { type: string }
+        keys: { type: array, items: { type: string } }
+        include_outdated: { type: boolean }
+        jobs_created: { type: integer, description: "Jobs queued, new or queued again." }
+        jobs_existing: { type: integer, description: "Jobs that already existed for the same message, locale, source revision and knowledge." }
+        skipped:
+          type: object
+          description: "Messages left out, by reason: `sensitive`, `up_to_date`, `limit`."
+          additionalProperties: { type: integer }
+        job_states:
+          type: object
+          description: The fill's jobs by state.
+          additionalProperties: { type: integer }
+        warnings:
+          type: array
+          description: "`provider_consent_off`, `no_budget`, `no_provider`."
+          items: { type: string }
+        requested_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    AIAuditEntry:
+      type: object
+      required: [tool, output, at]
+      properties:
+        tool: { type: string, description: "`tm_lookup`, `term_lookup`, `style_rules`, `message_context`, `validate`, `draft`, `assess`." }
+        output: { description: "The tool's result, as recorded." }
+        at: { $ref: "#/components/schemas/Timestamp" }
+    AIJob:
+      type: object
+      required: [id, project_id, message_id, message_key, namespace, locale, source_revision, knowledge_fingerprint, trigger, state,
+                 attempts, max_attempts, available_at, created_by, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        message_id: { $ref: "#/components/schemas/Id" }
+        message_key: { $ref: "#/components/schemas/MessageKey" }
+        namespace: { type: string }
+        locale: { $ref: "#/components/schemas/Locale" }
+        source_revision: { type: integer }
+        knowledge_fingerprint: { type: string, description: "Digest of the prompts, style guides and termbase the job was queued against." }
+        trigger: { $ref: "#/components/schemas/AITrigger" }
+        fill_id: { $ref: "#/components/schemas/Id" }
+        state: { $ref: "#/components/schemas/AIJobState" }
+        attempts: { type: integer }
+        max_attempts: { type: integer }
+        available_at: { $ref: "#/components/schemas/Timestamp" }
+        failure_code: { type: string, description: "Why it failed, was skipped or died (see the listing)." }
+        last_error: { type: string }
+        suggestion_id: { $ref: "#/components/schemas/Id" }
+        audit: { type: array, items: { $ref: "#/components/schemas/AIAuditEntry" } }
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        finished_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    AIJobList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AIJob" } }
+        next_page_token: { type: string }
+    AIAction:
+      type: string
+      enum: [auto_approve, approve_recommended, review_required]
+    AISuggestionStatus:
+      type: string
+      enum: [pending, accepted, rejected, auto_applied, superseded]
+    AIConfidenceFactor:
+      type: object
+      required: [factor, value, contribution, reason]
+      properties:
+        factor: { type: string, description: "`origin`, `tm_match`, `term_forbidden`, `term_missing`, `repairs`, `qa_warnings`, `self_assessment`, `formality`, `max_length`, `length_ratio`, `risk_tag`, `markup_density`, `missing_plural_categories`." }
+        value: { type: number, format: double }
+        contribution: { type: number, format: double, description: How much it moved the score (negative lowers it). }
+        reason: { type: string }
+    AITermFinding:
+      type: object
+      required: [code, concept_id, term, message]
+      properties:
+        code: { type: string, enum: [term_missing, term_forbidden] }
+        concept_id: { type: string }
+        term_id: { type: string }
+        term: { type: string }
+        message: { type: string }
+    AIProvenance:
+      type: object
+      required: [origin, repairs]
+      properties:
+        origin: { type: string, enum: [ai, translation_memory] }
+        provider: { type: string }
+        model: { type: string }
+        prompt_version: { type: string }
+        tm_unit_ids: { type: array, items: { type: string } }
+        term_ids: { type: array, items: { type: string } }
+        style_version: { type: string }
+        repairs: { type: integer }
+    AICall:
+      type: object
+      required: [task, provider, model, prompt_version, usage, cost_micro_usd]
+      properties:
+        task: { $ref: "#/components/schemas/AITask" }
+        provider: { type: string }
+        model: { type: string }
+        prompt_version: { type: string }
+        usage: { $ref: "#/components/schemas/AIUsage" }
+        cost_micro_usd: { $ref: "#/components/schemas/MicroUSD" }
+    AIEditDiff:
+      type: object
+      required: [distance, ratio]
+      properties:
+        distance: { type: integer, description: Character edit distance of the visible text. }
+        ratio: { type: number, format: double, description: The distance over the longer text's length. }
+        terms_added: { type: array, items: { type: string } }
+        terms_removed: { type: array, items: { type: string } }
+        style_fields: { type: array, description: "Style fields whose use changed: `quotes`, `dash`, `ellipsis`, `space_before_punctuation`, `pronoun`.", items: { type: string } }
+    AIDecision:
+      type: object
+      properties:
+        edit: { $ref: "#/components/schemas/AIEditDiff" }
+        reason: { type: string }
+    AISuggestion:
+      type: object
+      required: [id, job_id, project_id, message_id, message_key, namespace, locale, source_revision, message, model, findings,
+                 term_findings, provenance, score, explanation, action, risk_tags, calls, usage, cost_micro_usd, status, version, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        job_id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        message_id: { $ref: "#/components/schemas/Id" }
+        message_key: { $ref: "#/components/schemas/MessageKey" }
+        namespace: { type: string }
+        locale: { $ref: "#/components/schemas/Locale" }
+        source_revision: { type: integer }
+        message: { type: string, description: The translation in canonical MF2 syntax. }
+        model: { $ref: "#/components/schemas/MF2Message" }
+        findings: { type: array, description: Structural warnings (errors never reach a suggestion)., items: { $ref: "#/components/schemas/QAFinding" } }
+        term_findings: { type: array, items: { $ref: "#/components/schemas/AITermFinding" } }
+        provenance: { $ref: "#/components/schemas/AIProvenance" }
+        score: { type: number, format: double, minimum: 0, maximum: 1 }
+        explanation: { type: array, items: { $ref: "#/components/schemas/AIConfidenceFactor" } }
+        action: { $ref: "#/components/schemas/AIAction" }
+        action_note: { type: string, description: Why the routed action differs from what the bands alone say. }
+        risk_tags: { type: array, items: { type: string } }
+        calls: { type: array, items: { $ref: "#/components/schemas/AICall" } }
+        usage: { $ref: "#/components/schemas/AIUsage" }
+        cost_micro_usd: { $ref: "#/components/schemas/MicroUSD" }
+        status: { $ref: "#/components/schemas/AISuggestionStatus" }
+        translation_revision: { type: integer, description: "The revision it became, once accepted or auto-applied." }
+        decided_by: { type: string }
+        decided_at: { $ref: "#/components/schemas/Timestamp" }
+        decision: { $ref: "#/components/schemas/AIDecision" }
+        version: { type: integer }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    AISuggestionList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AISuggestion" } }
+        next_page_token: { type: string }
+    AcceptAISuggestion:
+      type: object
+      properties:
+        text: { type: string, minLength: 1, maxLength: 20000, description: An edit to accept instead of the suggestion. }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+    RejectAISuggestion:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 2000 }
+    AISentMessage:
+      type: object
+      required: [role, text]
+      properties:
+        role: { type: string, enum: [user, assistant] }
+        text: { type: string }
+    AIDisclosure:
+      type: object
+      required: [id, job_id, project_id, message_id, locale, task, provider, model, system_sha256, sent, occurred_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        job_id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        message_id: { $ref: "#/components/schemas/Id" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        task: { $ref: "#/components/schemas/AITask" }
+        provider: { type: string }
+        model: { type: string }
+        system_sha256: { type: string, description: "Identifies the (versioned, data-free) system prompt." }
+        sent: { type: array, description: Exactly what the provider received., items: { $ref: "#/components/schemas/AISentMessage" } }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+    AIDisclosureList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AIDisclosure" } }
+        next_page_token: { type: string }
+    AILocaleMetrics:
+      type: object
+      required: [locale, accepted, edited, rejected, acceptance_rate, mean_edit_distance, mean_edit_ratio]
+      properties:
+        locale: { $ref: "#/components/schemas/Locale" }
+        accepted: { type: integer }
+        edited: { type: integer, description: Accepted after an edit. }
+        rejected: { type: integer }
+        acceptance_rate: { type: number, format: double, description: accepted / (accepted + rejected). }
+        mean_edit_distance: { type: number, format: double }
+        mean_edit_ratio: { type: number, format: double }
+    AIMetrics:
+      type: object
+      required: [since, locales]
+      properties:
+        since: { $ref: "#/components/schemas/Timestamp" }
+        locales: { type: array, items: { $ref: "#/components/schemas/AILocaleMetrics" } }
+    AIEvalMetrics:
+      type: object
+      required: [cases, structural_pass_rate, terminology_compliance, formality_compliance, mean_edit_ratio, origin_accuracy]
+      properties:
+        cases: { type: integer }
+        structural_pass_rate: { type: number, format: double }
+        terminology_compliance: { type: number, format: double }
+        formality_compliance: { type: number, format: double }
+        mean_edit_ratio: { type: number, format: double }
+        origin_accuracy: { type: number, format: double }
+    AIEvalBaseline:
+      type: object
+      required: [pairs]
+      properties:
+        pairs:
+          type: object
+          description: A locale pair (`en-de`) or `all` to its tracked metrics.
+          additionalProperties: { $ref: "#/components/schemas/AIEvalMetrics" }
