@@ -19,7 +19,7 @@ func TestHelpVersionAndUnknownCommands(t *testing.T) {
 	}
 	r = w.run("push", "--help")
 	r.want(t, ExitOK)
-	if !strings.Contains(r.stdout, "--dry-run") {
+	if !strings.Contains(r.stdout, "--dry-run") || strings.Count(r.stdout, "Usage: glossa push") != 1 {
 		t.Errorf("push --help = %s", r.stdout)
 	}
 	r = w.run("frobnicate")

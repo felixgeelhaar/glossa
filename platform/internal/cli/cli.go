@@ -191,7 +191,7 @@ func (inv *invocation) parse(fs *flag.FlagSet, args []string) ([]string, error) 
 		if err := fs.Parse(args); err != nil {
 			inv.setupOutput()
 			if errors.Is(err, flag.ErrHelp) {
-				fs.Usage()
+				// flag already printed the usage.
 				return nil, errHelp
 			}
 			return nil, usageError(inv.name, "%v", err)
