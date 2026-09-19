@@ -1,37 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { keyIndexed, servedManifest, signInLink } from "./harness";
-
-/** With STUDIO_SCREENSHOTS=<dir>, keeps a full-page screenshot of each screen checked (for design review). */
-async function snap(page: Page, name: string): Promise<void> {
-  const dir = process.env.STUDIO_SCREENSHOTS;
-  if (dir) await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true });
-}
-
-/** Switch the theme and wait out the colour transitions, so axe measures the settled colours. */
-async function setTheme(page: Page, theme: "light" | "dark"): Promise<void> {
-  await page.evaluate(async (t) => {
-    document.documentElement.setAttribute("data-theme", t);
-    await new Promise((r) => requestAnimationFrame(r));
-    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined)));
-  }, theme);
-}
-
-/** Axe in the dark theme too, then back to light. */
-async function expectAccessibleInBothThemes(page: Page, screen: string): Promise<void> {
-  await expectAccessible(page, screen);
-  await setTheme(page, "dark");
-  await expectAccessible(page, `${screen} (dark)`);
-  await setTheme(page, "light");
-}
-
-/** WCAG 2.2 AA through axe; any violation fails with its rule ids and targets. */
-async function expectAccessible(page: Page, screen: string): Promise<void> {
-  const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
-  const summary = violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
-  expect(summary, `axe violations on ${screen}`).toEqual([]);
-  await snap(page, screen.replace(/\W+/g, "-"));
-}
+import { expectAccessible, expectAccessibleInBothThemes } from "./support";
 
 test("sign in by magic link, set up a project, translate with the keyboard, fix QA, approve, release", async ({ page }) => {
   test.setTimeout(180_000);

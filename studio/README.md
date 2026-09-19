@@ -12,6 +12,10 @@ keyboard-first editor with live MessageFormat 2 preview, structural QA
 from the server, review and history — and releases: environments,
 publish, promote, rollback and delivery keys.
 
+**M2** (RFC 0003 §6) adds knowledge and AI: translation-memory, terms,
+style and AI-suggestion panes in the editor, a review queue, termbase and
+style-guide editors, and AI settings. See *Knowledge and AI* below.
+
 ## Screens
 
 | Route | What |
@@ -20,6 +24,10 @@ publish, promote, rollback and delivery keys.
 | `/auth/register`, `/auth/reset-password` | Registration (without email the new account is signed in right away) and password reset by email (link lands as `#token=…`; without email the page says it isn't available). |
 | `/t/:tenant` | Projects of the tenant; create one (source locale, authoring syntax, review requirement). The top bar switches tenants (personal and organizations) and creates organizations. |
 | `…/p/:project/translate` | The translator workspace. Locale, filters and the selected key live in the query string, so a view can be bookmarked. |
+| `…/p/:project/review` | The review queue: pending AI suggestions riskiest first, triaged from the keyboard (`?locale=` narrows it). |
+| `…/p/:project/terms` | The termbase: concepts and their terms per locale with status; history. |
+| `…/p/:project/style` | Style guides by scope (workspace, project, locale, namespace), versions, and the effective style. |
+| `…/p/:project/ai` | AI settings: consent, providers, budget and spend, prices, routing; the project's namespace tags, auto-translate and review routing; insights. |
 | `…/p/:project/locales` | Locales with BCP 47 validation and direction; the list-based fallback graph editor. |
 | `…/p/:project/settings` | Name, slug, syntax, review requirement, applications, delivery keys, delete. |
 | `…/p/:project/releases` | Environments, publish, promote, rollback, release list (see below). |
@@ -186,7 +194,12 @@ are in `src/styles/studio.css`.
   preview, editor, locale input, releases, release detail and delivery-key
   components. The release components run on `src/test/fake-releases.ts`,
   an in-memory `ReleasesPort` with Release's rules (policy coverage,
-  rollback history, If-Match, idempotent publish).
+  rollback history, If-Match, idempotent publish). The knowledge and AI
+  screens run on `src/test/fake-knowledge.ts` and
+  `src/test/fake-intelligence.ts` (term recognition and terminology QA in
+  miniature, write-only provider keys, version-0 settings, fills that
+  settle into given suggestions, a risk-ordered queue, decided suggestions
+  that can't be decided twice).
 - **End to end** (`pnpm test:e2e`, `e2e/`): the global setup starts
   Postgres 16 with testcontainers, provisions it like production (a
   `CREATEROLE` owner migrates, the server runs as `glossa_app`), builds and
@@ -211,6 +224,34 @@ are in `src/styles/studio.css`.
   `@axe-core/playwright` (WCAG 2.2 AA tags) runs on each main screen and
   dialog, light and dark.
 
+  The knowledge and AI test (`e2e/knowledge-ai.spec.ts`) adds a termbase
+  concept in the editor, sees the term highlighted in the source and a
+  forbidden-term warning while typing, approves, sees that approval come
+  back as a fuzzy translation-memory match for a similar message and
+  inserts it with `⌘⌥1`; then configures AI in the settings screen (a
+  provider with a key that is never shown again, consent after
+  confirming, a budget, the legal namespace tagged), fills the locale with
+  AI, reads the suggestion's confidence and “Why?”, and triages the review
+  queue — riskiest first, accept one with an edit from the keyboard, batch
+  accept the recommended ones — and checks the metrics.
+
+  **No real AI provider is ever called.** The harness starts
+  `e2e/fake-provider.ts`, an OpenAI-compatible `/chat/completions`
+  endpoint on loopback (`GLOSSA_E2E_PROVIDER_PORT`, 18318) that answers
+  from a cassette, `e2e/fixtures/provider-cassette.json`: a draft per
+  source and target locale, a self-assessment per draft. Everything else
+  is real — the server's translation agent, its prompts, MF2 parsing,
+  validation, terminology QA, scoring, routing, budget and disclosures.
+  The test configures it like a tenant would (an `openai_compatible`
+  provider with that base URL, and a routing policy pointing every task at
+  it), which the server allows because the harness sets
+  `GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS=true`. A request the cassette can't
+  answer fails with HTTP 400 naming the source, so the job fails loudly
+  instead of passing by accident; every request is logged to
+  `e2e/.state/provider-requests.jsonl` (the test checks the prompt carried
+  the termbase). To cover a new message, add its draft and assessment to
+  the cassette.
+
   Needs Docker, Go and `pnpm build` first:
 
   ```sh
@@ -219,7 +260,8 @@ are in `src/styles/studio.css`.
   pnpm --filter @glossa/studio test:e2e
   ```
 
-  Ports: `GLOSSA_E2E_API_PORT` (18317), `GLOSSA_E2E_STUDIO_PORT` (4317).
+  Ports: `GLOSSA_E2E_API_PORT` (18317), `GLOSSA_E2E_STUDIO_PORT` (4317),
+  `GLOSSA_E2E_PROVIDER_PORT` (18318).
   `GLOSSA_E2E_SERVER_BIN` uses a prebuilt server. `STUDIO_SCREENSHOTS=<dir>`
   keeps a screenshot of every screen axe checked. CI runs it as the
   `Studio e2e` job.
@@ -275,15 +317,84 @@ its image serves at `/config.json` (`GLOSSA_STUDIO_EDGE_URL`), else the
 build's `VITE_GLOSSA_EDGE_URL`; without any they show a placeholder and
 say so.
 
+## Knowledge and AI
+
+Everything goes through two ports: `KnowledgePort` (`src/api/knowledge.ts`:
+translation memory, termbase, terminology checks, style guides) and
+`IntelligencePort` (`src/api/intelligence.ts`: providers, settings,
+routing, budget, fills, jobs, suggestions, the review queue, insights),
+each with its zod schemas in a module of its own. `useKnowledge()` and
+`useIntelligence()` fall back to the API adapters when nothing is
+provided, so they load with the screens that use them and stay out of the
+initial bundle. Money is integer micro-USD end to end; Studio converts
+only to show it and to read what people type.
+
+- **Editor panes** (the workspace's third column; below the editor on
+  narrower screens): the **AI suggestion** for the message and locale —
+  confidence as a band (very high ≥ 0.90, high ≥ 0.75, medium ≥ 0.50,
+  low) *and* the number, never a percentage, with “it isn't a promise”
+  said once; the routed action, risk tags and the action note; **Why?**
+  lists every factor with its signed contribution, largest first, and the
+  provenance (provider and model, prompt version, TM units, terms, style
+  version, repairs, cost). Accept (`⌘⌥↵`), edit then accept (`⌘⌥0`, sends
+  the edit as MF2 `text` so its diff feeds the metrics) or reject with an
+  optional reason — for members who may translate and write the locale.
+  **Translation memory**: up to five matches with a score badge, the kind
+  (same key, exact, fuzzy), a word diff of the remembered source against
+  this one (both normalized: placeholders by position), where it came from,
+  and insert (`⌘⌥1`–`9`; the target is MF2, so the editor switches to
+  MF2). Showing a match doesn't count as a hit. **Terminology**: every
+  concept recognized in the source with its definition and the target's
+  terms, the ones to use first, the ones to avoid struck through. The terms
+  are highlighted in the source as written (the server's offsets are into
+  the visible text, so each hit is found in the source by its words,
+  occurrence by occurrence). **Style**: the effective guide for the locale
+  and the message's namespace. **Concordance**: how a phrase was
+  translated before, in the source or the target.
+- **Live terminology QA**: 300 ms after the last keystroke the draft is
+  checked (`terminology-checks`, the latest request winning); forbidden and
+  deprecated terms and missing preferred ones show under the editor and in
+  its `aria-describedby`. A draft whose syntax differs from the source's (a
+  TM match in MF2 against an MF1 source) is checked as plain text; text
+  that doesn't parse keeps the last findings, marked paused.
+- **Fill with AI** (in the workspace's filters, with `intelligence.translate`
+  for the locale): queues a fill for the current filter — the namespace,
+  missing (or with *Also redo outdated*, outdated) messages, and the keys a
+  search narrows to — shows the server's warnings up front (consent off,
+  no budget, no provider), and follows the fill's jobs (`ai-jobs?fill=`)
+  until they settle, with why any failed.
+- **Review queue**: the server's order (lowest score, then most risk
+  tags), narrowed to the member's locale scope; the focused suggestion
+  with its source, context and “Why?”. `j`/`k` move, `a` accepts, `e`
+  edits (`⌘↵` accepts the edit, `Esc` cancels), `r` rejects; decided items
+  leave the list and the next takes their place. *Accept N recommended*
+  accepts only suggestions routed `approve_recommended`, after confirming.
+- **Termbase** and **style guides**: see Screens; changing them needs
+  `knowledge.write` (developers, admins, owners).
+- **AI settings**: consent is off by default and turned on only after a
+  confirmation that says what is sent; provider keys are write-only
+  (`type=password`, cleared from memory once sent, never shown — the list
+  says only *Key stored (sealed)*); the budget with spend per day (one
+  series, a table beside it) and per model; price overrides; the routing
+  policy per task and locale with fallbacks, for the project or the
+  workspace; namespace tags, auto-translate locales and review routing
+  with auto-approve off by default and a warning when it goes on; per-locale
+  acceptance and edit distance, the disclosures log and the eval baseline.
+  Changing any of it needs `intelligence.manage` (admins, owners).
+
+Settings the server hasn't saved yet come at version 0 with the ETag
+`"0"`, which the server doesn't accept back in `If-Match` (it only parses
+versions ≥ 1), so the adapter sends those writes unconditionally.
+
 ## Layout
 
 ```text
-src/api/        generated contract types, client, zod schemas, endpoints, errors, the Releases port and its API adapter
+src/api/        generated contract types, client, zod schemas, endpoints, errors; the Releases, Knowledge and Intelligence ports and their API adapters
 src/session/    session store, deployment facts (GET /v1/meta), permission mirror, names for principals
-src/lib/        pure logic: bcp47, fallback, diff, samples, preview, shortcuts, virtual, webauthn, releases, snippets, …
-src/components/ app shell, message list, editor, preview, QA, history, modal dialog, releases/*, …
-src/views/      auth, projects, account, project/* (workspace, locales, settings, releases, release detail)
+src/lib/        pure logic: bcp47, fallback, diff, samples, preview, shortcuts, virtual, webauthn, releases, snippets, terms, confidence, money, style, …
+src/components/ app shell, message list, editor, preview, QA, history, modal dialog, releases/*, assist/* (editor panes), knowledge/*, ai/*, …
+src/views/      auth, projects, account, project/* (workspace, review queue, termbase, style guides, AI, locales, settings, releases, release detail)
 src/strings.ts  every user-facing string, ready to become Glossa messages
-src/test/       component-test helpers: the in-memory Releases port, mounting a project screen
-e2e/            Playwright specs and the server harness
+src/test/       component-test helpers: in-memory Releases, Knowledge and Intelligence ports, mounting a project screen
+e2e/            Playwright specs, the server harness and the fake AI provider with its cassette
 ```
