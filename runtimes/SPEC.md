@@ -79,7 +79,7 @@ A runtime resolves the content it renders from the first available source (inten
 1. **Memory**: the release already loaded in this process or page.
 2. **Persisted last-good**: the most recent release that loaded and verified completely, including its manifest and every artifact it used. Browser: IndexedDB, or `localStorage` for small catalogs. Go: a cache directory. Mobile: app storage.
 3. **Network**: the edge. Revalidate the manifest with `If-None-Match`. Fetch only the artifacts for the locales in the active fallback chain, and only when their `sha256` isn't already cached.
-4. **Bundled**: artifacts shipped with the build (`glossa pull --release`), for offline-first apps and cold starts.
+4. **Bundled**: artifacts shipped with the build (`glossa pull --release`), for offline-first apps and cold starts. The bundle layout is fixed so every runtime and the CLI agree: a directory holding `manifest.json` (the manifest exactly as the edge serves it) and `a/<sha256>.json` for each artifact (exact bytes), i.e. the edge's URL space below `/v1/{deliveryKey}/`.
 5. **Inline default**: the text the developer wrote at the call site (`<glossa-text key="…">Zur Kasse</glossa-text>`, or the Go `glossa.Default("…")` option). If there's none, the message ID itself, so a missing string is visible and never blank.
 
 **Artifacts are content-addressed**, so any source holding bytes with the manifest's hash is equivalent. Runtimes look for an artifact in memory → persisted cache → bundled → network, and only go to the network for hashes they have nowhere else.
