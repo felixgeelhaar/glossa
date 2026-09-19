@@ -273,6 +273,7 @@ export function createFakeIntelligence(): FakeIntelligence {
         project_id: p.project,
         trigger: "fill",
         locales: body.locales,
+        select: body.select ?? (body.include_outdated || body.keys ? "missing_or_outdated" : "missing"),
         jobs_created: jobs.length,
         jobs_existing: 0,
         skipped: {},

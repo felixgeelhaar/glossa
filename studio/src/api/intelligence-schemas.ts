@@ -7,7 +7,7 @@
  */
 import { z } from "zod";
 import type { components } from "./schema";
-import { MF2Message, QAFinding } from "./schemas";
+import { MessageState, MF2Message, QAFinding, Syntax } from "./schemas";
 
 const timestamp = z.string().min(1);
 const id = z.string().min(1);
@@ -121,6 +121,8 @@ export const AIProjectSettings = z.object({
 });
 
 export const AIJobState = z.enum(["queued", "running", "succeeded", "skipped", "failed", "dead", "cancelled"]);
+/** Which messages a fill translates, by their translation's state in each locale. */
+export const AIFillSelect = z.enum(["missing", "outdated", "missing_or_outdated"]);
 export const AIFill = z.object({
   id,
   project_id: id,
@@ -130,6 +132,7 @@ export const AIFill = z.object({
   key_prefix: z.string().optional(),
   keys: z.array(z.string()).optional(),
   include_outdated: z.boolean().optional(),
+  select: AIFillSelect,
   jobs_created: z.number().int(),
   jobs_existing: z.number().int(),
   skipped: z.record(z.string(), z.number().int()),
@@ -137,6 +140,26 @@ export const AIFill = z.object({
   warnings: z.array(z.string()),
   requested_by: z.string(),
   created_at: timestamp,
+});
+
+export const AICostEstimate = z.object({ estimated_micro_usd: microUSD, max_micro_usd: microUSD, unpriced: z.boolean() });
+export const AIFillPreviewLocale = z.object({
+  locale: z.string(),
+  keys: z.array(z.string()),
+  existing: z.number().int().min(0),
+  tm_exact: z.number().int().min(0),
+  provider: z.number().int().min(0),
+  refused: z.record(z.string(), z.number().int()),
+  skipped: z.record(z.string(), z.number().int()),
+  cost: AICostEstimate,
+});
+/** What a fill would do, per locale, without doing it. */
+export const AIFillPreview = z.object({
+  project_id: id,
+  select: AIFillSelect,
+  locales: z.array(AIFillPreviewLocale),
+  warnings: z.array(z.string()),
+  cost: AICostEstimate,
 });
 
 export const AIAuditEntry = z.object({ tool: z.string(), output: z.unknown(), at: timestamp });
@@ -201,6 +224,17 @@ export const AIEditDiff = z.object({
   terms_removed: z.array(z.string()).optional(),
   style_fields: z.array(z.string()).optional(),
 });
+/** The suggestion's message as it is now (absent once the message is gone). */
+export const AISuggestionSource = z.object({
+  message_key: z.string(),
+  namespace: z.string(),
+  state: MessageState,
+  source_revision: z.number().int(),
+  text: z.string(),
+  syntax: Syntax,
+  mf2: z.string(),
+  model: MF2Message,
+});
 export const AISuggestion = z.object({
   id,
   job_id: id,
@@ -230,6 +264,7 @@ export const AISuggestion = z.object({
   decision: z.object({ edit: AIEditDiff.optional(), reason: z.string().optional() }).optional(),
   version: z.number().int(),
   created_at: timestamp,
+  source: AISuggestionSource.optional(),
 });
 
 export const AIDisclosure = z.object({
@@ -283,11 +318,16 @@ export type AINamespaceTag = z.infer<typeof AINamespaceTag>;
 export type AIReviewPolicy = z.infer<typeof AIReviewPolicy>;
 export type AIProjectSettings = z.infer<typeof AIProjectSettings>;
 export type AIJobState = z.infer<typeof AIJobState>;
+export type AIFillSelect = z.infer<typeof AIFillSelect>;
 export type AIFill = z.infer<typeof AIFill>;
+export type AICostEstimate = z.infer<typeof AICostEstimate>;
+export type AIFillPreviewLocale = z.infer<typeof AIFillPreviewLocale>;
+export type AIFillPreview = z.infer<typeof AIFillPreview>;
 export type AIJob = z.infer<typeof AIJob>;
 export type AIAction = z.infer<typeof AIAction>;
 export type AISuggestionStatus = z.infer<typeof AISuggestionStatus>;
 export type AIConfidenceFactor = z.infer<typeof AIConfidenceFactor>;
+export type AISuggestionSource = z.infer<typeof AISuggestionSource>;
 export type AISuggestion = z.infer<typeof AISuggestion>;
 export type AIDisclosure = z.infer<typeof AIDisclosure>;
 export type AILocaleMetrics = z.infer<typeof AILocaleMetrics>;
@@ -307,8 +347,10 @@ export type IntelligenceContractAlignment = [
   Assert<Fits<AIRoutingPolicyView, C["AIRoutingPolicyView"]>>,
   Assert<Fits<AIProjectSettings, C["AIProjectSettings"]>>,
   Assert<Fits<AIFill, C["AIFill"]>>,
+  Assert<Fits<AIFillPreview, C["AIFillPreview"]>>,
   Assert<Fits<AIJob, C["AIJob"]>>,
   Assert<Fits<AISuggestion, C["AISuggestion"]>>,
+  Assert<Fits<AISuggestionSource, C["AISuggestionSource"]>>,
   Assert<Fits<AIDisclosure, C["AIDisclosure"]>>,
   Assert<Fits<AIMetrics, C["AIMetrics"]>>,
   Assert<Fits<AIEvalBaseline, C["AIEvalBaseline"]>>,

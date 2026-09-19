@@ -16,8 +16,11 @@ export interface FakeKnowledge extends KnowledgePort {
   readonly concepts_: TermConcept[];
   readonly guides: StyleGuide[];
   readonly units: TMUnit[];
-  /** Approve a translation into memory. */
-  remember(source: string, target: string, over?: Partial<TMUnit>): TMUnit;
+  /**
+   * Approve a translation into memory. `target` is MF2; `targetMf1` is the
+   * same target in MF1, when MF1 can express it.
+   */
+  remember(source: string, target: string, over?: Partial<TMUnit>, targetMf1?: string): TMUnit;
 }
 
 const NOW = "2026-09-19T08:00:00Z";
@@ -43,6 +46,7 @@ export function createFakeKnowledge(): FakeKnowledge {
   const guides: StyleGuide[] = [];
   const versions = new Map<string, StyleGuideVersion[]>();
   const units: TMUnit[] = [];
+  const mf1 = new Map<string, string>();
   const tag = (v: number) => `"${v}"`;
   const need = (etag: string | undefined, v: number) => {
     if (etag !== undefined && etag !== tag(v)) throw new ApiError(412, "precondition_failed", "stale");
@@ -89,7 +93,7 @@ export function createFakeKnowledge(): FakeKnowledge {
     concepts_: concepts,
     guides,
     units,
-    remember(source, target, over = {}) {
+    remember(source, target, over = {}, targetMf1) {
       const u: TMUnit = {
         id: id("unit"),
         origin: "translation",
@@ -108,6 +112,7 @@ export function createFakeKnowledge(): FakeKnowledge {
         ...over,
       };
       units.push(u);
+      if (targetMf1 !== undefined) mf1.set(u.id, targetMf1);
       return u;
     },
     async lookupTM(_tenant, q) {
@@ -124,12 +129,21 @@ export function createFakeKnowledge(): FakeKnowledge {
         .filter((m) => m.score >= (q.min_score ?? 50) && m.score > 50)
         .sort((a, b) => b.score - a.score)
         .slice(0, q.limit ?? 5);
+      // The target in the syntax asked for; MF2 when MF1 can't express it.
+      const want = q.target_syntax ?? q.syntax ?? "mf2";
+      const inSyntax = (u: TMUnit) => {
+        const text = want === "mf1" ? mf1.get(u.id) : undefined;
+        return text !== undefined
+          ? { target_text: text, target_syntax: "mf1" as const, target_syntax_fallback: false }
+          : { target_text: u.target, target_syntax: "mf2" as const, target_syntax_fallback: want === "mf1" };
+      };
       return {
         source_normalized: q.source,
         matches: matches.map(({ u, score }) => ({
           score,
           kind: score === 101 ? ("context" as const) : score === 100 ? ("exact" as const) : ("fuzzy" as const),
           target: u.target,
+          ...inSyntax(u),
           target_model: u.target_model,
           variables_adapted: true,
           unit: u,

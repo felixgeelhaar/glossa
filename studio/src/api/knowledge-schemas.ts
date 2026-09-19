@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import type { components } from "./schema";
-import { MF2Message } from "./schemas";
+import { MF2Message, Syntax } from "./schemas";
 
 const timestamp = z.string().min(1);
 const id = z.string().min(1);
@@ -43,6 +43,9 @@ export const TMMatch = z.object({
   score: z.number().int().min(50).max(101),
   kind: z.enum(["context", "exact", "fuzzy"]),
   target: z.string(),
+  target_text: z.string(),
+  target_syntax: Syntax,
+  target_syntax_fallback: z.boolean(),
   target_model: MF2Message,
   variables_adapted: z.boolean(),
   unit: TMUnit,
