@@ -105,3 +105,25 @@ jobs:
                   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
             echo "::endgroup::"
           done
+
+  # The chart's database scripts, as rendered, against real containers:
+  # Postgres bootstrap around the real migrations, the helm test, the
+  # nightly dump and its checks, the restore drill and the MinIO mirror,
+  # including the failures they exist to catch (a pg_dump of the wrong
+  # major version, an unrestorable dump, a stale one, an emptied bucket).
+  chart-database:
+    name: Chart glossa-platform (database bootstrap, backup, restore drill)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: platform/go.mod
+          cache-dependency-path: platform/go.sum
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+        with:
+          version: v3.16.0
+      - name: Bootstrap, backup and restore end to end
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --user pyyaml
+          deploy/charts/glossa-platform/ci/e2e-database.sh
