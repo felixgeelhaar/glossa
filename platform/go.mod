@@ -9,6 +9,8 @@ replace github.com/felixgeelhaar/glossa/messageformat => ../messageformat
 replace github.com/felixgeelhaar/glossa/runtimes/go => ../runtimes/go
 
 require (
+	github.com/anthropics/anthropic-sdk-go v1.74.0
+	github.com/felixgeelhaar/decisionkit v0.1.0
 	github.com/felixgeelhaar/glossa/messageformat v0.0.0-00010101000000-000000000000
 	github.com/felixgeelhaar/glossa/runtimes/go v0.0.0-00010101000000-000000000000
 	github.com/getkin/kin-openapi v0.149.0
@@ -23,6 +25,8 @@ require (
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/minio v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
+	go.klarlabs.de/agent v0.16.2
+	go.klarlabs.de/axi v1.5.0
 	go.klarlabs.de/bolt v1.7.0
 	go.klarlabs.de/fortify v1.10.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
@@ -38,7 +42,7 @@ require (
 )
 
 require (
-	github.com/agentable/go-intl v0.2.17 // indirect
+	github.com/agentable/go-intl v0.2.17
 	github.com/cockroachdb/apd/v3 v3.2.3 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68 // indirect
 	github.com/kaptinlin/messageformat-go v0.8.6 // indirect
@@ -49,7 +53,6 @@ require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/anthropics/anthropic-sdk-go v1.74.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -69,7 +72,6 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
-	github.com/felixgeelhaar/decisionkit v0.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.2 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -133,8 +135,6 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
-	go.klarlabs.de/agent v0.16.2 // indirect
-	go.klarlabs.de/axi v1.5.0 // indirect
 	go.klarlabs.de/statekit v1.13.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0 // indirect
