@@ -1,0 +1,246 @@
+package cli
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"strconv"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
+)
+
+// ── status ──────────────────────────────────────────────────────────
+
+type localeStatus struct {
+	Code        string  `json:"code"`
+	Direction   string  `json:"direction"`
+	IsSource    bool    `json:"is_source"`
+	Translated  int     `json:"translated"`
+	Approved    int     `json:"approved"`
+	NeedsReview int     `json:"needs_review"`
+	Draft       int     `json:"draft"`
+	Rejected    int     `json:"rejected"`
+	Outdated    int     `json:"outdated"`
+	Missing     int     `json:"missing"`
+	Coverage    float64 `json:"coverage"`
+}
+
+type statusJSON struct {
+	Schema   string         `json:"schema"`
+	Origin   string         `json:"origin"`
+	Messages int            `json:"messages"`
+	Locales  []localeStatus `json:"locales"`
+}
+
+func runStatus(ctx context.Context, inv *invocation, args []string) error {
+	fs := inv.flags("status [--offline]")
+	offline := fs.Bool("offline", false, "count the local catalogs instead of the server's project")
+	if _, err := inv.parse(fs, args); err != nil {
+		return err
+	}
+	cfg, err := inv.loadConfig()
+	if err != nil {
+		return err
+	}
+	s, label, err := inv.snapshot(ctx, cfg, *offline, snapshot.Options{})
+	if err != nil {
+		return err
+	}
+	out := statusJSON{Schema: "glossa.cli.status/v1", Origin: s.Origin, Messages: len(s.Messages), Locales: coverage(s)}
+	return inv.emit(out, func(p *printer) {
+		p.line("%s %s", p.bold(label), p.dim(plural(out.Messages, "message", "messages")))
+		rows := [][]string{{"LOCALE", "TRANSLATED", "APPROVED", "REVIEW", "DRAFT", "OUTDATED", "MISSING", "COVERAGE"}}
+		for _, l := range out.Locales {
+			code := l.Code
+			if l.IsSource {
+				code += " (source)"
+			}
+			rows = append(rows, []string{code, strconv.Itoa(l.Translated), strconv.Itoa(l.Approved), strconv.Itoa(l.NeedsReview),
+				strconv.Itoa(l.Draft), strconv.Itoa(l.Outdated), strconv.Itoa(l.Missing), fmt.Sprintf("%.1f%%", l.Coverage*100)})
+		}
+		p.table(rows)
+	})
+}
+
+// coverage counts review states per locale. Coverage is the share of
+// active messages with a usable (not rejected) translation.
+func coverage(s *snapshot.Snapshot) []localeStatus {
+	var out []localeStatus
+	total := len(s.Messages)
+	for _, l := range s.Locales {
+		st := localeStatus{Code: l.Code, Direction: l.Direction, IsSource: l.IsSource}
+		if l.IsSource {
+			st.Translated, st.Approved, st.Coverage = total, total, 1
+			out = append(out, st)
+			continue
+		}
+		for _, m := range s.Messages {
+			t, ok := s.Translations[l.Code][m.Key]
+			if !ok {
+				st.Missing++
+				continue
+			}
+			switch t.State {
+			case "approved":
+				st.Approved++
+			case "needs_review":
+				st.NeedsReview++
+			case "draft":
+				st.Draft++
+			case "rejected":
+				st.Rejected++
+				st.Missing++
+				continue
+			}
+			st.Translated++
+			if t.Outdated {
+				st.Outdated++
+			}
+		}
+		if total > 0 {
+			st.Coverage = float64(st.Translated) / float64(total)
+		}
+		out = append(out, st)
+	}
+	return out
+}
+
+// ── diff ────────────────────────────────────────────────────────────
+
+type changedJSON struct {
+	Key    string `json:"key"`
+	Local  string `json:"local"`
+	Server string `json:"server"`
+}
+
+type diffSetJSON struct {
+	Locale string `json:"locale"`
+	// Added are local only (push would create them).
+	Added []string `json:"added"`
+	// Changed differ in their canonical model.
+	Changed []changedJSON `json:"changed"`
+	// Removed are on the server only.
+	Removed   []string `json:"removed"`
+	Unchanged int      `json:"unchanged"`
+}
+
+type diffJSON struct {
+	Schema       string        `json:"schema"`
+	Source       diffSetJSON   `json:"source"`
+	Translations []diffSetJSON `json:"translations"`
+	Identical    bool          `json:"identical"`
+}
+
+func runDiff(ctx context.Context, inv *invocation, args []string) error {
+	fs := inv.flags("diff [--exit-code]")
+	exitCode := fs.Bool("exit-code", false, "exit 1 when local and server differ (like git diff --exit-code)")
+	if _, err := inv.parse(fs, args); err != nil {
+		return err
+	}
+	cfg, err := inv.loadConfig()
+	if err != nil {
+		return err
+	}
+	local, err := loadLocal(cfg)
+	if err != nil {
+		return err
+	}
+	server, _, err := inv.snapshot(ctx, cfg, false, snapshot.Options{})
+	if err != nil {
+		return err
+	}
+	out := diffSnapshots(local, server)
+	if err := inv.emit(out, func(p *printer) { printDiff(p, out) }); err != nil {
+		return err
+	}
+	if *exitCode && !out.Identical {
+		return silentExit(ExitCheckFailed, "differences")
+	}
+	return nil
+}
+
+// comparable is one side of a diff: key → text and canonical model.
+type comparable map[string]struct{ text, model string }
+
+func diffSnapshots(local, server *snapshot.Snapshot) diffJSON {
+	src := func(s *snapshot.Snapshot) comparable {
+		c := comparable{}
+		for _, m := range s.Messages {
+			c[m.Key] = struct{ text, model string }{m.Text, snapshot.ModelJSON(m.Model)}
+		}
+		return c
+	}
+	trs := func(s *snapshot.Snapshot, locale string) comparable {
+		c := comparable{}
+		for k, t := range s.Translations[locale] {
+			c[k] = struct{ text, model string }{t.Text, snapshot.ModelJSON(t.Model)}
+		}
+		return c
+	}
+	out := diffJSON{Schema: "glossa.cli.diff/v1", Source: diffSet(local.SourceLocale, src(local), src(server)), Translations: []diffSetJSON{}}
+	identical := out.Source.identical()
+	for _, l := range local.TargetLocales() {
+		if _, onServer := server.Translations[l.Code]; !onServer {
+			continue
+		}
+		d := diffSet(l.Code, trs(local, l.Code), trs(server, l.Code))
+		identical = identical && d.identical()
+		out.Translations = append(out.Translations, d)
+	}
+	out.Identical = identical
+	return out
+}
+
+func (d diffSetJSON) identical() bool {
+	return len(d.Added) == 0 && len(d.Changed) == 0 && len(d.Removed) == 0
+}
+
+func diffSet(locale string, local, server comparable) diffSetJSON {
+	d := diffSetJSON{Locale: locale, Added: []string{}, Changed: []changedJSON{}, Removed: []string{}}
+	for k, l := range local {
+		s, ok := server[k]
+		switch {
+		case !ok:
+			d.Added = append(d.Added, k)
+		case l.model != s.model:
+			d.Changed = append(d.Changed, changedJSON{Key: k, Local: l.text, Server: s.text})
+		default:
+			d.Unchanged++
+		}
+	}
+	for k := range server {
+		if _, ok := local[k]; !ok {
+			d.Removed = append(d.Removed, k)
+		}
+	}
+	sort.Strings(d.Added)
+	sort.Strings(d.Removed)
+	sort.Slice(d.Changed, func(i, j int) bool { return d.Changed[i].Key < d.Changed[j].Key })
+	return d
+}
+
+func printDiff(p *printer, out diffJSON) {
+	sets := append([]diffSetJSON{out.Source}, out.Translations...)
+	for i, d := range sets {
+		title := d.Locale + " (source)"
+		if i > 0 {
+			title = d.Locale
+		}
+		p.line("%s  %s", p.bold(title), p.dim(fmt.Sprintf("%d added · %d changed · %d only on the server · %d unchanged",
+			len(d.Added), len(d.Changed), len(d.Removed), d.Unchanged)))
+		for _, k := range d.Added {
+			p.line("  %s %s", p.ok("+"), k)
+		}
+		for _, c := range d.Changed {
+			p.line("  %s %s", p.warn("~"), c.Key)
+			p.line("      %s %s", p.bad("server:"), c.Server)
+			p.line("      %s %s", p.ok("local: "), c.Local)
+		}
+		for _, k := range d.Removed {
+			p.line("  %s %s", p.bad("-"), k)
+		}
+	}
+	if out.Identical {
+		p.line("%s local catalogs match the server", p.pass())
+	}
+}
