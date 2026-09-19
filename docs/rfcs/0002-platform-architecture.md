@@ -90,7 +90,7 @@ The third-party engines sit behind Glossa ports (`messageformat.Parser`, `messag
 - Postgres 16, shared schema, **`FORCE ROW LEVEL SECURITY`**. The app connects as a non-superuser, and an RLS isolation suite runs on every PR (standard §2).
 - Tenants: `individual` (created at registration) and `organization`. The hierarchy is Tenant → Project → Application, where an application is a runtime surface (web, api, ios…). Knowledge is tenant-scoped with optional project scope (intent §19).
 - **sqlc + golang-migrate. One migration stream, but each migration touches only its own context's tables.**
-- **Object storage** (S3-compatible: MinIO in dev and on k3s, Hetzner Object Storage in production) holds release artifacts, screenshots and import/export files.
+- **Object storage** (S3-compatible: MinIO in the product's own namespace on Longhorn volumes, the Klarlabs pattern (owner decision, 2026-09-19); any S3 API works through the adapter) holds release artifacts, screenshots and import/export files.
 - Secrets (AI provider keys, git tokens) are AES-GCM sealed with a per-tenant data key under a master key. A KMS or customer-managed key is a later adapter (intent §49).
 
 ## 7. Releases and delivery
