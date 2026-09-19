@@ -58,9 +58,9 @@ mcq mb --ignore-existing "glossa/$BUCKET"
 log "bucket $BUCKET present"
 
 # 3. Policies. ListBucket and GetBucketLocation sit on the bucket, not on
-#    the prefix: the server's readiness check is a HeadBucket, and without
-#    ListBucket a GET of a missing key answers 403 instead of 404, which
-#    glossa would count as a storage failure.
+#    the prefix: without ListBucket a GET of a missing key answers 403
+#    instead of 404, which glossa counts as a storage failure (and a
+#    prefix condition would not apply to that check).
 objects="arn:aws:s3:::${BUCKET}/${OBJECT_PREFIX:+$OBJECT_PREFIX/}*"
 policy() {
   printf '{"Version":"2012-10-17","Statement":[%s,%s]}\n' \

@@ -2,8 +2,10 @@
 
 Helm chart for Glossa's platform (RFC 0002 §3, §11): **glossa-server**
 (control plane and the `/v1` API), **glossa-edge** (the stateless
-delivery plane) and **Studio** (the web app). It bundles no Postgres and
-no object storage; both are external and referenced through Secrets.
+delivery plane) and **Studio** (the web app). It bundles no Postgres:
+the database is external and referenced through Secrets. Object storage
+is either external S3 or, with `minio.enabled`, one MinIO in the
+release's namespace (see [In-namespace MinIO](#in-namespace-minio)).
 
 The v0.3 chart (`deploy/charts/glossa`) is separate and unchanged.
 
@@ -14,7 +16,8 @@ app.<domain>/*    │→ studio        :8080     object storage (read-write)│
 api.<domain>/v1/* │→ glossa-server :8080     SMTP (optional)            │
 cdn.<domain>/v1/* │→ glossa-edge   :8081 ──→ object storage (read-only) │
                   └─────────────────────────────────────────────────────┘
-pre-install/pre-upgrade hook: glossa-server -migrate=only (schema owner)
+pre-install/pre-upgrade hook:   glossa-server -migrate=only (schema owner)
+post-install/post-upgrade hook: MinIO bootstrap (bucket, users; minio.enabled)
 ```
 
 What it renders:
@@ -30,8 +33,14 @@ What it renders:
 | HorizontalPodAutoscaler | | optional | | `edge.autoscaling.enabled` |
 | ServiceMonitor | optional | optional | | `metrics.serviceMonitor.enabled` |
 
+With `minio.enabled` it adds `<fullname>-minio`: a StatefulSet with a
+Longhorn volume, a ClusterIP and a headless Service (S3, 9000), a
+PodDisruptionBudget and a NetworkPolicy; the bootstrap Job
+`<fullname>-minio-bootstrap` (hook) with its NetworkPolicy; and the
+`helm test` Pod `<fullname>-minio-test` with its NetworkPolicy.
+
 Every pod meets PodSecurity **restricted**: non-root (65532 for the Go
-images, 101 for Studio's nginx), `seccompProfile: RuntimeDefault`, all
+images, 101 for Studio's nginx, 1000 for MinIO and mc), `seccompProfile: RuntimeDefault`, all
 capabilities dropped, no privilege escalation, **read-only root
 filesystem** (an `emptyDir` at `/tmp`), no service account token, no
 service-link env vars. Probes: `GET /livez` (startup, liveness) and
@@ -101,13 +110,12 @@ release exists and needs its Secrets and database already in place.
    CREATE ROLE glossa_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD '…';
    ```
 
-   With CloudNativePG: make `glossa_owner` the `bootstrap.initdb` owner and
-   also list it under `managed.roles` with `createrole: true`; declare
-   `glossa_app` there too, with `login: true`, `superuser: false`,
-   `bypassrls: false` and a `passwordSecret`.
-5. **Bucket and credentials.** Create the bucket (and prefix, if shared).
-   Create two credentials: read-write for glossa-server, **read-only** for
-   glossa-edge.
+   With CloudNativePG, see [Postgres with CloudNativePG](#postgres-with-cloudnativepg).
+5. **Bucket and credentials.** External storage: create the bucket (and
+   prefix, if shared) and two credentials, read-write for glossa-server
+   and **read-only** for glossa-edge. With `minio.enabled`, create only
+   the three MinIO Secrets below; the bootstrap Job creates the bucket and
+   a MinIO user for each of the two credential Secrets after the install.
 6. **Secrets** (names are the defaults of the example values; any name
    works, see [Values](#values)):
 
@@ -132,6 +140,23 @@ release exists and needs its Secrets and database already in place.
      --from-literal=GLOSSA_S3_ACCESS_KEY_ID='…' --from-literal=GLOSSA_S3_SECRET_ACCESS_KEY='…'
    ```
 
+   With `minio.enabled` the chart makes glossa-s3-rw and glossa-s3-ro MinIO
+   users, so generate them, and add MinIO's root credentials (never used
+   by glossa itself). MinIO wants access keys of at least 3 and secret keys
+   of 8–40 characters; the three access keys must differ:
+
+   ```sh
+   kubectl -n $NS create secret generic glossa-minio-root \
+     --from-literal=MINIO_ROOT_USER=glossa-root \
+     --from-literal=MINIO_ROOT_PASSWORD="$(openssl rand -hex 20)"
+   kubectl -n $NS create secret generic glossa-s3-rw \
+     --from-literal=GLOSSA_S3_ACCESS_KEY_ID=glossa-server \
+     --from-literal=GLOSSA_S3_SECRET_ACCESS_KEY="$(openssl rand -hex 20)"
+   kubectl -n $NS create secret generic glossa-s3-ro \
+     --from-literal=GLOSSA_S3_ACCESS_KEY_ID=glossa-edge \
+     --from-literal=GLOSSA_S3_SECRET_ACCESS_KEY="$(openssl rand -hex 20)"
+   ```
+
    Back up `GLOSSA_AUTH_SECRET` and the signing seeds outside the cluster.
    Percent-encode special characters in DSN passwords.
 7. **Install:**
@@ -142,8 +167,15 @@ release exists and needs its Secrets and database already in place.
    ```
 
    The hook Job migrates first; server pods start after it succeeds. A
-   failed Job is kept for `kubectl logs job/<fullname>-migrate`.
-8. **Verify:** `https://<studio>` loads and signs in (magic link),
+   failed Job is kept for `kubectl logs job/<fullname>-migrate`. With
+   `minio.enabled`, `--wait` waits for MinIO too, then the bootstrap Job
+   creates the bucket and users (neither server nor edge needs them to
+   become ready); `kubectl logs job/<fullname>-minio-bootstrap` if it
+   fails. The whole install, Longhorn volume attach included, has to fit
+   in `--timeout`.
+8. **Verify:** with `minio.enabled`, `helm test glossa-platform -n
+   glossa-platform` checks that the edge's credentials read the bucket but
+   cannot write or delete. `https://<studio>` loads and signs in,
    `https://<api>/v1/…` answers, `https://<cdn>/v1/<key>/production/manifest.json`
    answers 404 for an unknown key. `/metrics`, `/livez` and `/readyz` are
    not routed publicly.
@@ -153,8 +185,71 @@ no down-migration step in the chart. Rotating signing keys: add the new
 key to the Secret (both sign), move runtimes to it, then move the old one
 to `release.retiredKeys` (platform/README.md, "Release").
 
-Uninstall leaves the migration NetworkPolicy (a hook resource) and never
-touches the database, the bucket or the Secrets.
+Uninstall leaves the hook NetworkPolicies (migration, MinIO bootstrap and
+test) and never touches the database, the bucket or the Secrets. MinIO's
+PersistentVolumeClaim (`data-<fullname>-minio-0`) is kept too; deleting it
+deletes the data (Longhorn's reclaim policy is `Delete`).
+
+### Postgres with CloudNativePG
+
+The chart does not create the database. With the
+[CloudNativePG](https://cloudnative-pg.io) operator installed, a minimal
+cluster in the release's namespace (Klarlabs: `glossa-pg` in
+`glossa-platform`):
+
+```yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: glossa-pg
+  namespace: glossa-platform
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16   # pin by digest
+  storage:
+    storageClass: longhorn
+    size: 5Gi
+  bootstrap:
+    initdb:
+      database: glossa
+      owner: glossa_owner          # CNPG writes its DSN to glossa-pg-app (key uri)
+  managed:
+    roles:
+      - name: glossa_owner         # runs migrations: CREATEROLE, never superuser
+        ensure: present
+        login: true
+        createrole: true
+        superuser: false
+      - name: glossa_app           # the server's role: FORCE RLS applies to it
+        ensure: present
+        login: true
+        superuser: false
+        bypassrls: false
+        createdb: false
+        createrole: false
+        passwordSecret:
+          name: glossa-db-app
+```
+
+Create `glossa-db-app` **before** the Cluster: CNPG takes `glossa_app`'s
+password from it, and the chart its DSN (`database.app.secretKey`
+`DATABASE_URL`), so one Secret holds both:
+
+```sh
+PW=$(openssl rand -hex 24)
+kubectl -n glossa-platform create secret generic glossa-db-app \
+  --type=kubernetes.io/basic-auth \
+  --from-literal=username=glossa_app --from-literal=password="$PW" \
+  --from-literal=DATABASE_URL="postgres://glossa_app:$PW@glossa-pg-rw:5432/glossa?sslmode=require&pool_max_conns=20"
+kubectl -n glossa-platform label secret glossa-db-app cnpg.io/reload=true
+```
+
+Then `database.migration.secretName: glossa-pg-app` with `secretKey: uri`
+(the owner's DSN, generated by CNPG), and let the server and the
+migration Job reach the instances with
+`networkPolicy.egress.postgres.to: [{podSelector: {matchLabels:
+{cnpg.io/cluster: glossa-pg}}}]`. Backups (Barman to object storage
+outside the cluster) are configured on the Cluster, not in this chart.
 
 ## Deploying with RollOps
 
@@ -176,7 +271,78 @@ helm template glossa-platform deploy/charts/glossa-platform \
 The chart's Helm hooks are plain resources in that output and do not run
 by themselves: the migration Job (`<fullname>-migrate`, with its
 NetworkPolicy) must complete before the server Deployment rolls, and a
-Job is immutable, so it is deleted and re-created per rollout.
+Job is immutable, so it is deleted and re-created per rollout. With
+`minio.enabled` the same holds for `<fullname>-minio-bootstrap`, which
+runs once MinIO is up (and again whenever a user Secret changes).
+`--skip-tests` leaves out the `helm test` Pod. The MinIO StatefulSet's
+volumeClaimTemplate is immutable: keep `minio.persistence` unchanged in
+the rendered manifests.
+
+## In-namespace MinIO
+
+`minio.enabled` runs one MinIO per product namespace, the Klarlabs
+pattern (Brotwerk runs the same pinned image). It is a single-replica,
+single-drive StatefulSet; S3 on 9000 is reachable only from glossa-server,
+glossa-edge, the bootstrap Job and the test Pod.
+
+**Storage and availability.** glossa-edge serves every published release
+from this bucket (it keeps serving what it has cached while MinIO is
+down, for `edge.cache.*`), so the delivery plane depends on it. The
+default `minio.persistence.storageClassName` is therefore `longhorn`, 3
+replicas across the nodes: a node loss moves the pod, and the volume
+with it. `longhorn-r1` (1 replica, as Brotwerk uses) is fine for
+development. Artifacts can be rebuilt by republishing, but the served
+manifests and the release history should survive a node loss, which one
+replica does not guarantee. `minio.persistence` is a volumeClaimTemplate
+and immutable after install: to grow the volume, edit the PVC
+(`data-<fullname>-minio-0`; the Longhorn classes allow expansion) rather than
+`minio.persistence.size`. The PVC is retained when the StatefulSet is
+deleted or scaled to 0. A PodDisruptionBudget with `maxUnavailable: 1`
+lets a node drain evict the pod; `0` blocks drains until it is moved by
+hand.
+
+**Credentials.** Nothing is generated by the chart. MinIO's root
+credentials come from `minio.rootCredentials.secretName` and reach only
+MinIO and the bootstrap Job. The bootstrap Job
+(`files/minio-bootstrap.sh`, `quay.io/minio/mc` pinned by digest) runs
+after every install and upgrade and is idempotent: it creates the bucket,
+the policy `<fullname>-readwrite` (`GetObject`, `PutObject`,
+`DeleteObject` and multipart cleanup on `<bucket>/<prefix>/*`) for the
+user in `objectStorage.server.secretName`, and `<fullname>-readonly`
+(`GetObject` only) for the user in `objectStorage.edge.secretName`. Both
+also get `ListBucket` and `GetBucketLocation` on the bucket itself, not
+the prefix: without `ListBucket` a missing key answers 403 instead of
+404, which glossa counts as a storage failure (the edge's circuit breaker
+would open on unknown keys). Rotating a secret key: change
+the Secret, `helm upgrade` (the Job updates the user), then restart the
+pods reading it. A new *access key* creates a new user; remove the old
+one with `mc admin user rm`.
+
+**Transport.** Server and edge talk to MinIO over plain HTTP on the pod
+network (`GLOSSA_S3_INSECURE=true`, path-style requests): the traffic
+never leaves the namespace and NetworkPolicy admits only them. TLS for
+MinIO is not wired into the chart; it would need a certificate for
+`<fullname>-minio` and its CA in the server's and edge's trust store.
+
+**Console.** Port 9001 listens inside the pod only:
+
+```sh
+kubectl -n glossa-platform port-forward statefulset/<fullname>-minio 9001
+# http://localhost:9001, root credentials from minio.rootCredentials
+```
+
+**Backups.** Longhorn snapshots and backups cover the volume: label the
+PVC for a recurring job group (`minio.persistence.labels`, e.g.
+`recurring-job-group.longhorn.io/<group>: enabled`), or back up
+`data-<fullname>-minio-0` from the Longhorn UI. A backup target outside
+the cluster is what makes it a backup. After a restore, `helm upgrade`
+re-runs the bootstrap Job, which is harmless on existing state.
+
+**Images.** MinIO publishes community builds under AGPLv3; the pinned
+`quay.io/minio/minio` and `quay.io/minio/mc` digests are the latest tags
+on quay.io (September and August 2025). Newer community images are not
+published there, so security updates mean building from source or a
+different distribution.
 
 ## Mail
 
@@ -197,10 +363,15 @@ directions; anything not listed is denied.
 
 | Pod | Ingress | Egress |
 |---|---|---|
-| server | ingress controller → 8080; `metrics.allowFrom` → 8080 | DNS; `egress.postgres`; `egress.objectStorage`; `egress.smtp` (SMTP configured); `egress.otlp` (endpoint set) |
-| edge | ingress controller → 8081; `metrics.allowFrom` → 8081 | DNS; `egress.objectStorage`; `egress.otlp` (endpoint set) |
+| server | ingress controller → 8080; `metrics.allowFrom` → 8080 | DNS; `egress.postgres`; object storage¹; `egress.smtp` (SMTP configured); `egress.otlp` (endpoint set) |
+| edge | ingress controller → 8081; `metrics.allowFrom` → 8081 | DNS; object storage¹; `egress.otlp` (endpoint set) |
 | studio | ingress controller → 8080 | none |
 | migrate Job | none | DNS; `egress.postgres` |
+| minio | server, edge, bootstrap Job, test Pod → 9000; `extraIngress.minio` | DNS |
+| minio-bootstrap Job, minio-test Pod | none | DNS; MinIO → 9000 |
+
+¹ `egress.objectStorage`, or with `minio.enabled` the MinIO pod on 9000
+(a podSelector rule; `egress.objectStorage` is then unused).
 
 NetworkPolicy matches IPs, not hostnames. Each `egress.*.to` takes
 NetworkPolicyPeers (`ipBlock` for external services, namespace/pod
@@ -298,15 +469,36 @@ the value until it is set.
 | `mail.from` | `""` | `GLOSSA_MAIL_FROM` (set only with a driver). |
 | `mail.smtp.addr` | `""` | `GLOSSA_SMTP_ADDR` (`host:587`, STARTTLS). Setting it turns SMTP on; required with `mail.driver: smtp`. |
 | `mail.smtp.secretName` / `.usernameKey` / `.passwordKey` | `""` / `GLOSSA_SMTP_USERNAME` / `GLOSSA_SMTP_PASSWORD` | AUTH credentials; empty name: no AUTH. |
-| `objectStorage.endpoint` | REQUIRED | `GLOSSA_S3_ENDPOINT`, `host[:port]` without scheme. |
-| `objectStorage.bucket` | REQUIRED | `GLOSSA_S3_BUCKET` |
-| `objectStorage.region` | `us-east-1` | `GLOSSA_S3_REGION` |
-| `objectStorage.prefix` | `""` | `GLOSSA_S3_PREFIX` |
-| `objectStorage.pathStyle` | `false` | `GLOSSA_S3_PATH_STYLE` (MinIO: `true`). |
-| `objectStorage.insecure` | `false` | `GLOSSA_S3_INSECURE`; local clusters only. |
+| `objectStorage.endpoint` | REQUIRED; `<fullname>-minio:9000` with `minio.enabled` | `GLOSSA_S3_ENDPOINT`, `host[:port]` without scheme. |
+| `objectStorage.bucket` | REQUIRED | `GLOSSA_S3_BUCKET`; the bootstrap Job creates it with `minio.enabled`. |
+| `objectStorage.region` | `us-east-1` | `GLOSSA_S3_REGION` (MinIO's default region). |
+| `objectStorage.prefix` | `""` | `GLOSSA_S3_PREFIX`; with `minio.enabled` the users' object permissions are scoped to it. |
+| `objectStorage.pathStyle` | `false` | `GLOSSA_S3_PATH_STYLE`; always `true` with `minio.enabled`. |
+| `objectStorage.insecure` | `false` | `GLOSSA_S3_INSECURE`; always `true` with `minio.enabled` (in-namespace HTTP). |
 | `objectStorage.timeout` | `10s` | `GLOSSA_S3_TIMEOUT` |
-| `objectStorage.server.secretName` / `.accessKeyIdKey` / `.secretAccessKeyKey` | REQUIRED / `GLOSSA_S3_ACCESS_KEY_ID` / `GLOSSA_S3_SECRET_ACCESS_KEY` | Read-write credentials. |
-| `objectStorage.edge.secretName` / keys | `""` → server's / same | Read-only credentials for the edge (recommended). |
+| `objectStorage.server.secretName` / `.accessKeyIdKey` / `.secretAccessKeyKey` | REQUIRED / `GLOSSA_S3_ACCESS_KEY_ID` / `GLOSSA_S3_SECRET_ACCESS_KEY` | Read-write credentials; with `minio.enabled`, the MinIO user the bootstrap Job creates. |
+| `objectStorage.edge.secretName` / keys | `""` → server's / same | Read-only credentials for the edge (recommended; REQUIRED and distinct with `minio.enabled`). |
+
+### In-namespace MinIO
+
+| Value | Default | Meaning |
+|---|---|---|
+| `minio.enabled` | `false` | MinIO in the release's namespace; objectStorage points at it. |
+| `minio.image.repository` / `.tag` / `.digest` | `quay.io/minio/minio` / `RELEASE.2025-09-07T16-13-09Z` / `sha256:14cea4…` | Full image reference (not under `image.registry`). |
+| `minio.rootCredentials.secretName` | REQUIRED with `minio.enabled` | Existing Secret; the chart never creates it. |
+| `minio.rootCredentials.userKey` / `.passwordKey` | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | |
+| `minio.persistence.storageClassName` | `longhorn` | 3 Longhorn replicas; `longhorn-r1` for development. Immutable after install. |
+| `minio.persistence.size` | `5Gi` | Immutable in the template; grow the PVC instead. |
+| `minio.persistence.labels` / `.annotations` | `{}` | On the PVC, e.g. a Longhorn recurring-job group. |
+| `minio.resources` | 50m / 256Mi, limit 512Mi | |
+| `minio.terminationGracePeriodSeconds` | `30` | |
+| `minio.pdb.enabled` / `.maxUnavailable` | `true` / `1` | `0` blocks node drains. |
+| `minio.nodeSelector` / `.tolerations` / `.affinity` | empty | Also used by the bootstrap Job and the test Pod. |
+| `minio.bootstrap.enabled` | `true` | The post-install/post-upgrade Job (and the `helm test` Pod). |
+| `minio.bootstrap.image.repository` / `.tag` / `.digest` | `quay.io/minio/mc` / `RELEASE.2025-08-13T08-35-41Z` / `sha256:a7fe34…` | |
+| `minio.bootstrap.waitSeconds` | `600` | How long the Job waits for MinIO. |
+| `minio.bootstrap.backoffLimit` / `.activeDeadlineSeconds` | `3` / `900` | |
+| `minio.bootstrap.resources` | 10m / 32Mi, limit 128Mi | Also the test Pod's. |
 
 ### Ingress
 
@@ -330,10 +522,10 @@ the value until it is set.
 | `networkPolicy.ingressController.namespaceSelector` / `.podSelector` | kube-system / `app.kubernetes.io/name: traefik` | Where traffic may come from. |
 | `networkPolicy.dns.namespaceSelector` / `.podSelector` | kube-system / `k8s-app: kube-dns` | Cluster DNS (53/UDP+TCP). |
 | `networkPolicy.egress.postgres` | `to: []`, 5432 | Server and migration Job. |
-| `networkPolicy.egress.objectStorage` | `to: []`, 443 | Server and edge. |
+| `networkPolicy.egress.objectStorage` | `to: []`, 443 | Server and edge; unused with `minio.enabled`. |
 | `networkPolicy.egress.smtp` | `to: []`, 587 | Server, only when SMTP is configured. |
 | `networkPolicy.egress.otlp` | `to: []`, 4318 | Server/edge, when their OTel endpoint is set. |
-| `networkPolicy.extraIngress.{server,edge,studio}` | `[]` | Extra `NetworkPolicyIngressRule`s. |
+| `networkPolicy.extraIngress.{server,edge,studio,minio}` | `[]` | Extra `NetworkPolicyIngressRule`s. |
 | `networkPolicy.extraEgress.{server,edge}` | `[]` | Extra `NetworkPolicyEgressRule`s. |
 | `metrics.allowFrom` | `[]` | Peers that may scrape `/metrics` on server and edge. |
 | `metrics.serviceMonitor.enabled` | `false` | ServiceMonitors for server and edge. |
@@ -349,7 +541,10 @@ helm template t deploy/charts/glossa-platform -f deploy/charts/glossa-platform/c
 ```
 
 `ci/*-values.yaml` follow chart-testing's layout (`ct lint` picks them
-up); `examples/values-klarlabs.yaml` is the Klarlabs starting point, with
-`TODO(infra)` markers for the decisions still open. CI runs lint,
-template and kubeconform for all three files on every pull request that
-touches the chart.
+up): `minimal` (external S3, no SMTP), `full` (every optional feature,
+external S3 and SMTP) and `minio` (the in-namespace MinIO).
+`examples/values-klarlabs.yaml` holds the Klarlabs decisions, with
+`TODO(infra)` markers for the questions still open. CI runs lint,
+template and kubeconform for every one of them on each pull request that
+touches the chart. In a cluster, `helm test <release>` runs the MinIO
+check (`files/minio-test.sh`).
