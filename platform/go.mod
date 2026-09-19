@@ -135,6 +135,7 @@ require (
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.klarlabs.de/agent v0.16.2 // indirect
 	go.klarlabs.de/axi v1.5.0 // indirect
+	go.klarlabs.de/statekit v1.13.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
