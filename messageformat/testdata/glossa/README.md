@@ -3,7 +3,7 @@
 Cases the Unicode suite doesn't cover, which every Glossa MessageFormat
 implementation must pass as well:
 
-- `mf1-to-mf2.json`: ICU MessageFormat 1 source → canonical MF2 data model.
+- `mf1-to-mf2.json`: ICU MessageFormat 1 source → canonical MF2 data model. Produced by the Go kernel, which is the only MF1 converter; the JS runtime renders every model here and must match the MF1 reference output.
 - `arguments.json`: message → extracted arguments (name, type, selector cases, markup).
 - `compat.json`: (source, translation) pairs → structural compatibility findings.
 - `runtime-format.json`: precompiled data model + values + locale → formatted output,

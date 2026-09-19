@@ -76,12 +76,14 @@ Each context is a Go package tree `internal/<context>/{domain,app,adapters}` wit
 
 | Where | Engine | Why |
 |---|---|---|
-| Tooling in TS (Studio preview, bundler plugin, import/export) | [`messageformat`](https://github.com/messageformat/messageformat) v4 + `@messageformat/icu-messageformat-1` + `@messageformat/xliff` | The MF2 spec editor's implementation, current to LDML 48. The MF1 → MF2 conversion and the XLIFF 2 mapping come with it. |
+| Tooling in TS (Studio preview, bundler plugin, import/export) | [`messageformat`](https://github.com/messageformat/messageformat) v4 (+ `@messageformat/icu-messageformat-1` only to *format* `mf1:` fallback functions in previews) | The MF2 spec editor's implementation, current to LDML 48. |
 | Server and Go runtime | [`kaptinlin/messageformat-go`](https://github.com/kaptinlin/messageformat-go) (MF2 data model, parse, validate, format) | A port of the TS library that runs the official conformance suite. Its `mf1` package parses ICU MF1. |
-| MF1 → MF2 on the server | Glossa's Go port of `mf1ToMessageData`, on top of `messageformat-go/mf1` | The one piece with no Go equivalent. It's small (about 400 lines in JS) and pinned to the JS output by shared fixtures. |
+| MF1 → MF2, **everywhere** | Glossa's Go converter (`messageformat.ParseMF1`), on top of `messageformat-go/mf1` | There is exactly **one** MF1 converter. The server, the CLI and the importer are Go; Studio sends MF1 source to the server. Two converters were built in M0 and disagreed on 28 of 63 fixture cases (variable naming, variant expansion, attributes). That's a permanent sync tax for no benefit, so the TS one was removed. Every conversion is verified against the MF1 reference output (`testdata/glossa/gen`). |
 | JS runtime | Glossa's own interpreter over the precompiled data model (`Intl.*` only) | The runtime needs no parser, and the reference formatter's size doesn't fit the budget. The official suite keeps the interpreter honest. |
 
 The third-party engines sit behind Glossa ports (`messageformat.Parser`, `messageformat.Formatter`). If one stalls or diverges, it's replaced behind the port, and the conformance suite proves the replacement.
+
+**Cross-implementation proof.** The JS runtime renders every Go-converted model in `mf1-to-mf2.json` and must reproduce the MF1 reference output for each sample. A message authored in MF1, stored by the server and shipped in a release therefore reads exactly as its author meant.
 
 ## 6. Data and tenancy
 

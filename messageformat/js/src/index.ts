@@ -28,8 +28,6 @@ export {
 } from "./mf2.js";
 export type { FormatError, FormatOptions, MessageFunction, MessagePart } from "./mf2.js";
 
-export { MF1SyntaxError, parseMF1 } from "./mf1.js";
-
 export { fromReference, toReference } from "./convert.js";
 
 export {
