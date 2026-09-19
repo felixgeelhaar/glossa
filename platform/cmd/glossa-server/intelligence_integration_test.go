@@ -189,12 +189,25 @@ func TestIntelligenceOverHTTP(t *testing.T) {
 			Explanation []struct {
 				Factor string `json:"factor"`
 			} `json:"explanation"`
+			Source struct {
+				MessageKey     string `json:"message_key"`
+				Namespace      string `json:"namespace"`
+				State          string `json:"state"`
+				SourceRevision int    `json:"source_revision"`
+				Text           string `json:"text"`
+				Syntax         string `json:"syntax"`
+				MF2            string `json:"mf2"`
+			} `json:"source"`
 		} `json:"items"`
 	}
 	s.do(call{method: "GET", path: p + "/ai-review-queue?locale=fr", bearer: tp.token}).decode(t, &queue)
 	if len(queue.Items) != 1 || queue.Items[0].ID != tm.SuggestionID || queue.Items[0].Provenance.Origin != "translation_memory" ||
 		len(queue.Items[0].Provenance.TMUnitIDs) != 1 || len(queue.Items[0].Explanation) == 0 {
 		t.Fatalf("queue = %+v", queue)
+	}
+	if src := queue.Items[0].Source; src.MessageKey != "order.pay" || src.Namespace != "default" || src.State != "active" ||
+		src.SourceRevision != 1 || src.Text != "Pay {amount, number}" || src.Syntax != "mf1" || src.MF2 != "Pay {$amount :number}" {
+		t.Errorf("queue item source = %+v", src)
 	}
 	s.do(call{method: "POST", path: base + "/ai-suggestions/" + tm.SuggestionID + "/acceptance", bearer: tp.token, body: map[string]any{}}).
 		want(t, http.StatusForbidden, "forbidden")

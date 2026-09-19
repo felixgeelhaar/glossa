@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	mf "github.com/felixgeelhaar/glossa/messageformat"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
@@ -16,6 +19,62 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 )
+
+// MessageSource is a suggestion's message as it is now: its key,
+// namespace and state, and its current source as authored and in
+// canonical MF2 — what a reviewer compares the suggestion with.
+type MessageSource struct {
+	Key       string
+	Namespace string
+	Active    bool
+	// Revision is the current source revision; a suggestion made against
+	// an older one is outdated.
+	Revision int
+	Text     string
+	Syntax   string
+	Model    mf.Message
+	// MF2 is Model's canonical MF2 syntax.
+	MF2 string
+}
+
+// SuggestionSources returns, by message ID, the current source of the
+// suggestions' messages: one Catalog read per project among them (a
+// page of one project's suggestions is one read). Messages that no
+// longer exist are left out. Needs catalog.read, like any read of the
+// catalog.
+func (s *Service) SuggestionSources(ctx context.Context, rs []domain.SuggestionRecord) (map[uuid.UUID]MessageSource, error) {
+	byProject := map[uuid.UUID][]uuid.UUID{}
+	var projects []uuid.UUID
+	for _, r := range rs {
+		if _, seen := byProject[r.ProjectID]; !seen {
+			projects = append(projects, r.ProjectID)
+		}
+		if !slices.Contains(byProject[r.ProjectID], r.MessageID) {
+			byProject[r.ProjectID] = append(byProject[r.ProjectID], r.MessageID)
+		}
+	}
+	out := map[uuid.UUID]MessageSource{}
+	for _, p := range projects {
+		msgs, err := s.Catalog.MessagesByIDs(ctx, p, byProject[p])
+		if errors.Is(err, ErrProjectNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range msgs {
+			text, err := mf.Stringify(m.Source)
+			if err != nil {
+				return nil, fmt.Errorf("intelligence: source of %s: %w", m.Key, err)
+			}
+			out[m.ID] = MessageSource{
+				Key: m.Key, Namespace: m.Namespace, Active: m.Active, Revision: m.Revision,
+				Text: m.SourceText, Syntax: m.SourceSyntax, Model: m.Source, MF2: text,
+			}
+		}
+	}
+	return out, nil
+}
 
 // ListSuggestions lists suggestions, newest first. Needs
 // intelligence.read.

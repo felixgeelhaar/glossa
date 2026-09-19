@@ -803,7 +803,12 @@ project's review policy: `approve_recommended` and `review_required`
 wait in the review queue (`GET …/ai-review-queue`, lowest score first,
 then most risk tags: legal and marketing namespaces, forbidden terms,
 max length, missing plural categories); a newer suggestion for the same
-message and locale supersedes a pending one. **`auto_approve`** is off by
+message and locale supersedes a pending one. Every suggestion the API
+returns (list, get, queue, accept, reject) carries its message's
+current `source` — key, namespace, state, authored text and syntax,
+canonical MF2 and revision — read through Catalog's `MessagesByIDs` in
+one query per project on the page (`SuggestionSources`), so reviewers
+need no request per item. **`auto_approve`** is off by
 default and is accepted only with `auto_approve_environments` that all
 exist and ship `approved` (Release's eligibility policies —
 `GetEnvironment` as `releases.read`); it is checked again for every

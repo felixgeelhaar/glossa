@@ -37,6 +37,22 @@ func (s *Service) MessagesByKeys(ctx context.Context, project domain.ProjectID, 
 	return out, err
 }
 
+// MessagesByIDs returns the project's messages among ids, whatever
+// their state, in one query — how Intelligence shows the current source
+// of a page of suggestions.
+func (s *Service) MessagesByIDs(ctx context.Context, project domain.ProjectID, ids []domain.MessageID) (map[domain.MessageID]domain.Message, error) {
+	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+		return nil, err
+	}
+	var out map[domain.MessageID]domain.Message
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		var err error
+		out, err = st.MessagesByIDs(ctx, project, ids)
+		return err
+	})
+	return out, err
+}
+
 // MessageByID returns a message by its immutable ID — how Intelligence
 // finds the message an event or job names, whatever its key is now.
 func (s *Service) MessageByID(ctx context.Context, project domain.ProjectID, id domain.MessageID) (domain.Message, error) {

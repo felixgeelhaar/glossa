@@ -434,7 +434,11 @@ func (a *API) ListAISuggestions(ctx context.Context, req apiv1.ListAISuggestions
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return apiv1.ListAISuggestions200JSONResponse{Items: toSuggestions(rows), NextPageToken: next}, nil
+	sources, err := a.svc.SuggestionSources(ctx, rows)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return apiv1.ListAISuggestions200JSONResponse{Items: toSuggestions(rows, sources), NextPageToken: next}, nil
 }
 
 func (a *API) GetAISuggestion(ctx context.Context, req apiv1.GetAISuggestionRequestObject) (apiv1.GetAISuggestionResponseObject, error) {
@@ -446,7 +450,11 @@ func (a *API) GetAISuggestion(ctx context.Context, req apiv1.GetAISuggestionRequ
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return apiv1.GetAISuggestion200JSONResponse{Body: toSuggestion(r), Headers: apiv1.GetAISuggestion200ResponseHeaders{ETag: apiconv.ETag(r.Version)}}, nil
+	sources, err := a.svc.SuggestionSources(ctx, []domain.SuggestionRecord{r})
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return apiv1.GetAISuggestion200JSONResponse{Body: toSuggestion(r, sources), Headers: apiv1.GetAISuggestion200ResponseHeaders{ETag: apiconv.ETag(r.Version)}}, nil
 }
 
 func (a *API) AcceptAISuggestion(ctx context.Context, req apiv1.AcceptAISuggestionRequestObject) (apiv1.AcceptAISuggestionResponseObject, error) {
@@ -466,7 +474,11 @@ func (a *API) AcceptAISuggestion(ctx context.Context, req apiv1.AcceptAISuggesti
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return apiv1.AcceptAISuggestion200JSONResponse{Body: toSuggestion(r), Headers: apiv1.AcceptAISuggestion200ResponseHeaders{ETag: apiconv.ETag(r.Version)}}, nil
+	sources, err := a.svc.SuggestionSources(ctx, []domain.SuggestionRecord{r})
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return apiv1.AcceptAISuggestion200JSONResponse{Body: toSuggestion(r, sources), Headers: apiv1.AcceptAISuggestion200ResponseHeaders{ETag: apiconv.ETag(r.Version)}}, nil
 }
 
 func (a *API) RejectAISuggestion(ctx context.Context, req apiv1.RejectAISuggestionRequestObject) (apiv1.RejectAISuggestionResponseObject, error) {
@@ -486,7 +498,11 @@ func (a *API) RejectAISuggestion(ctx context.Context, req apiv1.RejectAISuggesti
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return apiv1.RejectAISuggestion200JSONResponse{Body: toSuggestion(r), Headers: apiv1.RejectAISuggestion200ResponseHeaders{ETag: apiconv.ETag(r.Version)}}, nil
+	sources, err := a.svc.SuggestionSources(ctx, []domain.SuggestionRecord{r})
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return apiv1.RejectAISuggestion200JSONResponse{Body: toSuggestion(r, sources), Headers: apiv1.RejectAISuggestion200ResponseHeaders{ETag: apiconv.ETag(r.Version)}}, nil
 }
 
 func (a *API) GetAIReviewQueue(ctx context.Context, req apiv1.GetAIReviewQueueRequestObject) (apiv1.GetAIReviewQueueResponseObject, error) {
@@ -502,7 +518,11 @@ func (a *API) GetAIReviewQueue(ctx context.Context, req apiv1.GetAIReviewQueueRe
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return apiv1.GetAIReviewQueue200JSONResponse{Items: toSuggestions(rows), NextPageToken: next}, nil
+	sources, err := a.svc.SuggestionSources(ctx, rows)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return apiv1.GetAIReviewQueue200JSONResponse{Items: toSuggestions(rows, sources), NextPageToken: next}, nil
 }
 
 // ── insights ─────────────────────────────────────────────────────────

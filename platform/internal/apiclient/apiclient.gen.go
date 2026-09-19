@@ -234,6 +234,24 @@ func (e AISentMessageRole) Valid() bool {
 	}
 }
 
+// Defines values for AISuggestionSourceState.
+const (
+	AISuggestionSourceStateActive   AISuggestionSourceState = "active"
+	AISuggestionSourceStateObsolete AISuggestionSourceState = "obsolete"
+)
+
+// Valid indicates whether the value is a known member of the AISuggestionSourceState enum.
+func (e AISuggestionSourceState) Valid() bool {
+	switch e {
+	case AISuggestionSourceStateActive:
+		return true
+	case AISuggestionSourceStateObsolete:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AISuggestionStatus.
 const (
 	AISuggestionStatusAccepted    AISuggestionStatus = "accepted"
@@ -1930,13 +1948,16 @@ type AISuggestion struct {
 	Namespace string     `json:"namespace"`
 
 	// ProjectId An opaque identifier.
-	ProjectId      Id                 `json:"project_id"`
-	Provenance     AIProvenance       `json:"provenance"`
-	RiskTags       []string           `json:"risk_tags"`
-	Score          float64            `json:"score"`
-	SourceRevision int                `json:"source_revision"`
-	Status         AISuggestionStatus `json:"status"`
-	TermFindings   []AITermFinding    `json:"term_findings"`
+	ProjectId  Id           `json:"project_id"`
+	Provenance AIProvenance `json:"provenance"`
+	RiskTags   []string     `json:"risk_tags"`
+	Score      float64      `json:"score"`
+
+	// Source The suggestion's message as it is now (omitted once the message no longer exists): what a reviewer compares the suggestion with. `message_key` and `namespace` are current (a rename shows here, not in the suggestion's own); the suggestion is outdated when its `source_revision` is older than this one.
+	Source         *AISuggestionSource `json:"source,omitempty"`
+	SourceRevision int                 `json:"source_revision"`
+	Status         AISuggestionStatus  `json:"status"`
+	TermFindings   []AITermFinding     `json:"term_findings"`
 
 	// TranslationRevision The revision it became, once accepted or auto-applied.
 	TranslationRevision *int    `json:"translation_revision,omitempty"`
@@ -1949,6 +1970,34 @@ type AISuggestionList struct {
 	Items         []AISuggestion `json:"items"`
 	NextPageToken *string        `json:"next_page_token,omitempty"`
 }
+
+// AISuggestionSource The suggestion's message as it is now (omitted once the message no longer exists): what a reviewer compares the suggestion with. `message_key` and `namespace` are current (a rename shows here, not in the suggestion's own); the suggestion is outdated when its `source_revision` is older than this one.
+type AISuggestionSource struct {
+	// MessageKey A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	MessageKey MessageKey `json:"message_key"`
+
+	// Mf2 The source in canonical MF2 syntax.
+	Mf2 string `json:"mf2"`
+
+	// Model A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	Model          MF2Message              `json:"model"`
+	Namespace      string                  `json:"namespace"`
+	SourceRevision int                     `json:"source_revision"`
+	State          AISuggestionSourceState `json:"state"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax Syntax `json:"syntax"`
+
+	// Text The source as authored.
+	Text string `json:"text"`
+}
+
+// AISuggestionSourceState defines model for AISuggestionSource.State.
+type AISuggestionSourceState string
 
 // AISuggestionStatus defines model for AISuggestionStatus.
 type AISuggestionStatus string
@@ -5942,7 +5991,9 @@ type ClientInterface interface {
 
 	// ListAISuggestions AI suggestions
 	//
-	// Newest first. Needs `intelligence.read`.
+	// Newest first, each with its message's current `source` (read in
+	// one catalog query per page). Needs `intelligence.read` and
+	// `catalog.read`.
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/ai-suggestions (the `ListAISuggestions` operationId).
 	ListAISuggestions(ctx context.Context, tenant TenantPath, params *ListAISuggestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -5953,7 +6004,8 @@ type ClientInterface interface {
 	// correctness. `explanation` lists each factor and its
 	// contribution ("why this?"); `provenance` names the provider,
 	// model, prompt version, translation-memory units, terms and
-	// style-guide version. Needs `intelligence.read`.
+	// style-guide version; `source` is the message as it is now. Needs
+	// `intelligence.read` and `catalog.read`.
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion} (the `GetAISuggestion` operationId).
 	GetAISuggestion(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6563,8 +6615,11 @@ type ClientInterface interface {
 	// Pending suggestions ordered by risk, not by key: lowest score
 	// first, then the most `risk_tags` (legal and marketing
 	// namespaces, forbidden terms, max length, missing plural
-	// categories). `locale` (repeatable) narrows it. Needs
-	// `intelligence.read`.
+	// categories). `locale` (repeatable) narrows it. Each item carries
+	// its message's current `source` (key, namespace, authored text,
+	// canonical MF2, revision), read in one catalog query per page, so
+	// a reviewer needs no request per item. Needs `intelligence.read`
+	// and `catalog.read`.
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-review-queue (the `GetAIReviewQueue` operationId).
 	GetAIReviewQueue(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetAIReviewQueueParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9046,7 +9101,9 @@ func (c *Client) ListAISpend(ctx context.Context, tenant TenantPath, params *Lis
 
 // ListAISuggestions AI suggestions
 //
-// Newest first. Needs `intelligence.read`.
+// Newest first, each with its message's current `source` (read in
+// one catalog query per page). Needs `intelligence.read` and
+// `catalog.read`.
 //
 // Corresponds with GET /v1/tenants/{tenant}/ai-suggestions (the `ListAISuggestions` operationId).
 func (c *Client) ListAISuggestions(ctx context.Context, tenant TenantPath, params *ListAISuggestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -9067,7 +9124,8 @@ func (c *Client) ListAISuggestions(ctx context.Context, tenant TenantPath, param
 // correctness. `explanation` lists each factor and its
 // contribution ("why this?"); `provenance` names the provider,
 // model, prompt version, translation-memory units, terms and
-// style-guide version. Needs `intelligence.read`.
+// style-guide version; `source` is the message as it is now. Needs
+// `intelligence.read` and `catalog.read`.
 //
 // Corresponds with GET /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion} (the `GetAISuggestion` operationId).
 func (c *Client) GetAISuggestion(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -10057,8 +10115,11 @@ func (c *Client) GetAIMetrics(ctx context.Context, tenant TenantPath, project Pr
 // Pending suggestions ordered by risk, not by key: lowest score
 // first, then the most `risk_tags` (legal and marketing
 // namespaces, forbidden terms, max length, missing plural
-// categories). `locale` (repeatable) narrows it. Needs
-// `intelligence.read`.
+// categories). `locale` (repeatable) narrows it. Each item carries
+// its message's current `source` (key, namespace, authored text,
+// canonical MF2, revision), read in one catalog query per page, so
+// a reviewer needs no request per item. Needs `intelligence.read`
+// and `catalog.read`.
 //
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-review-queue (the `GetAIReviewQueue` operationId).
 func (c *Client) GetAIReviewQueue(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetAIReviewQueueParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -22035,7 +22096,9 @@ type ClientWithResponsesInterface interface {
 
 	// ListAISuggestionsWithResponse AI suggestions
 	//
-	// Newest first. Needs `intelligence.read`.
+	// Newest first, each with its message's current `source` (read in
+	// one catalog query per page). Needs `intelligence.read` and
+	// `catalog.read`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -22048,7 +22111,8 @@ type ClientWithResponsesInterface interface {
 	// correctness. `explanation` lists each factor and its
 	// contribution ("why this?"); `provenance` names the provider,
 	// model, prompt version, translation-memory units, terms and
-	// style-guide version. Needs `intelligence.read`.
+	// style-guide version; `source` is the message as it is now. Needs
+	// `intelligence.read` and `catalog.read`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -22692,8 +22756,11 @@ type ClientWithResponsesInterface interface {
 	// Pending suggestions ordered by risk, not by key: lowest score
 	// first, then the most `risk_tags` (legal and marketing
 	// namespaces, forbidden terms, max length, missing plural
-	// categories). `locale` (repeatable) narrows it. Needs
-	// `intelligence.read`.
+	// categories). `locale` (repeatable) narrows it. Each item carries
+	// its message's current `source` (key, namespace, authored text,
+	// canonical MF2, revision), read in one catalog query per page, so
+	// a reviewer needs no request per item. Needs `intelligence.read`
+	// and `catalog.read`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -35453,7 +35520,9 @@ func (c *ClientWithResponses) ListAISpendWithResponse(ctx context.Context, tenan
 
 // ListAISuggestionsWithResponse AI suggestions
 //
-// Newest first. Needs `intelligence.read`.
+// Newest first, each with its message's current `source` (read in
+// one catalog query per page). Needs `intelligence.read` and
+// `catalog.read`.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -35472,7 +35541,8 @@ func (c *ClientWithResponses) ListAISuggestionsWithResponse(ctx context.Context,
 // correctness. `explanation` lists each factor and its
 // contribution ("why this?"); `provenance` names the provider,
 // model, prompt version, translation-memory units, terms and
-// style-guide version. Needs `intelligence.read`.
+// style-guide version; `source` is the message as it is now. Needs
+// `intelligence.read` and `catalog.read`.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -36344,8 +36414,11 @@ func (c *ClientWithResponses) GetAIMetricsWithResponse(ctx context.Context, tena
 // Pending suggestions ordered by risk, not by key: lowest score
 // first, then the most `risk_tags` (legal and marketing
 // namespaces, forbidden terms, max length, missing plural
-// categories). `locale` (repeatable) narrows it. Needs
-// `intelligence.read`.
+// categories). `locale` (repeatable) narrows it. Each item carries
+// its message's current `source` (key, namespace, authored text,
+// canonical MF2, revision), read in one catalog query per page, so
+// a reviewer needs no request per item. Needs `intelligence.read`
+// and `catalog.read`.
 //
 // Returns a wrapper object for the known response body format(s).
 //

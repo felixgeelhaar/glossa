@@ -13,6 +13,8 @@ import (
 
 	"github.com/google/uuid"
 
+	mf "github.com/felixgeelhaar/glossa/messageformat"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1/apiconv"
 	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
@@ -289,7 +291,9 @@ func toJob(j domain.Job, audit json.RawMessage) apiv1.AIJob {
 	return out
 }
 
-func toSuggestion(r domain.SuggestionRecord) apiv1.AISuggestion {
+// toSuggestion maps a suggestion with its message's current source
+// (when sources has it).
+func toSuggestion(r domain.SuggestionRecord, sources map[uuid.UUID]app.MessageSource) apiv1.AISuggestion {
 	pv := r.Provenance
 	out := apiv1.AISuggestion{
 		Id: r.ID.String(), JobId: r.JobID.String(), ProjectId: r.ProjectID.String(), MessageId: r.MessageID.String(),
@@ -318,6 +322,16 @@ func toSuggestion(r domain.SuggestionRecord) apiv1.AISuggestion {
 		out.Calls[i] = apiv1.AICall{Task: apiv1.AITask(c.Task), Provider: c.Provider, Model: c.Model, PromptVersion: c.PromptVersion,
 			Usage: toUsage(c.Usage), CostMicroUsd: int64(c.Cost)}
 	}
+	if src, ok := sources[r.MessageID]; ok {
+		state := apiv1.AISuggestionSourceStateActive
+		if !src.Active {
+			state = apiv1.AISuggestionSourceStateObsolete
+		}
+		out.Source = &apiv1.AISuggestionSource{
+			MessageKey: src.Key, Namespace: src.Namespace, State: state, SourceRevision: src.Revision,
+			Text: src.Text, Syntax: apiv1.Syntax(src.Syntax), Mf2: src.MF2, Model: mf2Model(src.Model),
+		}
+	}
 	if d := r.Decision; d != nil {
 		out.Decision = &apiv1.AIDecision{Reason: nonEmpty(d.Reason)}
 		if e := d.Edit; e != nil {
@@ -331,18 +345,20 @@ func toSuggestion(r domain.SuggestionRecord) apiv1.AISuggestion {
 }
 
 // model renders a suggestion's MF2 data model.
-func model(r domain.SuggestionRecord) apiv1.MF2Message {
+func model(r domain.SuggestionRecord) apiv1.MF2Message { return mf2Model(r.Model) }
+
+func mf2Model(m mf.Message) apiv1.MF2Message {
 	out := apiv1.MF2Message{}
-	if b, err := json.Marshal(r.Model); err == nil {
+	if b, err := json.Marshal(m); err == nil {
 		_ = json.Unmarshal(b, &out)
 	}
 	return out
 }
 
-func toSuggestions(rs []domain.SuggestionRecord) []apiv1.AISuggestion {
+func toSuggestions(rs []domain.SuggestionRecord, sources map[uuid.UUID]app.MessageSource) []apiv1.AISuggestion {
 	out := make([]apiv1.AISuggestion, len(rs))
 	for i, r := range rs {
-		out[i] = toSuggestion(r)
+		out[i] = toSuggestion(r, sources)
 	}
 	return out
 }

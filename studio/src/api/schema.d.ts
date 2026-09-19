@@ -2702,7 +2702,9 @@ export interface paths {
         };
         /**
          * AI suggestions
-         * @description Newest first. Needs `intelligence.read`.
+         * @description Newest first, each with its message's current `source` (read in
+         *     one catalog query per page). Needs `intelligence.read` and
+         *     `catalog.read`.
          */
         get: operations["listAISuggestions"];
         put?: never;
@@ -2731,7 +2733,8 @@ export interface paths {
          *     correctness. `explanation` lists each factor and its
          *     contribution ("why this?"); `provenance` names the provider,
          *     model, prompt version, translation-memory units, terms and
-         *     style-guide version. Needs `intelligence.read`.
+         *     style-guide version; `source` is the message as it is now. Needs
+         *     `intelligence.read` and `catalog.read`.
          */
         get: operations["getAISuggestion"];
         put?: never;
@@ -2822,8 +2825,11 @@ export interface paths {
          * @description Pending suggestions ordered by risk, not by key: lowest score
          *     first, then the most `risk_tags` (legal and marketing
          *     namespaces, forbidden terms, max length, missing plural
-         *     categories). `locale` (repeatable) narrows it. Needs
-         *     `intelligence.read`.
+         *     categories). `locale` (repeatable) narrows it. Each item carries
+         *     its message's current `source` (key, namespace, authored text,
+         *     canonical MF2, revision), read in one catalog query per page, so
+         *     a reviewer needs no request per item. Needs `intelligence.read`
+         *     and `catalog.read`.
          */
         get: operations["getAIReviewQueue"];
         put?: never;
@@ -4831,6 +4837,21 @@ export interface components {
             decision?: components["schemas"]["AIDecision"];
             version: number;
             created_at: components["schemas"]["Timestamp"];
+            source?: components["schemas"]["AISuggestionSource"];
+        };
+        /** @description The suggestion's message as it is now (omitted once the message no longer exists): what a reviewer compares the suggestion with. `message_key` and `namespace` are current (a rename shows here, not in the suggestion's own); the suggestion is outdated when its `source_revision` is older than this one. */
+        AISuggestionSource: {
+            message_key: components["schemas"]["MessageKey"];
+            namespace: string;
+            /** @enum {string} */
+            state: "active" | "obsolete";
+            source_revision: number;
+            /** @description The source as authored. */
+            text: string;
+            syntax: components["schemas"]["Syntax"];
+            /** @description The source in canonical MF2 syntax. */
+            mf2: string;
+            model: components["schemas"]["MF2Message"];
         };
         AISuggestionList: {
             items: components["schemas"]["AISuggestion"][];

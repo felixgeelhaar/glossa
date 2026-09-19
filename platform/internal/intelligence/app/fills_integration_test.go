@@ -220,3 +220,38 @@ func TestWiringFillPreviewWritesNothing(t *testing.T) {
 		t.Error("a translator for fr previewed a de fill")
 	}
 }
+
+// Suggestions come with their message's current source — key,
+// namespace, authored text, canonical MF2 and revision — read in one
+// Catalog query per project for a whole page.
+func TestWiringSuggestionSources(t *testing.T) {
+	w := newWiring(t, nil)
+	w.configure(t, false, 0)
+	p := w.project(t, []string{"de"}, map[string]string{"cart.save": "Save {count, number} changes", "order.save": "Save {count, number} changes"})
+	if _, _, err := w.localization.PutTranslation(w.reviewer(), p, "cart.save", "de", localizationapp.TranslationInput{Text: "{count, number} Änderungen speichern"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	w.drain(t)
+	if _, _, err := w.svc.RequestFill(w.developer(), p, app.FillRequest{Locales: []string{"de"}}, ""); err != nil {
+		t.Fatal(err)
+	}
+	w.work(t)
+	queue, _, err := w.svc.ReviewQueue(w.reviewer(), p, []string{"de"}, firstPageW())
+	if err != nil || len(queue) != 1 || queue[0].MessageKey != "order.save" {
+		t.Fatalf("queue = %+v, %v", queue, err)
+	}
+	w.push(t, p, map[string]string{"order.save": "Save all {count, number} changes"})
+
+	sources, err := w.svc.SuggestionSources(w.reviewer(), queue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src, ok := sources[queue[0].MessageID]
+	if !ok || src.Key != "order.save" || src.Namespace != "default" || !src.Active || src.Revision != 2 ||
+		src.Text != "Save all {count, number} changes" || src.Syntax != "mf1" || src.MF2 != "Save all {$count :number} changes" {
+		t.Errorf("source = %+v", src)
+	}
+	if empty, err := w.svc.SuggestionSources(w.reviewer(), nil); err != nil || len(empty) != 0 {
+		t.Errorf("no suggestions = %+v, %v", empty, err)
+	}
+}

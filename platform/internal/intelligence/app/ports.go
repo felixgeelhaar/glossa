@@ -317,15 +317,18 @@ type ProjectInfo struct {
 
 // SourceMessage is a Catalog message as Intelligence sees it.
 type SourceMessage struct {
-	ID          uuid.UUID
-	ProjectID   uuid.UUID
-	Key         string
-	Namespace   string
-	Active      bool
-	Revision    int
-	Source      mf.Message
-	Description string
-	MaxLength   *int
+	ID        uuid.UUID
+	ProjectID uuid.UUID
+	Key       string
+	Namespace string
+	Active    bool
+	Revision  int
+	Source    mf.Message
+	// SourceText and SourceSyntax are the source as authored.
+	SourceText   string
+	SourceSyntax string
+	Description  string
+	MaxLength    *int
 }
 
 // MessageQuery narrows Catalog's message listing for a fill.
@@ -343,6 +346,9 @@ type Catalog interface {
 	Project(ctx context.Context, id uuid.UUID) (ProjectInfo, error)
 	MessageByID(ctx context.Context, project, id uuid.UUID) (SourceMessage, error)
 	MessagesByKeys(ctx context.Context, project uuid.UUID, keys []string) ([]SourceMessage, error)
+	// MessagesByIDs returns the project's messages among ids (active or
+	// not) in one read; unknown IDs are left out.
+	MessagesByIDs(ctx context.Context, project uuid.UUID, ids []uuid.UUID) ([]SourceMessage, error)
 	// Messages lists active messages in key order after afterKey.
 	Messages(ctx context.Context, project uuid.UUID, q MessageQuery, afterKey string, limit int) ([]SourceMessage, error)
 }

@@ -56,7 +56,7 @@ func message(m catalogdomain.Message) app.SourceMessage {
 	return app.SourceMessage{
 		ID: m.ID.UUID(), ProjectID: m.ProjectID.UUID(), Key: string(m.Key), Namespace: string(m.Namespace),
 		Active: m.State == catalogdomain.MessageActive, Revision: m.Revision, Source: m.Source.Model,
-		Description: m.Description, MaxLength: m.MaxLength,
+		SourceText: m.Source.Text, SourceSyntax: string(m.Source.Syntax), Description: m.Description, MaxLength: m.MaxLength,
 	}
 }
 
@@ -89,6 +89,23 @@ func (c *Catalog) MessagesByKeys(ctx context.Context, project uuid.UUID, keys []
 		out = append(out, message(m))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out, nil
+}
+
+// MessagesByIDs implements app.Catalog.
+func (c *Catalog) MessagesByIDs(ctx context.Context, project uuid.UUID, ids []uuid.UUID) ([]app.SourceMessage, error) {
+	mids := make([]catalogdomain.MessageID, len(ids))
+	for i, id := range ids {
+		mids[i] = catalogdomain.MessageID(id)
+	}
+	found, err := c.svc.MessagesByIDs(ctx, catalogdomain.ProjectID(project), mids)
+	if err != nil {
+		return nil, catalogErr(err, app.ErrProjectNotFound)
+	}
+	out := make([]app.SourceMessage, 0, len(found))
+	for _, m := range found {
+		out = append(out, message(m))
+	}
 	return out, nil
 }
 
