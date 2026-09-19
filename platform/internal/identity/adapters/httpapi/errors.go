@@ -40,6 +40,7 @@ var problems = []struct {
 	{app.ErrNotFound, mapping{404, problem.CodeNotFound, "no such resource"}},
 	{domain.ErrInvalidID, mapping{404, problem.CodeNotFound, "no such resource"}},
 	{app.ErrPasskeysDisabled, mapping{404, "passkeys_disabled", "passkeys are not configured on this server"}},
+	{app.ErrEmailDisabled, mapping{404, "email_disabled", "this server sends no email: sign in with a password or a passkey"}},
 	{app.ErrNoPasskeys, mapping{404, "no_passkeys", "no passkeys are registered for this account"}},
 	{app.ErrSlugTaken, mapping{409, "slug_taken", "that slug is taken"}},
 	{app.ErrDuplicate, mapping{409, "already_member", "that address is already a member or invited"}},

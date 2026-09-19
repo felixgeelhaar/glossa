@@ -33,6 +33,7 @@ type apiServer struct {
 	*localizationAPI
 	*releaseAPI
 	*previewAPI
+	*metaAPI
 }
 
 // Each context names its handler type API; the aliases give the
@@ -49,9 +50,9 @@ var _ apiv1.StrictServerInterface = apiServer{}
 // apiRoutes mounts the generated /v1 router. Identity's Guard enforces
 // each operation's security requirement for every context, and its
 // error hooks render every failure as problem details.
-func apiRoutes(identity *httpapi.API, c contexts) func(*http.ServeMux) {
+func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts) func(*http.ServeMux) {
 	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
-		previewAPI: c.previewAPI}
+		previewAPI: c.previewAPI, metaAPI: meta}
 	return func(mux *http.ServeMux) {
 		strict := apiv1.NewStrictHandlerWithOptions(server, nil, apiv1.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  identity.RequestError,
@@ -66,24 +67,25 @@ func apiRoutes(identity *httpapi.API, c contexts) func(*http.ServeMux) {
 }
 
 // newIdentity wires the Identity context: auth-go's services over
-// Postgres adapters, a mailer, passkeys when configured, and the HTTP edge.
-func newIdentity(cfg config.Identity, logger *slog.Logger, pool *pgxpool.Pool) (*httpapi.API, error) {
+// Postgres adapters, a mailer and passkeys when configured, and the HTTP
+// edge.
+func newIdentity(cfg config.Identity, logger *slog.Logger, pool *pgxpool.Pool) (*httpapi.API, *identityapp.Service, error) {
 	root := cfg.AuthKey()
 	csrfKey, err := deriveKey(root, "csrf")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	totpKey, err := deriveKey(root, "totp-seal")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cipher, err := aesgcm.New(totpKey)
 	if err != nil {
-		return nil, fmt.Errorf("identity: TOTP cipher: %w", err)
+		return nil, nil, fmt.Errorf("identity: TOTP cipher: %w", err)
 	}
 	mailer, err := newMailer(cfg.Mail, logger)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	uow := db.NewUnitOfWork(pool)
@@ -100,22 +102,23 @@ func newIdentity(cfg config.Identity, logger *slog.Logger, pool *pgxpool.Pool) (
 	if cfg.WebAuthn.Enabled() {
 		stateKey, err := deriveKey(root, "webauthn-state")
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		deps.Passkeys, err = passkey.New(passkey.Config{
 			RPID: cfg.WebAuthn.RPID, RPName: cfg.WebAuthn.RPName, Origins: cfg.WebAuthn.Origins, StateKey: stateKey,
 		}, postgres.NewPasskeyRepo(uow))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	appCfg := identityapp.DefaultConfig(cfg.StudioURL)
 	appCfg.SessionTTL = cfg.SessionTTL
 	svc, err := identityapp.New(appCfg, deps)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return httpapi.New(svc, csrfKey, logger)
+	api, err := httpapi.New(svc, csrfKey, logger)
+	return api, svc, err
 }
 
 // deriveKey gives each use of the auth secret its own key (HKDF-SHA256),
@@ -128,8 +131,14 @@ func deriveKey(root []byte, purpose string) ([]byte, error) {
 	return k, nil
 }
 
+// newMailer returns nil when the deployment sends no email: Identity then
+// refuses the email flows and lets passwords work unverified.
 func newMailer(cfg config.Mail, logger *slog.Logger) (identityapp.Mailer, error) {
-	if cfg.Driver == "log" {
+	switch cfg.Driver {
+	case "none":
+		logger.Info("GLOSSA_MAIL_DRIVER=none: no email is sent; magic links and password reset by email are off, password accounts work unverified")
+		return nil, nil //nolint:nilnil // no mailer is a valid configuration
+	case "log":
 		logger.Warn("GLOSSA_MAIL_DRIVER=log: emails, including sign-in links, are written to the log and not sent")
 		return mail.Log{Logger: logger}, nil
 	}

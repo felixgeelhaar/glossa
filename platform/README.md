@@ -9,7 +9,7 @@ far) and `glossa-edge`, the stateless delivery server.
 
 ```text
 api/openapi.yaml            the /v1 contract (OpenAPI 3.1), source of truth
-cmd/glossa-server/          composition root only
+cmd/glossa-server/          composition root only (plus GET /v1/meta, which gathers deployment facts)
 cmd/glossa-edge/            composition root of the delivery plane (no database)
 db/migrations/              golang-migrate SQL, embedded into the binary
 db/queries/<context>/       sqlc input, one directory per context
@@ -67,10 +67,13 @@ psql "$MIGRATION_DATABASE_URL" -c "ALTER ROLE glossa_app LOGIN PASSWORD 'app'"
 go run ./cmd/glossa-server
 ```
 
-With the default `GLOSSA_MAIL_DRIVER=log`, sign-in links are written to
-the log instead of being mailed:
+By default the server sends no email (`GLOSSA_MAIL_DRIVER=none`):
+register with a password and sign in with it (see *Identity*, "Without
+email"). For magic links in development, ask for the log mailer, which
+writes every mail, links included, to the log:
 
 ```sh
+GLOSSA_MAIL_DRIVER=log go run ./cmd/glossa-server
 curl -X POST localhost:8080/v1/auth/magic-links -H 'content-type: application/json' \
   -d '{"email":"you@example.com"}'
 # copy the token after #token= from the log, then:
@@ -107,7 +110,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_AUTH_SECRET` | required | Base64 of ≥ 32 random bytes. The CSRF, TOTP-sealing and passkey-state keys are derived from it (HKDF). Rotating it invalidates CSRF tokens and in-flight passkey ceremonies and makes enrolled TOTP secrets unreadable. |
 | `GLOSSA_STUDIO_URL` | `http://localhost:5173` | Studio's origin; emailed links point into it. |
 | `GLOSSA_SESSION_TTL` | `336h` | Session lifetime. |
-| `GLOSSA_MAIL_DRIVER` | `log` | `log` (development: mail goes to the log, links included) or `smtp`. |
+| `GLOSSA_MAIL_DRIVER` | `none` | `none` (no email: magic links and password reset by email are off, password accounts work unverified), `smtp`, or `log` (development only: mail goes to the log, links included). |
 | `GLOSSA_MAIL_FROM` | `Glossa <no-reply@localhost>` | Sender. |
 | `GLOSSA_SMTP_ADDR` / `_USERNAME` / `_PASSWORD` | — | Submission server (`host:587`) and AUTH PLAIN credentials. STARTTLS is required. |
 | `GLOSSA_SMTP_ALLOW_PLAINTEXT` | `false` | Allow a server without STARTTLS (a local relay only). |
@@ -121,6 +124,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_S3_PATH_STYLE` / `_INSECURE` / `_TIMEOUT` | `false` / `false` / `10s` | Path-style requests (MinIO), plain HTTP (local only), per-operation budget. |
 | `GLOSSA_RELEASE_SIGNING_KEYS` | derived | `keyId=base64(32-byte Ed25519 seed)`, comma-separated. Every manifest is signed with each. Unset: one key derived from `GLOSSA_AUTH_SECRET` (development only; a warning is logged). |
 | `GLOSSA_RELEASE_RETIRED_KEYS` | — | `keyId=base64(public key)`, comma-separated: still published for verification, no longer signing. |
+| `GLOSSA_EDGE_PUBLIC_URL` | — | glossa-edge's public base URL (`https://edge.example.com`). `GET /v1/meta` announces it, so Studio's snippets and other clients don't guess. |
 
 `glossa-edge` reads `GLOSSA_HTTP_*` (listening on `:8081` by default),
 `GLOSSA_LOG_LEVEL`, `GLOSSA_SHUTDOWN_TIMEOUT`, `OTEL_*` (service
@@ -296,6 +300,34 @@ to the verified address. Password reset revokes all sessions.
 /v1/me/passkeys/{id}` removes one — scoped to the signed-in person in
 the query itself, so another person's passkey is a `404`. Both work
 while passkeys are not configured, so enrolled ones stay manageable.
+
+**Without email** (`GLOSSA_MAIL_DRIVER=none`, the default; SMTP is
+optional for a first install) the email flows are unavailable rather
+than silently dropped: requesting or redeeming a magic link and
+requesting or redeeming a password reset answer `404 email_disabled`.
+Registration creates the account with its password, unverified, and
+signing in works at once — password (+ TOTP) and passkeys, with no
+verification step. `GET /v1/meta` tells clients which methods exist
+(`sign_in_methods`: `passkey` when a relying party is configured,
+`password`, `magic_link` only with email; `email_delivery`), and Studio
+hides what isn't there. The trade-offs, accepted until SMTP is
+configured:
+
+- An address is a claim, not a proof. Anyone can register any address
+  first, and its owner then can't register it or reset its password.
+- Nobody can reset a forgotten password (there is no admin reset yet);
+  enroll a passkey or TOTP and keep the password safe.
+- Invitations wait: only a verified address accepts one (so a stranger
+  who registers an invited address can't join the organization), and
+  without email no address is verified. Configure SMTP before inviting
+  people, or they join once it is and they sign in with a magic link.
+- Registration answers `202` either way, but registering then signing in
+  tells a caller whether someone else already holds the address.
+
+Switching email on later changes nothing retroactively: unverified
+accounts then need their address verified (a magic link) before
+password sign-in works again. The log mailer (`log`) is for development
+only and must be asked for.
 
 **Roles** — `owner`, `admin`, `developer`, `translator`, `reviewer`; the
 matrix is pinned by `TestRolePermissionMatrix`. Translators and

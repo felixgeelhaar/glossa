@@ -42,6 +42,9 @@ type Release struct {
 	// RetiredKeys are public keys still published for verification,
 	// "keyId=base64(ed25519 public key),…".
 	RetiredKeys string
+	// EdgePublicURL is glossa-edge's public base URL, what runtimes are
+	// configured with (GET /v1/meta tells clients). Empty: not announced.
+	EdgePublicURL string
 }
 
 // Cache sizes glossa-edge's in-process cache.
@@ -145,8 +148,9 @@ func (r *reader) storage() Storage {
 
 func (r *reader) release() Release {
 	rel := Release{
-		SigningKeys: Secret{r.str("GLOSSA_RELEASE_SIGNING_KEYS", "")},
-		RetiredKeys: r.str("GLOSSA_RELEASE_RETIRED_KEYS", ""),
+		SigningKeys:   Secret{r.str("GLOSSA_RELEASE_SIGNING_KEYS", "")},
+		RetiredKeys:   r.str("GLOSSA_RELEASE_RETIRED_KEYS", ""),
+		EdgePublicURL: r.absoluteURL("GLOSSA_EDGE_PUBLIC_URL", ""),
 	}
 	r.keyList("GLOSSA_RELEASE_SIGNING_KEYS", rel.SigningKeys.Reveal())
 	r.keyList("GLOSSA_RELEASE_RETIRED_KEYS", rel.RetiredKeys)

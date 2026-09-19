@@ -28,6 +28,9 @@ type SignedIn struct {
 // RequestSignInLink emails a magic link. It says nothing about whether
 // the address has an account: redeeming the link creates one.
 func (s *Service) RequestSignInLink(ctx context.Context, email string) error {
+	if !s.EmailEnabled() {
+		return ErrEmailDisabled
+	}
 	e, err := parseEmail(email)
 	if err != nil {
 		return err
@@ -61,6 +64,9 @@ func (s *Service) mail(ctx context.Context, to authgo.Email, subject, intro, pat
 // registering them first if the address is new. Either way the address
 // is now verified.
 func (s *Service) RedeemSignInLink(ctx context.Context, token string) (SignedIn, error) {
+	if !s.EmailEnabled() {
+		return SignedIn{}, ErrEmailDisabled
+	}
 	raw, err := authgo.TokenFromString(token)
 	if err != nil {
 		return SignedIn{}, ErrLinkInvalid
@@ -123,6 +129,10 @@ func (s *Service) personForVerifiedEmail(ctx context.Context, email authgo.Email
 // Register creates an account with a password and emails a verification
 // link. An address that already has an account gets a sign-in link
 // instead, so the response is the same either way.
+//
+// Without email the account is created unverified and usable at once
+// with its password; an address that already has an account gets
+// nothing, and the response is still the same.
 func (s *Service) Register(ctx context.Context, email, password, displayName string) error {
 	e, err := parseEmail(email)
 	if err != nil {
@@ -143,6 +153,9 @@ func (s *Service) Register(ctx context.Context, email, password, displayName str
 		return st.CreatePerson(ctx, p, &hash)
 	})
 	if errors.Is(err, ErrEmailTaken) {
+		if !s.EmailEnabled() {
+			return nil
+		}
 		return s.sendSignInLink(ctx, e, "Sign in to Glossa",
 			"Someone tried to register with this address, which already has a Glossa account. "+
 				"If it was you, sign in with this link (it works once, for 15 minutes):")
@@ -152,6 +165,9 @@ func (s *Service) Register(ctx context.Context, email, password, displayName str
 	}
 	if err := s.ensureIndividualTenant(ctx, PersonRecord{Person: p}); err != nil {
 		return err
+	}
+	if !s.EmailEnabled() {
+		return nil
 	}
 	return s.sendSignInLink(ctx, e, "Verify your email for Glossa",
 		"Welcome to Glossa. Verify your address and sign in with this link (it works once, for 15 minutes):")
@@ -165,7 +181,8 @@ func checkPassword(pw string) error {
 }
 
 // SignInWithPassword checks email + password (+ TOTP when enrolled)
-// under auth-go's lockout policy.
+// under auth-go's lockout policy. The address must be verified, unless
+// the deployment sends no email and so can't verify any.
 func (s *Service) SignInWithPassword(ctx context.Context, email, password, totpCode string) (SignedIn, error) {
 	e, err := parseEmail(email)
 	if err != nil {
@@ -190,7 +207,7 @@ func (s *Service) SignInWithPassword(ctx context.Context, email, password, totpC
 	if err := s.checkPassword(rec, password); err != nil {
 		return SignedIn{}, s.fail(ctx, key, err)
 	}
-	if !rec.EmailVerified() {
+	if !rec.EmailVerified() && s.EmailEnabled() {
 		return SignedIn{}, ErrEmailUnverified
 	}
 	if rec.TOTPEnabled {
@@ -238,6 +255,9 @@ func (s *Service) fail(ctx context.Context, key string, cause error) error {
 
 // RequestPasswordReset emails a reset link if the address has an account.
 func (s *Service) RequestPasswordReset(ctx context.Context, email string) error {
+	if !s.EmailEnabled() {
+		return ErrEmailDisabled
+	}
 	e, err := parseEmail(email)
 	if err != nil {
 		return err
@@ -265,6 +285,9 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 // address (the link proved ownership) and signs the person out
 // everywhere.
 func (s *Service) ResetPassword(ctx context.Context, token, password string) error {
+	if !s.EmailEnabled() {
+		return ErrEmailDisabled
+	}
 	if err := checkPassword(password); err != nil {
 		return err // before spending the link, so a retry can succeed
 	}

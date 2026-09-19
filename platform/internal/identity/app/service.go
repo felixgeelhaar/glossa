@@ -58,8 +58,12 @@ type Deps struct {
 	LoginAttempts authgo.LoginAttemptStore
 	// Passkeys is nil when no WebAuthn relying party is configured.
 	Passkeys authgo.PasskeyAuthenticator
-	Mailer   Mailer
-	Logger   *slog.Logger
+	// Mailer is nil when the deployment sends no email: magic links,
+	// verification and password reset by email are then unavailable
+	// (ErrEmailDisabled), and password sign-in doesn't wait for a
+	// verified address.
+	Mailer Mailer
+	Logger *slog.Logger
 	// Clock defaults to time.Now.
 	Clock func() time.Time
 }
@@ -102,7 +106,7 @@ func mustTenantID(s string) authgo.TenantID {
 // New builds the service.
 func New(cfg Config, d Deps) (*Service, error) {
 	if d.Tx == nil || d.Sessions == nil || d.SignInLinks == nil || d.ResetLinks == nil ||
-		d.TOTP == nil || d.LoginAttempts == nil || d.Mailer == nil {
+		d.TOTP == nil || d.LoginAttempts == nil {
 		return nil, errors.New("identity: incomplete dependencies")
 	}
 	if cfg.Argon2 == (authgo.Argon2idParams{}) {
@@ -142,6 +146,31 @@ func New(cfg Config, d Deps) (*Service, error) {
 		now:         func() time.Time { return now().UTC() },
 		decoy:       decoy,
 	}, nil
+}
+
+// Sign-in methods, as GET /v1/meta names them.
+const (
+	MethodPasskey   = "passkey"
+	MethodPassword  = "password"
+	MethodMagicLink = "magic_link"
+)
+
+// EmailEnabled reports whether the deployment sends email.
+func (s *Service) EmailEnabled() bool { return s.mailer != nil }
+
+// SignInMethods lists how people can sign in here, strongest first:
+// passkeys when a relying party is configured, passwords always, magic
+// links when email is.
+func (s *Service) SignInMethods() []string {
+	var out []string
+	if s.PasskeysEnabled() {
+		out = append(out, MethodPasskey)
+	}
+	out = append(out, MethodPassword)
+	if s.EmailEnabled() {
+		out = append(out, MethodMagicLink)
+	}
+	return out
 }
 
 func userID(p domain.PersonID) authgo.UserID {

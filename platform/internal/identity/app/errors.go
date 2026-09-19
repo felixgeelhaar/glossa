@@ -18,6 +18,7 @@ var (
 	ErrTOTPNotEnabled     = errors.New("identity: TOTP not enabled")
 	ErrAccountLocked      = errors.New("identity: account temporarily locked")
 	ErrPasskeysDisabled   = errors.New("identity: passkeys are not configured")
+	ErrEmailDisabled      = errors.New("identity: email is not configured")
 	ErrNoPasskeys         = errors.New("identity: no passkeys for this account")
 	ErrPasskeyInvalid     = errors.New("identity: passkey ceremony failed")
 	ErrPersonOnly         = errors.New("identity: only a person can do this")

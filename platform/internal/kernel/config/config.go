@@ -126,7 +126,9 @@ func (i Identity) AuthKey() []byte {
 
 // Mail configures outbound email.
 type Mail struct {
-	// Driver is "log" (development: mail goes to the log) or "smtp".
+	// Driver is "none" (the default: the deployment sends no email, so
+	// magic links and password reset by email are unavailable), "smtp",
+	// or "log" (development only: mail, links included, goes to the log).
 	Driver string
 	From   string
 	// SMTPAddr is host:port of the submission server.
@@ -135,6 +137,9 @@ type Mail struct {
 	SMTPPassword       Secret
 	SMTPAllowPlaintext bool
 }
+
+// Enabled reports whether email is sent (or, with log, written out).
+func (m Mail) Enabled() bool { return m.Driver != "none" }
 
 // WebAuthn configures the passkey relying party. Passkeys are off while
 // RPID is empty.
@@ -216,7 +221,7 @@ func (r *reader) identity() Identity {
 		StudioURL:  r.absoluteURL("GLOSSA_STUDIO_URL", "http://localhost:5173"),
 		SessionTTL: r.duration("GLOSSA_SESSION_TTL", 14*24*time.Hour),
 		Mail: Mail{
-			Driver:             r.str("GLOSSA_MAIL_DRIVER", "log"),
+			Driver:             r.str("GLOSSA_MAIL_DRIVER", "none"),
 			From:               r.str("GLOSSA_MAIL_FROM", "Glossa <no-reply@localhost>"),
 			SMTPAddr:           r.str("GLOSSA_SMTP_ADDR", ""),
 			SMTPUsername:       r.str("GLOSSA_SMTP_USERNAME", ""),
@@ -234,13 +239,13 @@ func (r *reader) identity() Identity {
 		}
 	}
 	switch id.Mail.Driver {
-	case "log":
+	case "none", "log":
 	case "smtp":
 		if id.Mail.SMTPAddr == "" {
 			r.fail("GLOSSA_SMTP_ADDR", "required when GLOSSA_MAIL_DRIVER is smtp")
 		}
 	default:
-		r.fail("GLOSSA_MAIL_DRIVER", "must be log or smtp (got %q)", id.Mail.Driver)
+		r.fail("GLOSSA_MAIL_DRIVER", "must be none, smtp or log (got %q)", id.Mail.Driver)
 	}
 	if id.WebAuthn.Enabled() {
 		for _, o := range strings.Split(r.str("GLOSSA_WEBAUTHN_ORIGINS", id.StudioURL), ",") {
@@ -254,6 +259,9 @@ func (r *reader) identity() Identity {
 
 func (r *reader) absoluteURL(key, def string) string {
 	raw := r.str(key, def)
+	if raw == "" {
+		return ""
+	}
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		r.fail(key, "must be an absolute http(s) URL (got %q)", raw)

@@ -138,7 +138,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger) (*app, e
 		pool.Close()
 		return nil, err
 	}
-	identity, err := newIdentity(cfg.Identity, logger, pool)
+	identity, identitySvc, err := newIdentity(cfg.Identity, logger, pool)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -153,7 +153,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger) (*app, e
 		TracerProvider: tp,
 		Registry:       registry,
 		Readiness:      []httpserver.Check{{Name: "postgres", Probe: pool.Ping}},
-		Routes:         apiRoutes(identity, bounded),
+		Routes:         apiRoutes(identity, &metaAPI{signIn: identitySvc, edgeURL: cfg.Release.EdgePublicURL}, bounded),
 	})
 	return &app{cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, shutdownTP: shutdownTP}, nil
 }

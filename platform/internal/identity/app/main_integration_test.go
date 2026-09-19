@@ -97,7 +97,11 @@ func (c *clock) Advance(d time.Duration) {
 // fastArgon keeps tests quick; production uses auth-go's defaults.
 var fastArgon = authgo.Argon2idParams{Memory: 64, Iterations: 1, Parallelism: 1, SaltLength: 16, KeyLength: 32}
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T) *harness { return newHarnessMailing(t, true) }
+
+// newHarnessMailing builds the service with or without a mailer (a
+// deployment without email).
+func newHarnessMailing(t *testing.T, mailing bool) *harness {
 	t.Helper()
 	if err := env.Reset(context.Background()); err != nil {
 		t.Fatalf("reset: %v", err)
@@ -119,7 +123,7 @@ func newHarness(t *testing.T) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h.svc, err = app.New(cfg, app.Deps{
+	deps := app.Deps{
 		Passkeys:      passkeys,
 		Tx:            postgres.NewTransactor(uow, cipher),
 		Sessions:      postgres.NewSessionRepo(uow),
@@ -127,9 +131,12 @@ func newHarness(t *testing.T) *harness {
 		ResetLinks:    postgres.NewLinkRepo(uow, postgres.PurposePasswordReset),
 		TOTP:          postgres.NewTOTPRepo(uow, cipher),
 		LoginAttempts: postgres.NewLoginAttemptRepo(uow),
-		Mailer:        h.mail,
 		Clock:         h.clock.Now,
-	})
+	}
+	if mailing {
+		deps.Mailer = h.mail
+	}
+	h.svc, err = app.New(cfg, deps)
 	if err != nil {
 		t.Fatal(err)
 	}

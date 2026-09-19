@@ -70,6 +70,8 @@ servers:
     description: Local development
 
 tags:
+  - name: meta
+    description: What this deployment offers, for clients to adapt to before signing in.
   - name: auth
     description: Sign-in, sign-out and credential recovery. Public.
   - name: me
@@ -122,6 +124,24 @@ tags:
       releases from glossa-edge with.
 
 paths:
+  # ── meta ────────────────────────────────────────────────────────────
+  /v1/meta:
+    get:
+      operationId: getMeta
+      tags: [meta]
+      summary: What this deployment offers
+      description: |
+        The sign-in methods this server accepts, whether it sends email,
+        and glossa-edge's public base URL, so clients don't guess.
+        Public and the same for every caller.
+      security: []
+      responses:
+        "200":
+          description: The deployment's facts.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Meta" }
+
   # ── auth ────────────────────────────────────────────────────────────
   /v1/auth/magic-links:
     post:
@@ -132,7 +152,9 @@ paths:
         Sends a single-use link valid for 15 minutes. Signing in with it
         creates the account (and the person's individual tenant) if the
         address is new, and verifies the address. Always `202`, so the
-        response never reveals whether an account exists.
+        response never reveals whether an account exists. Problem codes:
+        `email_disabled` (404: the server sends no email; see
+        `GET /v1/meta`).
       security: []
       requestBody:
         required: true
@@ -142,6 +164,7 @@ paths:
       responses:
         "202": { description: Accepted; a link is on its way if the address can receive one. }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
 
   /v1/auth/magic-link-redemptions:
@@ -151,7 +174,8 @@ paths:
       summary: Sign in with an emailed link
       description: |
         Spends the link's token and starts a session. Problem codes:
-        `link_invalid` (unknown, expired or already used).
+        `link_invalid` (unknown, expired or already used),
+        `email_disabled` (404).
       security: []
       requestBody:
         required: true
@@ -162,6 +186,7 @@ paths:
         "200": { $ref: "#/components/responses/SessionStarted" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/auth/registrations:
     post:
@@ -173,7 +198,10 @@ paths:
         verification link (a sign-in link). Password sign-in works once
         the address is verified. Always `202`: an existing address gets
         a sign-in link instead, so registration can't be used to probe
-        for accounts.
+        for accounts. On a server that sends no email
+        (`email_delivery: false` in `GET /v1/meta`) nothing is mailed and
+        the account can sign in with its password right away, its
+        address unverified; an existing address is left untouched.
       security: []
       requestBody:
         required: true
@@ -192,9 +220,9 @@ paths:
       summary: Sign in with email and password
       description: |
         Problem codes: `invalid_credentials` (401), `totp_required` (401,
-        send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
-        `account_locked` (429 after repeated failures; the lock lifts after
-        15 minutes).
+        send `totp_code`), `totp_invalid` (401), `email_unverified` (403;
+        only on servers that send email), `account_locked` (429 after
+        repeated failures; the lock lifts after 15 minutes).
       security: []
       requestBody:
         required: true
@@ -213,7 +241,9 @@ paths:
       operationId: requestPasswordReset
       tags: [auth]
       summary: Email a password reset link
-      description: Always `202`, whether or not the address has an account.
+      description: |
+        Always `202`, whether or not the address has an account. Problem
+        codes: `email_disabled` (404).
       security: []
       requestBody:
         required: true
@@ -223,6 +253,7 @@ paths:
       responses:
         "202": { description: Accepted. }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
 
   /v1/auth/password-reset-redemptions:
@@ -233,7 +264,7 @@ paths:
       description: |
         Sets the password, verifies the address and signs the person out
         everywhere. Problem codes: `link_invalid` (401), `weak_password`
-        (400).
+        (400), `email_disabled` (404).
       security: []
       requestBody:
         required: true
@@ -244,6 +275,7 @@ paths:
         "204": { description: Password changed; every session was revoked. }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/auth/passkey-challenges:
     post:
@@ -2802,6 +2834,34 @@ components:
         pointer: { type: string, description: JSON Pointer into the request body. }
         detail: { type: string }
 
+    Meta:
+      type: object
+      required: [sign_in_methods, email_delivery]
+      properties:
+        sign_in_methods:
+          type: array
+          uniqueItems: true
+          description: |
+            How people can sign in here, strongest first: `passkey` when
+            a WebAuthn relying party is configured, `password` always,
+            `magic_link` when the server sends email.
+          items: { type: string, enum: [passkey, password, magic_link] }
+        email_delivery:
+          type: boolean
+          description: |
+            Whether the server sends email. Without it magic links,
+            email verification and password reset by email are
+            unavailable (`email_disabled`), a password account works
+            without a verified address, and invitations wait: only a
+            verified address accepts one.
+        edge_url:
+          type: string
+          format: uri
+          description: |
+            glossa-edge's public base URL, what runtimes are configured
+            with (`{edge_url}/v1/{key}/{environment}/manifest.json`).
+            Absent when the deployment doesn't announce it
+            (`GLOSSA_EDGE_PUBLIC_URL`).
     EmailRequest:
       type: object
       required: [email]

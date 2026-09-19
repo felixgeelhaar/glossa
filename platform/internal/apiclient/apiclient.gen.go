@@ -246,6 +246,27 @@ func (e MessageUpsertItemResultStatus) Valid() bool {
 	}
 }
 
+// Defines values for MetaSignInMethods.
+const (
+	MetaSignInMethodsMagicLink MetaSignInMethods = "magic_link"
+	MetaSignInMethodsPasskey   MetaSignInMethods = "passkey"
+	MetaSignInMethodsPassword  MetaSignInMethods = "password"
+)
+
+// Valid indicates whether the value is a known member of the MetaSignInMethods enum.
+func (e MetaSignInMethods) Valid() bool {
+	switch e {
+	case MetaSignInMethodsMagicLink:
+		return true
+	case MetaSignInMethodsPasskey:
+		return true
+	case MetaSignInMethodsPassword:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Origin.
 const (
 	Adaptation         Origin = "adaptation"
@@ -1043,6 +1064,30 @@ type MessageUpsertItemResultStatus string
 type MessageUpsertResult struct {
 	Results []MessageUpsertItemResult `json:"results"`
 }
+
+// Meta defines model for Meta.
+type Meta struct {
+	// EdgeUrl glossa-edge's public base URL, what runtimes are configured
+	// with (`{edge_url}/v1/{key}/{environment}/manifest.json`).
+	// Absent when the deployment doesn't announce it
+	// (`GLOSSA_EDGE_PUBLIC_URL`).
+	EdgeUrl *string `json:"edge_url,omitempty"`
+
+	// EmailDelivery Whether the server sends email. Without it magic links,
+	// email verification and password reset by email are
+	// unavailable (`email_disabled`), a password account works
+	// without a verified address, and invitations wait: only a
+	// verified address accepts one.
+	EmailDelivery bool `json:"email_delivery"`
+
+	// SignInMethods How people can sign in here, strongest first: `passkey` when
+	// a WebAuthn relying party is configured, `password` always,
+	// `magic_link` when the server sends email.
+	SignInMethods []MetaSignInMethods `json:"sign_in_methods"`
+}
+
+// MetaSignInMethods defines model for Meta.SignInMethods.
+type MetaSignInMethods string
 
 // Namespace Groups messages into separately loadable bundles. Default `default`.
 type Namespace = string
@@ -2401,7 +2446,8 @@ type ClientInterface interface {
 	// RedeemMagicLinkWithBody Sign in with an emailed link
 	//
 	// Spends the link's token and starts a session. Problem codes:
-	// `link_invalid` (unknown, expired or already used).
+	// `link_invalid` (unknown, expired or already used),
+	// `email_disabled` (404).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -2411,7 +2457,8 @@ type ClientInterface interface {
 	// RedeemMagicLink Sign in with an emailed link
 	//
 	// Spends the link's token and starts a session. Problem codes:
-	// `link_invalid` (unknown, expired or already used).
+	// `link_invalid` (unknown, expired or already used),
+	// `email_disabled` (404).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -2423,7 +2470,9 @@ type ClientInterface interface {
 	// Sends a single-use link valid for 15 minutes. Signing in with it
 	// creates the account (and the person's individual tenant) if the
 	// address is new, and verifies the address. Always `202`, so the
-	// response never reveals whether an account exists.
+	// response never reveals whether an account exists. Problem codes:
+	// `email_disabled` (404: the server sends no email; see
+	// `GET /v1/meta`).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -2435,7 +2484,9 @@ type ClientInterface interface {
 	// Sends a single-use link valid for 15 minutes. Signing in with it
 	// creates the account (and the person's individual tenant) if the
 	// address is new, and verifies the address. Always `202`, so the
-	// response never reveals whether an account exists.
+	// response never reveals whether an account exists. Problem codes:
+	// `email_disabled` (404: the server sends no email; see
+	// `GET /v1/meta`).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -2488,7 +2539,7 @@ type ClientInterface interface {
 	//
 	// Sets the password, verifies the address and signs the person out
 	// everywhere. Problem codes: `link_invalid` (401), `weak_password`
-	// (400).
+	// (400), `email_disabled` (404).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -2499,7 +2550,7 @@ type ClientInterface interface {
 	//
 	// Sets the password, verifies the address and signs the person out
 	// everywhere. Problem codes: `link_invalid` (401), `weak_password`
-	// (400).
+	// (400), `email_disabled` (404).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -2508,7 +2559,8 @@ type ClientInterface interface {
 
 	// RequestPasswordResetWithBody Email a password reset link
 	//
-	// Always `202`, whether or not the address has an account.
+	// Always `202`, whether or not the address has an account. Problem
+	// codes: `email_disabled` (404).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -2517,7 +2569,8 @@ type ClientInterface interface {
 
 	// RequestPasswordReset Email a password reset link
 	//
-	// Always `202`, whether or not the address has an account.
+	// Always `202`, whether or not the address has an account. Problem
+	// codes: `email_disabled` (404).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -2527,9 +2580,9 @@ type ClientInterface interface {
 	// SignInWithPasswordWithBody Sign in with email and password
 	//
 	// Problem codes: `invalid_credentials` (401), `totp_required` (401,
-	// send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
-	// `account_locked` (429 after repeated failures; the lock lifts after
-	// 15 minutes).
+	// send `totp_code`), `totp_invalid` (401), `email_unverified` (403;
+	// only on servers that send email), `account_locked` (429 after
+	// repeated failures; the lock lifts after 15 minutes).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -2539,9 +2592,9 @@ type ClientInterface interface {
 	// SignInWithPassword Sign in with email and password
 	//
 	// Problem codes: `invalid_credentials` (401), `totp_required` (401,
-	// send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
-	// `account_locked` (429 after repeated failures; the lock lifts after
-	// 15 minutes).
+	// send `totp_code`), `totp_invalid` (401), `email_unverified` (403;
+	// only on servers that send email), `account_locked` (429 after
+	// repeated failures; the lock lifts after 15 minutes).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -2554,7 +2607,10 @@ type ClientInterface interface {
 	// verification link (a sign-in link). Password sign-in works once
 	// the address is verified. Always `202`: an existing address gets
 	// a sign-in link instead, so registration can't be used to probe
-	// for accounts.
+	// for accounts. On a server that sends no email
+	// (`email_delivery: false` in `GET /v1/meta`) nothing is mailed and
+	// the account can sign in with its password right away, its
+	// address unverified; an existing address is left untouched.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -2567,7 +2623,10 @@ type ClientInterface interface {
 	// verification link (a sign-in link). Password sign-in works once
 	// the address is verified. Always `202`: an existing address gets
 	// a sign-in link instead, so registration can't be used to probe
-	// for accounts.
+	// for accounts. On a server that sends no email
+	// (`email_delivery: false` in `GET /v1/meta`) nothing is mailed and
+	// the account can sign in with its password right away, its
+	// address unverified; an existing address is left untouched.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -2733,6 +2792,15 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
 	PreviewMessage(ctx context.Context, body PreviewMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMeta What this deployment offers
+	//
+	// The sign-in methods this server accepts, whether it sends email,
+	// and glossa-edge's public base URL, so clients don't guess.
+	// Public and the same for every caller.
+	//
+	// Corresponds with GET /v1/meta (the `GetMeta` operationId).
+	GetMeta(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListTenants Tenants the caller can act in
 	//
@@ -3720,7 +3788,8 @@ type ClientInterface interface {
 // RedeemMagicLinkWithBody Sign in with an emailed link
 //
 // Spends the link's token and starts a session. Problem codes:
-// `link_invalid` (unknown, expired or already used).
+// `link_invalid` (unknown, expired or already used),
+// `email_disabled` (404).
 //
 // Takes any type of body and a specified content type.
 //
@@ -3740,7 +3809,8 @@ func (c *Client) RedeemMagicLinkWithBody(ctx context.Context, contentType string
 // RedeemMagicLink Sign in with an emailed link
 //
 // Spends the link's token and starts a session. Problem codes:
-// `link_invalid` (unknown, expired or already used).
+// `link_invalid` (unknown, expired or already used),
+// `email_disabled` (404).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -3762,7 +3832,9 @@ func (c *Client) RedeemMagicLink(ctx context.Context, body RedeemMagicLinkJSONRe
 // Sends a single-use link valid for 15 minutes. Signing in with it
 // creates the account (and the person's individual tenant) if the
 // address is new, and verifies the address. Always `202`, so the
-// response never reveals whether an account exists.
+// response never reveals whether an account exists. Problem codes:
+// `email_disabled` (404: the server sends no email; see
+// `GET /v1/meta`).
 //
 // Takes any type of body and a specified content type.
 //
@@ -3784,7 +3856,9 @@ func (c *Client) RequestMagicLinkWithBody(ctx context.Context, contentType strin
 // Sends a single-use link valid for 15 minutes. Signing in with it
 // creates the account (and the person's individual tenant) if the
 // address is new, and verifies the address. Always `202`, so the
-// response never reveals whether an account exists.
+// response never reveals whether an account exists. Problem codes:
+// `email_disabled` (404: the server sends no email; see
+// `GET /v1/meta`).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -3887,7 +3961,7 @@ func (c *Client) FinishPasskeySignIn(ctx context.Context, params *FinishPasskeyS
 //
 // Sets the password, verifies the address and signs the person out
 // everywhere. Problem codes: `link_invalid` (401), `weak_password`
-// (400).
+// (400), `email_disabled` (404).
 //
 // Takes any type of body and a specified content type.
 //
@@ -3908,7 +3982,7 @@ func (c *Client) ResetPasswordWithBody(ctx context.Context, contentType string, 
 //
 // Sets the password, verifies the address and signs the person out
 // everywhere. Problem codes: `link_invalid` (401), `weak_password`
-// (400).
+// (400), `email_disabled` (404).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -3927,7 +4001,8 @@ func (c *Client) ResetPassword(ctx context.Context, body ResetPasswordJSONReques
 
 // RequestPasswordResetWithBody Email a password reset link
 //
-// Always `202`, whether or not the address has an account.
+// Always `202`, whether or not the address has an account. Problem
+// codes: `email_disabled` (404).
 //
 // Takes any type of body and a specified content type.
 //
@@ -3946,7 +4021,8 @@ func (c *Client) RequestPasswordResetWithBody(ctx context.Context, contentType s
 
 // RequestPasswordReset Email a password reset link
 //
-// Always `202`, whether or not the address has an account.
+// Always `202`, whether or not the address has an account. Problem
+// codes: `email_disabled` (404).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -3966,9 +4042,9 @@ func (c *Client) RequestPasswordReset(ctx context.Context, body RequestPasswordR
 // SignInWithPasswordWithBody Sign in with email and password
 //
 // Problem codes: `invalid_credentials` (401), `totp_required` (401,
-// send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
-// `account_locked` (429 after repeated failures; the lock lifts after
-// 15 minutes).
+// send `totp_code`), `totp_invalid` (401), `email_unverified` (403;
+// only on servers that send email), `account_locked` (429 after
+// repeated failures; the lock lifts after 15 minutes).
 //
 // Takes any type of body and a specified content type.
 //
@@ -3988,9 +4064,9 @@ func (c *Client) SignInWithPasswordWithBody(ctx context.Context, contentType str
 // SignInWithPassword Sign in with email and password
 //
 // Problem codes: `invalid_credentials` (401), `totp_required` (401,
-// send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
-// `account_locked` (429 after repeated failures; the lock lifts after
-// 15 minutes).
+// send `totp_code`), `totp_invalid` (401), `email_unverified` (403;
+// only on servers that send email), `account_locked` (429 after
+// repeated failures; the lock lifts after 15 minutes).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -4013,7 +4089,10 @@ func (c *Client) SignInWithPassword(ctx context.Context, body SignInWithPassword
 // verification link (a sign-in link). Password sign-in works once
 // the address is verified. Always `202`: an existing address gets
 // a sign-in link instead, so registration can't be used to probe
-// for accounts.
+// for accounts. On a server that sends no email
+// (`email_delivery: false` in `GET /v1/meta`) nothing is mailed and
+// the account can sign in with its password right away, its
+// address unverified; an existing address is left untouched.
 //
 // Takes any type of body and a specified content type.
 //
@@ -4036,7 +4115,10 @@ func (c *Client) RegisterWithBody(ctx context.Context, contentType string, body 
 // verification link (a sign-in link). Password sign-in works once
 // the address is verified. Always `202`: an existing address gets
 // a sign-in link instead, so registration can't be used to probe
-// for accounts.
+// for accounts. On a server that sends no email
+// (`email_delivery: false` in `GET /v1/meta`) nothing is mailed and
+// the account can sign in with its password right away, its
+// address unverified; an existing address is left untouched.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -4353,6 +4435,25 @@ func (c *Client) PreviewMessageWithBody(ctx context.Context, contentType string,
 // Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
 func (c *Client) PreviewMessage(ctx context.Context, body PreviewMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPreviewMessageRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMeta What this deployment offers
+//
+// The sign-in methods this server accepts, whether it sends email,
+// and glossa-edge's public base URL, so clients don't guess.
+// Public and the same for every caller.
+//
+// Corresponds with GET /v1/meta (the `GetMeta` operationId).
+func (c *Client) GetMeta(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMetaRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -6960,6 +7061,33 @@ func NewPreviewMessageRequestWithBody(server string, contentType string, body io
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetMetaRequest constructs an http.Request for the GetMeta method
+func NewGetMetaRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/meta")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -11136,7 +11264,8 @@ type ClientWithResponsesInterface interface {
 	// RedeemMagicLinkWithBodyWithResponse Sign in with an emailed link
 	//
 	// Spends the link's token and starts a session. Problem codes:
-	// `link_invalid` (unknown, expired or already used).
+	// `link_invalid` (unknown, expired or already used),
+	// `email_disabled` (404).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11146,7 +11275,8 @@ type ClientWithResponsesInterface interface {
 	// RedeemMagicLinkWithResponse Sign in with an emailed link
 	//
 	// Spends the link's token and starts a session. Problem codes:
-	// `link_invalid` (unknown, expired or already used).
+	// `link_invalid` (unknown, expired or already used),
+	// `email_disabled` (404).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11158,7 +11288,9 @@ type ClientWithResponsesInterface interface {
 	// Sends a single-use link valid for 15 minutes. Signing in with it
 	// creates the account (and the person's individual tenant) if the
 	// address is new, and verifies the address. Always `202`, so the
-	// response never reveals whether an account exists.
+	// response never reveals whether an account exists. Problem codes:
+	// `email_disabled` (404: the server sends no email; see
+	// `GET /v1/meta`).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11170,7 +11302,9 @@ type ClientWithResponsesInterface interface {
 	// Sends a single-use link valid for 15 minutes. Signing in with it
 	// creates the account (and the person's individual tenant) if the
 	// address is new, and verifies the address. Always `202`, so the
-	// response never reveals whether an account exists.
+	// response never reveals whether an account exists. Problem codes:
+	// `email_disabled` (404: the server sends no email; see
+	// `GET /v1/meta`).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11223,7 +11357,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// Sets the password, verifies the address and signs the person out
 	// everywhere. Problem codes: `link_invalid` (401), `weak_password`
-	// (400).
+	// (400), `email_disabled` (404).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11234,7 +11368,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// Sets the password, verifies the address and signs the person out
 	// everywhere. Problem codes: `link_invalid` (401), `weak_password`
-	// (400).
+	// (400), `email_disabled` (404).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11243,7 +11377,8 @@ type ClientWithResponsesInterface interface {
 
 	// RequestPasswordResetWithBodyWithResponse Email a password reset link
 	//
-	// Always `202`, whether or not the address has an account.
+	// Always `202`, whether or not the address has an account. Problem
+	// codes: `email_disabled` (404).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11252,7 +11387,8 @@ type ClientWithResponsesInterface interface {
 
 	// RequestPasswordResetWithResponse Email a password reset link
 	//
-	// Always `202`, whether or not the address has an account.
+	// Always `202`, whether or not the address has an account. Problem
+	// codes: `email_disabled` (404).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11262,9 +11398,9 @@ type ClientWithResponsesInterface interface {
 	// SignInWithPasswordWithBodyWithResponse Sign in with email and password
 	//
 	// Problem codes: `invalid_credentials` (401), `totp_required` (401,
-	// send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
-	// `account_locked` (429 after repeated failures; the lock lifts after
-	// 15 minutes).
+	// send `totp_code`), `totp_invalid` (401), `email_unverified` (403;
+	// only on servers that send email), `account_locked` (429 after
+	// repeated failures; the lock lifts after 15 minutes).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11274,9 +11410,9 @@ type ClientWithResponsesInterface interface {
 	// SignInWithPasswordWithResponse Sign in with email and password
 	//
 	// Problem codes: `invalid_credentials` (401), `totp_required` (401,
-	// send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
-	// `account_locked` (429 after repeated failures; the lock lifts after
-	// 15 minutes).
+	// send `totp_code`), `totp_invalid` (401), `email_unverified` (403;
+	// only on servers that send email), `account_locked` (429 after
+	// repeated failures; the lock lifts after 15 minutes).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11289,7 +11425,10 @@ type ClientWithResponsesInterface interface {
 	// verification link (a sign-in link). Password sign-in works once
 	// the address is verified. Always `202`: an existing address gets
 	// a sign-in link instead, so registration can't be used to probe
-	// for accounts.
+	// for accounts. On a server that sends no email
+	// (`email_delivery: false` in `GET /v1/meta`) nothing is mailed and
+	// the account can sign in with its password right away, its
+	// address unverified; an existing address is left untouched.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11302,7 +11441,10 @@ type ClientWithResponsesInterface interface {
 	// verification link (a sign-in link). Password sign-in works once
 	// the address is verified. Always `202`: an existing address gets
 	// a sign-in link instead, so registration can't be used to probe
-	// for accounts.
+	// for accounts. On a server that sends no email
+	// (`email_delivery: false` in `GET /v1/meta`) nothing is mailed and
+	// the account can sign in with its password right away, its
+	// address unverified; an existing address is left untouched.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11482,6 +11624,17 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
 	PreviewMessageWithResponse(ctx context.Context, body PreviewMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewMessageResponse, error)
+
+	// GetMetaWithResponse What this deployment offers
+	//
+	// The sign-in methods this server accepts, whether it sends email,
+	// and glossa-edge's public base URL, so clients don't guess.
+	// Public and the same for every caller.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/meta (the `GetMeta` operationId).
+	GetMetaWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMetaResponse, error)
 
 	// ListTenantsWithResponse Tenants the caller can act in
 	//
@@ -12558,6 +12711,8 @@ type RedeemMagicLinkResponse struct {
 	ApplicationproblemJSON400 *BadRequest
 	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
 	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
 	// Headers200 the parsed response headers for an HTTP 200 response
 	Headers200 *RedeemMagicLinkResponse200Headers
 }
@@ -12575,6 +12730,11 @@ func (r RedeemMagicLinkResponse) GetApplicationproblemJSON400() *BadRequest {
 // GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
 func (r RedeemMagicLinkResponse) GetApplicationproblemJSON401() *Unauthenticated {
 	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RedeemMagicLinkResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
 }
 
 // GetBody returns the raw response body bytes
@@ -12611,6 +12771,8 @@ type RequestMagicLinkResponse struct {
 	HTTPResponse *http.Response
 	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
 	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
 	// ApplicationproblemJSON429 the response for an HTTP 429 `application/problem+json` response
 	ApplicationproblemJSON429 *TooManyRequests
 }
@@ -12618,6 +12780,11 @@ type RequestMagicLinkResponse struct {
 // GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
 func (r RequestMagicLinkResponse) GetApplicationproblemJSON400() *BadRequest {
 	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RequestMagicLinkResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
 }
 
 // GetApplicationproblemJSON429 returns the response for an HTTP 429 `application/problem+json` response
@@ -12785,6 +12952,8 @@ type ResetPasswordResponse struct {
 	ApplicationproblemJSON400 *BadRequest
 	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
 	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
 }
 
 // GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
@@ -12795,6 +12964,11 @@ func (r ResetPasswordResponse) GetApplicationproblemJSON400() *BadRequest {
 // GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
 func (r ResetPasswordResponse) GetApplicationproblemJSON401() *Unauthenticated {
 	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ResetPasswordResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
 }
 
 // GetBody returns the raw response body bytes
@@ -12831,6 +13005,8 @@ type RequestPasswordResetResponse struct {
 	HTTPResponse *http.Response
 	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
 	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
 	// ApplicationproblemJSON429 the response for an HTTP 429 `application/problem+json` response
 	ApplicationproblemJSON429 *TooManyRequests
 }
@@ -12838,6 +13014,11 @@ type RequestPasswordResetResponse struct {
 // GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
 func (r RequestPasswordResetResponse) GetApplicationproblemJSON400() *BadRequest {
 	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RequestPasswordResetResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
 }
 
 // GetApplicationproblemJSON429 returns the response for an HTTP 429 `application/problem+json` response
@@ -13646,6 +13827,47 @@ func (r PreviewMessageResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PreviewMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMetaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Meta
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMetaResponse) GetJSON200() *Meta {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMetaResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMetaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMetaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMetaResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -18374,7 +18596,8 @@ func (r GetTokenResponse) ContentType() string {
 // RedeemMagicLinkWithBodyWithResponse Sign in with an emailed link
 //
 // Spends the link's token and starts a session. Problem codes:
-// `link_invalid` (unknown, expired or already used).
+// `link_invalid` (unknown, expired or already used),
+// `email_disabled` (404).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18390,7 +18613,8 @@ func (c *ClientWithResponses) RedeemMagicLinkWithBodyWithResponse(ctx context.Co
 // RedeemMagicLinkWithResponse Sign in with an emailed link
 //
 // Spends the link's token and starts a session. Problem codes:
-// `link_invalid` (unknown, expired or already used).
+// `link_invalid` (unknown, expired or already used),
+// `email_disabled` (404).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18408,7 +18632,9 @@ func (c *ClientWithResponses) RedeemMagicLinkWithResponse(ctx context.Context, b
 // Sends a single-use link valid for 15 minutes. Signing in with it
 // creates the account (and the person's individual tenant) if the
 // address is new, and verifies the address. Always `202`, so the
-// response never reveals whether an account exists.
+// response never reveals whether an account exists. Problem codes:
+// `email_disabled` (404: the server sends no email; see
+// `GET /v1/meta`).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18426,7 +18652,9 @@ func (c *ClientWithResponses) RequestMagicLinkWithBodyWithResponse(ctx context.C
 // Sends a single-use link valid for 15 minutes. Signing in with it
 // creates the account (and the person's individual tenant) if the
 // address is new, and verifies the address. Always `202`, so the
-// response never reveals whether an account exists.
+// response never reveals whether an account exists. Problem codes:
+// `email_disabled` (404: the server sends no email; see
+// `GET /v1/meta`).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18509,7 +18737,7 @@ func (c *ClientWithResponses) FinishPasskeySignInWithResponse(ctx context.Contex
 //
 // Sets the password, verifies the address and signs the person out
 // everywhere. Problem codes: `link_invalid` (401), `weak_password`
-// (400).
+// (400), `email_disabled` (404).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18526,7 +18754,7 @@ func (c *ClientWithResponses) ResetPasswordWithBodyWithResponse(ctx context.Cont
 //
 // Sets the password, verifies the address and signs the person out
 // everywhere. Problem codes: `link_invalid` (401), `weak_password`
-// (400).
+// (400), `email_disabled` (404).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18541,7 +18769,8 @@ func (c *ClientWithResponses) ResetPasswordWithResponse(ctx context.Context, bod
 
 // RequestPasswordResetWithBodyWithResponse Email a password reset link
 //
-// Always `202`, whether or not the address has an account.
+// Always `202`, whether or not the address has an account. Problem
+// codes: `email_disabled` (404).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18556,7 +18785,8 @@ func (c *ClientWithResponses) RequestPasswordResetWithBodyWithResponse(ctx conte
 
 // RequestPasswordResetWithResponse Email a password reset link
 //
-// Always `202`, whether or not the address has an account.
+// Always `202`, whether or not the address has an account. Problem
+// codes: `email_disabled` (404).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18572,9 +18802,9 @@ func (c *ClientWithResponses) RequestPasswordResetWithResponse(ctx context.Conte
 // SignInWithPasswordWithBodyWithResponse Sign in with email and password
 //
 // Problem codes: `invalid_credentials` (401), `totp_required` (401,
-// send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
-// `account_locked` (429 after repeated failures; the lock lifts after
-// 15 minutes).
+// send `totp_code`), `totp_invalid` (401), `email_unverified` (403;
+// only on servers that send email), `account_locked` (429 after
+// repeated failures; the lock lifts after 15 minutes).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18590,9 +18820,9 @@ func (c *ClientWithResponses) SignInWithPasswordWithBodyWithResponse(ctx context
 // SignInWithPasswordWithResponse Sign in with email and password
 //
 // Problem codes: `invalid_credentials` (401), `totp_required` (401,
-// send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
-// `account_locked` (429 after repeated failures; the lock lifts after
-// 15 minutes).
+// send `totp_code`), `totp_invalid` (401), `email_unverified` (403;
+// only on servers that send email), `account_locked` (429 after
+// repeated failures; the lock lifts after 15 minutes).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18611,7 +18841,10 @@ func (c *ClientWithResponses) SignInWithPasswordWithResponse(ctx context.Context
 // verification link (a sign-in link). Password sign-in works once
 // the address is verified. Always `202`: an existing address gets
 // a sign-in link instead, so registration can't be used to probe
-// for accounts.
+// for accounts. On a server that sends no email
+// (`email_delivery: false` in `GET /v1/meta`) nothing is mailed and
+// the account can sign in with its password right away, its
+// address unverified; an existing address is left untouched.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18630,7 +18863,10 @@ func (c *ClientWithResponses) RegisterWithBodyWithResponse(ctx context.Context, 
 // verification link (a sign-in link). Password sign-in works once
 // the address is verified. Always `202`: an existing address gets
 // a sign-in link instead, so registration can't be used to probe
-// for accounts.
+// for accounts. On a server that sends no email
+// (`email_delivery: false` in `GET /v1/meta`) nothing is mailed and
+// the account can sign in with its password right away, its
+// address unverified; an existing address is left untouched.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -18905,6 +19141,23 @@ func (c *ClientWithResponses) PreviewMessageWithResponse(ctx context.Context, bo
 		return nil, err
 	}
 	return ParsePreviewMessageResponse(rsp)
+}
+
+// GetMetaWithResponse What this deployment offers
+//
+// The sign-in methods this server accepts, whether it sends email,
+// and glossa-edge's public base URL, so clients don't guess.
+// Public and the same for every caller.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/meta (the `GetMeta` operationId).
+func (c *ClientWithResponses) GetMetaWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMetaResponse, error) {
+	rsp, err := c.GetMeta(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMetaResponse(rsp)
 }
 
 // ListTenantsWithResponse Tenants the caller can act in
@@ -20524,6 +20777,13 @@ func ParseRedeemMagicLinkResponse(rsp *http.Response) (*RedeemMagicLinkResponse,
 		}
 		response.ApplicationproblemJSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
 	}
 
 	switch {
@@ -20565,6 +20825,13 @@ func ParseRequestMagicLinkResponse(rsp *http.Response) (*RequestMagicLinkRespons
 			return nil, err
 		}
 		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
 		var dest TooManyRequests
@@ -20715,6 +20982,13 @@ func ParseResetPasswordResponse(rsp *http.Response) (*ResetPasswordResponse, err
 		}
 		response.ApplicationproblemJSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
 	}
 
 	return response, nil
@@ -20743,6 +21017,13 @@ func ParseRequestPasswordResetResponse(rsp *http.Response) (*RequestPasswordRese
 			return nil, err
 		}
 		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
 		var dest TooManyRequests
@@ -21375,6 +21656,32 @@ func ParsePreviewMessageResponse(rsp *http.Response) (*PreviewMessageResponse, e
 			return nil, err
 		}
 		response.ApplicationproblemJSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMetaResponse parses an HTTP response from a GetMetaWithResponse call
+func ParseGetMetaResponse(rsp *http.Response) (*GetMetaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMetaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Meta
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 

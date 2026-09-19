@@ -24,8 +24,19 @@ func TestStorageAndReleaseDefaults(t *testing.T) {
 	if cfg.Storage.Driver != "dir" || cfg.Storage.Dir != "data/objects" {
 		t.Errorf("storage = %+v", cfg.Storage)
 	}
-	if !cfg.Release.SigningKeys.IsZero() || cfg.Release.RetiredKeys != "" {
+	if !cfg.Release.SigningKeys.IsZero() || cfg.Release.RetiredKeys != "" || cfg.Release.EdgePublicURL != "" {
 		t.Errorf("release = %+v", cfg.Release)
+	}
+}
+
+func TestEdgePublicURL(t *testing.T) {
+	cfg, err := config.Load(env(base(map[string]string{"GLOSSA_EDGE_PUBLIC_URL": "https://edge.glossa.test/"})))
+	if err != nil || cfg.Release.EdgePublicURL != "https://edge.glossa.test" {
+		t.Errorf("edge URL = %q, %v", cfg.Release.EdgePublicURL, err)
+	}
+	_, err = config.Load(env(base(map[string]string{"GLOSSA_EDGE_PUBLIC_URL": "edge.glossa.test"})))
+	if err == nil || !strings.Contains(err.Error(), "GLOSSA_EDGE_PUBLIC_URL: must be an absolute http(s) URL") {
+		t.Errorf("relative edge URL: %v", err)
 	}
 }
 

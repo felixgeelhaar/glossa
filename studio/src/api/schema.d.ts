@@ -4,6 +4,28 @@
  */
 
 export interface paths {
+    "/v1/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What this deployment offers
+         * @description The sign-in methods this server accepts, whether it sends email,
+         *     and glossa-edge's public base URL, so clients don't guess.
+         *     Public and the same for every caller.
+         */
+        get: operations["getMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/magic-links": {
         parameters: {
             query?: never;
@@ -18,7 +40,9 @@ export interface paths {
          * @description Sends a single-use link valid for 15 minutes. Signing in with it
          *     creates the account (and the person's individual tenant) if the
          *     address is new, and verifies the address. Always `202`, so the
-         *     response never reveals whether an account exists.
+         *     response never reveals whether an account exists. Problem codes:
+         *     `email_disabled` (404: the server sends no email; see
+         *     `GET /v1/meta`).
          */
         post: operations["requestMagicLink"];
         delete?: never;
@@ -39,7 +63,8 @@ export interface paths {
         /**
          * Sign in with an emailed link
          * @description Spends the link's token and starts a session. Problem codes:
-         *     `link_invalid` (unknown, expired or already used).
+         *     `link_invalid` (unknown, expired or already used),
+         *     `email_disabled` (404).
          */
         post: operations["redeemMagicLink"];
         delete?: never;
@@ -63,7 +88,10 @@ export interface paths {
          *     verification link (a sign-in link). Password sign-in works once
          *     the address is verified. Always `202`: an existing address gets
          *     a sign-in link instead, so registration can't be used to probe
-         *     for accounts.
+         *     for accounts. On a server that sends no email
+         *     (`email_delivery: false` in `GET /v1/meta`) nothing is mailed and
+         *     the account can sign in with its password right away, its
+         *     address unverified; an existing address is left untouched.
          */
         post: operations["register"];
         delete?: never;
@@ -84,9 +112,9 @@ export interface paths {
         /**
          * Sign in with email and password
          * @description Problem codes: `invalid_credentials` (401), `totp_required` (401,
-         *     send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
-         *     `account_locked` (429 after repeated failures; the lock lifts after
-         *     15 minutes).
+         *     send `totp_code`), `totp_invalid` (401), `email_unverified` (403;
+         *     only on servers that send email), `account_locked` (429 after
+         *     repeated failures; the lock lifts after 15 minutes).
          */
         post: operations["signInWithPassword"];
         delete?: never;
@@ -106,7 +134,8 @@ export interface paths {
         put?: never;
         /**
          * Email a password reset link
-         * @description Always `202`, whether or not the address has an account.
+         * @description Always `202`, whether or not the address has an account. Problem
+         *     codes: `email_disabled` (404).
          */
         post: operations["requestPasswordReset"];
         delete?: never;
@@ -128,7 +157,7 @@ export interface paths {
          * Set a new password with a reset link
          * @description Sets the password, verifies the address and signs the person out
          *     everywhere. Problem codes: `link_invalid` (401), `weak_password`
-         *     (400).
+         *     (400), `email_disabled` (404).
          */
         post: operations["resetPassword"];
         delete?: never;
@@ -1787,6 +1816,30 @@ export interface components {
             pointer: string;
             detail: string;
         };
+        Meta: {
+            /**
+             * @description How people can sign in here, strongest first: `passkey` when
+             *     a WebAuthn relying party is configured, `password` always,
+             *     `magic_link` when the server sends email.
+             */
+            sign_in_methods: ("passkey" | "password" | "magic_link")[];
+            /**
+             * @description Whether the server sends email. Without it magic links,
+             *     email verification and password reset by email are
+             *     unavailable (`email_disabled`), a password account works
+             *     without a verified address, and invitations wait: only a
+             *     verified address accepts one.
+             */
+            email_delivery: boolean;
+            /**
+             * Format: uri
+             * @description glossa-edge's public base URL, what runtimes are configured
+             *     with (`{edge_url}/v1/{key}/{environment}/manifest.json`).
+             *     Absent when the deployment doesn't announce it
+             *     (`GLOSSA_EDGE_PUBLIC_URL`).
+             */
+            edge_url?: string;
+        };
         EmailRequest: {
             email: components["schemas"]["Email"];
         };
@@ -2686,6 +2739,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The deployment's facts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meta"];
+                };
+            };
+        };
+    };
     requestMagicLink: {
         parameters: {
             query?: never;
@@ -2707,6 +2780,7 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -2726,6 +2800,7 @@ export interface operations {
             200: components["responses"]["SessionStarted"];
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
         };
     };
     register: {
@@ -2793,6 +2868,7 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -2818,6 +2894,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
         };
     };
     beginPasskeySignIn: {

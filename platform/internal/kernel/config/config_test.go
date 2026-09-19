@@ -21,7 +21,9 @@ func TestIdentityDefaults(t *testing.T) {
 	if len(id.AuthKey()) != 42 || id.StudioURL != "http://localhost:5173" || id.SessionTTL != 14*24*time.Hour {
 		t.Errorf("identity = %+v", id)
 	}
-	if id.Mail.Driver != "log" || id.WebAuthn.Enabled() {
+	// No email unless configured: the log mailer is for development and
+	// must be asked for.
+	if id.Mail.Driver != "none" || id.Mail.Enabled() || id.WebAuthn.Enabled() {
 		t.Errorf("mail = %+v, webauthn = %+v", id.Mail, id.WebAuthn)
 	}
 	if strings.Contains(cfg.String(), testSecret) || strings.Contains(id.AuthSecret.String(), testSecret) {
@@ -66,6 +68,23 @@ func TestIdentityValidation(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("error %v\ndoes not contain %q", err, want)
 		}
+	}
+}
+
+func TestMailDrivers(t *testing.T) {
+	for driver, enabled := range map[string]bool{"none": false, "log": true} {
+		cfg, err := config.Load(env(map[string]string{
+			"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret, "GLOSSA_MAIL_DRIVER": driver,
+		}))
+		if err != nil || cfg.Identity.Mail.Enabled() != enabled {
+			t.Errorf("%s: %v %+v", driver, err, cfg.Identity.Mail)
+		}
+	}
+	_, err := config.Load(env(map[string]string{
+		"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret, "GLOSSA_MAIL_DRIVER": "sendmail",
+	}))
+	if err == nil || !strings.Contains(err.Error(), `GLOSSA_MAIL_DRIVER: must be none, smtp or log (got "sendmail")`) {
+		t.Errorf("unknown driver: %v", err)
 	}
 }
 
