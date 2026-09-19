@@ -47,6 +47,7 @@ provider's attributes and nothing else. See [MIGRATION.md](./MIGRATION.md).
 | `runtime` | Read: the runtime in use. Write: use this runtime instead of creating one, e.g. to share one runtime between elements and Vue islands. A runtime you pass in is never disposed by the provider. |
 | `bundled` | A release shipped with the build (`{ manifest, artifacts }`), rendered synchronously on first paint. |
 | `options` | Any other [`createRuntime`](../runtime/README.md) option (`storage`, `refreshInterval`, `transport`, `onError`, …). |
+| `GlossaProvider.defaultRuntime` (static) | `() => Runtime`: used by providers with neither `edge`, `bundled` nor `runtime`. Integrations set it to share one page-wide runtime (`@glossa/astro/elements` does). |
 
 Events, all bubbling and composed:
 

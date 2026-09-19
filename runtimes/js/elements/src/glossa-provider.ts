@@ -11,7 +11,9 @@
  *
  * Properties: `runtime` (use this runtime instead of creating one; it's left
  * running on disconnect), `bundled` (a release shipped with the build, rendered
- * synchronously) and `options` (any other `createRuntime` option).
+ * synchronously) and `options` (any other `createRuntime` option). A provider
+ * with neither `edge` nor `runtime` uses `GlossaProvider.defaultRuntime` when
+ * an integration sets it (`@glossa/astro` shares the page's runtime this way).
  *
  * Events (bubbling, composed): `glossa-change` after every activation
  * (`{ locale, dir, release }`), `glossa-error` for each runtime error, and
@@ -96,6 +98,13 @@ export class GlossaProvider extends LitElement {
   public bundled: BundledRelease | undefined;
   public options: RuntimeOptions | undefined;
 
+  /**
+   * The runtime for providers configured with neither `edge`, `bundled` nor
+   * `runtime`, e.g. one page-wide runtime shared with framework islands. It's
+   * never disposed by a provider.
+   */
+  public static defaultRuntime: (() => Runtime | undefined) | undefined;
+
   private external: Runtime | undefined;
   private active: Runtime | undefined;
   private owned = false;
@@ -162,9 +171,11 @@ export class GlossaProvider extends LitElement {
     if (this.publicKeys) o.publicKeys = parsePublicKeys(this.publicKeys);
     if (this.locale) o.locales = list(this.locale);
     if (this.bundled) o.bundled = this.bundled;
-    const rt = this.external ?? createRuntime(o);
+    const shared =
+      this.external ?? (o.edge || o.bundled ? undefined : GlossaProvider.defaultRuntime?.());
+    const rt = shared ?? createRuntime(o);
     this.active = rt;
-    this.owned = !this.external;
+    this.owned = !shared;
     this.isReady = false;
     this.unsubscribe = [
       rt.subscribe(() => {
@@ -173,7 +184,7 @@ export class GlossaProvider extends LitElement {
       }),
       rt.onError((e) => this.report(e)),
     ];
-    if (this.strict && !o.edge && !this.external && V03.some((a) => this.hasAttribute(a))) {
+    if (this.strict && !o.edge && !shared && V03.some((a) => this.hasAttribute(a))) {
       console.warn(
         "[glossa] <glossa-provider> ignores the v0.3 attributes project, api-url and api-key; " +
           "set edge and delivery-key instead (see @glossa/elements MIGRATION.md).",
