@@ -4,8 +4,9 @@ Go module for Glossa's control and delivery planes (RFC 0002). It holds
 the `glossa-server` kernel (configuration, observability, the HTTP edge,
 Postgres with forced row-level security, tenancy, the transactional
 outbox), the `/v1` API contract, the bounded contexts under
-`internal/<context>/` (Identity, Catalog, Localization, Release and
-Knowledge so far) and `glossa-edge`, the stateless delivery server.
+`internal/<context>/` (Identity, Catalog, Localization, Release,
+Knowledge and Intelligence so far) and `glossa-edge`, the stateless
+delivery server.
 
 ```text
 api/openapi.yaml            the /v1 contract (OpenAPI 3.1), source of truth
@@ -28,6 +29,7 @@ internal/kernel/
   mfcontent/                authored text + canonical MF2 model + derived metadata (shared kernel)
   etag/, idempotency/       ETag/If-Match and Idempotency-Key helpers
   jcs/                      RFC 8785 canonical JSON (artifacts, manifests, signatures)
+  sealing/                  AES-256-GCM secrets at rest, bound to their tenant and row
   objectstore/              object storage port; dir, memory and S3 (minio-go) adapters
 internal/apiv1/apiconv/     message content, QA findings and If-Match on the wire
 internal/catalog/           projects, applications, messages, source revisions
@@ -38,6 +40,12 @@ internal/knowledge/         translation memory, termbase, style guides (RFC 0003
   domain/                   TM normalization and derivation, term recognition, terminology QA, style merge
   app/                      use cases, the outbox subscribers, Reader (the port Intelligence consumes)
   adapters/                 postgres (sqlc), sources (Catalog/Localization ports), httpapi
+internal/intelligence/      AI translation (RFC 0003 §3–§4, §7)
+  domain/                   provider port, routing, prices, budgets, confidence, config, jobs, suggestions
+  app/                      the translation agent and Router; the wiring's Service, subscribers and Worker
+  adapters/                 anthropic, openaicompat, gemini, resilient, cassette, memory (library);
+                            postgres (sqlc), sources, providers, metrics, httpapi (wiring)
+  prompts/, evals/          versioned prompts; golden sets, cassettes and the tracked baseline
 internal/preview/           stateless message preview (parse, MF2, format), rate-limited per caller
 internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
@@ -111,7 +119,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_OUTBOX_MAX_ATTEMPTS` | `10` | Deliveries before an event is dead-lettered. |
 | `GLOSSA_OUTBOX_LEASE` | `1m` | Claim lease. Must exceed the handler timeout. |
 | `GLOSSA_OUTBOX_HANDLER_TIMEOUT` | `30s` | Budget for one subscriber, retries included. |
-| `GLOSSA_AUTH_SECRET` | required | Base64 of ≥ 32 random bytes. The CSRF, TOTP-sealing and passkey-state keys are derived from it (HKDF). Rotating it invalidates CSRF tokens and in-flight passkey ceremonies and makes enrolled TOTP secrets unreadable. |
+| `GLOSSA_AUTH_SECRET` | required | Base64 of ≥ 32 random bytes. The CSRF, TOTP-sealing, passkey-state and secret-sealing keys are derived from it (HKDF). Rotating it invalidates CSRF tokens and in-flight passkey ceremonies and makes enrolled TOTP secrets and tenants' AI provider keys unreadable (they are entered again). |
 | `GLOSSA_STUDIO_URL` | `http://localhost:5173` | Studio's origin; emailed links point into it. |
 | `GLOSSA_SESSION_TTL` | `336h` | Session lifetime. |
 | `GLOSSA_MAIL_DRIVER` | `none` | `none` (no email: magic links and password reset by email are off, password accounts work unverified), `smtp`, or `log` (development only: mail goes to the log, links included). |
@@ -129,6 +137,12 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_RELEASE_SIGNING_KEYS` | derived | `keyId=base64(32-byte Ed25519 seed)`, comma-separated. Every manifest is signed with each. Unset: one key derived from `GLOSSA_AUTH_SECRET` (development only; a warning is logged). |
 | `GLOSSA_RELEASE_RETIRED_KEYS` | — | `keyId=base64(public key)`, comma-separated: still published for verification, no longer signing. |
 | `GLOSSA_EDGE_PUBLIC_URL` | — | glossa-edge's public base URL (`https://edge.example.com`). `GET /v1/meta` announces it, so Studio's snippets and other clients don't guess. |
+| `GLOSSA_AI_WORKERS_ENABLED` | `true` | Run AI translation job workers in this process. |
+| `GLOSSA_AI_WORKERS` | `2` | Jobs this process runs at once. Tenants' own caps (`max_concurrent_jobs`) apply across replicas. |
+| `GLOSSA_AI_POLL_INTERVAL` | `1s` | Idle poll interval of a worker. |
+| `GLOSSA_AI_JOB_TIMEOUT` / `_JOB_LEASE` | `10m` / `15m` | Budget for one job (model calls and retries included); how long a claimed job is reserved before another worker takes it over. The lease must be longer. |
+| `GLOSSA_AI_PROVIDER_CONCURRENCY` | `4` | Calls in flight per configured provider in this process. |
+| `GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS` | `false` | Let tenants point providers at loopback and private addresses (self-hosted models in the cluster). Off: such base URLs are refused and the provider client won't connect to them. |
 
 `glossa-edge` reads `GLOSSA_HTTP_*` (listening on `:8081` by default),
 `GLOSSA_LOG_LEVEL`, `GLOSSA_SHUTDOWN_TIMEOUT`, `OTEL_*` (service
@@ -361,9 +375,9 @@ without keys, jobs, suggestions, disclosures, metrics);
 sensitive namespaces, auto-translate, review routing) belongs to owners,
 admins and `admin` tokens; `intelligence.translate` (request fills,
 cancel jobs, accept, edit or reject suggestions) is **locale-scoped**
-like `translations.write` and belongs to every role but none of the
-read-only ones — translators and reviewers within their locales — and
-to `write` tokens.
+like `translations.write`: translators and reviewers hold it within
+their locales; developers, admins, owners and `write` tokens hold it
+for every locale.
 
 **API tokens** look like `glossa_api_` + 43 base64url characters.
 Register `glossa_api_[A-Za-z0-9_-]{43}` with secret scanners. They're
@@ -647,6 +661,140 @@ actor; TM units are derived state and publish none). Subscribers:
 and their history). Permissions: reads, lookups, recognition and checks
 need `knowledge.read`; creating, replacing, deleting and retiring
 `knowledge.write`.
+
+## Intelligence
+
+AI translation that amplifies accumulated knowledge (RFC 0003 §3–§4,
+intent §54). The library — the translation agent (`app.Translator`: gather
+→ draft → validate → repair ≤ 2 → assess), the provider port and
+adapters, confidence and review routing, prompts and evals — is wired
+into the platform here.
+
+| Table | Scope | Why |
+|---|---|---|
+| `intelligence_providers` | tenant | BYO providers: kind (`anthropic`, `openai_compatible`, `gemini`), base URL, model allow-list, enabled, the API key **sealed** (`kernel/sealing`, AES-256-GCM bound to tenant and row, key derived from `GLOSSA_AUTH_SECRET`). The key is write-only: the API says `api_key_set`, never the key. |
+| `intelligence_settings` | tenant | Consent (`provider_consent`, off by default, who and when), `max_concurrent_jobs`, `monthly_budget_micro_usd` (0: no provider calls), price overrides. `glossa_system` may SELECT (the claim's cap). |
+| `intelligence_project_settings` | tenant | Namespace tags (`sensitive`, `legal`, `marketing`), auto-translate locales (none by default), review routing. |
+| `intelligence_routing_policies` | tenant | The tenant's (`project_id` NULL) and projects' routing; none stored means `DefaultRouting()`. |
+| `intelligence_spend` | tenant | Every priced call, append-only: the budget is this UTC month's sum; nothing resets. Outlives projects. |
+| `intelligence_fills` | tenant | Explicit and locale-added batch requests. |
+| `intelligence_jobs` | tenant | The queue, with each job's audit ledger. `glossa_system` may SELECT and UPDATE (claims). |
+| `intelligence_suggestions` | tenant | Results with provenance, score, explanation, action, risk tags, cost and the decision. |
+| `intelligence_disclosures` | tenant | Which provider and model saw which message, and exactly what was sent. Append-only. |
+
+**Jobs.** A job is one message × locale, unique per `(message, locale,
+source revision, knowledge fingerprint)` — the fingerprint digests the
+prompt versions, the effective style guides' versions and the pair's
+termbase (every concept in scope with a term in either locale, with its
+version); translation memory is left out on purpose (it changes with
+every approval). Triggers are idempotent outbox subscribers acting as
+the background principal `intelligence.auto_translate` (catalog,
+translations and knowledge read only): `catalog.message.created` and
+`localization.translation.outdated` queue jobs for the locales with
+auto-translate on, `localization.locale.added` fills a new locale with
+auto-translate on (the fill's ID is the event's), and `POST
+…/projects/{project}/ai-fills` queues explicit fills (missing, optionally
+outdated, or listed keys; failed, dead or cancelled jobs are queued
+again). A duplicate event finds the existing job.
+
+Workers run in glossa-server (`GLOSSA_AI_*`). A claim is one statement in
+the system scope `intelligence.jobs`, serialized by an advisory lock and
+taken `FOR UPDATE SKIP LOCKED`: the next due job (queued, or running
+with an expired lease) of a tenant under its `max_concurrent_jobs`, so
+the cap holds across replicas. Each provider (tenant × configuration
+version) is fortify-wrapped — timeout, retry with backoff, a circuit
+breaker — and capped by an in-process bulkhead
+(`GLOSSA_AI_PROVIDER_CONCURRENCY`). The job runs in its tenant's scope as
+`intelligence.worker` (catalog, translations and knowledge read,
+releases read, translations write and review) and ends:
+
+| State | When |
+|---|---|
+| `succeeded` | A suggestion was stored (and routed). |
+| `skipped` | `superseded` (the source moved on), `up_to_date` (translated meanwhile), `message_gone`, `locale_gone`. |
+| `failed` | For good, with a reason: `provider_consent`, `sensitive`, `invalid_output`, `budget_exceeded`, `no_route`, `provider_error`, `invalid_source`. |
+| `queued` again | A transient failure (`app.Transient`: rate limit, overload, outage): backoff 30 s doubling to 30 min, on the database's clock. |
+| `dead` | Transient failures exhausted `max_attempts` (5), or its workers kept dying. |
+| `cancelled` | By `POST …/ai-jobs/{job}/cancellation` or a fill's, while queued. |
+
+Settlement is fenced by the claim token, so a worker whose lease ran out
+changes nothing. Disclosures are stored before settlement, even for a
+failed job: a provider that saw the text is recorded.
+
+**Privacy (RFC 0003 §7).** Without `provider_consent` the agent never
+calls a provider: an exact translation-memory match (100/101, clean
+terminology, every plural category the target needs) is still reused,
+anything else fails `provider_consent` with a reason that names the
+setting, and a fill says so up front (`warnings: provider_consent_off`).
+A namespace tagged `sensitive` is never queued by triggers, skipped by
+fills (`skipped.sensitive`), refused by the worker if it was tagged after
+queueing, and refused again by the agent's own tool guard. Base URLs are
+https and never private or loopback addresses unless the deployment
+allows them, checked on the resolved address when the client dials.
+
+**Budgets.** `monthly_budget_micro_usd` caps provider spend per UTC
+month; 0 (the default) allows none. Before each call the router asks the
+guard whether this month's spend plus the call's upper-bound estimate
+(input at the input price, the whole `max_tokens` at the output price)
+fits, and refuses it otherwise (`budget_exceeded`, never retried, never
+another route); after the call it books the actual cost. Calls already
+in flight when the cap is reached finish, so a month can end at most
+their cost over the cap. Prices are the deployment's defaults with the
+tenant's overrides (`ai-prices`); a configured `anthropic`-kind provider
+under another name gets the Anthropic prices under its name.
+
+**Suggestions and review routing.** A suggestion stores the canonical
+MF2, findings, provenance, score and explanation, and its action by the
+project's review policy: `approve_recommended` and `review_required`
+wait in the review queue (`GET …/ai-review-queue`, lowest score first,
+then most risk tags: legal and marketing namespaces, forbidden terms,
+max length, missing plural categories); a newer suggestion for the same
+message and locale supersedes a pending one. **`auto_approve`** is off by
+default and is accepted only with `auto_approve_environments` that all
+exist and ship `approved` (Release's eligibility policies —
+`GetEnvironment` as `releases.read`); it is checked again for every
+suggestion, and when an environment stopped shipping approved text the
+suggestion is routed `approve_recommended` with an `action_note`. An
+auto-approved suggestion is written as an approved revision by the
+worker. Accepting (`…/acceptance`, optionally with an edit) writes the
+revision through Localization as the caller (`intelligence.translate`
+and `translations.write` for the locale; `approved` when the caller may
+review, else the project's policy) with origin `ai` or
+`translation_memory` and an `origin_detail` of provider, model, prompt
+version, TM units, terms, style version, score, explanation, suggestion
+and job. An edit records its structured diff: character edit distance
+and ratio, terms added and removed, style fields whose use changed.
+Rejecting writes nothing.
+
+**Plural categories (policy).** A draft lacking a CLDR plural category
+the *target* locale needs (Polish `few`/`many`) goes back to the model
+for repair like a structural error, even though `CheckCompat` calls it
+a warning. If it is still missing after the two repairs, the suggestion
+is kept, scored low (factor `missing_plural_categories` naming them) and
+forced to `review_required` under every policy.
+
+**Metrics.** Prometheus: `glossa_intelligence_jobs_total{trigger,state,code}`,
+`glossa_intelligence_job_duration_seconds`,
+`glossa_intelligence_cost_micro_usd_total{tenant,provider,model}`,
+`glossa_intelligence_suggestions_total{locale,origin,action}`,
+`glossa_intelligence_suggestion_confidence`,
+`glossa_intelligence_suggestion_decisions_total{locale,status}`,
+`glossa_intelligence_edit_ratio{locale}`, `glossa_intelligence_queue_jobs{state}`.
+`GET …/projects/{project}/ai-metrics` returns the acceptance rate and
+edit distance per locale (intent §70); `GET …/ai-eval-baseline` serves
+the committed `evals/testdata/baseline.json`.
+
+Subscribers: `intelligence.auto_translate` (the three triggers),
+`intelligence.drop_project` on `catalog.project.deleted` (erases the
+project's jobs, fills, suggestions, disclosures, settings and routing;
+spend stays). Permissions: see *Identity* (`intelligence.read`,
+`intelligence.manage`, `intelligence.translate`).
+
+**Tests** replay provider cassettes, never real providers: the evals
+(`evals/testdata/cassettes`) and the wiring's integration tests
+(`app/testdata/wiring`, re-recorded from each test's scripted answers
+with `go test -tags=integration ./internal/intelligence/app -run
+TestWiring -record-wiring`).
 
 ## Message preview
 
