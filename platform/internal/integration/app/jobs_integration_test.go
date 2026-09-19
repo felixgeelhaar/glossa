@@ -442,7 +442,20 @@ func TestLifecycleRetentionAndBadFiles(t *testing.T) {
 		t.Errorf("source locale mismatch = %+v", wrong)
 	}
 
+	queued, _, err := h.svc.CreateExport(ctx, app.ExportRequest{ProjectID: &p, Format: "xliff"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, err := h.svc.Cancel(h.as([]string{"admin"}), queued.ID, domain.Export); err != nil || c.State != domain.StateCancelled {
+		t.Errorf("a manager cancels a queued export: %+v %v", c, err)
+	}
+	if _, err := h.svc.Cancel(h.as([]string{"translator"}, "de"), queued.ID, domain.Export); !errors.Is(err, authz.ErrForbidden) {
+		t.Errorf("someone else cancels: %v", err)
+	}
 	ej, _ := h.export(t, ctx, app.ExportRequest{ProjectID: &p, Format: "json"})
+	if _, err := h.svc.Cancel(ctx, ej.ID, domain.Export); !errors.Is(err, domain.ErrNotCancellable) {
+		t.Errorf("cancel a finished export: %v", err)
+	}
 	if _, err := env.Super.Exec(context.Background(), "UPDATE integration_jobs SET expires_at = now() - interval '1 second'"); err != nil {
 		t.Fatal(err)
 	}

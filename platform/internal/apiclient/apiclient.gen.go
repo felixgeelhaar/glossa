@@ -5999,9 +5999,11 @@ type ClientInterface interface {
 
 	// CancelExportJob Cancel a queued export
 	//
-	// A queued export is cancelled at once; a running one finishes.
-	// The requester, or someone with `integration.manage`, may cancel.
-	// Problem code: `job_not_cancellable` (409: it has finished).
+	// A queued export is cancelled at once; one that is running is
+	// written in one go and can't be. Cancelling a cancelled export
+	// changes nothing. The requester, or someone with
+	// `integration.manage`, may cancel. Problem code:
+	// `job_not_cancellable` (409: it is running or has finished).
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/export-jobs/{export_job}/cancellation (the `CancelExportJob` operationId).
 	CancelExportJob(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9127,9 +9129,11 @@ func (c *Client) GetExportJob(ctx context.Context, tenant TenantPath, exportJob 
 
 // CancelExportJob Cancel a queued export
 //
-// A queued export is cancelled at once; a running one finishes.
-// The requester, or someone with `integration.manage`, may cancel.
-// Problem code: `job_not_cancellable` (409: it has finished).
+// A queued export is cancelled at once; one that is running is
+// written in one go and can't be. Cancelling a cancelled export
+// changes nothing. The requester, or someone with
+// `integration.manage`, may cancel. Problem code:
+// `job_not_cancellable` (409: it is running or has finished).
 //
 // Corresponds with POST /v1/tenants/{tenant}/export-jobs/{export_job}/cancellation (the `CancelExportJob` operationId).
 func (c *Client) CancelExportJob(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -21856,9 +21860,11 @@ type ClientWithResponsesInterface interface {
 
 	// CancelExportJobWithResponse Cancel a queued export
 	//
-	// A queued export is cancelled at once; a running one finishes.
-	// The requester, or someone with `integration.manage`, may cancel.
-	// Problem code: `job_not_cancellable` (409: it has finished).
+	// A queued export is cancelled at once; one that is running is
+	// written in one go and can't be. Cancelling a cancelled export
+	// changes nothing. The requester, or someone with
+	// `integration.manage`, may cancel. Problem code:
+	// `job_not_cancellable` (409: it is running or has finished).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -35185,9 +35191,11 @@ func (c *ClientWithResponses) GetExportJobWithResponse(ctx context.Context, tena
 
 // CancelExportJobWithResponse Cancel a queued export
 //
-// A queued export is cancelled at once; a running one finishes.
-// The requester, or someone with `integration.manage`, may cancel.
-// Problem code: `job_not_cancellable` (409: it has finished).
+// A queued export is cancelled at once; one that is running is
+// written in one go and can't be. Cancelling a cancelled export
+// changes nothing. The requester, or someone with
+// `integration.manage`, may cancel. Problem code:
+// `job_not_cancellable` (409: it is running or has finished).
 //
 // Returns a wrapper object for the known response body format(s).
 //

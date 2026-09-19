@@ -329,6 +329,9 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID, dir domain.Direction
 		if err != nil {
 			return err
 		}
+		if dir == domain.Export && cur.State == domain.StateRunning {
+			return domain.ErrNotCancellable // an export is written in one go
+		}
 		changed, err := cur.Cancel(s.now())
 		if err != nil || !changed {
 			j = cur

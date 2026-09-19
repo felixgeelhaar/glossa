@@ -3141,9 +3141,11 @@ export interface paths {
         put?: never;
         /**
          * Cancel a queued export
-         * @description A queued export is cancelled at once; a running one finishes.
-         *     The requester, or someone with `integration.manage`, may cancel.
-         *     Problem code: `job_not_cancellable` (409: it has finished).
+         * @description A queued export is cancelled at once; one that is running is
+         *     written in one go and can't be. Cancelling a cancelled export
+         *     changes nothing. The requester, or someone with
+         *     `integration.manage`, may cancel. Problem code:
+         *     `job_not_cancellable` (409: it is running or has finished).
          */
         post: operations["cancelExportJob"];
         delete?: never;
