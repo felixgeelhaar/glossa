@@ -44,6 +44,24 @@ type testRelease struct {
 // source locale; "ar" and "he" are right-to-left.
 func buildRelease(t *testing.T, id string, version int, catalogs map[string]map[string]string, order ...string) testRelease {
 	t.Helper()
+	models := map[string]map[string]any{}
+	for locale, sources := range catalogs {
+		models[locale] = map[string]any{}
+		for msgID, src := range sources {
+			msg, err := messageformat.ParseMF2(src)
+			if err != nil {
+				t.Fatalf("%s/%s: %v", locale, msgID, err)
+			}
+			models[locale][msgID] = msg
+		}
+	}
+	return buildReleaseModels(t, id, version, models, order...)
+}
+
+// buildReleaseModels is buildRelease over data-model messages (anything
+// that marshals to one).
+func buildReleaseModels(t *testing.T, id string, version int, catalogs map[string]map[string]any, order ...string) testRelease {
+	t.Helper()
 	if len(order) == 0 {
 		order = slices.Sorted(maps.Keys(catalogs))
 	}
@@ -56,11 +74,7 @@ func buildRelease(t *testing.T, id string, version int, catalogs map[string]map[
 		digest := hex.EncodeToString(sum[:])
 		rel.artifacts[digest] = body
 		refs[locale] = map[string]any{"default": map[string]any{"sha256": digest, "size": len(body)}}
-		dir := "ltr"
-		if locale == "ar" || locale == "he" {
-			dir = "rtl"
-		}
-		locales = append(locales, map[string]any{"code": locale, "direction": dir})
+		locales = append(locales, map[string]any{"code": locale, "direction": string(scriptDirection(locale))})
 	}
 	m := map[string]any{
 		"schema": "glossa.manifest/v1", "project": "prj_test", "environment": fakeEnv,
@@ -74,18 +88,13 @@ func buildRelease(t *testing.T, id string, version int, catalogs map[string]map[
 	return rel
 }
 
-func artifactBytes(t *testing.T, locale string, sources map[string]string) []byte {
+func artifactBytes(t *testing.T, locale string, messages map[string]any) []byte {
 	t.Helper()
-	msgs := map[string]messageformat.Message{}
-	for id, src := range sources {
-		msg, err := messageformat.ParseMF2(src)
-		if err != nil {
-			t.Fatalf("%s/%s: %v", locale, id, err)
-		}
-		msgs[id] = msg
+	if messages == nil {
+		messages = map[string]any{}
 	}
 	b, err := json.Marshal(map[string]any{
-		"schema": "glossa.artifact/v1", "locale": locale, "namespace": "default", "messages": msgs,
+		"schema": "glossa.artifact/v1", "locale": locale, "namespace": "default", "messages": messages,
 	})
 	if err != nil {
 		t.Fatal(err)

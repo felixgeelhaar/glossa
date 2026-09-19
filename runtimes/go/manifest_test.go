@@ -111,15 +111,15 @@ func TestFallbackChain(t *testing.T) {
 			"pt-BR": {"pt-PT"},
 			"pt-PT": {"pt-BR"},
 			"*":     {"en"},
-			"en":    {"nl"}, // unavailable locales are traversed but not listed
+			"en":    {"nl"}, // fallback targets outside the locales stay in the chain
 		},
 	}
 	cases := map[string][]string{
-		"de-AT":   {"de-AT", "de-CH", "de", "en"},
-		"fr-CA":   {"fr-CA", "fr", "en-CA", "en", "de"},
-		"pt-BR":   {"pt-BR", "pt-PT", "en", "de"},
-		"zh-Hant": {"zh-Hant", "en", "de"},
-		"de":      {"de", "en"},
+		"de-AT":   {"de-AT", "de-CH", "de", "en", "nl"},
+		"fr-CA":   {"fr-CA", "fr", "en-CA", "en", "nl", "de"},
+		"pt-BR":   {"pt-BR", "pt-PT", "en", "nl", "de"},
+		"zh-Hant": {"zh-Hant", "en", "nl", "de"},
+		"de":      {"de", "en", "nl"},
 	}
 	for active, want := range cases {
 		if got := m.chain(active); !slices.Equal(got, want) {

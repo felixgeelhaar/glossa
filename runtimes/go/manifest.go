@@ -179,8 +179,8 @@ func (m *manifest) negotiate(requested []string) string {
 }
 
 // chain builds the fallback chain of an active locale (SPEC §4.2), without
-// duplicates, stopping on cycles. Locales the manifest doesn't list are
-// traversed but not included: they have no artifacts.
+// duplicates, stopping on cycles. Explicit fallback targets the manifest
+// doesn't list stay in the chain; they resolve as missing.
 func (m *manifest) chain(active string) []string {
 	b := chainBuilder{m: m, seen: map[string]bool{}}
 	b.add(active)
@@ -212,9 +212,7 @@ func (b *chainBuilder) add(locale string) bool {
 		return false
 	}
 	b.seen[locale] = true
-	if b.m.hasLocale(locale) {
-		b.out = append(b.out, locale)
-	}
+	b.out = append(b.out, locale)
 	return true
 }
 

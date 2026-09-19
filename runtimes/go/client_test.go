@@ -54,6 +54,33 @@ func TestBundledOnlyClient(t *testing.T) {
 	}
 }
 
+func TestBundledArtifactsAreTrusted(t *testing.T) {
+	rel := buildRelease(t, "rel_b", 1, map[string]map[string]string{"en": {"v": "one"}})
+	fsys := rel.fs()
+	for name, f := range fsys {
+		if strings.HasPrefix(name, "a/") {
+			f.Data = []byte(strings.Replace(string(f.Data), "one", "uno", 1))
+		}
+	}
+	c := newTestClient(t, Config{Bundled: fsys})
+	if got := c.For("en").T("v", nil); got != "uno" {
+		t.Fatalf("T = %q; bundled artifacts ship like code and aren't re-hashed", got)
+	}
+}
+
+func TestUnlistedFallbackTargetsResolveAsMissing(t *testing.T) {
+	rel := buildRelease(t, "rel_1", 1, map[string]map[string]string{"en": {"v": "one"}, "de": {}}, "en", "de")
+	rel.manifest = mutateJSON(t, rel.manifest, func(m map[string]any) {
+		m["fallback"] = map[string]any{"de": []any{"de-CH"}}
+	})
+	c := newTestClient(t, Config{Bundled: rel.fs()})
+	e := c.For("de").Explain("v")
+	want := []Step{{"de", OutcomeMissing}, {"de-CH", OutcomeMissing}, {"en", OutcomeFound}}
+	if !slices.Equal(e.Steps, want) {
+		t.Fatalf("steps = %+v, want %+v", e.Steps, want)
+	}
+}
+
 func TestRenderingNeverFailsOrReturnsEmpty(t *testing.T) {
 	log := &errorLog{}
 	rel := buildRelease(t, "rel_1", 1, twoLocales, "en", "de")
