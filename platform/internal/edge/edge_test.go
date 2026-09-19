@@ -78,7 +78,9 @@ func newFixture(t *testing.T) *fixture {
 	art := []byte(`{"locale":"de","messages":{},"namespace":"default","schema":"glossa.artifact/v1"}`)
 	digest := delivery.Digest(art)
 	mfst := []byte(`{"release":{"id":"r1"}}`)
-	must(t, store.Put(ctx, delivery.KeyIndexPath(key), delivery.EncodeKeyIndex(projectA, "k1"), "application/json"))
+	scope, err := delivery.NewScope([]string{"production", "staging", "huge"}, false)
+	must(t, err)
+	must(t, store.Put(ctx, delivery.KeyIndexPath(key), delivery.EncodeKeyIndex(projectA, "k1", scope), "application/json"))
 	must(t, store.Put(ctx, delivery.ArtifactPath(projectA, digest), art, "application/json"))
 	must(t, store.Put(ctx, delivery.ManifestPath(projectA, "production"), mfst, "application/json"))
 	clk := &clock{now: time.Date(2026, 9, 19, 8, 0, 0, 0, time.UTC)}

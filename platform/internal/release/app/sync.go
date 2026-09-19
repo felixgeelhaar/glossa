@@ -80,7 +80,7 @@ func (s *Service) syncKey(ctx context.Context, k domain.DeliveryKey) error {
 	if !k.Active() {
 		return s.remove(ctx, path)
 	}
-	if err := s.objects.Put(ctx, path, delivery.EncodeKeyIndex(k.ProjectID.String(), k.ID.String()), "application/json"); err != nil {
+	if err := s.objects.Put(ctx, path, delivery.EncodeKeyIndex(k.ProjectID.String(), k.ID.String(), delivery.Scope{Environments: delivery.DefaultEnvironments}), "application/json"); err != nil {
 		return fmt.Errorf("%w: %v", ErrStorage, err)
 	}
 	return nil

@@ -9,8 +9,10 @@
 //
 // A delivery key resolves to its project through the key index object
 // the Release context writes on create and deletes on revoke. Unknown and
-// revoked keys answer 404, never 401. Responses carry CORS "*" and never
-// set cookies: the artifacts are public by design.
+// revoked keys answer 404, never 401, and so does an environment outside
+// the key's scope (its allowlist, and branch environments for a preview
+// key; RFC 0004 §4.3). Responses carry CORS "*" and never set cookies:
+// the artifacts are public by design.
 //
 // The handler caches key resolutions, manifests and artifacts in
 // process (an LRU bounded in bytes). Keys and manifests are fresh for a
@@ -72,7 +74,9 @@ type Handler struct {
 
 type keyEntry struct {
 	project string // "" when the key doesn't resolve
-	at      time.Time
+	// scope is what the key may read.
+	scope delivery.Scope
+	at    time.Time
 }
 
 type blob struct {
@@ -95,7 +99,7 @@ func New(store objectstore.Reader, cfg Config, logger *slog.Logger, reg promethe
 		store: store, cfg: cfg, logger: logger,
 		// Key entries are tiny; give them their own budget so a flood of
 		// unknown keys can't evict artifacts.
-		keys:  newLRU(8<<20, func(k string, _ keyEntry) int64 { return int64(len(k)) + 96 }),
+		keys:  newLRU(8<<20, keyCost),
 		blobs: newLRU(cfg.CacheBytes, func(k string, b blob) int64 { return int64(len(k)+len(b.body)+len(b.etag)) + 64 }),
 		metrics: metrics{
 			cache: prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -136,11 +140,15 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, errNotFound)
 		return
 	}
-	project, err := h.resolve(r.Context(), key)
+	k, err := h.resolve(r.Context(), key)
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
+	project := k.project
+	// Artifacts aren't scoped by environment: they are content-addressed,
+	// shared by a project's environments, and a key only learns a hash
+	// from a manifest it may read.
 	if segment == delivery.ArtifactSegment {
 		digest, ok := strings.CutSuffix(file, ".json")
 		if !ok || !delivery.ValidDigest(digest) {
@@ -155,7 +163,9 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
 		respond(w, r, b, artifactCaching)
 		return
 	}
-	if file != "manifest.json" || !delivery.ValidEnvironment(segment) {
+	// Outside the key's scope is not found, exactly like an unknown key,
+	// and decided before storage is read.
+	if file != "manifest.json" || !delivery.ValidEnvironment(segment) || !k.scope.Allows(segment) {
 		h.fail(w, r, errNotFound)
 		return
 	}
@@ -167,13 +177,14 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, b, manifestCaching)
 }
 
-// resolve maps a delivery key to its project through the key index.
-func (h *Handler) resolve(ctx context.Context, key string) (string, error) {
+// resolve maps a delivery key to its project and scope through the key
+// index.
+func (h *Handler) resolve(ctx context.Context, key string) (keyEntry, error) {
 	now := h.cfg.Now()
 	cached, fresh, ok := h.keys.get(key, now)
 	if ok && fresh {
 		h.metrics.cache.WithLabelValues("key", "hit").Inc()
-		return found(cached.project)
+		return found(cached)
 	}
 	// The flight outlives any one request: a caller hanging up must not
 	// fail the others waiting on the same read.
@@ -190,28 +201,37 @@ func (h *Handler) resolve(ctx context.Context, key string) (string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", errIntegrity, err)
 		}
-		return keyEntry{project: idx.Project, at: now}, nil
+		return keyEntry{project: idx.Project, scope: idx.Scope, at: now}, nil
 	})
 	if err != nil {
 		h.metrics.storage.WithLabelValues("key").Inc()
 		if ok && now.Sub(cached.at) < staleLimit {
 			h.metrics.cache.WithLabelValues("key", "stale").Inc()
 			h.logger.WarnContext(ctx, "edge: storage unavailable; serving a stale key resolution", slog.Any("error", err))
-			return found(cached.project)
+			return found(cached)
 		}
-		return "", err
+		return keyEntry{}, err
 	}
 	h.metrics.cache.WithLabelValues("key", "miss").Inc()
 	e := v.(keyEntry)
 	h.keys.put(key, e, now.Add(h.cfg.KeyTTL))
-	return found(e.project)
+	return found(e)
 }
 
-func found(project string) (string, error) {
-	if project == "" {
-		return "", errNotFound
+func found(e keyEntry) (keyEntry, error) {
+	if e.project == "" {
+		return keyEntry{}, errNotFound
 	}
-	return project, nil
+	return e, nil
+}
+
+// keyCost is a key entry's share of the key cache's byte budget.
+func keyCost(key string, e keyEntry) int64 {
+	n := int64(len(key)) + 96
+	for _, env := range e.scope.Environments {
+		n += int64(len(env)) + 16
+	}
+	return n
 }
 
 // manifest returns an environment's manifest, fresh for ManifestTTL.

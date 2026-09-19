@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 )
 
 // KeyPrefix starts every publishable delivery key, so secret scanners
@@ -97,34 +98,59 @@ func ArtifactPath(project, digest string) string {
 	return root + "projects/" + project + "/a/" + digest + ".json"
 }
 
-// KeyIndexSchema versions the key index object.
+// KeyIndexSchema versions the key index object. Its scope (environments,
+// branches) was added within v1 (runtimes/testdata/schemas).
 const KeyIndexSchema = "glossa.delivery-key/v1"
 
-// KeyIndex is the object that maps an active key to its project.
+// KeyIndex is the object that maps an active key to its project and
+// says what the key may read.
 type KeyIndex struct {
 	Schema  string `json:"schema"`
 	Project string `json:"project"`
 	KeyID   string `json:"key_id"`
+	Scope
 }
 
 // ErrInvalidKeyIndex means a key index object can't be used.
 var ErrInvalidKeyIndex = errors.New("delivery: invalid key index")
 
 // EncodeKeyIndex encodes the index object for a key of project.
-func EncodeKeyIndex(project, keyID string) []byte {
-	b, _ := json.Marshal(KeyIndex{Schema: KeyIndexSchema, Project: project, KeyID: keyID})
+func EncodeKeyIndex(project, keyID string, scope Scope) []byte {
+	if scope.Environments == nil {
+		scope.Environments = []string{}
+	}
+	b, _ := json.Marshal(KeyIndex{Schema: KeyIndexSchema, Project: project, KeyID: keyID, Scope: scope})
 	return b
 }
 
-// DecodeKeyIndex decodes and checks an index object.
+// DecodeKeyIndex decodes and checks an index object. One written before
+// scopes existed (no "environments" member) reads as the scope those
+// keys migrated to: the default environments, no branches.
 func DecodeKeyIndex(b []byte) (KeyIndex, error) {
-	var k KeyIndex
-	if err := json.Unmarshal(b, &k); err != nil {
+	var raw struct {
+		Schema       string    `json:"schema"`
+		Project      string    `json:"project"`
+		KeyID        string    `json:"key_id"`
+		Environments *[]string `json:"environments"`
+		Branches     bool      `json:"branches"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
 		return KeyIndex{}, fmt.Errorf("%w: %v", ErrInvalidKeyIndex, err)
 	}
-	if k.Schema != KeyIndexSchema || !projectPattern.MatchString(k.Project) {
-		return KeyIndex{}, fmt.Errorf("%w: schema %q, project %q", ErrInvalidKeyIndex, k.Schema, k.Project)
+	if raw.Schema != KeyIndexSchema || !projectPattern.MatchString(raw.Project) {
+		return KeyIndex{}, fmt.Errorf("%w: schema %q, project %q", ErrInvalidKeyIndex, raw.Schema, raw.Project)
 	}
+	k := KeyIndex{Schema: raw.Schema, Project: raw.Project, KeyID: raw.KeyID, Scope: Scope{Branches: raw.Branches}}
+	if raw.Environments == nil {
+		k.Environments = slices.Clone(DefaultEnvironments)
+		return k, nil
+	}
+	for _, e := range *raw.Environments {
+		if !ValidEnvironment(e) {
+			return KeyIndex{}, fmt.Errorf("%w: environment %q", ErrInvalidKeyIndex, e)
+		}
+	}
+	k.Environments = *raw.Environments
 	return k, nil
 }
 
