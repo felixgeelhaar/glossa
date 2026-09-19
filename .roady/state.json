@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 77,
+  "version": 78,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -122,6 +122,11 @@
       "started_at": "2026-05-25T08:34:11.028873+02:00",
       "completed_at": "2026-05-25T08:40:57.582186+02:00",
       "elapsed_minutes": 6
+    },
+    "task-dogfood-product-fixes": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
     },
     "task-elements": {
       "status": "done",
