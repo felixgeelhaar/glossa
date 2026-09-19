@@ -87,7 +87,8 @@ func runInit(ctx context.Context, inv *invocation, args []string) error {
 		if !checked {
 			p.line("  %s not checked against the server (no token): run `glossa login`, then `glossa whoami`", p.caution())
 		}
-		p.line("Next: `glossa push` sends %s to the server.", filepath.ToSlash(cfg.Catalogs.Path))
+		p.line("Next: `glossa push` sends %s to the server.",
+			strings.ReplaceAll(cfg.Catalogs.Path, config.LocalePlaceholder, cfg.SourceLocale))
 	})
 }
 
