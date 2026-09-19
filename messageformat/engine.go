@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"unicode/utf8"
 
 	mf2 "github.com/kaptinlin/messageformat-go"
 	"github.com/kaptinlin/messageformat-go/pkg/datamodel"
@@ -19,7 +20,51 @@ import (
 // ParseMF2 parses MessageFormat 2 syntax into the canonical model and
 // validates it. Syntax errors return an *Error with CodeSyntaxError; valid
 // syntax that is not a valid message returns the data model error code.
-func ParseMF2(src string) (Message, error) {
+func ParseMF2(src string) (msg Message, err error) {
+	defer containEngineFailure(&err)
+	return parseMF2(src)
+}
+
+// Validate checks that msg is a valid MF2 message: representable in the
+// syntax and free of data model errors.
+func Validate(msg Message) error {
+	_, err := Stringify(msg)
+	return err
+}
+
+// Stringify serializes msg as MessageFormat 2 syntax. Options and
+// attributes are written in lexicographic order, so the output is stable.
+func Stringify(msg Message) (src string, err error) {
+	defer containEngineFailure(&err)
+	return stringify(msg)
+}
+
+// Format formats msg for locale (a BCP 47 tag) with the given values.
+//
+// The required MF2 functions and the draft functions (:currency, :date,
+// :datetime, :time, :percent, :unit) are enabled. Formatting follows the
+// MF2 error model: the returned string is always usable, with fallback
+// representations for placeholders that failed, and the error (a
+// *FormatError) lists what failed. A message that is not valid, or an
+// invalid locale, returns an *Error and an empty string.
+func Format(msg Message, locale string, values map[string]any, opts ...FormatOption) (out string, err error) {
+	defer containEngineFailure(&err)
+	return format(msg, locale, values, opts)
+}
+
+// containEngineFailure turns a panic inside the third-party engine into a
+// CodeInternalError, so malformed user input can never crash the caller.
+// The fuzz tests found such panics in the engine's MF2 parser.
+func containEngineFailure(err *error) {
+	if r := recover(); r != nil {
+		*err = &Error{Code: CodeInternalError, Message: fmt.Sprintf("messageformat engine failure: %v", r)}
+	}
+}
+
+func parseMF2(src string) (Message, error) {
+	if !utf8.ValidString(src) {
+		return Message{}, &Error{Code: CodeSyntaxError, Message: "source is not valid UTF-8"}
+	}
 	em, err := datamodel.ParseMessage(src)
 	if err != nil {
 		return Message{}, engineError(err)
@@ -34,16 +79,7 @@ func ParseMF2(src string) (Message, error) {
 	return msg, nil
 }
 
-// Validate checks that msg is a valid MF2 message: representable in the
-// syntax and free of data model errors.
-func Validate(msg Message) error {
-	_, err := Stringify(msg)
-	return err
-}
-
-// Stringify serializes msg as MessageFormat 2 syntax. Options and
-// attributes are written in lexicographic order, so the output is stable.
-func Stringify(msg Message) (string, error) {
+func stringify(msg Message) (string, error) {
 	em, err := toEngineValidated(msg)
 	if err != nil {
 		return "", err
@@ -77,15 +113,7 @@ func withEngineFunctions(fns map[string]functions.MessageFunction) FormatOption 
 	return func(c *formatConfig) { maps.Copy(c.functions, fns) }
 }
 
-// Format formats msg for locale (a BCP 47 tag) with the given values.
-//
-// The required MF2 functions and the draft functions (:currency, :date,
-// :datetime, :time, :percent, :unit) are enabled. Formatting follows the
-// MF2 error model: the returned string is always usable, with fallback
-// representations for placeholders that failed, and the error (a
-// *FormatError) lists what failed. A message that is not valid, or an
-// invalid locale, returns an *Error and an empty string.
-func Format(msg Message, locale string, values map[string]any, opts ...FormatOption) (string, error) {
+func format(msg Message, locale string, values map[string]any, opts []FormatOption) (string, error) {
 	if _, err := language.Parse(locale); err != nil {
 		return "", &Error{Code: CodeInvalidLocale, Message: fmt.Sprintf("%q: %v", locale, err)}
 	}

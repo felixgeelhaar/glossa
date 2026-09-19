@@ -66,7 +66,7 @@ func (s *mf1Sample) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func loadJSON[T any](t *testing.T, path string) T {
+func loadJSON[T any](t testing.TB, path string) T {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {

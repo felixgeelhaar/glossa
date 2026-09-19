@@ -30,7 +30,12 @@ const maxVariants = 4096
 // Errors: CodeInvalidLocale, CodeMF1SyntaxError for source that does not
 // parse (including plural keys the locale doesn't have), and
 // CodeMF1Unsupported for valid MF1 that has no MF2 representation.
-func ParseMF1(src, locale string) (Message, error) {
+func ParseMF1(src, locale string) (msg Message, err error) {
+	defer containEngineFailure(&err)
+	return parseMF1(src, locale)
+}
+
+func parseMF1(src, locale string) (Message, error) {
 	opts, err := mf1ParseOptions(locale)
 	if err != nil {
 		return Message{}, err

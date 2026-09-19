@@ -41,6 +41,9 @@ const (
 	CodeMF1Unsupported ErrorCode = "mf1-unsupported"
 	// CodeInvalidLocale reports a locale that is not a BCP 47 tag.
 	CodeInvalidLocale ErrorCode = "invalid-locale"
+	// CodeInternalError reports a failure inside the third-party engine
+	// (a recovered panic). It is always a bug worth reporting upstream.
+	CodeInternalError ErrorCode = "internal-error"
 )
 
 // IsDataModelError reports whether c is one of the MF2 data model errors
