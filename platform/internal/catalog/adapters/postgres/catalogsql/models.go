@@ -25,6 +25,23 @@ type CatalogApplication struct {
 	UpdatedAt time.Time
 }
 
+type CatalogBranch struct {
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	ProjectID   uuid.UUID
+	Name        string
+	PrNumber    pgtype.Int4
+	HeadCommit  string
+	State       string
+	PreviewUrl  string
+	ClosedAt    pgtype.Timestamptz
+	RemovedKeys []string
+	Version     int32
+	CreatedBy   string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type CatalogMessage struct {
 	ID             uuid.UUID
 	TenantID       uuid.UUID
@@ -55,6 +72,21 @@ type CatalogProject struct {
 	Settings     json.RawMessage
 	Version      int32
 	CreatedBy    string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type CatalogProposal struct {
+	TenantID     uuid.UUID
+	BranchID     uuid.UUID
+	Key          string
+	MessageID    uuid.UUID
+	Kind         string
+	Syntax       string
+	Text         string
+	Model        json.RawMessage
+	BaseRevision pgtype.Int4
+	Author       string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }

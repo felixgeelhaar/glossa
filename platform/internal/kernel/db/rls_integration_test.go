@@ -94,10 +94,23 @@ type tableSecurity struct {
 	appWrites, appReads bool
 }
 
+// guardedTables must exist and be tenant-owned: tables whose loss of
+// isolation would leak unreleased copy (RFC 0004 §4.1's branch overlay
+// holds text that exists only on feature branches). The guard checks
+// every table anyway; listing them here also fails if a migration drops
+// one or loses its tenant_id.
+var guardedTables = []string{"catalog_branches", "catalog_proposals"}
+
 func TestRLSGuard(t *testing.T) {
 	tables := loadTableSecurity(t)
 	if len(tables) == 0 {
 		t.Fatal("no tables found; did migrations run?")
+	}
+	for _, name := range guardedTables {
+		i := slices.IndexFunc(tables, func(ts tableSecurity) bool { return ts.name == name })
+		if i < 0 || !tables[i].hasTenantID {
+			t.Errorf("%s: missing, or has no tenant_id", name)
+		}
 	}
 	for _, tbl := range tables {
 		t.Run(tbl.name, func(t *testing.T) { checkTable(t, tbl) })
