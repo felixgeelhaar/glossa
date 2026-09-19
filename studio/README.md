@@ -9,8 +9,8 @@ Studio.
 **v0** is the foundation of the translator workspace (product intent §25,
 §68): sign-in, projects, locales and the fallback graph, and a
 keyboard-first editor with live MessageFormat 2 preview, structural QA
-from the server, review and history. Releases is a placeholder until the
-release endpoints land.
+from the server, review and history — and releases: environments,
+publish, promote, rollback and delivery keys.
 
 ## Screens
 
@@ -21,8 +21,9 @@ release endpoints land.
 | `/t/:tenant` | Projects of the tenant; create one (source locale, authoring syntax, review requirement). The top bar switches tenants (personal and organizations) and creates organizations. |
 | `…/p/:project/translate` | The translator workspace. Locale, filters and the selected key live in the query string, so a view can be bookmarked. |
 | `…/p/:project/locales` | Locales with BCP 47 validation and direction; the list-based fallback graph editor. |
-| `…/p/:project/settings` | Name, slug, syntax, review requirement, applications, delete. |
-| `…/p/:project/releases` | Coming soon (see below). |
+| `…/p/:project/settings` | Name, slug, syntax, review requirement, applications, delivery keys, delete. |
+| `…/p/:project/releases` | Environments, publish, promote, rollback, release list (see below). |
+| `…/p/:project/releases/:release` | One release: per-locale counts and the diff to its parent, promote. |
 | `/account` | Passkeys, authenticator app (TOTP), sign out everywhere. After the first sign-in a banner promotes passkeys. |
 
 The app shell carries the persistent **Public Beta** badge (Klarlabs
@@ -159,19 +160,32 @@ are in `src/styles/studio.css`.
 - **Unit and component** (`pnpm test`): BCP 47 checks, fallback-graph
   validation (mirrors the server's cycle rules), permissions, diff, samples
   and plural categories, virtualisation, shortcuts, WebAuthn encoding, the
-  API boundary (CSRF, ETags, problem codes, zod), and the list, preview,
-  editor, locale input and releases components.
+  API boundary (CSRF, ETags, Idempotency-Key, problem codes, zod), release
+  eligibility and rollback targets, runtime snippets, and the list,
+  preview, editor, locale input, releases, release detail and delivery-key
+  components. The release components run on `src/test/fake-releases.ts`,
+  an in-memory `ReleasesPort` with Release's rules (policy coverage,
+  rollback history, If-Match, idempotent publish).
 - **End to end** (`pnpm test:e2e`, `e2e/`): the global setup starts
   Postgres 16 with testcontainers, provisions it like production (a
   `CREATEROLE` owner migrates, the server runs as `glossa_app`), builds and
-  starts the real `glossa-server` from `../platform` with the log mailer, and
-  Playwright serves the Studio build with `vite preview`. The main test signs
-  in with the magic link the dev mailer captured, creates a project, adds
-  locales, imports a small catalog through the API, translates with the
-  keyboard, hits a QA error for a broken placeholder, fixes it, approves and
-  checks history, the shortcut sheet and the Releases placeholder.
-  `@axe-core/playwright` (WCAG 2.2 AA tags) runs on each main screen, light
-  and dark.
+  starts the real `glossa-server` from `../platform` with the log mailer and
+  release object storage on the **`dir` driver** (`GLOSSA_STORAGE_DIR` =
+  `e2e/.state/objects`, emptied per run; no MinIO needed), and Playwright
+  serves the Studio build with `vite preview`. The main test signs in with
+  the magic link the dev mailer captured, creates a project, adds locales,
+  imports a small catalog through the API, translates with the keyboard,
+  hits a QA error for a broken placeholder, fixes it, approves and checks
+  history and the shortcut sheet. Then it releases: publishes to
+  development, sees it on the environment card, finds that release
+  ineligible for production (development ships drafts), tightens
+  development's policy, publishes and promotes to production, approves one
+  more translation, publishes and promotes it, and rolls production back,
+  checking after each step the manifest glossa-edge would serve from
+  storage. Last, it creates a delivery key (snippets; the key's index
+  object appears in storage) and revokes it (the object goes).
+  `@axe-core/playwright` (WCAG 2.2 AA tags) runs on each main screen and
+  dialog, light and dark.
 
   Needs Docker, Go and `pnpm build` first:
 
@@ -188,22 +202,53 @@ are in `src/styles/studio.css`.
 
 ## Releases
 
-`src/api/releases.ts` defines `ReleasesPort` (`availability`, `list`,
-`publish`), and `main.ts` provides the coming-soon adapter. When the
-`/v1` release endpoints are in the contract: run `gen:api`, add zod
-schemas for the release resources, implement the port over the generated
-client, and provide it instead. `ReleasesView` already renders the
-available state (list, publish), which its component test covers with a
-fake port.
+Everything goes through `ReleasesPort` (`src/api/releases.ts`); `main.ts`
+provides `apiReleases`, its implementation over the generated client with
+every response checked by zod.
+
+- **Environments**: a card per environment (`development`, `preview`,
+  `staging`, `production`, then custom ones) with the release it serves,
+  when and by whom it last changed (its newest deployment), and its
+  eligibility policy. *Policy* edits the policy with `If-Match`;
+  *History* lists the environment's deployments.
+- **Publish** (`p`): choose the environment and a note. Before confirming
+  the dialog shows the environment's policy and the per-locale counts of
+  the release it serves now; after publishing, the per-locale diff against
+  that release. The contract has no dry run, so the exact changes are shown
+  once the release is built. Each confirmation sends one `Idempotency-Key`,
+  reused when the same request is retried.
+- **Promote** and **rollback** name the pointer move
+  (`production: v2 → v3`) and show per locale what is added, changed and
+  removed compared with what the environment serves. Promote refuses a
+  release whose policy the target doesn't cover (mirrored from Release's
+  `Policy.Covers`; the server decides). Rollback preselects what the
+  server would pick and always sends that release explicitly, so a retry
+  can't walk two steps back.
+- **Release detail**: per-locale messages and outdated counts, the diff to
+  its parent, artifacts, manifest digest.
+- **Delivery keys** (project settings): a new key is shown in full once,
+  with a copy button and snippets for `@glossa/runtime`, `@glossa/vue`,
+  `<glossa-provider>` and the Go runtime, pinned to the project's active
+  signing keys; the list shows keys masked; revoke asks first and says
+  what runtimes will see.
+
+Publishing, promoting, rolling back, policy changes and key changes need
+`releases.publish` (developers, admins, owners); without it the screens
+are read-only.
+
+The snippets need glossa-edge's public origin, which the API doesn't
+expose: build Studio with `VITE_GLOSSA_EDGE_URL=https://edge.example.com`
+to fill it in. Without it they show a placeholder and say so.
 
 ## Layout
 
 ```text
-src/api/        generated contract types, client, zod schemas, endpoints, errors, releases port
-src/session/    session store, permission mirror
-src/lib/        pure logic: bcp47, fallback, diff, samples, preview, shortcuts, virtual, webauthn, …
-src/components/ app shell, message list, editor, preview, QA, history, …
-src/views/      auth, projects, account, project/* (workspace, locales, settings, releases)
+src/api/        generated contract types, client, zod schemas, endpoints, errors, the Releases port and its API adapter
+src/session/    session store, permission mirror, names for principals
+src/lib/        pure logic: bcp47, fallback, diff, samples, preview, shortcuts, virtual, webauthn, releases, snippets, …
+src/components/ app shell, message list, editor, preview, QA, history, modal dialog, releases/*, …
+src/views/      auth, projects, account, project/* (workspace, locales, settings, releases, release detail)
 src/strings.ts  every user-facing string, ready to become Glossa messages
+src/test/       component-test helpers: the in-memory Releases port, mounting a project screen
 e2e/            Playwright specs and the server harness
 ```
