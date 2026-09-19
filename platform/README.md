@@ -34,6 +34,7 @@ internal/catalog/           projects, applications, messages, source revisions
 internal/localization/      locales, fallback graphs, translations, revisions
 internal/release/           environments, releases, artifacts, signing, delivery keys
   delivery/                 the bucket layout and key format glossa-edge shares
+internal/preview/           stateless message preview (parse, MF2, format), rate-limited per caller
 internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
   domain/                   Person, Member, roles, locale scopes, Grant, APIToken, events
@@ -142,6 +143,7 @@ go test -race ./...                            # unit (incl. contract lint and g
 go test -tags=integration -timeout=300s ./...  # Docker: Postgres 16 via testcontainers
 go generate ./db/...                           # regenerate sqlc code (sqlc pinned in db/generate.go)
 go generate ./internal/apiv1/...               # regenerate the /v1 server (oapi-codegen pinned as a go.mod tool)
+go generate ./internal/apiclient/...           # regenerate the CLI's /v1 client from the same spec
 ```
 
 The integration harness (`internal/kernel/db/dbtest`) provisions the
@@ -457,6 +459,32 @@ transaction, joined by message ID:
 
 Release keeps translations of active messages in the project's locales
 and writes one artifact per locale and namespace (runtimes/SPEC.md §1).
+
+## Message preview
+
+`POST /v1/message-previews` runs the MessageFormat kernel — the one MF1
+converter (RFC 0002 §5) — for clients that aren't Go: Studio's live MF1
+preview, and the same results the CLI's offline checks compute
+in-process. It takes `{source, syntax (mf1|mf2, default mf1), locale,
+values?, bidi_isolation?}` and returns `{valid, message (canonical MF2
+data model), mf2, arguments, markup, formatted? (with values), errors}`.
+Source the kernel rejects is a `200` with `valid: false` and
+`errors[].stage = parse` (codes like `mf1-syntax-error`); formatting
+problems are `stage = format` with MF2's fallback text in `formatted`.
+Caller mistakes are `400`: `message_too_long` (> 20 000 bytes),
+`invalid_locale`, `invalid_syntax`, `invalid_values` (> 100 values,
+names > 64 characters, strings > 1 000 bytes, or anything but a
+string, number or boolean).
+
+`internal/preview` has no domain state and no tables: `app` checks the
+caller with `authz.Authenticated` (any person or API token; no tenant
+data, so no permission) and asks its `Limiter` port, which
+`adapters/ratelimit` implements with a fortify token bucket per
+principal (`person:<id>` / `token:<id>`): **10 a second, bursts of
+120**, in process — each instance enforces it on its own, which bounds
+the CPU one caller can take from any instance; idle buckets expire
+after 10 minutes, at most 100 000 are tracked. Over the limit is `429
+rate_limited`.
 
 ## Release
 

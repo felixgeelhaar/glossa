@@ -21,6 +21,9 @@ import (
 	localizationapi "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/httpapi"
 	localizationpg "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/postgres"
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
+	previewapi "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/httpapi"
+	previewlimit "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/ratelimit"
+	previewapp "github.com/felixgeelhaar/glossa/platform/internal/preview/app"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
 	releasepg "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/postgres"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/sources"
@@ -38,6 +41,8 @@ type contexts struct {
 	catalogAPI      *catalogapi.API
 	localizationAPI *localizationapi.API
 	releaseAPI      *releaseapi.API
+	// previewAPI is the stateless message preview (no database).
+	previewAPI *previewapi.API
 }
 
 // contextDeps are what the contexts need beyond the database.
@@ -78,6 +83,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	return contexts{
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
 		releaseAPI: releaseapi.New(release),
+		previewAPI: previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),
 	}, nil
 }
 

@@ -71,3 +71,16 @@ func TestRequireRefusesAGrantFromAnotherTenant(t *testing.T) {
 		t.Errorf("no tenant on the context: err = %v, want ErrForbidden", err)
 	}
 }
+
+// Tenantless operations (stateless tools) need only an authenticated
+// caller, person or token.
+func TestAuthenticated(t *testing.T) {
+	if _, err := authz.Authenticated(context.Background()); !errors.Is(err, authz.ErrUnauthenticated) {
+		t.Errorf("no principal: err = %v", err)
+	}
+	p := principal(t, tenancy.ID{}, []string{"owner"}, nil)
+	got, err := authz.Authenticated(authz.WithPrincipal(context.Background(), p))
+	if err != nil || got.Actor != p.Actor {
+		t.Errorf("person: %+v, %v", got, err)
+	}
+}

@@ -107,6 +107,18 @@ func From(ctx context.Context) (Principal, bool) {
 	return p, ok
 }
 
+// Authenticated returns the principal for operations that read no
+// tenant data and so need no permission, only a caller (a person or an
+// API token) — stateless tools such as the message preview. Anything
+// tenant-scoped uses Require or RequireFor instead.
+func Authenticated(ctx context.Context) (Principal, error) {
+	p, ok := From(ctx)
+	if !ok {
+		return Principal{}, ErrUnauthenticated
+	}
+	return p, nil
+}
+
 // Require returns nil if the principal holds perm for every locale in
 // the context's tenant.
 func Require(ctx context.Context, perm Permission) error {

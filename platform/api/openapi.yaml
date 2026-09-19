@@ -495,6 +495,50 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  # ── message previews ────────────────────────────────────────────────
+  /v1/message-previews:
+    post:
+      operationId: previewMessage
+      tags: [messages]
+      summary: Parse, convert and format a message without storing it
+      description: |
+        Runs the server's MessageFormat kernel — the one ICU MF1
+        converter (RFC 0002 §5) — on `source`: parses it in `syntax`
+        (default `mf1`) for `locale` into the canonical MF2 data model
+        (`message`), serializes that as MF2 (`mf2`), derives `arguments`
+        and `markup`, and, when `values` are sent, formats it
+        (`formatted`, with MF2 fallbacks for placeholders that failed).
+        Source that doesn't parse is still `200`, with `valid: false`
+        and the kernel's error codes in `errors`, so editors can show
+        them inline; formatting problems are `errors` with stage
+        `format`. Nothing is stored and no tenant data is read, but the
+        caller must be signed in or send an API token. Limits: `source`
+        at most 20 000 bytes; `values` at most 100 names of at most 64
+        characters, each a string (at most 1 000 bytes), number or
+        boolean; 10 requests a second per person or token, bursts of up
+        to 120 (per server instance). Problem codes: `message_too_long`,
+        `invalid_locale`, `invalid_syntax`, `invalid_values` (400),
+        `rate_limited` (429).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MessagePreviewRequest" }
+      responses:
+        "200":
+          description: What the kernel made of the source.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessagePreview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
   # ── tenants ─────────────────────────────────────────────────────────
   /v1/tenants:
     get:
@@ -3163,6 +3207,51 @@ components:
           type: array
           items: { $ref: "#/components/schemas/SourceRevision" }
         next_page_token: { type: string }
+    MessagePreviewRequest:
+      type: object
+      required: [source, locale]
+      properties:
+        source: { type: string, maxLength: 20000, description: The message as authored. }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+        locale:
+          $ref: "#/components/schemas/Locale"
+          description: Decides which plural keys MF1 accepts, and formatting.
+        values:
+          type: object
+          maxProperties: 100
+          description: |
+            Argument values to format with, by name (without `$`): strings,
+            numbers or booleans. Omit to only parse.
+          additionalProperties: true
+        bidi_isolation:
+          type: boolean
+          description: Isolate placeholders with Unicode bidi marks (the MF2 default, `true`).
+    MessagePreviewError:
+      type: object
+      required: [stage, code, message]
+      properties:
+        stage: { type: string, enum: [parse, format] }
+        code:
+          type: string
+          description: "The MessageFormat kernel's stable error code: `mf1-syntax-error`, `syntax-error`, `unresolved-variable`, …"
+        message: { type: string, description: For humans; wording may change. }
+    MessagePreview:
+      type: object
+      required: [valid, arguments, markup, errors]
+      properties:
+        valid: { type: boolean, description: Whether the source parsed into a valid message. }
+        message: { $ref: "#/components/schemas/MF2Message" }
+        mf2: { type: string, description: The canonical model in MF2 syntax. }
+        arguments:
+          type: array
+          items: { $ref: "#/components/schemas/Argument" }
+        markup:
+          type: array
+          items: { $ref: "#/components/schemas/MarkupElement" }
+        formatted: { type: string, description: "The message formatted with `values`, when they were sent and it is valid." }
+        errors:
+          type: array
+          items: { $ref: "#/components/schemas/MessagePreviewError" }
     ItemError:
       type: object
       required: [code, detail]

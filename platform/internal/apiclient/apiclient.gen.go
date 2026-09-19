@@ -183,6 +183,24 @@ func (e MemberStatus) Valid() bool {
 	}
 }
 
+// Defines values for MessagePreviewErrorStage.
+const (
+	Format MessagePreviewErrorStage = "format"
+	Parse  MessagePreviewErrorStage = "parse"
+)
+
+// Valid indicates whether the value is a known member of the MessagePreviewErrorStage enum.
+func (e MessagePreviewErrorStage) Valid() bool {
+	switch e {
+	case Format:
+		return true
+	case Parse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MessageState.
 const (
 	MessageStateActive   MessageState = "active"
@@ -908,6 +926,61 @@ type MessageKey = string
 type MessageList struct {
 	Items         []Message `json:"items"`
 	NextPageToken *string   `json:"next_page_token,omitempty"`
+}
+
+// MessagePreview defines model for MessagePreview.
+type MessagePreview struct {
+	Arguments []Argument            `json:"arguments"`
+	Errors    []MessagePreviewError `json:"errors"`
+
+	// Formatted The message formatted with `values`, when they were sent and it is valid.
+	Formatted *string         `json:"formatted,omitempty"`
+	Markup    []MarkupElement `json:"markup"`
+
+	// Message A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	Message *MF2Message `json:"message,omitempty"`
+
+	// Mf2 The canonical model in MF2 syntax.
+	Mf2 *string `json:"mf2,omitempty"`
+
+	// Valid Whether the source parsed into a valid message.
+	Valid bool `json:"valid"`
+}
+
+// MessagePreviewError defines model for MessagePreviewError.
+type MessagePreviewError struct {
+	// Code The MessageFormat kernel's stable error code: `mf1-syntax-error`, `syntax-error`, `unresolved-variable`, …
+	Code string `json:"code"`
+
+	// Message For humans; wording may change.
+	Message string                   `json:"message"`
+	Stage   MessagePreviewErrorStage `json:"stage"`
+}
+
+// MessagePreviewErrorStage defines model for MessagePreviewError.Stage.
+type MessagePreviewErrorStage string
+
+// MessagePreviewRequest defines model for MessagePreviewRequest.
+type MessagePreviewRequest struct {
+	// BidiIsolation Isolate placeholders with Unicode bidi marks (the MF2 default, `true`).
+	BidiIsolation *bool `json:"bidi_isolation,omitempty"`
+
+	// Locale Decides which plural keys MF1 accepts, and formatting.
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// Source The message as authored.
+	Source string `json:"source"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax *Syntax `json:"syntax,omitempty"`
+
+	// Values Argument values to format with, by name (without `$`): strings,
+	// numbers or booleans. Omit to only parse.
+	Values *map[string]interface{} `json:"values,omitempty"`
 }
 
 // MessageState defines model for MessageState.
@@ -2113,6 +2186,9 @@ type ConfirmTotpEnrollmentJSONRequestBody = TotpCode
 // DisableTotpJSONRequestBody defines body for DisableTotp for application/json ContentType.
 type DisableTotpJSONRequestBody = TotpCode
 
+// PreviewMessageJSONRequestBody defines body for PreviewMessage for application/json ContentType.
+type PreviewMessageJSONRequestBody = MessagePreviewRequest
+
 // CreateTenantJSONRequestBody defines body for CreateTenant for application/json ContentType.
 type CreateTenantJSONRequestBody = CreateTenant
 
@@ -2544,6 +2620,56 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/me/totp/deactivation (the `DisableTotp` operationId).
 	DisableTotp(ctx context.Context, body DisableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewMessageWithBody Parse, convert and format a message without storing it
+	//
+	// Runs the server's MessageFormat kernel — the one ICU MF1
+	// converter (RFC 0002 §5) — on `source`: parses it in `syntax`
+	// (default `mf1`) for `locale` into the canonical MF2 data model
+	// (`message`), serializes that as MF2 (`mf2`), derives `arguments`
+	// and `markup`, and, when `values` are sent, formats it
+	// (`formatted`, with MF2 fallbacks for placeholders that failed).
+	// Source that doesn't parse is still `200`, with `valid: false`
+	// and the kernel's error codes in `errors`, so editors can show
+	// them inline; formatting problems are `errors` with stage
+	// `format`. Nothing is stored and no tenant data is read, but the
+	// caller must be signed in or send an API token. Limits: `source`
+	// at most 20 000 bytes; `values` at most 100 names of at most 64
+	// characters, each a string (at most 1 000 bytes), number or
+	// boolean; 10 requests a second per person or token, bursts of up
+	// to 120 (per server instance). Problem codes: `message_too_long`,
+	// `invalid_locale`, `invalid_syntax`, `invalid_values` (400),
+	// `rate_limited` (429).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
+	PreviewMessageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewMessage Parse, convert and format a message without storing it
+	//
+	// Runs the server's MessageFormat kernel — the one ICU MF1
+	// converter (RFC 0002 §5) — on `source`: parses it in `syntax`
+	// (default `mf1`) for `locale` into the canonical MF2 data model
+	// (`message`), serializes that as MF2 (`mf2`), derives `arguments`
+	// and `markup`, and, when `values` are sent, formats it
+	// (`formatted`, with MF2 fallbacks for placeholders that failed).
+	// Source that doesn't parse is still `200`, with `valid: false`
+	// and the kernel's error codes in `errors`, so editors can show
+	// them inline; formatting problems are `errors` with stage
+	// `format`. Nothing is stored and no tenant data is read, but the
+	// caller must be signed in or send an API token. Limits: `source`
+	// at most 20 000 bytes; `values` at most 100 names of at most 64
+	// characters, each a string (at most 1 000 bytes), number or
+	// boolean; 10 requests a second per person or token, bursts of up
+	// to 120 (per server instance). Problem codes: `message_too_long`,
+	// `invalid_locale`, `invalid_syntax`, `invalid_values` (400),
+	// `rate_limited` (429).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
+	PreviewMessage(ctx context.Context, body PreviewMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListTenants Tenants the caller can act in
 	//
@@ -4067,6 +4193,76 @@ func (c *Client) DisableTotpWithBody(ctx context.Context, contentType string, bo
 // Corresponds with POST /v1/me/totp/deactivation (the `DisableTotp` operationId).
 func (c *Client) DisableTotp(ctx context.Context, body DisableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDisableTotpRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewMessageWithBody Parse, convert and format a message without storing it
+//
+// Runs the server's MessageFormat kernel — the one ICU MF1
+// converter (RFC 0002 §5) — on `source`: parses it in `syntax`
+// (default `mf1`) for `locale` into the canonical MF2 data model
+// (`message`), serializes that as MF2 (`mf2`), derives `arguments`
+// and `markup`, and, when `values` are sent, formats it
+// (`formatted`, with MF2 fallbacks for placeholders that failed).
+// Source that doesn't parse is still `200`, with `valid: false`
+// and the kernel's error codes in `errors`, so editors can show
+// them inline; formatting problems are `errors` with stage
+// `format`. Nothing is stored and no tenant data is read, but the
+// caller must be signed in or send an API token. Limits: `source`
+// at most 20 000 bytes; `values` at most 100 names of at most 64
+// characters, each a string (at most 1 000 bytes), number or
+// boolean; 10 requests a second per person or token, bursts of up
+// to 120 (per server instance). Problem codes: `message_too_long`,
+// `invalid_locale`, `invalid_syntax`, `invalid_values` (400),
+// `rate_limited` (429).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
+func (c *Client) PreviewMessageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewMessageRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewMessage Parse, convert and format a message without storing it
+//
+// Runs the server's MessageFormat kernel — the one ICU MF1
+// converter (RFC 0002 §5) — on `source`: parses it in `syntax`
+// (default `mf1`) for `locale` into the canonical MF2 data model
+// (`message`), serializes that as MF2 (`mf2`), derives `arguments`
+// and `markup`, and, when `values` are sent, formats it
+// (`formatted`, with MF2 fallbacks for placeholders that failed).
+// Source that doesn't parse is still `200`, with `valid: false`
+// and the kernel's error codes in `errors`, so editors can show
+// them inline; formatting problems are `errors` with stage
+// `format`. Nothing is stored and no tenant data is read, but the
+// caller must be signed in or send an API token. Limits: `source`
+// at most 20 000 bytes; `values` at most 100 names of at most 64
+// characters, each a string (at most 1 000 bytes), number or
+// boolean; 10 requests a second per person or token, bursts of up
+// to 120 (per server instance). Problem codes: `message_too_long`,
+// `invalid_locale`, `invalid_syntax`, `invalid_values` (400),
+// `rate_limited` (429).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
+func (c *Client) PreviewMessage(ctx context.Context, body PreviewMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewMessageRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6582,6 +6778,46 @@ func NewDisableTotpRequestWithBody(server string, contentType string, body io.Re
 	}
 
 	operationPath := fmt.Sprintf("/v1/me/totp/deactivation")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPreviewMessageRequest calls the generic PreviewMessage builder with application/json body
+func NewPreviewMessageRequest(server string, body PreviewMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewMessageRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPreviewMessageRequestWithBody constructs an http.Request for the PreviewMessage method, with any body, and a specified content type
+func NewPreviewMessageRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/message-previews")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -11022,6 +11258,56 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/me/totp/deactivation (the `DisableTotp` operationId).
 	DisableTotpWithResponse(ctx context.Context, body DisableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*DisableTotpResponse, error)
 
+	// PreviewMessageWithBodyWithResponse Parse, convert and format a message without storing it
+	//
+	// Runs the server's MessageFormat kernel — the one ICU MF1
+	// converter (RFC 0002 §5) — on `source`: parses it in `syntax`
+	// (default `mf1`) for `locale` into the canonical MF2 data model
+	// (`message`), serializes that as MF2 (`mf2`), derives `arguments`
+	// and `markup`, and, when `values` are sent, formats it
+	// (`formatted`, with MF2 fallbacks for placeholders that failed).
+	// Source that doesn't parse is still `200`, with `valid: false`
+	// and the kernel's error codes in `errors`, so editors can show
+	// them inline; formatting problems are `errors` with stage
+	// `format`. Nothing is stored and no tenant data is read, but the
+	// caller must be signed in or send an API token. Limits: `source`
+	// at most 20 000 bytes; `values` at most 100 names of at most 64
+	// characters, each a string (at most 1 000 bytes), number or
+	// boolean; 10 requests a second per person or token, bursts of up
+	// to 120 (per server instance). Problem codes: `message_too_long`,
+	// `invalid_locale`, `invalid_syntax`, `invalid_values` (400),
+	// `rate_limited` (429).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
+	PreviewMessageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewMessageResponse, error)
+
+	// PreviewMessageWithResponse Parse, convert and format a message without storing it
+	//
+	// Runs the server's MessageFormat kernel — the one ICU MF1
+	// converter (RFC 0002 §5) — on `source`: parses it in `syntax`
+	// (default `mf1`) for `locale` into the canonical MF2 data model
+	// (`message`), serializes that as MF2 (`mf2`), derives `arguments`
+	// and `markup`, and, when `values` are sent, formats it
+	// (`formatted`, with MF2 fallbacks for placeholders that failed).
+	// Source that doesn't parse is still `200`, with `valid: false`
+	// and the kernel's error codes in `errors`, so editors can show
+	// them inline; formatting problems are `errors` with stage
+	// `format`. Nothing is stored and no tenant data is read, but the
+	// caller must be signed in or send an API token. Limits: `source`
+	// at most 20 000 bytes; `values` at most 100 names of at most 64
+	// characters, each a string (at most 1 000 bytes), number or
+	// boolean; 10 requests a second per person or token, bursts of up
+	// to 120 (per server instance). Problem codes: `message_too_long`,
+	// `invalid_locale`, `invalid_syntax`, `invalid_values` (400),
+	// `rate_limited` (429).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
+	PreviewMessageWithResponse(ctx context.Context, body PreviewMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewMessageResponse, error)
+
 	// ListTenantsWithResponse Tenants the caller can act in
 	//
 	// A person's active memberships; an API token's own tenant.
@@ -13087,6 +13373,75 @@ func (r DisableTotpResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DisableTotpResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MessagePreview
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON429 the response for an HTTP 429 `application/problem+json` response
+	ApplicationproblemJSON429 *TooManyRequests
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewMessageResponse) GetJSON200() *MessagePreview {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r PreviewMessageResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PreviewMessageResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PreviewMessageResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON429 returns the response for an HTTP 429 `application/problem+json` response
+func (r PreviewMessageResponse) GetApplicationproblemJSON429() *TooManyRequests {
+	return r.ApplicationproblemJSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewMessageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewMessageResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -18217,6 +18572,68 @@ func (c *ClientWithResponses) DisableTotpWithResponse(ctx context.Context, body 
 	return ParseDisableTotpResponse(rsp)
 }
 
+// PreviewMessageWithBodyWithResponse Parse, convert and format a message without storing it
+//
+// Runs the server's MessageFormat kernel — the one ICU MF1
+// converter (RFC 0002 §5) — on `source`: parses it in `syntax`
+// (default `mf1`) for `locale` into the canonical MF2 data model
+// (`message`), serializes that as MF2 (`mf2`), derives `arguments`
+// and `markup`, and, when `values` are sent, formats it
+// (`formatted`, with MF2 fallbacks for placeholders that failed).
+// Source that doesn't parse is still `200`, with `valid: false`
+// and the kernel's error codes in `errors`, so editors can show
+// them inline; formatting problems are `errors` with stage
+// `format`. Nothing is stored and no tenant data is read, but the
+// caller must be signed in or send an API token. Limits: `source`
+// at most 20 000 bytes; `values` at most 100 names of at most 64
+// characters, each a string (at most 1 000 bytes), number or
+// boolean; 10 requests a second per person or token, bursts of up
+// to 120 (per server instance). Problem codes: `message_too_long`,
+// `invalid_locale`, `invalid_syntax`, `invalid_values` (400),
+// `rate_limited` (429).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
+func (c *ClientWithResponses) PreviewMessageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewMessageResponse, error) {
+	rsp, err := c.PreviewMessageWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewMessageResponse(rsp)
+}
+
+// PreviewMessageWithResponse Parse, convert and format a message without storing it
+//
+// Runs the server's MessageFormat kernel — the one ICU MF1
+// converter (RFC 0002 §5) — on `source`: parses it in `syntax`
+// (default `mf1`) for `locale` into the canonical MF2 data model
+// (`message`), serializes that as MF2 (`mf2`), derives `arguments`
+// and `markup`, and, when `values` are sent, formats it
+// (`formatted`, with MF2 fallbacks for placeholders that failed).
+// Source that doesn't parse is still `200`, with `valid: false`
+// and the kernel's error codes in `errors`, so editors can show
+// them inline; formatting problems are `errors` with stage
+// `format`. Nothing is stored and no tenant data is read, but the
+// caller must be signed in or send an API token. Limits: `source`
+// at most 20 000 bytes; `values` at most 100 names of at most 64
+// characters, each a string (at most 1 000 bytes), number or
+// boolean; 10 requests a second per person or token, bursts of up
+// to 120 (per server instance). Problem codes: `message_too_long`,
+// `invalid_locale`, `invalid_syntax`, `invalid_values` (400),
+// `rate_limited` (429).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/message-previews (the `PreviewMessage` operationId).
+func (c *ClientWithResponses) PreviewMessageWithResponse(ctx context.Context, body PreviewMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewMessageResponse, error) {
+	rsp, err := c.PreviewMessage(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewMessageResponse(rsp)
+}
+
 // ListTenantsWithResponse Tenants the caller can act in
 //
 // A person's active memberships; an API token's own tenant.
@@ -20596,6 +21013,60 @@ func ParseDisableTotpResponse(rsp *http.Response) (*DisableTotpResponse, error) 
 			return nil, err
 		}
 		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePreviewMessageResponse parses an HTTP response from a PreviewMessageWithResponse call
+func ParsePreviewMessageResponse(rsp *http.Response) (*PreviewMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MessagePreview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest TooManyRequests
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON429 = &dest
 
 	}
 

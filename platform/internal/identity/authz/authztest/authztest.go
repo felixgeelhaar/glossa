@@ -32,6 +32,13 @@ func Member(ctx context.Context, tenant tenancy.ID, roles []string, locales ...s
 	return authz.WithPrincipal(tenancy.ContextWithTenant(ctx, tenant), p)
 }
 
+// Person returns ctx acting as a new signed-in person outside any
+// tenant, as on /v1/me and other tenantless routes: no grant.
+func Person(ctx context.Context) context.Context {
+	person := domain.NewPersonID()
+	return authz.WithPrincipal(ctx, authz.Principal{Actor: domain.PersonActor(person), Person: person})
+}
+
 // Token returns ctx acting in tenant as an API token with scopes.
 func Token(ctx context.Context, tenant tenancy.ID, scopes ...string) context.Context {
 	ss, err := domain.ParseScopes(scopes)

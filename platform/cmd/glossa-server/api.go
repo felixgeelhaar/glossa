@@ -20,6 +20,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	localizationapi "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/httpapi"
+	previewapi "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/httpapi"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
 )
 
@@ -31,6 +32,7 @@ type apiServer struct {
 	*catalogAPI
 	*localizationAPI
 	*releaseAPI
+	*previewAPI
 }
 
 // Each context names its handler type API; the aliases give the
@@ -39,6 +41,7 @@ type (
 	catalogAPI      = catalogapi.API
 	localizationAPI = localizationapi.API
 	releaseAPI      = releaseapi.API
+	previewAPI      = previewapi.API
 )
 
 var _ apiv1.StrictServerInterface = apiServer{}
@@ -47,7 +50,8 @@ var _ apiv1.StrictServerInterface = apiServer{}
 // each operation's security requirement for every context, and its
 // error hooks render every failure as problem details.
 func apiRoutes(identity *httpapi.API, c contexts) func(*http.ServeMux) {
-	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI}
+	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
+		previewAPI: c.previewAPI}
 	return func(mux *http.ServeMux) {
 		strict := apiv1.NewStrictHandlerWithOptions(server, nil, apiv1.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  identity.RequestError,
