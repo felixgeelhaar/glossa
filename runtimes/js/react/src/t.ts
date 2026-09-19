@@ -4,14 +4,20 @@
  * Safe MF2 markup becomes elements by the same rules as `@glossa/elements`;
  * translation text is never rendered as HTML. No wrapper element: plain text
  * renders as a text node.
+ *
+ * Capture mode (RFC 0004 §3.1): while a capture or editor session has an
+ * `onRender` hook installed, the content is wrapped in a
+ * `<span style="display: contents">` host carrying `data-glossa-id` and
+ * `data-glossa-locale`. Outside a session (and always on the server) the
+ * output is unchanged.
  */
 import { Fragment, createElement } from "react";
 import type { ReactNode } from "react";
-import { partsToTree, resolveParts } from "@glossa/elements/parts";
+import { markAttributes, partsToTree, resolveParts } from "@glossa/elements/parts";
 import type { TreeNode } from "@glossa/elements/parts";
 
 import { useGlossa } from "./glossa.js";
-import type { RegisteredMessages } from "./glossa.js";
+import type { RegisteredMessages, View } from "./glossa.js";
 
 export interface TProps<K extends keyof RegisteredMessages & string> {
   /** The message ID. */
@@ -28,20 +34,27 @@ const toNodes = (nodes: TreeNode[]): ReactNode[] =>
     typeof n === "string" ? n : createElement(n.tag, null, ...toNodes(n.children)),
   );
 
+const CONTENTS = { display: "contents" };
+
 /**
- * Every rendering of `<T>` leaves through here. Capture mode (RFC 0004 §3.1)
- * will hook in at this point to put `data-glossa-id` and `data-glossa-locale`
- * on a host element while a capture or editor session is active; outside a
- * session it stays the identity, so a normal page view has no extra markup.
+ * Every rendering of `<T>` leaves through here. While a capture or editor
+ * session is active, the content gets a host element with `data-glossa-id`
+ * and `data-glossa-locale`; outside a session it's the identity, so a normal
+ * page view has no extra markup.
  */
-const host = (_id: string, content: ReactNode): ReactNode => content;
+const host = (g: View, id: string, content: ReactNode): ReactNode => {
+  const mark = markAttributes(g, id);
+  return mark ? createElement("span", { ...mark, style: CONTENTS }, content) : content;
+};
 
 export function T<K extends keyof RegisteredMessages & string>(props: TProps<K>): ReactNode {
   const { id, values, children } = props;
-  const parts = resolveParts(useGlossa(), id, values as Record<string, unknown> | undefined);
-  if (!parts) return host(id, children ?? id);
+  const g = useGlossa() as unknown as View;
+  const parts = resolveParts(g, id, values as Record<string, unknown> | undefined);
+  if (!parts) return host(g, id, children ?? id);
   const tree = partsToTree(parts);
   return host(
+    g,
     id,
     tree.every((n) => typeof n === "string")
       ? tree.join("")

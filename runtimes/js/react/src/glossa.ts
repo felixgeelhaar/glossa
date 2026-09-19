@@ -81,14 +81,21 @@ export interface UseGlossa<M = RegisteredMessages> {
 /** @internal The external store behind the hooks. */
 export interface Store {
   subscribe(onChange: () => void): () => void;
-  snapshot(): UseGlossa<unknown>;
-  serverSnapshot(): UseGlossa<unknown>;
+  snapshot(): View;
+  serverSnapshot(): View;
 }
 
 const browser = () => typeof document !== "undefined";
 
+/**
+ * @internal What the store hands out: the public view plus whether `rt` has
+ * an `onRender` hook, which `<T>` reads (RFC 0004 §3.1). During hydration it's
+ * the hydration runtime's, which never has one, so hydration matches.
+ */
+export type View = UseGlossa<unknown> & { hooked: boolean };
+
 /** A view of `rt` as of now; actions go to the app's runtime `live`. */
-const view = (rt: Runtime, live: Runtime): UseGlossa<unknown> =>
+const view = (rt: Runtime, live: Runtime): View =>
   ({
     t: (id: string, values?: MessageValues, opts?: TranslateOptions) => rt.t(id, values, opts),
     parts: (id: string, values?: MessageValues, opts?: TranslateOptions) =>
@@ -100,19 +107,21 @@ const view = (rt: Runtime, live: Runtime): UseGlossa<unknown> =>
     release: rt.release,
     availableLocales: rt.availableLocales,
     runtime: live,
-  }) as UseGlossa<unknown>;
+    hooked: rt.hooked,
+  }) as View;
 
 /** Create the instance for `<GlossaProvider glossa={createGlossa({ edge, deliveryKey, locales, bundled })}>`. */
 export function createGlossa(options: GlossaOptions = {}): Glossa {
   const { runtime: given, ...rest } = options;
   const runtime = given ?? createRuntime(rest);
   let key: string | undefined;
-  let current: UseGlossa<unknown>;
-  let hydration: UseGlossa<unknown> | undefined;
+  let current: View;
+  let hydration: View | undefined;
   const snapshot = () => {
-    // Rendering is a function of the active release and locale; rebuild the
-    // view only when they change, so the snapshot is stable in between.
-    const k = `${runtime.release?.id} ${runtime.locale}`;
+    // Rendering is a function of the active release and locale, and of
+    // whether a capture session's hook is installed; rebuild the view only
+    // when they change, so the snapshot is stable in between.
+    const k = `${runtime.release?.id} ${runtime.locale} ${runtime.hooked}`;
     if (k !== key) {
       key = k;
       current = view(runtime, runtime);

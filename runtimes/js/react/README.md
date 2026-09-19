@@ -74,6 +74,15 @@ element. The children are the inline default, then the message ID. Safe MF2
 markup (`{#b}…{/b}`) becomes elements by the same rules as `@glossa/elements`
 (attribute-free inline tags only); translation text is never rendered as HTML.
 
+**Capture mode** (RFC 0004 §3.1). While a capture or editor session has an
+`onRender` hook installed on the runtime (see
+[`@glossa/capture`](../capture/README.md)), `<T>` wraps its content in a
+`<span style="display: contents">` carrying `data-glossa-id` and
+`data-glossa-locale`, and `t()` strings carry the session's invisible markers.
+Both go away when the session ends. A normal page view, and server rendering,
+never has them; a session started before hydration still hydrates the server
+HTML without mismatches, then marks.
+
 ## Typed messages
 
 `useMessages<M>()` is `useGlossa()` typed by a message map, so IDs and values
