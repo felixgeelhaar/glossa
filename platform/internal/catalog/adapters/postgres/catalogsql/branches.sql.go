@@ -59,6 +59,38 @@ func (q *Queries) GetBranch(ctx context.Context, arg GetBranchParams) (CatalogBr
 	return i, err
 }
 
+const getBranchByID = `-- name: GetBranchByID :one
+SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at FROM catalog_branches WHERE project_id = $1 AND id = $2
+`
+
+type GetBranchByIDParams struct {
+	ProjectID uuid.UUID
+	ID        uuid.UUID
+}
+
+// URLs address a branch by its ID: a branch name may hold slashes.
+func (q *Queries) GetBranchByID(ctx context.Context, arg GetBranchByIDParams) (CatalogBranch, error) {
+	row := q.db.QueryRow(ctx, getBranchByID, arg.ProjectID, arg.ID)
+	var i CatalogBranch
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.ProjectID,
+		&i.Name,
+		&i.PrNumber,
+		&i.HeadCommit,
+		&i.State,
+		&i.PreviewUrl,
+		&i.ClosedAt,
+		&i.RemovedKeys,
+		&i.Version,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getBranchesByIDs = `-- name: GetBranchesByIDs :many
 SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at FROM catalog_branches WHERE id = ANY ($1::uuid[])
 `
@@ -207,6 +239,110 @@ func (q *Queries) ListBranchProposals(ctx context.Context, branchID uuid.UUID) (
 			&i.Model,
 			&i.BaseRevision,
 			&i.Author,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBranchProposalsPage = `-- name: ListBranchProposalsPage :many
+SELECT tenant_id, branch_id, key, message_id, kind, syntax, text, model, base_revision, author, created_at, updated_at FROM catalog_proposals
+WHERE branch_id = $1 AND key > $2
+ORDER BY key
+LIMIT $3
+`
+
+type ListBranchProposalsPageParams struct {
+	BranchID uuid.UUID
+	After    string
+	MaxRows  int32
+}
+
+// One page of a branch's proposals, by key (the Branches API).
+func (q *Queries) ListBranchProposalsPage(ctx context.Context, arg ListBranchProposalsPageParams) ([]CatalogProposal, error) {
+	rows, err := q.db.Query(ctx, listBranchProposalsPage, arg.BranchID, arg.After, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CatalogProposal
+	for rows.Next() {
+		var i CatalogProposal
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.BranchID,
+			&i.Key,
+			&i.MessageID,
+			&i.Kind,
+			&i.Syntax,
+			&i.Text,
+			&i.Model,
+			&i.BaseRevision,
+			&i.Author,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBranches = `-- name: ListBranches :many
+SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at FROM catalog_branches
+WHERE project_id = $1 AND name > $2
+  AND ($3::text IS NULL OR state = $3)
+ORDER BY name
+LIMIT $4
+`
+
+type ListBranchesParams struct {
+	ProjectID uuid.UUID
+	After     string
+	State     pgtype.Text
+	MaxRows   int32
+}
+
+// A project's branches by name, after the given one, optionally in one
+// state (the Branches API's state filter).
+func (q *Queries) ListBranches(ctx context.Context, arg ListBranchesParams) ([]CatalogBranch, error) {
+	rows, err := q.db.Query(ctx, listBranches,
+		arg.ProjectID,
+		arg.After,
+		arg.State,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CatalogBranch
+	for rows.Next() {
+		var i CatalogBranch
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ProjectID,
+			&i.Name,
+			&i.PrNumber,
+			&i.HeadCommit,
+			&i.State,
+			&i.PreviewUrl,
+			&i.ClosedAt,
+			&i.RemovedKeys,
+			&i.Version,
+			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

@@ -30,6 +30,9 @@ const (
 	// branch (a reopened PR, or a later push of its key).
 	EventMessageProposed = "catalog.message.proposed"
 
+	// EventBranchOpened: a branch exists (its first push, or CI's
+	// upsert). Release opens its preview environment on it.
+	EventBranchOpened   = "catalog.branch.opened"
 	EventBranchPushed   = "catalog.branch.pushed"
 	EventBranchClosed   = "catalog.branch.closed"
 	EventBranchReopened = "catalog.branch.reopened"

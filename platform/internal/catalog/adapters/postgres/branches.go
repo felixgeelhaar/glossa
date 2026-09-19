@@ -68,6 +68,29 @@ func (s *store) LockBranch(ctx context.Context, project domain.ProjectID, name d
 	return branch(row), nil
 }
 
+func (s *store) BranchByID(ctx context.Context, project domain.ProjectID, id domain.BranchID) (domain.Branch, error) {
+	row, err := s.q.GetBranchByID(ctx, catalogsql.GetBranchByIDParams{ProjectID: project.UUID(), ID: id.UUID()})
+	if err != nil {
+		return domain.Branch{}, storeError(err)
+	}
+	return branch(row), nil
+}
+
+func (s *store) Branches(ctx context.Context, project domain.ProjectID, state domain.BranchState, after domain.BranchName, limit int) ([]domain.Branch, error) {
+	rows, err := s.q.ListBranches(ctx, catalogsql.ListBranchesParams{
+		ProjectID: project.UUID(), After: string(after), State: pgtype.Text{String: string(state), Valid: state != ""},
+		MaxRows: int32Of(limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.Branch, len(rows))
+	for i, r := range rows {
+		out[i] = branch(r)
+	}
+	return out, nil
+}
+
 func (s *store) BranchesByIDs(ctx context.Context, ids []domain.BranchID) (map[domain.BranchID]domain.Branch, error) {
 	uuids := make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -143,6 +166,16 @@ func proposals(rows []catalogsql.CatalogProposal) ([]domain.Proposal, error) {
 
 func (s *store) BranchProposals(ctx context.Context, b domain.BranchID) ([]domain.Proposal, error) {
 	rows, err := s.q.ListBranchProposals(ctx, b.UUID())
+	if err != nil {
+		return nil, storeError(err)
+	}
+	return proposals(rows)
+}
+
+func (s *store) BranchProposalsPage(ctx context.Context, b domain.BranchID, after domain.MessageKey, limit int) ([]domain.Proposal, error) {
+	rows, err := s.q.ListBranchProposalsPage(ctx, catalogsql.ListBranchProposalsPageParams{
+		BranchID: b.UUID(), After: string(after), MaxRows: int32Of(limit),
+	})
 	if err != nil {
 		return nil, storeError(err)
 	}

@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const listTenantsWithClosedBranches = `-- name: ListTenantsWithClosedBranches :many
@@ -23,6 +24,49 @@ SELECT DISTINCT tenant_id FROM catalog_branches WHERE closed_at IS NOT NULL ORDE
 // own tenant scope (RFC 0004 §4.1).
 func (q *Queries) ListTenantsWithClosedBranches(ctx context.Context) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listTenantsWithClosedBranches)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var tenant_id uuid.UUID
+		if err := rows.Scan(&tenant_id); err != nil {
+			return nil, err
+		}
+		items = append(items, tenant_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTenantsWithExpiredProposals = `-- name: ListTenantsWithExpiredProposals :many
+
+SELECT DISTINCT m.tenant_id FROM catalog_messages m
+WHERE m.state = 'proposed'
+  AND EXISTS (SELECT FROM catalog_proposals p WHERE p.message_id = m.id AND p.kind = 'new_key')
+  AND NOT EXISTS (SELECT FROM catalog_proposals p JOIN catalog_branches b ON b.id = p.branch_id
+                  WHERE p.message_id = m.id AND p.kind = 'new_key'
+                    AND (b.closed_at IS NULL OR b.closed_at > $1))
+ORDER BY m.tenant_id
+LIMIT $2::int
+`
+
+type ListTenantsWithExpiredProposalsParams struct {
+	Cutoff  pgtype.Timestamptz
+	MaxRows int32
+}
+
+// System scope (db.SystemTx as glossa_system): migration 0016 opens
+// these columns to it, read-only, and nothing else. The query finds
+// work across tenants; the sweep itself runs in each tenant's scope.
+// System scope catalog.proposal_sweep: the tenants holding proposed
+// messages whose every proposing branch closed or merged before the
+// cutoff — exactly what SweepProposals obsoletes.
+func (q *Queries) ListTenantsWithExpiredProposals(ctx context.Context, arg ListTenantsWithExpiredProposalsParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listTenantsWithExpiredProposals, arg.Cutoff, arg.MaxRows)
 	if err != nil {
 		return nil, err
 	}

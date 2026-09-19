@@ -10,6 +10,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
@@ -21,6 +22,10 @@ const MaxBranchItems = 10000
 
 // ErrTooManyBranchItems: a branch push holds 1 to MaxBranchItems items.
 var ErrTooManyBranchItems = errors.New("catalog: a branch push holds 1 to 10000 items")
+
+// ErrInvalidBranchState: the branch list's state filter is open, merged
+// or closed.
+var ErrInvalidBranchState = errors.New("catalog: a branch is open, merged or closed")
 
 // BranchPush is a push from a feature branch (glossa push --branch).
 type BranchPush struct {
@@ -110,7 +115,7 @@ func (s *Service) PushBranch(ctx context.Context, project domain.ProjectID, in B
 		if err != nil {
 			return err
 		}
-		b, err := s.lockOrCreateBranch(ctx, st, project, name, by)
+		b, created, err := s.lockOrCreateBranch(ctx, st, project, name, by)
 		if err != nil {
 			return err
 		}
@@ -120,6 +125,11 @@ func (s *Service) PushBranch(ctx context.Context, project domain.ProjectID, in B
 			return err
 		}
 		w := &branchWrite{s: s, st: st, b: &b, by: by, now: now}
+		if created {
+			if err := st.Publish(ctx, branchEvent(domain.EventBranchOpened, b, by)); err != nil {
+				return err
+			}
+		}
 		if reopened {
 			if err := w.reproposeOwned(ctx); err != nil {
 				return err
@@ -157,20 +167,216 @@ func (s *Service) PushBranch(ctx context.Context, project domain.ProjectID, in B
 	return rep, s.countOutdated(ctx, project, &rep)
 }
 
-func (s *Service) lockOrCreateBranch(ctx context.Context, st Store, project domain.ProjectID, name domain.BranchName, by domain.Author) (domain.Branch, error) {
+// lockOrCreateBranch locks the branch, creating it if the project has
+// none of that name; created says a row was inserted (the caller
+// publishes catalog.branch.opened, which opens its environment).
+func (s *Service) lockOrCreateBranch(ctx context.Context, st Store, project domain.ProjectID, name domain.BranchName, by domain.Author) (domain.Branch, bool, error) {
 	b, err := st.LockBranch(ctx, project, name)
 	if !errors.Is(err, ErrNotFound) {
-		return b, err
+		return b, false, err
 	}
 	nb, err := domain.NewBranch(project, name, s.now())
 	if err != nil {
-		return domain.Branch{}, err
+		return domain.Branch{}, false, err
 	}
 	// A concurrent first push may win the insert; lock its row instead.
-	if _, err := st.InsertBranch(ctx, nb, by); err != nil {
+	inserted, err := st.InsertBranch(ctx, nb, by)
+	if err != nil {
+		return domain.Branch{}, false, err
+	}
+	b, err = st.LockBranch(ctx, project, name)
+	return b, inserted, err
+}
+
+// BranchUpsert is what CI (or the pull_request webhook) says about a
+// branch without pushing messages: glossa push --branch --pr sends the
+// same fields with its items.
+type BranchUpsert struct {
+	Branch string
+	domain.PushInfo
+	// PreviewURL, when set, records where CI deployed the branch's
+	// preview ("" clears it).
+	PreviewURL *string
+}
+
+// UpsertBranch creates a branch or records what CI says about an
+// existing one (its head commit, its pull request, its preview URL).
+// It proposes nothing: only a push does. A closed branch reopens, a
+// merged one is refused (domain.ErrBranchMerged).
+func (s *Service) UpsertBranch(ctx context.Context, project domain.ProjectID, in BranchUpsert) (domain.Branch, bool, error) {
+	by, err := author(ctx, authz.CatalogWrite)
+	if err != nil {
+		return domain.Branch{}, false, err
+	}
+	name, err := domain.ParseBranchName(in.Branch)
+	if err != nil {
+		return domain.Branch{}, false, err
+	}
+	var (
+		b       domain.Branch
+		created bool
+	)
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		if _, err := st.Project(ctx, project); err != nil {
+			return err
+		}
+		b, created, err = s.lockOrCreateBranch(ctx, st, project, name, by)
+		if err != nil {
+			return err
+		}
+		expected, now := b.Version, s.now()
+		reopened, err := b.Push(in.PushInfo, now)
+		if err != nil {
+			return err
+		}
+		if in.PreviewURL != nil {
+			if _, err := b.ReportPreview(*in.PreviewURL, now); err != nil {
+				return err
+			}
+		}
+		if err := st.UpdateBranch(ctx, b, expected); err != nil {
+			return err
+		}
+		if created {
+			return st.Publish(ctx, branchEvent(domain.EventBranchOpened, b, by))
+		}
+		if reopened {
+			return st.Publish(ctx, branchEvent(domain.EventBranchReopened, b, by))
+		}
+		return nil
+	})
+	if err != nil {
+		return domain.Branch{}, false, err
+	}
+	return b, created, nil
+}
+
+// BranchFilter narrows a branch list.
+type BranchFilter struct {
+	// State lists only branches in it ("" is every state).
+	State domain.BranchState
+	// Name lists only the branch of that name (the CLI resolving a
+	// branch it knows by name).
+	Name string
+}
+
+// ListBranches lists a project's branches by name.
+func (s *Service) ListBranches(ctx context.Context, project domain.ProjectID, f BranchFilter, page pagination.Page) ([]domain.Branch, *string, error) {
+	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+		return nil, nil, err
+	}
+	if f.State != "" && f.State != domain.BranchOpen && f.State != domain.BranchMerged && f.State != domain.BranchClosed {
+		return nil, nil, ErrInvalidBranchState
+	}
+	var rows []domain.Branch
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		if _, err := st.Project(ctx, project); err != nil {
+			return err
+		}
+		if f.Name != "" {
+			return s.branchByName(ctx, st, project, f, &rows)
+		}
+		var err error
+		rows, err = st.Branches(ctx, project, f.State, domain.BranchName(page.After), page.Limit())
+		return err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	items, next := pagination.Trim(rows, page, func(b domain.Branch) string { return string(b.Name) })
+	return items, next, nil
+}
+
+// branchByName answers the name filter: the one branch of that name, or
+// nothing (an unknown or invalid name is an empty page, never an error:
+// it is a filter, not a lookup).
+func (s *Service) branchByName(ctx context.Context, st Store, project domain.ProjectID, f BranchFilter, out *[]domain.Branch) error {
+	name, err := domain.ParseBranchName(f.Name)
+	if err != nil {
+		return nil
+	}
+	b, err := st.Branch(ctx, project, name)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil || (f.State != "" && b.State != f.State) {
+		return err
+	}
+	*out = append(*out, b)
+	return nil
+}
+
+// GetBranch reads one branch by ID.
+func (s *Service) GetBranch(ctx context.Context, project domain.ProjectID, id domain.BranchID) (domain.Branch, error) {
+	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
 		return domain.Branch{}, err
 	}
-	return st.LockBranch(ctx, project, name)
+	var b domain.Branch
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		var err error
+		b, err = st.BranchByID(ctx, project, id)
+		return err
+	})
+	return b, err
+}
+
+// ListProposals lists a branch's proposals by key: what it proposes for
+// each key, and the message that key names.
+func (s *Service) ListProposals(ctx context.Context, project domain.ProjectID, branch string, page pagination.Page) ([]domain.Proposal, *string, error) {
+	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+		return nil, nil, err
+	}
+	name, err := parseBranchOrNotFound(branch)
+	if err != nil {
+		return nil, nil, err
+	}
+	var rows []domain.Proposal
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		b, err := st.Branch(ctx, project, name)
+		if err != nil {
+			return err
+		}
+		rows, err = st.BranchProposalsPage(ctx, b.ID, domain.MessageKey(page.After), page.Limit())
+		return err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	items, next := pagination.Trim(rows, page, func(p domain.Proposal) string { return string(p.Key) })
+	return items, next, nil
+}
+
+// OpenBranchesProposing lists the names of the project's open branches
+// that propose message id — the branches whose preview shows a change
+// to it, and so the ones to publish again when its translations change
+// (RFC 0004 §4.2). Release reads it through its Source port.
+func (s *Service) OpenBranchesProposing(ctx context.Context, project domain.ProjectID, id domain.MessageID) ([]domain.BranchName, error) {
+	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+		return nil, err
+	}
+	var out []domain.BranchName
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		all, err := st.ProposalsForMessages(ctx, []domain.MessageID{id})
+		if err != nil || len(all) == 0 {
+			return err
+		}
+		ids := make([]domain.BranchID, 0, len(all))
+		for _, pr := range all {
+			ids = append(ids, pr.BranchID)
+		}
+		branches, err := st.BranchesByIDs(ctx, ids)
+		if err != nil {
+			return err
+		}
+		for _, b := range branches {
+			if b.State == domain.BranchOpen && b.ProjectID == project {
+				out = append(out, b.Name)
+			}
+		}
+		slices.Sort(out)
+		return nil
+	})
+	return out, err
 }
 
 // branchWrite is one branch change in progress: it collects the messages

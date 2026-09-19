@@ -20,8 +20,21 @@ SELECT * FROM catalog_branches
 WHERE project_id = sqlc.arg(project_id) AND name = sqlc.arg(name)
 FOR UPDATE;
 
+-- name: GetBranchByID :one
+-- URLs address a branch by its ID: a branch name may hold slashes.
+SELECT * FROM catalog_branches WHERE project_id = sqlc.arg(project_id) AND id = sqlc.arg(id);
+
 -- name: GetBranchesByIDs :many
 SELECT * FROM catalog_branches WHERE id = ANY (sqlc.arg(ids)::uuid[]);
+
+-- name: ListBranches :many
+-- A project's branches by name, after the given one, optionally in one
+-- state (the Branches API's state filter).
+SELECT * FROM catalog_branches
+WHERE project_id = sqlc.arg(project_id) AND name > sqlc.arg(after)
+  AND (sqlc.narg(state)::text IS NULL OR state = sqlc.narg(state))
+ORDER BY name
+LIMIT sqlc.arg(max_rows);
 
 -- name: UpdateBranch :execrows
 UPDATE catalog_branches
@@ -46,6 +59,13 @@ DELETE FROM catalog_proposals WHERE branch_id = sqlc.arg(branch_id) AND key = sq
 
 -- name: ListBranchProposals :many
 SELECT * FROM catalog_proposals WHERE branch_id = sqlc.arg(branch_id) ORDER BY key;
+
+-- name: ListBranchProposalsPage :many
+-- One page of a branch's proposals, by key (the Branches API).
+SELECT * FROM catalog_proposals
+WHERE branch_id = sqlc.arg(branch_id) AND key > sqlc.arg(after)
+ORDER BY key
+LIMIT sqlc.arg(max_rows);
 
 -- name: ListProposalsForMessages :many
 -- Every branch's proposal for the messages, by message and branch.

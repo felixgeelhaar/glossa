@@ -110,7 +110,12 @@ type Store interface {
 	// a branch of that name (a concurrent first push).
 	InsertBranch(ctx context.Context, b domain.Branch, by domain.Author) (inserted bool, err error)
 	Branch(ctx context.Context, project domain.ProjectID, name domain.BranchName) (domain.Branch, error)
+	// BranchByID is the branch URLs address (a name may hold slashes).
+	BranchByID(ctx context.Context, project domain.ProjectID, id domain.BranchID) (domain.Branch, error)
 	LockBranch(ctx context.Context, project domain.ProjectID, name domain.BranchName) (domain.Branch, error)
+	// Branches lists by name, after the given one; state "" is every
+	// state.
+	Branches(ctx context.Context, project domain.ProjectID, state domain.BranchState, after domain.BranchName, limit int) ([]domain.Branch, error)
 	BranchesByIDs(ctx context.Context, ids []domain.BranchID) (map[domain.BranchID]domain.Branch, error)
 	// ClosedBranches reports when each of the project's closed and
 	// merged branches closed.
@@ -123,6 +128,8 @@ type Store interface {
 	DeleteProposal(ctx context.Context, branch domain.BranchID, key domain.MessageKey) error
 	// BranchProposals lists a branch's proposals in key order.
 	BranchProposals(ctx context.Context, branch domain.BranchID) ([]domain.Proposal, error)
+	// BranchProposalsPage lists one page of them, after the given key.
+	BranchProposalsPage(ctx context.Context, branch domain.BranchID, after domain.MessageKey, limit int) ([]domain.Proposal, error)
 	// ProposalsForMessages lists every branch's proposals for ids.
 	ProposalsForMessages(ctx context.Context, ids []domain.MessageID) ([]domain.Proposal, error)
 	// LockMessagesByIDs locks the project's messages among ids, in key
@@ -135,6 +142,14 @@ type Store interface {
 	LockOrphanedProposedMessages(ctx context.Context) ([]domain.Message, error)
 
 	Publish(ctx context.Context, e outbox.Event) error
+}
+
+// Scanner finds Catalog's background work across tenants (system
+// scope); the work itself runs in each tenant's scope.
+type Scanner interface {
+	// TenantsWithExpiredProposals lists the tenants holding proposed
+	// messages whose every proposing branch closed before cutoff.
+	TenantsWithExpiredProposals(ctx context.Context, cutoff time.Time, limit int) ([]tenancy.ID, error)
 }
 
 // TranslationImpact is Localization's count, per locale, of the current
