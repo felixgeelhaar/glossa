@@ -1,0 +1,172 @@
+package config_test
+
+import (
+	"log/slog"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
+)
+
+func env(kv map[string]string) config.LookupFunc {
+	return func(key string) (string, bool) {
+		v, ok := kv[key]
+		return v, ok
+	}
+}
+
+func TestLoadDefaults(t *testing.T) {
+	cfg, err := config.Load(env(map[string]string{
+		"DATABASE_URL": "postgres://glossa_app:secret@db:5432/glossa",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.HTTP.Addr != ":8080" {
+		t.Errorf("HTTP.Addr = %q, want :8080", cfg.HTTP.Addr)
+	}
+	if cfg.LogLevel != slog.LevelInfo {
+		t.Errorf("LogLevel = %v, want info", cfg.LogLevel)
+	}
+	if cfg.ShutdownTimeout != 25*time.Second {
+		t.Errorf("ShutdownTimeout = %v, want 25s", cfg.ShutdownTimeout)
+	}
+	if cfg.Migrate != config.MigrateOff {
+		t.Errorf("Migrate = %q, want off", cfg.Migrate)
+	}
+	if !cfg.Outbox.Enabled {
+		t.Error("Outbox.Enabled = false, want true")
+	}
+	if cfg.HTTP.MaxBodyBytes != 1<<20 {
+		t.Errorf("HTTP.MaxBodyBytes = %d, want 1MiB", cfg.HTTP.MaxBodyBytes)
+	}
+	if cfg.OTel.Enabled() {
+		t.Error("OTel enabled without an endpoint")
+	}
+}
+
+func TestLoadOverrides(t *testing.T) {
+	cfg, err := config.Load(env(map[string]string{
+		"DATABASE_URL":                "postgres://app@db/glossa",
+		"MIGRATION_DATABASE_URL":      "postgres://owner@db/glossa",
+		"GLOSSA_MIGRATE":              "up",
+		"GLOSSA_HTTP_ADDR":            "127.0.0.1:9000",
+		"GLOSSA_LOG_LEVEL":            "debug",
+		"GLOSSA_SHUTDOWN_TIMEOUT":     "10s",
+		"GLOSSA_OUTBOX_BATCH_SIZE":    "7",
+		"GLOSSA_OUTBOX_MAX_ATTEMPTS":  "4",
+		"GLOSSA_OUTBOX_ENABLED":       "false",
+		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel:4318",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Migrate != config.MigrateUp {
+		t.Errorf("Migrate = %q, want up", cfg.Migrate)
+	}
+	if cfg.HTTP.Addr != "127.0.0.1:9000" {
+		t.Errorf("HTTP.Addr = %q", cfg.HTTP.Addr)
+	}
+	if cfg.LogLevel != slog.LevelDebug {
+		t.Errorf("LogLevel = %v, want debug", cfg.LogLevel)
+	}
+	if cfg.ShutdownTimeout != 10*time.Second {
+		t.Errorf("ShutdownTimeout = %v", cfg.ShutdownTimeout)
+	}
+	if cfg.Outbox.BatchSize != 7 || cfg.Outbox.MaxAttempts != 4 || cfg.Outbox.Enabled {
+		t.Errorf("Outbox = %+v", cfg.Outbox)
+	}
+	if !cfg.OTel.Enabled() {
+		t.Error("OTel not enabled with an endpoint")
+	}
+}
+
+func TestLoadValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     map[string]string
+		wantErr []string
+	}{
+		{
+			name:    "missing database url",
+			env:     map[string]string{},
+			wantErr: []string{"DATABASE_URL: required"},
+		},
+		{
+			name: "migrate without migration url",
+			env: map[string]string{
+				"DATABASE_URL":   "postgres://app@db/glossa",
+				"GLOSSA_MIGRATE": "up",
+			},
+			wantErr: []string{"MIGRATION_DATABASE_URL: required when GLOSSA_MIGRATE is up or only"},
+		},
+		{
+			name: "invalid values are all reported",
+			env: map[string]string{
+				"DATABASE_URL":             "postgres://app@db/glossa",
+				"GLOSSA_MIGRATE":           "sideways",
+				"GLOSSA_LOG_LEVEL":         "loud",
+				"GLOSSA_SHUTDOWN_TIMEOUT":  "soon",
+				"GLOSSA_OUTBOX_BATCH_SIZE": "0",
+				"GLOSSA_OUTBOX_ENABLED":    "maybe",
+			},
+			wantErr: []string{
+				`GLOSSA_MIGRATE: must be one of off, up, only (got "sideways")`,
+				`GLOSSA_LOG_LEVEL: must be one of debug, info, warn, error (got "loud")`,
+				`GLOSSA_SHUTDOWN_TIMEOUT: invalid duration "soon"`,
+				"GLOSSA_OUTBOX_BATCH_SIZE: must be between 1 and 1000",
+				`GLOSSA_OUTBOX_ENABLED: invalid boolean "maybe"`,
+			},
+		},
+		{
+			name: "lease must outlast the handler timeout",
+			env: map[string]string{
+				"DATABASE_URL":                  "postgres://app@db/glossa",
+				"GLOSSA_OUTBOX_LEASE":           "5s",
+				"GLOSSA_OUTBOX_HANDLER_TIMEOUT": "10s",
+			},
+			wantErr: []string{"GLOSSA_OUTBOX_LEASE: must be longer than GLOSSA_OUTBOX_HANDLER_TIMEOUT"},
+		},
+		{
+			name: "non-positive durations are rejected",
+			env: map[string]string{
+				"DATABASE_URL":            "postgres://app@db/glossa",
+				"GLOSSA_SHUTDOWN_TIMEOUT": "0s",
+			},
+			wantErr: []string{"GLOSSA_SHUTDOWN_TIMEOUT: must be positive"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := config.Load(env(tc.env))
+			if err == nil {
+				t.Fatal("Load succeeded, want error")
+			}
+			for _, want := range tc.wantErr {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q\ndoes not contain %q", err, want)
+				}
+			}
+		})
+	}
+}
+
+func TestStringRedactsSecrets(t *testing.T) {
+	cfg, err := config.Load(env(map[string]string{
+		"DATABASE_URL":           "postgres://glossa_app:hunter2@db:5432/glossa",
+		"MIGRATION_DATABASE_URL": "postgres://owner:s3cr3t@db:5432/glossa",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	for _, s := range []string{cfg.String(), cfg.DatabaseURL.String(), cfg.MigrationDatabaseURL.String()} {
+		if strings.Contains(s, "hunter2") || strings.Contains(s, "s3cr3t") {
+			t.Errorf("secret leaked: %s", s)
+		}
+	}
+	if got := cfg.DatabaseURL.Reveal(); !strings.Contains(got, "hunter2") {
+		t.Errorf("Reveal() = %q, want the original DSN", got)
+	}
+}
