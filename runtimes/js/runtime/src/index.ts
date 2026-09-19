@@ -39,6 +39,8 @@ export type {
   ExplainStep,
   Explanation,
   PersistedRelease,
+  Render,
+  RenderHook,
   Runtime,
   RuntimeError,
   RuntimeOptions,

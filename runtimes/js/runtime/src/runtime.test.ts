@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRuntime } from "./runtime.js";
-import type { RuntimeError, RuntimeOptions } from "./runtime.js";
+import type { Render, RuntimeError, RuntimeOptions } from "./runtime.js";
 import { memoryStorage } from "./storage.js";
 import type { RuntimeStorage } from "./storage.js";
 import { DELIVERY_KEY, EDGE, fakeEdge } from "./testing/edge.js";
@@ -372,6 +372,70 @@ describe("createRuntime: resolution", () => {
     const rt = create({ locales: undefined });
     await rt.ready;
     expect(rt.locale).toBe("en");
+  });
+});
+
+describe("createRuntime: onRender (RFC 0004 §3.1)", () => {
+  const bundled = { manifest: r1.manifest, artifacts: r1.parsed };
+
+  it("shows every t() render to the hook, which may decorate it", () => {
+    const { create } = setup();
+    const rt = create({ bundled });
+    const seen: Render[] = [];
+    const off = rt.onRender((r) => {
+      seen.push(r);
+      return `[${r.output}]`;
+    });
+    expect(rt.t("cart.checkout")).toBe("[Zur Kassa]");
+    expect(rt.t("greeting", { name: "Lina" })).toBe("[Hallo Lina!]");
+    expect(rt.t("nope", {}, { default: "Nein" })).toBe("[Nein]");
+    expect(seen).toEqual([
+      { id: "cart.checkout", locale: "de-AT", values: undefined, output: "Zur Kassa" },
+      { id: "greeting", locale: "de", values: { name: "Lina" }, output: "Hallo Lina!" },
+      { id: "nope", locale: undefined, values: {}, output: "Nein" },
+    ]);
+    off();
+    expect(rt.t("cart.checkout")).toBe("Zur Kassa");
+  });
+
+  it("leaves parts() alone: components mark their host elements instead", () => {
+    const { create } = setup();
+    const rt = create({ bundled });
+    const hook = vi.fn(() => "x");
+    rt.onRender(hook);
+    expect(rt.parts("cart.checkout")).toEqual([{ type: "text", value: "Zur Kassa" }]);
+    expect(hook).not.toHaveBeenCalled();
+  });
+
+  it("chains hooks in order, keeps the output of a hook that returns nothing", () => {
+    const { create } = setup();
+    const rt = create({ bundled });
+    rt.onRender(() => undefined);
+    rt.onRender((r) => `<${r.output}>`);
+    rt.onRender((r) => `(${r.output})`);
+    expect(rt.t("cart.checkout")).toBe("(<Zur Kassa>)");
+  });
+
+  it("contains a hook that throws", () => {
+    const { create } = setup();
+    const rt = create({ bundled });
+    rt.onRender(() => {
+      throw new Error("bug");
+    });
+    expect(rt.t("cart.checkout")).toBe("Zur Kassa");
+  });
+
+  it("reports whether a hook is installed and notifies subscribers when one comes or goes", () => {
+    const { create } = setup();
+    const rt = create({ bundled });
+    const seen: boolean[] = [];
+    rt.subscribe(() => seen.push(rt.hooked));
+    expect(rt.hooked).toBe(false);
+    const off = rt.onRender(() => undefined);
+    expect(rt.hooked).toBe(true);
+    off();
+    expect(rt.hooked).toBe(false);
+    expect(seen).toEqual([true, false]);
   });
 });
 

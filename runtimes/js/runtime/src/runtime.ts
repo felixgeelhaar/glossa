@@ -89,6 +89,27 @@ export interface TranslateOptions {
   default?: string;
 }
 
+/** What an `onRender` hook sees: one `t()` render (RFC 0004 §3.1). */
+export interface Render {
+  id: string;
+  /** The locale the message resolved from; undefined when the inline default or the ID rendered. */
+  locale: string | undefined;
+  /**
+   * The values, as given. A hook that keeps a log digests them (the capture
+   * module does); the runtime doesn't, to keep this extension point under
+   * 100 bytes.
+   */
+  values: Record<string, unknown> | undefined;
+  /** The rendered string. */
+  output: string;
+}
+
+/**
+ * Sees every `t()` render and may decorate it: a returned string replaces the
+ * output. Only capture and editor sessions install one (RFC 0004 §5.1).
+ */
+export type RenderHook = (render: Render) => string | void;
+
 export interface ExplainStep {
   locale: string;
   outcome: "found" | "missing" | "not-loaded";
@@ -127,8 +148,16 @@ export interface Runtime {
   setLocales(locales: string | readonly string[]): Promise<void>;
   /** Revalidate the manifest now. Concurrent calls share one request. */
   refresh(): Promise<void>;
-  /** Called after every activation (new release or locale), e.g. to re-render. */
+  /** Called after every activation (new release or locale) and when an `onRender` hook comes or goes, e.g. to re-render. */
   subscribe(listener: () => void): () => void;
+  /**
+   * Install a render hook (RFC 0004 §3.1): capture and editor sessions only.
+   * Subscribers are notified, so the page re-renders with (and, after the
+   * returned unsubscribe, without) the hook.
+   */
+  onRender(hook: RenderHook): () => void;
+  /** Whether an `onRender` hook is installed; components mark their host elements only then. */
+  readonly hooked: boolean;
   /** Listen on the error channel. */
   onError(listener: (error: RuntimeError) => void): () => void;
   /** Stop background refresh and drop listeners. */
@@ -180,6 +209,8 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
   const cache = new Map<string, { a: Artifact; text?: string }>();
   const subscribers = new Set<() => void>();
   const listeners = new Set<(e: RuntimeError) => void>(o.onError ? [o.onError] : []);
+  const hooks = new Set<RenderHook>();
+  let from: string | undefined;
   const reported = new Map<string, number>();
   let requested = list(o.locales ?? navigatorLanguages() ?? []);
   let state: Active | undefined;
@@ -412,6 +443,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
    * failing and empty renders fall through to the inline default, then the ID.
    */
   const resolve = (id: string, values?: Record<string, unknown>, opts?: TranslateOptions) => {
+    from = undefined;
     try {
       const st = state;
       if (st) {
@@ -431,7 +463,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
                 releaseId,
               }),
           });
-          if (partsToString(parts)) return parts;
+          if (partsToString(parts)) return (from = locale), parts;
         } else {
           const detail = `not in ${st.chain.join(", ")}`;
           emit({ type: "missing-message", detail, messageId: id, locale: st.locale, releaseId });
@@ -479,6 +511,19 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
 
   const add = <T>(set: Set<T>, f: T) => (set.add(f), () => void set.delete(f));
 
+  const t: Runtime["t"] = (id, values, opts) => {
+    let output = partsToString(resolve(id, values, opts));
+    const locale = from;
+    for (const f of hooks) {
+      try {
+        output = f({ id, locale, values, output }) ?? output;
+      } catch {
+        // A hook's bug must not break rendering.
+      }
+    }
+    return output;
+  };
+
   return {
     ready,
     get locale() {
@@ -494,7 +539,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     get availableLocales() {
       return state?.m.locales ?? [];
     },
-    t: (id, values, opts) => partsToString(resolve(id, values, opts)),
+    t,
     parts: resolve,
     explain,
     setLocales(locales) {
@@ -506,6 +551,14 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     refresh,
     subscribe: (f) => add(subscribers, f),
     onError: (f) => add(listeners, f),
+    onRender(f) {
+      hooks.add(f);
+      call(subscribers);
+      return () => void (hooks.delete(f), call(subscribers));
+    },
+    get hooked() {
+      return hooks.size > 0;
+    },
     dispose() {
       stop?.();
       doc?.removeEventListener?.("visibilitychange", onVisible);
