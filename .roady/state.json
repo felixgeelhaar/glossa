@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 91,
+  "version": 93,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -348,11 +348,15 @@
       "elapsed_minutes": 43
     },
     "task-m2-formats": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "platform/internal/integration/formats: XLIFF 2.1 (XSD-validated), TMX 1.4b, TBX-Basic (+TBX 2008 read), JSON flat/nested, PO read with CLDR plural mapping; round-trip property tests, fuzz targets with seed corpora, XXE/billion-laughs refused; found and fixed a kernel Stringify quoting bug"
+      ],
       "started_at": "2026-09-19T15:09:55.346506+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T16:16:07.500586+02:00",
+      "elapsed_minutes": 66
     },
     "task-m2-intelligence-core": {
       "status": "done",
@@ -366,8 +370,10 @@
       "elapsed_minutes": 53
     },
     "task-m2-intelligence-wiring": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-09-19T16:16:08.988602+02:00",
       "elapsed_minutes": 0
     },
     "task-m2-knowledge": {
@@ -500,5 +506,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T16:08:12.640379+02:00"
+  "updated_at": "2026-09-19T16:16:08.988602+02:00"
 }
