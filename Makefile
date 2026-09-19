@@ -1,4 +1,4 @@
-.PHONY: help api admin packages test lint fmt up down migrate-up migrate-down sqlc-gen platform-test platform-lint platform-integration
+.PHONY: help api admin packages test lint fmt up down migrate-up migrate-down sqlc-gen platform-test platform-lint platform-integration system-m2
 
 # Go modules of the rewrite (RFC 0002). apps/api is v0.3 and keeps its
 # own targets until it's retired.
@@ -33,6 +33,9 @@ platform-lint: ## go vet for every rewrite Go module.
 
 platform-integration: ## Docker-backed integration tests (Postgres, object storage).
 	@for m in $(PLATFORM_MODULES); do (cd $$m && go test -tags=integration -timeout=300s ./...) || exit 1; done
+
+system-m2: ## M2 exit test (Docker): fill es/fr/ja through glossa-server; writes platform/internal/systemtest/m2/REPORT.md.
+	cd platform && go test -tags=system -timeout=600s -count=1 -v ./internal/systemtest/...
 
 # ── Cross-cutting ───────────────────────────────────────────────────
 test: api-test platform-test web-test ## Backend + frontend tests.

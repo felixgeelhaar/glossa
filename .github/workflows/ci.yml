@@ -85,6 +85,38 @@ jobs:
         # Postgres and object storage via testcontainers; the runner has Docker.
         run: go test -tags=integration -timeout=300s ./...
 
+  platform-system:
+    name: Platform M2 exit test
+    # The whole-platform scenario (RFC 0003 §1): runs once the platform
+    # module's unit and integration tests are green, so a broken build
+    # fails fast and cheaply first.
+    needs: platform
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: platform
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: platform/go.mod
+          cache-dependency-path: platform/go.sum
+      - name: go vet (system)
+        run: go vet -tags=system ./internal/systemtest/...
+      - name: go test (system)
+        # Postgres and MinIO via testcontainers, glossa-server built from
+        # this module, a fake provider on loopback; writes REPORT.md.
+        run: go test -tags=system -timeout=600s -count=1 -v ./internal/systemtest/...
+      - name: keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: m2-report
+          path: platform/internal/systemtest/m2/REPORT.md
+          if-no-files-found: ignore
+          retention-days: 14
+
   contracts:
     name: Runtime contract fixtures
     runs-on: ubuntu-latest
