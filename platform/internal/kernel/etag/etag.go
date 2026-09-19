@@ -14,13 +14,23 @@ func Format(version int) string { return `"` + strconv.Itoa(version) + `"` }
 // Parse reads an If-Match value this API issued. ok is false for
 // anything else, which callers answer with 412.
 func Parse(s string) (version int, ok bool) {
+	v, ok := parse(s)
+	return v, ok && v >= 1
+}
+
+// ParseUnsaved is Parse for singletons that exist with defaults before
+// anyone saves them: they answer `"0"` until then, and If-Match `"0"`
+// means "only while still unsaved".
+func ParseUnsaved(s string) (version int, ok bool) {
+	v, ok := parse(s)
+	return v, ok && v >= 0
+}
+
+func parse(s string) (int, bool) {
 	s = strings.TrimPrefix(strings.TrimSpace(s), "W/")
 	if len(s) < 3 || s[0] != '"' || s[len(s)-1] != '"' {
 		return 0, false
 	}
 	v, err := strconv.Atoi(s[1 : len(s)-1])
-	if err != nil || v < 1 {
-		return 0, false
-	}
-	return v, true
+	return v, err == nil
 }

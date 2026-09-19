@@ -95,3 +95,17 @@ func OptionalIfMatch(s *string) (*int, error) {
 	v, err := IfMatch(*s)
 	return &v, err
 }
+
+// OptionalSingletonIfMatch reads the optional If-Match of a singleton
+// that exists with defaults before it is saved: `"0"`, its ETag until
+// then, asks for the write only while it is still unsaved.
+func OptionalSingletonIfMatch(s *string) (*int, error) {
+	if s == nil {
+		return nil, nil
+	}
+	v, ok := etag.ParseUnsaved(*s)
+	if !ok {
+		return nil, errStaleTag
+	}
+	return &v, nil
+}

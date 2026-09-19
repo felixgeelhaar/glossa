@@ -95,7 +95,7 @@ func (a *API) GetAISettings(ctx context.Context, _ apiv1.GetAISettingsRequestObj
 }
 
 func (a *API) PutAISettings(ctx context.Context, req apiv1.PutAISettingsRequestObject) (apiv1.PutAISettingsResponseObject, error) {
-	ifMatch, err := apiconv.OptionalIfMatch(req.Params.IfMatch)
+	ifMatch, err := apiconv.OptionalSingletonIfMatch(req.Params.IfMatch)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (a *API) GetAIPrices(ctx context.Context, _ apiv1.GetAIPricesRequestObject)
 }
 
 func (a *API) PutAIPrices(ctx context.Context, req apiv1.PutAIPricesRequestObject) (apiv1.PutAIPricesResponseObject, error) {
-	ifMatch, err := apiconv.OptionalIfMatch(req.Params.IfMatch)
+	ifMatch, err := apiconv.OptionalSingletonIfMatch(req.Params.IfMatch)
 	if err != nil {
 		return nil, err
 	}
@@ -173,16 +173,26 @@ func (a *API) ListAISpend(ctx context.Context, req apiv1.ListAISpendRequestObjec
 
 // ── routing ──────────────────────────────────────────────────────────
 
+// routingETag is the version of the scope's own policy: "0" while it has
+// none and a broader policy (or the default) applies, so If-Match "0"
+// creates it only while it is still absent.
+func routingETag(v app.RoutingView, scope string) *string {
+	if v.Source != scope {
+		return apiconv.ETag(0)
+	}
+	return apiconv.ETag(v.Record.Version)
+}
+
 func (a *API) GetAIRoutingPolicy(ctx context.Context, _ apiv1.GetAIRoutingPolicyRequestObject) (apiv1.GetAIRoutingPolicyResponseObject, error) {
 	v, err := a.svc.GetRoutingPolicy(ctx, nil)
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return apiv1.GetAIRoutingPolicy200JSONResponse{Body: toRoutingView(v), Headers: apiv1.GetAIRoutingPolicy200ResponseHeaders{ETag: apiconv.ETag(v.Record.Version)}}, nil
+	return apiv1.GetAIRoutingPolicy200JSONResponse{Body: toRoutingView(v), Headers: apiv1.GetAIRoutingPolicy200ResponseHeaders{ETag: routingETag(v, "tenant")}}, nil
 }
 
 func (a *API) PutAIRoutingPolicy(ctx context.Context, req apiv1.PutAIRoutingPolicyRequestObject) (apiv1.PutAIRoutingPolicyResponseObject, error) {
-	ifMatch, err := apiconv.OptionalIfMatch(req.Params.IfMatch)
+	ifMatch, err := apiconv.OptionalSingletonIfMatch(req.Params.IfMatch)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +212,7 @@ func (a *API) GetProjectAIRoutingPolicy(ctx context.Context, req apiv1.GetProjec
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return apiv1.GetProjectAIRoutingPolicy200JSONResponse{Body: toRoutingView(v), Headers: apiv1.GetProjectAIRoutingPolicy200ResponseHeaders{ETag: apiconv.ETag(v.Record.Version)}}, nil
+	return apiv1.GetProjectAIRoutingPolicy200JSONResponse{Body: toRoutingView(v), Headers: apiv1.GetProjectAIRoutingPolicy200ResponseHeaders{ETag: routingETag(v, "project")}}, nil
 }
 
 func (a *API) PutProjectAIRoutingPolicy(ctx context.Context, req apiv1.PutProjectAIRoutingPolicyRequestObject) (apiv1.PutProjectAIRoutingPolicyResponseObject, error) {
@@ -210,7 +220,7 @@ func (a *API) PutProjectAIRoutingPolicy(ctx context.Context, req apiv1.PutProjec
 	if err != nil {
 		return nil, err
 	}
-	ifMatch, err := apiconv.OptionalIfMatch(req.Params.IfMatch)
+	ifMatch, err := apiconv.OptionalSingletonIfMatch(req.Params.IfMatch)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +261,7 @@ func (a *API) PutProjectAISettings(ctx context.Context, req apiv1.PutProjectAISe
 	if err != nil {
 		return nil, err
 	}
-	ifMatch, err := apiconv.OptionalIfMatch(req.Params.IfMatch)
+	ifMatch, err := apiconv.OptionalSingletonIfMatch(req.Params.IfMatch)
 	if err != nil {
 		return nil, err
 	}

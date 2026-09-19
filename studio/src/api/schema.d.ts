@@ -2402,7 +2402,9 @@ export interface paths {
         /**
          * The AI routing policy in effect for a project
          * @description The project's own (`source: project`), else the tenant's, else
-         *     the default. Needs `intelligence.read`.
+         *     the default. The `ETag` is the project's own policy's: `"0"`
+         *     while it has none (as the tenant policy's is while the default
+         *     applies). Needs `intelligence.read`.
          */
         get: operations["getProjectAIRoutingPolicy"];
         /**
@@ -5280,6 +5282,8 @@ export interface components {
         IfMatch: string;
         /** @description When sent, the `ETag` the change is based on. */
         IfMatchOptional: string;
+        /** @description When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has. */
+        IfMatchSingleton: string;
         IdempotencyKey: string;
         /** @description WebAuthn ceremony state set by the matching challenge operation. */
         CeremonyCookie: string;
@@ -8809,8 +8813,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description When sent, the `ETag` the change is based on. */
-                "If-Match"?: components["parameters"]["IfMatchOptional"];
+                /** @description When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has. */
+                "If-Match"?: components["parameters"]["IfMatchSingleton"];
             };
             path: {
                 /** @description A tenant `id`. */
@@ -8870,8 +8874,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description When sent, the `ETag` the change is based on. */
-                "If-Match"?: components["parameters"]["IfMatchOptional"];
+                /** @description When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has. */
+                "If-Match"?: components["parameters"]["IfMatchSingleton"];
             };
             path: {
                 /** @description A tenant `id`. */
@@ -8987,8 +8991,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description When sent, the `ETag` the change is based on. */
-                "If-Match"?: components["parameters"]["IfMatchOptional"];
+                /** @description When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has. */
+                "If-Match"?: components["parameters"]["IfMatchSingleton"];
             };
             path: {
                 /** @description A tenant `id`. */
@@ -9051,8 +9055,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description When sent, the `ETag` the change is based on. */
-                "If-Match"?: components["parameters"]["IfMatchOptional"];
+                /** @description When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has. */
+                "If-Match"?: components["parameters"]["IfMatchSingleton"];
             };
             path: {
                 /** @description A tenant `id`. */
@@ -9144,8 +9148,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description When sent, the `ETag` the change is based on. */
-                "If-Match"?: components["parameters"]["IfMatchOptional"];
+                /** @description When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has. */
+                "If-Match"?: components["parameters"]["IfMatchSingleton"];
             };
             path: {
                 /** @description A tenant `id`. */

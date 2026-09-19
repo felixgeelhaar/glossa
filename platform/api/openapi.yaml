@@ -50,6 +50,11 @@ info:
     **Optimistic concurrency.** Mutable resources return an `ETag`.
     `PATCH` requires `If-Match` with it: a stale tag fails with `412
     precondition_failed`, a missing one with `428 precondition_required`.
+    Settings that exist with defaults before anyone saves them (the AI
+    settings, prices and routing policies, a project's AI settings)
+    answer `ETag: "0"` until then; `If-Match: "0"` writes them only while
+    they are still unsaved, so of two concurrent first writes one wins
+    and the other fails with `412`.
 
     **Idempotency.** `POST`s that create a resource accept an
     `Idempotency-Key` (1–255 printable ASCII characters, e.g. a UUID).
@@ -3391,7 +3396,7 @@ paths:
           csrf: []
         - bearer: []
       parameters:
-        - $ref: "#/components/parameters/IfMatchOptional"
+        - $ref: "#/components/parameters/IfMatchSingleton"
       requestBody:
         required: true
         content:
@@ -3447,7 +3452,7 @@ paths:
           csrf: []
         - bearer: []
       parameters:
-        - $ref: "#/components/parameters/IfMatchOptional"
+        - $ref: "#/components/parameters/IfMatchSingleton"
       requestBody:
         required: true
         content:
@@ -3557,7 +3562,7 @@ paths:
           csrf: []
         - bearer: []
       parameters:
-        - $ref: "#/components/parameters/IfMatchOptional"
+        - $ref: "#/components/parameters/IfMatchSingleton"
       requestBody:
         required: true
         content:
@@ -3586,7 +3591,9 @@ paths:
       summary: The AI routing policy in effect for a project
       description: |
         The project's own (`source: project`), else the tenant's, else
-        the default. Needs `intelligence.read`.
+        the default. The `ETag` is the project's own policy's: `"0"`
+        while it has none (as the tenant policy's is while the default
+        applies). Needs `intelligence.read`.
       security:
         - session: []
         - bearer: []
@@ -3613,7 +3620,7 @@ paths:
           csrf: []
         - bearer: []
       parameters:
-        - $ref: "#/components/parameters/IfMatchOptional"
+        - $ref: "#/components/parameters/IfMatchSingleton"
       requestBody:
         required: true
         content:
@@ -3694,7 +3701,7 @@ paths:
           csrf: []
         - bearer: []
       parameters:
-        - $ref: "#/components/parameters/IfMatchOptional"
+        - $ref: "#/components/parameters/IfMatchSingleton"
       requestBody:
         required: true
         content:
@@ -4802,6 +4809,14 @@ components:
       in: header
       required: false
       description: When sent, the `ETag` the change is based on.
+      schema: { type: string, maxLength: 64 }
+    IfMatchSingleton:
+      name: If-Match
+      in: header
+      required: false
+      description: >-
+        When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while
+        nobody has saved the settings yet, and fails with 412 once someone has.
       schema: { type: string, maxLength: 64 }
     IdempotencyKey:
       name: Idempotency-Key

@@ -70,9 +70,26 @@ func TestIntelligenceOverHTTP(t *testing.T) {
 		ProviderConsent bool `json:"provider_consent"`
 		Version         int  `json:"version"`
 	}
-	s.do(call{method: "GET", path: base + "/ai-settings", bearer: tp.token}).decode(t, &settings)
-	if settings.ProviderConsent || settings.Version != 0 {
-		t.Errorf("default settings = %+v", settings)
+	got := s.do(call{method: "GET", path: base + "/ai-settings", bearer: tp.token})
+	got.decode(t, &settings)
+	if settings.ProviderConsent || settings.Version != 0 || got.header.Get("ETag") != `"0"` {
+		t.Errorf("default settings = %+v, ETag %s", settings, got.header.Get("ETag"))
+	}
+	// The ETag of unsaved settings works as If-Match: "0" creates them
+	// only while nobody else has.
+	putSettings := func(etag string) call {
+		c := owner(call{method: "PUT", path: base + "/ai-settings", body: map[string]any{"monthly_budget_micro_usd": 0}})
+		c.headers = map[string]string{"If-Match": etag}
+		return c
+	}
+	if r := s.do(putSettings(`"0"`)); r.status != http.StatusOK || r.header.Get("ETag") != `"1"` {
+		t.Fatalf("create if absent = %d %s", r.status, r.body)
+	}
+	s.do(putSettings(`"0"`)).want(t, http.StatusPreconditionFailed, "precondition_failed")
+	s.do(putSettings(`"1"`)).want(t, http.StatusOK, "")
+	pr := s.do(call{method: "GET", path: p + "/ai-routing-policy", bearer: tp.token})
+	if pr.status != http.StatusOK || pr.header.Get("ETag") != `"0"` {
+		t.Errorf("inherited project routing = %d, ETag %s", pr.status, pr.header.Get("ETag"))
 	}
 	s.do(owner(call{method: "PUT", path: p + "/ai-settings", body: map[string]any{
 		"review": map[string]any{"auto_approve": true, "auto_approve_min": 0.9, "recommend_min": 0.75, "auto_approve_environments": []string{"nowhere"}},

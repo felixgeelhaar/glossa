@@ -708,6 +708,15 @@ into the platform here.
 | `intelligence_suggestions` | tenant | Results with provenance, score, explanation, action, risk tags, cost and the decision. |
 | `intelligence_disclosures` | tenant | Which provider and model saw which message, and exactly what was sent. Append-only. |
 
+**Settings documents** — the tenant's settings (and prices), the
+tenant's and each project's routing policy, a project's settings —
+exist with defaults before anyone saves them, at version 0: their
+`ETag` is `"0"` (a project's routing policy answers `"0"` while it
+inherits the tenant's), and `If-Match: "0"` writes one only while it is
+still unsaved. A write that loses the race to create or change it
+fails the precondition (`412`), never silently overwrites
+(`TestWiringConcurrentCreatesOfSingletons`).
+
 **Jobs.** A job is one message × locale, unique per `(message, locale,
 source revision, knowledge fingerprint)` — the fingerprint digests the
 prompt versions, the effective style guides' versions and the pair's

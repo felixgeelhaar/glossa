@@ -4341,6 +4341,9 @@ type IfMatch = string
 // IfMatchOptional defines model for IfMatchOptional.
 type IfMatchOptional = string
 
+// IfMatchSingleton defines model for IfMatchSingleton.
+type IfMatchSingleton = string
+
 // ImportJobPath An opaque identifier.
 type ImportJobPath = Id
 
@@ -4499,8 +4502,8 @@ type ListAIJobsParams struct {
 
 // PutAIPricesParams defines parameters for PutAIPrices.
 type PutAIPricesParams struct {
-	// IfMatch When sent, the `ETag` the change is based on.
-	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+	// IfMatch When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has.
+	IfMatch *IfMatchSingleton `json:"If-Match,omitempty"`
 }
 
 // ListAIProvidersParams defines parameters for ListAIProviders.
@@ -4524,14 +4527,14 @@ type UpdateAIProviderParams struct {
 
 // PutAIRoutingPolicyParams defines parameters for PutAIRoutingPolicy.
 type PutAIRoutingPolicyParams struct {
-	// IfMatch When sent, the `ETag` the change is based on.
-	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+	// IfMatch When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has.
+	IfMatch *IfMatchSingleton `json:"If-Match,omitempty"`
 }
 
 // PutAISettingsParams defines parameters for PutAISettings.
 type PutAISettingsParams struct {
-	// IfMatch When sent, the `ETag` the change is based on.
-	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+	// IfMatch When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has.
+	IfMatch *IfMatchSingleton `json:"If-Match,omitempty"`
 }
 
 // ListAISpendParams defines parameters for ListAISpend.
@@ -4697,14 +4700,14 @@ type GetAIReviewQueueParams struct {
 
 // PutProjectAIRoutingPolicyParams defines parameters for PutProjectAIRoutingPolicy.
 type PutProjectAIRoutingPolicyParams struct {
-	// IfMatch When sent, the `ETag` the change is based on.
-	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+	// IfMatch When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has.
+	IfMatch *IfMatchSingleton `json:"If-Match,omitempty"`
 }
 
 // PutProjectAISettingsParams defines parameters for PutProjectAISettings.
 type PutProjectAISettingsParams struct {
-	// IfMatch When sent, the `ETag` the change is based on.
-	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+	// IfMatch When sent, the `ETag` the change is based on: `"0"` (the ETag of unsaved defaults) writes only while nobody has saved the settings yet, and fails with 412 once someone has.
+	IfMatch *IfMatchSingleton `json:"If-Match,omitempty"`
 }
 
 // ListApplicationsParams defines parameters for ListApplications.
@@ -6576,7 +6579,9 @@ type ClientInterface interface {
 	// GetProjectAIRoutingPolicy The AI routing policy in effect for a project
 	//
 	// The project's own (`source: project`), else the tenant's, else
-	// the default. Needs `intelligence.read`.
+	// the default. The `ETag` is the project's own policy's: `"0"`
+	// while it has none (as the tenant policy's is while the default
+	// applies). Needs `intelligence.read`.
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `GetProjectAIRoutingPolicy` operationId).
 	GetProjectAIRoutingPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -10088,7 +10093,9 @@ func (c *Client) DeleteProjectAIRoutingPolicy(ctx context.Context, tenant Tenant
 // GetProjectAIRoutingPolicy The AI routing policy in effect for a project
 //
 // The project's own (`source: project`), else the tenant's, else
-// the default. Needs `intelligence.read`.
+// the default. The `ETag` is the project's own policy's: `"0"`
+// while it has none (as the tenant policy's is while the default
+// applies). Needs `intelligence.read`.
 //
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/ai-routing-policy (the `GetProjectAIRoutingPolicy` operationId).
 func (c *Client) GetProjectAIRoutingPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -22705,7 +22712,9 @@ type ClientWithResponsesInterface interface {
 	// GetProjectAIRoutingPolicyWithResponse The AI routing policy in effect for a project
 	//
 	// The project's own (`source: project`), else the tenant's, else
-	// the default. Needs `intelligence.read`.
+	// the default. The `ETag` is the project's own policy's: `"0"`
+	// while it has none (as the tenant policy's is while the default
+	// applies). Needs `intelligence.read`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -36367,7 +36376,9 @@ func (c *ClientWithResponses) DeleteProjectAIRoutingPolicyWithResponse(ctx conte
 // GetProjectAIRoutingPolicyWithResponse The AI routing policy in effect for a project
 //
 // The project's own (`source: project`), else the tenant's, else
-// the default. Needs `intelligence.read`.
+// the default. The `ETag` is the project's own policy's: `"0"`
+// while it has none (as the tenant policy's is while the default
+// applies). Needs `intelligence.read`.
 //
 // Returns a wrapper object for the known response body format(s).
 //

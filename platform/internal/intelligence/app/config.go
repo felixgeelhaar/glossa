@@ -309,7 +309,7 @@ func (s *Service) PutSettings(ctx context.Context, in SettingsInput, ifMatch *in
 		}
 		next.UpdatedBy, next.UpdatedAt = by, now
 		if err := st.SaveSettings(ctx, next, cur.Version); err != nil {
-			return err
+			return preconditionOf(err, ifMatch)
 		}
 		next.Version = cur.Version + 1
 		out = next
@@ -522,7 +522,7 @@ func (s *Service) PutProjectSettings(ctx context.Context, project uuid.UUID, in 
 		}
 		next.UpdatedBy, next.UpdatedAt = by, s.Now()
 		if err := st.SaveProjectSettings(ctx, next, cur.Version); err != nil {
-			return err
+			return preconditionOf(err, ifMatch)
 		}
 		next.Version = cur.Version + 1
 		out = next
@@ -624,13 +624,13 @@ func (s *Service) PutRoutingPolicy(ctx context.Context, project *uuid.UUID, poli
 		version := 0
 		if found {
 			version = cur.Version
-			if err := checkOptionalIfMatch(version, ifMatch); err != nil {
-				return err
-			}
+		}
+		if err := checkOptionalIfMatch(version, ifMatch); err != nil {
+			return err
 		}
 		rec := domain.RoutingRecord{ProjectID: project, Policy: policy, UpdatedBy: by, UpdatedAt: s.Now()}
 		if err := st.SaveRoutingPolicy(ctx, rec, version); err != nil {
-			return err
+			return preconditionOf(err, ifMatch)
 		}
 		rec.Version = version + 1
 		out = RoutingView{Record: rec, Source: "tenant"}

@@ -125,12 +125,23 @@ func checkIfMatch(version int, ifMatch *int) error {
 }
 
 // checkOptionalIfMatch applies If-Match when it is sent (settings
-// documents that always exist, with defaults).
+// documents that always exist, with defaults). Unsaved defaults are at
+// version 0, so If-Match 0 means "only while nobody saved them".
 func checkOptionalIfMatch(version int, ifMatch *int) error {
 	if ifMatch != nil && *ifMatch != version {
 		return ErrPreconditionFailed
 	}
 	return nil
+}
+
+// preconditionOf turns a lost race of a conditional write — another
+// writer saved the document (or created it, at version 0) since it was
+// read — into the failed precondition it is.
+func preconditionOf(err error, ifMatch *int) error {
+	if ifMatch != nil && errors.Is(err, ErrStaleVersion) {
+		return ErrPreconditionFailed
+	}
+	return err
 }
 
 func invalid(code problem.Code, detail string) error {
