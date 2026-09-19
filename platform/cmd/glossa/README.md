@@ -69,7 +69,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `init` | Writes glossa.yaml. Prompts on a terminal; with a token, reads the tenant and source locale from the server. `--server --project --source-locale --catalogs --typescript --vue --go --force` |
 | `login` / `logout` / `whoami` | Token storage; `--server`, `--token-stdin` |
 | `push` | Sends the source catalog through `message-upserts` (500 per request). Reports created/revised/updated/unchanged/failed per key. `--dry-run` compares canonical models with the server instead of writing. `--translations` also imports the other catalogs as translations (provenance `import`). |
-| `pull` | Writes translations to the catalogs, sorted and deterministic. `--states approved,needs_review\|all`, `--locales`. `--release <id> --out dir` writes a release bundle (see *Release*). |
+| `pull` | Writes translations to the catalogs, sorted and deterministic. `--states approved,needs_review\|all`, `--locales`. `--release <id\|v<N>\|latest> [--environment env] [--out dir]` writes a release bundle instead (see *Release*). |
 | `extract` | Finds usages: `<glossa-text key\|message\|id="…">`, `<GlossaText id="…">`, `t("…")`, `$t("…")`, Go `x.T(ctx, "…")` / `l.T("…")`, `{{t "…"}}`, and the generated accessors. Reports file:line, IDs missing from the catalog, and catalog messages nothing uses. `--strict` exits 1 on unknown IDs. |
 | `generate` | Typed accessors from the catalog's argument metadata. `--check` writes nothing and exits 1 when the files are stale; `--from-server` uses the server's messages. |
 | `check` | Structural QA: invalid messages, translation/source compatibility (`messageformat.CheckCompat`), missing and outdated translations. `--offline` checks local catalogs. `--require-complete=de,en\|none`, `--fail-on=error\|warning`. |
@@ -77,7 +77,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `diff` | Local catalogs vs the server by canonical model (so MF1 spelling changes aren't changes). `--exit-code`. |
 | `locales`, `messages` | Lists. `messages --prefix --namespace --missing-in --outdated-in --state active\|obsolete\|all` |
 | `import --from v0` | Imports a Glossa v0.3 project (below). |
-| `release` | `publish`, `promote <id> --to env`, `rollback --environment env [--to id]`, `environments`, `keys`. Not available until the `/v1` Release endpoints exist. |
+| `release` | `publish`, `list`, `show`, `diff`, `promote`, `rollback`, `environments`, `keys [list\|create\|revoke]` (see *Release*). |
 
 `check` reads like CI output:
 
@@ -103,8 +103,8 @@ in without changing the command.
 |---|---|
 | 0 | OK |
 | 1 | A check failed: `check`, `diff --exit-code`, `generate --check`, `extract --strict` |
-| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml or catalog, unavailable command |
-| 3 | Network or auth: server unreachable, token missing or refused, forbidden, server error |
+| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml or catalog, unavailable command, input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`) |
+| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found, server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`) |
 | 4 | Partial failure: `push` or `import` went through but some items failed |
 
 Errors print what happened, where, why and how to fix it:
@@ -128,7 +128,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.login/v1` | `{server, stored_in, tenant: {id, slug, name, kind}}` |
 | `glossa.cli.whoami/v1` | `{server, token (redacted), token_source, tenant, project?: {id, slug, name, source_locale}}` |
 | `glossa.cli.push/v1` | `{dry_run, source, summary: {created, revised, updated, unchanged, failed}, messages: [{key, status, revision?, error?: {code, detail}}], translations?: [{key, locale, status, state?, error?}]}` |
-| `glossa.cli.pull/v1` | `{states, locales: [{locale, path, messages, skipped: {state: n}, outdated, changed}], release?: {dir, release_id, version, locales, artifacts, bytes}}` |
+| `glossa.cli.pull/v1` | `{states, locales: [{locale, path, messages, skipped: {state: n}, outdated, changed}], release?: {dir, release_id, version, environment, locales, artifacts, bytes, removed}}` |
 | `glossa.cli.extract/v1` | `{files, usages: [{key, file, line, column, kind}], unknown: [{key, locations: [{file, line}]}], unused: [key]}` |
 | `glossa.cli.generate/v1` | `{source, messages, check, files: [{path, kind, changed}], warnings: [{key, reason}]}` |
 | `glossa.cli.check/v1` | `{policy: {require_complete (null = all), fail_on}, origin, messages, invalid_messages, locales: [{code, is_source, required, messages, translated, missing, outdated, errors, warnings, complete}], findings: [{check, code, severity, locale?, key?, subject?, detail?, message, where?}], errors, warnings, passed}` |
@@ -137,7 +137,21 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.locales/v1` | `{locales: [{code, direction, is_source}], fallback}` |
 | `glossa.cli.messages/v1` | `{messages: [{key, namespace, state, source_revision, text, syntax, arguments: [{name, type}], description?}]}` |
 | `glossa.cli.import/v1` | `{from, source: {url, project}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?}]}` |
-| `glossa.cli.release/v1` | `{action, result}` |
+| `glossa.cli.release.publish/v1` | `{replayed, idempotency_key, release: Release}` |
+| `glossa.cli.release.list/v1` | `{releases: [Release & {serving: [environment]}]}` (newest first) |
+| `glossa.cli.release.show/v1` | `{release: Release, serving: [environment]}` |
+| `glossa.cli.release.diff/v1` | `{release: Ref, base: Ref \| null, locales: [{locale, added, changed, removed}], identical}` |
+| `glossa.cli.release.promote/v1`, `glossa.cli.release.rollback/v1` | `{environment: Environment, previous: Ref \| null}` |
+| `glossa.cli.release.environments/v1` | `{environments: [Environment]}` |
+| `glossa.cli.release.keys/v1` | `{keys: [DeliveryKey]}` |
+| `glossa.cli.release.key/v1` | `{action: created \| revoked, key: DeliveryKey}` |
+
+The release shapes share:
+
+- `Release`: `{id, version, environment (published to), parent_id?, note?, author, created_at, source_locale, locales: [code], manifest_digest, policy: {states, include_outdated}, counts: {messages, artifacts, new_artifacts, bytes, locales: {code: {messages, outdated}}}}`
+- `Ref`: `{id, version}`
+- `Environment`: `{name, release: Ref | null, policy: {states, include_outdated}, updated_at}`
+- `DeliveryKey`: `{id, name, key, created_at, revoked_at?}`
 
 Finding codes are the kernel's (`missing-argument`, `extra-argument`,
 `argument-type-changed`, `selector-*`, `invalid-plural-key`,
@@ -200,14 +214,65 @@ glossa import --from v0 --v0-url https://old.example.com/api/v1 --v0-project bro
   has (same canonical model) aren't sent again, so a re-run never undoes a
   review made in between. Every key is reported.
 
-## Release (pending)
+## Release
 
-`release` and `pull --release` run against `release.Service`. Until the
-`/v1` Release endpoints are in the contract, the service answers
-`release_api_unavailable` (exit 2). `pull --release` already writes the
-bundle layout runtimes load (runtimes/SPEC.md §3.4) through
-`release.WriteBundle`: `manifest.json` plus `a/<sha256>.json` for every
-artifact, each checked against its hash, the manifest last.
+A release is an immutable build of the project's active messages and
+the translations an environment's policy ships (production and staging:
+`approved`; development and preview: everything not rejected).
+Environments point at releases; glossa-edge serves what they point at.
+The token needs the `publish` scope to publish, promote, roll back and
+manage keys; `read` is enough for the rest. Releases are named by ID or
+`v<N>`.
+
+```sh
+glossa release publish --environment staging --note "sprint 42"
+glossa release promote v7 --to production      # moves the pointer, rebuilds nothing
+glossa release rollback --environment production [--to v6]
+glossa release diff v6 v7                      # or `diff v7`: against its parent
+glossa release list | show v7 | environments
+glossa release keys create web                 # keys | keys revoke web
+glossa pull --release latest --environment production --out public/glossa
+```
+
+```text
+✓ Published v7 to staging (0192…)
+  42 messages · de 42, en 41 (1 outdated) · 2 artifacts (1 new), 12.4 KiB
+  note: sprint 42
+
+✓ production now serves v7 (0192…); was v6
+
+v6 → v7 (0191… → 0192…)
+  de  1 added, 0 changed, 0 removed
+    + checkout.payment_failed
+  en  unchanged
+```
+
+- `publish` defaults to `development`, so nothing reaches production by
+  accident. Every invocation sends a new `Idempotency-Key` (a CI retry of
+  the whole step publishes again; retries inside the run replay). Pass
+  `--idempotency-key` (e.g. the CI run ID) to make the step itself
+  repeatable: a replay reports `replayed: true` and publishes nothing,
+  and the same key with a different request fails with
+  `idempotency_key_reused`.
+- `promote` needs the environment's policy to cover the release's
+  (`release_ineligible` otherwise: a preview release with drafts can't
+  reach production). `rollback` without `--to` goes to the newest
+  release the environment served before its current one, so running it
+  twice goes two steps back.
+- `environments` and `list` say which release each environment serves.
+- `keys create <name>` prints the delivery key runtimes fetch releases
+  with (`/v1/<key>/<environment>/manifest.json` on glossa-edge). Keys are
+  publishable by design (they ship in browser bundles), scoped to the
+  project and read-only. `keys revoke` takes the ID or the name of an
+  active key.
+- `pull --release` writes the bundle runtimes load offline
+  (runtimes/SPEC.md §3.4): `manifest.json` exactly as the edge serves it
+  for `--environment`, and `a/<sha256>.json` for every artifact, each
+  checked against its hash, the manifest last; artifacts of an earlier
+  bundle it no longer names are removed. Runtimes reject a manifest for
+  another environment than theirs, so the bundle is written for one:
+  `latest` is what `--environment` serves now; a release ID or `v<N>`
+  defaults to the environment it was published to.
 
 ## Known limits
 
