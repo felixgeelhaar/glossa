@@ -8,13 +8,18 @@ API, saved as an **ordinary translation revision** and shown in the page at
 once.
 
 **The overlay is never in production.** It is not a package applications
-import: Studio serves it (`/overlay/v1/overlay.js`, pinned by an SRI hash in
-the loader) and a loader injected into non-production builds loads it after an
-explicit gesture. The loader and its three production guards (build time,
-runtime manifest, delivery) are a later slice (RFC 0004 §5.1, §13 wave 5);
-until then the only way in is calling `activate()` yourself on a preview page.
-The runtime half of the guard is already here: `runtime.override()` refuses to
-do anything when the runtime's environment is `production`.
+import. Studio serves it at `/overlay/v1/overlay.js`, and a loader that
+[`@glossa/unplugin`](../unplugin/README.md#the-in-product-editors-loader) adds
+to non-production builds loads it, pinned by an SRI hash, after an explicit
+gesture. Three layers keep it out of production (RFC 0004 §5.1): the build
+(a production build has no loader, and one that asks for it fails), the
+runtime (the loader refuses unless every runtime on the page serves a release
+whose signed manifest `environment` isn't `production`, and
+`runtime.override()` refuses in production too), and delivery (the script
+comes from Studio, so a production page's CSP never allows it).
+
+`activate()` is what the loader calls once it has decided a page may be
+edited; nothing else calls it.
 
 ```ts
 import { activate } from "@glossa/overlay";
@@ -31,6 +36,21 @@ const overlay = activate({
 // … Alt+click a message, or Alt+Enter on a focused control …
 overlay.deactivate(); // panel, listeners, markers and previews gone
 ```
+
+## What Studio serves
+
+`pnpm build` writes two things: `dist/`, the package's modules, and
+`dist/bundle/overlay.js`, the **one minified ES module Studio publishes** at
+`/overlay/v1/overlay.js` (esbuild, Lit and `@glossa/capture` included, licence
+notices kept, no source map, so the same sources always give the same bytes
+and the same SRI hash). Studio's build copies it and publishes
+`/overlay/v1/overlay.json` with its `version` and `integrity` beside it
+(see [`studio/README.md`](../../../studio/README.md)).
+
+Running the bundle defines `<glossa-overlay>` and puts `{ version, activate }`
+on `globalThis[Symbol.for("glossa.overlay")]`, which is how the loader reaches
+it: a module script has no exports to read from the outside, and an inline
+script would need `'unsafe-inline'`.
 
 ## What it does
 
@@ -125,7 +145,13 @@ fail on any `securitypolicyviolation`.
   suggestions (requested, used, accepted with edits), keyboard use and ending
   the session. Every request and response body the fake sees is validated
   against `platform/api/openapi.yaml`, so the fake can't drift from the API.
-- `pnpm test:browser`: Chromium with Playwright. The app page (from
+- `pnpm test:browser`: Chromium with Playwright. `e2e/loader.spec.ts` builds
+  a preview deployment with Vite and `@glossa/unplugin` and runs the real
+  loader against the real bundle served from a Studio origin: the gesture, the
+  injected module script with its `integrity` and `crossorigin`, a tampered
+  script that the browser refuses, and a page whose runtime serves a
+  production release, which stays uneditable even with `?glossa=edit`.
+  `e2e/overlay.spec.ts` covers the panel itself. The app page (from
   `@glossa/runtime` and `@glossa/elements`), the overlay script (from a Studio
   origin) and the fake API (cross-origin, with CORS) are served by route
   handlers under the CSP above. Covers Alt+click targeting with real layout

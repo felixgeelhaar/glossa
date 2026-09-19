@@ -3,8 +3,8 @@
  * `@glossa/runtime` and `@glossa/elements`, bundled by esbuild and served
  * from the app origin under a strict CSP. `RELEASE` and `CONFIG` are
  * prepended by the test. On `?glossa=edit` it loads the overlay from the
- * Studio origin and starts a session: a stand-in for the overlay loader,
- * which is a later slice (RFC 0004 §5.1).
+ * Studio origin and starts a session with a token, which is what the panel
+ * tests need; the real loader and its guards are e2e/loader.spec.ts.
  */
 import { createRuntime } from "@glossa/runtime";
 import type { BundledRelease, Runtime } from "@glossa/runtime";

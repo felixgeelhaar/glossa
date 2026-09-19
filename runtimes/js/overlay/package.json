@@ -9,19 +9,23 @@
   "types": "./dist/index.d.ts",
   "sideEffects": [
     "./dist/index.js",
-    "./dist/overlay.js"
+    "./dist/overlay.js",
+    "./dist/standalone.js",
+    "./dist/bundle/overlay.js"
   ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./bundle": "./dist/bundle/overlay.js",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/bundle.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:browser": "playwright test",
@@ -37,8 +41,16 @@
     {
       "name": "@glossa/overlay, own code (lit and @glossa/capture excluded)",
       "path": "dist/index.js",
-      "ignore": ["lit", "@glossa/capture"],
+      "ignore": [
+        "lit",
+        "@glossa/capture"
+      ],
       "limit": "8.5 KB"
+    },
+    {
+      "name": "the served bundle, /overlay/v1/overlay.js (dist/bundle/overlay.js)",
+      "path": "dist/bundle/overlay.js",
+      "limit": "16 KB"
     }
   ],
   "dependencies": {
@@ -53,6 +65,7 @@
     "@glossa/elements": "workspace:*",
     "@glossa/messageformat": "workspace:*",
     "@glossa/runtime": "workspace:*",
+    "@glossa/unplugin": "workspace:*",
     "@playwright/test": "1.63.0",
     "@size-limit/preset-small-lib": "11.2.0",
     "@types/node": "22.19.19",
@@ -61,6 +74,7 @@
     "jsdom": "25.0.1",
     "size-limit": "11.2.0",
     "typescript": "5.9.3",
+    "vite": "8.3.0",
     "vitest": "4.1.0",
     "yaml": "2.9.1"
   },
