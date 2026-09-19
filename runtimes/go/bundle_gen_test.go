@@ -45,7 +45,7 @@ func TestExampleBundle(t *testing.T) {
 		files[filepath.Join("a", digest+".json")] = body
 	}
 	if os.Getenv("GLOSSA_WRITE_EXAMPLE_BUNDLE") == "1" {
-		writeBundle(t, files)
+		writeBundle(t, exampleBundleDir, files)
 		return
 	}
 	for name, want := range files {
@@ -56,13 +56,14 @@ func TestExampleBundle(t *testing.T) {
 	}
 }
 
-func writeBundle(t *testing.T, files map[string][]byte) {
+// writeBundle replaces the bundle in dir with files.
+func writeBundle(t *testing.T, dir string, files map[string][]byte) {
 	t.Helper()
-	if err := os.RemoveAll(exampleBundleDir); err != nil {
+	if err := os.RemoveAll(dir); err != nil {
 		t.Fatal(err)
 	}
 	for name, body := range files {
-		p := filepath.Join(exampleBundleDir, name)
+		p := filepath.Join(dir, name)
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
