@@ -83,6 +83,13 @@ var systemPolicies = map[string][]string{
 	// format versions only, read-only; the work runs in tenant scope.
 	"release_publish_requests": {"release_publish_requests_system_select"},
 	"release_delivery_keys":    {"release_delivery_keys_system_select"},
+	// Catalog's proposal sweep finds the tenants holding proposed
+	// messages whose branches all closed long ago (system scope
+	// catalog.proposal_sweep): branch states, proposal links and message
+	// states only, read-only; the sweep runs in tenant scope.
+	"catalog_branches":  {"catalog_branches_system_select"},
+	"catalog_proposals": {"catalog_proposals_system_select"},
+	"catalog_messages":  {"catalog_messages_system_select"},
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
 	// Identity's global tables are system scope only (see systemTables).

@@ -191,7 +191,11 @@ func TestReleaseToRuntime(t *testing.T) {
 		ID  string `json:"id"`
 		Key string `json:"key"`
 	}
-	r := write("POST", "/delivery-keys", map[string]string{"name": "web"}, "Idempotency-Key", "web-key")
+	// A key reads production only unless it says otherwise (RFC 0004
+	// §4.3); this one follows the release through every environment.
+	r := write("POST", "/delivery-keys", map[string]any{
+		"name": "web", "scope": map[string]any{"environments": []string{"development", "preview", "staging", "production"}, "branches": false},
+	}, "Idempotency-Key", "web-key")
 	r.want(t, http.StatusCreated, "")
 	r.decode(t, &key)
 
