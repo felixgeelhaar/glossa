@@ -1,5 +1,40 @@
-/** Progress of an AI fill from its jobs' states. */
-import type { AIJob } from "../api/intelligence-schemas";
+/** An AI fill's plan (from its preview) and its progress (from its jobs' states). */
+import type { AIFillPreview, AIJob } from "../api/intelligence-schemas";
+
+export interface FillPlan {
+  /** Messages a fill would queue (or reuse) a job for, across locales. */
+  messages: number;
+  /** Jobs that exist and would be reused. */
+  existing: number;
+  /** Covered by an exact translation-memory match: no provider call. */
+  tmExact: number;
+  /** Would call a provider. */
+  provider: number;
+  /** Wouldn't reach a provider, by reason, most first. */
+  refused: Array<[reason: string, count: number]>;
+  /** Left out, by reason, most first. */
+  skipped: Array<[reason: string, count: number]>;
+}
+
+const byCount = (m: Map<string, number>) => [...m].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+/** A preview's per-locale answers, summed. */
+export function fillPlan(preview: Pick<AIFillPreview, "locales">): FillPlan {
+  const refused = new Map<string, number>();
+  const skipped = new Map<string, number>();
+  const plan: FillPlan = { messages: 0, existing: 0, tmExact: 0, provider: 0, refused: [], skipped: [] };
+  for (const l of preview.locales) {
+    plan.messages += l.keys.length;
+    plan.existing += l.existing;
+    plan.tmExact += l.tm_exact;
+    plan.provider += l.provider;
+    for (const [why, n] of Object.entries(l.refused)) refused.set(why, (refused.get(why) ?? 0) + n);
+    for (const [why, n] of Object.entries(l.skipped)) skipped.set(why, (skipped.get(why) ?? 0) + n);
+  }
+  plan.refused = byCount(refused);
+  plan.skipped = byCount(skipped);
+  return plan;
+}
 
 /** How often a running fill's jobs are polled. */
 export const FILL_POLL_MS = 1000;

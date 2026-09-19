@@ -223,18 +223,27 @@ describe("useTerminology", () => {
 });
 
 describe("FillDialog", () => {
-  const dialog = (i: FakeIntelligence, keys?: string[]) =>
-    withPorts(FillDialog, { open: true, tenant: "t", projectId: "p", locale: "de", namespace: "checkout", outdated: false, keys }, { i });
+  const dialog = (i: FakeIntelligence, keys?: string[], select: "missing" | "outdated" | "missing_or_outdated" = "missing") =>
+    withPorts(FillDialog, { open: true, tenant: "t", projectId: "p", locale: "de", namespace: "checkout", select, keys }, { i });
 
-  it("queues a fill for the filter, follows its jobs and reports when they settle", async () => {
+  it("previews what the fill would do, queues it on confirmation, follows its jobs and reports when they settle", async () => {
     const i = createFakeIntelligence();
     i.pending = [suggestion({ id: "a", message_key: "a" }), suggestion({ id: "b", message_key: "b" })];
     const w = dialog(i, ["a", "b"]);
     await flushPromises();
-    expect(w.text()).toContain("Of the 2 messages your search shows in checkout, each one missing in de gets an AI suggestion.");
-    await button(w, "Fill with AI").trigger("click");
+    expect(w.text()).toContain("Of the 2 messages your search shows in checkout, those selected below get an AI suggestion in de.");
+    // Nothing is queued before the person confirms the preview.
+    expect(i.calls.find((c) => c[0] === "previewFill")![1]).toEqual({ locales: ["de"], select: "missing", namespace: "checkout", keys: ["a", "b"] });
+    expect(i.calls.some((c) => c[0] === "createFill")).toBe(false);
+    const preview = w.get("[data-testid=fill-preview]");
+    expect(preview.get("[data-testid=fill-plan-messages]").text()).toBe("2 messages to fill:");
+    expect(preview.get("[data-testid=fill-plan]").text()).toContain("2 call an AI provider");
+    expect(preview.get("details").text()).toContain("Show the 2 keys (de)");
+    expect(preview.findAll("details li").map((li) => li.text())).toEqual(["a", "b"]);
+    expect(preview.get("[data-testid=fill-cost]").text()).toBe("Estimated cost $0.0020; at most $0.02, which the budget reserves while jobs run.");
+    await button(w, "Fill 2 messages").trigger("click");
     await flushPromises();
-    expect(i.calls.find((c) => c[0] === "createFill")![1]).toEqual({ locales: ["de"], namespace: "checkout", keys: ["a", "b"], include_outdated: false });
+    expect(i.calls.find((c) => c[0] === "createFill")![1]).toEqual({ locales: ["de"], select: "missing", namespace: "checkout", keys: ["a", "b"] });
     expect(w.get("[data-testid=fill-status]").text()).toBe("0 of 2 done…");
     // One job gets a suggestion, the other's provider fails.
     i.pending = [i.pending[0]!];
@@ -247,16 +256,54 @@ describe("FillDialog", () => {
     expect(w.findAll("a").map((a) => a.text())).toContain("Open the review queue");
   });
 
-  it("says up front when jobs will do little", async () => {
+  it("selects by translation state, and previews again when the selection changes", async () => {
     const i = createFakeIntelligence();
-    i.warnings = ["provider_consent_off", "no_budget"];
+    i.pending = [suggestion({ id: "a", message_key: "a" })];
+    const w = dialog(i, undefined, "outdated");
+    await flushPromises();
+    expect((w.get("input[value=outdated]").element as HTMLInputElement).checked).toBe(true);
+    expect(i.calls.filter((c) => c[0] === "previewFill").map((c) => (c[1] as { select: string }).select)).toEqual(["outdated"]);
+    await w.get("input[value=missing_or_outdated]").setValue(true);
+    await flushPromises();
+    expect(i.calls.filter((c) => c[0] === "previewFill").map((c) => (c[1] as { select: string }).select)).toEqual(["outdated", "missing_or_outdated"]);
+    await button(w, "Fill 1 message").trigger("click");
+    await flushPromises();
+    const body = i.calls.find((c) => c[0] === "createFill")![1];
+    expect(body).toEqual({ locales: ["de"], select: "missing_or_outdated", namespace: "checkout" });
+    expect(body).not.toHaveProperty("keys");
+  });
+
+  it("shows TM reuse, existing jobs and refusals by reason, and flags unpriced models", async () => {
+    const i = createFakeIntelligence();
+    i.pending = ["a", "b", "c", "d", "e"].map((k) => suggestion({ id: k, message_key: k }));
+    i.plan = { existing: 1, tm_exact: 2, provider: 1, refused: { budget_exceeded: 1 }, skipped: { up_to_date: 3 }, cost: { estimated_micro_usd: 900, max_micro_usd: 30_000, unpriced: true } };
     const w = dialog(i);
     await flushPromises();
-    await button(w, "Fill with AI").trigger("click");
+    const plan = w.get("[data-testid=fill-plan]").findAll("li").map((li) => li.text());
+    expect(plan).toEqual([
+      "1 calls an AI provider",
+      "2 reuse an exact translation-memory match — no provider call",
+      "1 already has a job, reused rather than run again",
+      "1 won't reach a provider: over this month's AI budget",
+    ]);
+    expect(w.text()).toContain("Skipped: 3 up to date.");
+    expect(w.text()).toContain("A routed model has no price");
+  });
+
+  it("says up front when jobs will do little, and when there's nothing to fill", async () => {
+    const i = createFakeIntelligence();
+    i.warnings = ["provider_consent_off", "no_budget"];
+    i.pending = [suggestion({ id: "a", message_key: "a" })];
+    const w = dialog(i);
     await flushPromises();
     const warnings = w.get("[data-testid=fill-warnings]").text();
     expect(warnings).toContain("only exact translation-memory matches are reused");
     expect(warnings).toContain("The monthly AI budget is 0");
-    expect(w.get("[data-testid=fill-status]").text()).toBe("Nothing to fill: every message in scope has a translation.");
+    expect(w.get("[data-testid=fill-plan]").text()).toContain("1 won't reach a provider: sending text to AI providers is off");
+
+    const empty = dialog(createFakeIntelligence());
+    await flushPromises();
+    expect(empty.get("[data-testid=fill-plan-empty]").text()).toBe("Nothing to fill: no message in scope has a translation in the selected state.");
+    expect(empty.get("[data-testid=fill-start]").attributes("disabled")).toBeDefined();
   });
 });

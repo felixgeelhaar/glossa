@@ -19,7 +19,8 @@ export type ProviderInput = Body<"CreateAIProvider">;
 export type ProviderUpdate = Body<"UpdateAIProvider">;
 export type SettingsUpdate = Body<"UpdateAISettings">;
 export type ProjectSettingsUpdate = Body<"UpdateAIProjectSettings">;
-export type FillInput = Body<"CreateAIFill">;
+/** A fill (or its preview): which messages by translation state, narrowed by namespace, key prefix or keys. */
+export type FillInput = Omit<Body<"CreateAIFill">, "include_outdated" | "select"> & { select: I.AIFillSelect };
 export type PriceOverrides = Body<"PutAIPrices">["overrides"];
 
 export interface ProjectRef {
@@ -84,6 +85,8 @@ export interface IntelligencePort {
   projectSettings(p: ProjectRef): Promise<Versioned<I.AIProjectSettings>>;
   updateProjectSettings(p: ProjectRef, body: ProjectSettingsUpdate, etag: string): Promise<Versioned<I.AIProjectSettings>>;
 
+  /** What `createFill` would do with the same input, writing nothing. */
+  previewFill(p: ProjectRef, body: FillInput): Promise<I.AIFillPreview>;
   createFill(p: ProjectRef, body: FillInput, idempotencyKey: string): Promise<I.AIFill>;
   fill(tenant: string, id: string): Promise<I.AIFill>;
   cancelFill(tenant: string, id: string): Promise<I.AIFill>;
@@ -109,6 +112,12 @@ const value = async <T>(p: Promise<Versioned<T>>): Promise<T> => (await p).value
 const PAGE = 100;
 /** `If-Match` on a decision when the caller has the suggestion's ETag. */
 const ifMatch = (etag: string | undefined) => (etag ? { "If-Match": etag } : {});
+/**
+ * The contract types `include_outdated` (the older spelling of
+ * `select: missing_or_outdated`) as required because it has a default;
+ * false leaves the selection to `select`.
+ */
+const fillBody = (body: FillInput): Body<"CreateAIFill"> => ({ ...body, include_outdated: false });
 const toPage = <T>(p: { items: T[]; next_page_token?: string | undefined }): Page<T> => ({ items: p.items, next: p.next_page_token });
 
 export const apiIntelligence: IntelligencePort = {
@@ -162,8 +171,15 @@ export const apiIntelligence: IntelligencePort = {
   updateProjectSettings: (p, body, etag) =>
     read(client.PUT("/v1/tenants/{tenant}/projects/{project}/ai-settings", { params: { path: p, header: { "If-Match": etag } }, body }), I.AIProjectSettings),
 
+  previewFill: (p, body) =>
+    value(read(client.POST("/v1/tenants/{tenant}/projects/{project}/ai-fill-previews", { params: { path: p }, body: fillBody(body) }), I.AIFillPreview)),
   createFill: (p, body, key) =>
-    value(read(client.POST("/v1/tenants/{tenant}/projects/{project}/ai-fills", { params: { path: p, header: { "Idempotency-Key": key } }, body }), I.AIFill)),
+    value(
+      read(
+        client.POST("/v1/tenants/{tenant}/projects/{project}/ai-fills", { params: { path: p, header: { "Idempotency-Key": key } }, body: fillBody(body) }),
+        I.AIFill,
+      ),
+    ),
   fill: (tenant, ai_fill) => value(read(client.GET("/v1/tenants/{tenant}/ai-fills/{ai_fill}", { params: { path: { tenant, ai_fill } } }), I.AIFill)),
   cancelFill: (tenant, ai_fill) =>
     value(read(client.POST("/v1/tenants/{tenant}/ai-fills/{ai_fill}/cancellation", { params: { path: { tenant, ai_fill } } }), I.AIFill)),

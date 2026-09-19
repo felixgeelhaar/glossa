@@ -685,15 +685,32 @@ export const strings = {
     title: (l: string) => `Fill ${l} with AI`,
     scope: (l: string, ns: string | undefined, keys: number | undefined) =>
       keys !== undefined
-        ? `Of the ${keys.toLocaleString()} message${keys === 1 ? "" : "s"} your search shows${ns ? ` in ${ns}` : ""}, each one missing in ${l} gets an AI suggestion.`
-        : `Every message${ns ? ` in ${ns}` : ""} missing in ${l} gets an AI suggestion.`,
-    includeOutdated: "Also redo outdated translations",
+        ? `Of the ${keys.toLocaleString()} message${keys === 1 ? "" : "s"} your search shows${ns ? ` in ${ns}` : ""}, those selected below get an AI suggestion in ${l}.`
+        : `Every message${ns ? ` in ${ns}` : ""} selected below gets an AI suggestion in ${l}.`,
+    select: (l: string) => `Translate messages whose ${l} translation is`,
+    selects: {
+      missing: "Missing (none yet, or rejected)",
+      outdated: "Outdated (made against an older source)",
+      missing_or_outdated: "Missing or outdated",
+    } as Record<"missing" | "outdated" | "missing_or_outdated", string>,
     lead: "Suggestions use the translation memory, termbase and style guides, and wait in the review queue unless the project's policy auto-approves them. Messages in sensitive namespaces are never sent to a provider.",
-    start: "Fill with AI",
+    previewTitle: "What this fill would do",
+    previewing: "Checking what a fill would do…",
+    planMessages: (n: number) => `${n.toLocaleString()} message${n === 1 ? "" : "s"} to fill:`,
+    planProvider: (n: number) => `${n.toLocaleString()} call${n === 1 ? "s" : ""} an AI provider`,
+    planTmExact: (n: number) => `${n.toLocaleString()} reuse${n === 1 ? "s" : ""} an exact translation-memory match — no provider call`,
+    planExisting: (n: number) => `${n.toLocaleString()} already ${n === 1 ? "has a job" : "have jobs"}, reused rather than run again`,
+    refused: (why: string, n: number) =>
+      `${n.toLocaleString()} won't reach a provider: ${({ sensitive: "in a sensitive namespace (never sent)", provider_consent: "sending text to AI providers is off", no_route: "no route to an enabled provider for this task", budget_exceeded: "over this month's AI budget" } as Record<string, string>)[why] ?? why}`,
+    showKeys: (l: string, n: number) => `Show the ${n.toLocaleString()} key${n === 1 ? "" : "s"} (${l})`,
+    cost: (estimated: string, max: string) => `Estimated cost ${estimated}; at most ${max}, which the budget reserves while jobs run.`,
+    unpriced: "A routed model has no price, so its calls count as $0 here. An admin can set prices in AI settings.",
+    nothingPlanned: "Nothing to fill: no message in scope has a translation in the selected state.",
+    start: (n: number) => (n ? `Fill ${n.toLocaleString()} message${n === 1 ? "" : "s"}` : "Fill with AI"),
     queued: (created: number, existing: number) =>
       `${created.toLocaleString()} job${created === 1 ? "" : "s"} queued${existing ? `, ${existing.toLocaleString()} already there` : ""}.`,
     skipped: (entries: Array<[string, number]>) =>
-      `Skipped: ${entries.map(([why, n]) => `${n} ${({ sensitive: "in sensitive namespaces", up_to_date: "up to date", limit: "over the limit" } as Record<string, string>)[why] ?? why}`).join(", ")}.`,
+      `Skipped: ${entries.map(([why, n]) => `${n} ${({ sensitive: "in sensitive namespaces", up_to_date: "up to date", not_selected: "not in the selected state", limit: "over the limit" } as Record<string, string>)[why] ?? why}`).join(", ")}.`,
     progressLabel: "Progress",
     progress: (p: { total: number; active: number; succeeded: number; skipped: number; failed: number }) =>
       p.active

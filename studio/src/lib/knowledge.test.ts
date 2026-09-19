@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TermHit } from "../api/knowledge-schemas";
 import { strings } from "../strings";
 import { batchAcceptable, bandOf, byImpact, formatContribution, formatScore } from "./confidence";
-import { fillProgress } from "./fill";
+import { fillPlan, fillProgress } from "./fill";
 import { formatUSD, parseUSD, spentShare, toUSDText } from "./money";
 import { dailySpend } from "./spend";
 import { fieldsOf, formOf, ruleIdFrom, ruleOf, scopeLabel, styleSummary } from "./style";
@@ -130,6 +130,29 @@ describe("fill progress", () => {
       ["budget_exceeded", 2],
       ["dead", 1],
     ]);
+  });
+});
+
+describe("fill plan", () => {
+  it("sums a preview's locales, reasons most first", () => {
+    const cost = { estimated_micro_usd: 0, max_micro_usd: 0, unpriced: false };
+    const plan = fillPlan({
+      locales: [
+        { locale: "de", keys: ["a", "b", "c"], existing: 1, tm_exact: 1, provider: 1, refused: { sensitive: 2 }, skipped: { up_to_date: 4 }, cost },
+        { locale: "fr", keys: ["a"], existing: 0, tm_exact: 0, provider: 0, refused: { budget_exceeded: 1, sensitive: 1 }, skipped: { limit: 0 }, cost },
+      ],
+    });
+    expect(plan).toEqual({
+      messages: 4,
+      existing: 1,
+      tmExact: 1,
+      provider: 1,
+      refused: [
+        ["sensitive", 3],
+        ["budget_exceeded", 1],
+      ],
+      skipped: [["up_to_date", 4]],
+    });
   });
 });
 

@@ -104,6 +104,24 @@ describe("apiIntelligence", () => {
     expect(fetch.mock.calls[0]![0].headers.get("Idempotency-Key")).toBe("idem");
   });
 
+  it("previews a fill, selecting by translation state, and checks the answer", async () => {
+    const cost = { estimated_micro_usd: 2_000, max_micro_usd: 24_000, unpriced: false };
+    const preview = {
+      project_id: "p",
+      select: "outdated",
+      locales: [{ locale: "de", keys: ["a", "b"], existing: 0, tm_exact: 1, provider: 1, refused: {}, skipped: { not_selected: 3 }, cost }],
+      warnings: [],
+      cost,
+    };
+    const fetch = mockFetch(json(200, preview), json(200, { ...preview, locales: [{ locale: "de" }] }));
+    const r = await apiIntelligence.previewFill({ tenant: "t", project: "p" }, { locales: ["de"], select: "outdated" });
+    expect(r.locales[0]!.tm_exact).toBe(1);
+    const req = fetch.mock.calls[0]![0];
+    expect(new URL(req.url).pathname).toBe("/v1/tenants/t/projects/p/ai-fill-previews");
+    expect(await req.json()).toEqual({ locales: ["de"], select: "outdated", include_outdated: false });
+    await expect(apiIntelligence.previewFill({ tenant: "t", project: "p" }, { locales: ["de"], select: "outdated" })).rejects.toMatchObject({ code: "invalid_response" });
+  });
+
   it("follows a fill's jobs across pages", async () => {
     const job = (id: string, state: string) => ({
       id, project_id: "p", message_id: "m", message_key: "k", namespace: "default", locale: "de", source_revision: 1, knowledge_fingerprint: "f",

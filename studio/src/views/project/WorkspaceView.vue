@@ -379,7 +379,7 @@ function onSearchKey(e: KeyboardEvent): void {
       :project-id="projectId"
       :locale="localeCode"
       :namespace="namespace || undefined"
-      :outdated="coverage === 'outdated'"
+      :select="coverage === 'outdated' ? 'outdated' : 'missing'"
       :keys="fillKeys"
       @close="fillOpen = false"
       @settled="onFillSettled"

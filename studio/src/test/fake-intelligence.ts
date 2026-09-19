@@ -7,13 +7,17 @@
  * tenant's, a fill queues a job per message listed in `pending` and
  * settles them on `settle()` into the suggestions given, the review queue
  * is pending suggestions by score then risk tags, and a decided suggestion
- * can't be decided again.
+ * can't be decided again. A fill preview plans a provider call per
+ * `pending` suggestion (refused while `warnings` say consent is off),
+ * adjusted by `plan`.
  * Test-only: nothing in the app imports it.
  */
 import { ApiError, type Versioned } from "../api/errors";
 import type { IntelligencePort } from "../api/intelligence";
 import type {
   AIFill,
+  AIFillPreview,
+  AIFillPreviewLocale,
   AIJob,
   AIProjectSettings,
   AIProvider,
@@ -39,8 +43,10 @@ export interface FakeIntelligence extends IntelligencePort {
   };
   /** Suggestions a fill produces when its jobs settle. */
   pending: AISuggestion[];
-  /** Warnings the next fill reports. */
+  /** Warnings the next fill (and its preview) reports. */
   warnings: string[];
+  /** Overrides for each locale of the next fill preview. */
+  plan: Partial<AIFillPreviewLocale>;
   /** Finish every queued job. */
   settle(): void;
 }
@@ -137,6 +143,7 @@ export function createFakeIntelligence(): FakeIntelligence {
     state,
     pending: [],
     warnings: [],
+    plan: {},
     settle() {
       for (const j of state.jobs.filter((x) => x.state === "queued")) {
         const s = port.pending.find((x) => x.message_key === j.message_key);
@@ -273,6 +280,34 @@ export function createFakeIntelligence(): FakeIntelligence {
       return { value: structuredClone(state.project), etag: tag(state.project.version) };
     },
 
+    async previewFill(p, body) {
+      calls.push(["previewFill", body]);
+      const keys = port.pending.map((x) => x.message_key);
+      const consentOff = port.warnings.includes("provider_consent_off");
+      const cost = (n: number) => ({ estimated_micro_usd: n * 1_000, max_micro_usd: n * 12_000, unpriced: false });
+      const locales = body.locales.map(
+        (locale): AIFillPreviewLocale => ({
+          locale,
+          keys,
+          existing: 0,
+          tm_exact: 0,
+          provider: consentOff ? 0 : keys.length,
+          refused: consentOff && keys.length ? { provider_consent: keys.length } : {},
+          skipped: {},
+          cost: cost(consentOff ? 0 : keys.length),
+          ...port.plan,
+        }),
+      );
+      const sum = (f: (c: AIFillPreviewLocale["cost"]) => number) => locales.reduce((n, l) => n + f(l.cost), 0);
+      const preview: AIFillPreview = {
+        project_id: p.project,
+        select: body.select,
+        locales,
+        warnings: [...port.warnings],
+        cost: { estimated_micro_usd: sum((c) => c.estimated_micro_usd), max_micro_usd: sum((c) => c.max_micro_usd), unpriced: locales.some((l) => l.cost.unpriced) },
+      };
+      return structuredClone(preview);
+    },
     async createFill(p, body, key) {
       calls.push(["createFill", body, key]);
       const fillId = id("fill");
@@ -303,7 +338,7 @@ export function createFakeIntelligence(): FakeIntelligence {
         project_id: p.project,
         trigger: "fill",
         locales: body.locales,
-        select: body.select ?? (body.include_outdated || body.keys ? "missing_or_outdated" : "missing"),
+        select: body.select,
         jobs_created: jobs.length,
         jobs_existing: 0,
         skipped: {},
