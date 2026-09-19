@@ -1,14 +1,16 @@
 # platform
 
-Go module for Glossa's control plane (RFC 0002). It holds the
-`glossa-server` kernel (configuration, observability, the HTTP edge,
+Go module for Glossa's control and delivery planes (RFC 0002). It holds
+the `glossa-server` kernel (configuration, observability, the HTTP edge,
 Postgres with forced row-level security, tenancy, the transactional
-outbox), the `/v1` API contract, and the bounded contexts under
-`internal/<context>/`: Identity, Catalog and Localization so far.
+outbox), the `/v1` API contract, the bounded contexts under
+`internal/<context>/` (Identity, Catalog, Localization and Release so
+far) and `glossa-edge`, the stateless delivery server.
 
 ```text
 api/openapi.yaml            the /v1 contract (OpenAPI 3.1), source of truth
 cmd/glossa-server/          composition root only
+cmd/glossa-edge/            composition root of the delivery plane (no database)
 db/migrations/              golang-migrate SQL, embedded into the binary
 db/queries/<context>/       sqlc input, one directory per context
 sqlc.yaml                   one sqlc entry per context
@@ -25,9 +27,14 @@ internal/kernel/
   bcp47/                    canonical locale tags and text direction (shared kernel)
   mfcontent/                authored text + canonical MF2 model + derived metadata (shared kernel)
   etag/, idempotency/       ETag/If-Match and Idempotency-Key helpers
+  jcs/                      RFC 8785 canonical JSON (artifacts, manifests, signatures)
+  objectstore/              object storage port; dir, memory and S3 (minio-go) adapters
 internal/apiv1/apiconv/     message content, QA findings and If-Match on the wire
 internal/catalog/           projects, applications, messages, source revisions
 internal/localization/      locales, fallback graphs, translations, revisions
+internal/release/           environments, releases, artifacts, signing, delivery keys
+  delivery/                 the bucket layout and key format glossa-edge shares
+internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
   domain/                   Person, Member, roles, locale scopes, Grant, APIToken, events
   app/                      sign-in flows (auth-go) and tenant/member/token use cases
@@ -106,6 +113,27 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_WEBAUTHN_RP_ID` | — | Passkey relying party ID (registrable domain). Passkeys are off while unset. |
 | `GLOSSA_WEBAUTHN_RP_NAME` | `Glossa` | Name shown by authenticators. |
 | `GLOSSA_WEBAUTHN_ORIGINS` | `GLOSSA_STUDIO_URL` | Comma-separated origins allowed to run passkey ceremonies. |
+| `GLOSSA_STORAGE_DRIVER` | `dir` | Object storage for release artifacts: `dir` (a local directory, single node) or `s3`. glossa-edge reads the same storage. |
+| `GLOSSA_STORAGE_DIR` | `data/objects` | The directory for `dir`. |
+| `GLOSSA_S3_ENDPOINT` / `_BUCKET` / `_REGION` / `_PREFIX` | — / — / `us-east-1` / — | S3-compatible bucket: `host[:port]` without a scheme; the prefix lets deployments share a bucket. |
+| `GLOSSA_S3_ACCESS_KEY_ID` / `_SECRET_ACCESS_KEY` | — | Credentials. glossa-edge needs read access only. |
+| `GLOSSA_S3_PATH_STYLE` / `_INSECURE` / `_TIMEOUT` | `false` / `false` / `10s` | Path-style requests (MinIO), plain HTTP (local only), per-operation budget. |
+| `GLOSSA_RELEASE_SIGNING_KEYS` | derived | `keyId=base64(32-byte Ed25519 seed)`, comma-separated. Every manifest is signed with each. Unset: one key derived from `GLOSSA_AUTH_SECRET` (development only; a warning is logged). |
+| `GLOSSA_RELEASE_RETIRED_KEYS` | — | `keyId=base64(public key)`, comma-separated: still published for verification, no longer signing. |
+
+`glossa-edge` reads `GLOSSA_HTTP_*` (listening on `:8081` by default),
+`GLOSSA_LOG_LEVEL`, `GLOSSA_SHUTDOWN_TIMEOUT`, `OTEL_*` (service
+`glossa-edge`), the `GLOSSA_STORAGE_*`/`GLOSSA_S3_*` variables above, and:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GLOSSA_EDGE_CACHE_BYTES` | `67108864` | In-process cache for manifests and artifacts. |
+| `GLOSSA_EDGE_KEY_TTL` | `30s` | How long a key resolution is trusted: the longest a revoked key keeps working at one edge. |
+| `GLOSSA_EDGE_MANIFEST_TTL` | `5s` | How long a manifest is served before storage is asked again: the delay of a publish, promote or rollback at one edge (a CDN adds its 60 s max-age). |
+
+```sh
+GLOSSA_STORAGE_DIR=data/objects go run ./cmd/glossa-edge   # beside a local glossa-server
+```
 
 ### Tests
 
@@ -272,8 +300,8 @@ review or owner changes, and a token never exceeds its creator.
 **API tokens** look like `glossa_api_` + 43 base64url characters.
 Register `glossa_api_[A-Za-z0-9_-]{43}` with secret scanners. They're
 shown once, stored as SHA-256, revocable, optionally expiring, and track
-`last_used_at` (at most one write a minute). The publishable delivery key
-of M1 will get its own prefix and table.
+`last_used_at` (at most one write a minute). Publishable delivery keys
+(`glossa_pk_…`) are Release's, below.
 
 ### auth-go follow-ups
 
@@ -403,3 +431,97 @@ transaction, joined by message ID:
 
 Release keeps translations of active messages in the project's locales
 and writes one artifact per locale and namespace (runtimes/SPEC.md §1).
+
+## Release
+
+What ships where (RFC 0002 §7, intent §34–38). Every project has the
+environments `development`, `preview`, `staging` and `production`
+(created on first use) plus any custom ones (`pr-42`; `a` is reserved).
+Each has an **eligibility policy** — the review states that ship
+(production and staging `approved`; the others `draft`, `needs_review`,
+`approved`; never `rejected`) and whether outdated translations do — and
+points at the release it serves.
+
+**Publish** reads Catalog's `ReleaseSource` and Localization's
+`ReleaseTranslations` (the policy's states), builds one artifact per
+locale and namespace (the source locale holds every active message, a
+locale only what is translated for it, `default` always exists), uploads
+the artifacts storage doesn't have yet, then in one transaction records
+the **release** (version counting the project's releases without gaps,
+parent = what the environment served, policy snapshot, author, counts,
+manifest digest), points the environment at it and appends the
+deployment. **Promote** points an environment at an existing release
+whose policy it covers (a preview release with drafts can't reach
+production); **rollback** points back to the newest older release the
+environment served, or a named one from its history. Both only move the
+pointer; nothing is rebuilt.
+
+**Artifacts** are the RFC 8785 canonical JSON of `{schema, locale,
+namespace, messages}` with each message's MF2 data model, so equal input
+gives byte-identical output whatever order it came in
+(`TestBuildIsDeterministic`, `TestArtifactBytesAreCanonical`), and are
+addressed by the SHA-256 of those bytes. Publishing an unchanged catalog
+uploads nothing, and identical artifacts dedupe across environments.
+The **manifest digest** is the SHA-256 of the canonical content every
+environment's manifest of the release carries (`sourceLocale`, `locales`,
+`fallback`, `artifacts`). **Manifests** are canonical JSON signed with
+every active Ed25519 key over the canonical manifest without
+`signatures` (SPEC §1.3); both steps are deterministic, so a release
+served again (rollback) is served byte for byte as before. Rotation: add
+a key to `GLOSSA_RELEASE_SIGNING_KEYS` (manifests carry both
+signatures), move runtimes to it (`GET …/release-signing-keys` publishes
+the keys), then move the old one to `GLOSSA_RELEASE_RETIRED_KEYS`.
+
+**Storage** is a projection of the database, laid out by
+`internal/release/delivery`:
+
+```text
+v1/keys/<sha256(key)>.json                               delivery key → project, while the key is active
+v1/projects/<project>/environments/<env>/manifest.json   what the environment serves
+v1/projects/<project>/a/<sha256>.json                    artifacts, immutable
+```
+
+Every change commits first and then writes what it affects, right away
+and again from the outbox, under the row's lock and from the row's
+current state, so retries and reordering converge and a storage outage
+delays delivery without losing a change. Artifacts are addressed per
+project: a key only reaches its own project's objects.
+
+| Table | Scope | Why |
+|---|---|---|
+| `release_releases` | tenant | Immutable: `glossa_app` may SELECT and INSERT; a trigger refuses UPDATE and DELETE for every role except the cascade from erasing the tenant. |
+| `release_environments` | tenant | Policy and current release per environment. |
+| `release_deployments` | tenant | Every pointer move, append-only by grant: what rollback walks. |
+| `release_delivery_keys` | tenant | Publishable keys, in the clear (they ship in bundles); revoked ones stay listed. |
+
+Events: `release.published`, `release.promoted`, `release.rolled_back`
+(the Release aggregate shares the context's name, so they are
+`release.<verb>`, as SPEC §3 names them),
+`release.environment.{created,policy_changed}`,
+`release.delivery_key.{created,revoked}` (never carrying the key).
+Subscribers: `release.sync_manifest` and `release.sync_delivery_key`
+(storage writes), `release.retire_project` on `catalog.project.deleted`
+(revokes the project's keys, removes its environments and served
+manifests; releases stay as history).
+
+Permissions: reads need `releases.read`; publish, promote, rollback,
+environment and key changes `releases.publish` (developers, admins,
+owners, `publish` tokens).
+
+### glossa-edge
+
+A stateless server that reads object storage and nothing else — a test
+fails if its import graph reaches the database, pgx, migrations or any
+context's application layer — so published translations keep loading
+while glossa-server or Postgres is down (the end-to-end test stops both
+and loads a release through the Go runtime). `GET
+/v1/{key}/{environment}/manifest.json` answers with `Cache-Control:
+public, max-age=60, stale-while-revalidate=300, stale-if-error=86400`, a
+strong ETag (the SHA-256 of the bytes) and 304; `GET
+/v1/{key}/a/{sha256}.json` is immutable and verified against its hash.
+CORS `*` (ETag exposed, preflights answered), never a cookie; unknown or
+revoked keys 404, storage failures 503 `no-store`, objects failing their
+integrity check 502. An in-process LRU caches keys, manifests and
+artifacts with singleflight on misses, and serves stale entries through
+a storage outage. `/readyz` ignores storage on purpose, so an outage
+can't pull every edge out of the load balancer.
