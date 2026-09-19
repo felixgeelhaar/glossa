@@ -1,0 +1,52 @@
+# sqlc code generation for glossa-server (RFC 0002 §6).
+#
+# Regenerate from platform/:  go generate ./db/...
+# (runs sqlc pinned in db/generate.go — no global install needed)
+#
+# The schema is the migration stream itself. Each bounded context gets
+# its own entry: its queries under db/queries/<context>/, its generated
+# package inside the context's adapters. A context never queries
+# another context's tables.
+version: "2"
+
+overrides:
+  go:
+    overrides:
+      - db_type: uuid
+        go_type: github.com/google/uuid.UUID
+      - db_type: uuid
+        nullable: true
+        go_type:
+          import: github.com/google/uuid
+          type: NullUUID
+      - db_type: timestamptz
+        go_type: time.Time
+      - db_type: jsonb
+        go_type: encoding/json.RawMessage
+
+sql:
+  - name: tenancy
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/tenancy
+    gen:
+      go:
+        package: tenancysql
+        out: internal/kernel/tenancy/tenancysql
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_exported_queries: false
+        omit_unused_structs: true
+
+  - name: outbox
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/outbox
+    gen:
+      go:
+        package: outboxsql
+        out: internal/kernel/outbox/outboxsql
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_exported_queries: false
+        omit_unused_structs: true
