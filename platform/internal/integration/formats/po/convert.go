@@ -2,6 +2,7 @@ package po
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	mf "github.com/felixgeelhaar/glossa/messageformat"
@@ -40,7 +41,7 @@ func convert(entries []*entry, opts ReadOptions) (formats.Catalog, error) {
 	if err := c.locales(); err != nil {
 		return formats.Catalog{}, err
 	}
-	cat := formats.Catalog{SourceLocale: c.source}
+	cat := formats.Catalog{SourceLocale: c.source, TargetLocale: c.target}
 	for _, e := range entries {
 		out, err := c.entry(e)
 		if err != nil {
@@ -101,6 +102,7 @@ func (c *converter) entry(e *entry) (formats.Entry, error) {
 	c.seen[key] = true
 	out := formats.Entry{
 		ID: e.id, Namespace: e.ctxt, Description: strings.Join(e.extracted, "\n"), References: e.refs,
+		Pos: formats.Position{Line: e.line, Column: 1, Ref: e.ref()},
 	}
 	if len(e.comments) > 0 {
 		out.Notes = []string{strings.Join(e.comments, "\n")}
@@ -117,8 +119,20 @@ func (c *converter) entry(e *entry) (formats.Entry, error) {
 	if e.fuzzy {
 		state = formats.StateNeedsReview
 	}
-	out.Targets = []formats.Target{{Locale: c.target, Content: target, State: state}}
+	pos := out.Pos
+	pos.Line = e.strLine
+	out.Targets = []formats.Target{{Locale: c.target, Content: target, State: state, Pos: pos}}
 	return out, nil
+}
+
+// ref names an entry the way gettext tools do: its msgctxt and msgid,
+// as C string literals.
+func (e *entry) ref() string {
+	id := "msgid " + strconv.Quote(e.id)
+	if !e.hasCtxt {
+		return id
+	}
+	return "msgctxt " + strconv.Quote(e.ctxt) + " " + id
 }
 
 // sourceContent is the source message: literal text, or a plural select.

@@ -32,6 +32,10 @@
 //
 // Every reader is strict: malformed input returns an [*Error] with the
 // format, line and column where known, and the item it was reading.
+// Readers also record where each entry, translation, unit and concept
+// is ([Position]: line, column and the format's own reference — an
+// XLIFF fragment identifier, a JSON pointer, a PO msgctxt and msgid),
+// so an import reports every result where the file has it.
 // Readers bound their input ([Limits]); XML readers never process a
 // document type definition or any entity beyond the five predefined
 // ones, so external entities (XXE) and entity expansion bombs are

@@ -35,6 +35,11 @@ func (s State) Valid() bool {
 type Catalog struct {
 	// SourceLocale is the locale of every entry's Source.
 	SourceLocale bcp47.Tag
+	// TargetLocale is the locale the file's translations were read as
+	// when the file holds one target locale (XLIFF's trgLang or the
+	// reader's option, a JSON or PO file's locale); zero when there is
+	// none (a source catalog).
+	TargetLocale bcp47.Tag
 	Entries      []Entry
 }
 
@@ -57,6 +62,9 @@ type Entry struct {
 	Source mfcontent.Content
 	// Targets holds at most one translation per locale, in file order.
 	Targets []Target
+	// Pos is where the entry is in the file it was read from (zero for
+	// entries built in memory).
+	Pos Position
 }
 
 // Target is a message's translation into one locale.
@@ -64,6 +72,34 @@ type Target struct {
 	Locale  bcp47.Tag
 	Content mfcontent.Content
 	State   State
+	// Pos is where the translation is in the file it was read from (the
+	// XLIFF <target>, the PO msgstr); zero means its entry's position.
+	Pos Position
+}
+
+// Position locates an item in the file a reader read it from, so an
+// import can report every result where the file has it — not only the
+// problem that fails a malformed file.
+type Position struct {
+	// Line and Column are 1-based; zero when unknown.
+	Line   int
+	Column int
+	// Ref names the item in the format's own terms: an XLIFF fragment
+	// identifier (#/f=checkout/u=pay), a JSON pointer (/checkout/pay), a
+	// PO entry's msgctxt and msgid (msgctxt "menu" msgid "Open"), a TMX
+	// <tu> or TBX concept entry by its place in the file (tu[12]).
+	Ref string
+}
+
+// IsZero reports whether p is unknown.
+func (p Position) IsZero() bool { return p == Position{} }
+
+// Or returns p, or fallback when p is unknown.
+func (p Position) Or(fallback Position) Position {
+	if p.IsZero() {
+		return fallback
+	}
+	return p
 }
 
 // Target returns e's translation into locale.
@@ -93,6 +129,9 @@ type TMUnit struct {
 	ChangedAt  time.Time
 	LastUsedAt time.Time
 	UsageCount int
+	// Pos is where the unit is in the file: its target <tuv>, with the
+	// <tu> as the reference.
+	Pos Position
 }
 
 // Prop is a typed property of a TM unit.
@@ -118,6 +157,8 @@ type Concept struct {
 	Definitions []Definition
 	Notes       []string
 	Terms       []Term
+	// Pos is where the concept entry is in the file.
+	Pos Position
 }
 
 // Definition defines a concept, optionally in one locale.

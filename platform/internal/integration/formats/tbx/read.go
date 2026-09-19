@@ -99,6 +99,7 @@ func (rd *reader) entry(t xml.StartElement) error {
 	if err != nil {
 		return err
 	}
+	c.Pos = formats.Position{Line: n.Line, Column: n.Col, Ref: fmt.Sprintf("%s[%d]", t.Name.Local, len(rd.tb.Concepts)+1)}
 	rd.tb.Concepts = append(rd.tb.Concepts, c)
 	return nil
 }

@@ -22,6 +22,11 @@ type ReadOptions struct {
 	// literally, mfcontent.MF1 parses it as ICU MessageFormat (XLIFF
 	// from tools that put ICU messages into plain segments).
 	PlainSyntax mfcontent.Syntax
+	// TargetLocale, when set, is the locale the targets are read as,
+	// whatever trgLang says: it names the locale of a file without
+	// trgLang, or imports a file as another locale than it names (a
+	// CAT tool's "de" into a project's "de-AT"). Zero takes trgLang.
+	TargetLocale bcp47.Tag
 }
 
 // Read reads an XLIFF 2.x document. Units stream: memory holds one unit
@@ -36,7 +41,7 @@ func Read(r io.Reader, opts ReadOptions) (formats.Catalog, error) {
 	if err := rd.header(root); err != nil {
 		return formats.Catalog{}, err
 	}
-	if err := rd.walk(root.Name, ""); err != nil {
+	if err := rd.walk(root.Name, scope{}); err != nil {
 		return formats.Catalog{}, err
 	}
 	return rd.cat, nil
@@ -48,6 +53,31 @@ type reader struct {
 	limits formats.Limits
 	cat    formats.Catalog
 	target bcp47.Tag
+}
+
+// scope is the <file> a unit is in: its namespace (original) and id.
+type scope struct {
+	namespace string
+	fileID    string
+}
+
+// ref is a unit's XLIFF 2 fragment identifier (#/f=file/u=unit).
+func (s scope) ref(unitID string) string {
+	var b strings.Builder
+	b.WriteString("#")
+	if s.fileID != "" {
+		b.WriteString("/f=" + fragmentEscape(s.fileID))
+	}
+	if unitID != "" {
+		b.WriteString("/u=" + fragmentEscape(unitID))
+	}
+	return b.String()
+}
+
+// fragmentEscape escapes what XLIFF 2 fragment identifiers reserve in
+// an id ('\' and '/' are escaped with '\').
+func fragmentEscape(id string) string {
+	return strings.NewReplacer(`\`, `\\`, "/", `\/`).Replace(id)
 }
 
 func (rd *reader) header(root xml.StartElement) error {
@@ -66,16 +96,20 @@ func (rd *reader) header(root xml.StartElement) error {
 		return rd.d.Err("srcLang", formats.Invalidf("%v", err))
 	}
 	rd.cat.SourceLocale = src
-	if trg := n.Get("trgLang"); trg != "" {
+	if trg := n.Get("trgLang"); trg != "" && rd.opts.TargetLocale.IsZero() {
 		if rd.target, err = formats.ParseLocale(trg); err != nil {
 			return rd.d.Err("trgLang", formats.Invalidf("%v", err))
 		}
 	}
+	if !rd.opts.TargetLocale.IsZero() {
+		rd.target = rd.opts.TargetLocale
+	}
+	rd.cat.TargetLocale = rd.target
 	return nil
 }
 
 // walk reads the children of a <xliff>, <file> or <group> element.
-func (rd *reader) walk(parent xml.Name, namespace string) error {
+func (rd *reader) walk(parent xml.Name, s scope) error {
 	for {
 		tok, err := rd.d.Token()
 		if err == io.EOF {
@@ -88,30 +122,30 @@ func (rd *reader) walk(parent xml.Name, namespace string) error {
 		case xml.EndElement:
 			return nil
 		case xml.StartElement:
-			if err := rd.element(t, namespace); err != nil {
+			if err := rd.element(t, s); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-func (rd *reader) element(t xml.StartElement, namespace string) error {
+func (rd *reader) element(t xml.StartElement, s scope) error {
 	if t.Name.Space != Namespace {
 		return rd.d.Skip()
 	}
 	switch t.Name.Local {
 	case "file":
 		n := &xmlx.Node{Attr: t.Attr}
-		return rd.walk(t.Name, n.Get("original"))
+		return rd.walk(t.Name, scope{namespace: n.Get("original"), fileID: n.Get("id")})
 	case "group":
-		return rd.walk(t.Name, namespace)
+		return rd.walk(t.Name, s)
 	case "unit":
-		return rd.unit(t, namespace)
+		return rd.unit(t, s)
 	}
 	return rd.d.Skip()
 }
 
-func (rd *reader) unit(start xml.StartElement, namespace string) error {
+func (rd *reader) unit(start xml.StartElement, s scope) error {
 	if len(rd.cat.Entries) >= rd.limits.MaxItems {
 		return rd.d.Err("", fmt.Errorf("%w: more than %d units", formats.ErrTooLarge, rd.limits.MaxItems))
 	}
@@ -119,7 +153,7 @@ func (rd *reader) unit(start xml.StartElement, namespace string) error {
 	if err != nil {
 		return err
 	}
-	e, err := rd.entry(n, namespace)
+	e, err := rd.entry(n, s)
 	if err != nil {
 		return err
 	}
@@ -127,7 +161,7 @@ func (rd *reader) unit(start xml.StartElement, namespace string) error {
 	return nil
 }
 
-func (rd *reader) entry(n *xmlx.Node, namespace string) (formats.Entry, error) {
+func (rd *reader) entry(n *xmlx.Node, s scope) (formats.Entry, error) {
 	key := n.Get("name")
 	if key == "" {
 		key = n.Get("id")
@@ -137,7 +171,8 @@ func (rd *reader) entry(n *xmlx.Node, namespace string) (formats.Entry, error) {
 		return formats.Entry{}, unitErr(n, item, formats.Invalidf("unit without id"))
 	}
 	u := &unitReader{rd: rd, n: n, item: item, data: map[string]*xmlx.Node{}, mf2: n.Get("type") == TypeMF2}
-	e := formats.Entry{ID: key, Namespace: namespace}
+	e := formats.Entry{ID: key, Namespace: s.namespace,
+		Pos: formats.Position{Line: n.Line, Column: n.Col, Ref: s.ref(n.Get("id"))}}
 	if err := u.read(&e); err != nil {
 		return formats.Entry{}, err
 	}
@@ -246,7 +281,9 @@ func (u *unitReader) content(e *formats.Entry) error {
 	if err != nil {
 		return err
 	}
-	e.Targets = []formats.Target{{Locale: u.rd.target, Content: tgt, State: state}}
+	pos := e.Pos
+	pos.Line, pos.Column = tgtParts[0].Line, tgtParts[0].Col
+	e.Targets = []formats.Target{{Locale: u.rd.target, Content: tgt, State: state, Pos: pos}}
 	return nil
 }
 

@@ -5,7 +5,9 @@
 // locale, as XLIFF requires):
 //
 //   - <xliff srcLang trgLang>: the catalog's source locale and the target
-//     locale, canonical BCP 47.
+//     locale, canonical BCP 47. ReadOptions.TargetLocale names the
+//     target locale instead: of a file without trgLang, or of one whose
+//     trgLang the importer calls otherwise.
 //   - <file original="namespace">: one file per namespace, in order of
 //     first appearance. Nested <group>s are read through.
 //   - <unit id name>: one unit per message. name is the message key; id

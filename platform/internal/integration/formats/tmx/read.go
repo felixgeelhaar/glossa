@@ -183,6 +183,8 @@ func nodeErr(n *xmlx.Node, item string, err error) *formats.Error {
 type variant struct {
 	locale  bcp47.Tag
 	content mfcontent.Content
+	line    int
+	col     int
 }
 
 // units converts one <tu>.
@@ -211,6 +213,7 @@ func (rd *Reader) units(tu *xmlx.Node) ([]formats.TMUnit, error) {
 		u := base
 		u.SourceLocale, u.Source = vars[src].locale, vars[src].content
 		u.TargetLocale, u.Target = v.locale, v.content
+		u.Pos = formats.Position{Line: v.line, Column: v.col, Ref: fmt.Sprintf("tu[%d]", rd.tus)}
 		out = append(out, u)
 	}
 	return out, nil
@@ -285,7 +288,7 @@ func readVariant(tuv *xmlx.Node) (variant, error) {
 		return variant{}, formats.Invalidf("tuv %s without <seg>", locale)
 	}
 	c, err := segContent(seg, isMF2)
-	return variant{locale: locale, content: c}, err
+	return variant{locale: locale, content: c, line: tuv.Line, col: tuv.Col}, err
 }
 
 // sourceIndex picks the source variant: the one in the tu's srclang,

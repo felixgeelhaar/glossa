@@ -38,6 +38,8 @@ type Decoder struct {
 	d      *xml.Decoder
 	format string
 	depth  int
+	// startLine and startCol locate the '<' of the last start tag read.
+	startLine, startCol int
 }
 
 // NewDecoder reads XML from r, at most maxBytes of it. format names the
@@ -89,6 +91,9 @@ func charsetReader(transcoded bool) func(string, io.Reader) (io.Reader, error) {
 // Token returns the next token. Comments and processing instructions are
 // returned as they come; callers skip them.
 func (d *Decoder) Token() (xml.Token, error) {
+	// Text between tags is a token of its own, so where the previous
+	// token ended is where a start tag begins.
+	line, col := d.d.InputPos()
 	tok, err := d.d.Token()
 	if err != nil {
 		if err == io.EOF {
@@ -102,6 +107,7 @@ func (d *Decoder) Token() (xml.Token, error) {
 			return nil, d.Err("", err)
 		}
 	case xml.StartElement:
+		d.startLine, d.startCol = line, col
 		d.depth++
 		if d.depth > formats.MaxDepth {
 			return nil, d.Err("", formats.Invalidf("elements nest deeper than %d levels", formats.MaxDepth))
@@ -150,6 +156,10 @@ func (d *Decoder) Root() (xml.StartElement, error) {
 
 // Pos returns the current line and column.
 func (d *Decoder) Pos() (line, col int) { return d.d.InputPos() }
+
+// StartPos returns the line and column of the '<' that opened the last
+// start tag Token returned.
+func (d *Decoder) StartPos() (line, col int) { return d.startLine, d.startCol }
 
 // Err wraps err with the current position.
 func (d *Decoder) Err(item string, err error) *formats.Error {

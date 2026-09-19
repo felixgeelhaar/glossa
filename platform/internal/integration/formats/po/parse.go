@@ -15,7 +15,10 @@ import (
 
 // entry is one parsed PO entry.
 type entry struct {
+	// line is where the entry starts (msgctxt or msgid), strLine its
+	// first msgstr.
 	line      int
+	strLine   int
 	ctxt      string
 	hasCtxt   bool
 	id        string
@@ -202,6 +205,9 @@ func (p *parser) msgstr(index, text string) error {
 	}
 	if _, dup := e.strs[i]; dup {
 		return p.errf("msgstr[%d] given twice", i)
+	}
+	if e.strLine == 0 {
+		e.strLine = p.line
 	}
 	e.strs[i] = text
 	p.appendTo = func(s string) { e.strs[i] += s }

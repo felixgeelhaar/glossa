@@ -74,9 +74,10 @@ func (n *Node) InnerText() string {
 	return b.String()
 }
 
-// Tree reads the element that start opened, through its end tag.
+// Tree reads the element that start opened, through its end tag. It
+// must be called right after Token returned start.
 func (d *Decoder) Tree(start xml.StartElement) (*Node, error) {
-	line, col := d.Pos()
+	line, col := d.StartPos()
 	root := &Node{Name: start.Name, Attr: start.Attr, Line: line, Col: col}
 	for {
 		tok, err := d.Token()
