@@ -50,3 +50,16 @@ sql:
         emit_interface: false
         emit_exported_queries: false
         omit_unused_structs: true
+
+  - name: identity
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/identity
+    gen:
+      go:
+        package: identitysql
+        out: internal/identity/adapters/postgres/identitysql
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_exported_queries: false
+        omit_unused_structs: true
