@@ -28,6 +28,23 @@ func (s *Service) MessagesWithCoverage(ctx context.Context, project uuid.UUID, f
 	return ids, err
 }
 
+// CurrentTranslations counts, per locale, the usable translations of
+// ids that are current — what a change to their source would make
+// outdated (a branch's status report, RFC 0004 §4.1). It reveals counts,
+// not text, so catalog.read is enough.
+func (s *Service) CurrentTranslations(ctx context.Context, project uuid.UUID, ids []uuid.UUID) (map[string]int, error) {
+	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+		return nil, err
+	}
+	var out map[string]int
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		var err error
+		out, err = st.CurrentTranslationCounts(ctx, project, ids)
+		return err
+	})
+	return out, err
+}
+
 // TranslationWithSource is a translation together with what it was
 // translated from: the message's key and namespace (Localization's
 // projection; "" while it hasn't seen the message), the project's

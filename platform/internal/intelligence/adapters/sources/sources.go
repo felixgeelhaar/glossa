@@ -55,7 +55,7 @@ func catalogErr(err error, notFound error) error {
 func message(m catalogdomain.Message) app.SourceMessage {
 	return app.SourceMessage{
 		ID: m.ID.UUID(), ProjectID: m.ProjectID.UUID(), Key: string(m.Key), Namespace: string(m.Namespace),
-		Active: m.State == catalogdomain.MessageActive, Revision: m.Revision, Source: m.Source.Model,
+		Active: m.Translatable(), Revision: m.Revision, Source: m.Source.Model,
 		SourceText: m.Source.Text, SourceSyntax: string(m.Source.Syntax), Description: m.Description, MaxLength: m.MaxLength,
 	}
 }

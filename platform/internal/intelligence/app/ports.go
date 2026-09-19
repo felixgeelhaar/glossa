@@ -321,9 +321,11 @@ type SourceMessage struct {
 	ProjectID uuid.UUID
 	Key       string
 	Namespace string
-	Active    bool
-	Revision  int
-	Source    mf.Message
+	// Active says the message is translated: live, or proposed by a
+	// branch (RFC 0004 §4.1) — not obsolete.
+	Active   bool
+	Revision int
+	Source   mf.Message
 	// SourceText and SourceSyntax are the source as authored.
 	SourceText   string
 	SourceSyntax string

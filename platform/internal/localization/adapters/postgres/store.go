@@ -250,6 +250,20 @@ func (s *store) MessagesWithCoverage(ctx context.Context, project uuid.UUID, f a
 	return ids, nil
 }
 
+func (s *store) CurrentTranslationCounts(ctx context.Context, project uuid.UUID, ids []uuid.UUID) (map[string]int, error) {
+	rows, err := s.q.CountCurrentTranslations(ctx, localizationsql.CountCurrentTranslationsParams{
+		ProjectID: project, MessageIds: ids,
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make(map[string]int, len(rows))
+	for _, r := range rows {
+		out[r.Locale] = int(r.Translations)
+	}
+	return out, nil
+}
+
 // ── translations ────────────────────────────────────────────────────
 
 func findingsJSON(fs []mf.Finding) []byte {

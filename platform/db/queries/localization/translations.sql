@@ -192,3 +192,14 @@ SELECT * FROM localization_translation_revisions
 WHERE translation_id = sqlc.arg(translation_id) AND revision < sqlc.arg(before)
 ORDER BY revision DESC
 LIMIT sqlc.arg(max_rows);
+
+-- name: CountCurrentTranslations :many
+-- Per locale, the usable (not rejected) translations of some messages
+-- that are current: the ones a change to their source leaves outdated.
+SELECT t.locale, count(*)::integer AS translations
+FROM localization_translations t
+JOIN localization_messages m ON m.message_id = t.message_id
+WHERE t.project_id = sqlc.arg(project_id) AND t.message_id = ANY (sqlc.arg(message_ids)::uuid[])
+  AND t.state <> 'rejected' AND t.source_revision >= m.source_revision
+GROUP BY t.locale
+ORDER BY t.locale;

@@ -97,7 +97,40 @@ type Store interface {
 	SourceRevisions(ctx context.Context, id domain.MessageID, before, limit int) ([]domain.SourceRevision, error)
 	SourceRevision(ctx context.Context, id domain.MessageID, revision int) (domain.SourceRevision, error)
 
+	// InsertBranch stores b; inserted is false if the project already has
+	// a branch of that name (a concurrent first push).
+	InsertBranch(ctx context.Context, b domain.Branch, by domain.Author) (inserted bool, err error)
+	Branch(ctx context.Context, project domain.ProjectID, name domain.BranchName) (domain.Branch, error)
+	LockBranch(ctx context.Context, project domain.ProjectID, name domain.BranchName) (domain.Branch, error)
+	BranchesByIDs(ctx context.Context, ids []domain.BranchID) (map[domain.BranchID]domain.Branch, error)
+	// UpdateBranch saves b if the stored version is still expected.
+	UpdateBranch(ctx context.Context, b domain.Branch, expected int) error
+
+	// SaveProposal stores p, replacing the branch's proposal for its key.
+	SaveProposal(ctx context.Context, p domain.Proposal) error
+	DeleteProposal(ctx context.Context, branch domain.BranchID, key domain.MessageKey) error
+	// BranchProposals lists a branch's proposals in key order.
+	BranchProposals(ctx context.Context, branch domain.BranchID) ([]domain.Proposal, error)
+	// ProposalsForMessages lists every branch's proposals for ids.
+	ProposalsForMessages(ctx context.Context, ids []domain.MessageID) ([]domain.Proposal, error)
+	// LockMessagesByIDs locks the project's messages among ids, in key
+	// order.
+	LockMessagesByIDs(ctx context.Context, project domain.ProjectID, ids []domain.MessageID) (map[domain.MessageID]domain.Message, error)
+	// ActiveKeysExcept lists the project's active keys not among keys.
+	ActiveKeysExcept(ctx context.Context, project domain.ProjectID, keys []domain.MessageKey) ([]domain.MessageKey, error)
+	// LockOrphanedProposedMessages locks the tenant's proposed messages
+	// that no open branch proposes.
+	LockOrphanedProposedMessages(ctx context.Context) ([]domain.Message, error)
+
 	Publish(ctx context.Context, e outbox.Event) error
+}
+
+// TranslationImpact is Localization's count, per locale, of the current
+// (not outdated, not rejected) translations of some messages: the ones
+// a change to their source will make outdated. The composition root
+// wires Localization in.
+type TranslationImpact interface {
+	CurrentTranslations(ctx context.Context, project domain.ProjectID, ids []domain.MessageID) (map[string]int, error)
 }
 
 // Coverage is a translation status filter on the message list.

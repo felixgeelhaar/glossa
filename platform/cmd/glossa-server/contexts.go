@@ -119,7 +119,9 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	uow := db.NewUnitOfWork(pool)
 	catalog := catalogapp.New(catalogpg.NewTransactor(uow))
 	localization := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(catalog))
-	catalog.SetCoverage(coverage.New(localization))
+	translationPort := coverage.New(localization)
+	catalog.SetCoverage(translationPort)
+	catalog.SetImpact(translationPort)
 	catalog.SetProjection(projection.New(localization))
 	if err := localization.Subscribe(events); err != nil {
 		return contexts{}, err

@@ -14,6 +14,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countCurrentTranslations = `-- name: CountCurrentTranslations :many
+SELECT t.locale, count(*)::integer AS translations
+FROM localization_translations t
+JOIN localization_messages m ON m.message_id = t.message_id
+WHERE t.project_id = $1 AND t.message_id = ANY ($2::uuid[])
+  AND t.state <> 'rejected' AND t.source_revision >= m.source_revision
+GROUP BY t.locale
+ORDER BY t.locale
+`
+
+type CountCurrentTranslationsParams struct {
+	ProjectID  uuid.UUID
+	MessageIds []uuid.UUID
+}
+
+type CountCurrentTranslationsRow struct {
+	Locale       string
+	Translations int32
+}
+
+// Per locale, the usable (not rejected) translations of some messages
+// that are current: the ones a change to their source leaves outdated.
+func (q *Queries) CountCurrentTranslations(ctx context.Context, arg CountCurrentTranslationsParams) ([]CountCurrentTranslationsRow, error) {
+	rows, err := q.db.Query(ctx, countCurrentTranslations, arg.ProjectID, arg.MessageIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountCurrentTranslationsRow
+	for rows.Next() {
+		var i CountCurrentTranslationsRow
+		if err := rows.Scan(&i.Locale, &i.Translations); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteProjectMessages = `-- name: DeleteProjectMessages :exec
 DELETE FROM localization_messages WHERE project_id = $1
 `

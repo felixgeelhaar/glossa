@@ -96,6 +96,9 @@ func (s *Service) UpsertMessages(ctx context.Context, project domain.ProjectID, 
 			}
 			results[i] = res
 		}
+		if err := settleProposals(ctx, st, changed); err != nil {
+			return err
+		}
 		if s.projection == nil || len(changed) == 0 {
 			return nil
 		}
@@ -196,6 +199,9 @@ func (s *Service) upsertOne(ctx context.Context, st Store, p domain.Project, it 
 		return res, nil
 	}
 	expected, oldRev, now := m.Version, m.Revision, s.now()
+	// The default branch's push is the merge (RFC 0004 §4.1): a proposed
+	// message it pushes goes live.
+	activated := m.Activate(now)
 	reactivated := m.Reactivate(now)
 	detailsChanged, _ := m.ChangeDetails(d, now)
 	rev, revised, err := m.ReviseSource(it.content, by, now)
@@ -203,14 +209,18 @@ func (s *Service) upsertOne(ctx context.Context, st Store, p domain.Project, it 
 		return res, err
 	}
 	res.Message, res.Status = &m, UpsertUnchanged
-	if !reactivated && !detailsChanged && !revised {
+	if !activated && !reactivated && !detailsChanged && !revised {
 		return res, nil
 	}
 	if err := st.UpdateMessage(ctx, m, expected); err != nil {
 		return res, err
 	}
-	if reactivated {
-		if err := st.Publish(ctx, messageEvent(domain.EventMessageReactivated, m, by)); err != nil {
+	if activated || reactivated {
+		typ := domain.EventMessageReactivated
+		if activated {
+			typ = domain.EventMessageActivated
+		}
+		if err := st.Publish(ctx, messageEvent(typ, m, by)); err != nil {
 			return res, err
 		}
 	}
@@ -251,4 +261,34 @@ func (s *Service) createFromUpsert(ctx context.Context, st Store, p domain.Proje
 	}
 	res.Status, res.Message = UpsertCreated, &m
 	return res, nil
+}
+
+// settleProposals retires the branch proposals the default branch's push
+// just merged: new keys whose message is now active, and source changes
+// its new source revision now says. Proposals it didn't merge stay.
+func settleProposals(ctx context.Context, st Store, changed []domain.Message) error {
+	if len(changed) == 0 {
+		return nil
+	}
+	byID := make(map[domain.MessageID]domain.Message, len(changed))
+	ids := make([]domain.MessageID, len(changed))
+	for i, m := range changed {
+		byID[m.ID], ids[i] = m, m.ID
+	}
+	all, err := st.ProposalsForMessages(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for _, pr := range all {
+		m := byID[pr.MessageID]
+		merged := m.State == domain.MessageActive &&
+			(pr.Kind == domain.ProposalNewKey || pr.Kind == domain.ProposalSourceChange && pr.Matches(m))
+		if !merged {
+			continue
+		}
+		if err := st.DeleteProposal(ctx, pr.BranchID, pr.Key); err != nil {
+			return err
+		}
+	}
+	return nil
 }

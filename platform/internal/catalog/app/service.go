@@ -19,6 +19,7 @@ type Service struct {
 	tx         Transactor
 	coverage   TranslationCoverage
 	projection MessageProjection
+	impact     TranslationImpact
 	now        func() time.Time
 }
 
@@ -45,6 +46,11 @@ func (s *Service) SetCoverage(c TranslationCoverage) { s.coverage = c }
 // SetProjection wires the message projection a bulk upsert updates in
 // its transaction. The composition root calls it once at startup.
 func (s *Service) SetProjection(p MessageProjection) { s.projection = p }
+
+// SetImpact wires the translation impact port a branch's status report
+// counts outdated translations with. The composition root calls it once
+// at startup; without one, reports leave the counts out.
+func (s *Service) SetImpact(i TranslationImpact) { s.impact = i }
 
 // author returns the acting principal after checking perm.
 func author(ctx context.Context, perm authz.Permission) (domain.Author, error) {

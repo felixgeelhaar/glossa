@@ -127,6 +127,9 @@ type Store interface {
 	// SaveMessageState stores s unless a higher version is stored.
 	SaveMessageState(ctx context.Context, s MessageState) error
 	MessagesWithCoverage(ctx context.Context, project uuid.UUID, f CoverageFilter) ([]uuid.UUID, error)
+	// CurrentTranslationCounts counts, per locale, the usable translations
+	// of ids that are not outdated.
+	CurrentTranslationCounts(ctx context.Context, project uuid.UUID, ids []uuid.UUID) (map[string]int, error)
 
 	Translation(ctx context.Context, message uuid.UUID, locale bcp47.Tag) (TranslationRow, error)
 	// TranslationByID returns a translation with its message's key and

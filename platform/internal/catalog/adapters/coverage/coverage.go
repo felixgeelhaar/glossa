@@ -1,11 +1,14 @@
 // Package coverage adapts Localization's application service to
-// Catalog's TranslationCoverage port, so the message list can filter by
-// "missing in" and "outdated in" a locale without Catalog reading
-// Localization's tables.
+// Catalog's TranslationCoverage and TranslationImpact ports, so the
+// message list can filter by "missing in" and "outdated in" a locale,
+// and a branch's status can count the translations it would make
+// outdated, without Catalog reading Localization's tables.
 package coverage
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
@@ -18,7 +21,19 @@ type Port struct{ svc *locapp.Service }
 // New returns the port.
 func New(svc *locapp.Service) *Port { return &Port{svc: svc} }
 
-var _ app.TranslationCoverage = (*Port)(nil)
+var (
+	_ app.TranslationCoverage = (*Port)(nil)
+	_ app.TranslationImpact   = (*Port)(nil)
+)
+
+// CurrentTranslations implements app.TranslationImpact.
+func (p *Port) CurrentTranslations(ctx context.Context, project domain.ProjectID, ids []domain.MessageID) (map[string]int, error) {
+	uuids := make([]uuid.UUID, len(ids))
+	for i, id := range ids {
+		uuids[i] = id.UUID()
+	}
+	return p.svc.CurrentTranslations(ctx, project.UUID(), uuids)
+}
 
 // MessagesWithCoverage implements app.TranslationCoverage.
 func (p *Port) MessagesWithCoverage(ctx context.Context, q app.CoverageQuery) ([]domain.MessageID, error) {

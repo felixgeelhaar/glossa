@@ -31,6 +31,8 @@ var catalogMessageEvents = []string{
 	"catalog.message.renamed",
 	"catalog.message.obsoleted",
 	"catalog.message.reactivated",
+	"catalog.message.activated",
+	"catalog.message.proposed",
 }
 
 type messageSnapshot struct {
