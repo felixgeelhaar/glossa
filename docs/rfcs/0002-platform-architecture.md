@@ -227,6 +227,7 @@ The rewrite lives in the same repository. The v0.3 code stays where it is until 
 ```text
 glossa/
 ├── platform/                 # Go module: glossa-server, glossa-edge, CLI
+│   ├── api/openapi.yaml      # /v1 contract (api/openapi.yaml at the root is v0.3)
 │   ├── cmd/{glossa-server,glossa-edge,glossa}/
 │   ├── internal/<context>/{domain,app,adapters}/
 │   ├── internal/kernel/      # tenancy, outbox, observability, config, http
@@ -239,7 +240,6 @@ glossa/
 │   └── dart/
 ├── studio/                   # Vue 3 SPA
 ├── site/                     # Astro marketing site
-├── api/openapi.yaml          # v1 contract of the new platform
 ├── deploy/                   # Helm chart + RollOps
 ├── docs/
 └── apps/, packages/          # v0.3, retired at M5
