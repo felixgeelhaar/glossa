@@ -7,7 +7,7 @@
  */
 import { z } from "zod";
 import type { components } from "./schema";
-import { MessageState, MF2Message, QAFinding, Syntax } from "./schemas";
+import { MF2Message, QAFinding, Syntax } from "./schemas";
 
 const timestamp = z.string().min(1);
 const id = z.string().min(1);
@@ -228,7 +228,8 @@ export const AIEditDiff = z.object({
 export const AISuggestionSource = z.object({
   message_key: z.string(),
   namespace: z.string(),
-  state: MessageState,
+  // The server reports a proposed message as active here (it is translatable).
+  state: z.enum(["active", "obsolete"]),
   source_revision: z.number().int(),
   text: z.string(),
   syntax: Syntax,

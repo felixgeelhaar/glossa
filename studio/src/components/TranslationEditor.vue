@@ -345,6 +345,7 @@ defineExpose({ save, focusEditor, blurEditor, setDraft, reload, isEditing: () =>
         <h2 :id="`msg-${message.id}`" class="mono key">{{ message.key }}</h2>
         <span class="pill pill-neutral">{{ message.namespace }}</span>
         <span v-if="message.state === 'obsolete'" class="pill pill-warn">{{ s.stateObsolete }}</span>
+        <span v-if="message.state === 'proposed'" class="pill pill-neutral" :title="s.stateProposedHint">{{ s.stateProposed }}</span>
         <span v-if="message.max_length" class="pill pill-neutral">{{ s.maxLength(message.max_length) }}</span>
       </div>
       <div class="tabs" role="tablist" :aria-label="s.target">

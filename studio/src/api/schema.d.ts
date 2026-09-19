@@ -634,7 +634,7 @@ export interface paths {
          * Create a project
          * @description The source locale is fixed at creation. Needs `catalog.write`.
          *     Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-         *     `invalid_locale`, `invalid_syntax` (400).
+         *     `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
          */
         post: operations["createProject"];
         delete?: never;
@@ -675,7 +675,8 @@ export interface paths {
          * Rename a project or change its settings
          * @description Members omitted from the body keep their value; the source locale
          *     can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-         *     (409).
+         *     (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
+         *     `invalid_branch` (400).
          */
         patch: operations["updateProject"];
         trace?: never;
@@ -3463,6 +3464,154 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/context-builds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A project's usage uploads (builds), newest first
+         * @description With how many usages each holds and how many of those name a key
+         *     the catalog didn't know at upload (`unknown_keys`). Retention
+         *     keeps the latest 5 builds per application, branch and source plus
+         *     every current one (RFC 0004 §2.3). Needs `catalog.read`. Problem
+         *     codes: `unknown_application` (400).
+         */
+        get: operations["listContextBuilds"];
+        put?: never;
+        /**
+         * Upload a build's usages (glossa context push)
+         * @description The body is one `glossa.usages/v1` document: where one
+         *     application's messages are used at one commit, as
+         *     `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+         *     write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
+         *     It is validated by the schema's rules — members it doesn't define
+         *     are ignored within v1, anything else it refuses is
+         *     `invalid_usages` — and holds at most 100 000 usages and 20 MB.
+         *
+         *     Keys are resolved to message IDs now, so renaming a message later
+         *     keeps its usages; a key the catalog doesn't know is stored and
+         *     counted in `unknown_keys`. Whether the build is of the default
+         *     branch is the project's `settings.default_branch`, not the
+         *     uploader's say. `digest` is the SHA-256 of the document's
+         *     RFC 8785 canonical form (without undefined members), and an upload
+         *     is idempotent by application, commit, `source` and digest: the
+         *     same document again answers `200` with the first upload's build
+         *     and `Idempotent-Replayed: true`.
+         *
+         *     Uploads are rate-limited per tenant (10 a minute, bursts of 60).
+         *     Needs `catalog.write` (developers, `write` tokens: CI). Problem
+         *     codes: `invalid_usages`, `too_many_usages`, `invalid_source`,
+         *     `unknown_application` (400), `payload_too_large` (413),
+         *     `rate_limited` (429).
+         */
+        post: operations["createContextBuild"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/messages/{message}/usages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Where a message appears (its current usages)
+         * @description The usages of the message the key names now, in the current
+         *     builds: per application and source, the latest build of the
+         *     default branch — or, with `branch`, that branch's latest build,
+         *     falling back to the default branch's where the branch didn't
+         *     rebuild. The default branch's usages come first, then by
+         *     application, file and line; `truncated` says more than `limit`
+         *     exist. Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+         */
+        get: operations["listMessageUsages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/usages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The current usages on a route, in a component or in a file
+         * @description The messages a route, component or file shows (RFC 0004 §8): the
+         *     usages in the current builds (see `listMessageUsages`; `branch`
+         *     selects a branch view), by build and position. Filters combine;
+         *     without one, every current usage. Needs `catalog.read`. Problem
+         *     codes: `invalid_branch` (400).
+         */
+        get: operations["listUsages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/unused-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Active messages no current build uses
+         * @description By key. They are reported, never obsoleted: a dynamic key
+         *     (`t(\`plan.${tier}\`)`) is invisible to every collector.
+         *     `current_builds` is how many builds were considered — with none,
+         *     nothing was uploaded yet and every message is listed — and
+         *     `active_messages` and `unused_messages` give the project's context
+         *     coverage. `branch` selects a branch view (see `listMessageUsages`).
+         *     Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+         */
+        get: operations["listUnusedMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3711,6 +3860,14 @@ export interface components {
              *     `approved` on write.
              */
             review_required: boolean;
+            /**
+             * @description The repository's default branch (`main` unless set): usage
+             *     uploads of it are what every view of the current usages falls
+             *     back to (RFC 0004 §2.2). A valid Git branch name
+             *     (`invalid_branch`). Always present in responses; absent in a
+             *     write, the project keeps its current one.
+             */
+            default_branch?: string;
         };
         Project: {
             id: components["schemas"]["Id"];
@@ -3767,8 +3924,12 @@ export interface components {
         MessageKey: string;
         /** @description Groups messages into separately loadable bundles. Default `default`. */
         Namespace: string;
-        /** @enum {string} */
-        MessageState: "active" | "obsolete";
+        /**
+         * @description `proposed`: new on an open branch; excluded from non-branch
+         *     releases (RFC 0004 §4.1).
+         * @enum {string}
+         */
+        MessageState: "active" | "proposed" | "obsolete";
         /**
          * @description A message in the Unicode MessageFormat 2 data model, exactly as
          *     messageformat/testdata/unicode/data-model/message.schema.json
@@ -5398,6 +5559,115 @@ export interface components {
             /** @description TMX: `locales` (targets) and `source_locale`. TBX takes none. */
             options?: components["schemas"]["ExportOptions"];
         };
+        /** @enum {string} */
+        ContextSource: "plugin" | "extract" | "runtime" | "capture";
+        /**
+         * @description The call shape: `t` (t()/$t(), Go's T), `component` (<GlossaText
+         *     id>, <T id>), `element` (<glossa-text key> and its siblings),
+         *     `accessor` (typed accessors from `glossa generate`), `template`
+         *     ({{t}}, {{td}}, {{th}} in Go templates).
+         * @enum {string}
+         */
+        UsageKind: "t" | "component" | "element" | "accessor" | "template";
+        UsagesTool: {
+            /** @description A package name: `@glossa/unplugin`, `glossa`. */
+            name: string;
+            /** @description A semantic version. */
+            version: string;
+        };
+        /**
+         * @description A `glossa.usages/v1` document (RFC 0004 §2.2): one build, one
+         *     application at one commit. Its JSON Schema,
+         *     `runtimes/testdata/schemas/usages.v1.schema.json`, has every rule;
+         *     the ones below are the shape.
+         */
+        UsagesDocument: {
+            /** @enum {string} */
+            schema: "glossa.usages/v1";
+            /** @description The application's slug in the project. */
+            application: string;
+            /** @description The full commit ID in lowercase hex (SHA-1 or SHA-256). */
+            commit: string;
+            /** @description The short branch name (`feat/checkout-copy`). */
+            branch: string;
+            tool: components["schemas"]["UsagesTool"];
+            usages: components["schemas"]["UsagesDocumentUsage"][];
+        };
+        UsagesDocumentUsage: {
+            key: components["schemas"]["MessageKey"];
+            /** @description A path relative to the project root, with `/` and no `.` or `..` segments. */
+            file: string;
+            line: number;
+            /** @description 1-based, in Unicode code points. */
+            column: number;
+            component?: string;
+            /** @description A route pattern: `/checkout/[step]`. */
+            route?: string;
+            kind: components["schemas"]["UsageKind"];
+        };
+        /** @description One upload of usages for one application at one commit. */
+        ContextBuild: {
+            id: components["schemas"]["Id"];
+            application_id: components["schemas"]["Id"];
+            commit: string;
+            branch: string;
+            /** @description The branch was the project's default branch at upload. */
+            on_default_branch: boolean;
+            source: components["schemas"]["ContextSource"];
+            tool: components["schemas"]["UsagesTool"];
+            /** @description SHA-256 (hex) of the document's RFC 8785 canonical form. */
+            digest: string;
+            usages: number;
+            /** @description Usages whose key the catalog didn't know at upload. */
+            unknown_keys: number;
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        ContextBuildList: {
+            items: components["schemas"]["ContextBuild"][];
+            next_page_token?: string;
+        };
+        /** @description Where a message's key is used, in a build. */
+        ContextUsage: {
+            key: components["schemas"]["MessageKey"];
+            /** @description The message the key named at upload; absent for an unknown key. */
+            message_id?: components["schemas"]["Id"];
+            file: string;
+            line: number;
+            column?: number;
+            component?: string;
+            route?: string;
+            kind: components["schemas"]["UsageKind"];
+            build_id: components["schemas"]["Id"];
+            application_id: components["schemas"]["Id"];
+            commit: string;
+            branch: string;
+            on_default_branch: boolean;
+            source: components["schemas"]["ContextSource"];
+        };
+        ContextUsageList: {
+            items: components["schemas"]["ContextUsage"][];
+            next_page_token?: string;
+        };
+        MessageUsages: {
+            message_id: components["schemas"]["Id"];
+            key: components["schemas"]["MessageKey"];
+            usages: components["schemas"]["ContextUsage"][];
+            /** @description More usages exist than `limit`. */
+            truncated: boolean;
+        };
+        UnusedMessage: {
+            id: components["schemas"]["Id"];
+            key: components["schemas"]["MessageKey"];
+        };
+        UnusedMessageList: {
+            items: components["schemas"]["UnusedMessage"][];
+            next_page_token?: string;
+            /** @description The builds considered; 0 means nothing was uploaded yet. */
+            current_builds: number;
+            active_messages: number;
+            unused_messages: number;
+        };
     };
     responses: {
         /** @description Signed in. The session cookie is set. */
@@ -5572,6 +5842,8 @@ export interface components {
         ImportJobPath: components["schemas"]["Id"];
         /** @description An export job `id`. */
         ExportJobPath: components["schemas"]["Id"];
+        /** @description A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's. */
+        ContextBranch: string;
         PageSize: number;
         /** @description The `next_page_token` of the previous page. */
         PageToken: string;
@@ -10667,6 +10939,200 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listContextBuilds: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description Only this application's builds (its slug). */
+                application?: components["schemas"]["Slug"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of builds. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextBuildList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createContextBuild: {
+        parameters: {
+            query: {
+                /** @description The collector that wrote the document: `plugin` (@glossa/unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`). */
+                source: components["schemas"]["ContextSource"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UsagesDocument"];
+            };
+        };
+        responses: {
+            /** @description The same document was uploaded before; its build. */
+            200: {
+                headers: {
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextBuild"];
+                };
+            };
+            /** @description The build, stored. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextBuild"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    listMessageUsages: {
+        parameters: {
+            query?: {
+                /** @description A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's. */
+                branch?: components["parameters"]["ContextBranch"];
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The message's current usages. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageUsages"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listUsages: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's. */
+                branch?: components["parameters"]["ContextBranch"];
+                /** @description A route pattern, exactly (`/checkout/[step]`). */
+                route?: string;
+                /** @description A component, exactly (`PaymentFooter`, `mail.(*Mailer).Send`). */
+                component?: string;
+                /** @description A file path relative to the project root, exactly. */
+                file?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of usages. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextUsageList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listUnusedMessages: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's. */
+                branch?: components["parameters"]["ContextBranch"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of unused messages. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnusedMessageList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

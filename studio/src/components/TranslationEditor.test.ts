@@ -102,6 +102,27 @@ describe("TranslationEditor", () => {
     expect(w.get(".chips").text()).toContain("$name");
     const area = w.get("textarea");
     expect(area.attributes()).toMatchObject({ lang: "de", dir: "ltr" });
+    expect(w.text()).not.toContain("Proposed");
+    w.unmount();
+  });
+
+  it("marks a message proposed on a branch and still edits it", async () => {
+    api.get.mockResolvedValue(null);
+    const w = mount(TranslationEditor, {
+      props: {
+        tenant: "t",
+        project,
+        message: { ...message, state: "proposed" },
+        locale: de,
+        source: en,
+        grant: grantFor({ roles: ["owner"], locales: [] }),
+      },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    const pill = w.findAll(".pill").find((p) => p.text() === "Proposed");
+    expect(pill?.attributes("title")).toContain("open branch");
+    expect(w.find("textarea").exists()).toBe(true);
     w.unmount();
   });
 

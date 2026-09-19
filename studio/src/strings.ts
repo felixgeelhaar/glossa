@@ -257,6 +257,8 @@ export const strings = {
     state: "Message state",
     stateActive: "Active",
     stateObsolete: "Obsolete",
+    stateProposed: "Proposed",
+    stateProposedHint: "New on an open branch: not in releases until the default branch brings it in",
     stateAll: "All",
     messages: "Messages",
     count: (shown: number, loaded: number, done: boolean) =>
