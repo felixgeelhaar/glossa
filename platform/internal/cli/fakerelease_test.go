@@ -68,6 +68,7 @@ func (f *fakeServer) routeReleases(mux *http.ServeMux, p string) {
 	mux.HandleFunc("GET "+p+"/environments/{env}", f.getEnvironment)
 	mux.HandleFunc("POST "+p+"/environments/{env}/promotions", f.promote)
 	mux.HandleFunc("POST "+p+"/environments/{env}/rollbacks", f.rollback)
+	mux.HandleFunc("POST "+p+"/environments/{env}/release-previews", f.previewRelease)
 	mux.HandleFunc("GET "+p+"/releases", f.listReleases)
 	mux.HandleFunc("POST "+p+"/releases", f.publish)
 	mux.HandleFunc("GET "+p+"/releases/{id}", f.getRelease)
@@ -178,9 +179,23 @@ func (f *fakeServer) publish(w http.ResponseWriter, r *http.Request) {
 		problemResp(w, 422, "not_releasable", "the project has no active messages")
 		return
 	}
-	rel := &fakeRel{id: fmt.Sprintf("rel_%d", len(f.rel.releases)+1), env: e.name, parent: e.current, note: body.Note,
-		version: len(f.rel.releases) + 1, states: e.states, created: f.rel.releaseAt.Add(time.Duration(len(f.rel.releases)) * time.Hour),
-		artifacts: map[string][]byte{}, messages: map[string]map[string]string{}}
+	rel := f.build(e)
+	rel.id, rel.env, rel.parent, rel.note = fmt.Sprintf("rel_%d", len(f.rel.releases)+1), e.name, e.current, body.Note
+	rel.version, rel.created = len(f.rel.releases)+1, f.rel.releaseAt.Add(time.Duration(len(f.rel.releases))*time.Hour)
+	for _, b := range rel.artifacts {
+		f.rel.stored[digest(b)] = true
+	}
+	f.rel.releases = append(f.rel.releases, rel)
+	e.current, e.served = rel.id, append(e.served, rel.id)
+	if key != "" {
+		f.rel.idem[key] = rel.id
+	}
+	writeJSONResp(w, 201, f.relJSON(rel))
+}
+
+// build is what publishing to e would ship, stored nowhere.
+func (f *fakeServer) build(e *fakeEnv) *fakeRel {
+	rel := &fakeRel{states: e.states, artifacts: map[string][]byte{}, messages: map[string]map[string]string{}}
 	for _, l := range f.locales {
 		msgs := map[string]string{}
 		for k, m := range f.messages {
@@ -193,16 +208,40 @@ func (f *fakeServer) publish(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(map[string]any{"schema": "glossa.artifact/v1", "locale": l, "namespace": "default", "messages": msgs})
 		rel.artifacts[l], rel.messages[l] = b, msgs
 		if !f.rel.stored[digest(b)] {
-			f.rel.stored[digest(b)] = true
 			rel.newArtifacts++
 		}
 	}
-	f.rel.releases = append(f.rel.releases, rel)
-	e.current, e.served = rel.id, append(e.served, rel.id)
-	if key != "" {
-		f.rel.idem[key] = rel.id
+	return rel
+}
+
+func (f *fakeServer) previewRelease(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	e := f.env(w, r)
+	if e == nil {
+		return
 	}
-	writeJSONResp(w, 201, f.relJSON(rel))
+	out := map[string]any{"environment": e.name, "policy": map[string]any{"states": e.states, "include_outdated": false},
+		"problems": []any{}, "releasable": true}
+	var base *fakeRel
+	if e.current != "" {
+		base = f.findRelease(e.current)
+		out["base_release_id"] = base.id
+	}
+	if len(f.messages) == 0 {
+		out["releasable"] = false
+		out["problems"] = []any{map[string]any{"code": "not_releasable", "detail": "the project has no active messages"}}
+		writeJSONResp(w, 200, out)
+		return
+	}
+	head := f.build(e)
+	rel := f.relJSON(head)
+	for _, k := range []string{"source_locale", "locales", "counts", "manifest_digest"} {
+		out[k] = rel[k]
+	}
+	out["manifest_digest"] = digest([]byte(fmt.Sprint(head.messages)))
+	out["changes"] = f.localeDiffs(base, head)
+	writeJSONResp(w, 200, out)
 }
 
 func (f *fakeServer) listReleases(w http.ResponseWriter, r *http.Request) {
@@ -252,6 +291,12 @@ func (f *fakeServer) diff(w http.ResponseWriter, r *http.Request) {
 	if base != nil {
 		out["base_release_id"] = base.id
 	}
+	out["locales"] = f.localeDiffs(base, head)
+	writeJSONResp(w, 200, out)
+}
+
+// localeDiffs compares what head ships with base (nil: nothing).
+func (f *fakeServer) localeDiffs(base, head *fakeRel) []map[string]any {
 	var locales []map[string]any
 	for _, l := range f.locales {
 		var before map[string]string
@@ -276,8 +321,7 @@ func (f *fakeServer) diff(w http.ResponseWriter, r *http.Request) {
 		sort.Strings(removed)
 		locales = append(locales, map[string]any{"locale": l, "added": added, "changed": changed, "removed": removed})
 	}
-	out["locales"] = locales
-	writeJSONResp(w, 200, out)
+	return locales
 }
 
 func (f *fakeServer) manifestBytes(rel *fakeRel, env string) []byte {

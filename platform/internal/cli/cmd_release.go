@@ -42,6 +42,23 @@ type releasePublishJSON struct {
 	Release        release.Release `json:"release"`
 }
 
+// releasePreviewJSON is `release publish --dry-run`: what the publish
+// would ship, compared with what the environment serves.
+type releasePreviewJSON struct {
+	Schema      string         `json:"schema"`
+	Environment string         `json:"environment"`
+	Policy      release.Policy `json:"policy"`
+	// Base is what the environment serves now (null: nothing).
+	Base       *releaseRef       `json:"base"`
+	Releasable bool              `json:"releasable"`
+	Problems   []release.Problem `json:"problems"`
+	// Release is null when the catalog isn't releasable.
+	Release *release.PreviewRelease `json:"release"`
+	Changes []localeDiffJSON        `json:"changes"`
+	// Identical is true when publishing would change nothing.
+	Identical bool `json:"identical"`
+}
+
 type releaseItemJSON struct {
 	release.Release
 	// Serving lists the environments that serve it now.
@@ -103,6 +120,7 @@ type releaseArgs struct {
 	releases       []string // release references: IDs or v<N>
 	note           string
 	idempotencyKey string
+	dryRun         bool
 	limit          int
 	name           string // keys create: the name; keys revoke: the ID or name
 }
@@ -110,8 +128,9 @@ type releaseArgs struct {
 const releaseUsage = `release <action> [flags]
 
 Actions:
-  publish       [--environment NAME] [--note TEXT] [--idempotency-key KEY]
-                publish eligible translations (default environment: development)
+  publish       [--environment NAME] [--note TEXT] [--idempotency-key KEY] [--dry-run]
+                publish eligible translations (default environment: development);
+                --dry-run shows what would ship and what would change, and stores nothing
   list          [--limit N]                        releases, newest first, and where they're served
   show          <release>                          one release: counts, locales, policy, environments
   diff          [<base>] <release>                 message IDs added, changed, removed per locale
@@ -135,6 +154,7 @@ func parseReleaseArgs(inv *invocation, args []string) (releaseArgs, error) {
 	fs.StringVar(&r.note, "note", "", "publish: a note stored with the release")
 	fs.StringVar(&r.idempotencyKey, "idempotency-key", "", "publish, keys create: the Idempotency-Key (default: a new one per invocation)")
 	fs.IntVar(&r.limit, "limit", 20, "list: at most this many releases (0: all)")
+	fs.BoolVar(&r.dryRun, "dry-run", false, "publish: show what would ship and what would change; store nothing")
 	pos, err := inv.parse(fs, args)
 	if err != nil {
 		return r, err
@@ -310,7 +330,7 @@ var releaseFixes = map[string]struct {
 	fix  string
 }{
 	"release_not_found":       {ExitNetwork, "run `glossa release list` for the project's releases"},
-	"release_ineligible":      {ExitNetwork, "the environment's policy doesn't cover the release's: publish to it instead (`glossa release publish --environment <name>`), or promote a release published under a policy it covers"},
+	"release_ineligible":      {ExitNetwork, "publish to the environment directly (`glossa release publish --environment <name>`), or promote a release published under a policy it covers; for production: `glossa release publish --environment staging`, then `glossa release promote <release> --to production`"},
 	"no_rollback_target":      {ExitNetwork, "the environment served no earlier release; `glossa release promote <release> --to <name>` points it at any eligible one"},
 	"not_in_history":          {ExitNetwork, "rollback goes only to a release the environment served; `glossa release promote` points it at any eligible one"},
 	"not_releasable":          {ExitNetwork, "push the source catalog first (`glossa push`)"},
@@ -355,6 +375,9 @@ func runRelease(ctx context.Context, inv *invocation, args []string) error {
 	rc := inv.releaseClient(p)
 	switch r.action {
 	case "publish":
+		if r.dryRun {
+			return inv.releasePreview(ctx, rc, r.environment)
+		}
 		return inv.releasePublish(ctx, rc, r)
 	case "list":
 		return inv.releaseList(ctx, rc, r.limit)
@@ -393,6 +416,64 @@ func (inv *invocation) releasePublish(ctx context.Context, rc *releaseClient, r 
 		}
 		pr.line("  %s", pr.dim(rel.Environment+" serves it now; glossa-edge delivers it within seconds"))
 	})
+}
+
+// releasePreview is `release publish --dry-run`. A catalog that can't be
+// released fails like a check (exit 1), with every problem listed.
+func (inv *invocation) releasePreview(ctx context.Context, rc *releaseClient, environment string) error {
+	pv, err := rc.svc.PreviewPublish(ctx, rc.scope, environment)
+	if err != nil {
+		return inv.releaseError(err, "can't preview a publish to "+environment)
+	}
+	base, err := rc.ref(ctx, inv, pv.BaseReleaseID)
+	if err != nil {
+		return err
+	}
+	out := releasePreviewJSON{Schema: "glossa.cli.release.preview/v1", Environment: pv.Environment, Policy: pv.Policy,
+		Base: base, Releasable: pv.Releasable, Problems: pv.Problems, Release: pv.Release, Changes: pv.Changes, Identical: pv.Releasable}
+	if out.Problems == nil {
+		out.Problems = []release.Problem{}
+	}
+	if out.Changes == nil {
+		out.Changes = []localeDiffJSON{}
+	}
+	for _, l := range out.Changes {
+		out.Identical = out.Identical && len(l.Added)+len(l.Changed)+len(l.Removed) == 0
+	}
+	if err := inv.emit(out, func(pr *printer) { printPreview(pr, out) }); err != nil {
+		return err
+	}
+	if !out.Releasable {
+		return silentExit(ExitCheckFailed, "not_releasable")
+	}
+	return nil
+}
+
+func printPreview(pr *printer, pv releasePreviewJSON) {
+	pr.line("%s publishing to %s %s", pr.bold("Dry run:"), pv.Environment, pr.dim("(ships "+policyString(pv.Policy)+"; nothing was published)"))
+	if !pv.Releasable {
+		pr.line("%s not releasable: %s", pr.fail(), plural(len(pv.Problems), "problem", "problems"))
+		for _, p := range pv.Problems {
+			where := strings.TrimSpace(p.Key + " " + p.Locale)
+			if where != "" {
+				where += "  "
+			}
+			pr.line("  %s %s%s", pr.bad("error"), where, p.Detail)
+		}
+		return
+	}
+	rel := release.Release{Locales: pv.Release.Locales, Counts: pv.Release.Counts}
+	pr.line("%s would ship %s · %s · %s", pr.pass(), plural(rel.Counts.Messages, "message", "messages"), localeCounts(rel), artifactCounts(rel))
+	switch {
+	case pv.Base == nil:
+		pr.line("  %s serves nothing yet: every message is added", pv.Environment)
+	case pv.Identical:
+		pr.line("  nothing would change: %s already serves this (v%d)", pv.Environment, pv.Base.Version)
+		return
+	default:
+		pr.line("  compared with v%d %s, which %s serves now:", pv.Base.Version, pr.dim("("+pv.Base.ID+")"), pv.Environment)
+	}
+	printLocaleDiffs(pr, pv.Changes)
 }
 
 func localeCounts(r release.Release) string {
@@ -546,7 +627,12 @@ func printReleaseDiff(pr *printer, d releaseDiffJSON) {
 		pr.line("  %s", "no message changed in any locale")
 		return
 	}
-	for _, l := range d.Locales {
+	printLocaleDiffs(pr, d.Locales)
+}
+
+// printLocaleDiffs lists what each locale adds, changes and removes.
+func printLocaleDiffs(pr *printer, locales []localeDiffJSON) {
+	for _, l := range locales {
 		if len(l.Added)+len(l.Changed)+len(l.Removed) == 0 {
 			pr.line("  %s  %s", l.Locale, pr.dim("unchanged"))
 			continue

@@ -115,6 +115,37 @@ type Published struct {
 	Replayed bool
 }
 
+// Problem is one reason the catalog can't be released.
+type Problem struct {
+	Code   string `json:"code"`
+	Detail string `json:"detail"`
+	Key    string `json:"key,omitempty"`
+	Locale string `json:"locale,omitempty"`
+}
+
+// PreviewRelease is what a publish would build.
+type PreviewRelease struct {
+	SourceLocale   string   `json:"source_locale"`
+	Locales        []string `json:"locales"`
+	ManifestDigest string   `json:"manifest_digest"`
+	// Counts.NewArtifacts is what the publish would upload.
+	Counts Counts `json:"counts"`
+}
+
+// Preview is a publish's dry run: what it would ship to an environment,
+// compared with what the environment serves. Nothing is stored.
+type Preview struct {
+	Environment string
+	Policy      Policy
+	// BaseReleaseID is what the environment serves now (empty: nothing).
+	BaseReleaseID string
+	Releasable    bool
+	Problems      []Problem
+	// Release is nil when the catalog isn't releasable.
+	Release *PreviewRelease
+	Changes []LocaleDiff
+}
+
 // Service is what the release commands need from the server.
 type Service interface {
 	Environments(ctx context.Context, s Scope) ([]Environment, error)
@@ -125,6 +156,9 @@ type Service interface {
 	// Diff compares a release with base (empty: its parent).
 	Diff(ctx context.Context, s Scope, id, base string) (Diff, error)
 	Publish(ctx context.Context, s Scope, r PublishRequest) (Published, error)
+	// PreviewPublish runs a publish's build for environment and stores
+	// nothing.
+	PreviewPublish(ctx context.Context, s Scope, environment string) (Preview, error)
 	Promote(ctx context.Context, s Scope, releaseID, environment string) (Environment, error)
 	// Rollback points environment back at toRelease (empty: the newest
 	// release it served before the current one).

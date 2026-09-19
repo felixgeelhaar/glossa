@@ -459,6 +459,39 @@ func offline(t *testing.T, dir, environment string) *glossa.Client {
 // releaseLoop publishes what the import brought (en: two translations
 // needing review, one draft), bundles it, and moves environments.
 func releaseLoop(t *testing.T, r runner) {
+	// A dry run shows what preview would ship and publishes nothing.
+	var dry struct {
+		Schema     string `json:"schema"`
+		Releasable bool   `json:"releasable"`
+		Base       *struct {
+			ID string `json:"id"`
+		} `json:"base"`
+		Release *struct {
+			Counts struct {
+				Messages int `json:"messages"`
+				Locales  map[string]struct {
+					Messages int `json:"messages"`
+				} `json:"locales"`
+			} `json:"counts"`
+		} `json:"release"`
+		Changes []struct {
+			Locale string   `json:"locale"`
+			Added  []string `json:"added"`
+		} `json:"changes"`
+	}
+	r.run(cli.ExitOK, &dry, "release", "publish", "--dry-run", "--environment", "preview")
+	if dry.Schema != "glossa.cli.release.preview/v1" || !dry.Releasable || dry.Base != nil || dry.Release == nil ||
+		dry.Release.Counts.Messages != 3 || dry.Release.Counts.Locales["en"].Messages != 3 || len(dry.Changes) != 2 || len(dry.Changes[1].Added) != 3 {
+		t.Fatalf("dry run = %+v", dry)
+	}
+	var none struct {
+		Releases []any `json:"releases"`
+	}
+	r.run(cli.ExitOK, &none, "release", "list")
+	if len(none.Releases) != 0 {
+		t.Fatalf("the dry run published: %+v", none)
+	}
+
 	var pub struct {
 		Replayed bool       `json:"replayed"`
 		Release  releaseDoc `json:"release"`

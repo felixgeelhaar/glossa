@@ -43,19 +43,27 @@ func toEnvironment(e apiclient.Environment) release.Environment {
 	return release.Environment{Name: e.Name, CurrentReleaseID: deref(e.CurrentReleaseId), Policy: toPolicy(e.Policy), UpdatedAt: e.UpdatedAt}
 }
 
+func toCounts(c apiclient.ReleaseCounts) release.Counts {
+	out := release.Counts{Messages: c.Messages, Artifacts: c.Artifacts, NewArtifacts: c.NewArtifacts,
+		Bytes: c.Bytes, Locales: make(map[string]release.LocaleCounts, len(c.Locales))}
+	for code, lc := range c.Locales {
+		out.Locales[code] = release.LocaleCounts{Messages: lc.Messages, Outdated: lc.Outdated}
+	}
+	return out
+}
+
+func toLocaleDiff(l apiclient.LocaleDiff) release.LocaleDiff {
+	return release.LocaleDiff{Locale: l.Locale, Added: orEmpty(l.Added), Changed: orEmpty(l.Changed), Removed: orEmpty(l.Removed)}
+}
+
 func toRelease(r apiclient.Release) release.Release {
 	out := release.Release{
 		ID: r.Id, Version: r.Version, Environment: r.Environment, ParentID: deref(r.ParentId), Note: deref(r.Note),
 		Author: r.Author, CreatedAt: r.CreatedAt, SourceLocale: r.SourceLocale, ManifestDigest: r.ManifestDigest,
-		Policy: toPolicy(r.Policy), Locales: make([]string, len(r.Locales)),
-		Counts: release.Counts{Messages: r.Counts.Messages, Artifacts: r.Counts.Artifacts, NewArtifacts: r.Counts.NewArtifacts,
-			Bytes: r.Counts.Bytes, Locales: make(map[string]release.LocaleCounts, len(r.Counts.Locales))},
+		Policy: toPolicy(r.Policy), Locales: make([]string, len(r.Locales)), Counts: toCounts(r.Counts),
 	}
 	for i, l := range r.Locales {
 		out.Locales[i] = l.Code
-	}
-	for code, c := range r.Counts.Locales {
-		out.Counts.Locales[code] = release.LocaleCounts{Messages: c.Messages, Outdated: c.Outdated}
 	}
 	return out
 }
@@ -169,9 +177,7 @@ func (r *ReleaseService) Diff(ctx context.Context, s release.Scope, id, base str
 		return release.Diff{}, err
 	}
 	d := resp.JSON200
-	return release.Diff{ReleaseID: d.ReleaseId, BaseReleaseID: deref(d.BaseReleaseId), Locales: mapAll(d.Locales, func(l apiclient.LocaleDiff) release.LocaleDiff {
-		return release.LocaleDiff{Locale: l.Locale, Added: orEmpty(l.Added), Changed: orEmpty(l.Changed), Removed: orEmpty(l.Removed)}
-	})}, nil
+	return release.Diff{ReleaseID: d.ReleaseId, BaseReleaseID: deref(d.BaseReleaseId), Locales: mapAll(d.Locales, toLocaleDiff)}, nil
 }
 
 func orEmpty(s []string) []string {
@@ -198,6 +204,28 @@ func (r *ReleaseService) Publish(ctx context.Context, s release.Scope, req relea
 		return release.Published{}, err
 	}
 	return release.Published{Release: toRelease(*resp.JSON201), Replayed: resp.HTTPResponse.Header.Get("Idempotent-Replayed") == "true"}, nil
+}
+
+// PreviewPublish implements release.Service. It stores nothing, so it
+// is retried like a read.
+func (r *ReleaseService) PreviewPublish(ctx context.Context, s release.Scope, environment string) (release.Preview, error) {
+	resp, err := r.c.api.PreviewReleaseWithResponse(idempotent(ctx), s.Tenant, s.Project, environment)
+	if err := check(resp, err, http.MethodPost, r.project(s, "/environments/%s/release-previews", environment)); err != nil {
+		return release.Preview{}, err
+	}
+	p := resp.JSON200
+	out := release.Preview{Environment: p.Environment, Policy: toPolicy(p.Policy), BaseReleaseID: deref(p.BaseReleaseId),
+		Releasable: p.Releasable, Problems: mapAll(p.Problems, func(pr apiclient.ReleaseProblem) release.Problem {
+			return release.Problem{Code: string(pr.Code), Detail: pr.Detail, Key: deref(pr.Key), Locale: deref(pr.Locale)}
+		})}
+	if p.Counts != nil && p.Locales != nil {
+		out.Release = &release.PreviewRelease{SourceLocale: deref(p.SourceLocale), ManifestDigest: deref(p.ManifestDigest),
+			Locales: mapAll(*p.Locales, func(l apiclient.ReleaseLocale) string { return l.Code }), Counts: toCounts(*p.Counts)}
+	}
+	if p.Changes != nil {
+		out.Changes = mapAll(*p.Changes, toLocaleDiff)
+	}
+	return out, nil
 }
 
 // ── delivery keys ───────────────────────────────────────────────────

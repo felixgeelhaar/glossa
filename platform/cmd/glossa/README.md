@@ -73,11 +73,11 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `extract` | Finds usages: `<glossa-text key\|message\|id="…">`, `<GlossaText id="…">`, `t("…")`, `$t("…")`, Go `x.T(ctx, "…")` / `l.T("…")`, `{{t "…"}}`, and the generated accessors. Reports file:line, IDs missing from the catalog, and catalog messages nothing uses. `--strict` exits 1 on unknown IDs. |
 | `generate` | Typed accessors from the catalog's argument metadata. `--check` writes nothing and exits 1 when the files are stale; `--from-server` uses the server's messages. |
 | `check` | Structural QA: invalid messages, translation/source compatibility (`messageformat.CheckCompat`), missing and outdated translations. `--offline` checks local catalogs. `--require-complete=de,en\|none`, `--fail-on=error\|warning`. |
-| `status` | Coverage per locale: translated, approved, needs review, draft, outdated, missing. `--offline`. |
+| `status` | Coverage per locale: translated, approved, needs review, draft, outdated, missing. One request: the server's `translation-stats`. `--offline` counts the local catalogs. |
 | `diff` | Local catalogs vs the server by canonical model (so MF1 spelling changes aren't changes). `--exit-code`. |
 | `locales`, `messages` | Lists. `messages --prefix --namespace --missing-in --outdated-in --state active\|obsolete\|all` |
 | `import --from v0` | Imports a Glossa v0.3 project (below). |
-| `release` | `publish`, `list`, `show`, `diff`, `promote`, `rollback`, `environments`, `keys [list\|create\|revoke]` (see *Release*). |
+| `release` | `publish [--dry-run]`, `list`, `show`, `diff`, `promote`, `rollback`, `environments`, `keys [list\|create\|revoke]` (see *Release*). |
 
 `check` reads like CI output:
 
@@ -102,7 +102,7 @@ in without changing the command.
 | Code | Meaning |
 |---|---|
 | 0 | OK |
-| 1 | A check failed: `check`, `diff --exit-code`, `generate --check`, `extract --strict` |
+| 1 | A check failed: `check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable) |
 | 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml or catalog, unavailable command, input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`) |
 | 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found, server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`) |
 | 4 | Partial failure: `push` or `import` went through but some items failed |
@@ -138,6 +138,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.messages/v1` | `{messages: [{key, namespace, state, source_revision, text, syntax, arguments: [{name, type}], description?}]}` |
 | `glossa.cli.import/v1` | `{from, source: {url, project}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?}]}` |
 | `glossa.cli.release.publish/v1` | `{replayed, idempotency_key, release: Release}` |
+| `glossa.cli.release.preview/v1` | `{environment, policy: {states, include_outdated}, base: Ref \| null, releasable, problems: [{code, detail, key?, locale?}], release: {source_locale, locales: [code], manifest_digest, counts} \| null, changes: [{locale, added, changed, removed}], identical}` (`release publish --dry-run`) |
 | `glossa.cli.release.list/v1` | `{releases: [Release & {serving: [environment]}]}` (newest first) |
 | `glossa.cli.release.show/v1` | `{release: Release, serving: [environment]}` |
 | `glossa.cli.release.diff/v1` | `{release: Ref, base: Ref \| null, locales: [{locale, added, changed, removed}], identical}` |
@@ -225,6 +226,7 @@ manage keys; `read` is enough for the rest. Releases are named by ID or
 `v<N>`.
 
 ```sh
+glossa release publish --environment staging --dry-run   # what would ship, what would change; stores nothing
 glossa release publish --environment staging --note "sprint 42"
 glossa release promote v7 --to production      # moves the pointer, rebuilds nothing
 glossa release rollback --environment production [--to v6]
@@ -247,6 +249,19 @@ v6 → v7 (0191… → 0192…)
   en  unchanged
 ```
 
+- The path to production: `development` and `preview` ship work in
+  progress (everything not rejected); `staging` and `production` ship
+  approved text only. Publish to `staging`, check it, then promote that
+  release to `production`. A development or preview release can't be
+  promoted to production; the refusal (`release_ineligible`) names both
+  policies and what differs.
+- `publish --dry-run` runs the server's build for the environment and
+  stores nothing (no release, artifacts or events; `read` scope is
+  enough): per-locale counts, the artifacts a publish would upload, and
+  the message IDs each locale would add, change or remove against what
+  the environment serves. A catalog that can't be released lists every
+  problem and exits 1. `--note` and `--idempotency-key` have no effect
+  with it.
 - `publish` defaults to `development`, so nothing reaches production by
   accident. Every invocation sends a new `Idempotency-Key` (a CI retry of
   the whole step publishes again; retries inside the run replay). Pass
@@ -276,9 +291,15 @@ v6 → v7 (0191… → 0192…)
 
 ## Known limits
 
-- The API has no project-wide translation list yet, so `check`,
-  `status`, `diff` and `pull` read translations one message at a time (8
-  in parallel).
+- `check`, `diff`, `pull`, `push --translations` and `import` read
+  translations with the project-wide listing (`GET …/translations`,
+  active messages, 100 a page, 20 locales a request) and join them to
+  the catalog by message ID; `status` reads `GET …/translation-stats`.
+  `check` needs every translation's content for its QA, so the stats
+  (counts only) don't replace the listing there. The listing reads
+  Localization's view of the catalog, current once Catalog's events are
+  processed (usually within a second): a message reactivated a moment
+  ago can briefly show as missing.
 - `extract` is lexical: it finds literal IDs, not computed ones, and
   doesn't read `.gitignore` (it skips hidden directories, `node_modules`,
   `dist`, `vendor`, `build` and `coverage`).
