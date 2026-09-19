@@ -94,6 +94,14 @@ origin; the chart routes it to glossa-server. nginx answers `/v1` itself
 with a 502 problem if that routing is missing. With `docker run
 --read-only`, mount a tmpfs at `/tmp` (startup fails loudly otherwise).
 
+Studio also serves the in-product editor at `/overlay/v1/overlay.js`, with
+`/overlay/v1/overlay.json` (`{ version, integrity }`) beside it (RFC 0004
+§5.1). Preview deployments of a product load that script cross-origin and
+check the hash they pinned at build time, so these two paths — and only
+these — answer with `Access-Control-Allow-Origin: *` and a cross-origin
+`Cross-Origin-Resource-Policy`; the script is cached for five minutes, the
+JSON not at all. Nothing about a tenant is in either.
+
 ## First install
 
 Order matters: **create the Secrets → install → the database hooks run
