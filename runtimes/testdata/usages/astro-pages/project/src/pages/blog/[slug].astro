@@ -1,6 +1,6 @@
 ---
 import { getGlossa } from "@glossa/astro/server";
-
+export const getStaticPaths = () => [{ params: { slug: "hello" } }];
 const { t } = getGlossa(Astro);
 ---
 <article>

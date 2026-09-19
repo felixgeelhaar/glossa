@@ -30,7 +30,9 @@ Both write the same document, `glossa.usages/v1` ([schema](../schemas/usages.v1.
 A runner for an implementation does this for every case that lists it:
 
 1. Point the implementation at `<case>/project` as the project root. For the plugin, every file
-   under `project/` is a module of the build.
+   under `project/` is a module of the build, so a project has to build as it is with its
+   framework's own tooling: an Astro dynamic route exports `getStaticPaths`. Imports of files the
+   project doesn't contain (packages, generated registrations) stay external.
 2. Give it `keys` as the catalog and `routes` as the routes option, plus these build inputs:
    application `fixture`, commit `0123456789abcdef0123456789abcdef01234567`, branch `main`.
 3. Parse its output and compare it to `expected.json` as JSON values, ignoring `tool`. The
