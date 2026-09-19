@@ -1,0 +1,51 @@
+{
+  "name": "@glossa/messageformat",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Glossa's MessageFormat kernel for tooling: MF2 and ICU MF1 into the canonical MF2 data model, stringify, format and validation.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@messageformat/icu-messageformat-1": "0.12.0",
+    "@messageformat/parser": "5.1.1",
+    "messageformat": "4.0.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "ajv": "^8.17.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.0"
+  },
+  "license": "MIT",
+  "author": "Felix Geelhaar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "directory": "messageformat/js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
