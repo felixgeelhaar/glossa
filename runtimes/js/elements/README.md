@@ -67,6 +67,12 @@ Events, all bubbling and composed:
 - State attributes for styling: `data-glossa-pending` and `aria-busy` until
   the first load settles, then `data-glossa-missing` when the inline default
   renders.
+- Capture mode (RFC 0004 §3.1): while a capture or editor session has an
+  `onRender` hook installed on the runtime (see
+  [`@glossa/capture`](../capture/README.md)), the host also carries
+  `data-glossa-id` and `data-glossa-locale` (the locale the message resolved
+  from; absent while the inline default shows). Never in a normal page view,
+  and `@glossa/elements/ssr` never adds them.
 - Formatting never throws: a missing value renders as its MF2 fallback
   (`{$name}`) and is reported as a `format` error.
 

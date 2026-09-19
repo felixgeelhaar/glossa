@@ -271,6 +271,42 @@ describe("<glossa-provider> + <glossa-text>", () => {
     el.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true, altKey: true }));
     expect(seen).toEqual([{ id: "cart.checkout", resolvedFrom: "de" }]);
   });
+
+  it("carries data-glossa-id and -locale only while a session hook is installed (RFC 0004 §3.1)", async () => {
+    const runtime = createRuntime({ bundled: r1, locales: "en", storage: null });
+    const p = await mount(
+      `<glossa-provider><glossa-text key="cart.checkout">…</glossa-text><glossa-plural key="athlete.session_count" count="2">…</glossa-plural><glossa-text key="no.such.key">Default</glossa-text></glossa-provider>`,
+      (p) => (p.runtime = runtime),
+    );
+    const [text, plural, missing] = Array.from(p.querySelectorAll("glossa-text, glossa-plural"));
+    const marks = () =>
+      [text!, plural!, missing!].map((el) => [
+        el.getAttribute("data-glossa-id"),
+        el.getAttribute("data-glossa-locale"),
+      ]);
+    expect(marks()).toEqual([
+      [null, null],
+      [null, null],
+      [null, null],
+    ]);
+
+    const off = runtime.onRender(() => undefined);
+    await settle();
+    expect(marks()).toEqual([
+      ["cart.checkout", "en"],
+      ["athlete.session_count", "de"],
+      ["no.such.key", null],
+    ]);
+    expect(rendered(text!)).toBe("Checkout");
+
+    off();
+    await settle();
+    expect(marks()).toEqual([
+      [null, null],
+      [null, null],
+      [null, null],
+    ]);
+  });
 });
 
 describe("<glossa-rich>", () => {

@@ -15,13 +15,17 @@
  * the first load settles, then `data-glossa-missing` when the inline default
  * renders. `<glossa-rich>`, `<glossa-plural>` and `<glossa-select>` extend
  * this element and only add values.
+ *
+ * Capture mode (RFC 0004 §3.1): while a capture or editor session has an
+ * `onRender` hook installed on the runtime, the host also carries
+ * `data-glossa-id` and `data-glossa-locale`; never in a normal page view.
  */
 import { ContextConsumer } from "@lit/context";
 import { LitElement, css, html } from "lit";
 import type { PropertyDeclarations } from "lit";
 
 import { glossaContext } from "./context.js";
-import { partsToTree, resolveParts } from "./parts.js";
+import { markAttributes, partsToTree, resolveParts } from "./parts.js";
 import type { TreeNode } from "./parts.js";
 
 const toDom = (nodes: TreeNode[]): Array<Node | string> =>
@@ -31,6 +35,8 @@ const toDom = (nodes: TreeNode[]): Array<Node | string> =>
     el.append(...toDom(n.children));
     return el;
   });
+
+const MARKS = ["data-glossa-id", "data-glossa-locale"];
 
 export class GlossaText extends LitElement {
   static override styles = css`
@@ -72,6 +78,12 @@ export class GlossaText extends LitElement {
     this.toggleAttribute("data-glossa-missing", !parts && !pending);
     if (pending) this.setAttribute("aria-busy", "true");
     else this.removeAttribute("aria-busy");
+    const mark = ctx?.runtime && id ? markAttributes(ctx.runtime, id) : undefined;
+    for (const name of MARKS) {
+      const v = mark?.[name];
+      if (v) this.setAttribute(name, v);
+      else this.removeAttribute(name);
+    }
     if (!parts) return html`<slot></slot>`;
     const tree = partsToTree(parts);
     return tree.every((n) => typeof n === "string") ? tree.join("") : toDom(tree);
