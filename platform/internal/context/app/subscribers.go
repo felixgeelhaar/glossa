@@ -49,7 +49,8 @@ func (s *Service) Subscribe(r *outbox.Registry) error {
 
 // handleBuildIngested measures the project's context coverage (RFC
 // 0004 §11) after a default-branch build: the share of its active
-// messages with a current usage. Measuring twice is harmless.
+// messages with a current usage, and with a visible region on a
+// current capture. Measuring twice is harmless.
 func (s *Service) handleBuildIngested(ctx context.Context, d outbox.Delivery) error {
 	var e domain.BuildIngested
 	if err := d.Decode(&e); err != nil {
@@ -67,14 +68,19 @@ func (s *Service) handleBuildIngested(ctx context.Context, d outbox.Delivery) er
 		return err
 	}
 	_, err = s.UnusedMessages(bg, project, "")
+	if err == nil {
+		err = s.measureCaptureCoverage(bg, project)
+	}
 	if errors.Is(err, ErrProjectNotFound) {
 		return nil // deleted since: nothing to measure
 	}
 	return err
 }
 
-// handleProjectDeleted erases a deleted project's context. Deleting
-// what is already gone changes nothing, so redelivery is harmless.
+// handleProjectDeleted erases a deleted project's context, its images
+// first: until its captures are gone a redelivery finds them again.
+// Deleting what is already gone changes nothing, so redelivery is
+// harmless.
 func (s *Service) handleProjectDeleted(ctx context.Context, d outbox.Delivery) error {
 	var e catalogEvent
 	if err := d.Decode(&e); err != nil {
@@ -84,12 +90,23 @@ func (s *Service) handleProjectDeleted(ctx context.Context, d outbox.Delivery) e
 	if err != nil {
 		return outbox.Permanent(fmt.Errorf("context: project event with project_id %q", e.ProjectID))
 	}
+	var images []domain.Digest
+	if err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		images, err = st.ProjectImages(ctx, project)
+		return err
+	}); err != nil {
+		return err
+	}
+	if err := s.deleteImages(ctx, project, images); err != nil {
+		return err
+	}
 	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		return st.DeleteProjectData(ctx, project)
 	})
 }
 
-// handleApplicationDeleted erases a deleted application's builds.
+// handleApplicationDeleted erases a deleted application's builds and
+// the images no other capture of the project references.
 func (s *Service) handleApplicationDeleted(ctx context.Context, d outbox.Delivery) error {
 	var e catalogEvent
 	if err := d.Decode(&e); err != nil {
@@ -100,7 +117,33 @@ func (s *Service) handleApplicationDeleted(ctx context.Context, d outbox.Deliver
 	if err := errors.Join(err1, err2); err != nil {
 		return outbox.Permanent(fmt.Errorf("context: application event %s: %w", d.EventID, err))
 	}
-	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		return st.DeleteApplicationData(ctx, project, application)
+	var orphans []domain.Digest
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		all, err := st.BuildSummaries(ctx, project)
+		if err != nil {
+			return err
+		}
+		var builds []uuid.UUID
+		for _, b := range all {
+			if b.ApplicationID == application {
+				builds = append(builds, b.ID)
+			}
+		}
+		images, err := st.BuildImages(ctx, builds)
+		if err != nil {
+			return err
+		}
+		if err := st.DeleteApplicationData(ctx, project, application); err != nil {
+			return err
+		}
+		orphans, err = orphaned(ctx, st, project, images)
+		return err
 	})
+	if err != nil {
+		return err
+	}
+	// The captures are gone: a redelivery would find no images, so a
+	// failure to delete one is logged, not retried.
+	s.logImageErrors(ctx, project, s.deleteImages(ctx, project, orphans))
+	return nil
 }

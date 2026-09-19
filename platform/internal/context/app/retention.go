@@ -24,14 +24,15 @@ type Purged struct {
 	// went with them).
 	Builds []uuid.UUID
 	// OrphanedImages are the images no capture of the project references
-	// any more: the caller deletes them from object storage.
+	// any more, deleted from object storage with the builds.
 	OrphanedImages []domain.Digest
 }
 
 // PurgeProject applies the retention policy to a project's builds
 // (RFC 0004 §2.3): it keeps the latest builds per application, branch
 // and source and every current one, and deletes a closed branch's
-// builds after the grace period. Needs catalog.write.
+// builds after the grace period, then the images no remaining capture
+// references. Needs catalog.write.
 func (s *Service) PurgeProject(ctx context.Context, project uuid.UUID) (Purged, error) {
 	if _, err := actor(ctx, authz.CatalogWrite); err != nil {
 		return Purged{}, err
@@ -57,19 +58,61 @@ func (s *Service) PurgeProject(ctx context.Context, project uuid.UUID) (Purged, 
 		if _, err := st.DeleteBuilds(ctx, expired); err != nil {
 			return err
 		}
-		still, err := st.ReferencedImages(ctx, project, images)
-		if err != nil {
-			return err
-		}
 		out.Builds = expired
-		for _, d := range images {
-			if !slices.Contains(still, d) {
-				out.OrphanedImages = append(out.OrphanedImages, d)
-			}
-		}
-		return nil
+		out.OrphanedImages, err = orphaned(ctx, st, project, images)
+		return err
 	})
+	if err != nil {
+		return Purged{}, err
+	}
+	// The builds are gone, so a later purge wouldn't find these images:
+	// a failure to delete one is reported and logged, the rest go on.
+	err = s.deleteImages(ctx, project, out.OrphanedImages)
+	s.logImageErrors(ctx, project, err)
 	return out, err
+}
+
+// orphaned returns which of images no capture of the project
+// references any more.
+func orphaned(ctx context.Context, st Store, project uuid.UUID, images []domain.Digest) ([]domain.Digest, error) {
+	if len(images) == 0 {
+		return nil, nil
+	}
+	still, err := st.ReferencedImages(ctx, project, images)
+	if err != nil {
+		return nil, err
+	}
+	var out []domain.Digest
+	for _, d := range images {
+		if !slices.Contains(still, d) {
+			out = append(out, d)
+		}
+	}
+	return out, nil
+}
+
+// deleteImages deletes a project's images from object storage (none
+// without WithImages), all of them whatever fails; the failures are
+// joined.
+func (s *Service) deleteImages(ctx context.Context, project uuid.UUID, images []domain.Digest) error {
+	if s.objects == nil {
+		return nil
+	}
+	t, _ := tenancy.FromContext(ctx)
+	var errs []error
+	for _, d := range images {
+		if err := s.objects.Delete(ctx, domain.ImageKey(t, project, d)); err != nil {
+			errs = append(errs, fmt.Errorf("%w: delete image %s: %v", ErrStorageUnavailable, d, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func (s *Service) logImageErrors(ctx context.Context, project uuid.UUID, err error) {
+	if err != nil {
+		s.logger.ErrorContext(ctx, "context: images not deleted", slog.String("project_id", project.String()),
+			slog.Any("error", err))
+	}
 }
 
 // ProjectPurge is one project's part of a retention run.

@@ -5,6 +5,7 @@ package app_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"sync"
 	"testing"
@@ -243,6 +244,24 @@ type metrics struct {
 	mu       sync.Mutex
 	ingested []string
 	coverage map[uuid.UUID][2]int
+	captured map[uuid.UUID][2]int
+	captures []string
+}
+
+func (m *metrics) CapturesIngested(_ tenancy.ID, captures, regions, stored, deduplicated int, bytes int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.captures = append(m.captures, fmt.Sprintf("%d captures, %d regions, %d stored, %d deduplicated, bytes %t",
+		captures, regions, stored, deduplicated, bytes > 0))
+}
+
+func (m *metrics) CaptureCoverage(_ tenancy.ID, project uuid.UUID, active, captured int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.captured == nil {
+		m.captured = map[uuid.UUID][2]int{}
+	}
+	m.captured[project] = [2]int{active, captured}
 }
 
 func (m *metrics) BuildIngested(source domain.Source, usages, unknown int, replayed bool) {

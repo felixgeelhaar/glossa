@@ -32,7 +32,11 @@ var (
 	// ErrRateLimited means the tenant uploaded too much too fast.
 	ErrRateLimited = errors.New("context: too many uploads; slow down")
 	// ErrInvalidQuery means a list's filter is malformed.
-	ErrInvalidQuery = errors.New("context: invalid query")
+	ErrInvalidQuery    = errors.New("context: invalid query")
+	ErrCaptureNotFound = errors.New("context: no such capture in the project")
+	// ErrStorageUnavailable means object storage failed: the upload or
+	// read can be retried.
+	ErrStorageUnavailable = errors.New("context: image storage is unavailable; retry later")
 )
 
 // Limiter decides whether a tenant may upload now: Allow consumes one
@@ -49,6 +53,13 @@ type Metrics interface {
 	// Coverage is the share of a project's active messages with a
 	// current usage (default branch).
 	Coverage(tenant tenancy.ID, project uuid.UUID, active, used int)
+	// CapturesIngested counts a capture upload's captures and regions,
+	// the images it stored and those already stored (deduplicated), and
+	// the bytes it added to the tenant's object storage.
+	CapturesIngested(tenant tenancy.ID, captures, regions, imagesStored, imagesDeduplicated int, bytesStored int64)
+	// CaptureCoverage is the share of a project's active messages with a
+	// visible region on a current capture (default branch).
+	CaptureCoverage(tenant tenancy.ID, project uuid.UUID, active, captured int)
 }
 
 // NoMetrics records nothing.
@@ -59,6 +70,12 @@ func (NoMetrics) BuildIngested(domain.Source, int, int, bool) {}
 
 // Coverage implements Metrics.
 func (NoMetrics) Coverage(tenant tenancy.ID, project uuid.UUID, active, used int) {}
+
+// CapturesIngested implements Metrics.
+func (NoMetrics) CapturesIngested(tenancy.ID, int, int, int, int, int64) {}
+
+// CaptureCoverage implements Metrics.
+func (NoMetrics) CaptureCoverage(tenancy.ID, uuid.UUID, int, int) {}
 
 // MessageRef names a Catalog message.
 type MessageRef struct {
@@ -182,6 +199,15 @@ type UsageView struct {
 	Source          domain.Source
 }
 
+// CaptureView is a capture with the build it belongs to.
+type CaptureView struct {
+	domain.Capture
+	ApplicationID   uuid.UUID
+	Commit          domain.Commit
+	Branch          domain.Branch
+	OnDefaultBranch bool
+}
+
 // Store is Context's persistence in tenant scope.
 type Store interface {
 	// InsertBuild stores b; inserted is false if a build of the same
@@ -221,11 +247,24 @@ type Store interface {
 	// CaptureByShot returns a build's capture of a route, viewport and
 	// locale, with its regions (ErrNotFound).
 	CaptureByShot(ctx context.Context, build uuid.UUID, route string, v domain.Viewport, locale bcp47.Tag) (domain.Capture, error)
+	// Capture returns a capture without its regions (ErrNotFound).
+	Capture(ctx context.Context, id uuid.UUID) (domain.Capture, error)
+	// UnknownRegionKeys returns the distinct keys of a build's regions
+	// the catalog didn't know at ingest, in order.
+	UnknownRegionKeys(ctx context.Context, build uuid.UUID) ([]string, error)
+	// MessageCaptures returns up to limit captures in builds that show
+	// message, each with only that message's regions.
+	MessageCaptures(ctx context.Context, message uuid.UUID, builds []uuid.UUID, limit int) ([]CaptureView, error)
+	// CapturedMessages returns the messages with a visible region on the
+	// builds' captures.
+	CapturedMessages(ctx context.Context, builds []uuid.UUID) ([]uuid.UUID, error)
 
 	// BuildImages returns the images the builds' captures reference;
-	// ReferencedImages which of digests the project's captures still do.
+	// ReferencedImages which of digests the project's captures still do;
+	// ProjectImages every image the project's captures reference.
 	BuildImages(ctx context.Context, builds []uuid.UUID) ([]domain.Digest, error)
 	ReferencedImages(ctx context.Context, project uuid.UUID, digests []domain.Digest) ([]domain.Digest, error)
+	ProjectImages(ctx context.Context, project uuid.UUID) ([]domain.Digest, error)
 	// DeleteBuilds deletes builds with their usages, captures and
 	// regions.
 	DeleteBuilds(ctx context.Context, ids []uuid.UUID) (int, error)

@@ -1,7 +1,10 @@
 // Package metrics records the Context context in Prometheus (RFC 0004
-// §11): usage uploads and the usages they carried, by collector, and
-// each project's context coverage — the share of its active messages
-// with a current usage on the default branch.
+// §11): usage uploads and the usages they carried, by collector;
+// capture uploads — captures, regions, images stored or deduplicated
+// and the bytes stored, per tenant; and each project's context
+// coverage — the share of its active messages with a current usage,
+// and with a visible region on a current capture, on the default
+// branch.
 package metrics
 
 import (
@@ -21,6 +24,11 @@ type Prometheus struct {
 	usages   *prometheus.CounterVec
 	unknown  *prometheus.CounterVec
 	coverage *prometheus.GaugeVec
+	captures *prometheus.CounterVec
+	regions  *prometheus.CounterVec
+	images   *prometheus.CounterVec
+	bytes    *prometheus.CounterVec
+	captured *prometheus.GaugeVec
 }
 
 var _ app.Metrics = (*Prometheus)(nil)
@@ -48,6 +56,26 @@ func New(reg prometheus.Registerer) *Prometheus {
 			Name: "glossa_context_coverage_ratio",
 			Help: "Share of a project's active messages with a current usage on the default branch (1 with none active), measured after each default-branch upload. Each instance reports what it measured last; take the max across instances.",
 		}, []string{"tenant", "project"})),
+		captures: register(reg, prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "glossa_context_captures_ingested_total",
+			Help: "Captures stored by capture uploads, per tenant.",
+		}, []string{"tenant"})),
+		regions: register(reg, prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "glossa_context_regions_ingested_total",
+			Help: "Regions stored by capture uploads, per tenant.",
+		}, []string{"tenant"})),
+		images: register(reg, prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "glossa_context_capture_images_total",
+			Help: "Capture images uploaded, per tenant, by outcome (stored, deduplicated: the same pixels were stored already).",
+		}, []string{"tenant", "outcome"})),
+		bytes: register(reg, prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "glossa_context_capture_bytes_stored_total",
+			Help: "Bytes of re-encoded capture images written to object storage, per tenant (retention deletes some later).",
+		}, []string{"tenant"})),
+		captured: register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "glossa_context_capture_coverage_ratio",
+			Help: "Share of a project's active messages with a visible region on a current default-branch capture (1 with none active), measured after each default-branch upload. Each instance reports what it measured last; take the max across instances.",
+		}, []string{"tenant", "project"})),
 	}
 }
 
@@ -64,11 +92,29 @@ func (p *Prometheus) BuildIngested(source domain.Source, usages, unknownKeys int
 
 // Coverage implements app.Metrics.
 func (p *Prometheus) Coverage(tenant tenancy.ID, project uuid.UUID, active, used int) {
-	ratio := 1.0
-	if active > 0 {
-		ratio = float64(used) / float64(active)
+	p.coverage.WithLabelValues(tenant.String(), project.String()).Set(ratio(active, used))
+}
+
+// CapturesIngested implements app.Metrics.
+func (p *Prometheus) CapturesIngested(tenant tenancy.ID, captures, regions, stored, deduplicated int, bytes int64) {
+	t := tenant.String()
+	p.captures.WithLabelValues(t).Add(float64(captures))
+	p.regions.WithLabelValues(t).Add(float64(regions))
+	p.images.WithLabelValues(t, "stored").Add(float64(stored))
+	p.images.WithLabelValues(t, "deduplicated").Add(float64(deduplicated))
+	p.bytes.WithLabelValues(t).Add(float64(bytes))
+}
+
+// CaptureCoverage implements app.Metrics.
+func (p *Prometheus) CaptureCoverage(tenant tenancy.ID, project uuid.UUID, active, captured int) {
+	p.captured.WithLabelValues(tenant.String(), project.String()).Set(ratio(active, captured))
+}
+
+func ratio(active, n int) float64 {
+	if active == 0 {
+		return 1
 	}
-	p.coverage.WithLabelValues(tenant.String(), project.String()).Set(ratio)
+	return float64(n) / float64(active)
 }
 
 func register[C prometheus.Collector](reg prometheus.Registerer, c C) C {

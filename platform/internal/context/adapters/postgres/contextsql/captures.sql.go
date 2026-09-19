@@ -23,6 +23,31 @@ func (q *Queries) CountBuildCaptures(ctx context.Context, buildID uuid.UUID) (in
 	return count, err
 }
 
+const getCapture = `-- name: GetCapture :one
+SELECT id, tenant_id, build_id, project_id, route, viewport_width, viewport_height, locale, image_digest, image_width, image_height, created_by, created_at FROM context_captures WHERE id = $1
+`
+
+func (q *Queries) GetCapture(ctx context.Context, id uuid.UUID) (ContextCapture, error) {
+	row := q.db.QueryRow(ctx, getCapture, id)
+	var i ContextCapture
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.BuildID,
+		&i.ProjectID,
+		&i.Route,
+		&i.ViewportWidth,
+		&i.ViewportHeight,
+		&i.Locale,
+		&i.ImageDigest,
+		&i.ImageWidth,
+		&i.ImageHeight,
+		&i.CreatedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getCaptureByShot = `-- name: GetCaptureByShot :one
 SELECT id, tenant_id, build_id, project_id, route, viewport_width, viewport_height, locale, image_digest, image_width, image_height, created_by, created_at FROM context_captures
 WHERE build_id = $1 AND route = $2 AND viewport_width = $3
@@ -162,6 +187,210 @@ SELECT DISTINCT image_digest FROM context_captures WHERE build_id = ANY($1::uuid
 // The images the given builds' captures reference.
 func (q *Queries) ListBuildImages(ctx context.Context, buildIds []uuid.UUID) ([]string, error) {
 	rows, err := q.db.Query(ctx, listBuildImages, buildIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var image_digest string
+		if err := rows.Scan(&image_digest); err != nil {
+			return nil, err
+		}
+		items = append(items, image_digest)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBuildUnknownRegionKeys = `-- name: ListBuildUnknownRegionKeys :many
+SELECT DISTINCT r.message_key
+FROM context_regions r
+JOIN context_captures c ON c.id = r.capture_id
+WHERE c.build_id = $1 AND r.message_id IS NULL
+ORDER BY r.message_key
+`
+
+// The keys of a build's regions the catalog didn't know at ingest.
+func (q *Queries) ListBuildUnknownRegionKeys(ctx context.Context, buildID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listBuildUnknownRegionKeys, buildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var message_key string
+		if err := rows.Scan(&message_key); err != nil {
+			return nil, err
+		}
+		items = append(items, message_key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCapturedMessageIDs = `-- name: ListCapturedMessageIDs :many
+SELECT DISTINCT r.message_id::uuid AS message_id
+FROM context_regions r
+JOIN context_captures c ON c.id = r.capture_id
+WHERE c.build_id = ANY($1::uuid[]) AND r.message_id IS NOT NULL AND r.visible
+`
+
+// The messages with a visible region on the given (current) builds'
+// captures.
+func (q *Queries) ListCapturedMessageIDs(ctx context.Context, buildIds []uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listCapturedMessageIDs, buildIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var message_id uuid.UUID
+		if err := rows.Scan(&message_id); err != nil {
+			return nil, err
+		}
+		items = append(items, message_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMessageCaptures = `-- name: ListMessageCaptures :many
+SELECT c.id, c.build_id, c.project_id, c.route, c.viewport_width, c.viewport_height, c.locale, c.image_digest,
+       c.image_width, c.image_height, c.created_by, c.created_at,
+       b.application_id, b.commit_sha, b.branch, b.on_default_branch
+FROM context_captures c
+JOIN context_builds b ON b.id = c.build_id
+WHERE c.build_id = ANY($1::uuid[])
+  AND EXISTS (SELECT 1 FROM context_regions r WHERE r.capture_id = c.id AND r.message_id = $2::uuid)
+ORDER BY b.on_default_branch DESC, b.application_id, c.route, c.locale, c.viewport_width DESC, c.viewport_height DESC, c.id
+LIMIT $3
+`
+
+type ListMessageCapturesParams struct {
+	BuildIds  []uuid.UUID
+	MessageID uuid.UUID
+	MaxRows   int32
+}
+
+type ListMessageCapturesRow struct {
+	ID              uuid.UUID
+	BuildID         uuid.UUID
+	ProjectID       uuid.UUID
+	Route           string
+	ViewportWidth   int32
+	ViewportHeight  int32
+	Locale          string
+	ImageDigest     string
+	ImageWidth      int32
+	ImageHeight     int32
+	CreatedBy       string
+	CreatedAt       time.Time
+	ApplicationID   uuid.UUID
+	CommitSha       string
+	Branch          string
+	OnDefaultBranch bool
+}
+
+// The captures in the given (current) builds that show a message: the
+// default branch first, then by application, route, locale and the
+// widest viewport.
+func (q *Queries) ListMessageCaptures(ctx context.Context, arg ListMessageCapturesParams) ([]ListMessageCapturesRow, error) {
+	rows, err := q.db.Query(ctx, listMessageCaptures, arg.BuildIds, arg.MessageID, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMessageCapturesRow
+	for rows.Next() {
+		var i ListMessageCapturesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BuildID,
+			&i.ProjectID,
+			&i.Route,
+			&i.ViewportWidth,
+			&i.ViewportHeight,
+			&i.Locale,
+			&i.ImageDigest,
+			&i.ImageWidth,
+			&i.ImageHeight,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.ApplicationID,
+			&i.CommitSha,
+			&i.Branch,
+			&i.OnDefaultBranch,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMessageRegions = `-- name: ListMessageRegions :many
+SELECT capture_id, position, tenant_id, message_key, message_id, kind, x, y, width, height, visible FROM context_regions
+WHERE capture_id = ANY($1::uuid[]) AND message_id = $2::uuid
+ORDER BY capture_id, position
+`
+
+type ListMessageRegionsParams struct {
+	CaptureIds []uuid.UUID
+	MessageID  uuid.UUID
+}
+
+// A message's regions on the given captures, by capture and position.
+func (q *Queries) ListMessageRegions(ctx context.Context, arg ListMessageRegionsParams) ([]ContextRegion, error) {
+	rows, err := q.db.Query(ctx, listMessageRegions, arg.CaptureIds, arg.MessageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ContextRegion
+	for rows.Next() {
+		var i ContextRegion
+		if err := rows.Scan(
+			&i.CaptureID,
+			&i.Position,
+			&i.TenantID,
+			&i.MessageKey,
+			&i.MessageID,
+			&i.Kind,
+			&i.X,
+			&i.Y,
+			&i.Width,
+			&i.Height,
+			&i.Visible,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProjectImages = `-- name: ListProjectImages :many
+SELECT DISTINCT image_digest FROM context_captures WHERE project_id = $1
+`
+
+// Every image a capture of the project references.
+func (q *Queries) ListProjectImages(ctx context.Context, projectID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listProjectImages, projectID)
 	if err != nil {
 		return nil, err
 	}

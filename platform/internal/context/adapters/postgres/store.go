@@ -323,27 +323,99 @@ func (s *store) CaptureByShot(ctx context.Context, buildID uuid.UUID, route stri
 	if err != nil {
 		return domain.Capture{}, storeError(err)
 	}
-	tag, err := bcp47.Parse(r.Locale)
+	c, err := capture(r)
 	if err != nil {
-		return domain.Capture{}, fmt.Errorf("context: stored locale %q: %w", r.Locale, err)
+		return domain.Capture{}, err
 	}
 	regions, err := s.q.ListRegions(ctx, r.ID)
 	if err != nil {
 		return domain.Capture{}, storeError(err)
 	}
-	c := domain.Capture{
+	c.Regions = make([]domain.Region, len(regions))
+	for i, g := range regions {
+		c.Regions[i] = region(g)
+	}
+	return c, nil
+}
+
+// capture converts a stored capture, without its regions.
+func capture(r contextsql.ContextCapture) (domain.Capture, error) {
+	tag, err := bcp47.Parse(r.Locale)
+	if err != nil {
+		return domain.Capture{}, fmt.Errorf("context: stored locale %q: %w", r.Locale, err)
+	}
+	return domain.Capture{
 		ID: r.ID, ProjectID: r.ProjectID, BuildID: r.BuildID, Route: r.Route,
 		Viewport: domain.Viewport{Width: int(r.ViewportWidth), Height: int(r.ViewportHeight)}, Locale: tag,
 		Image:     domain.Image{Digest: domain.Digest(r.ImageDigest), Width: int(r.ImageWidth), Height: int(r.ImageHeight)},
-		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(), Regions: make([]domain.Region, len(regions)),
+		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
+	}, nil
+}
+
+func region(g contextsql.ContextRegion) domain.Region {
+	return domain.Region{
+		Key: g.MessageKey, MessageID: uuidPtr(g.MessageID), Kind: domain.RegionKind(g.Kind),
+		Box: domain.Box{X: int(g.X), Y: int(g.Y), Width: int(g.Width), Height: int(g.Height)}, Visible: g.Visible,
 	}
-	for i, g := range regions {
-		c.Regions[i] = domain.Region{
-			Key: g.MessageKey, MessageID: uuidPtr(g.MessageID), Kind: domain.RegionKind(g.Kind),
-			Box: domain.Box{X: int(g.X), Y: int(g.Y), Width: int(g.Width), Height: int(g.Height)}, Visible: g.Visible,
+}
+
+func (s *store) Capture(ctx context.Context, id uuid.UUID) (domain.Capture, error) {
+	r, err := s.q.GetCapture(ctx, id)
+	if err != nil {
+		return domain.Capture{}, storeError(err)
+	}
+	return capture(r)
+}
+
+func (s *store) UnknownRegionKeys(ctx context.Context, buildID uuid.UUID) ([]string, error) {
+	keys, err := s.q.ListBuildUnknownRegionKeys(ctx, buildID)
+	return keys, storeError(err)
+}
+
+func (s *store) MessageCaptures(ctx context.Context, message uuid.UUID, builds []uuid.UUID, limit int) ([]app.CaptureView, error) {
+	rows, err := s.q.ListMessageCaptures(ctx, contextsql.ListMessageCapturesParams{
+		BuildIds: builds, MessageID: message, MaxRows: int32Of(limit),
+	})
+	if err != nil || len(rows) == 0 {
+		return nil, storeError(err)
+	}
+	out := make([]app.CaptureView, len(rows))
+	index := make(map[uuid.UUID]int, len(rows))
+	ids := make([]uuid.UUID, len(rows))
+	for i, r := range rows {
+		c, err := capture(contextsql.ContextCapture{
+			ID: r.ID, BuildID: r.BuildID, ProjectID: r.ProjectID, Route: r.Route, ViewportWidth: r.ViewportWidth,
+			ViewportHeight: r.ViewportHeight, Locale: r.Locale, ImageDigest: r.ImageDigest, ImageWidth: r.ImageWidth,
+			ImageHeight: r.ImageHeight, CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt,
+		})
+		if err != nil {
+			return nil, err
 		}
+		out[i] = app.CaptureView{
+			Capture: c, ApplicationID: r.ApplicationID, Commit: domain.Commit(r.CommitSha), Branch: domain.Branch(r.Branch),
+			OnDefaultBranch: r.OnDefaultBranch,
+		}
+		index[r.ID], ids[i] = i, r.ID
 	}
-	return c, nil
+	regions, err := s.q.ListMessageRegions(ctx, contextsql.ListMessageRegionsParams{CaptureIds: ids, MessageID: message})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	for _, g := range regions {
+		c := &out[index[g.CaptureID]]
+		c.Regions = append(c.Regions, region(g))
+	}
+	return out, nil
+}
+
+func (s *store) CapturedMessages(ctx context.Context, builds []uuid.UUID) ([]uuid.UUID, error) {
+	ids, err := s.q.ListCapturedMessageIDs(ctx, builds)
+	return ids, storeError(err)
+}
+
+func (s *store) ProjectImages(ctx context.Context, project uuid.UUID) ([]domain.Digest, error) {
+	rows, err := s.q.ListProjectImages(ctx, project)
+	return digests(rows), storeError(err)
 }
 
 func digests(ss []string) []domain.Digest {

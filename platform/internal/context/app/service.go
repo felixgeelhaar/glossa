@@ -19,6 +19,8 @@ type Service struct {
 	retention domain.RetentionPolicy
 	limiter   Limiter
 	metrics   Metrics
+	objects   Objects
+	images    ImageNormalizer
 	logger    *slog.Logger
 	now       func() time.Time
 }
@@ -26,6 +28,13 @@ type Service struct {
 // WithLimiter rate-limits uploads per tenant (RFC 0004 §10); without
 // one they aren't limited.
 func WithLimiter(l Limiter) Option { return func(s *Service) { s.limiter = l } }
+
+// WithImages stores capture images in objects after normalizer has
+// validated and re-encoded them (RFC 0004 §3.3). Without it, capture
+// uploads and image reads fail, and purges leave images in place.
+func WithImages(objects Objects, normalizer ImageNormalizer) Option {
+	return func(s *Service) { s.objects, s.images = objects, normalizer }
+}
 
 // WithMetrics records ingests and coverage (NoMetrics by default).
 func WithMetrics(m Metrics) Option { return func(s *Service) { s.metrics = m } }

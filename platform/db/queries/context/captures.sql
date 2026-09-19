@@ -41,3 +41,46 @@ SELECT DISTINCT image_digest FROM context_captures WHERE build_id = ANY(sqlc.arg
 -- Which of digests a capture of the project still references.
 SELECT DISTINCT image_digest FROM context_captures
 WHERE project_id = sqlc.arg(project_id) AND image_digest = ANY(sqlc.arg(digests)::text[]);
+
+-- name: GetCapture :one
+SELECT * FROM context_captures WHERE id = sqlc.arg(id);
+
+-- name: ListBuildUnknownRegionKeys :many
+-- The keys of a build's regions the catalog didn't know at ingest.
+SELECT DISTINCT r.message_key
+FROM context_regions r
+JOIN context_captures c ON c.id = r.capture_id
+WHERE c.build_id = sqlc.arg(build_id) AND r.message_id IS NULL
+ORDER BY r.message_key;
+
+-- name: ListMessageCaptures :many
+-- The captures in the given (current) builds that show a message: the
+-- default branch first, then by application, route, locale and the
+-- widest viewport.
+SELECT c.id, c.build_id, c.project_id, c.route, c.viewport_width, c.viewport_height, c.locale, c.image_digest,
+       c.image_width, c.image_height, c.created_by, c.created_at,
+       b.application_id, b.commit_sha, b.branch, b.on_default_branch
+FROM context_captures c
+JOIN context_builds b ON b.id = c.build_id
+WHERE c.build_id = ANY(sqlc.arg(build_ids)::uuid[])
+  AND EXISTS (SELECT 1 FROM context_regions r WHERE r.capture_id = c.id AND r.message_id = sqlc.arg(message_id)::uuid)
+ORDER BY b.on_default_branch DESC, b.application_id, c.route, c.locale, c.viewport_width DESC, c.viewport_height DESC, c.id
+LIMIT sqlc.arg(max_rows);
+
+-- name: ListMessageRegions :many
+-- A message's regions on the given captures, by capture and position.
+SELECT * FROM context_regions
+WHERE capture_id = ANY(sqlc.arg(capture_ids)::uuid[]) AND message_id = sqlc.arg(message_id)::uuid
+ORDER BY capture_id, position;
+
+-- name: ListCapturedMessageIDs :many
+-- The messages with a visible region on the given (current) builds'
+-- captures.
+SELECT DISTINCT r.message_id::uuid AS message_id
+FROM context_regions r
+JOIN context_captures c ON c.id = r.capture_id
+WHERE c.build_id = ANY(sqlc.arg(build_ids)::uuid[]) AND r.message_id IS NOT NULL AND r.visible;
+
+-- name: ListProjectImages :many
+-- Every image a capture of the project references.
+SELECT DISTINCT image_digest FROM context_captures WHERE project_id = sqlc.arg(project_id);
