@@ -23,6 +23,7 @@ internal/kernel/
   db/                       pgx pool, migrator, unit of work, dbtest harness
   tenancy/                  tenant ID/kind, context, Resolver middleware; tenantpg adapter
   outbox/                   Publish, Registry, Dispatcher, Postgres store
+  scheduler/                periodic jobs with a deployment-wide lease (the daily purge)
   problem/                  RFC 9457 error bodies with stable codes
   pagination/               page_size/page_token cursor pagination
   bcp47/                    canonical locale tags and text direction (shared kernel)
@@ -162,6 +163,12 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES` | `67108864` | Largest import file (64 MiB; at most 2 GiB). The upload route streams it to object storage instead of taking `GLOSSA_HTTP_MAX_BODY_BYTES`. |
 | `GLOSSA_INTEGRATION_UPLOAD_TIMEOUT` | `10m` | Read deadline of an upload and write deadline of a download, instead of the HTTP read/write timeouts. |
 | `GLOSSA_INTEGRATION_RETENTION` | `168h` | How long uploaded and exported files are kept; the sweep deletes them afterwards (jobs and results stay). |
+| `GLOSSA_PURGE_ENABLED` | `true` | Run the daily purge jobs in this process: Context's retention (builds, captures, unreferenced images) and Catalog's proposal sweep. A lease picks one replica per run, so leave it on everywhere. |
+| `GLOSSA_PURGE_INTERVAL` | `24h` | How often the jobs run across the deployment, not per pod. |
+| `GLOSSA_PURGE_TIMEOUT` / `_LEASE` | `30m` / `35m` | Budget for one run of one job (it must fit inside the interval); how long a run reserves its job against the other replicas. The lease must be longer. |
+| `GLOSSA_PURGE_POLL_INTERVAL` | `5m` | How often a replica asks whether a job is due. It must not exceed the interval. |
+| `GLOSSA_PURGE_JITTER` | `0.2` | Fraction of the poll interval (0–1) each poll is spread by, so replicas started together don't ask in lockstep. |
+| `GLOSSA_PURGE_BATCH_SIZE` | `100` | Object-store deletes issued at a time while freeing unreferenced capture images. |
 
 `glossa-edge` reads `GLOSSA_HTTP_*` (listening on `:8081` by default),
 `GLOSSA_LOG_LEVEL`, `GLOSSA_SHUTDOWN_TIMEOUT`, `OTEL_*` (service
@@ -1205,23 +1212,62 @@ deduplicated), `glossa_context_capture_bytes_stored_total{tenant}` (the
 re-encoded bytes written) and, measured by the same subscriber,
 `glossa_context_capture_coverage_ratio{tenant, project}`: the share of
 active messages with a visible region on a current default-branch
-capture.
+capture. The purge job adds
+`glossa_context_purge_deletions_total{kind}` (build, capture, image),
+and the scheduler behind it
+`glossa_scheduler_runs_total{job, outcome}`,
+`glossa_scheduler_run_duration_seconds{job, outcome}`,
+`glossa_scheduler_skips_total{job}` (not due, or another replica leads)
+and `glossa_scheduler_last_run_timestamp_seconds{job}`. One trace
+covers a CI upload end to end (§11): `context.ingest_usages` and
+`context.ingest_captures` carry the project, source, build, counts and
+whether it replayed, and the outbox rows they write carry that span's
+trace context, so the deliveries join the upload's trace instead of
+starting their own (`WithTracerProvider`).
+
+`glossa_github_calls_total{op, status}`,
+`glossa_github_call_duration_seconds{op}` and
+`glossa_github_rate_limit_remaining{resource}`
+(`integration/adapters/metrics`, on the GitHub client's `OnCall` hook)
+wait only to be wired when the App is. §11's webhook deliveries and
+check latency have no source yet: the webhook inbox and the check
+worker come with the GitHub slices.
 
 **Retention** (`domain.RetentionPolicy`, §2.3): per (application,
 branch, source) the latest 5 builds are kept, plus every current one; a
 closed branch's builds go 14 days after it closed (default-branch builds
 never do). `PurgeProject` applies it and returns the deleted builds and
 the images no remaining capture references, which it deletes from object
-storage (a failure is logged and reported; the rest go on). `Purge`
+storage in batches of `GLOSSA_PURGE_BATCH_SIZE` (a failure is logged and
+reported; the rest go on, and a delete of an object that is already gone
+is not an error, so a re-run after a partial failure is safe). `Purge`
 visits every project holding builds through the system scope `context.retention` (migration 0012 opens only
 `context_builds.tenant_id` and `project_id` to `glossa_system`) and
 purges each in its tenant as the background principal `context.purge`.
 A deleted project's images go first, then its rows (so a redelivery
 finds them again); a deleted application's images go when no other
-capture of the project references them. Scheduling the purge daily
-comes with the purge jobs
-(RFC 0004 §13, wave 7). Closed branches come from Catalog's branch
-overlay (§4.1); until then the port reports none.
+capture of the project references them. Closed branches come from
+Catalog's branch overlay (§4.1): `ClosedBranches` reads its closed and
+merged branches with when they closed, and reopening one stops its
+builds expiring.
+
+**The purge job** runs daily in `glossa-server`
+(`GLOSSA_PURGE_*`, Helm `server.purge`). `internal/kernel/scheduler`
+runs it once per deployment rather than once per replica: each job takes
+a named lease first, the way the other workers claim a job. One
+conditional upsert on `system_leases` (migration 0017, system scope
+`scheduler.lease`, no tenant and no `glossa_app` grant) checks both that
+nothing holds the lease and that the job is due, so two replicas racing
+can't both win; the lease records when the run finished, so due-ness
+survives restarts and rolling upgrades. A failed run gives its lease
+back and is retried at the next interval, counted and logged rather than
+taking the server down, and a run in progress finishes (bounded by
+`GLOSSA_PURGE_TIMEOUT`) before shutdown. Two jobs run: `context.purge`
+(this retention) and `catalog.proposals`, Catalog's `SweepAllProposals`
+over every tenant holding a closed branch (system scope
+`catalog.proposals`, which reads `catalog_branches.tenant_id` and
+`closed_at` only), each tenant swept in its own scope as
+`catalog.sweep`.
 
 | Table | Scope | Why |
 |---|---|---|
