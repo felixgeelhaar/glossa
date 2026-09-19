@@ -8,6 +8,7 @@ package app
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -87,6 +88,40 @@ type Catalog interface {
 	// ClosedBranches reports when each of the project's closed branches
 	// closed.
 	ClosedBranches(ctx context.Context, project uuid.UUID) (map[domain.Branch]time.Time, error)
+}
+
+// ImageNormalizer validates and re-encodes uploaded capture images
+// (RFC 0004 §3.3): nothing uploaded is stored as it came.
+type ImageNormalizer interface {
+	// Normalize reads one uploaded image and checks that it is a PNG of
+	// at most 10 MB and 40 megapixels whose SHA-256 is want, then
+	// re-encodes its pixels without metadata. It fails with
+	// domain.ErrInvalidImage or domain.ErrImageTooLarge, or with the
+	// reader's own error.
+	Normalize(ctx context.Context, part io.Reader, want domain.Digest) (NormalizedImage, error)
+}
+
+// NormalizedImage is a re-encoded image, held (on disk, not in memory)
+// until it is stored.
+type NormalizedImage interface {
+	// Image is the re-encoded PNG's digest and its size in pixels.
+	Image() domain.Image
+	// Size is the re-encoded PNG's size in bytes.
+	Size() int64
+	// Open reads the re-encoded PNG.
+	Open() (io.ReadCloser, error)
+	// Close discards it.
+	Close() error
+}
+
+// Objects is object storage as Context uses it: capture images,
+// content-addressed by domain.ImageKey (objectstore.StreamStore).
+type Objects interface {
+	Exists(ctx context.Context, key string) (bool, error)
+	PutStream(ctx context.Context, key string, r io.Reader, contentType string) (int64, error)
+	// Open answers objectstore.ErrNotFound for a missing object.
+	Open(ctx context.Context, key string) (io.ReadCloser, error)
+	Delete(ctx context.Context, key string) error
 }
 
 // Transactor runs units of work scoped to the tenant on ctx.
