@@ -25,6 +25,8 @@ type (
 	TerminologyRequest  = apiclient.TerminologyCheckRequest
 	TerminologyCheck    = apiclient.TerminologyCheck
 	TermFinding         = apiclient.TermFinding
+	TermFindingsPage    = apiclient.ProjectTerminologyFindings
+	TranslationFindings = apiclient.TranslationTerminologyFindings
 	StyleGuide          = apiclient.StyleGuide
 	StyleFields         = apiclient.StyleFields
 	StyleRule           = apiclient.StyleRule
@@ -216,6 +218,44 @@ func (c *Client) CheckTerminology(ctx context.Context, tenant string, req Termin
 		return TerminologyCheck{}, err
 	}
 	return *r.JSON200, nil
+}
+
+// TermFindingsQuery selects the translations a project check covers.
+type TermFindingsQuery struct {
+	// Locales are 1 to 20 target locales.
+	Locales []string
+	// States are review states; empty means every state but rejected.
+	States []string
+}
+
+// ProjectTermFindings runs the server's terminology QA over a project's
+// translations, one page (up to 100 translations scanned) at a time;
+// fn sees each page. It stores nothing.
+func (c *Client) ProjectTermFindings(ctx context.Context, s Scope, q TermFindingsQuery, fn func(TermFindingsPage) error) error {
+	params := apiclient.ListProjectTerminologyFindingsParams{Locale: q.Locales}
+	if len(q.States) > 0 {
+		states := make([]apiclient.ReviewState, len(q.States))
+		for i, st := range q.States {
+			states[i] = apiclient.ReviewState(st)
+		}
+		params.State = &states
+	}
+	size := pageSize
+	params.PageSize = &size
+	for {
+		r, err := c.api.ListProjectTerminologyFindingsWithResponse(ctx, s.Tenant, s.Project, &params)
+		if err := check(r, err, http.MethodGet, c.path("/v1/tenants/%s/projects/%s/terminology-findings", s.Tenant, s.Project)); err != nil {
+			return err
+		}
+		if err := fn(*r.JSON200); err != nil {
+			return err
+		}
+		next := r.JSON200.NextPageToken
+		if next == nil || *next == "" {
+			return nil
+		}
+		params.PageToken = next
+	}
 }
 
 // ── style guides ────────────────────────────────────────────────────

@@ -136,7 +136,11 @@ func (inv *invocation) terminologySnapshot(ctx context.Context, cfg *config.Conf
 	if err != nil {
 		return nil, "", nil, inv.apiError(err, "can't read the project from the server")
 	}
-	report, err := inv.terminology(ctx, p, s, terminology.Options{})
+	var locales []string
+	for _, l := range s.TargetLocales() {
+		locales = append(locales, l.Code)
+	}
+	report, err := inv.terminology(ctx, p, terminology.Options{Locales: locales})
 	if err != nil {
 		return nil, "", nil, err
 	}

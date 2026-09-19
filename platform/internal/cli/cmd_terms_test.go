@@ -138,6 +138,14 @@ func TestTermsCheckFindsForbiddenTerms(t *testing.T) {
 	if f := out.Findings[0]; f.Text != "Einkaufswagen" || strings.Join(f.Suggestions, ",") != "Warenkorb" {
 		t.Errorf("forbidden = %+v", f)
 	}
+	// The server checks every translation: one page for the project, no
+	// request per translation, no snapshot of the project.
+	srv.mu.Lock()
+	pages, checks := srv.kn.termPages, srv.kn.termChecks
+	srv.mu.Unlock()
+	if pages != 1 || checks != 0 || srv.countRequests("GET /v1/tenants/ten_1/projects/prj_1/translations") != 0 {
+		t.Errorf("terms check sent %d pages, %d single checks", pages, checks)
+	}
 
 	h := w.run("terms", "check")
 	h.want(t, ExitCheckFailed)
@@ -172,9 +180,14 @@ func TestTermsCheckFindsForbiddenTerms(t *testing.T) {
 	if !found || chk.Errors != 1 {
 		t.Errorf("check --terminology = %+v", chk)
 	}
-	before := srv.kn.termChecks
+	srv.mu.Lock()
+	before := srv.kn.termPages
+	srv.mu.Unlock()
 	w.json(&chk, "check", "--require-complete=none").want(t, ExitOK)
-	if srv.kn.termChecks != before {
+	srv.mu.Lock()
+	after := srv.kn.termPages
+	srv.mu.Unlock()
+	if after != before {
 		t.Error("plain check asked the termbase")
 	}
 	w.run("check", "--terminology", "--offline").want(t, ExitUsage)

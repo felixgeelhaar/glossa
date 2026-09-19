@@ -3,84 +3,90 @@ package terminology
 import (
 	"context"
 	"errors"
-	"sync/atomic"
+	"fmt"
+	"slices"
 	"testing"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 )
 
-func snap(t *testing.T) *snapshot.Snapshot {
-	t.Helper()
-	msg := func(key, text string) snapshot.Message {
-		m, args, inv := snapshot.Parse("mf1", text, "en")
-		if inv != nil {
-			t.Fatal(inv)
-		}
-		return snapshot.Message{Key: key, Text: text, Syntax: "mf1", Model: m, Arguments: args}
-	}
-	tr := func(key, locale, syntax, text, state string) snapshot.Translation {
-		m, _, inv := snapshot.Parse(syntax, text, locale)
-		if inv != nil {
-			t.Fatal(inv)
-		}
-		return snapshot.Translation{Key: key, Locale: locale, Text: text, Syntax: syntax, Model: m, State: state}
-	}
-	return &snapshot.Snapshot{
-		SourceLocale: "en",
-		Locales:      []snapshot.Locale{{Code: "en", IsSource: true}, {Code: "de"}, {Code: "fr"}},
-		Messages:     []snapshot.Message{msg("a", "Your cart"), msg("b", "Pay {amount, number}")},
-		Translations: map[string]map[string]snapshot.Translation{
-			"de": {"a": tr("a", "de", "mf1", "Dein Einkaufswagen", "needs_review"), "b": tr("b", "de", "mf2", "Zahle {$amount :number}", "approved")},
-			"fr": {"a": tr("a", "fr", "mf1", "Panier", "rejected")},
-		},
-	}
+func finding(sev string) remote.TermFinding {
+	return remote.TermFinding{Code: "term_forbidden", Severity: apiclient.TermFindingSeverity(sev), Side: "target",
+		Text: "Einkaufswagen", Message: "forbidden", Suggestions: []string{"Warenkorb"}}
 }
 
-func TestRunChecksSelectedTranslations(t *testing.T) {
-	var reqs []remote.TerminologyRequest
-	check := func(_ context.Context, req remote.TerminologyRequest) (remote.TerminologyCheck, error) {
-		reqs = append(reqs, req)
-		if req.Target == "Dein Einkaufswagen" {
-			return remote.TerminologyCheck{Findings: []remote.TermFinding{{Code: "term_forbidden", Severity: "error", Side: "target",
-				Text: "Einkaufswagen", Message: "forbidden", Suggestions: []string{"Warenkorb"}}}}, nil
+// Pages are summed: checked counts per locale, findings by locale (in
+// the order asked for) and key.
+func TestRunSumsTheServersPages(t *testing.T) {
+	var queries []remote.TermFindingsQuery
+	fetch := func(_ context.Context, q remote.TermFindingsQuery, fn func(remote.TermFindingsPage) error) error {
+		queries = append(queries, q)
+		pages := []remote.TermFindingsPage{
+			{Checked: map[string]int{"de": 2, "fr": 1}, Items: []remote.TranslationFindings{
+				{MessageKey: "b", Locale: "de", Findings: []remote.TermFinding{finding("warning")}},
+			}},
+			{Checked: map[string]int{"de": 1}, Items: []remote.TranslationFindings{
+				{MessageKey: "a", Locale: "fr", Findings: []remote.TermFinding{finding("error")}},
+				{MessageKey: "a", Locale: "de", Findings: []remote.TermFinding{finding("error"), finding("warning")}},
+			}},
 		}
-		return remote.TerminologyCheck{}, nil
+		for _, p := range pages {
+			if err := fn(p); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
-	r, err := Run(context.Background(), snap(t), Options{Project: "p", Concurrency: 1}, check)
+	r, err := Run(context.Background(), Options{Locales: []string{"fr", "de"}, States: []string{"approved"}}, fetch)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// fr's only translation is rejected: not checked.
-	if r.Checked != 2 || r.Errors != 1 || len(r.Locales) != 2 || r.Locales[0].Errors != 1 || r.Locales[1].Checked != 0 {
+	if len(queries) != 1 || !slices.Equal(queries[0].Locales, []string{"fr", "de"}) || !slices.Equal(queries[0].States, []string{"approved"}) {
+		t.Errorf("queries = %+v", queries)
+	}
+	if r.Checked != 4 || r.Errors != 2 || r.Warnings != 2 || len(r.Locales) != 2 || r.Locales[0].Code != "fr" ||
+		r.Locales[0].Checked != 1 || r.Locales[1].Errors != 1 || r.Locales[1].Warnings != 2 {
 		t.Fatalf("report = %+v", r)
 	}
-	// Different syntaxes are both sent as MF2.
-	for _, req := range reqs {
-		if req.Target == "Zahle {$amount :number}" && (string(*req.Syntax) != "mf2" || req.Source == "Pay {amount, number}") {
-			t.Errorf("mixed syntax request = %+v", req)
-		}
-		if *req.ProjectId != "p" || req.SourceLocale != "en" {
-			t.Errorf("request = %+v", req)
-		}
+	var order []string
+	for _, f := range r.Findings {
+		order = append(order, f.Locale+" "+f.Key)
+	}
+	if fmt.Sprint(order) != "[fr a de a de a de b]" {
+		t.Errorf("order = %v", order)
 	}
 	qf := r.QA()
-	if len(qf) != 1 || qf[0].Check != CheckName || qf[0].Severity != qa.Error || qf[0].Locale != "de" || qf[0].Key != "a" {
+	if len(qf) != 4 || qf[0].Check != CheckName || qf[0].Severity != qa.Error || qf[0].Locale != "fr" || qf[0].Key != "a" {
 		t.Errorf("qa = %+v", qf)
-	}
-	only, _ := Run(context.Background(), snap(t), Options{Locales: []string{"fr"}, States: []string{"rejected"}}, check)
-	if only.Checked != 1 || len(only.Locales) != 1 {
-		t.Errorf("fr rejected = %+v", only)
 	}
 }
 
-func TestRunStopsAtTheFirstError(t *testing.T) {
-	var calls atomic.Int32
+// More than 20 locales take several requests (the server's limit).
+func TestRunSplitsManyLocales(t *testing.T) {
+	var locales []string
+	for i := range 45 {
+		locales = append(locales, fmt.Sprintf("x%02d", i))
+	}
+	var sizes []int
+	r, err := Run(context.Background(), Options{Locales: locales}, func(_ context.Context, q remote.TermFindingsQuery, fn func(remote.TermFindingsPage) error) error {
+		sizes = append(sizes, len(q.Locales))
+		checked := map[string]int{}
+		for _, l := range q.Locales {
+			checked[l] = 1
+		}
+		return fn(remote.TermFindingsPage{Checked: checked})
+	})
+	if err != nil || fmt.Sprint(sizes) != "[20 20 5]" || r.Checked != 45 || len(r.Locales) != 45 {
+		t.Errorf("sizes = %v, report = %+v, %v", sizes, r, err)
+	}
+}
+
+func TestRunReturnsTheServersError(t *testing.T) {
 	boom := errors.New("boom")
-	_, err := Run(context.Background(), snap(t), Options{}, func(context.Context, remote.TerminologyRequest) (remote.TerminologyCheck, error) {
-		calls.Add(1)
-		return remote.TerminologyCheck{}, boom
+	_, err := Run(context.Background(), Options{Locales: []string{"de"}}, func(context.Context, remote.TermFindingsQuery, func(remote.TermFindingsPage) error) error {
+		return boom
 	})
 	if !errors.Is(err, boom) {
 		t.Fatalf("err = %v", err)

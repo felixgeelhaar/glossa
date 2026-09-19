@@ -1,28 +1,30 @@
 // Package terminology is `glossa terms check` and the optional
-// terminology layer of `glossa check` (intent §29.3, RFC 0003 §2.2): it
-// runs the server's terminology QA over a project snapshot's
-// translations — term_forbidden when a translation uses a forbidden
-// (error) or deprecated (warning) term, term_missing (warning) when a
-// source term's preferred and admitted translations are all absent.
+// terminology layer of `glossa check` (intent §29.3, RFC 0003 §2.2): the
+// server's terminology QA over a project's translations —
+// term_forbidden when a translation uses a forbidden (error) or
+// deprecated (warning) term, term_missing (warning) when a source term's
+// preferred and admitted translations are all absent. The server runs
+// it over every translation (GET …/terminology-findings) a page at a
+// time; this package sums the pages into a report.
 package terminology
 
 import (
 	"context"
 	"sort"
-	"sync"
-
-	mf "github.com/felixgeelhaar/glossa/messageformat"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 )
 
 // CheckName is the qa check the findings belong to.
 const CheckName = "terminology"
 
-// Checker checks one translation (the server's terminology-checks).
-type Checker func(ctx context.Context, req remote.TerminologyRequest) (remote.TerminologyCheck, error)
+// maxLocales is the server's limit of locales per project check.
+const maxLocales = 20
+
+// Fetcher pages through the server's project check
+// (remote.Client.ProjectTermFindings).
+type Fetcher func(ctx context.Context, q remote.TermFindingsQuery, fn func(remote.TermFindingsPage) error) error
 
 // Finding is one terminology problem in a translation.
 type Finding struct {
@@ -62,97 +64,71 @@ type Report struct {
 
 // Options select what Run checks.
 type Options struct {
-	// Locales are the target locales; empty means every one.
+	// Locales are the target locales, in report order.
 	Locales []string
 	// States are the review states checked; empty means every state
 	// but rejected.
 	States []string
-	// Project is the project ID, so project-scoped terms apply.
-	Project string
-	// Concurrency bounds requests in flight (default 8).
-	Concurrency int
 }
 
-type job struct {
-	locale string
-	key    string
-	req    remote.TerminologyRequest
-}
-
-// Run checks every selected translation of s whose message and text
-// parse. Findings come ordered by locale, key and position.
-func Run(ctx context.Context, s *snapshot.Snapshot, opts Options, check Checker) (Report, error) {
+// Run has the server check every selected translation — up to 20
+// locales per request, a page at a time — and sums the pages. Findings
+// come ordered by locale, key and position.
+func Run(ctx context.Context, opts Options, fetch Fetcher) (Report, error) {
 	r := Report{Locales: []LocaleReport{}, Findings: []Finding{}}
-	var jobs []job
 	perLocale := map[string]*LocaleReport{}
-	for _, l := range s.TargetLocales() {
-		if len(opts.Locales) > 0 && !has(opts.Locales, l.Code) {
-			continue
-		}
-		lr := &LocaleReport{Code: l.Code}
-		perLocale[l.Code] = lr
-		for _, m := range s.Messages {
-			t, ok := s.Translations[l.Code][m.Key]
-			if !ok || !selected(t.State, opts.States) {
-				continue
+	for _, l := range opts.Locales {
+		perLocale[l] = &LocaleReport{Code: l}
+	}
+	for start := 0; start < len(opts.Locales); start += maxLocales {
+		q := remote.TermFindingsQuery{Locales: opts.Locales[start:min(start+maxLocales, len(opts.Locales))], States: opts.States}
+		err := fetch(ctx, q, func(page remote.TermFindingsPage) error {
+			for l, n := range page.Checked {
+				if lr, ok := perLocale[l]; ok {
+					lr.Checked += n
+				}
 			}
-			req, ok := request(s.SourceLocale, l.Code, opts.Project, m, t)
-			if !ok {
-				continue
+			for _, it := range page.Items {
+				lr, ok := perLocale[it.Locale]
+				if !ok {
+					continue
+				}
+				for _, f := range it.Findings {
+					r.Findings = append(r.Findings, Finding{Code: string(f.Code), Severity: string(f.Severity), Locale: it.Locale,
+						Key: it.MessageKey, Side: string(f.Side), Text: f.Text, Start: f.Start, End: f.End,
+						Suggestions: nonNil(f.Suggestions), ConceptID: f.ConceptId, TermID: f.TermId, Message: f.Message})
+					if f.Severity == "error" {
+						lr.Errors++
+					} else {
+						lr.Warnings++
+					}
+				}
 			}
-			jobs = append(jobs, job{locale: l.Code, key: m.Key, req: req})
-			lr.Checked++
+			return nil
+		})
+		if err != nil {
+			return Report{}, err
 		}
 	}
-	results, err := runAll(ctx, jobs, opts.Concurrency, check)
-	if err != nil {
-		return r, err
-	}
-	for i, res := range results {
-		j := jobs[i]
-		for _, f := range res.Findings {
-			r.Findings = append(r.Findings, Finding{Code: string(f.Code), Severity: string(f.Severity), Locale: j.locale, Key: j.key,
-				Side: string(f.Side), Text: f.Text, Start: f.Start, End: f.End, Suggestions: nonNil(f.Suggestions),
-				ConceptID: f.ConceptId, TermID: f.TermId, Message: f.Message})
-			if f.Severity == "error" {
-				perLocale[j.locale].Errors++
-				r.Errors++
-			} else {
-				perLocale[j.locale].Warnings++
-				r.Warnings++
-			}
-		}
+	rank := map[string]int{}
+	for i, l := range opts.Locales {
+		rank[l] = i
 	}
 	sort.SliceStable(r.Findings, func(a, b int) bool {
 		fa, fb := r.Findings[a], r.Findings[b]
 		if fa.Locale != fb.Locale {
-			return fa.Locale < fb.Locale
+			return rank[fa.Locale] < rank[fb.Locale]
 		}
 		return fa.Key < fb.Key
 	})
-	for _, l := range s.TargetLocales() {
-		if lr, ok := perLocale[l.Code]; ok {
-			r.Locales = append(r.Locales, *lr)
-			r.Checked += lr.Checked
-		}
+	for _, l := range opts.Locales {
+		lr := perLocale[l]
+		r.Locales = append(r.Locales, *lr)
+		r.Checked += lr.Checked
+		r.Errors += lr.Errors
+		r.Warnings += lr.Warnings
 	}
 	return r, nil
-}
-
-func has(ss []string, s string) bool {
-	for _, x := range ss {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
-
-func selected(state string, states []string) bool {
-	if len(states) == 0 {
-		return state != "rejected"
-	}
-	return has(states, state)
 }
 
 func nonNil(s []string) []string {
@@ -160,81 +136,6 @@ func nonNil(s []string) []string {
 		return []string{}
 	}
 	return s
-}
-
-// request builds the check for one translation: the texts as they are
-// when both share a syntax, else both as MF2 from their models.
-func request(sourceLocale, locale, project string, m snapshot.Message, t snapshot.Translation) (remote.TerminologyRequest, bool) {
-	if m.Model == nil || t.Model == nil {
-		return remote.TerminologyRequest{}, false // structural QA reports these
-	}
-	src, tgt, syntax := m.Text, t.Text, m.Syntax
-	if m.Syntax != t.Syntax || syntax == "" {
-		var err error
-		if src, err = mf.Stringify(*m.Model); err != nil {
-			return remote.TerminologyRequest{}, false
-		}
-		if tgt, err = mf.Stringify(*t.Model); err != nil {
-			return remote.TerminologyRequest{}, false
-		}
-		syntax = "mf2"
-	}
-	st := remote.Syntax(syntax)
-	req := remote.TerminologyRequest{Source: src, Target: tgt, SourceLocale: sourceLocale, TargetLocale: locale, Syntax: &st}
-	if project != "" {
-		req.ProjectId = &project
-	}
-	return req, true
-}
-
-// runAll checks jobs with at most n requests in flight; results are in
-// job order. The first error cancels the rest.
-func runAll(ctx context.Context, jobs []job, n int, check Checker) ([]remote.TerminologyCheck, error) {
-	if n <= 0 {
-		n = 8
-	}
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	results := make([]remote.TerminologyCheck, len(jobs))
-	var (
-		wg       sync.WaitGroup
-		mu       sync.Mutex
-		firstErr error
-	)
-	next := make(chan int)
-	for range min(n, max(len(jobs), 1)) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := range next {
-				res, err := check(ctx, jobs[i].req)
-				if err != nil {
-					mu.Lock()
-					if firstErr == nil {
-						firstErr = err
-						cancel()
-					}
-					mu.Unlock()
-					continue
-				}
-				results[i] = res
-			}
-		}()
-	}
-feed:
-	for i := range jobs {
-		select {
-		case next <- i:
-		case <-ctx.Done():
-			break feed
-		}
-	}
-	close(next)
-	wg.Wait()
-	if firstErr != nil {
-		return nil, firstErr
-	}
-	return results, ctx.Err()
 }
 
 // QA turns the findings into `glossa check` findings.

@@ -10,7 +10,6 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/terminology"
 )
 
@@ -545,17 +544,26 @@ func (inv *invocation) termsCheck(ctx context.Context, a termsArgs) error {
 	if err != nil {
 		return err
 	}
-	s, err := snapshot.FromServer(ctx, p.client, p.scope, p.info.SourceLocale, snapshot.Options{Locales: locales})
+	ls, err := p.client.Locales(ctx, p.scope)
 	if err != nil {
-		return inv.apiError(err, "can't read the project from the server")
+		return inv.apiError(err, "can't list locales")
+	}
+	var targets []string
+	for _, l := range ls {
+		if !l.IsSource {
+			targets = append(targets, l.Code)
+		}
 	}
 	for _, l := range locales {
-		if !hasLocale(s, l) {
+		if !contains(targets, l) {
 			return &Error{Exit: ExitUsage, Code: "locale_not_found", What: fmt.Sprintf("the project has no locale %s", l),
 				Fix: "check --locale (`glossa locales` lists them)"}
 		}
 	}
-	report, err := inv.terminology(ctx, p, s, terminology.Options{Locales: locales, States: states})
+	if len(locales) == 0 {
+		locales = targets
+	}
+	report, err := inv.terminology(ctx, p, terminology.Options{Locales: locales, States: states})
 	if err != nil {
 		return err
 	}
@@ -571,20 +579,11 @@ func (inv *invocation) termsCheck(ctx context.Context, a termsArgs) error {
 	return nil
 }
 
-func hasLocale(s *snapshot.Snapshot, code string) bool {
-	for _, l := range s.TargetLocales() {
-		if l.Code == code {
-			return true
-		}
-	}
-	return false
-}
-
-// terminology runs the terminology QA against the server's termbase.
-func (inv *invocation) terminology(ctx context.Context, p *project, s *snapshot.Snapshot, opts terminology.Options) (terminology.Report, error) {
-	opts.Project = p.scope.Project
-	report, err := terminology.Run(ctx, s, opts, func(ctx context.Context, req remote.TerminologyRequest) (remote.TerminologyCheck, error) {
-		return p.client.CheckTerminology(ctx, p.scope.Tenant, req)
+// terminology has the server run terminology QA over the project's
+// translations in opts' locales, a page at a time.
+func (inv *invocation) terminology(ctx context.Context, p *project, opts terminology.Options) (terminology.Report, error) {
+	report, err := terminology.Run(ctx, opts, func(ctx context.Context, q remote.TermFindingsQuery, fn func(remote.TermFindingsPage) error) error {
+		return p.client.ProjectTermFindings(ctx, p.scope, q, fn)
 	})
 	if err != nil {
 		return report, inv.m2Error(err, "can't check terminology")
