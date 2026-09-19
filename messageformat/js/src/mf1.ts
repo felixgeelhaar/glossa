@@ -26,7 +26,14 @@ import { mf1ToMessageData } from "@messageformat/icu-messageformat-1";
 import { parse } from "@messageformat/parser";
 import type { PluralCategory, Token } from "@messageformat/parser";
 import { fromReference } from "./convert.js";
-import type { Declaration, Expression, FunctionRef, Message, Pattern, SelectMessage } from "./model.js";
+import type {
+  Declaration,
+  Expression,
+  FunctionRef,
+  Message,
+  Pattern,
+  SelectMessage,
+} from "./model.js";
 
 /** A syntax error (or a plural key the locale never uses) in an MF1 message. */
 export class MF1SyntaxError extends Error {
@@ -44,9 +51,14 @@ type Tokens = Token[];
 export function parseMF1(src: string, locale: string): Message {
   let ast: Tokens;
   try {
-    ast = parse(src, { cardinal: categories(locale, "cardinal"), ordinal: categories(locale, "ordinal") });
+    ast = parse(src, {
+      cardinal: categories(locale, "cardinal"),
+      ordinal: categories(locale, "ordinal"),
+    });
   } catch (error) {
-    throw new MF1SyntaxError(error instanceof Error ? error.message : String(error), { cause: error });
+    throw new MF1SyntaxError(error instanceof Error ? error.message : String(error), {
+      cause: error,
+    });
   }
   const offsetNames = offsetVariables(ast);
   const msg = fromReference(mf1ToMessageData(ast as Parameters<typeof mf1ToMessageData>[0]));
@@ -54,12 +66,14 @@ export function parseMF1(src: string, locale: string): Message {
 }
 
 function categories(locale: string, type: Intl.PluralRuleType): PluralCategory[] {
-  return new Intl.PluralRules(locale, { type }).resolvedOptions().pluralCategories as PluralCategory[];
+  return new Intl.PluralRules(locale, { type }).resolvedOptions()
+    .pluralCategories as PluralCategory[];
 }
 
 // ── plural offsets ────────────────────────────────────────────────────
 
-const isSelect = (t: Token) => t.type === "plural" || t.type === "select" || t.type === "selectordinal";
+const isSelect = (t: Token) =>
+  t.type === "plural" || t.type === "select" || t.type === "selectordinal";
 
 function argNames(tokens: Tokens, names = new Set<string>()): Set<string> {
   for (const t of tokens) {
@@ -96,8 +110,12 @@ function offsetVariables(ast: Tokens): Map<string, string> {
       if (t.type === "octothorpe" && octothorpe) {
         tokens[i] = { type: "argument", arg: octothorpe, ctx: t.ctx };
       } else if (isSelect(t) && "cases" in t) {
-        const inner = t.type === "plural" && t.pluralOffset ? nameFor(t.arg)
-          : t.type === "select" ? octothorpe : null;
+        const inner =
+          t.type === "plural" && t.pluralOffset
+            ? nameFor(t.arg)
+            : t.type === "select"
+              ? octothorpe
+              : null;
         for (const c of t.cases) walk(c.tokens, inner);
       }
     });
@@ -124,7 +142,9 @@ function canonicalize(msg: Message, offsetNames: Map<string, string>): Message {
 }
 
 const canonicalPattern = (p: Pattern): Pattern =>
-  p.map((el) => (typeof el !== "string" && el.type === "expression" ? canonicalExpression(el) : el));
+  p.map((el) =>
+    typeof el !== "string" && el.type === "expression" ? canonicalExpression(el) : el,
+  );
 
 function canonicalExpression(expr: Expression): Expression {
   if (expr.function) expr.function = canonicalFunction(expr.function);
@@ -171,7 +191,8 @@ function pluralOffset(d: Declaration): number | undefined {
   const fn = d.value.function;
   if (d.type !== "input" || fn?.name !== "mf1:plural") return undefined;
   const offset = fn.options?.offset;
-  if (fn.options?.select || offset?.type !== "literal" || !/^\d+$/.test(offset.value)) return undefined;
+  if (fn.options?.select || offset?.type !== "literal" || !/^\d+$/.test(offset.value))
+    return undefined;
   return Number(offset.value);
 }
 
@@ -180,7 +201,12 @@ function pluralOffset(d: Declaration): number | undefined {
  * `.input {$c :number} .local $c_offset = {$c :offset subtract=1} .match $c $c_offset`:
  * exact keys (`=0`) stay on `$c`, plural categories move to `$c_offset`.
  */
-function splitOffsetSelector(msg: SelectMessage, d: Declaration, offset: number, name: string): void {
+function splitOffsetSelector(
+  msg: SelectMessage,
+  d: Declaration,
+  offset: number,
+  name: string,
+): void {
   const arg = { type: "variable", name: d.name } as const;
   d.value = { ...d.value, function: { type: "function", name: "number" } };
   msg.declarations.push({

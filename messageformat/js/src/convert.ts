@@ -25,7 +25,10 @@ const value = (v: RefValue): Literal | VariableRef =>
     ? { type: "literal", value: String(v.value) }
     : { type: "variable", name: v.name };
 
-function record<T, U>(rec: Record<string, T> | undefined, map: (v: T) => U): Record<string, U> | undefined {
+function record<T, U>(
+  rec: Record<string, T> | undefined,
+  map: (v: T) => U,
+): Record<string, U> | undefined {
   if (!rec) return undefined;
   const out: Record<string, U> = {};
   for (const [k, v] of Object.entries(rec)) out[k] = map(v);
@@ -33,7 +36,9 @@ function record<T, U>(rec: Record<string, T> | undefined, map: (v: T) => U): Rec
 }
 
 const attributes = (attrs: Model.Attributes | undefined): Attributes | undefined =>
-  record<true | Model.Literal, true | Literal>(attrs, (v) => (v === true ? true : value(v) as Literal));
+  record<true | Model.Literal, true | Literal>(attrs, (v) =>
+    v === true ? true : (value(v) as Literal),
+  );
 
 function expression(expr: RefExpression): Expression {
   const out: Expression = { type: "expression" };
@@ -62,14 +67,19 @@ const pattern = (p: Model.Pattern): Pattern =>
 
 function declaration(d: Model.Declaration): Declaration {
   return d.type === "input"
-    ? { type: "input", name: d.name, value: expression(d.value) as Expression & { arg: VariableRef } }
+    ? {
+        type: "input",
+        name: d.name,
+        value: expression(d.value) as Expression & { arg: VariableRef },
+      }
     : { type: "local", name: d.name, value: expression(d.value) };
 }
 
 /** Reference model → canonical plain-JSON data model. */
 export function fromReference(msg: Model.Message): Message {
   const declarations = msg.declarations.map(declaration);
-  if (msg.type === "message") return { type: "message", declarations, pattern: pattern(msg.pattern) };
+  if (msg.type === "message")
+    return { type: "message", declarations, pattern: pattern(msg.pattern) };
   return {
     type: "select",
     declarations,
@@ -77,8 +87,11 @@ export function fromReference(msg: Model.Message): Message {
     variants: msg.variants.map((v) => ({
       keys: v.keys.map((k) =>
         k.type === "*"
-          ? k.value === undefined ? { type: "*" } : { type: "*", value: k.value }
-          : { type: "literal", value: String(k.value) }),
+          ? k.value === undefined
+            ? { type: "*" }
+            : { type: "*", value: k.value }
+          : { type: "literal", value: String(k.value) },
+      ),
       value: pattern(v.value),
     })),
   };
@@ -117,18 +130,25 @@ function refMarkup(m: Markup): Model.Markup {
 }
 
 const refPattern = (p: Pattern): Model.Pattern =>
-  p.map((el) => (typeof el === "string" ? el : el.type === "markup" ? refMarkup(el) : refExpression(el)));
+  p.map((el) =>
+    typeof el === "string" ? el : el.type === "markup" ? refMarkup(el) : refExpression(el),
+  );
 
 function refDeclaration(d: Declaration): Model.Declaration {
   return d.type === "input"
-    ? { type: "input", name: d.name, value: refExpression(d.value) as Model.Expression<Model.VariableRef> }
+    ? {
+        type: "input",
+        name: d.name,
+        value: refExpression(d.value) as Model.Expression<Model.VariableRef>,
+      }
     : { type: "local", name: d.name, value: refExpression(d.value) };
 }
 
 /** Canonical data model → the reference implementation's model. */
 export function toReference(msg: Message): Model.Message {
   const declarations = msg.declarations.map(refDeclaration);
-  if (msg.type === "message") return { type: "message", declarations, pattern: refPattern(msg.pattern) };
+  if (msg.type === "message")
+    return { type: "message", declarations, pattern: refPattern(msg.pattern) };
   return {
     type: "select",
     declarations,

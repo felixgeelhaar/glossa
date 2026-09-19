@@ -29,41 +29,90 @@ describe("messageSchema agrees with message.schema.json", () => {
     ["unknown message type", { type: "nope", declarations: [], pattern: [] }],
     ["missing declarations", { type: "message", pattern: [] }],
     ["number in pattern", { type: "message", declarations: [], pattern: [1] }],
-    ["expression without arg or function", {
-      type: "message", declarations: [], pattern: [{ type: "expression" }],
-    }],
-    ["options as a Map", {
-      type: "message", declarations: [], pattern: [{
-        type: "expression", arg: lit,
-        function: { type: "function", name: "number", options: new Map() },
-      }],
-    }],
-    ["non-string literal", {
-      type: "message", declarations: [], pattern: [{ type: "expression", arg: { type: "literal", value: 1 } }],
-    }],
-    ["input declaration with literal arg", {
-      type: "message", pattern: [],
-      declarations: [{ type: "input", name: "x", value: { type: "expression", arg: lit } }],
-    }],
-    ["attribute false", {
-      type: "message", declarations: [], pattern: [{ ...expr, attributes: { a: false } }],
-    }],
-    ["markup kind", {
-      type: "message", declarations: [], pattern: [{ type: "markup", kind: "self", name: "b" }],
-    }],
-    ["literal selector", {
-      type: "select", declarations: [], selectors: [lit], variants: [],
-    }],
-    ["variant key of wrong type", {
-      type: "select", declarations: [], selectors: [variable],
-      variants: [{ keys: [variable], value: [] }],
-    }],
-    ["variant without value", {
-      type: "select", declarations: [], selectors: [variable], variants: [{ keys: [] }],
-    }],
+    [
+      "expression without arg or function",
+      {
+        type: "message",
+        declarations: [],
+        pattern: [{ type: "expression" }],
+      },
+    ],
+    [
+      "options as a Map",
+      {
+        type: "message",
+        declarations: [],
+        pattern: [
+          {
+            type: "expression",
+            arg: lit,
+            function: { type: "function", name: "number", options: new Map() },
+          },
+        ],
+      },
+    ],
+    [
+      "non-string literal",
+      {
+        type: "message",
+        declarations: [],
+        pattern: [{ type: "expression", arg: { type: "literal", value: 1 } }],
+      },
+    ],
+    [
+      "input declaration with literal arg",
+      {
+        type: "message",
+        pattern: [],
+        declarations: [{ type: "input", name: "x", value: { type: "expression", arg: lit } }],
+      },
+    ],
+    [
+      "attribute false",
+      {
+        type: "message",
+        declarations: [],
+        pattern: [{ ...expr, attributes: { a: false } }],
+      },
+    ],
+    [
+      "markup kind",
+      {
+        type: "message",
+        declarations: [],
+        pattern: [{ type: "markup", kind: "self", name: "b" }],
+      },
+    ],
+    [
+      "literal selector",
+      {
+        type: "select",
+        declarations: [],
+        selectors: [lit],
+        variants: [],
+      },
+    ],
+    [
+      "variant key of wrong type",
+      {
+        type: "select",
+        declarations: [],
+        selectors: [variable],
+        variants: [{ keys: [variable], value: [] }],
+      },
+    ],
+    [
+      "variant without value",
+      {
+        type: "select",
+        declarations: [],
+        selectors: [variable],
+        variants: [{ keys: [] }],
+      },
+    ],
   ];
   it.each(invalid)("rejects %s", (_name, value) => {
-    const json = value instanceof Object ? JSON.parse(JSON.stringify(value)) as unknown : value;
+    const json = value instanceof Object ? (JSON.parse(JSON.stringify(value)) as unknown) : value;
     // A Map serializes to {} which the JSON Schema accepts; zod must reject the Map itself.
     if (!(_name as string).includes("Map")) expect(validateJson(json)).toBe(false);
     expect(messageSchema.safeParse(value).success).toBe(false);

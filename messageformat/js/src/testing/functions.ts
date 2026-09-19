@@ -5,7 +5,11 @@
  */
 import { MessageFunctionError } from "messageformat";
 import { asPositiveInteger, asString } from "messageformat/functions";
-import type { MessageFunction, MessageFunctionContext, MessageValue } from "messageformat/functions";
+import type {
+  MessageFunction,
+  MessageFunctionContext,
+  MessageValue,
+} from "messageformat/functions";
 
 interface TestOptions {
   canFormat: boolean;
@@ -24,7 +28,13 @@ function testFunction(
   canSelect: boolean,
   operand: unknown,
 ): TestValue {
-  const opt: TestOptions = { canFormat, canSelect, decimalPlaces: 0, failsFormat: false, failsSelect: false };
+  const opt: TestOptions = {
+    canFormat,
+    canSelect,
+    decimalPlaces: 0,
+    failsFormat: false,
+    failsSelect: false,
+  };
   let input = operand;
   if (typeof input === "object" && input !== null && typeof input.valueOf === "function") {
     const prev = input as Partial<TestValue>;
@@ -40,7 +50,8 @@ function testFunction(
       // not numeric; rejected below
     }
   }
-  if (typeof input !== "number") throw new MessageFunctionError("bad-operand", "Input is not numeric");
+  if (typeof input !== "number")
+    throw new MessageFunctionError("bad-operand", "Input is not numeric");
   const value = input;
   if ("decimalPlaces" in options) {
     let dp: number | undefined;
@@ -50,7 +61,10 @@ function testFunction(
       dp = undefined;
     }
     if (dp !== 0 && dp !== 1) {
-      throw new MessageFunctionError("bad-option", `Invalid decimalPlaces=${String(options.decimalPlaces)}`);
+      throw new MessageFunctionError(
+        "bad-option",
+        `Invalid decimalPlaces=${String(options.decimalPlaces)}`,
+      );
     }
     opt.decimalPlaces = dp;
   }
@@ -93,13 +107,17 @@ function testFunction(
   }
   if (canFormat) {
     tv.toString = toString;
-    tv.toParts = () => [{ type: "test", locale: "und", parts: [{ type: "test", value: toString() }] }];
+    tv.toParts = () => [
+      { type: "test", locale: "und", parts: [{ type: "test", value: toString() }] },
+    ];
   }
   return tv;
 }
 
-const make = (canFormat: boolean, canSelect: boolean): MessageFunction<"test"> =>
-  (ctx, options, operand) => testFunction(ctx, options, canFormat, canSelect, operand);
+const make =
+  (canFormat: boolean, canSelect: boolean): MessageFunction<"test"> =>
+  (ctx, options, operand) =>
+    testFunction(ctx, options, canFormat, canSelect, operand);
 
 export const testFunctions: Record<string, MessageFunction<"test">> = {
   "test:function": make(true, true),
