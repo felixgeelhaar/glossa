@@ -76,7 +76,7 @@ func harnessFor(t *testing.T, slug string) *harness {
 	uow := db.NewUnitOfWork(env.App)
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
 	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat))
-	svc := app.New(knowledgepg.NewTransactor(uow), sources.NewTranslations(loc), sources.NewProjects(cat))
+	svc := app.New(knowledgepg.NewTransactor(uow), sources.NewTranslations(loc, cat), sources.NewProjects(cat))
 	reg := outbox.NewRegistry()
 	if err := loc.Subscribe(reg); err != nil {
 		t.Fatal(err)

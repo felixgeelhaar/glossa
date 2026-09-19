@@ -3009,6 +3009,79 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /v1/tenants/{tenant}/projects/{project}/terminology-findings:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listProjectTerminologyFindings
+      tags: [terminology]
+      summary: Terminology QA over a project's translations
+      description: |
+        Runs the checks of `POST …/terminology-checks` server-side over
+        a project's translations in the given locales (`locale`,
+        repeatable, 1 to 20), each against its message's current source,
+        both as visible text, with the project's and the tenant-wide
+        concepts — `glossa terms check` and `glossa check
+        --terminology`. A page scans up to `page_size` translations of
+        active messages in key order and lists those with findings
+        (`items`, each with its message key); `checked` counts the
+        translations it scanned per locale, so a client sums pages for
+        totals. A page can list no items and still have a
+        `next_page_token`. Filters: `state` (repeatable; default every
+        state but `rejected`), `namespace`, `key_prefix`. Each page is
+        one read per context (the termbase, the translations, their
+        sources), never one per translation. Stores nothing. Needs
+        `knowledge.read`, `translations.read` and `catalog.read`.
+        Problem codes: `invalid_locale`, `too_many_locales`,
+        `invalid_state` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - name: locale
+          in: query
+          required: true
+          description: A target locale to check; repeat for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 20
+            items: { $ref: "#/components/schemas/Locale" }
+        - name: state
+          in: query
+          required: false
+          description: Only translations in these review states; repeatable. Default every state but `rejected`.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 4
+            items: { $ref: "#/components/schemas/ReviewState" }
+        - name: namespace
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Namespace" }
+        - name: key_prefix
+          in: query
+          required: false
+          description: Keys starting with this, e.g. `checkout.`.
+          schema: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: A page of findings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectTerminologyFindings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ── style guides ────────────────────────────────────────────────────
   /v1/tenants/{tenant}/style-guides:
     parameters:
@@ -6313,6 +6386,33 @@ components:
         findings:
           type: array
           items: { $ref: "#/components/schemas/TermFinding" }
+    TranslationTerminologyFindings:
+      type: object
+      required: [message_id, message_key, namespace, locale, state, source_text, target_text, findings]
+      properties:
+        message_id: { $ref: "#/components/schemas/Id" }
+        message_key: { $ref: "#/components/schemas/MessageKey" }
+        namespace: { type: string }
+        locale: { $ref: "#/components/schemas/Locale" }
+        state: { $ref: "#/components/schemas/ReviewState" }
+        source_text: { type: string, description: "The source's visible text, which `source` spans point into." }
+        target_text: { type: string, description: "The translation's visible text, which `target` spans point into." }
+        findings:
+          type: array
+          items: { $ref: "#/components/schemas/TermFinding" }
+    ProjectTerminologyFindings:
+      type: object
+      required: [items, checked]
+      properties:
+        items:
+          type: array
+          description: The page's translations with findings, by message key and locale.
+          items: { $ref: "#/components/schemas/TranslationTerminologyFindings" }
+        checked:
+          type: object
+          description: The translations this page checked, by locale.
+          additionalProperties: { type: integer }
+        next_page_token: { type: string }
 
     # ── knowledge: style guides ───────────────────────────────────────
     StyleFormality:

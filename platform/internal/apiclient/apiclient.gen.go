@@ -3118,6 +3118,16 @@ type ProjectSettings struct {
 	ReviewRequired bool `json:"review_required"`
 }
 
+// ProjectTerminologyFindings defines model for ProjectTerminologyFindings.
+type ProjectTerminologyFindings struct {
+	// Checked The translations this page checked, by locale.
+	Checked map[string]int `json:"checked"`
+
+	// Items The page's translations with findings, by message key and locale.
+	Items         []TranslationTerminologyFindings `json:"items"`
+	NextPageToken *string                          `json:"next_page_token,omitempty"`
+}
+
 // ProjectTranslation A translation with the message it belongs to.
 type ProjectTranslation struct {
 	// Author Who wrote the current text.
@@ -4277,6 +4287,34 @@ type TranslationStats struct {
 	Messages int `json:"messages"`
 }
 
+// TranslationTerminologyFindings defines model for TranslationTerminologyFindings.
+type TranslationTerminologyFindings struct {
+	Findings []TermFinding `json:"findings"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// MessageId An opaque identifier.
+	MessageId Id `json:"message_id"`
+
+	// MessageKey A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	MessageKey MessageKey `json:"message_key"`
+	Namespace  string     `json:"namespace"`
+
+	// SourceText The source's visible text, which `source` spans point into.
+	SourceText string      `json:"source_text"`
+	State      ReviewState `json:"state"`
+
+	// TargetText The translation's visible text, which `target` spans point into.
+	TargetText string `json:"target_text"`
+}
+
 // UpdateAIProjectSettings defines model for UpdateAIProjectSettings.
 type UpdateAIProjectSettings struct {
 	AutoTranslateLocales *[]Locale                    `json:"auto_translate_locales,omitempty"`
@@ -4939,6 +4977,24 @@ type GetReleaseDiffParams struct {
 // GetReleaseManifestParams defines parameters for GetReleaseManifest.
 type GetReleaseManifestParams struct {
 	Environment string `form:"environment" json:"environment"`
+}
+
+// ListProjectTerminologyFindingsParams defines parameters for ListProjectTerminologyFindings.
+type ListProjectTerminologyFindingsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Locale A target locale to check; repeat for several.
+	Locale []Locale `form:"locale" json:"locale"`
+
+	// State Only translations in these review states; repeatable. Default every state but `rejected`.
+	State     *[]ReviewState `form:"state,omitempty" json:"state,omitempty"`
+	Namespace *Namespace     `form:"namespace,omitempty" json:"namespace,omitempty"`
+
+	// KeyPrefix Keys starting with this, e.g. `checkout.`.
+	KeyPrefix *string `form:"key_prefix,omitempty" json:"key_prefix,omitempty"`
 }
 
 // ListProjectTranslationsParams defines parameters for ListProjectTranslations.
@@ -7401,6 +7457,29 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest (the `GetReleaseManifest` operationId).
 	GetReleaseManifest(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseManifestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProjectTerminologyFindings Terminology QA over a project's translations
+	//
+	// Runs the checks of `POST …/terminology-checks` server-side over
+	// a project's translations in the given locales (`locale`,
+	// repeatable, 1 to 20), each against its message's current source,
+	// both as visible text, with the project's and the tenant-wide
+	// concepts — `glossa terms check` and `glossa check
+	// --terminology`. A page scans up to `page_size` translations of
+	// active messages in key order and lists those with findings
+	// (`items`, each with its message key); `checked` counts the
+	// translations it scanned per locale, so a client sums pages for
+	// totals. A page can list no items and still have a
+	// `next_page_token`. Filters: `state` (repeatable; default every
+	// state but `rejected`), `namespace`, `key_prefix`. Each page is
+	// one read per context (the termbase, the translations, their
+	// sources), never one per translation. Stores nothing. Needs
+	// `knowledge.read`, `translations.read` and `catalog.read`.
+	// Problem codes: `invalid_locale`, `too_many_locales`,
+	// `invalid_state` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/terminology-findings (the `ListProjectTerminologyFindings` operationId).
+	ListProjectTerminologyFindings(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTerminologyFindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ImportTranslationsWithBody Import translations in bulk
 	//
@@ -11572,6 +11651,39 @@ func (c *Client) GetReleaseDiff(ctx context.Context, tenant TenantPath, project 
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest (the `GetReleaseManifest` operationId).
 func (c *Client) GetReleaseManifest(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseManifestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetReleaseManifestRequest(c.Server, tenant, project, release, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListProjectTerminologyFindings Terminology QA over a project's translations
+//
+// Runs the checks of `POST …/terminology-checks` server-side over
+// a project's translations in the given locales (`locale`,
+// repeatable, 1 to 20), each against its message's current source,
+// both as visible text, with the project's and the tenant-wide
+// concepts — `glossa terms check` and `glossa check
+// --terminology`. A page scans up to `page_size` translations of
+// active messages in key order and lists those with findings
+// (`items`, each with its message key); `checked` counts the
+// translations it scanned per locale, so a client sums pages for
+// totals. A page can list no items and still have a
+// `next_page_token`. Filters: `state` (repeatable; default every
+// state but `rejected`), `namespace`, `key_prefix`. Each page is
+// one read per context (the termbase, the translations, their
+// sources), never one per translation. Stores nothing. Needs
+// `knowledge.read`, `translations.read` and `catalog.read`.
+// Problem codes: `invalid_locale`, `too_many_locales`,
+// `invalid_state` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/terminology-findings (the `ListProjectTerminologyFindings` operationId).
+func (c *Client) ListProjectTerminologyFindings(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTerminologyFindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectTerminologyFindingsRequest(c.Server, tenant, project, params)
 	if err != nil {
 		return nil, err
 	}
@@ -19553,6 +19665,134 @@ func NewGetReleaseManifestRequest(server string, tenant TenantPath, project Proj
 	return req, nil
 }
 
+// NewListProjectTerminologyFindingsRequest constructs an http.Request for the ListProjectTerminologyFindings method
+func NewListProjectTerminologyFindingsRequest(server string, tenant TenantPath, project ProjectPath, params *ListProjectTerminologyFindingsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/terminology-findings", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Namespace != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "namespace", *params.Namespace, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.KeyPrefix != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "key_prefix", *params.KeyPrefix, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewImportTranslationsRequest calls the generic ImportTranslations builder with application/json body
 func NewImportTranslationsRequest(server string, tenant TenantPath, project ProjectPath, body ImportTranslationsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -23602,6 +23842,31 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest (the `GetReleaseManifest` operationId).
 	GetReleaseManifestWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseManifestParams, reqEditors ...RequestEditorFn) (*GetReleaseManifestResponse, error)
+
+	// ListProjectTerminologyFindingsWithResponse Terminology QA over a project's translations
+	//
+	// Runs the checks of `POST …/terminology-checks` server-side over
+	// a project's translations in the given locales (`locale`,
+	// repeatable, 1 to 20), each against its message's current source,
+	// both as visible text, with the project's and the tenant-wide
+	// concepts — `glossa terms check` and `glossa check
+	// --terminology`. A page scans up to `page_size` translations of
+	// active messages in key order and lists those with findings
+	// (`items`, each with its message key); `checked` counts the
+	// translations it scanned per locale, so a client sums pages for
+	// totals. A page can list no items and still have a
+	// `next_page_token`. Filters: `state` (repeatable; default every
+	// state but `rejected`), `namespace`, `key_prefix`. Each page is
+	// one read per context (the termbase, the translations, their
+	// sources), never one per translation. Stores nothing. Needs
+	// `knowledge.read`, `translations.read` and `catalog.read`.
+	// Problem codes: `invalid_locale`, `too_many_locales`,
+	// `invalid_state` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/terminology-findings (the `ListProjectTerminologyFindings` operationId).
+	ListProjectTerminologyFindingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTerminologyFindingsParams, reqEditors ...RequestEditorFn) (*ListProjectTerminologyFindingsResponse, error)
 
 	// ImportTranslationsWithBodyWithResponse Import translations in bulk
 	//
@@ -32675,6 +32940,75 @@ func (r GetReleaseManifestResponse) ContentType() string {
 	return ""
 }
 
+type ListProjectTerminologyFindingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ProjectTerminologyFindings
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListProjectTerminologyFindingsResponse) GetJSON200() *ProjectTerminologyFindings {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListProjectTerminologyFindingsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListProjectTerminologyFindingsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListProjectTerminologyFindingsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListProjectTerminologyFindingsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListProjectTerminologyFindingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectTerminologyFindingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectTerminologyFindingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectTerminologyFindingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ImportTranslationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -37667,6 +38001,37 @@ func (c *ClientWithResponses) GetReleaseManifestWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseGetReleaseManifestResponse(rsp)
+}
+
+// ListProjectTerminologyFindingsWithResponse Terminology QA over a project's translations
+//
+// Runs the checks of `POST …/terminology-checks` server-side over
+// a project's translations in the given locales (`locale`,
+// repeatable, 1 to 20), each against its message's current source,
+// both as visible text, with the project's and the tenant-wide
+// concepts — `glossa terms check` and `glossa check
+// --terminology`. A page scans up to `page_size` translations of
+// active messages in key order and lists those with findings
+// (`items`, each with its message key); `checked` counts the
+// translations it scanned per locale, so a client sums pages for
+// totals. A page can list no items and still have a
+// `next_page_token`. Filters: `state` (repeatable; default every
+// state but `rejected`), `namespace`, `key_prefix`. Each page is
+// one read per context (the termbase, the translations, their
+// sources), never one per translation. Stores nothing. Needs
+// `knowledge.read`, `translations.read` and `catalog.read`.
+// Problem codes: `invalid_locale`, `too_many_locales`,
+// `invalid_state` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/terminology-findings (the `ListProjectTerminologyFindings` operationId).
+func (c *ClientWithResponses) ListProjectTerminologyFindingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTerminologyFindingsParams, reqEditors ...RequestEditorFn) (*ListProjectTerminologyFindingsResponse, error) {
+	rsp, err := c.ListProjectTerminologyFindings(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectTerminologyFindingsResponse(rsp)
 }
 
 // ImportTranslationsWithBodyWithResponse Import translations in bulk
@@ -45604,6 +45969,60 @@ func ParseGetReleaseManifestResponse(rsp *http.Response) (*GetReleaseManifestRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ReleaseManifest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectTerminologyFindingsResponse parses an HTTP response from a ListProjectTerminologyFindingsWithResponse call
+func ParseListProjectTerminologyFindingsResponse(rsp *http.Response) (*ListProjectTerminologyFindingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectTerminologyFindingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectTerminologyFindings
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

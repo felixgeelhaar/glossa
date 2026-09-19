@@ -29,6 +29,8 @@ var problems = []struct {
 	{app.ErrPreconditionRequired, 428, problem.CodePreconditionRequired, "send If-Match with the resource's ETag"},
 	{app.ErrIdempotencyReuse, 422, "idempotency_key_reused", "this Idempotency-Key was used for a different request"},
 	{app.ErrInvalidQuery, 400, "invalid_query", ""},
+	{app.ErrLocaleCount, 400, "too_many_locales", "check 1 to 20 locales"},
+	{app.ErrInvalidState, 400, "invalid_state", ""},
 	{domain.ErrInvalidConcept, 400, "invalid_concept", ""},
 	{domain.ErrInvalidTermStatus, 400, "invalid_term_status", ""},
 	{domain.ErrInvalidPartOfSpeech, 400, "invalid_part_of_speech", ""},

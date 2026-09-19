@@ -7,6 +7,7 @@ package sources
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -38,11 +39,17 @@ func (p *Projects) Project(ctx context.Context, id uuid.UUID) (app.ProjectInfo, 
 	return app.ProjectInfo{ID: id, SourceLocale: pr.SourceLocale}, nil
 }
 
-// Translations implements app.Translations on Localization's service.
-type Translations struct{ svc *localizationapp.Service }
+// Translations implements app.Translations on Localization's service
+// (and Catalog's, for the source of a page of translations).
+type Translations struct {
+	svc     *localizationapp.Service
+	catalog *catalogapp.Service
+}
 
 // NewTranslations returns the port.
-func NewTranslations(svc *localizationapp.Service) *Translations { return &Translations{svc: svc} }
+func NewTranslations(svc *localizationapp.Service, catalog *catalogapp.Service) *Translations {
+	return &Translations{svc: svc, catalog: catalog}
+}
 
 var _ app.Translations = (*Translations)(nil)
 
@@ -63,4 +70,42 @@ func (t *Translations) Current(ctx context.Context, project, translation uuid.UU
 		},
 		Approved: tr.State == localizationdomain.StateApproved,
 	}, nil
+}
+
+// ProjectTranslations implements app.Translations: Localization's bulk
+// listing (one query) and the page's sources from Catalog (one query).
+func (t *Translations) ProjectTranslations(ctx context.Context, project uuid.UUID, q app.TranslationPageQuery) ([]app.ProjectTranslation, *string, error) {
+	active := string(catalogdomain.MessageActive)
+	f := localizationapp.TranslationFilter{States: q.States, Namespace: q.Namespace, KeyPrefix: q.KeyPrefix, MessageState: &active}
+	for _, l := range q.Locales {
+		f.Locales = append(f.Locales, l.String())
+	}
+	rows, next, err := t.svc.ListProjectTranslations(ctx, project, f, q.Page)
+	if errors.Is(err, localizationapp.ErrNotFound) {
+		return nil, nil, app.ErrProjectNotFound
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	var ids []catalogdomain.MessageID
+	for _, r := range rows {
+		if id := catalogdomain.MessageID(r.MessageID); !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+	}
+	sources := map[catalogdomain.MessageID]catalogdomain.Message{}
+	if len(ids) > 0 {
+		if sources, err = t.catalog.MessagesByIDs(ctx, catalogdomain.ProjectID(project), ids); err != nil {
+			return nil, nil, err
+		}
+	}
+	out := make([]app.ProjectTranslation, len(rows))
+	for i, r := range rows {
+		m, ok := sources[catalogdomain.MessageID(r.MessageID)]
+		out[i] = app.ProjectTranslation{
+			MessageID: r.MessageID, Key: r.Key, Namespace: r.Namespace, Locale: r.Locale, State: string(r.State),
+			Source: m.Source.Model, HasSource: ok, Target: r.Content.Model,
+		}
+	}
+	return out, next, nil
 }

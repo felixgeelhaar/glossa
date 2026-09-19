@@ -172,7 +172,7 @@ func newWiring(t *testing.T, answers map[domain.Task][]answer) *wiring {
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
 	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat))
 	cat.SetCoverage(coverage.New(loc))
-	know := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(loc), knowledgesources.NewProjects(cat))
+	know := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(loc, cat), knowledgesources.NewProjects(cat))
 	key := make([]byte, 32)
 	_, _ = rand.Read(key)
 	sealer, err := sealing.New(key)

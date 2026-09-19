@@ -2040,6 +2040,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/terminology-findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Terminology QA over a project's translations
+         * @description Runs the checks of `POST …/terminology-checks` server-side over
+         *     a project's translations in the given locales (`locale`,
+         *     repeatable, 1 to 20), each against its message's current source,
+         *     both as visible text, with the project's and the tenant-wide
+         *     concepts — `glossa terms check` and `glossa check
+         *     --terminology`. A page scans up to `page_size` translations of
+         *     active messages in key order and lists those with findings
+         *     (`items`, each with its message key); `checked` counts the
+         *     translations it scanned per locale, so a client sums pages for
+         *     totals. A page can list no items and still have a
+         *     `next_page_token`. Filters: `state` (repeatable; default every
+         *     state but `rejected`), `namespace`, `key_prefix`. Each page is
+         *     one read per context (the termbase, the translations, their
+         *     sources), never one per translation. Stores nothing. Needs
+         *     `knowledge.read`, `translations.read` and `catalog.read`.
+         *     Problem codes: `invalid_locale`, `too_many_locales`,
+         *     `invalid_state` (400).
+         */
+        get: operations["listProjectTerminologyFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/style-guides": {
         parameters: {
             query?: never;
@@ -4287,6 +4328,27 @@ export interface components {
             source_text: string;
             target_text: string;
             findings: components["schemas"]["TermFinding"][];
+        };
+        TranslationTerminologyFindings: {
+            message_id: components["schemas"]["Id"];
+            message_key: components["schemas"]["MessageKey"];
+            namespace: string;
+            locale: components["schemas"]["Locale"];
+            state: components["schemas"]["ReviewState"];
+            /** @description The source's visible text, which `source` spans point into. */
+            source_text: string;
+            /** @description The translation's visible text, which `target` spans point into. */
+            target_text: string;
+            findings: components["schemas"]["TermFinding"][];
+        };
+        ProjectTerminologyFindings: {
+            /** @description The page's translations with findings, by message key and locale. */
+            items: components["schemas"]["TranslationTerminologyFindings"][];
+            /** @description The translations this page checked, by locale. */
+            checked: {
+                [key: string]: number;
+            };
+            next_page_token?: string;
         };
         StyleFormality: {
             /** @enum {string} */
@@ -8405,6 +8467,46 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listProjectTerminologyFindings: {
+        parameters: {
+            query: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A target locale to check; repeat for several. */
+                locale: components["schemas"]["Locale"][];
+                /** @description Only translations in these review states; repeatable. Default every state but `rejected`. */
+                state?: components["schemas"]["ReviewState"][];
+                namespace?: components["schemas"]["Namespace"];
+                /** @description Keys starting with this, e.g. `checkout.`. */
+                key_prefix?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of findings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectTerminologyFindings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listStyleGuides: {

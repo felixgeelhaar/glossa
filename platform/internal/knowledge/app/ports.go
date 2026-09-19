@@ -55,6 +55,10 @@ type Translations interface {
 	// Current answers ErrNotFound for a translation that no longer
 	// exists (its project was deleted).
 	Current(ctx context.Context, project, translation uuid.UUID) (CurrentTranslation, error)
+	// ProjectTranslations reads a page of a project's translations of
+	// active messages with their messages' current source: one read of
+	// Localization and one of Catalog, whatever the page size.
+	ProjectTranslations(ctx context.Context, project uuid.UUID, q TranslationPageQuery) ([]ProjectTranslation, *string, error)
 }
 
 // Transactor runs units of work scoped to the tenant on ctx.

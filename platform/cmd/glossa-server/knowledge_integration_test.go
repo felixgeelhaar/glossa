@@ -160,6 +160,31 @@ func TestKnowledgeOverHTTP(t *testing.T) {
 	if len(check.Findings) != 2 || check.Findings[1].Code != "term_forbidden" || check.Findings[1].Severity != "error" {
 		t.Errorf("check = %+v", check)
 	}
+
+	// The project check runs the same QA over every translation, by key.
+	s.do(call{method: "POST", path: base + "/term-concepts", cookie: ada.cookie, csrf: ada.csrf, body: map[string]any{
+		"project_id": project, "terms": []map[string]any{
+			{"locale": "en", "text": "pay"}, {"locale": "fr", "text": "régler"}, {"locale": "fr", "text": "payer", "status": "forbidden"},
+		},
+	}}).want(t, http.StatusCreated, "")
+	var findings struct {
+		Items []struct {
+			MessageKey string `json:"message_key"`
+			Locale     string `json:"locale"`
+			TargetText string `json:"target_text"`
+			Findings   []struct {
+				Code string `json:"code"`
+			} `json:"findings"`
+		} `json:"items"`
+		Checked map[string]int `json:"checked"`
+	}
+	s.do(call{method: "GET", path: tp.path + "/terminology-findings?locale=fr", bearer: tp.token}).decode(t, &findings)
+	if len(findings.Items) != 1 || findings.Items[0].MessageKey != "checkout.pay" || findings.Checked["fr"] != 1 ||
+		len(findings.Items[0].Findings) != 2 || findings.Items[0].TargetText != "Payer \uFFFC" {
+		t.Errorf("project check = %+v", findings)
+	}
+	s.do(call{method: "GET", path: tp.path + "/terminology-findings?locale=fr&state=published", bearer: tp.token}).
+		want(t, http.StatusBadRequest, "invalid_state")
 	r = s.do(call{method: "GET", path: base + "/term-concepts/" + created.ID, bearer: tp.token})
 	s.do(call{method: "PUT", path: base + "/term-concepts/" + created.ID, cookie: ada.cookie, csrf: ada.csrf,
 		body:    map[string]any{"terms": []map[string]any{{"locale": "en", "text": "item"}}},

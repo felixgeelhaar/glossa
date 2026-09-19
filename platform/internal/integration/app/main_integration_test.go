@@ -100,7 +100,7 @@ func newHarness(t *testing.T) *harness {
 	uow := db.NewUnitOfWork(env.App)
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
 	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat))
-	know := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(loc), knowledgesources.NewProjects(cat))
+	know := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(loc, cat), knowledgesources.NewProjects(cat))
 	svc := app.New(app.Deps{
 		Tx: integrationpg.NewTransactor(uow), Catalog: sources.NewCatalog(cat), Localization: sources.NewLocalization(loc, cat),
 		Knowledge: sources.NewKnowledge(know), Objects: objects, Config: app.Config{MaxUploadBytes: 1 << 20},

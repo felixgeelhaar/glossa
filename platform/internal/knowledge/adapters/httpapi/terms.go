@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1/apiconv"
@@ -225,7 +226,13 @@ func (a *API) CheckTerminology(ctx context.Context, req apiv1.CheckTerminologyRe
 	if err != nil {
 		return nil, mapError(err)
 	}
-	out := apiv1.CheckTerminology200JSONResponse{SourceText: source, TargetText: target, Findings: make([]apiv1.TermFinding, len(fs))}
+	return apiv1.CheckTerminology200JSONResponse{SourceText: source, TargetText: target, Findings: termFindings(fs, source, target)}, nil
+}
+
+// termFindings maps findings with their spans as code point offsets
+// into the source or target text.
+func termFindings(fs []domain.TermFinding, source, target string) []apiv1.TermFinding {
+	out := make([]apiv1.TermFinding, len(fs))
 	for i, f := range fs {
 		text := source
 		if f.Side == domain.SideTarget {
@@ -235,11 +242,52 @@ func (a *API) CheckTerminology(ctx context.Context, req apiv1.CheckTerminologyRe
 		if suggestions == nil {
 			suggestions = []string{}
 		}
-		out.Findings[i] = apiv1.TermFinding{
+		out[i] = apiv1.TermFinding{
 			Code: apiv1.TermFindingCode(f.Code), Severity: apiv1.TermFindingSeverity(f.Severity),
 			ConceptId: f.ConceptID.String(), TermId: f.TermID.String(), Side: apiv1.TermFindingSide(f.Side),
 			Start: codePoints(text, f.Start), End: codePoints(text, f.End), Text: f.Text, Suggestions: suggestions,
 			Message: f.Message,
+		}
+	}
+	return out
+}
+
+func (a *API) ListProjectTerminologyFindings(ctx context.Context, req apiv1.ListProjectTerminologyFindingsRequestObject) (apiv1.ListProjectTerminologyFindingsResponseObject, error) {
+	project, err := pathID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	p := req.Params
+	pg, err := page(p.PageSize, p.PageToken)
+	if err != nil {
+		return nil, err
+	}
+	c := app.ProjectTermCheck{Namespace: p.Namespace, KeyPrefix: deref(p.KeyPrefix), Page: pg}
+	for _, l := range p.Locale {
+		tag, err := locale(l)
+		if err != nil {
+			return nil, err
+		}
+		c.Locales = append(c.Locales, tag)
+	}
+	for _, st := range deref(p.State) {
+		c.States = append(c.States, string(st))
+	}
+	r, err := a.svc.CheckProjectTerminology(ctx, project, c)
+	if errors.Is(err, app.ErrProjectNotFound) {
+		return nil, mapError(app.ErrNotFound)
+	}
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := apiv1.ListProjectTerminologyFindings200JSONResponse{
+		Items: make([]apiv1.TranslationTerminologyFindings, len(r.Items)), Checked: r.Checked, NextPageToken: r.Next,
+	}
+	for i, it := range r.Items {
+		out.Items[i] = apiv1.TranslationTerminologyFindings{
+			MessageId: it.MessageID.String(), MessageKey: it.Key, Namespace: it.Namespace, Locale: it.Locale.String(),
+			State: apiv1.ReviewState(it.State), SourceText: it.SourceText, TargetText: it.TargetText,
+			Findings: termFindings(it.Findings, it.SourceText, it.TargetText),
 		}
 	}
 	return out, nil

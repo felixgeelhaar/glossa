@@ -651,7 +651,16 @@ warning for deprecated terms) for each forbidden or deprecated target
 term — unless the same words are an allowed term of a concept the
 source mentions. Messages are checked as `domain.VisibleText`
 (placeholders become U+FFFC, so `{$workspace}` is not a word). The API
-reports code point offsets.
+reports code point offsets. **Project checks**
+(`CheckProjectTerminology`, `GET …/projects/{project}/terminology-findings`)
+run the same QA server-side over a project's translations in up to 20
+locales, each against its message's current source: a page scans
+`page_size` translations of active messages in key order (default every
+review state but `rejected`) and lists those with findings by message
+key, with `checked` counts per locale. A page costs one read per
+context — the termbase, Localization's bulk listing and Catalog's
+`MessagesByIDs` for the page's sources (the `ProjectTranslations` port)
+— never one per translation.
 
 **Style guides** are structured: formality (register + pronoun), tone
 tags, punctuation (quotes, dash, spaces before units and punctuation,
