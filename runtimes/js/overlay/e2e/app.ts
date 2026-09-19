@@ -1,0 +1,58 @@
+/**
+ * The browser side of the overlay e2e tests: a preview deployment's page on
+ * `@glossa/runtime` and `@glossa/elements`, bundled by esbuild and served
+ * from the app origin under a strict CSP. `RELEASE` and `CONFIG` are
+ * prepended by the test. On `?glossa=edit` it loads the overlay from the
+ * Studio origin and starts a session: a stand-in for the overlay loader,
+ * which is a later slice (RFC 0004 §5.1).
+ */
+import { createRuntime } from "@glossa/runtime";
+import type { BundledRelease, Runtime } from "@glossa/runtime";
+import "@glossa/elements";
+
+import type { Overlay, activate } from "../src/index.js";
+import { renderPage } from "../src/testing/page.js";
+
+declare const RELEASE: BundledRelease;
+declare const CONFIG: {
+  apiBase: string;
+  overlaySrc: string;
+  token: string;
+  tenant: string;
+  project: string;
+};
+
+declare global {
+  interface Window {
+    app: { runtime: Runtime; overlay?: Overlay };
+    GlossaOverlay?: { activate: typeof activate };
+  }
+}
+
+const runtime = createRuntime({
+  bundled: RELEASE,
+  locales: "de",
+  environment: "preview",
+  storage: null,
+});
+runtime.subscribe(() => renderPage(document, runtime));
+renderPage(document, runtime);
+window.app = { runtime };
+
+if (new URLSearchParams(location.search).get("glossa") === "edit") {
+  const script = document.createElement("script");
+  script.src = CONFIG.overlaySrc;
+  script.addEventListener("load", () => {
+    window.app.overlay = window.GlossaOverlay!.activate({
+      apiBase: CONFIG.apiBase,
+      token: () => CONFIG.token,
+      tenant: CONFIG.tenant,
+      project: CONFIG.project,
+      locale: "de",
+      runtimes: runtime,
+      route: "/checkout",
+    });
+    document.documentElement.dataset.overlay = "ready";
+  });
+  document.head.append(script);
+}

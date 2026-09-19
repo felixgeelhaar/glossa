@@ -163,6 +163,9 @@ jobs:
         run: pnpm --filter @glossa/capture exec playwright install --with-deps chromium
       - name: capture mode in Chromium (Playwright)
         run: pnpm --filter @glossa/capture test:browser
+      # Alt+click targeting, live override, axe and the preview CSP (RFC 0004 §5).
+      - name: in-product editor in Chromium (Playwright)
+        run: pnpm --filter @glossa/overlay test:browser
       - name: admin build (vite)
         run: pnpm --filter @felixgeelhaar/glossa-admin build
 
