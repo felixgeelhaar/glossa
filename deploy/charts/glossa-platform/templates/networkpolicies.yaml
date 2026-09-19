@@ -1,7 +1,8 @@
 {{- if .Values.networkPolicy.enabled }}
 {{- $np := .Values.networkPolicy -}}
 # glossa-server: in from the ingress controller (and scrapers); out to
-# DNS, Postgres, object storage and SMTP (and the OTLP collector).
+# DNS, Postgres and object storage (and SMTP and the OTLP collector when
+# configured).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -25,7 +26,7 @@ spec:
     {{- include "gp.np.dnsEgress" . | nindent 4 }}
     {{- include "gp.np.egressRule" $np.egress.postgres | nindent 4 }}
     {{- include "gp.np.egressRule" $np.egress.objectStorage | nindent 4 }}
-    {{- if eq .Values.mail.driver "smtp" }}
+    {{- if eq (include "gp.mailDriver" .) "smtp" }}
     {{- include "gp.np.egressRule" $np.egress.smtp | nindent 4 }}
     {{- end }}
     {{- if .Values.server.otel.endpoint }}

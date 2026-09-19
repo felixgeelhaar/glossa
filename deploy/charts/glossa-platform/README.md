@@ -11,7 +11,7 @@ The v0.3 chart (`deploy/charts/glossa`) is separate and unchanged.
                   ┌─────────────── traefik (websecure) ────────────────┐
 app.<domain>/v1/* │→ glossa-server :8080 ──→ Postgres (glossa_app, RLS) │
 app.<domain>/*    │→ studio        :8080     object storage (read-write)│
-api.<domain>/v1/* │→ glossa-server :8080     SMTP                       │
+api.<domain>/v1/* │→ glossa-server :8080     SMTP (optional)            │
 cdn.<domain>/v1/* │→ glossa-edge   :8081 ──→ object storage (read-only) │
                   └─────────────────────────────────────────────────────┘
 pre-install/pre-upgrade hook: glossa-server -migrate=only (schema owner)
@@ -123,6 +123,7 @@ release exists and needs its Secrets and database already in place.
    # keyId=base64(32-byte Ed25519 seed); runtimes pin the public key.
    kubectl -n $NS create secret generic glossa-release-signing \
      --from-literal=GLOSSA_RELEASE_SIGNING_KEYS="k1=$(openssl rand -base64 32)"
+   # Only with an SMTP server (see Mail):
    kubectl -n $NS create secret generic glossa-smtp \
      --from-literal=GLOSSA_SMTP_USERNAME='…' --from-literal=GLOSSA_SMTP_PASSWORD='…'
    kubectl -n $NS create secret generic glossa-s3-rw \
@@ -155,6 +156,18 @@ to `release.retiredKeys` (platform/README.md, "Release").
 Uninstall leaves the migration NetworkPolicy (a hook resource) and never
 touches the database, the bucket or the Secrets.
 
+## Mail
+
+SMTP is optional. With `mail.smtp.addr` set (and optionally
+`mail.smtp.secretName` for AUTH), the chart sets `GLOSSA_MAIL_DRIVER=smtp`,
+the `GLOSSA_SMTP_*` variables and the server's SMTP egress rule. Without
+it, the chart sets **no** `GLOSSA_MAIL_*`/`GLOSSA_SMTP_*` variable, needs
+no SMTP Secret and opens no SMTP egress: glossa-server's own behaviour
+without a mailer applies. Email sign-in links and invitations are not
+delivered then. glossa-server 0.4.0 still defaults to the `log` driver,
+which writes sign-in links to its log; NOTES.txt says so after install.
+`mail.driver: log` can be set explicitly for development.
+
 ## Network policies
 
 With `networkPolicy.enabled`, each component gets one policy covering both
@@ -162,7 +175,7 @@ directions; anything not listed is denied.
 
 | Pod | Ingress | Egress |
 |---|---|---|
-| server | ingress controller → 8080; `metrics.allowFrom` → 8080 | DNS; `egress.postgres`; `egress.objectStorage`; `egress.smtp` (driver smtp); `egress.otlp` (endpoint set) |
+| server | ingress controller → 8080; `metrics.allowFrom` → 8080 | DNS; `egress.postgres`; `egress.objectStorage`; `egress.smtp` (SMTP configured); `egress.otlp` (endpoint set) |
 | edge | ingress controller → 8081; `metrics.allowFrom` → 8081 | DNS; `egress.objectStorage`; `egress.otlp` (endpoint set) |
 | studio | ingress controller → 8080 | none |
 | migrate Job | none | DNS; `egress.postgres` |
@@ -259,9 +272,9 @@ the value until it is set.
 | `auth.secretName` / `.secretKey` | REQUIRED / `GLOSSA_AUTH_SECRET` | Base64 of ≥ 32 random bytes. |
 | `release.signingKeys.secretName` / `.secretKey` | REQUIRED / `GLOSSA_RELEASE_SIGNING_KEYS` | `keyId=base64(seed)`, comma-separated. |
 | `release.retiredKeys` | `""` | `GLOSSA_RELEASE_RETIRED_KEYS` (public keys, not secret). |
-| `mail.driver` | `smtp` | `GLOSSA_MAIL_DRIVER`; `log` is for development only. |
-| `mail.from` | `""` | `GLOSSA_MAIL_FROM` |
-| `mail.smtp.addr` | REQUIRED with `smtp` | `GLOSSA_SMTP_ADDR` (`host:587`, STARTTLS). |
+| `mail.driver` | `""` → `smtp` if `mail.smtp.addr` is set, else unset | `GLOSSA_MAIL_DRIVER`; `log` is for development only. See [Mail](#mail). |
+| `mail.from` | `""` | `GLOSSA_MAIL_FROM` (set only with a driver). |
+| `mail.smtp.addr` | `""` | `GLOSSA_SMTP_ADDR` (`host:587`, STARTTLS). Setting it turns SMTP on; required with `mail.driver: smtp`. |
 | `mail.smtp.secretName` / `.usernameKey` / `.passwordKey` | `""` / `GLOSSA_SMTP_USERNAME` / `GLOSSA_SMTP_PASSWORD` | AUTH credentials; empty name: no AUTH. |
 | `objectStorage.endpoint` | REQUIRED | `GLOSSA_S3_ENDPOINT`, `host[:port]` without scheme. |
 | `objectStorage.bucket` | REQUIRED | `GLOSSA_S3_BUCKET` |
@@ -296,7 +309,7 @@ the value until it is set.
 | `networkPolicy.dns.namespaceSelector` / `.podSelector` | kube-system / `k8s-app: kube-dns` | Cluster DNS (53/UDP+TCP). |
 | `networkPolicy.egress.postgres` | `to: []`, 5432 | Server and migration Job. |
 | `networkPolicy.egress.objectStorage` | `to: []`, 443 | Server and edge. |
-| `networkPolicy.egress.smtp` | `to: []`, 587 | Server, with `mail.driver: smtp`. |
+| `networkPolicy.egress.smtp` | `to: []`, 587 | Server, only when SMTP is configured. |
 | `networkPolicy.egress.otlp` | `to: []`, 4318 | Server/edge, when their OTel endpoint is set. |
 | `networkPolicy.extraIngress.{server,edge,studio}` | `[]` | Extra `NetworkPolicyIngressRule`s. |
 | `networkPolicy.extraEgress.{server,edge}` | `[]` | Extra `NetworkPolicyEgressRule`s. |

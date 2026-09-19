@@ -125,6 +125,14 @@ affinity:
 {{- end }}
 {{- end -}}
 
+{{/* ── Mail ─────────────────────────────────────────────────────── */}}
+
+{{/* The effective GLOSSA_MAIL_DRIVER: mail.driver, else smtp when an SMTP
+     server is set, else "" (the variable is left unset). */}}
+{{- define "gp.mailDriver" -}}
+{{- .Values.mail.driver | default (ternary "smtp" "" (not (empty .Values.mail.smtp.addr))) -}}
+{{- end -}}
+
 {{/* ── Secret references ────────────────────────────────────────── */}}
 
 {{/* (dict "name" "ENV_NAME" "secret" "secret-name" "key" "key") */}}

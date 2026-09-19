@@ -191,13 +191,17 @@ release:
   # -- GLOSSA_RELEASE_RETIRED_KEYS: keyId=base64(public key),… (public, not secret).
   retiredKeys: ""
 
+## Optional. With no SMTP server configured the chart sets none of the
+## GLOSSA_MAIL_*/GLOSSA_SMTP_* variables and opens no SMTP egress; what the
+## server does without a mailer is the server's call (see README.md, "Mail").
 mail:
-  # -- GLOSSA_MAIL_DRIVER: smtp, or log (development only: links go to the log).
-  driver: smtp
+  # -- GLOSSA_MAIL_DRIVER. Empty: `smtp` when mail.smtp.addr is set,
+  # otherwise unset. `log` is development only (sign-in links go to the log).
+  driver: ""
   # -- GLOSSA_MAIL_FROM, e.g. "Glossa <no-reply@example.com>".
   from: ""
   smtp:
-    # -- GLOSSA_SMTP_ADDR (host:587, STARTTLS required). REQUIRED with driver smtp.
+    # -- GLOSSA_SMTP_ADDR (host:587, STARTTLS required). Setting it turns SMTP on.
     addr: ""
     # -- Secret with the SMTP AUTH credentials; empty: no AUTH.
     secretName: ""
@@ -307,7 +311,7 @@ networkPolicy:
       ports:
         - port: 443
           protocol: TCP
-    # -- glossa-server → SMTP submission.
+    # -- glossa-server → SMTP submission (only when SMTP is configured).
     smtp:
       to: []
       ports:

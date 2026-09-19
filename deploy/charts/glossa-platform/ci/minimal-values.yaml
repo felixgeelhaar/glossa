@@ -14,11 +14,6 @@ auth:
 release:
   signingKeys:
     secretName: glossa-release-signing
-mail:
-  from: "Glossa <no-reply@example.com>"
-  smtp:
-    addr: smtp.example.com:587
-    secretName: glossa-smtp
 objectStorage:
   endpoint: objects.example.com
   bucket: glossa-releases

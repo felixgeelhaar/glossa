@@ -1,6 +1,7 @@
 {{- $name := include "gp.componentName" (dict "root" $ "component" "server") -}}
 {{- $v := .Values.server -}}
-{{- if and (eq .Values.mail.driver "smtp") (not .Values.mail.smtp.addr) }}
+{{- $mailDriver := include "gp.mailDriver" . -}}
+{{- if and (eq $mailDriver "smtp") (not .Values.mail.smtp.addr) }}
 {{- fail "mail.smtp.addr is required when mail.driver is smtp" }}
 {{- end }}
 apiVersion: v1
@@ -88,19 +89,22 @@ spec:
               value: {{ $v.webauthn.rpName | quote }}
             - name: GLOSSA_WEBAUTHN_ORIGINS
               value: {{ $v.webauthn.origins | default (list (include "gp.studioUrl" .)) | join "," | quote }}
+            {{- /* No mailer configured: no mail variables at all. */}}
+            {{- if $mailDriver }}
             - name: GLOSSA_MAIL_DRIVER
-              value: {{ .Values.mail.driver | quote }}
+              value: {{ $mailDriver | quote }}
             {{- with .Values.mail.from }}
             - name: GLOSSA_MAIL_FROM
               value: {{ . | quote }}
             {{- end }}
-            {{- with .Values.mail.smtp.addr }}
-            - name: GLOSSA_SMTP_ADDR
-              value: {{ . | quote }}
             {{- end }}
+            {{- if eq $mailDriver "smtp" }}
+            - name: GLOSSA_SMTP_ADDR
+              value: {{ .Values.mail.smtp.addr | quote }}
             {{- with .Values.mail.smtp.secretName }}
             {{- include "gp.secretEnv" (dict "name" "GLOSSA_SMTP_USERNAME" "secret" . "key" $.Values.mail.smtp.usernameKey) | nindent 12 }}
             {{- include "gp.secretEnv" (dict "name" "GLOSSA_SMTP_PASSWORD" "secret" . "key" $.Values.mail.smtp.passwordKey) | nindent 12 }}
+            {{- end }}
             {{- end }}
             {{- with $v.otel.endpoint }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT

@@ -79,14 +79,16 @@ release:
     secretName: glossa-release-signing   # key GLOSSA_RELEASE_SIGNING_KEYS
   retiredKeys: ""
 
-# TODO(infra): mail provider (an EU submission service with STARTTLS on
-# 587) and the sender domain's SPF/DKIM/DMARC.
-mail:
-  driver: smtp
-  from: "Glossa <no-reply@todo-domain.invalid>"
-  smtp:
-    addr: smtp.todo-provider.invalid:587
-    secretName: glossa-smtp          # keys GLOSSA_SMTP_USERNAME, GLOSSA_SMTP_PASSWORD
+# Mail: out of scope for now (owner decision). With no SMTP server the
+# chart sets no GLOSSA_MAIL_*/GLOSSA_SMTP_* variables, needs no glossa-smtp
+# Secret and opens no SMTP egress (README.md, "Mail"). To turn it on later:
+# an EU submission service with STARTTLS on 587, the sender domain's
+# SPF/DKIM/DMARC, then uncomment this and networkPolicy.egress.smtp below.
+# mail:
+#   from: "Glossa <no-reply@todo-domain.invalid>"
+#   smtp:
+#     addr: smtp.todo-provider.invalid:587
+#     secretName: glossa-smtp        # keys GLOSSA_SMTP_USERNAME, GLOSSA_SMTP_PASSWORD
 
 # TODO(infra): object storage provider, bucket and region. Candidates:
 # Hetzner Object Storage (same region as the cluster), or MinIO in the
@@ -122,11 +124,11 @@ networkPolicy:
       to:
         - ipBlock:
             cidr: 203.0.113.0/24
-    # TODO(infra): the SMTP provider's address ranges.
-    smtp:
-      to:
-        - ipBlock:
-            cidr: 198.51.100.0/24
+    # With SMTP on: the provider's address ranges.
+    # smtp:
+    #   to:
+    #     - ipBlock:
+    #         cidr: 198.51.100.0/24
 
 metrics:
   # TODO(infra): where Prometheus runs, if it does.

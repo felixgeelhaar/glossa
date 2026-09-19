@@ -13,9 +13,16 @@ Check:
   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
   kubectl -n {{ .Release.Namespace }} get certificates
 
-{{- if eq .Values.mail.driver "log" }}
+{{- $mailDriver := include "gp.mailDriver" . }}
+{{- if eq $mailDriver "log" }}
 
 WARNING: mail.driver=log writes sign-in links to the server log. Development only.
+{{- else if not $mailDriver }}
+
+NOTE: no mailer is configured (mail.smtp.addr is empty): no GLOSSA_MAIL_*
+variables are set, so glossa-server's own default applies. No email is
+delivered; a server whose default driver is still "log" writes sign-in
+links to its log, so keep that log restricted.
 {{- end }}
 {{- if and .Values.networkPolicy.enabled (or (not .Values.networkPolicy.egress.postgres.to) (not .Values.networkPolicy.egress.objectStorage.to)) }}
 
