@@ -2,7 +2,7 @@
   "name": "@glossa/runtime",
   "version": "0.0.0",
   "private": true,
-  "description": "Glossa's JS runtime: a minimal MessageFormat 2 interpreter over precompiled messages, built on Intl only.",
+  "description": "Glossa's JS runtime: release loader, locale resolver, explain and a minimal MessageFormat 2 interpreter over precompiled messages, on Intl and WebCrypto only.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -30,9 +30,27 @@
   },
   "size-limit": [
     {
-      "name": "@glossa/runtime",
+      "name": "interpreter: { format, formatToParts }",
       "path": "dist/index.js",
+      "import": "{ format, formatToParts }",
       "limit": "4 KB"
+    },
+    {
+      "name": "runtime: { createRuntime }",
+      "path": "dist/index.js",
+      "import": "{ createRuntime }",
+      "limit": "6.5 KB"
+    },
+    {
+      "name": "runtime + resolver chain",
+      "path": "dist/index.js",
+      "import": "{ createRuntime, resolveLocales, acceptLanguage }",
+      "limit": "6.5 KB"
+    },
+    {
+      "name": "@glossa/runtime/idb",
+      "path": "dist/idb.js",
+      "limit": "0.5 KB"
     }
   ],
   "devDependencies": {
