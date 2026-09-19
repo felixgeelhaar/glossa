@@ -44,6 +44,14 @@ const samples = fixture.tests.flatMap((c) =>
     : [],
 );
 
+/**
+ * CLDR releases disagree on U+202F NARROW NO-BREAK SPACE vs U+0020 in some
+ * formats (English times before AM/PM), so the Node running the suite may
+ * differ from the one that recorded the samples. That is locale data, not
+ * conversion, so the comparison ignores the difference.
+ */
+const cldrSpaces = (s: string) => s.replaceAll("\u202f", " ");
+
 describe("Go-converted MF1 messages render like MF1", () => {
   it("covers the fixture", () => {
     expect(samples.length).toBeGreaterThan(50);
@@ -56,6 +64,6 @@ describe("Go-converted MF1 messages render like MF1", () => {
       onError: (e) => errors.push(e.type),
     });
     expect(errors).toEqual([]);
-    expect(out).toBe(sample.mf2Exp ?? sample.exp);
+    expect(cldrSpaces(out)).toBe(cldrSpaces(sample.mf2Exp ?? sample.exp));
   });
 });
