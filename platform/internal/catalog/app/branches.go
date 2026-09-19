@@ -972,16 +972,25 @@ func (s *Service) SweepProposals(ctx context.Context) (int, error) {
 // Its name is stable: it appears as the actor in logs and audits.
 const sweepPrincipal = "catalog.sweep"
 
-// SweepAllProposals runs the proposal sweep over every tenant holding a
-// closed branch, each in its own tenant scope as the background
-// principal catalog.sweep, and reports how many messages it obsoleted.
-// It runs outside any tenant (the daily purge job) and needs a Sweeper.
-// A failing tenant doesn't stop the others; their errors are joined.
+// sweepBatch bounds the tenants one run visits, so a database full of
+// them doesn't make a single run unbounded; the next run takes the
+// rest.
+const sweepBatch = 50
+
+// SweepAllProposals runs the proposal sweep over the tenants that have
+// work — proposed messages whose every proposing branch closed at least
+// domain.ProposalRetention ago — each in its own tenant scope as the
+// background principal catalog.sweep, and reports how many messages it
+// obsoleted. It runs outside any tenant (the daily catalog.proposals
+// job, leased by the scheduler so one replica leads it) and needs a
+// Scanner. A failing tenant doesn't stop the others; their errors are
+// joined.
 func (s *Service) SweepAllProposals(ctx context.Context) (int, error) {
-	if s.sweeper == nil {
-		return 0, errors.New("catalog: SweepAllProposals needs a Sweeper")
+	if s.scanner == nil {
+		return 0, errors.New("catalog: SweepAllProposals needs a Scanner")
 	}
-	tenants, err := s.sweeper.TenantsWithClosedBranches(ctx)
+	cutoff := s.now().Add(-domain.ProposalRetention)
+	tenants, err := s.scanner.TenantsWithExpiredProposals(ctx, cutoff, sweepBatch)
 	if err != nil {
 		return 0, err
 	}

@@ -169,9 +169,8 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_PURGE_POLL_INTERVAL` | `5m` | How often a replica asks whether a job is due. It must not exceed the interval. |
 | `GLOSSA_PURGE_JITTER` | `0.2` | Fraction of the poll interval (0–1) each poll is spread by, so replicas started together don't ask in lockstep. |
 | `GLOSSA_PURGE_BATCH_SIZE` | `100` | Object-store deletes issued at a time while freeing unreferenced capture images. |
-| `GLOSSA_BRANCH_WORKERS_ENABLED` | `true` | Publish branch preview environments whose debounced request is due, and sweep the proposals of branches closed 14 days ago. Both are idempotent, so every replica may run them. |
+| `GLOSSA_BRANCH_PUBLISHER_ENABLED` | `true` | Publish branch preview environments whose debounced request is due. A publish is keyed by its request, so every replica may run it. (The proposal sweep is not here: it is one of the leased `GLOSSA_PURGE_*` jobs.) |
 | `GLOSSA_BRANCH_PUBLISH_INTERVAL` | `5s` | How often due branch publishes are looked for (the debounce itself is 30 s). |
-| `GLOSSA_BRANCH_SWEEP_INTERVAL` | `1h` | How often expired proposals are swept. |
 
 `glossa-edge` reads `GLOSSA_HTTP_*` (listening on `:8081` by default),
 `GLOSSA_LOG_LEVEL`, `GLOSSA_SHUTDOWN_TIMEOUT`, `OTEL_*` (service
@@ -472,7 +471,7 @@ the ID and all history.
 |---|---|---|
 | `catalog_projects`, `catalog_applications`, `catalog_messages` | tenant | Ordinary state; the message row is the projection of its latest source revision. |
 | `catalog_source_revisions` | tenant | Append-only by grant (`glossa_app`: SELECT, INSERT). History is the domain here (RFC 0002 §4). |
-| `catalog_branches`, `catalog_proposals` | tenant | The branch overlay (RFC 0004 §4.1). `glossa_system` reads branch states, proposal links and message states to schedule the proposal sweep (system scope `catalog.proposal_sweep`, migration 0016). |
+| `catalog_branches`, `catalog_proposals` | tenant | The branch overlay (RFC 0004 §4.1). `glossa_system` reads branch identity and closing time, proposal links and message states to find the proposal sweep's work (system scope `catalog.proposals`, migration 0016). |
 
 Events: `catalog.project.{created,updated,deleted}`,
 `catalog.application.{created,updated,deleted}`,
@@ -516,10 +515,10 @@ end the branch and clean up. A closed or merged branch's proposed
 messages stay for 14 days (`ProposalRetention`) before `SweepProposals`
 obsoletes them with their translations and history intact; a reopened
 branch, or a later push of the key, proposes them again. The sweep runs
-in glossa-server as `catalog.proposal_sweep` (`ProposalSweeper`,
-`GLOSSA_BRANCH_WORKERS_ENABLED`, every `GLOSSA_BRANCH_SWEEP_INTERVAL`);
-a system-scope query (migration 0016) finds the tenants that have
-expired proposals, and the sweep itself runs in each tenant's scope.
+in glossa-server as the daily `catalog.proposals` job (`GLOSSA_PURGE_*`,
+leased so one replica leads it); a system-scope query (migration 0016)
+finds the tenants that have expired proposals, and the sweep itself runs
+in each tenant's scope.
 
 A branch name may hold `/`, and an encoded slash doesn't survive every
 proxy, so **URLs address a branch by its ID**: `GET …/branches` lists
@@ -1311,10 +1310,11 @@ back and is retried at the next interval, counted and logged rather than
 taking the server down, and a run in progress finishes (bounded by
 `GLOSSA_PURGE_TIMEOUT`) before shutdown. Two jobs run: `context.purge`
 (this retention) and `catalog.proposals`, Catalog's `SweepAllProposals`
-over every tenant holding a closed branch (system scope
-`catalog.proposals`, which reads `catalog_branches.tenant_id` and
-`closed_at` only), each tenant swept in its own scope as
-`catalog.sweep`.
+over the tenants that have expired proposals — proposed messages whose
+every proposing branch closed at least `ProposalRetention` ago (system
+scope `catalog.proposals`, migration 0016: branch identity and closing
+time, proposal links and message states only), at most 50 tenants a run,
+each swept in its own scope as `catalog.sweep`.
 
 | Table | Scope | Why |
 |---|---|---|
@@ -1444,7 +1444,7 @@ manifest go, so the edge answers 404; releases and deployments stay).
 The `Publisher` runs due requests across tenants as `release.publisher`,
 with the request's ID as the publish's idempotency key, so two
 publishers or a retry after a crash publish once.
-`GLOSSA_BRANCH_WORKERS_ENABLED` (default on) runs it in glossa-server,
+`GLOSSA_BRANCH_PUBLISHER_ENABLED` (default on) runs it in glossa-server,
 every `GLOSSA_BRANCH_PUBLISH_INTERVAL` (5 s).
 
 **Delivery keys are scoped** (RFC 0004 §4.3, SPEC §2): an `environments`

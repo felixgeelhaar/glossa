@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
-	"sync"
 	"syscall"
 	"time"
 
@@ -31,6 +30,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/scheduler"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
 )
 
 func main() {
@@ -119,10 +119,10 @@ type app struct {
 	keyIndexes func(context.Context) (int, error)
 	// purger runs the daily retention jobs; nil when disabled.
 	purger *scheduler.Scheduler
-	// branchWorkers publish due branch environments and sweep expired
-	// proposals; nil when branch workers are off.
-	branchWorkers []worker
-	shutdownTP    observability.ShutdownFunc
+	// branchPublisher publishes due branch environments; nil when the
+	// publisher is off.
+	branchPublisher *releaseapp.Publisher
+	shutdownTP      observability.ShutdownFunc
 }
 
 func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
@@ -180,7 +180,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger) (*app, e
 	return &app{
 		cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, aiWorker: bounded.aiWorker,
 		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger,
-		branchWorkers: branchWorkers(bounded), shutdownTP: shutdownTP,
+		branchPublisher: bounded.branchPublisher, shutdownTP: shutdownTP,
 	}, nil
 }
 
@@ -237,7 +237,7 @@ func (a *app) run(ctx context.Context) error {
 	worked := a.startWorker(dispatchCtx)
 	moved := a.startIntegrationWorker(dispatchCtx)
 	purged := a.startPurger(dispatchCtx)
-	branched := a.startBranchWorkers(dispatchCtx)
+	published := a.startBranchPublisher(dispatchCtx)
 	a.startKeyIndexTask(dispatchCtx)
 
 	var runErr error
@@ -247,7 +247,7 @@ func (a *app) run(ctx context.Context) error {
 	case runErr = <-errc:
 		a.logger.Error("component failed; shutting down", slog.Any("error", runErr))
 	}
-	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, purged, branched))
+	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, purged, published))
 }
 
 // startPurger runs the daily retention jobs until ctx ends; a run in
@@ -300,45 +300,19 @@ func (a *app) startKeyIndexTask(ctx context.Context) {
 	}()
 }
 
-// worker is a background loop that runs until its context ends.
-type worker interface {
-	Run(ctx context.Context) error
-}
-
-// branchWorkers are the branch publisher and the proposal sweep, when
-// they are enabled.
-func branchWorkers(c contexts) []worker {
-	var out []worker
-	if c.branchPublisher != nil {
-		out = append(out, c.branchPublisher)
-	}
-	if c.proposalSweeper != nil {
-		out = append(out, c.proposalSweeper)
-	}
-	return out
-}
-
-// startBranchWorkers runs the branch publisher and the proposal sweep
-// until ctx ends. Both are idempotent and safe to run on every replica:
-// a publish is keyed by its request, and the sweep obsoletes only what
-// is already due.
-func (a *app) startBranchWorkers(ctx context.Context) <-chan struct{} {
+// startBranchPublisher publishes due branch environments until ctx
+// ends. It is idempotent and safe to run on every replica: a publish is
+// keyed by its request. (The proposal sweep is not here — it is a
+// leased scheduler job, so one replica leads it.)
+func (a *app) startBranchPublisher(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
-	if len(a.branchWorkers) == 0 {
+	if a.branchPublisher == nil {
 		close(done)
 		return done
 	}
-	var wg sync.WaitGroup
-	for _, w := range a.branchWorkers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_ = w.Run(ctx)
-		}()
-	}
 	go func() {
-		wg.Wait()
-		close(done)
+		defer close(done)
+		_ = a.branchPublisher.Run(ctx)
 	}()
 	return done
 }
@@ -389,7 +363,7 @@ func (a *app) startDispatcher(ctx context.Context, errc chan<- error) <-chan str
 	return done
 }
 
-func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched, worked, moved, purged, branched <-chan struct{}) error {
+func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched, worked, moved, purged, published <-chan struct{}) error {
 	ctx, cancel := context.WithTimeout(context.Background(), a.cfg.ShutdownTimeout)
 	defer cancel()
 	var errs []error
@@ -418,9 +392,9 @@ func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched, worked, move
 		errs = append(errs, errors.New("the retention job did not stop before the shutdown timeout; its lease ends on its own and another replica purges at the next interval"))
 	}
 	select {
-	case <-branched:
+	case <-published:
 	case <-ctx.Done():
-		errs = append(errs, errors.New("branch workers did not stop before the shutdown timeout; another replica, or the next pass, picks their work up"))
+		errs = append(errs, errors.New("the branch publisher did not stop before the shutdown timeout; another replica, or its next pass, picks the due publishes up"))
 	}
 	if err := a.shutdownTP(ctx); err != nil {
 		errs = append(errs, fmt.Errorf("flush traces: %w", err))

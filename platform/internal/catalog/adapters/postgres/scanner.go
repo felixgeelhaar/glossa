@@ -12,10 +12,10 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
-// Scanner implements app.Scanner in system scope: it reads only the
-// columns migration 0016 opens to glossa_system (branch states, the
-// proposal links and message states), and the sweep it schedules runs
-// in each tenant's scope.
+// Scanner implements app.Scanner in the system scope
+// catalog.proposals: it reads only the columns migration 0016 opens to
+// glossa_system (branch states, the proposal links and message states),
+// and the sweep it finds work for runs in each tenant's scope.
 type Scanner struct {
 	uow   *db.UnitOfWork
 	sweep db.SystemScope
@@ -23,7 +23,7 @@ type Scanner struct {
 
 // NewScanner returns a Scanner on uow.
 func NewScanner(uow *db.UnitOfWork) *Scanner {
-	return &Scanner{uow: uow, sweep: db.NewSystemScope("catalog.proposal_sweep")}
+	return &Scanner{uow: uow, sweep: db.NewSystemScope("catalog.proposals")}
 }
 
 var _ app.Scanner = (*Scanner)(nil)

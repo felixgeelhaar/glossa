@@ -131,17 +131,17 @@ type Purge struct {
 	BatchSize int
 }
 
-// Branches configures the background work branch previews need
-// (RFC 0004 §4): the publisher that publishes a branch environment once
-// its debounced request is due, and the sweep that obsoletes the
-// proposed messages of branches closed long enough ago.
+// Branches configures the branch publisher (RFC 0004 §4): it publishes
+// a branch's preview environment once its debounced request is due. The
+// proposal sweep is not here — it is one of the daily Purge jobs, so
+// that one replica leads it rather than all of them.
 type Branches struct {
-	// WorkersEnabled runs both in this process.
-	WorkersEnabled bool
+	// PublisherEnabled runs the publisher in this process. It is
+	// idempotent (a publish is keyed by its request), so every replica
+	// may run it.
+	PublisherEnabled bool
 	// PublishInterval is how often the publisher looks for due requests.
 	PublishInterval time.Duration
-	// SweepInterval is how often the proposal sweep runs.
-	SweepInterval time.Duration
 }
 
 // Integration configures the import and export jobs (RFC 0003 §5–§6):
@@ -325,9 +325,8 @@ func Load(lookup LookupFunc) (Config, error) {
 		BatchSize:    r.intRange("GLOSSA_PURGE_BATCH_SIZE", 100, 1, 10000),
 	}
 	cfg.Branches = Branches{
-		WorkersEnabled:  r.boolean("GLOSSA_BRANCH_WORKERS_ENABLED", true),
-		PublishInterval: r.duration("GLOSSA_BRANCH_PUBLISH_INTERVAL", 5*time.Second),
-		SweepInterval:   r.duration("GLOSSA_BRANCH_SWEEP_INTERVAL", time.Hour),
+		PublisherEnabled: r.boolean("GLOSSA_BRANCH_PUBLISHER_ENABLED", true),
+		PublishInterval:  r.duration("GLOSSA_BRANCH_PUBLISH_INTERVAL", 5*time.Second),
 	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {

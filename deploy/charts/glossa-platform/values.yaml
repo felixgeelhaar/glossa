@@ -93,14 +93,15 @@ server:
     jitter: 0.2
     # -- GLOSSA_PURGE_BATCH_SIZE: object-store deletes issued at a time.
     batchSize: 100
+  # The branch publisher: it publishes a branch's preview environment once
+  # its debounced request is due. A publish is keyed by its request, so
+  # every replica may run it. (The proposal sweep is a purge job above.)
   branches:
-    # -- GLOSSA_BRANCH_WORKERS_ENABLED: publish branch preview environments when their
-    # debounced request is due, and sweep the proposals of branches closed 14 days ago.
-    workersEnabled: true
+    # -- GLOSSA_BRANCH_PUBLISHER_ENABLED: publish branch preview environments when
+    # their debounced request is due.
+    publisherEnabled: true
     # -- GLOSSA_BRANCH_PUBLISH_INTERVAL: how often due publishes are looked for.
     publishInterval: 5s
-    # -- GLOSSA_BRANCH_SWEEP_INTERVAL: how often expired proposals are swept.
-    sweepInterval: 1h
   webauthn:
     # -- GLOSSA_WEBAUTHN_RP_ID (registrable domain). Default: hosts.studio.
     rpId: ""

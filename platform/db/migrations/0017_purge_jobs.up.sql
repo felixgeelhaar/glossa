@@ -1,5 +1,9 @@
--- 0017 — the daily purge job: a cluster-wide lease and the tenant
--- sweep behind Catalog's proposal sweep (RFC 0004 §2.3, §4.1).
+-- 0017 — the daily purge jobs' cluster-wide lease (RFC 0004 §2.3).
+--
+-- The jobs themselves need no grants of their own here: Context's
+-- retention keeps the ones migration 0014 opened, and Catalog's
+-- proposal sweep the ones migration 0016 opened for its system scope
+-- catalog.proposals.
 --
 -- glossa-server runs several replicas, and the purge is not something
 -- to run twice at once: each periodic job takes a named lease first,
@@ -28,14 +32,3 @@ ALTER TABLE system_leases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_leases FORCE ROW LEVEL SECURITY;
 CREATE POLICY system_leases_system ON system_leases TO glossa_system USING (true) WITH CHECK (true);
 GRANT SELECT, INSERT, UPDATE ON system_leases TO glossa_system;
-
--- ── the proposal sweep's tenant list ───────────────────────────────
--- Catalog's sweep obsoletes a closed branch's proposed messages 14 days
--- after it closed (RFC 0004 §4.1). It runs per tenant, in that tenant's
--- scope; the purge job finds which tenants have a closed branch at all
--- (system scope "catalog.proposals"), and learns nothing else about
--- them.
-
-CREATE POLICY catalog_branches_system_select ON catalog_branches
-    FOR SELECT TO glossa_system USING (true);
-GRANT SELECT (tenant_id, closed_at) ON catalog_branches TO glossa_system;

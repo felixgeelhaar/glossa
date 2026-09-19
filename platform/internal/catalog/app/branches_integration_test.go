@@ -50,7 +50,7 @@ func newBranchHarness(t *testing.T) *branchHarness {
 	h := &branchHarness{tenant: tenant, now: time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)}
 	uow := db.NewUnitOfWork(env.App)
 	h.svc = app.New(postgres.NewTransactor(uow), app.WithClock(func() time.Time { return h.now }),
-		app.WithSweeper(postgres.NewSweeper(uow)))
+		app.WithScanner(postgres.NewScanner(uow)))
 	h.loc = localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(h.svc))
 	h.svc.SetCoverage(coverage.New(h.loc))
 	h.svc.SetImpact(coverage.New(h.loc))
@@ -583,7 +583,7 @@ func TestClosedBranchesReportsWhenEachClosed(t *testing.T) {
 	}
 }
 
-func TestSweepAllProposalsVisitsEveryTenantWithAClosedBranch(t *testing.T) {
+func TestSweepAllProposalsVisitsEveryTenantWithExpiredProposals(t *testing.T) {
 	h := newBranchHarness(t)
 	h.pushBranch(t, "feature/tip", map[string]string{"checkout.tip": "Add a tip"}, false)
 	closedAt := h.now
@@ -611,4 +611,5 @@ func TestSweepAllProposalsVisitsEveryTenantWithAClosedBranch(t *testing.T) {
 	if _, err := h.svc.SweepAllProposals(h.owner()); err == nil {
 		t.Error("SweepAllProposals ran in a tenant's request context")
 	}
+	h.drain(t)
 }

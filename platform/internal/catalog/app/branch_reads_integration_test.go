@@ -3,16 +3,12 @@
 package app_test
 
 import (
-	"context"
 	"errors"
 	"slices"
 	"testing"
-	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 )
 
@@ -185,33 +181,6 @@ func TestOpenBranchesProposingAMessage(t *testing.T) {
 	if got, err := h.svc.OpenBranchesProposing(h.owner(), h.project, m.ID); err != nil ||
 		!slices.Equal(got, []domain.BranchName{"feature/b"}) {
 		t.Errorf("after close: %v %v", got, err)
-	}
-	h.drain(t)
-}
-
-func TestProposalSweeperFindsTenantsAcrossTheDatabase(t *testing.T) {
-	h := newBranchHarness(t)
-	h.pushBranch(t, "feature/tip", map[string]string{"checkout.tip": "Add a tip"}, false)
-	closedAt := h.now
-	if _, err := h.svc.CloseBranch(h.owner(), h.project, "feature/tip"); err != nil {
-		t.Fatal(err)
-	}
-	h.drain(t)
-	sweeper := app.NewProposalSweeper(h.svc, postgres.NewScanner(db.NewUnitOfWork(env.App)), time.Hour, nil)
-
-	if n, err := sweeper.RunOnce(context.Background()); err != nil || n != 0 {
-		t.Fatalf("before the retention period: %d %v", n, err)
-	}
-	h.now = closedAt.Add(domain.ProposalRetention)
-	n, err := sweeper.RunOnce(context.Background())
-	if err != nil || n != 1 {
-		t.Fatalf("sweep: %d %v", n, err)
-	}
-	if m := h.message(t, "checkout.tip"); m.State != domain.MessageObsolete {
-		t.Errorf("after sweep %+v", m)
-	}
-	if n, err := sweeper.RunOnce(context.Background()); err != nil || n != 0 {
-		t.Errorf("second sweep: %d %v", n, err)
 	}
 	h.drain(t)
 }

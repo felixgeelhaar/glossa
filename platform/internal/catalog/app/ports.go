@@ -38,13 +38,6 @@ type Transactor interface {
 	InTenant(ctx context.Context, fn func(context.Context, Store) error) error
 }
 
-// Sweeper lists, across tenants (system scope), the tenants holding a
-// closed or merged branch: what the daily proposal sweep visits. It
-// learns nothing else about them.
-type Sweeper interface {
-	TenantsWithClosedBranches(ctx context.Context) ([]tenancy.ID, error)
-}
-
 // NamespaceSummary is a namespace of a project with how many of its
 // messages are active and obsolete.
 type NamespaceSummary struct {
@@ -144,11 +137,13 @@ type Store interface {
 	Publish(ctx context.Context, e outbox.Event) error
 }
 
-// Scanner finds Catalog's background work across tenants (system
-// scope); the work itself runs in each tenant's scope.
+// Scanner finds Catalog's background work across tenants (system scope
+// catalog.proposals); the work itself runs in each tenant's scope. The
+// daily catalog.proposals job drives it.
 type Scanner interface {
-	// TenantsWithExpiredProposals lists the tenants holding proposed
-	// messages whose every proposing branch closed before cutoff.
+	// TenantsWithExpiredProposals lists up to limit tenants holding
+	// proposed messages whose every proposing branch closed before
+	// cutoff.
 	TenantsWithExpiredProposals(ctx context.Context, cutoff time.Time, limit int) ([]tenancy.ID, error)
 }
 

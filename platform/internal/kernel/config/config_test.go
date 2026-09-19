@@ -260,12 +260,11 @@ func TestBranchesConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := cfg.Branches
-	if !b.WorkersEnabled || b.PublishInterval != 5*time.Second || b.SweepInterval != time.Hour {
+	if !b.PublisherEnabled || b.PublishInterval != 5*time.Second {
 		t.Errorf("defaults = %+v", b)
 	}
 	over := map[string]string{
-		"GLOSSA_BRANCH_WORKERS_ENABLED": "false", "GLOSSA_BRANCH_PUBLISH_INTERVAL": "2s",
-		"GLOSSA_BRANCH_SWEEP_INTERVAL": "10m",
+		"GLOSSA_BRANCH_PUBLISHER_ENABLED": "false", "GLOSSA_BRANCH_PUBLISH_INTERVAL": "2s",
 	}
 	for k, v := range base {
 		over[k] = v
@@ -273,7 +272,7 @@ func TestBranchesConfig(t *testing.T) {
 	if cfg, err = config.Load(env(over)); err != nil {
 		t.Fatal(err)
 	}
-	if b = cfg.Branches; b.WorkersEnabled || b.PublishInterval != 2*time.Second || b.SweepInterval != 10*time.Minute {
+	if b = cfg.Branches; b.PublisherEnabled || b.PublishInterval != 2*time.Second {
 		t.Errorf("overrides = %+v", b)
 	}
 	over["GLOSSA_BRANCH_PUBLISH_INTERVAL"] = "nope"

@@ -12,36 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const listTenantsWithClosedBranches = `-- name: ListTenantsWithClosedBranches :many
-
-SELECT DISTINCT tenant_id FROM catalog_branches WHERE closed_at IS NOT NULL ORDER BY tenant_id
-`
-
-// System scope catalog.proposals (db.SystemTx as glossa_system):
-// migration 0017 opens catalog_branches' tenant_id and closed_at to it,
-// read-only, and nothing else. The daily purge job uses it to find
-// which tenants have a closed branch at all, then sweeps each in its
-// own tenant scope (RFC 0004 §4.1).
-func (q *Queries) ListTenantsWithClosedBranches(ctx context.Context) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, listTenantsWithClosedBranches)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []uuid.UUID
-	for rows.Next() {
-		var tenant_id uuid.UUID
-		if err := rows.Scan(&tenant_id); err != nil {
-			return nil, err
-		}
-		items = append(items, tenant_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listTenantsWithExpiredProposals = `-- name: ListTenantsWithExpiredProposals :many
 
 SELECT DISTINCT m.tenant_id FROM catalog_messages m
@@ -59,12 +29,13 @@ type ListTenantsWithExpiredProposalsParams struct {
 	MaxRows int32
 }
 
-// System scope (db.SystemTx as glossa_system): migration 0016 opens
-// these columns to it, read-only, and nothing else. The query finds
-// work across tenants; the sweep itself runs in each tenant's scope.
-// System scope catalog.proposal_sweep: the tenants holding proposed
-// messages whose every proposing branch closed or merged before the
-// cutoff — exactly what SweepProposals obsoletes.
+// System scope catalog.proposals (db.SystemTx as glossa_system):
+// migration 0016 opens these columns to it, read-only, and nothing
+// else. The query finds the work across tenants; the sweep itself runs
+// in each tenant's scope (RFC 0004 §4.1).
+// The tenants holding proposed messages whose every proposing branch
+// closed or merged before the cutoff — exactly what SweepProposals
+// obsoletes. The daily catalog.proposals job sweeps each of them.
 func (q *Queries) ListTenantsWithExpiredProposals(ctx context.Context, arg ListTenantsWithExpiredProposalsParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listTenantsWithExpiredProposals, arg.Cutoff, arg.MaxRows)
 	if err != nil {

@@ -20,7 +20,7 @@ type Service struct {
 	coverage   TranslationCoverage
 	projection MessageProjection
 	impact     TranslationImpact
-	sweeper    Sweeper
+	scanner    Scanner
 	now        func() time.Time
 }
 
@@ -30,9 +30,9 @@ type Option func(*Service)
 // WithClock replaces time.Now (tests).
 func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
 
-// WithSweeper enables SweepAllProposals across tenants (the daily purge
-// job). Without one, the sweep runs only per tenant.
-func WithSweeper(sw Sweeper) Option { return func(s *Service) { s.sweeper = sw } }
+// WithScanner enables SweepAllProposals across tenants (the daily
+// catalog.proposals job). Without one, the sweep runs only per tenant.
+func WithScanner(sc Scanner) Option { return func(s *Service) { s.scanner = sc } }
 
 // New returns the service. Wire Localization's coverage with
 // SetCoverage once both contexts exist.

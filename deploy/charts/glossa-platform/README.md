@@ -658,16 +658,15 @@ the value until it is set.
 | `server.integration.workers` | `1` | `GLOSSA_INTEGRATION_WORKERS` per pod. |
 | `server.integration.maxUploadBytes` | `67108864` | `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES` (64 MiB). The upload route enforces it itself; keep any ingress body limit above it. |
 | `server.integration.retention` | `168h` | `GLOSSA_INTEGRATION_RETENTION`: import/export files are deleted after this; jobs and results stay. |
-| `server.purge.enabled` | `true` | `GLOSSA_PURGE_ENABLED`: the daily retention jobs — builds beyond retention with their captures, the images no capture references, and Catalog's proposal sweep. One replica leads each run (a lease), so leave it on everywhere. |
+| `server.purge.enabled` | `true` | `GLOSSA_PURGE_ENABLED`: the daily jobs — builds beyond retention with their captures, the images no capture references, and Catalog's sweep of the proposals of branches closed 14 days ago. One replica leads each run (a lease), so leave it on everywhere. |
 | `server.purge.interval` | `24h` | `GLOSSA_PURGE_INTERVAL`: how often the jobs run across the deployment, not per pod. |
 | `server.purge.timeout` | `30m` | `GLOSSA_PURGE_TIMEOUT`: bounds one run of one job; it must fit inside the interval. |
 | `server.purge.lease` | `35m` | `GLOSSA_PURGE_LEASE`: how long a run reserves its job against the other replicas. Must exceed the timeout. |
 | `server.purge.pollInterval` | `5m` | `GLOSSA_PURGE_POLL_INTERVAL`: how often a pod asks whether a job is due. |
 | `server.purge.jitter` | `0.2` | `GLOSSA_PURGE_JITTER`: fraction of the poll interval each poll is spread by (0–1), so replicas don't ask in lockstep. |
 | `server.purge.batchSize` | `100` | `GLOSSA_PURGE_BATCH_SIZE`: object-store deletes issued at a time while freeing unreferenced images. |
-| `server.branches.workersEnabled` | `true` | `GLOSSA_BRANCH_WORKERS_ENABLED`: publish a branch's preview environment when its debounced request is due, and sweep the proposals of branches closed 14 days ago. Both are idempotent, so every replica may run them. |
+| `server.branches.publisherEnabled` | `true` | `GLOSSA_BRANCH_PUBLISHER_ENABLED`: publish a branch's preview environment when its debounced request is due. A publish is keyed by its request, so every replica may run it. |
 | `server.branches.publishInterval` | `5s` | `GLOSSA_BRANCH_PUBLISH_INTERVAL`: how often due branch publishes are looked for (the debounce itself is 30 s). |
-| `server.branches.sweepInterval` | `1h` | `GLOSSA_BRANCH_SWEEP_INTERVAL`: how often expired proposals are swept. |
 | `server.webauthn.rpId` | `hosts.studio` | `GLOSSA_WEBAUTHN_RP_ID`; changing it later invalidates enrolled passkeys. |
 | `server.webauthn.rpName` | `Glossa` | `GLOSSA_WEBAUTHN_RP_NAME` |
 | `server.webauthn.origins` | `[https://<hosts.studio>]` | `GLOSSA_WEBAUTHN_ORIGINS` |

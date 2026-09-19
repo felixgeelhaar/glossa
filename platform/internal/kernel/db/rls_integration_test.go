@@ -70,10 +70,6 @@ var systemPolicies = map[string][]string{
 	// tenants (system scope context.retention; tenant_id and project_id
 	// only), then purges each in its tenant's scope.
 	"context_builds": {"context_builds_system_select"},
-	// The daily proposal sweep finds which tenants have a closed branch
-	// at all (system scope catalog.proposals; tenant_id and closed_at
-	// only), then sweeps each in its tenant's scope.
-	"catalog_branches": {"catalog_branches_system_select"},
 	// The purge scheduler's own lease: which replica leads a periodic
 	// job (system scope scheduler.lease). No tenant, no glossa_app grant.
 	"system_leases": {"system_leases_system"},
@@ -83,10 +79,11 @@ var systemPolicies = map[string][]string{
 	// format versions only, read-only; the work runs in tenant scope.
 	"release_publish_requests": {"release_publish_requests_system_select"},
 	"release_delivery_keys":    {"release_delivery_keys_system_select"},
-	// Catalog's proposal sweep finds the tenants holding proposed
+	// The daily catalog.proposals job finds the tenants holding proposed
 	// messages whose branches all closed long ago (system scope
-	// catalog.proposal_sweep): branch states, proposal links and message
-	// states only, read-only; the sweep runs in tenant scope.
+	// catalog.proposals): branch identity and closing time, proposal
+	// links and message states only, read-only; the sweep itself runs in
+	// each tenant's scope.
 	"catalog_branches":  {"catalog_branches_system_select"},
 	"catalog_proposals": {"catalog_proposals_system_select"},
 	"catalog_messages":  {"catalog_messages_system_select"},
