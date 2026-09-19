@@ -141,3 +141,30 @@ describe("client.scan", () => {
     expect(JSON.parse(seenBody ?? "{}")).toEqual({ keys: [{ name: "cart.checkout" }] });
   });
 });
+
+describe("client locale canonicalization", () => {
+  // The server matches locales by canonical form and answers with the
+  // canonical code. The cache follows the server's spelling so SSE
+  // events (always canonical) patch the same entry the caller reads.
+  const canonical: Bundle = { ...bundleA, locale: "de-DE" };
+
+  it("keeps serving a bundle requested under a non-canonical spelling", async () => {
+    let second!: Request;
+    const fetchMock = makeFetch(
+      new Response(JSON.stringify(canonical), { status: 200, headers: { ETag: "v1" } }),
+      (req) => {
+        second = req;
+        return new Response(null, { status: 304 });
+      },
+    );
+    const client = createClient({ ...baseConfig, fetch: fetchMock });
+
+    await client.bundle("de-de");
+    expect(client.message("de-de", "cart.checkout")).toBe("Zur Kasse");
+    expect(client.message("de-DE", "cart.checkout")).toBe("Zur Kasse");
+
+    const again = await client.bundle("de-DE");
+    expect(second.headers.get("If-None-Match")).toBe("v1");
+    expect(again.locale).toBe("de-DE");
+  });
+});
