@@ -1147,6 +1147,411 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/environments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Environments of a project
+         * @description By name. Every project has `development`, `preview`, `staging`
+         *     and `production`; they are created on first use. Needs
+         *     `releases.read`.
+         */
+        get: operations["listEnvironments"];
+        put?: never;
+        /**
+         * Add a custom environment
+         * @description A branch preview, a QA stage. Without `policy` it ships
+         *     everything not rejected. Needs `releases.publish`. Problem codes:
+         *     `environment_exists` (409), `invalid_environment`,
+         *     `invalid_policy` (400).
+         */
+        post: operations["createEnvironment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An environment, its policy and the release it serves
+         * @description Needs `releases.read`.
+         */
+        get: operations["getEnvironment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change an environment's eligibility policy
+         * @description The policy decides what the next publish ships and which
+         *     releases may be promoted here; the release served keeps serving.
+         *     Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+         */
+        patch: operations["updateEnvironment"];
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Point the environment at an existing release
+         * @description Moves the pointer; nothing is rebuilt. The environment's policy
+         *     must cover the policy the release was built under, so a preview
+         *     release with drafts can't reach production. Promoting the
+         *     release already served changes nothing, so a retry is safe.
+         *     Needs `releases.publish`. Problem codes: `release_not_found`
+         *     (404), `release_ineligible` (409), `storage_unavailable` (503).
+         */
+        post: operations["promoteRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Point the environment back at a release it served before
+         * @description Without `release_id`, the newest release the environment served
+         *     that is older than the current one: rolling back twice goes two
+         *     steps back, so send `release_id` when a retry must not. Moves
+         *     the pointer only. Needs `releases.publish`. Problem codes:
+         *     `release_not_found` (404), `no_rollback_target`,
+         *     `not_in_history` (409).
+         */
+        post: operations["rollbackEnvironment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The environment's history of pointer moves
+         * @description Newest first. Needs `releases.read`.
+         */
+        get: operations["listDeployments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Releases of a project
+         * @description Newest first. Needs `releases.read`.
+         */
+        get: operations["listReleases"];
+        put?: never;
+        /**
+         * Publish a release to an environment
+         * @description Builds one artifact per locale and namespace from the active
+         *     messages and the translations the environment's policy makes
+         *     eligible, stores the ones storage doesn't have yet, records the
+         *     immutable release and points the environment at it; the edge
+         *     serves it within seconds. Publishing an unchanged catalog
+         *     uploads nothing. Needs `releases.publish`. Problem codes:
+         *     `invalid_environment`, `invalid_note` (400),
+         *     `not_releasable` (422), `storage_unavailable` (503).
+         */
+        post: operations["publishRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/releases/{release}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release `id`. */
+                release: components["parameters"]["ReleasePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A release, its counts and manifest digest
+         * @description Needs `releases.read`.
+         */
+        get: operations["getRelease"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/releases/{release}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release `id`. */
+                release: components["parameters"]["ReleasePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What changed since another release, per locale
+         * @description Message IDs added, changed and removed in each locale, compared
+         *     with `base` (default: the release's parent, what its environment
+         *     served before it; without one, everything is added). Needs
+         *     `releases.read`. Problem codes: `release_not_found` (404),
+         *     `storage_unavailable` (503).
+         */
+        get: operations["getReleaseDiff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release `id`. */
+                release: components["parameters"]["ReleasePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The signed manifest of a release for an environment
+         * @description Byte for byte what glossa-edge serves when `environment` serves
+         *     this release (runtimes/SPEC.md §1.1): what `glossa pull
+         *     --release` writes as a bundle's `manifest.json`. Needs
+         *     `releases.read`.
+         */
+        get: operations["getReleaseManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release `id`. */
+                release: components["parameters"]["ReleasePath"];
+                /** @description The artifact's SHA-256, as the manifest names it. */
+                digest: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * One artifact of a release, as stored
+         * @description The exact bytes the manifest's `sha256` covers
+         *     (runtimes/SPEC.md §1.2), for bundling
+         *     (`glossa pull --release` writes `a/<sha256>.json`). Needs
+         *     `releases.read`. Problem codes: `storage_unavailable` (503).
+         */
+        get: operations["getReleaseArtifact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/release-signing-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The public keys manifests are signed with
+         * @description Configure runtimes with these (runtimes/SPEC.md §1.3). Active
+         *     keys sign every new manifest; retired ones are still listed
+         *     while runtimes may hold manifests only they signed. Rotation:
+         *     a new key is added (manifests carry both signatures), runtimes
+         *     move to it, the old one is retired. Needs `releases.read`.
+         */
+        get: operations["listReleaseSigningKeys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/delivery-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Publishable delivery keys, including revoked ones
+         * @description Needs `releases.read`.
+         */
+        get: operations["listDeliveryKeys"];
+        put?: never;
+        /**
+         * Create a publishable delivery key
+         * @description The key runtimes fetch releases from glossa-edge with
+         *     (`/v1/{key}/{environment}/manifest.json`). It is public by
+         *     design — it ships in browser bundles — scoped to this project,
+         *     read-only, and grants nothing on this API. Needs
+         *     `releases.publish`. Problem codes: `invalid_key_name` (400).
+         */
+        post: operations["createDeliveryKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A delivery key `id` (not the key itself). */
+                delivery_key: components["parameters"]["DeliveryKeyPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a delivery key
+         * @description The edge answers 404 for it within its key cache TTL (30 s by
+         *     default) plus any CDN max-age. It stays listed as revoked.
+         *     Needs `releases.publish`. Problem codes: `key_revoked` (409).
+         */
+        delete: operations["revokeDeliveryKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1678,6 +2083,159 @@ export interface components {
         TranslationImportResult: {
             results: components["schemas"]["TranslationImportItemResult"][];
         };
+        /**
+         * @description Which translations ship to an environment: those in `states`
+         *     (never `rejected`), and outdated ones (made against an older
+         *     source revision) only with `include_outdated`. Production and
+         *     staging start with `approved`, the others with everything.
+         */
+        EnvironmentPolicy: {
+            states: ("draft" | "needs_review" | "approved")[];
+            include_outdated: boolean;
+        };
+        Environment: {
+            name: components["schemas"]["EnvironmentName"];
+            policy: components["schemas"]["EnvironmentPolicy"];
+            current_release_id?: components["schemas"]["Id"];
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /** @description `development`, `preview`, `staging`, `production` or a custom name (not `a`). */
+        EnvironmentName: string;
+        EnvironmentList: {
+            items: components["schemas"]["Environment"][];
+            next_page_token?: string;
+        };
+        CreateEnvironment: {
+            name: components["schemas"]["EnvironmentName"];
+            policy?: components["schemas"]["EnvironmentPolicy"];
+        };
+        UpdateEnvironment: {
+            policy: components["schemas"]["EnvironmentPolicy"];
+        };
+        Promotion: {
+            release_id: components["schemas"]["Id"];
+        };
+        Rollback: {
+            release_id?: components["schemas"]["Id"];
+        };
+        Deployment: {
+            /** @description Counts the environment's deployments from 1. */
+            number: number;
+            release_id: components["schemas"]["Id"];
+            previous_release_id?: components["schemas"]["Id"];
+            /** @enum {string} */
+            action: "publish" | "promote" | "rollback";
+            /** @description `person:<id>` or `token:<id>`. */
+            author: string;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        DeploymentList: {
+            items: components["schemas"]["Deployment"][];
+            next_page_token?: string;
+        };
+        PublishRelease: {
+            environment: components["schemas"]["EnvironmentName"];
+            note?: string;
+        };
+        ReleaseLocale: {
+            code: components["schemas"]["Locale"];
+            direction: components["schemas"]["Direction"];
+        };
+        ReleaseLocaleCounts: {
+            messages: number;
+            /** @description Outdated translations shipped (the policy allowed them). */
+            outdated: number;
+        };
+        ReleaseCounts: {
+            /** @description Source messages. */
+            messages: number;
+            artifacts: number;
+            bytes: number;
+            /** @description Artifacts this publish uploaded; the rest were already stored. */
+            new_artifacts: number;
+            /** @description Per locale code. */
+            locales: {
+                [key: string]: components["schemas"]["ReleaseLocaleCounts"];
+            };
+        };
+        Release: {
+            id: components["schemas"]["Id"];
+            /** @description Counts the project's releases from 1. */
+            version: number;
+            /** @description What its environment served before it. */
+            parent_id?: components["schemas"]["Id"];
+            environment: components["schemas"]["EnvironmentName"];
+            policy: components["schemas"]["EnvironmentPolicy"];
+            /**
+             * @description SHA-256 of the RFC 8785 canonical JSON of what every
+             *     environment's manifest of this release carries (`sourceLocale`,
+             *     `locales`, `fallback`, `artifacts`). Equal digests ship
+             *     exactly the same text.
+             */
+            manifest_digest: string;
+            source_locale: components["schemas"]["Locale"];
+            locales: components["schemas"]["ReleaseLocale"][];
+            counts: components["schemas"]["ReleaseCounts"];
+            note?: string;
+            /** @description `person:<id>` or `token:<id>`. */
+            author: string;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        ReleaseList: {
+            items: components["schemas"]["Release"][];
+            next_page_token?: string;
+        };
+        LocaleDiff: {
+            locale: components["schemas"]["Locale"];
+            added: string[];
+            changed: string[];
+            removed: string[];
+        };
+        ReleaseDiff: {
+            release_id: components["schemas"]["Id"];
+            base_release_id?: components["schemas"]["Id"];
+            locales: components["schemas"]["LocaleDiff"][];
+        };
+        /** @description A `glossa.manifest/v1` manifest (runtimes/testdata/schemas/manifest.schema.json), as served. */
+        ReleaseManifest: {
+            [key: string]: unknown;
+        };
+        /** @description A `glossa.artifact/v1` artifact (runtimes/testdata/schemas/artifact.schema.json), as stored. */
+        ReleaseArtifact: {
+            [key: string]: unknown;
+        };
+        SigningKey: {
+            /** @description The manifest's `signatures[].keyId`. */
+            key_id: string;
+            /** @enum {string} */
+            algorithm: "Ed25519";
+            /** @description The raw 32-byte public key, base64url without padding. */
+            public_key: string;
+            /** @description Whether it signs new manifests. */
+            active: boolean;
+        };
+        SigningKeys: {
+            keys: components["schemas"]["SigningKey"][];
+        };
+        DeliveryKey: {
+            id: components["schemas"]["Id"];
+            name: string;
+            /** @description Publishable by design; shown on every read. */
+            key: string;
+            /** @description `person:<id>` or `token:<id>`. */
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            revoked_at?: components["schemas"]["Timestamp"];
+        };
+        DeliveryKeyList: {
+            items: components["schemas"]["DeliveryKey"][];
+            next_page_token?: string;
+        };
+        CreateDeliveryKey: {
+            /** @description What uses it, e.g. "web" or "go-emails". */
+            name: string;
+        };
     };
     responses: {
         /** @description Signed in. The session cookie is set. */
@@ -1771,6 +2329,15 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description A dependency (object storage) is unavailable; retry. */
+        Unavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /**
          * @description `structural_qa_failed`: the translation is structurally
          *     incompatible with its source (`findings`, errors first).
@@ -1799,6 +2366,12 @@ export interface components {
         MessagePath: components["schemas"]["MessageKey"];
         /** @description A locale code; canonicalized before use. */
         LocalePath: components["schemas"]["Locale"];
+        /** @description An environment `name`. */
+        EnvironmentPath: components["schemas"]["EnvironmentName"];
+        /** @description A release `id`. */
+        ReleasePath: components["schemas"]["Id"];
+        /** @description A delivery key `id` (not the key itself). */
+        DeliveryKeyPath: components["schemas"]["Id"];
         PageSize: number;
         /** @description The `next_page_token` of the previous page. */
         PageToken: string;
@@ -3700,6 +4273,588 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listEnvironments: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of environments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createEnvironment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEnvironment"];
+            };
+        };
+        responses: {
+            /** @description The environment. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Environment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getEnvironment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The environment. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Environment"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateEnvironment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEnvironment"];
+            };
+        };
+        responses: {
+            /** @description The updated environment. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Environment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    promoteRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Promotion"];
+            };
+        };
+        responses: {
+            /** @description The environment, now serving the release. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Environment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    rollbackEnvironment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Rollback"];
+            };
+        };
+        responses: {
+            /** @description The environment, now serving the earlier release. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Environment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listDeployments: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of deployments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listReleases: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of releases. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    publishRelease: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRelease"];
+            };
+        };
+        responses: {
+            /** @description The release. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release `id`. */
+                release: components["parameters"]["ReleasePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The release. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getReleaseDiff: {
+        parameters: {
+            query?: {
+                /** @description The release `id` to compare with. */
+                base?: components["schemas"]["Id"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release `id`. */
+                release: components["parameters"]["ReleasePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The diff. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseDiff"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getReleaseManifest: {
+        parameters: {
+            query: {
+                environment: string;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release `id`. */
+                release: components["parameters"]["ReleasePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The manifest (`glossa.manifest/v1`). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseManifest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getReleaseArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release `id`. */
+                release: components["parameters"]["ReleasePath"];
+                /** @description The artifact's SHA-256, as the manifest names it. */
+                digest: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The artifact (`glossa.artifact/v1`). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseArtifact"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listReleaseSigningKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The keys, active first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigningKeys"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listDeliveryKeys: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of keys. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryKeyList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createDeliveryKey: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDeliveryKey"];
+            };
+        };
+        responses: {
+            /** @description The key. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryKey"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    revokeDeliveryKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A delivery key `id` (not the key itself). */
+                delivery_key: components["parameters"]["DeliveryKeyPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
 }
