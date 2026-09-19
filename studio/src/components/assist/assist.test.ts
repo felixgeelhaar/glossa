@@ -144,19 +144,45 @@ describe("SuggestionPanel", () => {
 describe("TmMatches", () => {
   it("shows the score, how the remembered source differs, and inserts the target", async () => {
     const k = createFakeKnowledge();
-    k.remember("Create a workspace", "Einen Arbeitsbereich erstellen", { message_key: "workspace.old" });
-    const w = withPorts(TmMatches, { tenant: "t", projectId: "p", message, source: en, target: de, canInsert: true }, { k });
+    k.remember("Create a workspace", "Einen Arbeitsbereich erstellen", { message_key: "workspace.old" }, "Einen Arbeitsbereich erstellen");
+    const w = withPorts(TmMatches, { tenant: "t", projectId: "p", message, source: en, target: de, targetSyntax: "mf1", canInsert: true }, { k });
     await flushPromises();
-    expect(k.calls[0]).toEqual(["lookupTM", expect.objectContaining({ source: "Create a new workspace", syntax: "mf1", count_hits: false, project_id: "p" })]);
+    expect(k.calls[0]).toEqual(["lookupTM", expect.objectContaining({ source: "Create a new workspace", syntax: "mf1", target_syntax: "mf1", count_hits: false, project_id: "p" })]);
     const m = w.get("[data-testid=tm-match]");
     expect(Number(m.get("[data-testid=tm-score]").text())).toBeGreaterThan(50);
     expect(m.text()).toContain("Fuzzy match");
     expect(m.text()).toContain("From workspace.old");
     expect(m.find("ins").text()).toBe("new");
+    expect(m.find("[data-testid=tm-fallback]").exists()).toBe(false);
     await button(w, "Insert").trigger("click");
-    expect(w.emitted("insert")).toEqual([["Einen Arbeitsbereich erstellen"]]);
-    expect((w.vm as unknown as { matchTarget: (n: number) => string | undefined }).matchTarget(1)).toBe("Einen Arbeitsbereich erstellen");
-    expect((w.vm as unknown as { matchTarget: (n: number) => string | undefined }).matchTarget(2)).toBeUndefined();
+    const mf1 = { text: "Einen Arbeitsbereich erstellen", syntax: "mf1" };
+    expect(w.emitted("insert")).toEqual([[mf1]]);
+    const vm = w.vm as unknown as { matchTarget: (n: number) => unknown };
+    expect(vm.matchTarget(1)).toEqual(mf1);
+    expect(vm.matchTarget(2)).toBeUndefined();
+  });
+
+  it("asks for targets in the editor's syntax and says when MF1 couldn't express one", async () => {
+    const k = createFakeKnowledge();
+    // Markup: MF2 only, so the MF1 lookup falls back to MF2.
+    k.remember("Create a new workspace", "Einen {#b}neuen{/b} Arbeitsbereich erstellen");
+    k.remember("Create a workspace", "{$n} Arbeitsbereich erstellen", {}, "{n} Arbeitsbereich erstellen");
+    const w = withPorts(TmMatches, { tenant: "t", projectId: "p", message, source: en, target: de, targetSyntax: "mf1", canInsert: true }, { k });
+    await flushPromises();
+    const [exact, fuzzy] = w.findAll("[data-testid=tm-match]");
+    expect(exact!.get(".target").text()).toBe("Einen {#b}neuen{/b} Arbeitsbereich erstellen");
+    expect(exact!.get("[data-testid=tm-fallback]").text()).toContain("MF1 can't express this one");
+    expect(fuzzy!.get(".target").text()).toBe("{n} Arbeitsbereich erstellen");
+    await exact!.findAll("button").find((b) => b.text().startsWith("Insert"))!.trigger("click");
+    expect(w.emitted("insert")).toEqual([[{ text: "Einen {#b}neuen{/b} Arbeitsbereich erstellen", syntax: "mf2" }]]);
+
+    // Switching the editor to MF2 asks again, in MF2.
+    const props: Record<string, unknown> = { targetSyntax: "mf2" };
+    await w.setProps(props);
+    await flushPromises();
+    expect(k.calls.filter((c) => c[0] === "lookupTM").at(-1)![1]).toMatchObject({ target_syntax: "mf2" });
+    expect(w.findAll("[data-testid=tm-match]")[1]!.get(".target").text()).toBe("{$n} Arbeitsbereich erstellen");
+    expect(w.find("[data-testid=tm-fallback]").exists()).toBe(false);
   });
 });
 

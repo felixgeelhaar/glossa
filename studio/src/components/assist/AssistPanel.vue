@@ -7,13 +7,13 @@
 import { computed, useTemplateRef } from "vue";
 import type { TermFinding, TermRecognition } from "../../api/knowledge-schemas";
 import type { AISuggestion } from "../../api/intelligence-schemas";
-import type { Message, ProjectLocale } from "../../api/schemas";
+import type { Message, ProjectLocale, Syntax } from "../../api/schemas";
 import { allows, allowsFor, type Grant } from "../../session/permissions";
 import Concordance from "./Concordance.vue";
 import StylePane from "./StylePane.vue";
 import SuggestionPanel from "./SuggestionPanel.vue";
 import TermsPane from "./TermsPane.vue";
-import TmMatches from "./TmMatches.vue";
+import TmMatches, { type MatchText } from "./TmMatches.vue";
 
 const props = defineProps<{
   tenant: string;
@@ -27,8 +27,10 @@ const props = defineProps<{
   findings: TermFinding[];
   checkState: "idle" | "checking" | "stale";
   hasDraft: boolean;
+  /** The syntax the translation is being written in. */
+  targetSyntax: Syntax;
 }>();
-const emit = defineEmits<{ insert: [text: string]; accepted: [suggestion: AISuggestion] }>();
+const emit = defineEmits<{ insert: [match: MatchText]; accepted: [suggestion: AISuggestion] }>();
 
 const canInsert = computed(() => allowsFor(props.grant, "translations.write", props.target.code));
 const canKnow = computed(() => allows(props.grant, "knowledge.read"));
@@ -52,7 +54,7 @@ defineExpose({
   <div class="assist stack">
     <SuggestionPanel v-if="canAI" ref="ai" :tenant="tenant" :project-id="projectId" :message="message" :target="target" :grant="grant" @accepted="emit('accepted', $event)" />
     <template v-if="canKnow">
-      <TmMatches ref="tm" :tenant="tenant" :project-id="projectId" :message="message" :source="source" :target="target" :can-insert="canInsert" @insert="emit('insert', $event)" />
+      <TmMatches ref="tm" :tenant="tenant" :project-id="projectId" :message="message" :source="source" :target="target" :target-syntax="targetSyntax" :can-insert="canInsert" @insert="emit('insert', $event)" />
       <TermsPane :recognition="recognition" :error="recognitionError" :findings="findings" :check-state="checkState" :has-draft="hasDraft" :source="source" :target="target" />
       <StylePane :tenant="tenant" :project-id="projectId" :locale="target.code" :namespace="message.namespace" />
       <Concordance :tenant="tenant" :project-id="projectId" :source="source" :target="target" />

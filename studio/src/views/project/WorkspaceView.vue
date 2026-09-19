@@ -11,6 +11,7 @@ import { messages as messagesApi, translations as translationsApi, type MessageF
 import type { LocaleStats, Message, Syntax, Translation } from "../../api/schemas";
 import AssistPanel from "../../components/assist/AssistPanel.vue";
 import FillDialog from "../../components/assist/FillDialog.vue";
+import type { MatchText } from "../../components/assist/TmMatches.vue";
 import { useTerminology } from "../../components/assist/useTerminology";
 import ErrorAlert from "../../components/ErrorAlert.vue";
 import MessageList from "../../components/MessageList.vue";
@@ -204,8 +205,8 @@ const fillOpen = ref(false);
 /** A search narrows the fill to the keys it shows (the server takes at most 500). */
 const fillKeys = computed(() => (search.value.trim() ? visible.value.slice(0, 500).map((m) => m.key) : undefined));
 
-function insert(text: string): void {
-  editor.value?.setDraft(text, "mf2");
+function insert(m: MatchText): void {
+  editor.value?.setDraft(m.text, m.syntax);
 }
 function onAccepted(): void {
   void editor.value?.reload();
@@ -239,9 +240,9 @@ useShortcuts({
   save: () => void editor.value?.save(false),
   saveApprove: () => void editor.value?.save(true),
   insertMatch: (e) => {
-    const text = assist.value?.matchTarget(matchNumber(e) ?? 0);
-    if (text === undefined) return false;
-    insert(text);
+    const m = assist.value?.matchTarget(matchNumber(e) ?? 0);
+    if (m === undefined) return false;
+    insert(m);
   },
   editSuggestion: () => void assist.value?.editSuggestion(),
   acceptSuggestion: () => void assist.value?.acceptSuggestion(),
@@ -365,6 +366,7 @@ function onSearchKey(e: KeyboardEvent): void {
           :findings="terminology.findings.value"
           :check-state="terminology.checkState.value"
           :has-draft="draft.text.trim() !== ''"
+          :target-syntax="draft.syntax"
           @insert="insert"
           @accepted="onAccepted"
         />

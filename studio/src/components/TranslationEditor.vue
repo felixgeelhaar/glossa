@@ -322,7 +322,7 @@ function focusEditor(): void {
 function blurEditor(): void {
   area.value?.blur();
 }
-/** Replace the draft (a TM match or an AI suggestion, both MF2) and put focus in the editor. */
+/** Replace the draft (a TM match in the editor's syntax, or an AI suggestion in MF2) and put focus in the editor. */
 function setDraft(text: string, as: Syntax): void {
   if (!canWrite.value) return;
   tab.value = "editor";

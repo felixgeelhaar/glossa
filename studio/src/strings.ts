@@ -457,6 +457,7 @@ export const strings = {
     scopeProject: "this project",
     scopeTenant: "workspace-wide",
     variablesKept: "a variable kept its name — check it",
+    fallbackMf2: "In MessageFormat 2: MF1 can't express this one, so inserting it switches the translation to MF2.",
   },
   concordance: {
     title: "Concordance",
