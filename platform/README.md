@@ -1202,6 +1202,37 @@ production); **rollback** points back to the newest older release the
 environment served, or a named one from its history. Both only move the
 pointer; nothing is rebuilt.
 
+**Branch environments** (RFC 0004 §4.2) preview one open branch each:
+`kind: branch`, named `pr-<number>` or `br-<first 8 hex of
+sha256(branch)>` (names no standard environment may take), with the
+fixed preview policy (draft, needs_review and approved, outdated
+included; `fixed_policy` otherwise). Their build is the main catalog
+plus that branch's overlay only (`domain.BuildBranch`): its proposed
+messages with their translations, and its source proposals in the
+source locale. Every other build keeps excluding both. A branch release
+records its branch and can't be promoted
+(`branch_release_not_promotable`); a project has at most 50 branch
+environments (`too_many_branches`). The lifecycle hooks the Branches API
+and the GitHub webhooks will call: `OpenBranchEnvironment`
+(create-on-open, idempotent per branch), `RequestBranchPublish`
+(publish-on-push, debounced: a request moves the pending publish to 30 s
+after it, at most 5 minutes after the first; the `Publisher` runs due
+requests across tenants as `release.publisher`, with the request's ID as
+the publish's idempotency key) and `DestroyBranchEnvironment` (deletes
+the environment and its manifest, so the edge answers 404; releases and
+deployments stay).
+
+**Delivery keys are scoped** (RFC 0004 §4.3, SPEC §2): an `environments`
+allowlist and a `branches` flag, written into the key index object and
+enforced by the edge, which answers 404 outside the scope exactly as for
+an unknown key. New keys read `production` only; a preview key
+(`branches: true`) belongs in preview deployments. Migration 0015 gave
+existing keys the four default environments, and glossa-server's key
+index task (`RewriteKeyIndexes`, run at startup until it succeeds)
+rewrites their index objects; until then the edge reads an object
+without `environments` as those four. The API doesn't expose scopes yet,
+so keys it creates keep the four default environments until it does.
+
 **Artifacts** are the RFC 8785 canonical JSON of `{schema, locale,
 namespace, messages}` with each message's MF2 data model, so equal input
 gives byte-identical output whatever order it came in
@@ -1222,7 +1253,7 @@ the keys), then move the old one to `GLOSSA_RELEASE_RETIRED_KEYS`.
 `internal/release/delivery`:
 
 ```text
-v1/keys/<sha256(key)>.json                               delivery key → project, while the key is active
+v1/keys/<sha256(key)>.json                               delivery key → project and scope, while the key is active
 v1/projects/<project>/environments/<env>/manifest.json   what the environment serves
 v1/projects/<project>/a/<sha256>.json                    artifacts, immutable
 ```
@@ -1236,17 +1267,19 @@ project: a key only reaches its own project's objects.
 | Table | Scope | Why |
 |---|---|---|
 | `release_releases` | tenant | Immutable: `glossa_app` may SELECT and INSERT; a trigger refuses UPDATE and DELETE for every role except the cascade from erasing the tenant. |
-| `release_environments` | tenant | Policy and current release per environment. |
+| `release_environments` | tenant | Policy, kind (and branch) and current release per environment. |
 | `release_deployments` | tenant | Every pointer move, append-only by grant: what rollback walks. |
-| `release_delivery_keys` | tenant | Publishable keys, in the clear (they ship in bundles); revoked ones stay listed. |
+| `release_delivery_keys` | tenant | Publishable keys, in the clear (they ship in bundles), with their scope; revoked ones stay listed. `glossa_system` reads IDs and `index_version` (system scope `release.key_index`). |
+| `release_publish_requests` | tenant | Pending debounced publishes of branch environments. `glossa_system` reads IDs and `not_before` (system scope `release.publisher`). |
 
 Events: `release.published`, `release.promoted`, `release.rolled_back`
 (the Release aggregate shares the context's name, so they are
 `release.<verb>`, as SPEC §3 names them),
-`release.environment.{created,policy_changed}`,
+`release.environment.{created,policy_changed,destroyed,publish_requested}`,
 `release.delivery_key.{created,revoked}` (never carrying the key).
 Subscribers: `release.sync_manifest` and `release.sync_delivery_key`
-(storage writes), `release.retire_project` on `catalog.project.deleted`
+(storage writes; `sync_manifest` also removes a destroyed environment's
+manifest), `release.retire_project` on `catalog.project.deleted`
 (revokes the project's keys, removes its environments and served
 manifests; releases stay as history).
 
@@ -1266,7 +1299,10 @@ public, max-age=60, stale-while-revalidate=300, stale-if-error=86400`, a
 strong ETag (the SHA-256 of the bytes) and 304; `GET
 /v1/{key}/a/{sha256}.json` is immutable and verified against its hash.
 CORS `*` (ETag exposed, preflights answered), never a cookie; unknown or
-revoked keys 404, storage failures 503 `no-store`, objects failing their
+revoked keys 404, and so does a manifest outside the key's scope (its
+`environments`, plus branch environments with `branches`; checked before
+storage is read, conformance fixture `runtimes/testdata/edge/`), storage
+failures 503 `no-store`, objects failing their
 integrity check 502. An in-process LRU caches keys, manifests and
 artifacts with singleflight on misses, and serves stale entries through
 a storage outage. `/readyz` ignores storage on purpose, so an outage
