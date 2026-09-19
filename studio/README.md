@@ -16,15 +16,15 @@ publish, promote, rollback and delivery keys.
 
 | Route | What |
 |---|---|
-| `/auth/sign-in` | Magic link by default (the emailed link lands here as `#token=…`), passkey first when this browser enrolled one, password + TOTP under “Other ways”. |
-| `/auth/register`, `/auth/reset-password` | Registration and password reset (link lands as `#token=…`). |
+| `/auth/sign-in` | Follows what the server offers (`GET /v1/meta`): with email, the magic link leads (the emailed link lands here as `#token=…`), a passkey button beside it when the server has passkeys, password + TOTP under “Other ways”; without email, password + TOTP and passkey are the way in and nothing mentions email. |
+| `/auth/register`, `/auth/reset-password` | Registration (without email the new account is signed in right away) and password reset by email (link lands as `#token=…`; without email the page says it isn't available). |
 | `/t/:tenant` | Projects of the tenant; create one (source locale, authoring syntax, review requirement). The top bar switches tenants (personal and organizations) and creates organizations. |
 | `…/p/:project/translate` | The translator workspace. Locale, filters and the selected key live in the query string, so a view can be bookmarked. |
 | `…/p/:project/locales` | Locales with BCP 47 validation and direction; the list-based fallback graph editor. |
 | `…/p/:project/settings` | Name, slug, syntax, review requirement, applications, delivery keys, delete. |
 | `…/p/:project/releases` | Environments, publish, promote, rollback, release list (see below). |
 | `…/p/:project/releases/:release` | One release: per-locale counts and the diff to its parent, promote. |
-| `/account` | Passkeys, authenticator app (TOTP), sign out everywhere. After the first sign-in a banner promotes passkeys. |
+| `/account` | Every passkey of the person on any device (from `GET /v1/me/passkeys`: name, added, last used), removable after confirming; adding one where the server has passkeys; authenticator app (TOTP); sign out everywhere. While the person has no passkey and the server has passkeys, a banner promotes them. |
 
 The app shell carries the persistent **Public Beta** badge (Klarlabs
 standard §5), a theme toggle (light/dark) and a skip link.
@@ -57,7 +57,10 @@ button.
   of messages scroll smoothly; pages load progressively. Filters:
   namespace, missing-in / outdated-in the target locale, message state
   (server-side) and search over key, source text and context (client-side).
-  Rows show *Missing* / *Outdated* for the target locale.
+  Rows show *Missing* / *Outdated* for the target locale, from one bulk
+  listing of its translations (`GET …/translations?locale=…`, by message
+  ID); the coverage filter and a summary line show the locale's counts
+  from `GET …/translation-stats`.
 - **Editor**: the developers' context, the source with argument chips from
   its derived metadata (type, selector kind and keys) and markup, the
   canonical MF2 on request, and the target editor with `lang`/`dir` of the
@@ -67,8 +70,13 @@ button.
   language (Arabic gets zero/one/two/few/many/other). It uses the reference
   formatter (`@glossa/messageformat`), loaded lazily. MF2 text is parsed as
   you type. **MF1 is parsed only by the server** — RFC 0002 §5 keeps exactly
-  one MF1 converter, in Go — so an MF1 preview shows the last saved text
-  and updates on save; the editor says so.
+  one MF1 converter, in Go — so MF1 text goes to `POST /v1/message-previews`
+  as you type (250 ms after the last keystroke; the latest request wins; the
+  saved text needs no request). Text that doesn't parse shows the kernel's
+  errors (`mf1-syntax-error`, …) inline before anything is saved; the
+  server's rate limit (`429`) pauses the preview and it retries after 1.5 s;
+  if the server can't be reached, the preview shows the last saved text and
+  says so.
 - **QA**: a write that fails structural QA (`422 structural_qa_failed`)
   shows its findings inline, marks the field invalid and keeps focus there;
   stored warnings show under the editor.
@@ -176,13 +184,16 @@ are in `src/styles/studio.css`.
   the magic link the dev mailer captured, creates a project, adds locales,
   imports a small catalog through the API, translates with the keyboard,
   hits a QA error for a broken placeholder, fixes it, approves and checks
-  history and the shortcut sheet. Then it releases: publishes to
+  history and the shortcut sheet; before that, the live MF1 preview flags
+  an unclosed placeholder (`mf1-syntax-error`) while typing, before any
+  save. Then it releases: the publish dialog's dry run shows the counts and
+  per-locale changes (and storage stays empty), it publishes to
   development, sees it on the environment card, finds that release
-  ineligible for production (development ships drafts), tightens
-  development's policy, publishes and promotes to production, approves one
-  more translation, publishes and promotes it, and rolls production back,
-  checking after each step the manifest glossa-edge would serve from
-  storage. Last, it creates a delivery key (snippets; the key's index
+  ineligible for production (development ships drafts), publishes to
+  staging and promotes that release to production, approves one more
+  translation, sees it as the one change in the next dry run, publishes it
+  to staging and promotes it, and rolls production back, checking after
+  each step the manifest glossa-edge would serve from storage. Last, it creates a delivery key (snippets; the key's index
   object appears in storage) and revokes it (the object goes).
   `@axe-core/playwright` (WCAG 2.2 AA tags) runs on each main screen and
   dialog, light and dark.
@@ -212,11 +223,19 @@ every response checked by zod.
   eligibility policy. *Policy* edits the policy with `If-Match`;
   *History* lists the environment's deployments.
 - **Publish** (`p`): choose the environment and a note. Before confirming
-  the dialog shows the environment's policy and the per-locale counts of
-  the release it serves now; after publishing, the per-locale diff against
-  that release. The contract has no dry run, so the exact changes are shown
-  once the release is built. Each confirmation sends one `Idempotency-Key`,
-  reused when the same request is retried.
+  the dialog runs the server's dry run for that environment
+  (`POST …/environments/{env}/release-previews`, nothing stored): the
+  policy, messages, locales, artifacts to upload and size, and per locale
+  what would ship and what would be added, changed or removed against the
+  release the environment serves (or that nothing would change). A catalog
+  that can't be released lists every problem and publishing is disabled.
+  After publishing, the per-locale diff against the previous release. Each
+  confirmation sends one `Idempotency-Key`, reused when the same request
+  is retried.
+- **The path to production**: `development` and `preview` ship work in
+  progress (drafts too), `staging` and `production` approved text only. So
+  publish to staging and promote that release to production; the promote
+  dialog refuses a development release and says so.
 - **Promote** and **rollback** name the pointer move
   (`production: v2 → v3`) and show per locale what is added, changed and
   removed compared with what the environment serves. Promote refuses a
@@ -236,16 +255,18 @@ Publishing, promoting, rolling back, policy changes and key changes need
 `releases.publish` (developers, admins, owners); without it the screens
 are read-only.
 
-The snippets need glossa-edge's public origin, which the API doesn't
-expose. Studio reads `edgeUrl` from the runtime configuration its image
-serves at `/config.json` (`GLOSSA_STUDIO_EDGE_URL`), else the build's
-`VITE_GLOSSA_EDGE_URL`; without either they show a placeholder and say so.
+The snippets need glossa-edge's public origin. Studio takes the one the
+server announces (`edge_url` in `GET /v1/meta`, from
+`GLOSSA_EDGE_PUBLIC_URL`), else `edgeUrl` from the runtime configuration
+its image serves at `/config.json` (`GLOSSA_STUDIO_EDGE_URL`), else the
+build's `VITE_GLOSSA_EDGE_URL`; without any they show a placeholder and
+say so.
 
 ## Layout
 
 ```text
 src/api/        generated contract types, client, zod schemas, endpoints, errors, the Releases port and its API adapter
-src/session/    session store, permission mirror, names for principals
+src/session/    session store, deployment facts (GET /v1/meta), permission mirror, names for principals
 src/lib/        pure logic: bcp47, fallback, diff, samples, preview, shortcuts, virtual, webauthn, releases, snippets, …
 src/components/ app shell, message list, editor, preview, QA, history, modal dialog, releases/*, …
 src/views/      auth, projects, account, project/* (workspace, locales, settings, releases, release detail)

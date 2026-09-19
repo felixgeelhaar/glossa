@@ -25,7 +25,7 @@ export interface Snippet {
   code: string;
 }
 
-/** Placeholder when neither the runtime configuration nor the build names glossa-edge. */
+/** Placeholder when neither the server, the runtime configuration nor the build names glossa-edge. */
 export const EDGE_PLACEHOLDER = "https://edge.example.com";
 
 /** An absolute http(s) origin without a trailing slash, or undefined. */
@@ -46,17 +46,30 @@ export function configuredEdge(env: Record<string, unknown> = import.meta.env): 
 
 let runtimeEdge: Promise<string | undefined> | undefined;
 
+export interface EdgeSources {
+  /** What the server announces (GET /v1/meta's `edge_url`, from GLOSSA_EDGE_PUBLIC_URL). */
+  announced?: () => Promise<string | undefined>;
+  /** The Studio image's runtime configuration (/config.json). */
+  config?: () => Promise<Response>;
+}
+
 /**
- * glossa-edge's origin: `edgeUrl` from the runtime configuration the
- * Studio image serves at /config.json (GLOSSA_STUDIO_EDGE_URL), else the
- * build's VITE_GLOSSA_EDGE_URL. Undefined when neither names one (dev
- * servers answer /config.json with the SPA, which isn't JSON).
+ * glossa-edge's origin, from the first source that names one: the
+ * server (GET /v1/meta), then `edgeUrl` in the runtime configuration the
+ * Studio image serves at /config.json (GLOSSA_STUDIO_EDGE_URL), then the
+ * build's VITE_GLOSSA_EDGE_URL. Undefined when none does (dev servers
+ * answer /config.json with the SPA, which isn't JSON).
  */
-export function edgeOrigin(fetchConfig: () => Promise<Response> = () => globalThis.fetch("/config.json", { cache: "no-store" })): Promise<string | undefined> {
-  runtimeEdge ??= fetchConfig()
-    .then(async (r) => (r.ok ? origin(((await r.json()) as { edgeUrl?: unknown }).edgeUrl) : undefined))
-    .catch(() => undefined)
-    .then((edge) => edge ?? configuredEdge());
+export function edgeOrigin(sources: EdgeSources = {}): Promise<string | undefined> {
+  const announced = sources.announced ?? (async () => undefined);
+  const config = sources.config ?? (() => globalThis.fetch("/config.json", { cache: "no-store" }));
+  const fromConfig = () =>
+    config()
+      .then(async (r) => (r.ok ? origin(((await r.json()) as { edgeUrl?: unknown }).edgeUrl) : undefined))
+      .catch(() => undefined);
+  runtimeEdge ??= announced()
+    .then(origin, () => undefined)
+    .then(async (edge) => edge ?? (await fromConfig()) ?? configuredEdge());
   return runtimeEdge;
 }
 

@@ -44,18 +44,30 @@ describe("the edge origin", () => {
   afterEach(resetEdgeOrigin);
   const config = (body: unknown, status = 200) => async () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status });
 
-  it("comes from the image's /config.json first", async () => {
-    expect(await edgeOrigin(config({ apiBaseUrl: "", edgeUrl: "https://edge.acme.dev/", environment: "production" }))).toBe("https://edge.acme.dev");
+  it("comes from the server first", async () => {
+    const fetchConfig = vi.fn(config({ edgeUrl: "https://edge.image.dev" }));
+    expect(await edgeOrigin({ announced: async () => "https://edge.server.dev/", config: fetchConfig })).toBe("https://edge.server.dev");
+    expect(fetchConfig).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the image's /config.json when the server announces none", async () => {
+    expect(await edgeOrigin({ announced: async () => undefined, config: config({ apiBaseUrl: "", edgeUrl: "https://edge.acme.dev/", environment: "production" }) })).toBe(
+      "https://edge.acme.dev",
+    );
+    resetEdgeOrigin();
+    expect(await edgeOrigin({ announced: () => Promise.reject(new Error("offline")), config: config({ edgeUrl: "https://edge.acme.dev" }) })).toBe(
+      "https://edge.acme.dev",
+    );
   });
 
   it("falls back to the build when the runtime configuration has none", async () => {
     vi.stubEnv("VITE_GLOSSA_EDGE_URL", "https://edge.build.dev");
-    expect(await edgeOrigin(config({ edgeUrl: "" }))).toBe("https://edge.build.dev");
+    expect(await edgeOrigin({ config: config({ edgeUrl: "" }) })).toBe("https://edge.build.dev");
     resetEdgeOrigin();
     // A dev server answers /config.json with the SPA's HTML.
-    expect(await edgeOrigin(config("<!doctype html>"))).toBe("https://edge.build.dev");
+    expect(await edgeOrigin({ config: config("<!doctype html>") })).toBe("https://edge.build.dev");
     resetEdgeOrigin();
-    expect(await edgeOrigin(config({}, 404))).toBe("https://edge.build.dev");
+    expect(await edgeOrigin({ config: config({}, 404) })).toBe("https://edge.build.dev");
     vi.unstubAllEnvs();
   });
 

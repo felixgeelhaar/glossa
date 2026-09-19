@@ -334,10 +334,15 @@ export const strings = {
     noteHint: "What this release is for, e.g. “Checkout copy for the spring sale”.",
     willShip: "What will ship",
     policyLead: (env: string, policy: string) => `${env} ships translations that are: ${policy}.`,
-    currentlyServing: (env: string, v: string) => `${env} serves ${v} now:`,
     firstRelease: (env: string) => `Nothing is published to ${env} yet: every eligible translation ships.`,
-    exactAfter:
-      "Glossa builds the release from the translations eligible right now. The exact changes per locale are shown as soon as it's built; an unchanged catalog uploads nothing.",
+    dryRunChecking: "Checking what would ship…",
+    dryRunSummary: (messages: number, locales: number, fresh: number, bytes: string) =>
+      `${messages.toLocaleString()} ${messages === 1 ? "message" : "messages"} in ${locales} ${locales === 1 ? "locale" : "locales"} · ${fresh} new ${fresh === 1 ? "artifact" : "artifacts"} to upload · ${bytes}`,
+    dryRunAgainst: (env: string, v: string) => `Compared with ${v}, which ${env} serves now:`,
+    dryRunUnchanged: (env: string) => `Nothing would change: ${env} already ships this text.`,
+    dryRunNote: "A dry run: nothing is stored until you publish. A translation saved meanwhile ships too.",
+    dryRunFailed: "Glossa couldn't check what would ship. You can still publish; the changes are shown once it's built.",
+    notReleasable: (n: number) => `This can't be published yet: ${n} ${n === 1 ? "problem" : "problems"} to fix first.`,
     publishTo: (env: string) => `Publish to ${env}`,
     publishing: "Publishing…",
     published: (v: string, env: string) => `Published ${v} to ${env}.`,
@@ -354,7 +359,8 @@ export const strings = {
     noneYet: "nothing",
     alreadyServing: (env: string, v: string) => `${env} already serves ${v}. Nothing would change.`,
     ineligible: (env: string, v: string, states: string) =>
-      `${v} can't go to ${env}: it was built with ${states} translations, which ${env} doesn't ship. Publish to ${env} instead, or change its policy.`,
+      `${v} can't go to ${env}: it was built with ${states} translations, which ${env} doesn't ship. ` +
+      (env === "production" ? "Publish to staging (approved text, like production) and promote that release, or publish to production directly." : `Publish to ${env} instead, or change its policy.`),
     ineligibleOutdated: (env: string, v: string) => `${v} can't go to ${env}: it ships outdated translations, which ${env} excludes.`,
     promoteConfirm: (v: string, env: string) => `Promote ${v} to ${env}`,
     promoted: (v: string, env: string) => `${env} now serves ${v}.`,

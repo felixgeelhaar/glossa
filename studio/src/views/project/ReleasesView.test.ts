@@ -50,9 +50,21 @@ describe("ReleasesView", () => {
     expect(w.text()).toContain("Nothing published yet.");
   });
 
-  it("publishes: shows the environment's policy and current release first, then per-locale changes", async () => {
+  it("publishes: a dry run shows what would ship and change first, then the result", async () => {
     const port = createFakeReleases({ catalog: catalog() });
     const w = await screen(port);
+    await button(w, "Publish release").trigger("click");
+    await flushPromises();
+    let preview = dialog(w).get("[data-testid=publish-preview]");
+    expect(preview.text()).toContain("Nothing is published to development yet");
+    expect(preview.get("[data-testid=dry-run-summary]").text()).toMatch(/^2 messages in 2 locales · 2 new artifacts to upload · \d+ B$/);
+    expect(preview.get("tr[data-locale=en]").text()).toContain("+2");
+    expect(preview.get("tr[data-locale=de]").text()).toContain("+1");
+    expect(port.calls.filter((c) => c[0] === "previewPublish").map((c) => c[2])).toEqual(["development"]);
+    expect(port.state.releases).toHaveLength(0);
+    await button(dialog(w), "Cancel").trigger("click");
+    await flushPromises();
+
     await publish(w, "development", "First cut");
     expect(dialog(w).text()).toContain("Published v1 to development.");
     expect(dialog(w).text()).toContain("Everything is new in this environment.");
@@ -68,14 +80,45 @@ describe("ReleasesView", () => {
     await button(w, "Publish release").trigger("click");
     await flushPromises();
     await dialog(w).get("#pub-env").setValue("development");
-    const preview = dialog(w).get("[data-testid=publish-preview]");
+    await flushPromises();
+    preview = dialog(w).get("[data-testid=publish-preview]");
     expect(preview.text()).toContain("development ships translations that are: Draft, Needs review, Approved; outdated included.");
-    expect(preview.text()).toContain("development serves v1 now:");
-    expect(preview.get("tr[data-locale=de]").text()).toContain("1");
+    expect(preview.text()).toContain("Compared with v1, which development serves now:");
+    // Before publishing: de adds app.title, nothing else changes.
+    expect(preview.get("tr[data-locale=de]").text()).toContain("+1");
+    expect(preview.get("tr[data-locale=en]").text()).not.toContain("+");
     await dialog(w).get("form").trigger("submit");
     await flushPromises();
     expect(dialog(w).text()).toContain("Changes since v1, per locale");
     expect(dialog(w).get("tr[data-locale=de]").text()).toContain("+1");
+  });
+
+  it("says nothing would change when the environment already ships the catalog", async () => {
+    const port = createFakeReleases({ catalog: catalog() });
+    const w = await screen(port);
+    await publish(w, "staging");
+    await button(dialog(w), "Done").trigger("click");
+    await flushPromises();
+    await button(w, "Publish release").trigger("click");
+    await flushPromises();
+    await dialog(w).get("#pub-env").setValue("staging");
+    await flushPromises();
+    expect(dialog(w).get("[data-testid=dry-run-unchanged]").text()).toBe("Nothing would change: staging already ships this text.");
+  });
+
+  it("lists every problem and refuses to publish a catalog that can't be released", async () => {
+    const port = createFakeReleases({ catalog: catalog() });
+    port.problems = [
+      { code: "not_releasable", detail: "namespace too long", key: "legal.terms" },
+      { code: "not_releasable", detail: "namespace too long", key: "legal.privacy" },
+    ];
+    const w = await screen(port);
+    await button(w, "Publish release").trigger("click");
+    await flushPromises();
+    const problems = dialog(w).get("[data-testid=dry-run-problems]");
+    expect(problems.text()).toContain("2 problems to fix first");
+    expect(problems.findAll("li").map((li) => li.text())).toEqual(["legal.terms  namespace too long", "legal.privacy  namespace too long"]);
+    expect(button(dialog(w), "Publish to development").attributes("disabled")).toBeDefined();
   });
 
   it("reuses the Idempotency-Key when the same publish is retried", async () => {

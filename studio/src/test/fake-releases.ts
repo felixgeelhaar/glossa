@@ -8,7 +8,7 @@
  */
 import { ApiError, type Versioned } from "../api/errors";
 import type { PublishInput, ProjectRef, ReleasesPort } from "../api/releases";
-import type { Deployment, DeliveryKey, Environment, EnvironmentPolicy, Release, ReleaseDiff, SigningKey } from "../api/schemas";
+import type { Deployment, DeliveryKey, Environment, EnvironmentPolicy, Release, ReleaseDiff, ReleasePreview, ReleaseProblem, SigningKey } from "../api/schemas";
 import { covers, DEFAULT_ENVIRONMENTS } from "../lib/releases";
 
 /** Locale → message ID → text: what a publish would ship. */
@@ -17,6 +17,8 @@ export type FakeCatalog = Record<string, Record<string, string>>;
 export interface FakeReleases extends ReleasesPort {
   /** What the next publish ships. */
   catalog: FakeCatalog;
+  /** Set to make the catalog unreleasable: previews list these, publishes fail with not_releasable. */
+  problems: ReleaseProblem[];
   readonly calls: Array<[string, ...unknown[]]>;
   readonly state: { envs: Map<string, { env: Environment; etag: number }>; releases: Release[]; deployments: Map<string, Deployment[]>; keys: DeliveryKey[] };
 }
@@ -67,8 +69,32 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
     return structuredClone(e.env);
   };
 
+  const localesOf = (snapshot: FakeCatalog) => [source, ...Object.keys(snapshot).filter((l) => l !== source).sort()];
+  const countsOf = (snapshot: FakeCatalog) => {
+    const codes = localesOf(snapshot);
+    return {
+      messages: Object.keys(snapshot[source] ?? {}).length,
+      artifacts: codes.length,
+      bytes: JSON.stringify(snapshot).length,
+      new_artifacts: codes.length,
+      locales: Object.fromEntries(codes.map((c) => [c, { messages: Object.keys(snapshot[c] ?? {}).length, outdated: 0 }])),
+    };
+  };
+  const diffOf = (a: FakeCatalog, b: FakeCatalog) =>
+    [...new Set([...Object.keys(a), ...Object.keys(b)])].map((locale) => {
+      const now = a[locale] ?? {};
+      const before = b[locale] ?? {};
+      return {
+        locale,
+        added: Object.keys(now).filter((k) => !(k in before)),
+        changed: Object.keys(now).filter((k) => k in before && before[k] !== now[k]),
+        removed: Object.keys(before).filter((k) => !(k in now)),
+      };
+    });
+
   const fake: FakeReleases = {
     catalog: structuredClone(options.catalog ?? { [source]: { "app.title": "Demo" } }),
+    problems: [],
     calls,
     state: { envs, releases, deployments, keys },
 
@@ -108,25 +134,32 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
       const baseId = base ?? head.parent_id;
       const a = snapshots.get(head.id) ?? {};
       const b = baseId ? (snapshots.get(releaseOf(baseId).id) ?? {}) : {};
-      const locales = [...new Set([...Object.keys(a), ...Object.keys(b)])].map((locale) => {
-        const now = a[locale] ?? {};
-        const before = b[locale] ?? {};
-        return {
-          locale,
-          added: Object.keys(now).filter((k) => !(k in before)),
-          changed: Object.keys(now).filter((k) => k in before && before[k] !== now[k]),
-          removed: Object.keys(before).filter((k) => !(k in now)),
-        };
-      });
+      const locales = diffOf(a, b);
       return baseId ? { release_id: id, base_release_id: baseId, locales } : { release_id: id, locales };
+    },
+    async previewPublish(p, name): Promise<ReleasePreview> {
+      calls.push(["previewPublish", p, name]);
+      const e = envOf(name);
+      const out: ReleasePreview = { environment: name, policy: structuredClone(e.env.policy), releasable: fake.problems.length === 0, problems: structuredClone(fake.problems) };
+      if (e.env.current_release_id) out.base_release_id = e.env.current_release_id;
+      if (!out.releasable) return out;
+      const snapshot = structuredClone(fake.catalog);
+      const base = e.env.current_release_id ? (snapshots.get(e.env.current_release_id) ?? {}) : {};
+      out.source_locale = source;
+      out.locales = localesOf(snapshot).map((code) => ({ code, direction: code === "ar" || code === "he" ? "rtl" : "ltr" }));
+      out.counts = countsOf(snapshot);
+      out.changes = diffOf(snapshot, base);
+      out.manifest_digest = "f".repeat(64);
+      return out;
     },
     async publish(p: ProjectRef, input: PublishInput, key: string) {
       calls.push(["publish", p, input, key]);
       const replay = replays.get(key);
       if (replay) return structuredClone(replay);
       const e = envOf(input.environment);
+      if (fake.problems.length) throw new ApiError(422, "not_releasable", fake.problems.map((x) => x.detail).join("; "));
       const snapshot = structuredClone(fake.catalog);
-      const codes = [source, ...Object.keys(snapshot).filter((l) => l !== source).sort()];
+      const codes = localesOf(snapshot);
       const r: Release = {
         id: nextId("rel"),
         version: releases.length + 1,
@@ -135,13 +168,7 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
         manifest_digest: (releases.length + 1).toString(16).padStart(64, "0"),
         source_locale: source,
         locales: codes.map((code) => ({ code, direction: code === "ar" || code === "he" ? "rtl" : "ltr" })),
-        counts: {
-          messages: Object.keys(snapshot[source] ?? {}).length,
-          artifacts: codes.length,
-          bytes: JSON.stringify(snapshot).length,
-          new_artifacts: codes.length,
-          locales: Object.fromEntries(codes.map((c) => [c, { messages: Object.keys(snapshot[c] ?? {}).length, outdated: 0 }])),
-        },
+        counts: countsOf(snapshot),
         author,
         created_at: now(),
       };

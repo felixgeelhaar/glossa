@@ -37,6 +37,8 @@ export interface ReleasesPort {
   release(p: ProjectRef, id: string): Promise<S.Release>;
   /** What changed in `id` compared with `base` (default: its parent). */
   diff(p: ProjectRef, id: string, base?: string): Promise<S.ReleaseDiff>;
+  /** What publishing to `environment` would ship now, against what it serves; nothing is stored. */
+  previewPublish(p: ProjectRef, environment: string): Promise<S.ReleasePreview>;
   /** `idempotencyKey` makes a retry of the same confirmation safe. */
   publish(p: ProjectRef, input: PublishInput, idempotencyKey: string): Promise<S.Release>;
   promote(p: ProjectRef, environment: string, releaseId: string): Promise<S.Environment>;
@@ -94,6 +96,8 @@ export const apiReleases: ReleasesPort = {
         S.ReleaseDiff,
       ),
     ),
+  previewPublish: (p, environment) =>
+    value(read(client.POST(`${ENV}/release-previews`, { params: { path: { ...p, environment } } }), S.ReleasePreview)),
   publish: (p, input, key) =>
     value(
       read(

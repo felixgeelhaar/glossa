@@ -78,6 +78,30 @@ describe("apiReleases", () => {
     await expect(apiReleases.release(p, "r1")).rejects.toMatchObject({ code: "invalid_response" });
   });
 
+  it("asks for a publish's dry run with the CSRF token", async () => {
+    setCsrfToken("csrf-2");
+    const fetch = mockFetch(
+      json(200, {
+        environment: "staging",
+        policy,
+        base_release_id: "r1",
+        releasable: true,
+        problems: [],
+        manifest_digest: "b".repeat(64),
+        source_locale: "en",
+        locales: [{ code: "en", direction: "ltr" }],
+        counts: release.counts,
+        changes: [{ locale: "en", added: ["a"], changed: [], removed: [] }],
+      }),
+    );
+    const pv = await apiReleases.previewPublish(p, "staging");
+    expect(pv.changes?.[0]?.added).toEqual(["a"]);
+    const req = fetch.mock.calls[0]![0];
+    expect(req.method).toBe("POST");
+    expect(new URL(req.url).pathname).toBe("/v1/tenants/t/projects/p/environments/staging/release-previews");
+    expect(req.headers.get("X-CSRF-Token")).toBe("csrf-2");
+  });
+
   it("revokes a delivery key", async () => {
     const fetch = mockFetch(json(204, null));
     await apiReleases.revokeDeliveryKey(p, "dk1");

@@ -10,6 +10,7 @@ import { DEFAULT_ENVIRONMENTS } from "../../lib/releases";
 import { configuredEdge, EDGE_PLACEHOLDER, edgeOrigin, maskKey, snippets } from "../../lib/snippets";
 import { absoluteTime, relativeTime } from "../../lib/time";
 import { allows } from "../../session/permissions";
+import { loadMeta } from "../../session/meta";
 import { usePeople } from "../../session/people";
 import { strings } from "../../strings";
 import { useProject } from "../../views/project/context";
@@ -69,7 +70,7 @@ async function create(): Promise<void> {
 }
 
 const edge = ref(configuredEdge());
-void edgeOrigin().then((e) => {
+void edgeOrigin({ announced: async () => (await loadMeta()).edge_url }).then((e) => {
   edge.value = e;
 });
 const codeSnippets = computed(() =>

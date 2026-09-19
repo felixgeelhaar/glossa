@@ -1,12 +1,19 @@
 <script setup lang="ts">
+/**
+ * Publish, with a dry run first: for the chosen environment the server
+ * builds the release without storing it (POST …/release-previews), and
+ * the dialog shows what would ship per locale and what would change
+ * against what the environment serves — or why the catalog can't be
+ * released — before anything is published.
+ */
 import { computed, ref, watch } from "vue";
 import { newIdempotencyKey, type ProjectRef, type ReleasesPort } from "../../api/releases";
-import type { Release, ReleaseDiff } from "../../api/schemas";
+import type { Release, ReleaseDiff, ReleasePreview } from "../../api/schemas";
 import { isEmptyDiff } from "../../lib/releases";
 import { strings } from "../../strings";
 import ErrorAlert from "../ErrorAlert.vue";
 import ModalDialog from "../ModalDialog.vue";
-import { policyText, type ReleaseBook } from "./book";
+import { bytesText, policyText, type ReleaseBook } from "./book";
 import LocaleTable from "./LocaleTable.vue";
 
 const props = defineProps<{ open: boolean; port: ReleasesPort; project: ProjectRef; book: ReleaseBook; environment?: string | undefined }>();
@@ -21,6 +28,28 @@ const result = ref<Release>();
 const resultDiff = ref<ReleaseDiff>();
 let key = newIdempotencyKey();
 
+const dryRun = ref<ReleasePreview>();
+const dryRunError = ref<unknown>(null);
+const checking = ref(false);
+let dryRunSeq = 0;
+
+async function runDryRun(): Promise<void> {
+  const seq = ++dryRunSeq;
+  checking.value = true;
+  dryRun.value = undefined;
+  dryRunError.value = null;
+  try {
+    const pv = await props.port.previewPublish(props.project, env.value);
+    if (seq !== dryRunSeq) return;
+    dryRun.value = pv;
+    await props.book.ensure([pv.base_release_id]);
+  } catch (e) {
+    if (seq === dryRunSeq) dryRunError.value = e;
+  } finally {
+    if (seq === dryRunSeq) checking.value = false;
+  }
+}
+
 watch(
   () => props.open,
   (open) => {
@@ -31,19 +60,29 @@ watch(
     result.value = undefined;
     resultDiff.value = undefined;
     key = newIdempotencyKey();
+    void runDryRun();
   },
   { immediate: true },
 );
+watch(env, () => {
+  if (props.open && !result.value) void runDryRun();
+});
 // A different request needs a different key; a retry of the same one reuses it.
 watch([env, note], () => {
   key = newIdempotencyKey();
 });
 
 const target = computed(() => props.book.env(env.value));
-const current = computed(() => props.book.byId.value.get(target.value?.current_release_id ?? ""));
-const localeCodes = (r: Release) => r.locales.map((l) => l.code);
+const localeCodes = (r: { locales?: Array<{ code: string }> | undefined }) => (r.locales ?? []).map((l) => l.code);
+const dryRunDiff = computed<ReleaseDiff | undefined>(() =>
+  dryRun.value?.changes ? { release_id: "preview", locales: dryRun.value.changes, ...(dryRun.value.base_release_id ? { base_release_id: dryRun.value.base_release_id } : {}) } : undefined,
+);
+const unchanged = computed(() => !!dryRun.value?.base_release_id && !!dryRunDiff.value && isEmptyDiff(dryRunDiff.value));
+/** Publishing is refused only when the dry run says the catalog can't be released. */
+const blocked = computed(() => dryRun.value?.releasable === false);
 
 async function publish(): Promise<void> {
+  if (blocked.value) return;
   busy.value = true;
   error.value = null;
   try {
@@ -77,20 +116,40 @@ async function publish(): Promise<void> {
           <span id="pub-note-hint" class="hint">{{ s.noteHint }}</span>
         </div>
       </form>
-      <section class="stack-sm" aria-labelledby="pub-ships-h" data-testid="publish-preview">
+      <section class="stack-sm" aria-labelledby="pub-ships-h" aria-live="polite" data-testid="publish-preview">
         <h3 id="pub-ships-h">{{ s.willShip }}</h3>
-        <p v-if="target">{{ s.policyLead(env, policyText(target.policy)) }}</p>
-        <template v-if="current">
-          <p>{{ s.currentlyServing(env, s.version(current.version)) }}</p>
-          <LocaleTable
-            :locales="localeCodes(current)"
-            :source-locale="current.source_locale"
-            :counts="current.counts.locales"
-            :caption="s.currentlyServing(env, s.version(current.version))"
-          />
+        <p v-if="dryRun || target">{{ s.policyLead(env, policyText((dryRun ?? target)!.policy)) }}</p>
+        <p v-if="checking" class="muted" role="status">{{ s.dryRunChecking }}</p>
+        <template v-else-if="dryRun && !dryRun.releasable">
+          <div class="alert alert-error" role="alert" data-testid="dry-run-problems">
+            <span class="alert-title">{{ s.notReleasable(dryRun.problems.length) }}</span>
+            <ul class="problems">
+              <li v-for="(p, i) in dryRun.problems" :key="i">
+                <code v-if="p.key">{{ p.key }}</code> <code v-if="p.locale">{{ p.locale }}</code> {{ p.detail }}
+              </li>
+            </ul>
+          </div>
         </template>
-        <p v-else>{{ s.firstRelease(env) }}</p>
-        <p class="muted">{{ s.exactAfter }}</p>
+        <template v-else-if="dryRun && dryRun.counts">
+          <p data-testid="dry-run-summary">
+            {{ s.dryRunSummary(dryRun.counts.messages, localeCodes(dryRun).length, dryRun.counts.new_artifacts, bytesText(dryRun.counts.bytes)) }}
+          </p>
+          <p v-if="dryRun.base_release_id">{{ s.dryRunAgainst(env, book.label(dryRun.base_release_id)) }}</p>
+          <p v-else>{{ s.firstRelease(env) }}</p>
+          <p v-if="unchanged" class="muted" data-testid="dry-run-unchanged">{{ s.dryRunUnchanged(env) }}</p>
+          <LocaleTable
+            :locales="localeCodes(dryRun)"
+            :source-locale="dryRun.source_locale"
+            :counts="dryRun.counts.locales"
+            :diff="dryRunDiff"
+            :caption="s.willShip"
+          />
+          <p class="muted">{{ s.dryRunNote }}</p>
+        </template>
+        <template v-else-if="dryRunError">
+          <p class="alert alert-warn">{{ s.dryRunFailed }}</p>
+          <ErrorAlert :error="dryRunError" />
+        </template>
       </section>
     </template>
     <template v-else>
@@ -120,9 +179,16 @@ async function publish(): Promise<void> {
     <template #actions>
       <template v-if="!result">
         <button type="button" class="btn" :disabled="busy" @click="emit('close')">{{ strings.app.cancel }}</button>
-        <button type="submit" form="publish-form" class="btn btn-primary" :disabled="busy">{{ busy ? s.publishing : s.publishTo(env) }}</button>
+        <button type="submit" form="publish-form" class="btn btn-primary" :disabled="busy || checking || blocked">{{ busy ? s.publishing : s.publishTo(env) }}</button>
       </template>
       <button v-else type="button" class="btn btn-primary" @click="emit('close')">{{ s.done }}</button>
     </template>
   </ModalDialog>
 </template>
+
+<style scoped>
+.problems {
+  margin: var(--kl-space-1) 0 0;
+  padding-inline-start: var(--kl-space-4);
+}
+</style>

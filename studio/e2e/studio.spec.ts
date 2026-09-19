@@ -8,12 +8,21 @@ async function snap(page: Page, name: string): Promise<void> {
   if (dir) await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true });
 }
 
+/** Switch the theme and wait out the colour transitions, so axe measures the settled colours. */
+async function setTheme(page: Page, theme: "light" | "dark"): Promise<void> {
+  await page.evaluate(async (t) => {
+    document.documentElement.setAttribute("data-theme", t);
+    await new Promise((r) => requestAnimationFrame(r));
+    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined)));
+  }, theme);
+}
+
 /** Axe in the dark theme too, then back to light. */
 async function expectAccessibleInBothThemes(page: Page, screen: string): Promise<void> {
   await expectAccessible(page, screen);
-  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await setTheme(page, "dark");
   await expectAccessible(page, `${screen} (dark)`);
-  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+  await setTheme(page, "light");
 }
 
 /** WCAG 2.2 AA through axe; any violation fails with its rule ids and targets. */
@@ -101,12 +110,24 @@ test("sign in by magic link, set up a project, translate with the keyboard, fix 
   await expect(page.getByText("Shown on the dashboard after sign-in")).toBeVisible();
   await expect(page.getByTestId("preview-source")).toHaveText("Hello, Ada!");
 
-  // A broken placeholder: the server's structural QA refuses it.
+  // A broken placeholder: the live MF1 preview (the server's kernel)
+  // flags it before anything is saved…
   await page.keyboard.press("Enter");
   const editor = page.getByTestId("target-editor");
   await expect(editor).toBeFocused();
   await expect(editor).toHaveAttribute("lang", "de");
   await expect(editor).toHaveAttribute("dir", "ltr");
+  await editor.fill("Hallo, {name");
+  const previewErrors = page.getByTestId("preview-errors");
+  await expect(previewErrors).toContainText("mf1-syntax-error");
+  await expect(page.getByTestId("preview-target")).toHaveText("Nothing to preview yet.");
+  await expectAccessible(page, "workspace with a preview error");
+  // …and previews text that parses as the translator types.
+  await editor.fill("Hallo, {name}!!");
+  await expect(previewErrors).toBeHidden();
+  await expect(page.getByTestId("preview-target")).toHaveText("Hallo, Ada!!");
+
+  // A misspelt placeholder parses, but the server's structural QA refuses it.
   await editor.fill("Hallo, {nam}!");
   await page.keyboard.press("ControlOrMeta+Enter");
   const qa = page.getByTestId("qa-findings");
@@ -164,12 +185,19 @@ test("sign in by magic link, set up a project, translate with the keyboard, fix 
     const dialog = page.getByRole("dialog", { name: "Publish a release" });
     await dialog.getByLabel("Environment").selectOption(env);
     await expect(dialog.getByTestId("publish-preview")).toContainText(`${env} ships translations that are:`);
+    await expect(dialog.getByTestId("dry-run-summary")).toBeVisible();
     return dialog;
   };
 
-  // Publish to development: both approved German translations ship.
+  // Publish to development. The dry run shows what would ship before
+  // anything is stored: both approved German translations, all added.
   let d = await publish("development");
-  await expect(d.getByTestId("publish-preview")).toContainText("Nothing is published to development yet");
+  const dryRun = d.getByTestId("publish-preview");
+  await expect(dryRun).toContainText("Nothing is published to development yet");
+  await expect(d.getByTestId("dry-run-summary")).toContainText("3 messages in 3 locales · 3 new artifacts to upload");
+  await expect(dryRun.locator("tr[data-locale=de]")).toContainText("2");
+  await expect(dryRun.locator("tr[data-locale=de]")).toContainText("+2");
+  expect(servedManifest(projectId, "development")).toBeNull();
   await expectAccessibleInBothThemes(page, "publish dialog");
   await d.getByRole("button", { name: "Publish to development" }).click();
   await expect(d.getByRole("status")).toHaveText("Published v1 to development.");
@@ -179,34 +207,33 @@ test("sign in by magic link, set up a project, translate with the keyboard, fix 
   await expect(dev).toContainText("Published by you");
   await expect.poll(() => servedManifest(projectId, "development")?.release.version).toBe(1);
 
-  // Development ships drafts, so its releases can't go to production as they are.
+  // Development ships drafts, so its releases can't go to production: the
+  // way there is staging, which ships approved text like production.
   await prod.getByRole("button", { name: "Promote to production" }).click();
   d = page.getByRole("dialog", { name: "Promote a release" });
   await d.getByLabel("Release").selectOption({ label: "v1 · development" });
   await expect(d.getByTestId("promote-ineligible")).toContainText("v1 can't go to production");
+  await expect(d.getByTestId("promote-ineligible")).toContainText("Publish to staging");
   await expect(d.getByRole("button", { name: "Promote v1 to production" })).toBeDisabled();
   await d.getByRole("button", { name: "Cancel" }).click();
 
-  // Ship only approved text to development, then publish and promote.
-  await dev.getByRole("button", { name: "Policy of development" }).click();
-  d = page.getByRole("dialog", { name: "What ships to development" });
-  await d.getByLabel("Draft").uncheck();
-  await d.getByLabel("Needs review").uncheck();
+  // The policy dialog (staging keeps its default: approved only).
+  await page.getByTestId("env-staging").getByRole("button", { name: "Policy of staging" }).click();
+  d = page.getByRole("dialog", { name: "What ships to staging" });
+  await expect(d.getByLabel("Approved")).toBeChecked();
+  await expect(d.getByLabel("Draft")).not.toBeChecked();
   await expectAccessible(page, "policy dialog");
-  await d.getByRole("button", { name: "Save policy" }).click();
-  await expect(page.getByTestId("releases-status")).toContainText("development's policy is saved");
-  await expect(dev).toContainText("Ships: Approved; outdated included");
+  await d.getByRole("button", { name: "Cancel" }).click();
 
-  d = await publish("development");
-  await expect(d.getByTestId("publish-preview")).toContainText("development serves v1 now:");
-  await d.getByRole("button", { name: "Publish to development" }).click();
-  await expect(d.getByRole("status")).toHaveText("Published v2 to development.");
-  await expect(d).toContainText("Nothing changed: it ships the same text as before.");
+  d = await publish("staging");
+  await expect(d.getByTestId("dry-run-summary")).toContainText("3 messages in 3 locales");
+  await d.getByRole("button", { name: "Publish to staging" }).click();
+  await expect(d.getByRole("status")).toHaveText("Published v2 to staging.");
   await d.getByRole("button", { name: "Done" }).click();
 
   await prod.getByRole("button", { name: "Promote to production" }).click();
   d = page.getByRole("dialog", { name: "Promote a release" });
-  await d.getByLabel("Release").selectOption({ label: "v2 · development" });
+  await d.getByLabel("Release").selectOption({ label: "v2 · staging" });
   await expect(d.getByTestId("promote-summary")).toContainText("production: nothing → v2");
   await d.getByRole("button", { name: "Promote v2 to production" }).click();
   await expect(page.getByTestId("releases-status")).toHaveText("production now serves v2.");
@@ -225,10 +252,13 @@ test("sign in by magic link, set up a project, translate with the keyboard, fix 
   await expect(page.getByTestId("translation-state")).toHaveText("Approved");
 
   await page.getByRole("link", { name: "Releases" }).click();
-  d = await publish("development");
+  d = await publish("staging");
+  // Against what staging serves: the one new German text.
+  await expect(d.getByTestId("publish-preview")).toContainText("Compared with v2, which staging serves now:");
+  await expect(d.getByTestId("publish-preview").locator("tr[data-locale=de]")).toContainText("+1");
   await d.getByLabel("Note (optional)").fill("German title");
-  await d.getByRole("button", { name: "Publish to development" }).click();
-  await expect(d.getByRole("status")).toHaveText("Published v3 to development.");
+  await d.getByRole("button", { name: "Publish to staging" }).click();
+  await expect(d.getByRole("status")).toHaveText("Published v3 to staging.");
   await expect(d.getByRole("heading", { name: "Changes since v2, per locale" })).toBeVisible();
   await expect(d.locator("tr[data-locale=de]")).toContainText("+1");
   await expectAccessible(page, "publish result");
@@ -236,7 +266,7 @@ test("sign in by magic link, set up a project, translate with the keyboard, fix 
 
   await prod.getByRole("button", { name: "Promote to production" }).click();
   d = page.getByRole("dialog", { name: "Promote a release" });
-  await d.getByLabel("Release").selectOption({ label: "v3 · development · German title" });
+  await d.getByLabel("Release").selectOption({ label: "v3 · staging · German title" });
   await expect(d.getByTestId("promote-summary")).toContainText("production: v2 → v3");
   await expect(d.locator("tr[data-locale=de]")).toContainText("+1");
   await expectAccessibleInBothThemes(page, "promote dialog");
