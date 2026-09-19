@@ -24,7 +24,8 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit -p tsconfig.test.json"
+    "lint": "tsc --noEmit -p tsconfig.test.json",
+    "generate:runtime-format": "tsc -p tsconfig.json && node --experimental-strip-types scripts/generate-runtime-format.ts"
   },
   "dependencies": {
     "@messageformat/icu-messageformat-1": "0.12.0",
