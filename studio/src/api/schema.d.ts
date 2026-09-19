@@ -2856,6 +2856,333 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/import-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Import jobs
+         * @description Newest first. Needs `integration.read`.
+         */
+        get: operations["listImportJobs"];
+        put?: never;
+        /**
+         * Create an import job (then upload its file)
+         * @description Creates a job in `awaiting_upload`; `PUT` the file to its
+         *     `upload_url` next (within 24 hours). Catalog formats (`xliff`,
+         *     `json`, `po`) belong to a project; `tmx` and `tbx` import into
+         *     a project, or tenant-wide without `project_id`.
+         *
+         *     **Modes.** `merge` (default) creates what is missing and updates
+         *     what changed, but never replaces an approved translation, a
+         *     message's source that differs from the file's, or a concept that
+         *     differs: those are `conflict` results (and a translation of a
+         *     message whose source differs is one too — it was made for other
+         *     text). `overwrite` makes the stored state the file's (needs
+         *     `integration.manage`). `dry_run` runs every check of a merge and
+         *     reports its results without changing anything.
+         *
+         *     **Review states.** A file's states (XLIFF `final` → approved,
+         *     `translated` → needs_review, `initial` → draft; PO fuzzy →
+         *     needs_review; JSON: `options.state`, default needs_review) are
+         *     kept only as far as the requester may decide them: an approval
+         *     (or rejection) needs `translations.review` for the locale, or —
+         *     approvals — a project that doesn't require review; otherwise
+         *     the translation waits for review. Translations are written with
+         *     provenance `import` and `origin_detail` `{job, file, format,
+         *     requested_by}`.
+         *
+         *     **Keys.** XLIFF units and JSON keys are message keys. gettext
+         *     keys messages by text: a PO entry's key is
+         *     `[<msgctxt slug>.]<msgid slug>_<hash>` — the text folded to
+         *     lowercase ASCII words joined by `_` (at most 40 characters) and
+         *     the first 8 hex digits of SHA-256 over msgctxt, U+0004 and msgid
+         *     (`Add to cart` → `add_to_cart_…`), so the same entry always
+         *     gets the same key.
+         *
+         *     **Permissions.** Catalog formats need `integration.import`
+         *     (translations of the locales in the requester's scope — a
+         *     translator's) or `integration.manage` (also creating and
+         *     revising messages; a JSON file in the source locale is a source
+         *     catalog and needs it). TMX, TBX and `overwrite` need
+         *     `integration.manage` (and `knowledge.write` for TMX and TBX).
+         *     What the requester may do is recorded with the job and applied
+         *     when it runs. Problem codes: `invalid_format`, `invalid_mode`,
+         *     `invalid_options`, `project_required` (400).
+         */
+        post: operations["createImportJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/import-jobs/{import_job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An import job `id`. */
+                import_job: components["parameters"]["ImportJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An import job with its progress and counts
+         * @description `processed_items` of `total_items` (entries, units or concepts
+         *     of the file; 0 until known — a TMX file streams) and `summary`,
+         *     the results so far by status and kind. A job ends `succeeded`,
+         *     `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
+         *     `file_too_large` — the problem's line and column are its last
+         *     result —, `source_locale_mismatch`, `project_not_found`,
+         *     `upload_expired`, `internal`) or `cancelled`. An import of a
+         *     file this tenant already imported with the same options
+         *     succeeds at once with that job's result (`reused_job_id`);
+         *     dry runs are always run. Needs `integration.read`.
+         */
+        get: operations["getImportJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/import-jobs/{import_job}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An import job `id`. */
+                import_job: components["parameters"]["ImportJobPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload an import job's file
+         * @description The raw file (any `Content-Type`; the job's `format` says how it
+         *     is read), streamed to object storage — once, by the job's
+         *     requester, while it is `awaiting_upload`. The job is `queued`,
+         *     or `succeeded` at once when it reuses an earlier result. Problem
+         *     codes: `empty_file`, `upload_interrupted` (400: the body broke
+         *     off), `upload_not_expected` (409), `file_too_large` (413; the
+         *     limit is the deployment's `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES`,
+         *     64 MiB by default), `storage_unavailable` (503).
+         */
+        put: operations["uploadImportFile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/import-jobs/{import_job}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An import job `id`. */
+                import_job: components["parameters"]["ImportJobPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an import job
+         * @description A job waiting for its file or queued is cancelled at once; a
+         *     running one stops after its current batch of 500
+         *     (`cancel_requested`), and what it already applied stays
+         *     applied. Cancelling a cancelled job changes nothing. The
+         *     requester, or someone with `integration.manage`, may cancel.
+         *     Problem code: `job_not_cancellable` (409: it has finished).
+         */
+        post: operations["cancelImportJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/import-jobs/{import_job}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An import job `id`. */
+                import_job: components["parameters"]["ImportJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An import job's per-item results
+         * @description In file order: each message, then its translations; TM units;
+         *     concepts. `status` is `created`, `updated`, `unchanged`,
+         *     `conflict` (stored data differs and the mode keeps it: `code`
+         *     `approved_translation_conflict`, `source_differs`,
+         *     `concept_differs`) or `invalid` (`code` says why:
+         *     `forbidden`, `message_not_found`, `invalid_message_key`,
+         *     `structural_qa_failed`, `invalid_file` with `line` and
+         *     `column`, …). A dry run's results are what a merge would do.
+         *     Needs `integration.read`.
+         */
+        get: operations["listImportResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/export-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Export jobs
+         * @description Newest first. Needs `integration.read`.
+         */
+        get: operations["listExportJobs"];
+        put?: never;
+        /**
+         * Export a catalog, translation memory or termbase
+         * @description Queues the export; download its file when it has `succeeded`.
+         *     Catalogs (`xliff`, `json`) belong to a project and write one
+         *     file per locale in `options.locales` — several are zipped as
+         *     `<locale>.<ext>` —, the project's active messages (in
+         *     `options.namespaces`) with their translations in
+         *     `options.states` (default `approved`). An XLIFF export without
+         *     locales carries the source only; a JSON export defaults to the
+         *     source locale and matches what `glossa pull` writes (sorted
+         *     keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
+         *     mf2). `tmx` and `tbx` export a project's own memory or termbase,
+         *     or without `project_id` everything the tenant holds; `tmx`
+         *     narrows by `source_locale` and target `locales`. Needs
+         *     `integration.read` and `catalog.read` with
+         *     `translations.read` (catalogs) or `knowledge.read`. Problem
+         *     codes: `invalid_format` (400; `po` is import only),
+         *     `invalid_options`, `project_required` (400),
+         *     `locale_not_found` (404).
+         */
+        post: operations["createExportJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/export-jobs/{export_job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An export job `id`. */
+                export_job: components["parameters"]["ExportJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An export job
+         * @description A job ends `succeeded` (with `file` and `download_url`),
+         *     `failed` (`failure_code`: `not_representable` — the format can't
+         *     express the catalog with these options, such as MF2-only
+         *     messages in an MF1 JSON file or an XLIFF file without messages
+         *     —, `project_not_found`, `internal`) or `cancelled`. Needs
+         *     `integration.read`.
+         */
+        get: operations["getExportJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/export-jobs/{export_job}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An export job `id`. */
+                export_job: components["parameters"]["ExportJobPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a queued export
+         * @description A queued export is cancelled at once; a running one finishes.
+         *     The requester, or someone with `integration.manage`, may cancel.
+         *     Problem code: `job_not_cancellable` (409: it has finished).
+         */
+        post: operations["cancelExportJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/export-jobs/{export_job}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An export job `id`. */
+                export_job: components["parameters"]["ExportJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Download a finished export
+         * @description The file, streamed from object storage, with its name in
+         *     `Content-Disposition` (its media type is the job's
+         *     `file.content_type`) and its SHA-256 as the `ETag`. Files are
+         *     kept for the deployment's retention period
+         *     (`GLOSSA_INTEGRATION_RETENTION`, 7 days by default). Needs
+         *     `integration.read`. Problem codes: `export_not_ready` (409),
+         *     `file_expired` (410), `storage_unavailable` (503).
+         */
+        get: operations["downloadExportFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4464,6 +4791,200 @@ export interface components {
                 [key: string]: components["schemas"]["AIEvalMetrics"];
             };
         };
+        /**
+         * @description `xliff` XLIFF 2.1, `json` flat or nested `{key: message}`, `po`
+         *     gettext (import only), `tmx` TMX 1.4b, `tbx` TBX-Basic.
+         * @enum {string}
+         */
+        IntegrationFormat: "xliff" | "json" | "po" | "tmx" | "tbx";
+        /**
+         * @description What the job moves; follows from the format.
+         * @enum {string}
+         */
+        IntegrationKind: "catalog" | "tm" | "termbase";
+        /** @enum {string} */
+        ImportMode: "dry_run" | "merge" | "overwrite";
+        /** @enum {string} */
+        IntegrationJobState: "awaiting_upload" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
+        /**
+         * @description How the file is read; options a format doesn't take are refused
+         *     (`invalid_options`).
+         */
+        ImportOptions: {
+            /**
+             * @description JSON: the file's locale (default the project's source
+             *     locale, making it a source catalog). PO: the translations'
+             *     locale (default the file's `Language` header).
+             */
+            locale?: components["schemas"]["Locale"];
+            /** @description JSON and PO: every message's namespace (default `default`). */
+            namespace?: string;
+            /**
+             * @description JSON: the messages' syntax (default mf1). XLIFF (`mf1` only):
+             *     read units from other tools that carry plain text as ICU
+             *     MessageFormat instead of literally.
+             */
+            syntax?: components["schemas"]["Syntax"];
+            /**
+             * @description The review state of translations the file doesn't state:
+             *     JSON (default needs_review), PO entries without the fuzzy
+             *     flag (default approved). Capped like the file's own states.
+             */
+            state?: components["schemas"]["ReviewState"];
+            /** @description PO: the count variable of plurals (default `count`). */
+            plural_variable?: string;
+        };
+        ImportJobRequest: {
+            /** @description Required for catalog formats; without it TMX and TBX import tenant-wide. */
+            project_id?: components["schemas"]["Id"];
+            format: components["schemas"]["IntegrationFormat"];
+            mode?: components["schemas"]["ImportMode"];
+            /** @description The file's name, for people. */
+            file_name?: string;
+            options?: components["schemas"]["ImportOptions"];
+        };
+        IntegrationFile: {
+            /** Format: int64 */
+            size: number;
+            sha256: string;
+            content_type: string;
+        };
+        ImportCounts: {
+            created: number;
+            updated: number;
+            unchanged: number;
+            conflict: number;
+            invalid: number;
+        };
+        ImportSummary: {
+            created: number;
+            updated: number;
+            unchanged: number;
+            conflict: number;
+            invalid: number;
+            /** @description The same counts per kind of result (`message`, `translation`, `tm_unit`, `concept`). */
+            by_kind: {
+                [key: string]: components["schemas"]["ImportCounts"];
+            };
+        };
+        ImportJob: {
+            id: components["schemas"]["Id"];
+            project_id?: components["schemas"]["Id"];
+            kind: components["schemas"]["IntegrationKind"];
+            format: components["schemas"]["IntegrationFormat"];
+            mode: components["schemas"]["ImportMode"];
+            options: components["schemas"]["ImportOptions"];
+            state: components["schemas"]["IntegrationJobState"];
+            file_name: string;
+            /** @description Where to `PUT` the file; present while the job is `awaiting_upload`. */
+            upload_url?: string;
+            file?: components["schemas"]["IntegrationFile"];
+            /** @description The earlier import of the same file and options whose result this job reuses. */
+            reused_job_id?: components["schemas"]["Id"];
+            summary: components["schemas"]["ImportSummary"];
+            /** @description Entries, units or concepts in the file; 0 until known. */
+            total_items: number;
+            processed_items: number;
+            failure_code?: string;
+            failure_message?: string;
+            cancel_requested: boolean;
+            attempts: number;
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            started_at?: components["schemas"]["Timestamp"];
+            finished_at?: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            /** @description When retention deletes the uploaded file (the job and its results stay). */
+            expires_at: components["schemas"]["Timestamp"];
+            files_deleted_at?: components["schemas"]["Timestamp"];
+        };
+        ImportJobList: {
+            items: components["schemas"]["ImportJob"][];
+            next_page_token?: string;
+        };
+        /** @enum {string} */
+        ImportResultKind: "message" | "translation" | "tm_unit" | "concept";
+        /** @enum {string} */
+        ImportResultStatus: "created" | "updated" | "unchanged" | "conflict" | "invalid";
+        ImportResult: {
+            /** @description Position in the job's results (file order). */
+            seq: number;
+            kind: components["schemas"]["ImportResultKind"];
+            /** @description The message key, the TMX unit's `tuid` or the TBX concept's id. */
+            key: string;
+            locale?: components["schemas"]["Locale"];
+            status: components["schemas"]["ImportResultStatus"];
+            /** @description Why a result is a conflict or invalid. */
+            code?: string;
+            detail?: string;
+            /** @description Where in the file (1-based). */
+            line?: number;
+            column?: number;
+        };
+        ImportResultList: {
+            items: components["schemas"]["ImportResult"][];
+            next_page_token?: string;
+        };
+        /**
+         * @description What is written; options a format doesn't take are refused
+         *     (`invalid_options`).
+         */
+        ExportOptions: {
+            /**
+             * @description Catalogs: one file per locale (XLIFF targets; JSON any locale,
+             *     default the source). TMX: keep units with these targets.
+             */
+            locales?: components["schemas"]["Locale"][];
+            /** @description TMX: keep units with this source locale. */
+            source_locale?: components["schemas"]["Locale"];
+            /** @description Catalogs: only these namespaces (default all). */
+            namespaces?: string[];
+            /** @description Catalogs: translations in these review states (default approved). */
+            states?: components["schemas"]["ReviewState"][];
+            /**
+             * @description JSON: default flat.
+             * @enum {string}
+             */
+            layout?: "flat" | "nested";
+            syntax?: components["schemas"]["Syntax"];
+        };
+        ExportJobRequest: {
+            /** @description Required for catalogs; without it TMX and TBX export the whole tenant's. */
+            project_id?: components["schemas"]["Id"];
+            format: components["schemas"]["IntegrationFormat"];
+            options?: components["schemas"]["ExportOptions"];
+        };
+        ExportJob: {
+            id: components["schemas"]["Id"];
+            project_id?: components["schemas"]["Id"];
+            kind: components["schemas"]["IntegrationKind"];
+            format: components["schemas"]["IntegrationFormat"];
+            options: components["schemas"]["ExportOptions"];
+            state: components["schemas"]["IntegrationJobState"];
+            /** @description The file's name once written (`shop.de.xlf`, `shop.json.zip`). */
+            file_name: string;
+            file?: components["schemas"]["IntegrationFile"];
+            /** @description Where to download the file; present while it is kept. */
+            download_url?: string;
+            /** @description Messages, units or concepts written. */
+            written: number;
+            failure_code?: string;
+            failure_message?: string;
+            cancel_requested: boolean;
+            attempts: number;
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            started_at?: components["schemas"]["Timestamp"];
+            finished_at?: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            /** @description When retention deletes the file. */
+            expires_at: components["schemas"]["Timestamp"];
+            files_deleted_at?: components["schemas"]["Timestamp"];
+        };
+        ExportJobList: {
+            items: components["schemas"]["ExportJob"][];
+            next_page_token?: string;
+        };
     };
     responses: {
         /** @description Signed in. The session cookie is set. */
@@ -4566,6 +5087,24 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The request body exceeds the limit. */
+        PayloadTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The resource existed and was deleted (retention). */
+        Gone: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /**
          * @description `structural_qa_failed`: the translation is structurally
          *     incompatible with its source (`findings`, errors first).
@@ -4616,6 +5155,10 @@ export interface components {
         AIJobPath: components["schemas"]["Id"];
         /** @description A suggestion `id`. */
         AISuggestionPath: components["schemas"]["Id"];
+        /** @description An import job `id`. */
+        ImportJobPath: components["schemas"]["Id"];
+        /** @description An export job `id`. */
+        ExportJobPath: components["schemas"]["Id"];
         PageSize: number;
         /** @description The `next_page_token` of the previous page. */
         PageToken: string;
@@ -8982,6 +9525,363 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listImportJobs: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                state?: components["schemas"]["IntegrationJobState"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of import jobs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createImportJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportJobRequest"];
+            };
+        };
+        responses: {
+            /** @description The job, waiting for its file. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getImportJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An import job `id`. */
+                import_job: components["parameters"]["ImportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    uploadImportFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An import job `id`. */
+                import_job: components["parameters"]["ImportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description The job, queued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    cancelImportJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An import job `id`. */
+                import_job: components["parameters"]["ImportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listImportResults: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                status?: components["schemas"]["ImportResultStatus"];
+                kind?: components["schemas"]["ImportResultKind"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An import job `id`. */
+                import_job: components["parameters"]["ImportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResultList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listExportJobs: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                state?: components["schemas"]["IntegrationJobState"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of export jobs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportJobList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createExportJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportJobRequest"];
+            };
+        };
+        responses: {
+            /** @description The job, queued. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getExportJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An export job `id`. */
+                export_job: components["parameters"]["ExportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cancelExportJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An export job `id`. */
+                export_job: components["parameters"]["ExportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    downloadExportFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An export job `id`. */
+                export_job: components["parameters"]["ExportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="…"` */
+                    "Content-Disposition"?: string;
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            410: components["responses"]["Gone"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }
