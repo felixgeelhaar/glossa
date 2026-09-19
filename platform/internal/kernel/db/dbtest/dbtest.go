@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || system
 
 // Package dbtest boots a disposable Postgres 16 for integration tests,
 // provisioned the way production is:

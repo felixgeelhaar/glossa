@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || system
 
 // Package s3test boots a disposable MinIO for integration tests, so the
 // S3 adapter and glossa-edge are tested against a real S3 API.
