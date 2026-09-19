@@ -32,6 +32,7 @@ func load() {
 	files := map[string]string{
 		"manifest": filepath.Join(root, "runtimes", "testdata", "schemas", "manifest.schema.json"),
 		"artifact": filepath.Join(root, "runtimes", "testdata", "schemas", "artifact.schema.json"),
+		"key":      filepath.Join(root, "runtimes", "testdata", "schemas", "delivery-key.schema.json"),
 		"message":  filepath.Join(root, "messageformat", "testdata", "unicode", "data-model", "message.schema.json"),
 	}
 	schemas = map[string]*jsonschema.Schema{}
@@ -79,6 +80,16 @@ func Manifest(t *testing.T, doc []byte) {
 	t.Helper()
 	validate(t, "manifest", doc)
 }
+
+// KeyIndex validates a delivery key index object against
+// delivery-key.schema.json.
+func KeyIndex(t *testing.T, doc []byte) {
+	t.Helper()
+	validate(t, "key", doc)
+}
+
+// RepoRoot is the repository root (for tests reading runtimes/testdata).
+func RepoRoot() string { return repoRoot() }
 
 // Artifact validates an artifact against artifact.schema.json, and each
 // of its messages against the MF2 data model schema.

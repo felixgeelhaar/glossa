@@ -69,8 +69,32 @@ One artifact holds one namespace of one locale. Schema: [`testdata/schemas/artif
 | `GET /v1/{deliveryKey}/a/{sha256}.json` | artifact bytes | `Cache-Control: public, max-age=31536000, immutable` |
 
 - `deliveryKey` is a **publishable** key: public by design (it ships in browser bundles), scoped to one project, read-only, revocable, and it never grants access to the control plane. A revoked or unknown key answers `404`, never `401`, so key validity can't be probed separately from existence.
+- A key reads only the environments in its **scope** (§2.1). A manifest request for any other environment answers `404`, exactly as for an unknown key, so a scope can't be probed either. New keys read `production` only.
+- **Branch environments** preview a feature branch's unreleased text (RFC 0004 §4.2). They're named `pr-<number>` for a pull request and `br-<the first 8 hex digits of the SHA-256 of the branch name>` otherwise, and these names are reserved for them. Only a key with `branches` reads them: a **preview key**, which belongs in preview deployments only, never in a production bundle.
+- Artifact requests aren't scoped by environment. Artifacts are content-addressed and shared by a project's environments, and a key learns a hash only from a manifest it may read.
 - The edge serves only what's in object storage. It has no database and no control-plane dependency (RFC 0002 §3).
 - Responses carry `Access-Control-Allow-Origin: *`. The artifacts are public, and credentials are never used.
+
+### 2.1 Key index
+
+The edge resolves a key through its **index object** at `v1/keys/<lowercase hex SHA-256 of the key>.json`, which the Release context writes while the key is active and deletes when it's revoked. Schema: [`testdata/schemas/delivery-key.schema.json`](./testdata/schemas/delivery-key.schema.json).
+
+```json
+{
+  "schema": "glossa.delivery-key/v1",
+  "project": "0192f5a0-7a4e-7cc3-9d1e-3a4b5c6d7e8f",
+  "key_id": "0192f5a1-…",
+  "environments": ["preview"],
+  "branches": true
+}
+```
+
+- `environments` is the allowlist of environments the key reads by name. It never names a branch environment.
+- `branches: true` also allows every branch environment (`pr-<number>`, `br-<8 hex>`). It defaults to `false`.
+- An object without `environments` was written before scopes existed. It reads as `development`, `preview`, `staging` and `production` without branches, the scope such keys were migrated to.
+- Scopes and revocation reach the edge within its key cache TTL (seconds).
+
+Runtimes don't read index objects and are unaffected by scopes: a request outside the scope fails like any other `404`.
 
 ## 3. Loading (reliability order)
 
@@ -170,6 +194,8 @@ Every runtime exposes:
 Loading-order behaviour (persisted last-good, atomic activation, integrity failure, signature rejection, schema version, cold offline start) is covered by `testdata/loading/*.json`. Each file lists a sequence of edge responses and the expected active release after each one. Runtimes drive these through a fake transport. Field reference: [`testdata/README.md`](./testdata/README.md).
 
 Every runtime runs both suites in CI. A bug found in any runtime becomes a new case here first.
+
+The edge's side of §2 is covered by `testdata/edge/*.json`: key index objects, the environments that have a manifest, and the status every key must get for each of them. `glossa-edge` runs it in CI.
 
 ## 8. Versioning
 

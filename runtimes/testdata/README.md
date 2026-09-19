@@ -36,6 +36,20 @@ against the MF2 data-model schema, and every manifest and artifact against [`sch
 Each loading file starts with empty persisted storage. The Ed25519 key that signs these
 fixtures is a fixed, test-only key (seed in the generator); it signs nothing else.
 
+## `edge/*.json` (delivery-key scopes, SPEC §2)
+
+For `glossa-edge`, not the runtimes. Every key index object is validated against
+[`schemas/delivery-key.schema.json`](./schemas/delivery-key.schema.json).
+
+| Field | Meaning |
+|---|---|
+| `project` | The project every key belongs to |
+| `keys` | `{ label: {key, index} }`: a publishable key and its index object, stored at `v1/keys/<sha256(key)>.json`. `index: null` means no object (a revoked key) |
+| `environments` | Environments that have a manifest in storage |
+| `cases[].key`, `environment` | Request `GET /v1/{keys[key].key}/{environment}/manifest.json` |
+| `cases[].artifact` | When `true`, request an artifact of the project instead |
+| `cases[].expStatus` | `200`, or `404` with exactly the body an unknown key gets |
+
 ## `usages/` (context, RFC 0004 §2.1)
 
 This is the shared fixture suite for `@glossa/unplugin` and `glossa extract`: source trees, and the

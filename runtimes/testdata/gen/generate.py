@@ -291,6 +291,64 @@ def loading_sequences():
     }
 
 
+# ── Edge: delivery-key scopes (SPEC §2) ─────────────────────────────────
+
+EDGE_PROJECT = "0192f5a0-7a4e-7cc3-9d1e-3a4b5c6d7e8f"
+DEFAULT_ENVIRONMENTS = ["development", "preview", "staging", "production"]
+
+
+def delivery_key(label):
+    """A fixed, well-formed publishable key: glossa_pk_ + 32 base64url characters."""
+    raw = hashlib.sha256(f"fixture key {label}".encode("utf-8")).digest()[:24]
+    return "glossa_pk_" + base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
+def key_index(key_id, environments=None, branches=None):
+    """A key index object; environments=None writes one from before scopes."""
+    idx = {"schema": "glossa.delivery-key/v1", "project": EDGE_PROJECT, "key_id": key_id}
+    if environments is not None:
+        idx["environments"] = sorted(environments)
+        idx["branches"] = bool(branches)
+    return idx
+
+
+def edge_fixtures():
+    keys = {
+        "production": key_index("k_prod", ["production"]),
+        "staging-and-production": key_index("k_stage", ["staging", "production"]),
+        "preview": key_index("k_preview", ["preview"], branches=True),
+        "branches-only": key_index("k_branches", [], branches=True),
+        "legacy": key_index("k_legacy"),
+        "revoked": None,
+    }
+    environments = DEFAULT_ENVIRONMENTS + ["qa", "pr-42", "br-0a1b2c3d"]
+
+    def case(key, environment, status):
+        return {"key": key, "environment": environment, "expStatus": status}
+
+    cases = []
+    for label, idx in keys.items():
+        for env in environments:
+            if idx is None:
+                allowed = False
+            else:
+                allowlist = idx.get("environments", DEFAULT_ENVIRONMENTS)
+                branch = env.startswith(("pr-", "br-"))
+                allowed = env in allowlist or (idx.get("branches", False) and branch)
+            cases.append(case(label, env, 200 if allowed else 404))
+        cases.append({"key": label, "artifact": True, "expStatus": 404 if idx is None else 200})
+    yield "key-scopes", {
+        "description": "A key reads the environments on its allowlist and, with branches, every branch environment "
+                       "(pr-<n>, br-<8 hex>); anything else answers 404 exactly like an unknown key. An index object "
+                       "without environments predates scopes and reads as the four default environments. Artifacts "
+                       "aren't scoped by environment.",
+        "project": EDGE_PROJECT,
+        "keys": {label: {"key": delivery_key(label), "index": idx} for label, idx in keys.items()},
+        "environments": environments,
+        "cases": cases,
+    }
+
+
 # ── Safe markup (formatted parts → HTML) ────────────────────────────────
 
 # Inline, attribute-free phrasing elements a translation may produce. The
@@ -384,6 +442,10 @@ def validators():
     return mf2, manifest, artifact
 
 
+def delivery_key_validator():
+    return jsonschema.Draft202012Validator(json.loads((SCHEMAS / "delivery-key.schema.json").read_text()))
+
+
 def validate_release(manifest, blobs, v):
     mf2, man, art = v
     if manifest.get("schema") == "glossa.manifest/v1":
@@ -413,6 +475,12 @@ def main():
                 validate_release(m["body"], {}, v)
         outputs[ROOT / "loading" / f"{name}.json"] = render(seq)
     outputs[ROOT / "markup.json"] = render(markup_fixture())
+    key_schema = delivery_key_validator()
+    for name, fx in edge_fixtures():
+        for k in fx["keys"].values():
+            if k["index"] is not None:
+                key_schema.validate(k["index"])
+        outputs[ROOT / "edge" / f"{name}.json"] = render(fx)
     drift = [p for p, content in outputs.items() if not p.exists() or p.read_text() != content]
     if check:
         if drift:
@@ -421,6 +489,7 @@ def main():
         print(f"{len(outputs)} runtime fixtures up to date")
         return
     for p, content in outputs.items():
+        p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content)
     print(f"wrote {len(outputs)} fixtures ({len(drift)} changed)")
 
