@@ -108,6 +108,28 @@ type CaptureInput struct {
 	Regions  []Region
 }
 
+func (in CaptureInput) validate() error {
+	switch {
+	case !textWithin(in.Route, 1, MaxRouteLen):
+		return fmt.Errorf("%w: route must be 1–%d characters", ErrInvalidCapture, MaxRouteLen)
+	case !in.Viewport.valid():
+		return fmt.Errorf("%w: viewport sides must be 1–%d pixels", ErrInvalidCapture, MaxViewportSide)
+	case in.Locale.IsZero():
+		return fmt.Errorf("%w: locale is required", ErrInvalidCapture)
+	case len(in.Regions) > MaxRegionsPerCapture:
+		return ErrTooManyRegions
+	}
+	if err := in.Image.validate(); err != nil {
+		return err
+	}
+	for i, r := range in.Regions {
+		if err := r.validate(); err != nil {
+			return fmt.Errorf("%w: regions[%d]: %v", ErrInvalidRegion, i, err)
+		}
+	}
+	return nil
+}
+
 // Capture is one (route, viewport, locale) screenshot of a build: the
 // page image plus the regions of the messages on it (RFC 0004 §3.2).
 // It is immutable, and it follows its build's retention.
@@ -126,23 +148,8 @@ type Capture struct {
 
 // NewCapture validates a capture of build.
 func NewCapture(project, build uuid.UUID, in CaptureInput, by string, now time.Time) (Capture, error) {
-	switch {
-	case !textWithin(in.Route, 1, MaxRouteLen):
-		return Capture{}, fmt.Errorf("%w: route must be 1–%d characters", ErrInvalidCapture, MaxRouteLen)
-	case !in.Viewport.valid():
-		return Capture{}, fmt.Errorf("%w: viewport sides must be 1–%d pixels", ErrInvalidCapture, MaxViewportSide)
-	case in.Locale.IsZero():
-		return Capture{}, fmt.Errorf("%w: locale is required", ErrInvalidCapture)
-	case len(in.Regions) > MaxRegionsPerCapture:
-		return Capture{}, ErrTooManyRegions
-	}
-	if err := in.Image.validate(); err != nil {
+	if err := in.validate(); err != nil {
 		return Capture{}, err
-	}
-	for i, r := range in.Regions {
-		if err := r.validate(); err != nil {
-			return Capture{}, fmt.Errorf("%w: regions[%d]: %v", ErrInvalidRegion, i, err)
-		}
 	}
 	return Capture{
 		ID: uuid.Must(uuid.NewV7()), ProjectID: project, BuildID: build, Route: in.Route, Viewport: in.Viewport,

@@ -181,23 +181,33 @@ func ParseUpload(raw []byte) (Upload, error) {
 	return up, nil
 }
 
+// parseHeader validates what every collector's document starts with:
+// its schema, application, commit, branch and tool.
+func parseHeader(schema, want, application, commit, branch string, tool DocumentTool) (Upload, error) {
+	if schema != want {
+		return Upload{}, fmt.Errorf("schema must be %q", want)
+	}
+	if !slugPattern.MatchString(application) {
+		return Upload{}, errors.New("application must be an application's slug")
+	}
+	if !fullCommitPattern.MatchString(commit) {
+		return Upload{}, errors.New("commit must be a full commit ID in lowercase hex (40 or 64 digits)")
+	}
+	b, err := ParseBranch(branch)
+	if err != nil {
+		return Upload{}, err
+	}
+	t := Tool{Name: tool.Name, Version: tool.Version}
+	if err := t.validate(); err != nil {
+		return Upload{}, err
+	}
+	return Upload{Application: application, Commit: Commit(commit), Branch: b, Tool: t}, nil
+}
+
 func (doc UsagesDocument) validate() (Upload, error) {
-	if doc.Schema != UsagesSchema {
-		return Upload{}, fmt.Errorf("%w: schema must be %q", ErrInvalidUpload, UsagesSchema)
-	}
-	if !slugPattern.MatchString(doc.Application) {
-		return Upload{}, fmt.Errorf("%w: application must be an application's slug", ErrInvalidUpload)
-	}
-	if !fullCommitPattern.MatchString(doc.Commit) {
-		return Upload{}, fmt.Errorf("%w: commit must be a full commit ID in lowercase hex (40 or 64 digits)", ErrInvalidUpload)
-	}
-	branch, err := ParseBranch(doc.Branch)
+	up, err := parseHeader(doc.Schema, UsagesSchema, doc.Application, doc.Commit, doc.Branch, doc.Tool)
 	if err != nil {
 		return Upload{}, fmt.Errorf("%w: %w", ErrInvalidUpload, err)
-	}
-	tool := Tool{Name: doc.Tool.Name, Version: doc.Tool.Version}
-	if err := tool.validate(); err != nil {
-		return Upload{}, err
 	}
 	if doc.Usages == nil {
 		return Upload{}, fmt.Errorf("%w: usages must be a list", ErrInvalidUpload)
@@ -219,7 +229,8 @@ func (doc UsagesDocument) validate() (Upload, error) {
 		}
 		usages[i] = u
 	}
-	return Upload{Application: doc.Application, Commit: Commit(doc.Commit), Branch: branch, Tool: tool, Usages: usages}, nil
+	up.Usages = usages
+	return up, nil
 }
 
 // UsageKeys returns the distinct keys of usages.

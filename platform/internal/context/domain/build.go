@@ -135,10 +135,10 @@ const (
 
 func (t Tool) validate() error {
 	if !textWithin(t.Name, 1, MaxToolNameLen) || !toolNamePattern.MatchString(t.Name) {
-		return fmt.Errorf("%w: tool name must be a package name of at most %d characters", ErrInvalidUpload, MaxToolNameLen)
+		return fmt.Errorf("tool name must be a package name of at most %d characters", MaxToolNameLen)
 	}
 	if !textWithin(t.Version, 1, MaxToolVersionLen) || !semverPattern.MatchString(t.Version) {
-		return fmt.Errorf("%w: tool version must be a semantic version of at most %d characters", ErrInvalidUpload, MaxToolVersionLen)
+		return fmt.Errorf("tool version must be a semantic version of at most %d characters", MaxToolVersionLen)
 	}
 	return nil
 }

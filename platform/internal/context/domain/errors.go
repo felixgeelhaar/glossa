@@ -16,4 +16,12 @@ var (
 	ErrInvalidRegion   = errors.New("context: invalid region")
 	ErrTooManyRegions  = errors.New("context: a capture holds at most 10000 regions")
 	ErrTooManyCaptures = errors.New("context: a build holds at most 500 captures")
+
+	ErrInvalidCaptures  = errors.New("context: invalid glossa.captures/v1 upload")
+	ErrManifestTooLarge = errors.New("context: the captures manifest is larger than 20 MB")
+	// ErrInvalidImage means an uploaded image isn't the PNG its
+	// manifest entry describes.
+	ErrInvalidImage = errors.New("context: invalid capture image")
+	// ErrImageTooLarge means an image exceeds 10 MB or 40 megapixels.
+	ErrImageTooLarge = errors.New("context: a capture image is at most 10 MB and 40 megapixels")
 )

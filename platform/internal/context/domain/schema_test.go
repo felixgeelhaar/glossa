@@ -239,3 +239,137 @@ func TestParseUploadAcceptsEveryFixtureDocument(t *testing.T) {
 		})
 	}
 }
+
+// capturesSchema compiles captures.v1.schema.json with the usages
+// schema it refers to by $id.
+func capturesSchema(t *testing.T) *jsonschema.Schema {
+	t.Helper()
+	c := jsonschema.NewCompiler()
+	c.AssertFormat()
+	for _, name := range []string{"usages", "captures"} {
+		f, err := os.Open(testdata(t, "schemas", name+".v1.schema.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc, err := jsonschema.UnmarshalJSON(f)
+		_ = f.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := c.AddResource("https://glossa.dev/schemas/"+name+"/v1.json", doc); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := c.Compile("https://glossa.dev/schemas/captures/v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+var (
+	c0  = []any{"captures", 0}
+	r0  = at(c0, "regions", 0)
+	r1  = at(c0, "regions", 1)
+	r2  = at(c0, "regions", 2)
+	rl0 = at(c0, "renders", 0)
+)
+
+// captureVariants are the edges of the captures schema's rules.
+var captureVariants = []variant{
+	{"no captures", []any{"captures"}, []any{}},
+	{"missing captures", []any{"captures"}, deleted},
+	{"unknown schema version", []any{"schema"}, "glossa.captures/v2"},
+	{"short commit", []any{"commit"}, "9f2c1e7"},
+	{"application that isn't a slug", []any{"application"}, "Web App"},
+	{"branch with '..'", []any{"branch"}, "feat/../main"},
+	{"tool version that isn't semver", []any{"tool", "version"}, "v1"},
+	{"route that is a URL", at(c0, "route"), "https://shop.example.com/checkout"},
+	{"missing url", at(c0, "url"), deleted},
+	{"ftp url", at(c0, "url"), "ftp://example.com/x"},
+	{"url with a space", at(c0, "url"), "http://localhost/a b"},
+	{"url of 2049 characters", at(c0, "url"), "http://h/" + strings.Repeat("u", 2040)},
+	{"viewport width 0", at(c0, "viewport", "width"), 0},
+	{"fractional viewport", at(c0, "viewport", "height"), 800.5},
+	{"viewport 16385 wide", at(c0, "viewport", "width"), 16385},
+	{"viewport 16384 wide", at(c0, "viewport", "width"), 16384},
+	{"device scale factor 0", at(c0, "viewport", "deviceScaleFactor"), 0},
+	{"device scale factor 4", at(c0, "viewport", "deviceScaleFactor"), 4},
+	{"device scale factor 4.5", at(c0, "viewport", "deviceScaleFactor"), 4.5},
+	{"no device scale factor", at(c0, "viewport", "deviceScaleFactor"), deleted},
+	{"extra viewport field", at(c0, "viewport", "isMobile"), true},
+	{"locale with an underscore", at(c0, "locale"), "de_DE"},
+	{"regional locale", at(c0, "locale"), "de-CH"},
+	{"one-letter locale", at(c0, "locale"), "d"},
+	{"uppercase image digest", at(c0, "image", "sha256"), strings.Repeat("A", 64)},
+	{"short image digest", at(c0, "image", "sha256"), "abc"},
+	{"image width 0", at(c0, "image", "width"), 0},
+	{"image width 65536", at(c0, "image", "width"), 65536},
+	{"missing renders", at(c0, "renders"), deleted},
+	{"missing regions", at(c0, "regions"), deleted},
+	{"render with a negative index", at(rl0, "index"), -1},
+	{"render without a locale", at(rl0, "locale"), deleted},
+	{"render key that isn't a message key", at(rl0, "key"), "Checkout Pay"},
+	{"region with neither key nor index", r0, map[string]any{
+		"kind": "element", "box": map[string]any{"x": 0, "y": 0, "width": 1, "height": 1}, "visible": true,
+	}},
+	{"region with both key and index", at(r1, "key"), "checkout.pay"},
+	{"region kind outside the enum", at(r0, "kind"), "image"},
+	{"attribute region without its attribute", at(r2, "attribute"), deleted},
+	{"element region with an attribute", at(r0, "attribute"), "title"},
+	{"attribute name with uppercase", at(r2, "attribute"), "ariaLabel"},
+	{"negative box width", at(r0, "box", "width"), -1},
+	{"negative box position", at(r0, "box", "x"), -40.5},
+	{"box without a height", at(r0, "box", "height"), deleted},
+	{"missing visible", at(r0, "visible"), deleted},
+	{"string visible", at(r0, "visible"), "yes"},
+	{"extra region field", at(r0, "selector"), "#pay"},
+	{"extra top-level field", []any{"generated_at"}, "2026-09-19"},
+	{"image over 40 megapixels", at(c0, "image"), map[string]any{"sha256": strings.Repeat("a", 64), "width": 8000, "height": 5001}},
+	{"viewport 10001 wide", at(c0, "viewport", "width"), 10001},
+	{"region index outside the render log", at(r1, "index"), 7},
+}
+
+// captureDeviations are the variants where ParseCaptures deliberately
+// differs from the schema, and why.
+var captureDeviations = map[string]string{
+	// Undefined members are ignored within v1, as in usages documents.
+	"extra viewport field":  "ignored",
+	"extra region field":    "ignored",
+	"extra top-level field": "ignored",
+	// The server's limits (RFC 0004 §3.3, §10): images of at most 40
+	// megapixels and viewports of at most 10 000 CSS pixels a side.
+	"image over 40 megapixels": "refused",
+	"viewport 10001 wide":      "refused",
+	"viewport 16384 wide":      "refused",
+	// "Every region index refers to one entry" of the render log: the
+	// schema says so in prose; the server holds uploads to it.
+	"region index outside the render log": "refused",
+}
+
+func TestParseCapturesAgreesWithTheSchemaOnVariants(t *testing.T) {
+	s := capturesSchema(t)
+	example, err := os.ReadFile(testdata(t, "schemas", "examples", "captures.v1.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !schemaAccepts(t, s, example) {
+		t.Fatal("the schema rejects its own example")
+	}
+	for _, v := range captureVariants {
+		t.Run(v.why, func(t *testing.T) {
+			doc := mutate(t, example, v)
+			want := schemaAccepts(t, s, doc)
+			switch captureDeviations[v.why] {
+			case "ignored":
+				want = true
+			case "refused":
+				want = false
+			}
+			_, err := domain.ParseCaptures(doc)
+			if got := err == nil; got != want {
+				t.Errorf("ParseCaptures accepted = %t (%v), schema accepted = %t\n%s", got, err, want, doc)
+			}
+		})
+	}
+}
