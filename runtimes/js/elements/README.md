@@ -118,11 +118,11 @@ Minified and brotli-compressed (`pnpm size`):
 
 | Import | Size | Budget |
 |---|---|---|
-| `@glossa/elements`, everything included (Lit, `@lit/context`, `@glossa/runtime`) | 14.3 kB | 15 kB |
-| `@glossa/elements` own code | 3.1 kB | 3.5 kB |
+| `@glossa/elements`, everything included (Lit, `@lit/context`, `@glossa/runtime`) | 14.5 kB | 15 kB |
+| `@glossa/elements` own code | 3.2 kB | 3.5 kB |
 | `@glossa/elements/ssr` (without the runtime) | 1.5 kB | 1.75 kB |
 
 Lit and `@lit/context` are about 5.5 kB of the total and are shared with any
-other Lit components on the page; the runtime is 5.9 kB. The own-code budget
-leaves ~0.4 kB for the in-product editor's hook to grow. v0.3 was 10 kB
+other Lit components on the page; the runtime is 6 kB. The own-code budget
+leaves ~0.3 kB for the in-product editor's hook to grow. v0.3 was 10 kB
 without Lit, because it bundled its own ICU formatter and API client.
