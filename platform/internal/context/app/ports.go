@@ -28,7 +28,36 @@ var (
 	// ErrCaptureConflict means a build already holds a different
 	// capture of the same route, viewport and locale.
 	ErrCaptureConflict = errors.New("context: the build already holds another capture of this route, viewport and locale")
+	// ErrRateLimited means the tenant uploaded too much too fast.
+	ErrRateLimited = errors.New("context: too many uploads; slow down")
+	// ErrInvalidQuery means a list's filter is malformed.
+	ErrInvalidQuery = errors.New("context: invalid query")
 )
+
+// Limiter decides whether a tenant may upload now: Allow consumes one
+// upload from key's budget.
+type Limiter interface {
+	Allow(ctx context.Context, key string) bool
+}
+
+// Metrics records Context in the deployment's metrics (RFC 0004 §11).
+type Metrics interface {
+	// BuildIngested counts an upload: its usages and unknown keys, or a
+	// replay of an earlier one.
+	BuildIngested(source domain.Source, usages, unknownKeys int, replayed bool)
+	// Coverage is the share of a project's active messages with a
+	// current usage (default branch).
+	Coverage(tenant tenancy.ID, project uuid.UUID, active, used int)
+}
+
+// NoMetrics records nothing.
+type NoMetrics struct{}
+
+// BuildIngested implements Metrics.
+func (NoMetrics) BuildIngested(domain.Source, int, int, bool) {}
+
+// Coverage implements Metrics.
+func (NoMetrics) Coverage(tenant tenancy.ID, project uuid.UUID, active, used int) {}
 
 // MessageRef names a Catalog message.
 type MessageRef struct {
@@ -43,6 +72,10 @@ type MessageRef struct {
 type Catalog interface {
 	// Project answers ErrProjectNotFound for an unknown project.
 	Project(ctx context.Context, project uuid.UUID) error
+	// DefaultBranch is the project's default branch, a Catalog setting
+	// (ErrProjectNotFound): ingest decides by it whether a build is of
+	// the default branch, not by what the uploader says.
+	DefaultBranch(ctx context.Context, project uuid.UUID) (string, error)
 	// Application resolves an application's slug: ErrProjectNotFound or
 	// ErrApplicationNotFound.
 	Application(ctx context.Context, project uuid.UUID, slug string) (uuid.UUID, error)
@@ -73,9 +106,39 @@ type Sweeper interface {
 	ProjectsWithBuilds(ctx context.Context) ([]ProjectRef, error)
 }
 
+// BuildRecord is a stored build with the usages of unknown keys it
+// holds.
+type BuildRecord struct {
+	domain.Build
+	UnknownKeys int
+}
+
+// BuildCursor is where a page of builds (newest first) continues.
+type BuildCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
+}
+
+// UsageCursor is where a page of usages (by build and position)
+// continues; the zero cursor is the start.
+type UsageCursor struct {
+	Build    uuid.UUID
+	Position int
+}
+
+// UsageFilter narrows the usages in the current builds; empty members
+// don't filter.
+type UsageFilter struct {
+	Route     string
+	Component string
+	File      string
+}
+
 // UsageView is a usage with the build it belongs to.
 type UsageView struct {
 	domain.Usage
+	// Position is the usage's index in its build's document.
+	Position        int
 	BuildID         uuid.UUID
 	ApplicationID   uuid.UUID
 	Commit          domain.Commit
@@ -102,6 +165,16 @@ type Store interface {
 	MessageUsages(ctx context.Context, message uuid.UUID, builds []uuid.UUID, limit int) ([]UsageView, error)
 	// UsedMessages returns the messages with a usage in builds.
 	UsedMessages(ctx context.Context, builds []uuid.UUID) ([]uuid.UUID, error)
+	// ListBuilds returns up to limit of the project's builds (of one
+	// application when application isn't nil), newest first, after the
+	// cursor when it isn't nil.
+	ListBuilds(ctx context.Context, project uuid.UUID, application *uuid.UUID, after *BuildCursor, limit int) ([]BuildRecord, error)
+	// ListUsages returns up to limit usages in builds matching f, by
+	// build and position after the cursor.
+	ListUsages(ctx context.Context, builds []uuid.UUID, f UsageFilter, after UsageCursor, limit int) ([]UsageView, error)
+	// CoLocatedMessages returns up to limit messages that share a route
+	// or a capture with message in builds, most shared first.
+	CoLocatedMessages(ctx context.Context, message uuid.UUID, builds []uuid.UUID, limit int) ([]uuid.UUID, error)
 
 	// LockBuildCaptures serializes adding captures to a build until the
 	// transaction ends.

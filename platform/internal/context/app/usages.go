@@ -7,6 +7,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
 // Usage listing limits.
@@ -99,6 +100,9 @@ type Unused struct {
 	// CurrentBuilds counts the builds considered: with none, every
 	// message is unused because nothing was uploaded yet.
 	CurrentBuilds int
+	// Active counts the project's active messages: the context coverage
+	// is (Active - len(Messages)) / Active.
+	Active int
 }
 
 // UnusedMessages lists the active messages with no usage in any current
@@ -138,6 +142,11 @@ func (s *Service) UnusedMessages(ctx context.Context, project uuid.UUID, branch 
 		if !used[m.ID] {
 			out.Messages = append(out.Messages, m)
 		}
+	}
+	out.Active = len(active)
+	if view == "" {
+		t, _ := tenancy.FromContext(ctx)
+		s.metrics.Coverage(t, project, out.Active, out.Active-len(out.Messages))
 	}
 	return out, nil
 }

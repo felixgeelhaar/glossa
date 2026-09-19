@@ -69,6 +69,65 @@ func (q *Queries) InsertUsages(ctx context.Context, arg InsertUsagesParams) erro
 	return err
 }
 
+const listCoLocatedMessages = `-- name: ListCoLocatedMessages :many
+WITH own_routes AS (
+    SELECT DISTINCT route FROM context_usages
+    WHERE message_id = $2::uuid AND build_id = ANY($3::uuid[]) AND route <> ''
+), own_captures AS (
+    SELECT DISTINCT r.capture_id
+    FROM context_regions r
+    JOIN context_captures c ON c.id = r.capture_id
+    WHERE r.message_id = $2::uuid AND c.build_id = ANY($3::uuid[])
+), shared AS (
+    SELECT u.message_id FROM context_usages u
+    WHERE u.build_id = ANY($3::uuid[]) AND u.route <> '' AND u.route IN (SELECT route FROM own_routes)
+      AND u.message_id IS NOT NULL AND u.message_id <> $2::uuid
+    UNION ALL
+    SELECT r.message_id FROM context_regions r
+    WHERE r.capture_id IN (SELECT capture_id FROM own_captures)
+      AND r.message_id IS NOT NULL AND r.message_id <> $2::uuid
+)
+SELECT message_id::uuid AS message_id, count(*)::int AS shared
+FROM shared
+GROUP BY message_id
+ORDER BY count(*) DESC, message_id
+LIMIT $1
+`
+
+type ListCoLocatedMessagesParams struct {
+	MaxRows   int32
+	MessageID uuid.UUID
+	BuildIds  []uuid.UUID
+}
+
+type ListCoLocatedMessagesRow struct {
+	MessageID uuid.UUID
+	Shared    int32
+}
+
+// The messages shown together with a message in the given (current)
+// builds (RFC 0004 §8): used on one of its routes, or rendered on one
+// of its captures. Most shared first.
+func (q *Queries) ListCoLocatedMessages(ctx context.Context, arg ListCoLocatedMessagesParams) ([]ListCoLocatedMessagesRow, error) {
+	rows, err := q.db.Query(ctx, listCoLocatedMessages, arg.MaxRows, arg.MessageID, arg.BuildIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCoLocatedMessagesRow
+	for rows.Next() {
+		var i ListCoLocatedMessagesRow
+		if err := rows.Scan(&i.MessageID, &i.Shared); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMessageUsages = `-- name: ListMessageUsages :many
 SELECT u.build_id, u.position, u.message_key, u.message_id, u.file, u.line, u.col, u.component, u.route, u.kind,
        b.application_id, b.commit_sha, b.branch, b.on_default_branch, b.source
@@ -114,6 +173,94 @@ func (q *Queries) ListMessageUsages(ctx context.Context, arg ListMessageUsagesPa
 	var items []ListMessageUsagesRow
 	for rows.Next() {
 		var i ListMessageUsagesRow
+		if err := rows.Scan(
+			&i.BuildID,
+			&i.Position,
+			&i.MessageKey,
+			&i.MessageID,
+			&i.File,
+			&i.Line,
+			&i.Col,
+			&i.Component,
+			&i.Route,
+			&i.Kind,
+			&i.ApplicationID,
+			&i.CommitSha,
+			&i.Branch,
+			&i.OnDefaultBranch,
+			&i.Source,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsagesInBuilds = `-- name: ListUsagesInBuilds :many
+SELECT u.build_id, u.position, u.message_key, u.message_id, u.file, u.line, u.col, u.component, u.route, u.kind,
+       b.application_id, b.commit_sha, b.branch, b.on_default_branch, b.source
+FROM context_usages u
+JOIN context_builds b ON b.id = u.build_id
+WHERE u.build_id = ANY($1::uuid[])
+  AND ($2::text IS NULL OR u.route = $2::text)
+  AND ($3::text IS NULL OR u.component = $3::text)
+  AND ($4::text IS NULL OR u.file = $4::text)
+  AND (u.build_id, u.position) > ($5::uuid, $6::int)
+ORDER BY u.build_id, u.position
+LIMIT $7
+`
+
+type ListUsagesInBuildsParams struct {
+	BuildIds      []uuid.UUID
+	Route         pgtype.Text
+	Component     pgtype.Text
+	File          pgtype.Text
+	AfterBuild    uuid.UUID
+	AfterPosition int32
+	MaxRows       int32
+}
+
+type ListUsagesInBuildsRow struct {
+	BuildID         uuid.UUID
+	Position        int32
+	MessageKey      string
+	MessageID       uuid.NullUUID
+	File            string
+	Line            int32
+	Col             pgtype.Int4
+	Component       string
+	Route           string
+	Kind            string
+	ApplicationID   uuid.UUID
+	CommitSha       string
+	Branch          string
+	OnDefaultBranch bool
+	Source          string
+}
+
+// A page of the usages in the given (current) builds on a route, in a
+// component or in a file (each filter optional), by build and position.
+func (q *Queries) ListUsagesInBuilds(ctx context.Context, arg ListUsagesInBuildsParams) ([]ListUsagesInBuildsRow, error) {
+	rows, err := q.db.Query(ctx, listUsagesInBuilds,
+		arg.BuildIds,
+		arg.Route,
+		arg.Component,
+		arg.File,
+		arg.AfterBuild,
+		arg.AfterPosition,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUsagesInBuildsRow
+	for rows.Next() {
+		var i ListUsagesInBuildsRow
 		if err := rows.Scan(
 			&i.BuildID,
 			&i.Position,

@@ -9,6 +9,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
 // IngestUsages is the input of IngestUsages.
@@ -16,10 +17,6 @@ type IngestUsages struct {
 	Project uuid.UUID
 	// Source is the collector: plugin, extract, runtime or capture.
 	Source string
-	// DefaultBranch is the repository's default branch, as the uploader
-	// knows it: a build of that branch is what every view of the
-	// current usages falls back to.
-	DefaultBranch string
 	// Document is the glossa.usages/v1 document's bytes; its SHA-256 is
 	// the build's digest.
 	Document []byte
@@ -38,18 +35,19 @@ type Ingested struct {
 
 // IngestUsages stores a build's usages with their keys resolved to
 // message IDs, and publishes context.build.ingested (RFC 0004 §2.2).
-// Uploading the same document again for the same application, commit
-// and source is a no-op. Needs catalog.write.
+// Whether the build is of the default branch is the project's setting
+// (Catalog), never the uploader's say. Uploading the same document
+// again for the same application, commit and source is a no-op. Uploads
+// are rate-limited per tenant (ErrRateLimited). Needs catalog.write.
 func (s *Service) IngestUsages(ctx context.Context, in IngestUsages) (Ingested, error) {
 	by, err := actor(ctx, authz.CatalogWrite)
 	if err != nil {
 		return Ingested{}, err
 	}
-	source, err := domain.ParseSource(in.Source)
-	if err != nil {
+	if err := s.allowUpload(ctx); err != nil {
 		return Ingested{}, err
 	}
-	defaultBranch, err := domain.ParseBranch(in.DefaultBranch)
+	source, err := domain.ParseSource(in.Source)
 	if err != nil {
 		return Ingested{}, err
 	}
@@ -57,20 +55,46 @@ func (s *Service) IngestUsages(ctx context.Context, in IngestUsages) (Ingested, 
 	if err != nil {
 		return Ingested{}, err
 	}
+	defaultBranch, err := s.catalog.DefaultBranch(ctx, in.Project)
+	if err != nil {
+		return Ingested{}, err
+	}
 	application, err := s.catalog.Application(ctx, in.Project, up.Application)
 	if err != nil {
 		return Ingested{}, err
 	}
-	b, err := domain.NewBuild(in.Project, application, up, source, up.Branch == defaultBranch, by, s.now())
+	b, err := domain.NewBuild(in.Project, application, up, source, up.Branch.String() == defaultBranch, by, s.now())
 	if err != nil {
 		return Ingested{}, err
 	}
+	out, err := s.ingest(ctx, b, up)
+	if err == nil {
+		s.metrics.BuildIngested(b.Source, out.Build.UsageCount, out.UnknownKeys, out.Replayed)
+	}
+	return out, err
+}
+
+// allowUpload consumes one upload of the tenant's budget.
+func (s *Service) allowUpload(ctx context.Context) error {
+	if s.limiter == nil {
+		return nil
+	}
+	t, _ := tenancy.FromContext(ctx)
+	if !s.limiter.Allow(ctx, "tenant:"+t.String()) {
+		return ErrRateLimited
+	}
+	return nil
+}
+
+// ingest stores b with up's usages, or returns the build of an earlier
+// upload of the same document.
+func (s *Service) ingest(ctx context.Context, b domain.Build, up domain.Upload) (Ingested, error) {
 	if first, found, err := s.uploaded(ctx, b); err != nil || found {
 		return first, err
 	}
 	// Keys are resolved before the unit of work: Catalog's port runs its
 	// own transaction.
-	ids, err := s.catalog.MessageIDs(ctx, in.Project, domain.UsageKeys(up.Usages))
+	ids, err := s.catalog.MessageIDs(ctx, b.ProjectID, domain.UsageKeys(up.Usages))
 	if err != nil {
 		return Ingested{}, err
 	}

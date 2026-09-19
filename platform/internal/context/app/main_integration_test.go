@@ -179,17 +179,41 @@ type use struct {
 	line      int
 }
 
-// document writes a glossa.usages/v1 document.
+// sha is a full commit ID from a short one: documents carry full IDs.
+func sha(short string) string { return short + strings.Repeat("0", 40-len(short)) }
+
+// document writes a glossa.usages/v1 document; commit is abbreviated.
+// Every usage is in PaymentFooter on /checkout.
 func document(application, commit, branch string, uses ...use) []byte {
+	placed := make([]placedUse, len(uses))
+	for i, u := range uses {
+		placed[i] = placedUse{use: u, component: "PaymentFooter", route: "/checkout"}
+	}
+	return documentOf(application, commit, branch, placed...)
+}
+
+// placedUse is a usage with its component and route ("" for none).
+type placedUse struct {
+	use
+	component, route string
+}
+
+func documentOf(application, commit, branch string, uses ...placedUse) []byte {
 	var b strings.Builder
 	fmt.Fprintf(&b, `{"schema":"glossa.usages/v1","application":%q,"commit":%q,"branch":%q,`+
-		`"tool":{"name":"@glossa/unplugin","version":"0.1.0"},"usages":[`, application, commit, branch)
+		`"tool":{"name":"@glossa/unplugin","version":"0.1.0"},"usages":[`, application, sha(commit), branch)
 	for i, u := range uses {
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		fmt.Fprintf(&b, `{"key":%q,"file":%q,"line":%d,"column":3,"component":"PaymentFooter","route":"/checkout","kind":"t"}`,
-			u.key, u.file, u.line)
+		fmt.Fprintf(&b, `{"key":%q,"file":%q,"line":%d,"column":3,"kind":"t"`, u.key, u.file, u.line)
+		if u.component != "" {
+			fmt.Fprintf(&b, `,"component":%q`, u.component)
+		}
+		if u.route != "" {
+			fmt.Fprintf(&b, `,"route":%q`, u.route)
+		}
+		b.WriteByte('}')
 	}
 	b.WriteString(`]}`)
 	return []byte(b.String())
@@ -200,7 +224,7 @@ func document(application, commit, branch string, uses ...use) []byte {
 func (h *harness) ingest(t *testing.T, f fixture, source, application, commit, branch string, uses ...use) app.Ingested {
 	t.Helper()
 	out, err := h.svc.IngestUsages(h.ci(), app.IngestUsages{
-		Project: f.project, Source: source, DefaultBranch: "main", Document: document(application, commit, branch, uses...),
+		Project: f.project, Source: source, Document: document(application, commit, branch, uses...),
 	})
 	if err != nil {
 		t.Fatalf("ingest %s@%s: %v", application, commit, err)

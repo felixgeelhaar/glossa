@@ -62,12 +62,19 @@ func ParseCommit(s string) (Commit, error) {
 
 func (c Commit) String() string { return string(c) }
 
-// Branch is a Git branch name, checked against the rules of
-// git-check-ref-format that matter for display and lookup.
+// Branch is a Git branch name: the glossa.usages/v1 schema's short
+// branch name (no '..', no component starting or ending with '.', none
+// of ~^:?*[\{, spaces or control characters), which git-check-ref-format
+// narrows further — a component ending in .lock, a leading '-' and the
+// name '@' are refused too.
 type Branch string
 
 // MaxBranchLen bounds a branch name in bytes.
 const MaxBranchLen = 255
+
+// branchPattern is the schema's (usages.v1.schema.json), verbatim.
+var branchPattern = regexp.MustCompile(`^[^/.\x00-\x20\x7f~^:?*\[\\{](?:[^/.\x00-\x20\x7f~^:?*\[\\{]|\.[^/.\x00-\x20\x7f~^:?*\[\\{])*` +
+	`(?:/[^/.\x00-\x20\x7f~^:?*\[\\{](?:[^/.\x00-\x20\x7f~^:?*\[\\{]|\.[^/.\x00-\x20\x7f~^:?*\[\\{])*)*$`)
 
 // ParseBranch validates s.
 func ParseBranch(s string) (Branch, error) {
@@ -78,18 +85,15 @@ func ParseBranch(s string) (Branch, error) {
 }
 
 func validBranch(s string) bool {
-	if s == "" || len(s) > MaxBranchLen || s == "@" ||
-		strings.HasPrefix(s, "/") || strings.HasPrefix(s, "-") || strings.HasSuffix(s, "/") ||
-		strings.HasSuffix(s, ".") || strings.HasSuffix(s, ".lock") ||
-		strings.Contains(s, "..") || strings.Contains(s, "//") || strings.Contains(s, "@{") {
+	if len(s) > MaxBranchLen || !branchPattern.MatchString(s) || s == "@" || strings.HasPrefix(s, "-") {
 		return false
 	}
-	for _, r := range s {
-		if unicode.IsControl(r) || unicode.IsSpace(r) || strings.ContainsRune(`~^:?*[\`, r) {
+	for component := range strings.SplitSeq(s, "/") {
+		if strings.HasSuffix(component, ".lock") {
 			return false
 		}
 	}
-	return true
+	return !strings.ContainsFunc(s, func(r rune) bool { return unicode.IsControl(r) || unicode.IsSpace(r) })
 }
 
 func (b Branch) String() string { return string(b) }
@@ -122,16 +126,19 @@ type Tool struct {
 	Version string
 }
 
-// Tool limits, in characters.
+// Tool limits, in characters: the schema's for the name (an npm package
+// name); the schema doesn't bound the version, the server does.
 const (
-	MaxToolNameLen    = 100
-	MaxToolVersionLen = 64
+	MaxToolNameLen    = 214
+	MaxToolVersionLen = 256
 )
 
 func (t Tool) validate() error {
-	if !textWithin(t.Name, 1, MaxToolNameLen) || !textWithin(t.Version, 0, MaxToolVersionLen) {
-		return fmt.Errorf("%w: tool name must be 1–%d characters and version at most %d", ErrInvalidUpload,
-			MaxToolNameLen, MaxToolVersionLen)
+	if !textWithin(t.Name, 1, MaxToolNameLen) || !toolNamePattern.MatchString(t.Name) {
+		return fmt.Errorf("%w: tool name must be a package name of at most %d characters", ErrInvalidUpload, MaxToolNameLen)
+	}
+	if !textWithin(t.Version, 1, MaxToolVersionLen) || !semverPattern.MatchString(t.Version) {
+		return fmt.Errorf("%w: tool version must be a semantic version of at most %d characters", ErrInvalidUpload, MaxToolVersionLen)
 	}
 	return nil
 }

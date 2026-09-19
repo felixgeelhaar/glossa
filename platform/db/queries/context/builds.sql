@@ -44,3 +44,16 @@ DELETE FROM context_builds WHERE project_id = sqlc.arg(project_id);
 
 -- name: DeleteApplicationBuilds :exec
 DELETE FROM context_builds WHERE project_id = sqlc.arg(project_id) AND application_id = sqlc.arg(application_id);
+
+-- name: ListProjectBuilds :many
+-- A page of a project's builds, newest first, optionally of one
+-- application, with the unknown keys each holds. Retention bounds a
+-- project's builds, so the page reads few rows.
+SELECT b.*, (SELECT count(*) FROM context_usages u WHERE u.build_id = b.id AND u.message_id IS NULL)::int AS unknown_keys
+FROM context_builds b
+WHERE b.project_id = sqlc.arg(project_id)
+  AND (sqlc.narg(application_id)::uuid IS NULL OR b.application_id = sqlc.narg(application_id)::uuid)
+  AND (sqlc.narg(after_created_at)::timestamptz IS NULL
+       OR (b.created_at, b.id) < (sqlc.narg(after_created_at)::timestamptz, sqlc.narg(after_id)::uuid))
+ORDER BY b.created_at DESC, b.id DESC
+LIMIT sqlc.arg(max_rows);

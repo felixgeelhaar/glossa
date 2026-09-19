@@ -45,6 +45,15 @@ func (p *Port) Project(ctx context.Context, project uuid.UUID) error {
 	return projectNotFound(err)
 }
 
+// DefaultBranch implements app.Catalog with the project's setting.
+func (p *Port) DefaultBranch(ctx context.Context, project uuid.UUID) (string, error) {
+	pr, err := p.svc.GetProject(ctx, catalogdomain.ProjectID(project))
+	if err != nil {
+		return "", projectNotFound(err)
+	}
+	return string(pr.Settings.DefaultBranch), nil
+}
+
 // Application implements app.Catalog: a project has few applications,
 // so it pages through them for the slug.
 func (p *Port) Application(ctx context.Context, project uuid.UUID, slug string) (uuid.UUID, error) {

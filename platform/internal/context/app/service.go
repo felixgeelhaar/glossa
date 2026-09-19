@@ -3,10 +3,12 @@ package app
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 )
 
 // Service implements Context's use cases.
@@ -15,9 +17,18 @@ type Service struct {
 	catalog   Catalog
 	sweeper   Sweeper
 	retention domain.RetentionPolicy
+	limiter   Limiter
+	metrics   Metrics
 	logger    *slog.Logger
 	now       func() time.Time
 }
+
+// WithLimiter rate-limits uploads per tenant (RFC 0004 §10); without
+// one they aren't limited.
+func WithLimiter(l Limiter) Option { return func(s *Service) { s.limiter = l } }
+
+// WithMetrics records ingests and coverage (NoMetrics by default).
+func WithMetrics(m Metrics) Option { return func(s *Service) { s.metrics = m } }
 
 // Option configures a Service.
 type Option func(*Service)
@@ -37,7 +48,7 @@ func WithSweeper(sw Sweeper) Option { return func(s *Service) { s.sweeper = sw }
 // New returns the service.
 func New(tx Transactor, catalog Catalog, opts ...Option) *Service {
 	s := &Service{
-		tx: tx, catalog: catalog, retention: domain.DefaultRetention, logger: slog.New(slog.DiscardHandler),
+		tx: tx, catalog: catalog, retention: domain.DefaultRetention, metrics: NoMetrics{}, logger: slog.New(slog.DiscardHandler),
 		now: func() time.Time { return time.Now().UTC() },
 	}
 	for _, o := range opts {
@@ -53,6 +64,10 @@ func actor(ctx context.Context, perm authz.Permission) (string, error) {
 	}
 	p, _ := authz.From(ctx)
 	return p.Actor.String(), nil
+}
+
+func invalidPageToken() error {
+	return problem.New(http.StatusBadRequest, "invalid_page_token", "page_token is not one this list issued")
 }
 
 // parseView reads a branch view: empty is the default branch's.

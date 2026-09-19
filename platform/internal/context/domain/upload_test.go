@@ -24,7 +24,7 @@ var (
 const rfcDocument = `{
   "schema": "glossa.usages/v1",
   "application": "web",
-  "commit": "9f2c1e7ab4", "branch": "feat/checkout-copy",
+  "commit": "9f2c1e7a4b3d5c6e8f0a1b2c3d4e5f6a7b8c9d0e", "branch": "feat/checkout-copy",
   "tool": { "name": "@glossa/unplugin", "version": "0.1.0" },
   "usages": [
     { "key": "checkout.pay", "file": "src/checkout/PaymentFooter.vue", "line": 42, "column": 9,
@@ -41,7 +41,7 @@ func TestParseUploadReadsTheRFCDocument(t *testing.T) {
 	if got, want := up.Digest.String(), hex.EncodeToString(sum[:]); got != want {
 		t.Errorf("digest = %s, want the SHA-256 of the bytes %s", got, want)
 	}
-	if up.Application != "web" || up.Commit.String() != "9f2c1e7ab4" || up.Branch.String() != "feat/checkout-copy" {
+	if up.Application != "web" || up.Commit.String() != "9f2c1e7a4b3d5c6e8f0a1b2c3d4e5f6a7b8c9d0e" || up.Branch.String() != "feat/checkout-copy" {
 		t.Errorf("header = %q %q %q", up.Application, up.Commit, up.Branch)
 	}
 	if up.Tool != (domain.Tool{Name: "@glossa/unplugin", Version: "0.1.0"}) {
@@ -56,23 +56,13 @@ func TestParseUploadReadsTheRFCDocument(t *testing.T) {
 	}
 }
 
-func TestParseUploadCanonicalizesTheCommit(t *testing.T) {
-	up, err := domain.ParseUpload([]byte(strings.Replace(rfcDocument, "9f2c1e7ab4", "9F2C1E7AB4", 1)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if up.Commit.String() != "9f2c1e7ab4" {
-		t.Errorf("commit = %s, want lower case", up.Commit)
-	}
-}
-
 func TestParseUploadRejectsInvalidDocuments(t *testing.T) {
 	cases := map[string]string{
 		"not json":           `{`,
 		"wrong schema":       strings.Replace(rfcDocument, "glossa.usages/v1", "glossa.usages/v2", 1),
 		"no application":     strings.Replace(rfcDocument, `"web"`, `""`, 1),
-		"bad commit":         strings.Replace(rfcDocument, "9f2c1e7ab4", "HEAD", 1),
-		"short commit":       strings.Replace(rfcDocument, "9f2c1e7ab4", "9f2c", 1),
+		"bad commit":         strings.Replace(rfcDocument, "9f2c1e7a4b3d5c6e8f0a1b2c3d4e5f6a7b8c9d0e", "HEAD", 1),
+		"short commit":       strings.Replace(rfcDocument, "9f2c1e7a4b3d5c6e8f0a1b2c3d4e5f6a7b8c9d0e", "9f2c", 1),
 		"no branch":          strings.Replace(rfcDocument, "feat/checkout-copy", "", 1),
 		"branch with space":  strings.Replace(rfcDocument, "feat/checkout-copy", "feat checkout", 1),
 		"branch with dotdot": strings.Replace(rfcDocument, "feat/checkout-copy", "feat/../main", 1),
@@ -84,8 +74,10 @@ func TestParseUploadRejectsInvalidDocuments(t *testing.T) {
 		"bad kind":           strings.Replace(rfcDocument, `"kind": "t"`, `"kind": "T()"`, 1),
 		"no kind":            strings.Replace(rfcDocument, `, "kind": "t"`, ``, 1),
 		"control in file":    strings.Replace(rfcDocument, "PaymentFooter.vue", `Payment\u0000Footer.vue`, 1),
-		"long component":     strings.Replace(rfcDocument, `"PaymentFooter",`, `"`+strings.Repeat("C", 201)+`",`, 1),
+		"long component":     strings.Replace(rfcDocument, `"PaymentFooter",`, `"`+strings.Repeat("C", 513)+`",`, 1),
 		"trailing data":      rfcDocument + `{}`,
+		"uppercase commit":   strings.Replace(rfcDocument, "9f2c1e7a4b3d5c6e8f0a1b2c3d4e5f6a7b8c9d0e", "9F2C1E7A4B3D5C6E8F0A1B2C3D4E5F6A7B8C9D0E", 1),
+		"no column":          strings.Replace(rfcDocument, `"column": 9,`, ``, 1),
 	}
 	for name, doc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -99,26 +91,26 @@ func TestParseUploadRejectsInvalidDocuments(t *testing.T) {
 
 func TestParseUploadAllowsOptionalLocationFields(t *testing.T) {
 	doc := `{"schema":"glossa.usages/v1","application":"api","commit":"0123456789abcdef0123456789abcdef01234567",
-	  "branch":"main","tool":{"name":"glossa extract"},
-	  "usages":[{"key":"mail.welcome.subject","file":"internal/mail/welcome.go","line":7,"kind":"go"}]}`
+	  "branch":"main","tool":{"name":"glossa","version":"0.4.0"},
+	  "usages":[{"key":"mail.welcome.subject","file":"internal/mail/welcome.tmpl","line":7,"column":7,"kind":"template"}]}`
 	up, err := domain.ParseUpload([]byte(doc))
 	if err != nil {
 		t.Fatal(err)
 	}
 	u := up.Usages[0]
-	if u.Column != 0 || u.Component != "" || u.Route != "" || up.Tool.Version != "" {
+	if u.Column != 7 || u.Component != "" || u.Route != "" {
 		t.Errorf("optional fields = %+v, tool %+v", u, up.Tool)
 	}
 }
 
 func TestParseUploadEnforcesTheUsageLimit(t *testing.T) {
 	var b strings.Builder
-	b.WriteString(`{"schema":"glossa.usages/v1","application":"web","commit":"abcdef1","branch":"main","tool":{"name":"x"},"usages":[`)
+	b.WriteString(`{"schema":"glossa.usages/v1","application":"web","commit":"0123456789abcdef0123456789abcdef01234567","branch":"main","tool":{"name":"x","version":"1.0.0"},"usages":[`)
 	for i := range domain.MaxUsagesPerBuild + 1 {
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		fmt.Fprintf(&b, `{"key":"k","file":"f","line":%d,"kind":"t"}`, i+1)
+		fmt.Fprintf(&b, `{"key":"k","file":"f","line":%d,"column":1,"kind":"t"}`, i+1)
 	}
 	b.WriteString(`]}`)
 	_, err := domain.ParseUpload([]byte(b.String()))
@@ -136,7 +128,7 @@ func TestParseUploadEnforcesTheSizeLimit(t *testing.T) {
 }
 
 func TestParseUploadAcceptsAnEmptyUsageList(t *testing.T) {
-	doc := `{"schema":"glossa.usages/v1","application":"web","commit":"abcdef1","branch":"main","tool":{"name":"x"},"usages":[]}`
+	doc := `{"schema":"glossa.usages/v1","application":"web","commit":"0123456789abcdef0123456789abcdef01234567","branch":"main","tool":{"name":"x","version":"1.0.0"},"usages":[]}`
 	up, err := domain.ParseUpload([]byte(doc))
 	if err != nil {
 		t.Fatal(err)

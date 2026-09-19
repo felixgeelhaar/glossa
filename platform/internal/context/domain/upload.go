@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
+	"unicode"
 
 	"github.com/google/uuid"
 )
@@ -22,17 +24,33 @@ const (
 	MaxUsagesPerBuild = 100_000
 )
 
-// Usage limits, in characters.
+// Usage limits, in characters (the glossa.usages/v1 schema's).
 const (
 	MaxKeyLen       = 200
 	MaxFileLen      = 1024
-	MaxComponentLen = 200
-	MaxRouteLen     = 500
+	MaxComponentLen = 512
+	MaxRouteLen     = 1024
+)
+
+// Kinds of usage: the call shapes collectors recognize
+// (runtimes/testdata/usages/README.md, "What is a usage").
+const (
+	// KindT is t()/$t() and Go's T calls.
+	KindT = "t"
+	// KindComponent is <GlossaText id> (Vue) and <T id> (React).
+	KindComponent = "component"
+	// KindElement is <glossa-text|rich|plural|select key|message>.
+	KindElement = "element"
+	// KindAccessor is a typed accessor from `glossa generate`.
+	KindAccessor = "accessor"
+	// KindTemplate is {{t}}, {{td}} and {{th}} in Go templates.
+	KindTemplate = "template"
 )
 
 // UsagesDocument is a glossa.usages/v1 document as collectors write it
-// (RFC 0004 §2.2; the JSON Schema is runtimes/testdata/usages). Field
-// names are the published contract.
+// (RFC 0004 §2.2; the JSON Schema is
+// runtimes/testdata/schemas/usages.v1.schema.json). Field names are the
+// published contract. Pointers tell an absent member from an empty one.
 type UsagesDocument struct {
 	Schema      string          `json:"schema"`
 	Application string          `json:"application"`
@@ -45,19 +63,19 @@ type UsagesDocument struct {
 // DocumentTool is the document's tool.
 type DocumentTool struct {
 	Name    string `json:"name"`
-	Version string `json:"version,omitempty"`
+	Version string `json:"version"`
 }
 
-// DocumentUsage is one entry of the document's usages. Column,
-// component and route are optional.
+// DocumentUsage is one entry of the document's usages. Component and
+// route are optional.
 type DocumentUsage struct {
-	Key       string `json:"key"`
-	File      string `json:"file"`
-	Line      int    `json:"line"`
-	Column    int    `json:"column,omitempty"`
-	Component string `json:"component,omitempty"`
-	Route     string `json:"route,omitempty"`
-	Kind      string `json:"kind"`
+	Key       string  `json:"key"`
+	File      string  `json:"file"`
+	Line      int     `json:"line"`
+	Column    int     `json:"column"`
+	Component *string `json:"component,omitempty"`
+	Route     *string `json:"route,omitempty"`
+	Kind      string  `json:"kind"`
 }
 
 // Usage is a message's key at a location in a build (RFC 0004 §2.2).
@@ -66,7 +84,7 @@ type DocumentUsage struct {
 type Usage struct {
 	Key  string
 	File string
-	// Line is 1-based; Column is 1-based, 0 when unknown.
+	// Line and Column are 1-based; Column counts Unicode code points.
 	Line   int
 	Column int
 	// Component is the SFC, .astro file or enclosing component or
@@ -74,32 +92,55 @@ type Usage struct {
 	// collector knows it. Either may be empty.
 	Component string
 	Route     string
-	// Kind is the call shape the collector recognized (t, element, go,
-	// template, typed …).
+	// Kind is the call shape the collector recognized: t, component,
+	// element, accessor or template.
 	Kind string
 	// MessageID is the message the key named at ingest; nil for a key
 	// the catalog didn't know (an unknown key).
 	MessageID *uuid.UUID
 }
 
-var kindPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}$`)
+// The schema's patterns (usages.v1.schema.json), verbatim.
+var (
+	slugPattern       = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+	fullCommitPattern = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
+	toolNamePattern   = regexp.MustCompile(`^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$`)
+	semverPattern     = regexp.MustCompile(`^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
+	keyPattern        = regexp.MustCompile(`^[a-z0-9_-]+(?:\.[a-z0-9_-]+)*$`)
+	filePattern       = regexp.MustCompile(`^(?:[^/.:\x00-\x1f\x7f\\][^/:\x00-\x1f\x7f\\]*|\.[^/.:\x00-\x1f\x7f\\][^/:\x00-\x1f\x7f\\]*|\.\.[^/:\x00-\x1f\x7f\\]+)` +
+		`(?:/(?:[^/.:\x00-\x1f\x7f\\][^/:\x00-\x1f\x7f\\]*|\.[^/.:\x00-\x1f\x7f\\][^/:\x00-\x1f\x7f\\]*|\.\.[^/:\x00-\x1f\x7f\\]+))*$`)
+	componentPattern = regexp.MustCompile(`^\S+$`)
+	routePattern     = regexp.MustCompile(`^/[^\s?#]*$`)
+)
 
-func (u Usage) validate() error {
+func validKind(k string) bool {
+	switch k {
+	case KindT, KindComponent, KindElement, KindAccessor, KindTemplate:
+		return true
+	}
+	return false
+}
+
+// noSpace reports whether s has no Unicode white space: the schema's \S
+// in ECMA-262 (and Python) terms, where Go's is ASCII only.
+func noSpace(s string) bool { return !strings.ContainsFunc(s, unicode.IsSpace) }
+
+func (u Usage) validate(hasComponent, hasRoute bool) error {
 	switch {
-	case !textWithin(u.Key, 1, MaxKeyLen):
-		return fmt.Errorf("key must be 1–%d characters", MaxKeyLen)
-	case !textWithin(u.File, 1, MaxFileLen):
-		return fmt.Errorf("file must be 1–%d characters", MaxFileLen)
+	case !textWithin(u.Key, 1, MaxKeyLen) || !keyPattern.MatchString(u.Key):
+		return fmt.Errorf("key must be a message key of at most %d characters", MaxKeyLen)
+	case !textWithin(u.File, 1, MaxFileLen) || !filePattern.MatchString(u.File):
+		return fmt.Errorf("file must be a relative POSIX path of at most %d characters, without '.' or '..' segments", MaxFileLen)
 	case u.Line < 1:
 		return errors.New("line must be at least 1")
-	case u.Column < 0:
+	case u.Column < 1:
 		return errors.New("column must be at least 1")
-	case !textWithin(u.Component, 0, MaxComponentLen):
-		return fmt.Errorf("component must be at most %d characters", MaxComponentLen)
-	case !textWithin(u.Route, 0, MaxRouteLen):
-		return fmt.Errorf("route must be at most %d characters", MaxRouteLen)
-	case !kindPattern.MatchString(u.Kind):
-		return errors.New("kind must be a lowercase word (t, element, go, template, typed …)")
+	case hasComponent && (!textWithin(u.Component, 1, MaxComponentLen) || !componentPattern.MatchString(u.Component) || !noSpace(u.Component)):
+		return fmt.Errorf("component must be 1–%d characters without spaces", MaxComponentLen)
+	case hasRoute && (!textWithin(u.Route, 1, MaxRouteLen) || !routePattern.MatchString(u.Route) || !noSpace(u.Route)):
+		return fmt.Errorf("route must be a route pattern (/checkout/[step]) of at most %d characters", MaxRouteLen)
+	case !validKind(u.Kind):
+		return errors.New("kind must be t, component, element, accessor or template")
 	}
 	return nil
 }
@@ -116,8 +157,10 @@ type Upload struct {
 	Digest Digest
 }
 
-// ParseUpload reads and validates a glossa.usages/v1 document. Unknown
-// fields are ignored so collectors can add optional ones within v1.
+// ParseUpload reads and validates a glossa.usages/v1 document by its
+// schema's rules. Unknown members are ignored, so a collector can add an
+// optional one within v1 without breaking older servers; everything
+// else the schema refuses is ErrInvalidUpload.
 func ParseUpload(raw []byte) (Upload, error) {
 	if len(raw) > MaxUploadBytes {
 		return Upload{}, ErrUploadTooLarge
@@ -142,12 +185,11 @@ func (doc UsagesDocument) validate() (Upload, error) {
 	if doc.Schema != UsagesSchema {
 		return Upload{}, fmt.Errorf("%w: schema must be %q", ErrInvalidUpload, UsagesSchema)
 	}
-	if !textWithin(doc.Application, 1, 64) {
-		return Upload{}, fmt.Errorf("%w: application must name an application", ErrInvalidUpload)
+	if !slugPattern.MatchString(doc.Application) {
+		return Upload{}, fmt.Errorf("%w: application must be an application's slug", ErrInvalidUpload)
 	}
-	commit, err := ParseCommit(doc.Commit)
-	if err != nil {
-		return Upload{}, fmt.Errorf("%w: %w", ErrInvalidUpload, err)
+	if !fullCommitPattern.MatchString(doc.Commit) {
+		return Upload{}, fmt.Errorf("%w: commit must be a full commit ID in lowercase hex (40 or 64 digits)", ErrInvalidUpload)
 	}
 	branch, err := ParseBranch(doc.Branch)
 	if err != nil {
@@ -157,20 +199,27 @@ func (doc UsagesDocument) validate() (Upload, error) {
 	if err := tool.validate(); err != nil {
 		return Upload{}, err
 	}
+	if doc.Usages == nil {
+		return Upload{}, fmt.Errorf("%w: usages must be a list", ErrInvalidUpload)
+	}
 	if len(doc.Usages) > MaxUsagesPerBuild {
 		return Upload{}, ErrTooManyUsages
 	}
 	usages := make([]Usage, len(doc.Usages))
 	for i, d := range doc.Usages {
-		u := Usage{
-			Key: d.Key, File: d.File, Line: d.Line, Column: d.Column, Component: d.Component, Route: d.Route, Kind: d.Kind,
+		u := Usage{Key: d.Key, File: d.File, Line: d.Line, Column: d.Column, Kind: d.Kind}
+		if d.Component != nil {
+			u.Component = *d.Component
 		}
-		if err := u.validate(); err != nil {
+		if d.Route != nil {
+			u.Route = *d.Route
+		}
+		if err := u.validate(d.Component != nil, d.Route != nil); err != nil {
 			return Upload{}, fmt.Errorf("%w: usages[%d]: %v", ErrInvalidUpload, i, err)
 		}
 		usages[i] = u
 	}
-	return Upload{Application: doc.Application, Commit: commit, Branch: branch, Tool: tool, Usages: usages}, nil
+	return Upload{Application: doc.Application, Commit: Commit(doc.Commit), Branch: branch, Tool: tool, Usages: usages}, nil
 }
 
 // UsageKeys returns the distinct keys of usages.

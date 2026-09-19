@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const deleteApplicationBuilds = `-- name: DeleteApplicationBuilds :exec
@@ -239,6 +240,88 @@ func (q *Queries) ListProjectBuildSummaries(ctx context.Context, projectID uuid.
 			&i.Branch,
 			&i.OnDefaultBranch,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProjectBuilds = `-- name: ListProjectBuilds :many
+SELECT b.id, b.tenant_id, b.project_id, b.application_id, b.commit_sha, b.branch, b.on_default_branch, b.source, b.tool_name, b.tool_version, b.digest, b.usage_count, b.created_by, b.created_at, (SELECT count(*) FROM context_usages u WHERE u.build_id = b.id AND u.message_id IS NULL)::int AS unknown_keys
+FROM context_builds b
+WHERE b.project_id = $1
+  AND ($2::uuid IS NULL OR b.application_id = $2::uuid)
+  AND ($3::timestamptz IS NULL
+       OR (b.created_at, b.id) < ($3::timestamptz, $4::uuid))
+ORDER BY b.created_at DESC, b.id DESC
+LIMIT $5
+`
+
+type ListProjectBuildsParams struct {
+	ProjectID      uuid.UUID
+	ApplicationID  uuid.NullUUID
+	AfterCreatedAt pgtype.Timestamptz
+	AfterID        uuid.NullUUID
+	MaxRows        int32
+}
+
+type ListProjectBuildsRow struct {
+	ID              uuid.UUID
+	TenantID        uuid.UUID
+	ProjectID       uuid.UUID
+	ApplicationID   uuid.UUID
+	CommitSha       string
+	Branch          string
+	OnDefaultBranch bool
+	Source          string
+	ToolName        string
+	ToolVersion     string
+	Digest          string
+	UsageCount      int32
+	CreatedBy       string
+	CreatedAt       time.Time
+	UnknownKeys     int32
+}
+
+// A page of a project's builds, newest first, optionally of one
+// application, with the unknown keys each holds. Retention bounds a
+// project's builds, so the page reads few rows.
+func (q *Queries) ListProjectBuilds(ctx context.Context, arg ListProjectBuildsParams) ([]ListProjectBuildsRow, error) {
+	rows, err := q.db.Query(ctx, listProjectBuilds,
+		arg.ProjectID,
+		arg.ApplicationID,
+		arg.AfterCreatedAt,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProjectBuildsRow
+	for rows.Next() {
+		var i ListProjectBuildsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ProjectID,
+			&i.ApplicationID,
+			&i.CommitSha,
+			&i.Branch,
+			&i.OnDefaultBranch,
+			&i.Source,
+			&i.ToolName,
+			&i.ToolVersion,
+			&i.Digest,
+			&i.UsageCount,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UnknownKeys,
 		); err != nil {
 			return nil, err
 		}

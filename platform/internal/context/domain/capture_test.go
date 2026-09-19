@@ -45,7 +45,7 @@ func TestNewCaptureRejectsInvalidInput(t *testing.T) {
 		want   error
 	}{
 		"no route":           {func(in *domain.CaptureInput) { in.Route = "" }, domain.ErrInvalidCapture},
-		"long route":         {func(in *domain.CaptureInput) { in.Route = "/" + strings.Repeat("r", 500) }, domain.ErrInvalidCapture},
+		"long route":         {func(in *domain.CaptureInput) { in.Route = "/" + strings.Repeat("r", domain.MaxRouteLen) }, domain.ErrInvalidCapture},
 		"no viewport":        {func(in *domain.CaptureInput) { in.Viewport = domain.Viewport{} }, domain.ErrInvalidCapture},
 		"huge viewport":      {func(in *domain.CaptureInput) { in.Viewport.Width = 20000 }, domain.ErrInvalidCapture},
 		"no locale":          {func(in *domain.CaptureInput) { in.Locale = bcp47.Tag{} }, domain.ErrInvalidCapture},

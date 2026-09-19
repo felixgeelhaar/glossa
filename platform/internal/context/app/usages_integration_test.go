@@ -31,7 +31,7 @@ func TestIngestUsagesResolvesKeysAndPublishesTheBuild(t *testing.T) {
 
 	b := got.Build
 	if got.Replayed || got.UnknownKeys != 1 || b.UsageCount != 3 || !b.OnDefaultBranch || b.ApplicationID != f.apps["web"] ||
-		b.Commit != "9f2c1e7ab4" || b.Source != domain.SourcePlugin || b.Tool.Name != "@glossa/unplugin" {
+		b.Commit.String() != sha("9f2c1e7ab4") || b.Source != domain.SourcePlugin || b.Tool.Name != "@glossa/unplugin" {
 		t.Errorf("ingested = %+v", got)
 	}
 	if n := count(t, "SELECT count(*) FROM context_usages WHERE build_id = $1 AND message_id = $2", b.ID, f.ids["checkout.pay"]); n != 2 {
@@ -108,13 +108,12 @@ func TestIngestUsagesRefusals(t *testing.T) {
 		in   app.IngestUsages
 		want error
 	}{
-		"translator": {h.translator(), app.IngestUsages{Project: f.project, Source: "plugin", DefaultBranch: "main", Document: doc}, authz.ErrForbidden},
-		"unknown application": {h.ci(), app.IngestUsages{Project: f.project, Source: "plugin", DefaultBranch: "main",
+		"translator": {h.translator(), app.IngestUsages{Project: f.project, Source: "plugin", Document: doc}, authz.ErrForbidden},
+		"unknown application": {h.ci(), app.IngestUsages{Project: f.project, Source: "plugin",
 			Document: document("ios", "abcdef1", "main")}, app.ErrApplicationNotFound},
-		"unknown project":   {h.ci(), app.IngestUsages{Project: uuid.New(), Source: "plugin", DefaultBranch: "main", Document: doc}, app.ErrProjectNotFound},
-		"unknown source":    {h.ci(), app.IngestUsages{Project: f.project, Source: "ci", DefaultBranch: "main", Document: doc}, domain.ErrInvalidSource},
-		"no default branch": {h.ci(), app.IngestUsages{Project: f.project, Source: "plugin", Document: doc}, domain.ErrInvalidBranch},
-		"invalid document":  {h.ci(), app.IngestUsages{Project: f.project, Source: "plugin", DefaultBranch: "main", Document: []byte(`{}`)}, domain.ErrInvalidUpload},
+		"unknown project":  {h.ci(), app.IngestUsages{Project: uuid.New(), Source: "plugin", Document: doc}, app.ErrProjectNotFound},
+		"unknown source":   {h.ci(), app.IngestUsages{Project: f.project, Source: "ci", Document: doc}, domain.ErrInvalidSource},
+		"invalid document": {h.ci(), app.IngestUsages{Project: f.project, Source: "plugin", Document: []byte(`{}`)}, domain.ErrInvalidUpload},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

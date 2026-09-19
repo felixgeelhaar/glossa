@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 )
 
@@ -22,6 +24,9 @@ const (
 const (
 	subscriberDropProject     = "context.drop_project"
 	subscriberDropApplication = "context.drop_application"
+	// subscriberMeasureCoverage is also the background principal that
+	// reads the catalog for it.
+	subscriberMeasureCoverage = "context.measure_coverage"
 )
 
 type catalogEvent struct {
@@ -30,12 +35,42 @@ type catalogEvent struct {
 }
 
 // Subscribe registers Context's subscribers: a deleted project or
-// application takes its builds, usages, captures and regions with it.
+// application takes its builds, usages, captures and regions with it,
+// and a default-branch build updates the project's context coverage.
 func (s *Service) Subscribe(r *outbox.Registry) error {
 	if err := r.Subscribe(catalogProjectDeleted, subscriberDropProject, outbox.HandlerFunc(s.handleProjectDeleted)); err != nil {
 		return err
 	}
+	if err := r.Subscribe(domain.EventBuildIngested, subscriberMeasureCoverage, outbox.HandlerFunc(s.handleBuildIngested)); err != nil {
+		return err
+	}
 	return r.Subscribe(catalogApplicationDeleted, subscriberDropApplication, outbox.HandlerFunc(s.handleApplicationDeleted))
+}
+
+// handleBuildIngested measures the project's context coverage (RFC
+// 0004 §11) after a default-branch build: the share of its active
+// messages with a current usage. Measuring twice is harmless.
+func (s *Service) handleBuildIngested(ctx context.Context, d outbox.Delivery) error {
+	var e domain.BuildIngested
+	if err := d.Decode(&e); err != nil {
+		return err
+	}
+	if !e.OnDefaultBranch {
+		return nil
+	}
+	project, err := uuid.Parse(e.ProjectID)
+	if err != nil {
+		return outbox.Permanent(fmt.Errorf("context: build event with project_id %q", e.ProjectID))
+	}
+	bg, err := authz.Background(ctx, subscriberMeasureCoverage, authz.CatalogRead)
+	if err != nil {
+		return err
+	}
+	_, err = s.UnusedMessages(bg, project, "")
+	if errors.Is(err, ErrProjectNotFound) {
+		return nil // deleted since: nothing to measure
+	}
+	return err
 }
 
 // handleProjectDeleted erases a deleted project's context. Deleting

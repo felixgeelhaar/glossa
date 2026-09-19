@@ -200,7 +200,7 @@ func (s *store) MessageUsages(ctx context.Context, message uuid.UUID, builds []u
 				Key: r.MessageKey, File: r.File, Line: int(r.Line), Column: column(r.Col), Component: r.Component,
 				Route: r.Route, Kind: r.Kind, MessageID: uuidPtr(r.MessageID),
 			},
-			BuildID: r.BuildID, ApplicationID: r.ApplicationID, Commit: domain.Commit(r.CommitSha),
+			Position: int(r.Position), BuildID: r.BuildID, ApplicationID: r.ApplicationID, Commit: domain.Commit(r.CommitSha),
 			Branch: domain.Branch(r.Branch), OnDefaultBranch: r.OnDefaultBranch, Source: domain.Source(r.Source),
 		}
 	}
@@ -210,6 +210,68 @@ func (s *store) MessageUsages(ctx context.Context, message uuid.UUID, builds []u
 func (s *store) UsedMessages(ctx context.Context, builds []uuid.UUID) ([]uuid.UUID, error) {
 	ids, err := s.q.ListUsedMessageIDs(ctx, builds)
 	return ids, storeError(err)
+}
+
+func (s *store) ListBuilds(ctx context.Context, project uuid.UUID, application *uuid.UUID, after *app.BuildCursor, limit int) ([]app.BuildRecord, error) {
+	p := contextsql.ListProjectBuildsParams{ProjectID: project, MaxRows: int32Of(limit)}
+	if application != nil {
+		p.ApplicationID = uuid.NullUUID{UUID: *application, Valid: true}
+	}
+	if after != nil {
+		p.AfterCreatedAt = pgtype.Timestamptz{Time: after.CreatedAt, Valid: true}
+		p.AfterID = uuid.NullUUID{UUID: after.ID, Valid: true}
+	}
+	rows, err := s.q.ListProjectBuilds(ctx, p)
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.BuildRecord, len(rows))
+	for i, r := range rows {
+		out[i] = app.BuildRecord{UnknownKeys: int(r.UnknownKeys), Build: build(contextsql.ContextBuild{
+			ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, ApplicationID: r.ApplicationID, CommitSha: r.CommitSha,
+			Branch: r.Branch, OnDefaultBranch: r.OnDefaultBranch, Source: r.Source, ToolName: r.ToolName,
+			ToolVersion: r.ToolVersion, Digest: r.Digest, UsageCount: r.UsageCount, CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt,
+		})}
+	}
+	return out, nil
+}
+
+func optionalText(s string) pgtype.Text { return pgtype.Text{String: s, Valid: s != ""} }
+
+func (s *store) ListUsages(ctx context.Context, builds []uuid.UUID, f app.UsageFilter, after app.UsageCursor, limit int) ([]app.UsageView, error) {
+	rows, err := s.q.ListUsagesInBuilds(ctx, contextsql.ListUsagesInBuildsParams{
+		BuildIds: builds, Route: optionalText(f.Route), Component: optionalText(f.Component), File: optionalText(f.File),
+		AfterBuild: after.Build, AfterPosition: int32Of(after.Position), MaxRows: int32Of(limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.UsageView, len(rows))
+	for i, r := range rows {
+		out[i] = app.UsageView{
+			Usage: domain.Usage{
+				Key: r.MessageKey, File: r.File, Line: int(r.Line), Column: column(r.Col), Component: r.Component,
+				Route: r.Route, Kind: r.Kind, MessageID: uuidPtr(r.MessageID),
+			},
+			Position: int(r.Position), BuildID: r.BuildID, ApplicationID: r.ApplicationID, Commit: domain.Commit(r.CommitSha),
+			Branch: domain.Branch(r.Branch), OnDefaultBranch: r.OnDefaultBranch, Source: domain.Source(r.Source),
+		}
+	}
+	return out, nil
+}
+
+func (s *store) CoLocatedMessages(ctx context.Context, message uuid.UUID, builds []uuid.UUID, limit int) ([]uuid.UUID, error) {
+	rows, err := s.q.ListCoLocatedMessages(ctx, contextsql.ListCoLocatedMessagesParams{
+		MessageID: message, BuildIds: builds, MaxRows: int32Of(limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]uuid.UUID, len(rows))
+	for i, r := range rows {
+		out[i] = r.MessageID
+	}
+	return out, nil
 }
 
 // ── captures ────────────────────────────────────────────────────────
