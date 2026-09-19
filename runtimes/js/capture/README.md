@@ -105,9 +105,10 @@ Vue and Go-template usage.
 screenshots, so it injects a bundle of `src/agent.ts` before the page's own
 scripts run:
 
-- `install()` defines `globalThis.__glossaRuntimes`. Every `createRuntime()`
-  pushes itself onto it, so the agent's session hooks each runtime from its
-  first render, whatever framework renders the page.
+- `install()` puts the page's runtime registry
+  (`globalThis[Symbol.for("glossa.runtimes")]`) in place, with a `push` that
+  hooks each runtime into the agent's session from its first render, whatever
+  framework renders the page. Runtimes created before the call are hooked too.
 - The CLI then calls `__glossaCapture.settle()` (fonts loaded, no DOM mutation
   for 300 ms), `status()` (every runtime's active manifest environment and
   locale: the CLI refuses `production` and a page without an active release)

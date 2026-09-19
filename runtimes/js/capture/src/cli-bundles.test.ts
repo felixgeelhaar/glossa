@@ -22,7 +22,7 @@ describe("glossa capture's embedded scripts", () => {
 
   it("the agent carries no fixture code, and the fixture no agent", async () => {
     const [agent, app] = await Promise.all(bundles.map((b) => bundle(b)));
-    expect(agent).toContain("__glossaRuntimes");
+    expect(agent).toContain("glossa.runtimes");
     expect(agent).toContain("data-glossa-redact");
     expect(agent).not.toContain("prj_fixture");
     expect(app).toContain("prj_fixture");

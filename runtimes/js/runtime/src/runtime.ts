@@ -136,6 +136,14 @@ export interface Runtime {
   /** The active locale's direction, for `dir` attributes. */
   readonly dir: "ltr" | "rtl";
   readonly release: { id: string; version: number } | undefined;
+  /**
+   * The active release's environment, from its manifest (covered by the
+   * signature when `publicKeys` are set); undefined until one is active. The
+   * overlay loader refuses to start unless every runtime on the page reports
+   * one that isn't `production` (RFC 0004 §5.1), and a capture session refuses
+   * a page that reports `production` (RFC 0004 §10).
+   */
+  readonly environment: string | undefined;
   /** The locales the active release offers (its manifest's `locales`), e.g. for a locale picker. */
   readonly availableLocales: readonly ManifestLocale[];
   /** Render a message as a string. */
@@ -167,11 +175,6 @@ export interface Runtime {
    * environment is `production`.
    */
   override(id: string, locale: string, model?: Message): boolean;
-  /**
-   * The active manifest's `environment`, once a release is active. A capture
-   * session refuses a page that reports `production` (RFC 0004 §10).
-   */
-  readonly environment: string | undefined;
   /** Listen on the error channel. */
   onError(listener: (error: RuntimeError) => void): () => void;
   /** Stop background refresh and drop listeners. */
@@ -543,6 +546,14 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     return output;
   };
 
+  // The page's runtimes, where `glossa capture` and the overlay loader
+  // (`@glossa/runtime/dev`) find them (RFC 0004 §3.2, §5.1). Browsers only, so
+  // a server rendering per request keeps nothing. Production runtimes are
+  // listed too: a capture session has to tell a production page from a page
+  // without Glossa, and the loader checks every runtime's environment.
+  const registry: Runtime[] | undefined = doc
+    ? ((globalThis as Record<symbol, Runtime[]>)[Symbol.for("glossa.runtimes")] ??= [])
+    : undefined;
   const rt: Runtime = {
     ready,
     get locale() {
@@ -554,6 +565,9 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     },
     get release() {
       return state && { id: state.m.release.id, version: state.m.release.version };
+    },
+    get environment() {
+      return state?.m.environment;
     },
     get availableLocales() {
       return state?.m.locales ?? [];
@@ -586,18 +600,15 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
       call(subscribers);
       return true;
     },
-    get environment() {
-      return state?.m.environment;
-    },
     dispose() {
       stop?.();
       doc?.removeEventListener?.("visibilitychange", onVisible);
       subscribers.clear();
       listeners.clear();
+      // Not listed: -1 >>> 0 is past the end, so nothing is removed.
+      registry?.splice(registry.indexOf(rt) >>> 0, 1);
     },
   };
-  // A capture session (`glossa capture`) defines this registry before the
-  // page's scripts run, to find the page's runtimes (RFC 0004 §3.2).
-  (globalThis as { __glossaRuntimes?: { push(r: Runtime): unknown } }).__glossaRuntimes?.push(rt);
+  registry?.push(rt);
   return rt;
 }

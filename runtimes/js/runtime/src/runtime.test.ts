@@ -450,15 +450,25 @@ describe("createRuntime: onRender (RFC 0004 §3.1)", () => {
     );
   });
 
-  it("announces itself to a capture session's registry, when the page has one", () => {
+  it("adds itself to the page's registry, hooked by a capture session that put it there", () => {
+    vi.stubGlobal("document", { addEventListener() {}, removeEventListener() {} });
     const { create } = setup();
+    const g = globalThis as Record<symbol, unknown[]>;
+    const key = Symbol.for("glossa.runtimes");
     const seen: unknown[] = [];
-    vi.stubGlobal("__glossaRuntimes", { push: (rt: unknown) => seen.push(rt) });
+    const registry: unknown[] = [];
+    Object.defineProperty(registry, "push", {
+      configurable: true,
+      value: (rt: unknown) => (seen.push(rt), Array.prototype.push.call(registry, rt)),
+    });
+    g[key] = registry;
     const rt = create({ bundled });
     expect(seen).toEqual([rt]);
+    expect(registry).toEqual([rt]);
+    rt.dispose();
+    expect(registry).toEqual([]);
+    delete g[key];
     vi.unstubAllGlobals();
-    create({ bundled }); // no registry: nothing happens
-    expect(seen).toHaveLength(1);
   });
 });
 

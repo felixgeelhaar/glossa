@@ -3,9 +3,10 @@
  * this module into one script (`pnpm build:cli`, embedded in the glossa
  * binary) and injects it before the page's own scripts run:
  *
- * - `install()` defines `globalThis.__glossaRuntimes`, the registry every
- *   `createRuntime()` announces itself to, and hooks each runtime into one
- *   capture session from its first render.
+ * - `install()` puts the page's runtime registry
+ *   (`globalThis[Symbol.for("glossa.runtimes")]`, which every `createRuntime()`
+ *   adds itself to) in place before the page's scripts run, with a `push` that
+ *   hooks each runtime into one capture session from its first render.
  * - The CLI then drives `globalThis.__glossaCapture`: `settle()` until the
  *   page is quiet, `status()` to refuse a page whose runtime reports a
  *   `production` manifest, and `collect()` for the regions, with every
@@ -45,9 +46,12 @@ export interface Agent {
 }
 
 type Global = typeof globalThis & {
-  __glossaRuntimes?: { push(rt: Runtime): number };
+  [REGISTRY]?: Runtime[];
   __glossaCapture?: Agent;
 };
+
+/** The page's runtime registry, as `@glossa/runtime` names it. */
+const REGISTRY: unique symbol = Symbol.for("glossa.runtimes") as never;
 
 /** The attribute that marks an element to black out (RFC 0004 §10). */
 export const REDACT = "data-glossa-redact";
@@ -105,19 +109,22 @@ function redact(doc: Document): Box[] {
 }
 
 /**
- * Define the runtime registry and the agent on `g` (the page's global).
- * Idempotent: a second call returns the first agent.
+ * Put the runtime registry and the agent on `g` (the page's global). Runtimes
+ * created before this call are picked up too, so injection order can't lose
+ * one. Idempotent: a second call returns the first agent.
  */
 export function install(g: Global = globalThis as Global): Agent {
   if (g.__glossaCapture) return g.__glossaCapture;
-  const runtimes: Runtime[] = [];
+  const runtimes: Runtime[] = (g[REGISTRY] ??= []);
   const session = startCapture([]);
-  g.__glossaRuntimes = {
-    push(rt) {
-      session.add(rt);
-      return runtimes.push(rt);
+  runtimes.forEach((rt) => session.add(rt));
+  Object.defineProperty(runtimes, "push", {
+    configurable: true,
+    value: (...added: Runtime[]) => {
+      added.forEach((rt) => session.add(rt));
+      return Array.prototype.push.apply(runtimes, added);
     },
-  };
+  });
   const agent: Agent = {
     async status() {
       await Promise.all(runtimes.map((rt) => rt.ready));

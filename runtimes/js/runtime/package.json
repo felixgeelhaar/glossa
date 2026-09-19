@@ -16,6 +16,10 @@
     "./idb": {
       "types": "./dist/idb.d.ts",
       "import": "./dist/idb.js"
+    },
+    "./dev": {
+      "types": "./dist/dev.d.ts",
+      "import": "./dist/dev.js"
     }
   },
   "files": [
@@ -51,6 +55,11 @@
       "name": "@glossa/runtime/idb",
       "path": "dist/idb.js",
       "limit": "0.5 KB"
+    },
+    {
+      "name": "@glossa/runtime/dev, the overlay loader (never in production builds)",
+      "path": "dist/dev.js",
+      "limit": "1.25 KB"
     }
   ],
   "devDependencies": {
@@ -58,6 +67,7 @@
     "@size-limit/preset-small-lib": "^11.0.0",
     "@types/node": "^22.0.0",
     "fake-indexeddb": "6.2.5",
+    "jsdom": "25.0.1",
     "size-limit": "^11.0.0",
     "typescript": "^5.5.0",
     "vitest": "^4.1.0"

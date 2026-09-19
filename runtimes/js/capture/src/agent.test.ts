@@ -12,8 +12,8 @@ import { fixture } from "./testing/release.js";
 import { schemaErrors } from "./testing/schema.js";
 
 afterEach(() => {
-  const g = globalThis as Record<string, unknown>;
-  delete g.__glossaRuntimes;
+  const g = globalThis as Record<string | symbol, unknown>;
+  delete g[Symbol.for("glossa.runtimes")];
   delete g.__glossaCapture;
   document.body.innerHTML = "";
   document.querySelectorAll("style, [data-glossa-redaction]").forEach((e) => e.remove());

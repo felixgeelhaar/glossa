@@ -459,6 +459,9 @@ importers:
       fake-indexeddb:
         specifier: 6.2.5
         version: 6.2.5
+      jsdom:
+        specifier: 25.0.1
+        version: 25.0.1
       size-limit:
         specifier: ^11.0.0
         version: 11.2.0

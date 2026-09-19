@@ -54,6 +54,7 @@ The `Runtime`:
 | `parts(id, values?, { default? }) → Part[]` | The same as parts (text, markup, bidi isolates, fallbacks, values), for adapters and typed accessors. |
 | `explain(id, locales?) → Explanation` | SPEC §6, without side effects: `{ id, requested, locale, chain, resolvedFrom, release, source, steps }`. With `locales`, explains those instead of the active ones and loads nothing. |
 | `locale`, `dir`, `release` | The active locale, its direction from the manifest, and `{ id, version }`. |
+| `environment` | The active release's environment, from its manifest (covered by its signature when `publicKeys` are set); `undefined` until a release is active. The overlay loader reads it. |
 | `availableLocales` | The active release's `locales` (`{ code, direction }[]`, empty until one is active), e.g. for a locale picker. |
 | `setLocales(locales) → Promise` | Switches once the new chain's artifacts are loaded. |
 | `refresh() → Promise` | Revalidates now. Concurrent calls share one request. |
@@ -64,11 +65,44 @@ The `Runtime`:
 | `override(id, locale, model?) → boolean` | The in-product editor's live preview (RFC 0004 §5.3), never in production: renders `model` (an MF2 data-model message, as the API parsed it) for `id` in `locale` through `t()`, `parts()` and `explain()`, until it's called without `model`. The locale must be on the active fallback chain to show. Notifies subscribers, so the page re-renders. Returns `false` and changes nothing when the runtime's `environment` is `production`. See [`@glossa/overlay`](../overlay/README.md). |
 | `environment` | The active manifest's `environment` (`undefined` until a release is active). `glossa capture` refuses a page that reports `production`. |
 | `dispose()` | Stops the timer and the visibility listener and drops listeners. |
+| `dispose()` | Stops the timer and the visibility listener, drops listeners, and takes the runtime off the page's list (below). |
 
-A new runtime also calls `globalThis.__glossaRuntimes?.push(runtime)`. Nothing
-defines that registry in a normal page view: `glossa capture` defines it before
-the page's scripts run, so its capture session finds every runtime on the page
-and hooks it from the first render (RFC 0004 §3.2).
+A runtime created in a browser adds itself to a page-wide list
+(`globalThis[Symbol.for("glossa.runtimes")]`), which is how the overlay loader
+and `glossa capture` find the page's runtimes whenever they run; `dispose()`
+takes it off again. A runtime created without a `document` is never listed (a
+server rendering per request keeps nothing). Production runtimes are listed
+too — the loader checks every runtime's `environment` before it does anything,
+and a capture session has to tell a production page from a page without
+Glossa.
+
+## `@glossa/runtime/dev`: the overlay loader
+
+The in-product editor's loader ([RFC 0004
+§5.1](../../../docs/rfcs/0004-context.md)). **Applications don't import it**:
+[`@glossa/unplugin`](../unplugin/README.md) injects it into builds whose
+Glossa `environment` isn't `production`, and a production build never
+contains it. On the page it does nothing until someone asks for the editor
+with `?glossa=edit` in the URL or Alt+Shift+E (which also ends the session).
+Then it:
+
+1. waits for the listed runtimes' first load, and **refuses** unless there is
+   at least one and every one has an active release whose manifest
+   `environment` isn't `production` (a warning on the console says why);
+2. adds `<script type="module" src="{studio}/overlay/v1/overlay.js"
+   integrity="sha384-…" crossorigin="anonymous">`, the hash pinned at build
+   time, so a script that isn't the published one never runs;
+3. calls the overlay's `activate` with the runtimes, the page's locale, the
+   tenant and project, and the API origin (Studio's by default).
+
+It adds no inline script and evaluates no strings, so the preview CSP in
+[`@glossa/overlay`](../overlay/README.md#csp-for-preview-deployments) is all
+it needs. Until the in-context grant slice (RFC 0004 §5.2) the overlay can't
+sign in yet: its API calls report that.
+
+`glossa capture` uses the same page-wide list: it puts the array in place
+before the page's scripts run, with a `push` that hooks each new runtime into
+its capture session from the first render (RFC 0004 §3.2).
 
 Errors are `{ type, detail, messageId?, locale?, releaseId? }` with `type` one of
 `network`, `integrity`, `signature`, `schema`, `format`, `missing-message`.
@@ -196,9 +230,10 @@ line is what an app that imports only that pays:
 | Import | Size | Budget |
 |---|---|---|
 | `{ format, formatToParts }` (interpreter only) | 3.13 kB | 4 kB |
-| `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`) | 5.99 kB | 6.5 kB |
-| `{ createRuntime, resolveLocales, acceptLanguage }` | 6.15 kB | 6.5 kB |
+| `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`) | 6.2 kB | 6.5 kB |
+| `{ createRuntime, resolveLocales, acceptLanguage }` | 6.36 kB | 6.5 kB |
 | `@glossa/runtime/idb` | 0.26 kB | 0.5 kB |
+| `@glossa/runtime/dev` (the overlay loader, never in production builds) | 0.98 kB | 1.25 kB |
 
 RFC 0002 §8 set 4 kB for the whole JS core. The interpreter alone fits it; the
 contract's loader, SHA-256 and Ed25519 verification, JCS, the fallback graph,
