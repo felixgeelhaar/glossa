@@ -3612,6 +3612,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/captures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a build's captures (glossa capture --upload)
+         * @description A `multipart/form-data` body: first a part named `manifest`
+         *     (`application/json`), one `glossa.captures/v1` manifest as
+         *     `glossa capture` writes it (schema:
+         *     `runtimes/testdata/schemas/captures.v1.schema.json`), then one
+         *     part per distinct image, named by the lowercase hex SHA-256 of
+         *     its bytes as `captures[].image.sha256` references it, with
+         *     `Content-Type: image/png`. Every referenced image has exactly one
+         *     part and every part is referenced.
+         *
+         *     The manifest is validated by the schema's rules like a usages
+         *     document (members it doesn't define are ignored within v1) and
+         *     the server's: at most 500 captures, one per route, viewport and
+         *     locale; at most 10 000 regions each; viewports of at most
+         *     10 000 CSS pixels a side; every region `index` names an entry of
+         *     its `renders`. Region boxes are stored as the whole CSS pixels
+         *     that cover them. Each image must be the PNG its part name and
+         *     manifest entry say — at most 10 MB and 40 megapixels — and is
+         *     re-encoded without metadata before it is stored; the same pixels
+         *     are stored once per project (`images_deduplicated`). The whole
+         *     body is at most 200 MB: split a larger capture plan over several
+         *     uploads (one per application, or per locale).
+         *
+         *     The upload records a build with `source` `capture`: whether it is
+         *     of the default branch is the project's `settings.default_branch`.
+         *     Region keys are resolved to message IDs now; the keys the catalog
+         *     doesn't know are stored and listed in `unknown_keys`. An upload is
+         *     idempotent by application, commit and the SHA-256 of the
+         *     manifest's RFC 8785 canonical form (without undefined members):
+         *     the same manifest again answers `200` with the first upload's
+         *     build and `Idempotent-Replayed: true`, without reading its images.
+         *
+         *     Uploads share the per-tenant limit of usage uploads (10 a minute,
+         *     bursts of 60). Needs `catalog.write` (developers, `write` tokens:
+         *     CI). Problem codes: `invalid_request` (not a multipart body),
+         *     `invalid_captures` (a malformed body or manifest, or parts that
+         *     don't match it), `too_many_captures`, `too_many_regions`,
+         *     `invalid_image`, `unknown_application` (400),
+         *     `payload_too_large`, `image_too_large` (413), `rate_limited`
+         *     (429), `storage_unavailable` (503).
+         */
+        post: operations["createCaptures"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/captures/{capture}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A capture `id`. */
+                capture: components["parameters"]["CapturePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A capture's image
+         * @description The re-encoded PNG, read through the API (the object store never
+         *     hands out a URL). It is content-addressed and never changes:
+         *     `ETag` is its SHA-256 and it may be cached privately for a year;
+         *     `If-None-Match` with that `ETag` answers `304`. Needs
+         *     `catalog.read`. Problem codes: `not_found` (404; also when
+         *     retention deleted the image), `storage_unavailable` (503).
+         */
+        get: operations["getCaptureImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/messages/{message}/captures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Where a message appears on screen (its current captures)
+         * @description The captures in the current builds (see `listMessageUsages`;
+         *     `branch` selects a branch view with the default branch's
+         *     fallback) that show the message the key names now, each with the
+         *     message's regions on it (`visible` false: it rendered zero-size
+         *     or off-screen) and the API path of its image. The default
+         *     branch's captures come first, then by application, route, locale
+         *     and the widest viewport; `truncated` says more than `limit`
+         *     exist. Boxes are CSS pixels from the page's top left; the image
+         *     is `image.width / viewport.width` times larger (the device scale
+         *     factor). Needs `catalog.read`. Problem codes: `invalid_branch`
+         *     (400).
+         */
+        get: operations["listMessageCaptures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5668,6 +5800,142 @@ export interface components {
             active_messages: number;
             unused_messages: number;
         };
+        /**
+         * @description A `glossa.captures/v1` manifest (RFC 0004 §3.1–§3.3), the
+         *     `manifest` part of a capture upload: one application at one
+         *     commit, one capture per route, viewport and locale. Its JSON
+         *     Schema, `runtimes/testdata/schemas/captures.v1.schema.json`, has
+         *     every rule and is the published contract, so its member names
+         *     are kept as they are (`deviceScaleFactor`).
+         */
+        CapturesManifest: {
+            /** @enum {string} */
+            schema: "glossa.captures/v1";
+            /** @description The application's slug in the project. */
+            application: string;
+            /** @description The full commit ID in lowercase hex (SHA-1 or SHA-256). */
+            commit: string;
+            /** @description The short branch name. */
+            branch: string;
+            tool: components["schemas"]["UsagesTool"];
+            captures: components["schemas"]["CapturesManifestCapture"][];
+        };
+        CapturesManifestCapture: {
+            /** @description The route pattern from the capture plan: `/checkout/[step]`. */
+            route: string;
+            /** @description The concrete URL navigated to; informational, never fetched. */
+            url: string;
+            viewport: {
+                width: number;
+                height: number;
+                /** @description Defaults to 1. */
+                deviceScaleFactor?: number;
+            };
+            /** @description The locale the page was rendered in (BCP 47). */
+            locale: string;
+            image: {
+                /** @description Lowercase hex SHA-256 of the uploaded PNG; the name of its part. */
+                sha256: string;
+                width: number;
+                height: number;
+            };
+            /** @description The session's render log; every region `index` names one entry. */
+            renders: components["schemas"]["CapturesManifestRender"][];
+            regions: components["schemas"]["CapturesManifestRegion"][];
+        };
+        CapturesManifestRender: {
+            index: number;
+            key: components["schemas"]["MessageKey"];
+            /** @description The locale the message resolved from. */
+            locale: string;
+        };
+        /** @description Where a rendered message is, by `key` (a component's host element) or by `index` into `renders` (a marked t() string); exactly one of them. */
+        CapturesManifestRegion: {
+            key?: components["schemas"]["MessageKey"];
+            index?: number;
+            kind: components["schemas"]["CaptureRegionKind"];
+            /** @description For kind `attribute`: the attribute's name (`placeholder`, `title`, `aria-label`). */
+            attribute?: string;
+            /** @description CSS pixels from the page's top left, fractional as measured. */
+            box: {
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+            };
+            /** @description false when the message rendered zero-size or off-screen. */
+            visible: boolean;
+        };
+        /**
+         * @description How the box was found: `element` (a component-rendered message:
+         *     its host element), `text` (a marked t() string: its text's
+         *     rects), `attribute` (a message in an attribute: its element).
+         * @enum {string}
+         */
+        CaptureRegionKind: "element" | "text" | "attribute";
+        /** @description What a capture upload stored. */
+        CaptureUpload: {
+            build: components["schemas"]["ContextBuild"];
+            /** @description The build's captures. */
+            captures: number;
+            /** @description Images written to storage (0 on a replay). */
+            images_stored: number;
+            /** @description Images whose pixels the project had stored already (0 on a replay). */
+            images_deduplicated: number;
+            /** @description The region keys the catalog doesn't know, in order (stored without a message). */
+            unknown_keys: string[];
+        };
+        CaptureViewport: {
+            /** @description CSS pixels. */
+            width: number;
+            /** @description CSS pixels. */
+            height: number;
+        };
+        CaptureImage: {
+            /** @description SHA-256 (hex) of the stored (re-encoded) PNG; its `ETag`. */
+            digest: string;
+            /** @description Pixels. */
+            width: number;
+            /** @description Pixels. */
+            height: number;
+            /** @description The image's API path (`getCaptureImage`), relative to the server. */
+            url: string;
+        };
+        /** @description Whole CSS pixels from the page's top left (covering the measured box); off-screen boxes may be negative. */
+        CaptureBox: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        };
+        CaptureRegion: {
+            kind: components["schemas"]["CaptureRegionKind"];
+            box: components["schemas"]["CaptureBox"];
+            /** @description false when the message rendered zero-size or off-screen. */
+            visible: boolean;
+        };
+        /** @description A capture that shows a message, with the message's regions on it. */
+        MessageCapture: {
+            id: components["schemas"]["Id"];
+            build_id: components["schemas"]["Id"];
+            application_id: components["schemas"]["Id"];
+            commit: string;
+            branch: string;
+            on_default_branch: boolean;
+            route: string;
+            viewport: components["schemas"]["CaptureViewport"];
+            locale: string;
+            image: components["schemas"]["CaptureImage"];
+            regions: components["schemas"]["CaptureRegion"][];
+            created_at: components["schemas"]["Timestamp"];
+        };
+        MessageCaptures: {
+            message_id: components["schemas"]["Id"];
+            key: components["schemas"]["MessageKey"];
+            captures: components["schemas"]["MessageCapture"][];
+            /** @description More captures exist than `limit`. */
+            truncated: boolean;
+        };
     };
     responses: {
         /** @description Signed in. The session cookie is set. */
@@ -5842,6 +6110,8 @@ export interface components {
         ImportJobPath: components["schemas"]["Id"];
         /** @description An export job `id`. */
         ExportJobPath: components["schemas"]["Id"];
+        /** @description A capture `id`. */
+        CapturePath: components["schemas"]["Id"];
         /** @description A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's. */
         ContextBranch: string;
         PageSize: number;
@@ -5863,6 +6133,8 @@ export interface components {
         ETag: string;
         /** @description URL of the created resource. */
         Location: string;
+        /** @description `private, max-age=31536000, immutable`: content-addressed, never changes. */
+        ImmutableCacheControl: string;
         /** @description `true` when this response replays an earlier request with the same `Idempotency-Key`. */
         IdempotentReplayed: "true";
         /** @description `__Host-glossa_session=…; Path=/; HttpOnly; Secure; SameSite=Lax` */
@@ -11127,6 +11399,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnusedMessageList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createCaptures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    manifest: components["schemas"]["CapturesManifest"];
+                } & {
+                    [key: string]: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The same manifest was uploaded before; its build. */
+            200: {
+                headers: {
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptureUpload"];
+                };
+            };
+            /** @description The build with its captures, stored. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptureUpload"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getCaptureImage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The `ETag` of a cached copy. */
+                "If-None-Match"?: string;
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A capture `id`. */
+                capture: components["parameters"]["CapturePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The image. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    "Cache-Control": components["headers"]["ImmutableCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                };
+            };
+            /** @description The cached copy is the image. */
+            304: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    "Cache-Control": components["headers"]["ImmutableCacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listMessageCaptures: {
+        parameters: {
+            query?: {
+                /** @description A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's. */
+                branch?: components["parameters"]["ContextBranch"];
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The message's current captures. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageCaptures"];
                 };
             };
             400: components["responses"]["BadRequest"];
