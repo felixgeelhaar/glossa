@@ -1,13 +1,15 @@
 # Glossa
 
-> **For small EU SaaS teams who want to localize without per-word fees, Glossa is a self-hosted translation backend that ships AI fan-out, live SSE updates, and drop-in web components.** Unlike Lokalise or Crowdin which meter on word count, Glossa runs on your own k3s with your own LLM keys — no per-translation cost, no vendor lock-in.
+> **For product teams who want every new language to be configuration, not an engineering project, Glossa is open-source localization infrastructure: one typed message model for web and backend, AI translation grounded in your terminology and translation memory, and immutable releases delivered to every runtime.** Unlike file-centric translation tools, Glossa treats translations as versioned product data you own: self-hosted, with your own LLM keys.
+
+**Build once. Speak everywhere.** Where Glossa is going and why: [`docs/product-intent.md`](./docs/product-intent.md). How it gets there: [RFC 0001 — Platform foundation](./docs/rfcs/0001-platform-foundation.md). The feature list below describes what ships today (v0.3).
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?logo=postgresql&logoColor=white)
 ![Lit](https://img.shields.io/badge/Lit-3-324FFF?logo=lit&logoColor=white)
 
-Glossa is the translation-management backbone for [Brotwerk](https://brotwerk.felixgeelhaar.de), [IRI](https://github.com/felixgeelhaar/iri), and [Kraftsport](https://kraftsport-coach.de). One deployment, many tenants, end-to-end German-first but locale-agnostic. Full positioning rationale in [`docs/positioning.md`](./docs/positioning.md).
+Glossa is the localization backbone for [Brotwerk](https://brotwerk.felixgeelhaar.de), [IRI](https://github.com/felixgeelhaar/iri), and [Kraftsport](https://kraftsport-coach.de). One deployment, many tenants. Full positioning rationale in [`docs/positioning.md`](./docs/positioning.md).
 
 ---
 
@@ -107,9 +109,13 @@ glossa/
 │   │       └── infra/          # sqlc adapter, AES-GCM secrets, AI clients
 │   └── admin/                  # Lit SPA, served by nginx in compose
 ├── packages/
+│   ├── format/                 # @felixgeelhaar/glossa-format — ICU MessageFormat
+│   ├── sdk/                    # @felixgeelhaar/glossa-sdk — fetch + cache + SSE
+│   ├── elements/               # @felixgeelhaar/glossa-elements — Lit web components
+│   ├── cli/                    # @felixgeelhaar/glossa-cli — init / scan / pull / push
 │   └── ui/                     # @felixgeelhaar/glossa-ui — design system primitives
 ├── deploy/k3s/                 # k3s manifests + Helm-free kustomize bases
-├── docs/                       # design doc + ADRs
+├── docs/                       # product intent, positioning, design doc, RFCs
 └── docker-compose.yml          # one-command dev stack
 ```
 
@@ -169,19 +175,22 @@ pnpm build
 
 ## Roadmap
 
+Phase 1 of the [product intent](./docs/product-intent.md) proves the loop **code → message → translation → release → runtime**. Order and decisions: [RFC 0001](./docs/rfcs/0001-platform-foundation.md).
+
 | Status | Item |
 |---|---|
-| ✅ shipped | Multi-tenant API + Postgres schema + RLS |
-| ✅ shipped | Admin SPA + design system + dark mode |
-| ✅ shipped | Email-first login + tenant inference |
-| ✅ shipped | AI translator agents (OpenAI / Anthropic / Gemini) |
-| ✅ shipped | SSE live updates |
-| ✅ shipped | Audit log + actor attribution |
-| 🚧 next   | `packages/sdk` + `packages/elements` + `packages/cli` for consumer apps |
-| 🚧 next   | AI backfill button (translate every missing key in one pass) |
-| 🚧 next   | Translation memory across projects in a tenant |
-| 🔭 later  | DeepL passthrough as an alternative provider kind |
-| 🔭 later  | Plurals editor in admin (visual ICU builder) |
+| ✅ shipped | Multi-tenant API + Postgres RLS, admin SPA, design system |
+| ✅ shipped | AI translation fan-out (OpenAI / Anthropic / Gemini / compatible) |
+| ✅ shipped | SSE live updates, audit log, TS SDK, web components, CLI (`init/scan/pull/push`) |
+| 🚧 phase 1 | BCP 47 locale identity with script, region and direction |
+| 🚧 phase 1 | Go MessageFormat kernel + TS parity (number, date, time, ordinal) |
+| 🚧 phase 1 | Message model v2: source revisions, arguments, provenance, history |
+| 🚧 phase 1 | Structural QA + `glossa check` for CI |
+| 🚧 phase 1 | Immutable releases, environments, delivery plane |
+| 🚧 phase 1 | TS runtime v2 (fallback graph, `explain`), typed messages compiler, Go runtime SDK |
+| 🚧 phase 1 | Termbase + translation memory feeding AI translation |
+| 🚧 phase 1 | MCP agent interface |
+| 🔭 phase 2+ | Context capture, live preview, in-product editing, source copy linting, visual QA, workflows |
 
 ---
 
