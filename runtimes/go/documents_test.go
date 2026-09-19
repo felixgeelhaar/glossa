@@ -294,23 +294,23 @@ type documentGap struct {
 }
 
 const (
-	gapPercent  = "go-intl: percent ignores the CLDR pattern #,##0 % (runtimeFormatSkips \"<locale> percent\")"
+	gapPercent  = "go-intl: percent ignores the CLDR pattern #,##0\u00a0% (runtimeFormatSkips \"<locale> percent\")"
 	gapGrouping = "go-intl: ignores CLDR minimumGroupingDigits=2 for es, so a four-digit integer part is grouped (runtimeFormatSkips \"es grouping …\")"
 )
 
 var documentGaps = []documentGap{
-	{"export", "de", "100%", "100 %", gapPercent},
-	{"export", "de", "92,5%", "92,5 %", gapPercent},
-	{"export", "de", "80%", "80 %", gapPercent},
-	{"export", "de", "45,6%", "45,6 %", gapPercent},
-	{"export", "es", "100%", "100 %", gapPercent},
-	{"export", "es", "92,5%", "92,5 %", gapPercent},
-	{"export", "es", "80%", "80 %", gapPercent},
-	{"export", "es", "45,6%", "45,6 %", gapPercent},
-	{"export", "fr", "100%", "100 %", gapPercent},
-	{"export", "fr", "92,5%", "92,5 %", gapPercent},
-	{"export", "fr", "80%", "80 %", gapPercent},
-	{"export", "fr", "45,6%", "45,6 %", gapPercent},
+	{"export", "de", "100%", "100\u00a0%", gapPercent},
+	{"export", "de", "92,5%", "92,5\u00a0%", gapPercent},
+	{"export", "de", "80%", "80\u00a0%", gapPercent},
+	{"export", "de", "45,6%", "45,6\u00a0%", gapPercent},
+	{"export", "es", "100%", "100\u00a0%", gapPercent},
+	{"export", "es", "92,5%", "92,5\u00a0%", gapPercent},
+	{"export", "es", "80%", "80\u00a0%", gapPercent},
+	{"export", "es", "45,6%", "45,6\u00a0%", gapPercent},
+	{"export", "fr", "100%", "100\u00a0%", gapPercent},
+	{"export", "fr", "92,5%", "92,5\u00a0%", gapPercent},
+	{"export", "fr", "80%", "80\u00a0%", gapPercent},
+	{"export", "fr", "45,6%", "45,6\u00a0%", gapPercent},
 	{"tax-summary", "es", "1.234,50", "1234,50", gapGrouping},
 	{"tax-summary", "es", "-3.200,00", "-3200,00", gapGrouping},
 	{"export", "es", "1.234", "1234", gapGrouping},
@@ -333,7 +333,7 @@ func detectGaps(locale, doc string) map[string]string {
 	switch locale {
 	case "de", "es", "fr": // CLDR #,##0 %: a no-break space before the sign
 		for _, m := range percentNoSpace.FindAllString(doc, -1) {
-			found[m] = strings.TrimSuffix(m, "%") + " %"
+			found[m] = strings.TrimSuffix(m, "%") + "\u00a0%"
 		}
 	}
 	if locale == "es" {
@@ -423,7 +423,7 @@ func TestDocumentMoneyIsExact(t *testing.T) {
 	huge.Lines = []taxLine{{Item: "tax.item.salary", Receipts: 1, EUR: MustParseDecimal(amount), JPY: MustParseDecimal("16098765432109876543")}}
 	l := documentLocalizer(t, "de")
 	doc := renderDocument(t, l, "tax-summary", &huge)
-	for _, want := range []string{"98.765.432.109.876.543,21 €", "16.098.765.432.109.876.543 ¥"} {
+	for _, want := range []string{"98.765.432.109.876.543,21\u00a0€", "16.098.765.432.109.876.543\u00a0¥"} {
 		if !strings.Contains(doc, want) {
 			t.Errorf("tax summary lacks the exact amount %q", want)
 		}
