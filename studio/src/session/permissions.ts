@@ -26,17 +26,20 @@ export type Permission =
   | "knowledge.write"
   | "intelligence.read"
   | "intelligence.manage"
-  | "intelligence.translate";
+  | "intelligence.translate"
+  | "integration.read"
+  | "integration.import"
+  | "integration.manage";
 
 const ALL: Permission[] = [
-  "catalog.read", "catalog.write", "intelligence.manage", "intelligence.read", "intelligence.translate",
+  "catalog.read", "catalog.write", "integration.import", "integration.manage", "integration.read", "intelligence.manage", "intelligence.read", "intelligence.translate",
   "knowledge.read", "knowledge.write", "members.manage", "members.read", "owners.manage", "releases.publish",
   "releases.read", "tenant.manage", "tenant.read", "tokens.manage", "tokens.read", "translations.read",
   "translations.review", "translations.write",
 ];
 const READ_ALL: Permission[] = [
   "tenant.read", "members.read", "catalog.read", "translations.read", "releases.read", "knowledge.read",
-  "intelligence.read",
+  "intelligence.read", "integration.read",
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
@@ -44,14 +47,14 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   admin: ALL.filter((p) => p !== "owners.manage"),
   developer: [
     ...READ_ALL, "tokens.read", "tokens.manage", "catalog.write", "translations.write", "releases.publish",
-    "knowledge.write", "intelligence.translate",
+    "knowledge.write", "intelligence.translate", "integration.import", "integration.manage",
   ],
-  translator: [...READ_ALL, "translations.write", "intelligence.translate"],
-  reviewer: [...READ_ALL, "translations.write", "translations.review", "intelligence.translate"],
+  translator: [...READ_ALL, "translations.write", "intelligence.translate", "integration.import"],
+  reviewer: [...READ_ALL, "translations.write", "translations.review", "intelligence.translate", "integration.import"],
 };
 
 const LOCALE_SCOPED_PERMISSIONS = new Set<Permission>([
-  "translations.write", "translations.review", "intelligence.translate",
+  "translations.write", "translations.review", "intelligence.translate", "integration.import",
 ]);
 const LOCALE_SCOPED_ROLES = new Set<Role>(["translator", "reviewer"]);
 

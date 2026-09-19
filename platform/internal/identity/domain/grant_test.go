@@ -67,17 +67,19 @@ func TestRolePermissionMatrix(t *testing.T) {
 			domain.PermTranslationsWrite, domain.PermReleasesRead, domain.PermReleasesPublish,
 			domain.PermKnowledgeRead, domain.PermKnowledgeWrite,
 			domain.PermIntelligenceRead, domain.PermIntelligenceTranslate,
+			domain.PermIntegrationRead, domain.PermIntegrationImport, domain.PermIntegrationManage,
 		}},
 		"translator": {allowed: perms{
 			domain.PermTenantRead, domain.PermMembersRead, domain.PermCatalogRead,
 			domain.PermTranslationsRead, domain.PermTranslationsWrite, domain.PermReleasesRead,
 			domain.PermKnowledgeRead, domain.PermIntelligenceRead, domain.PermIntelligenceTranslate,
+			domain.PermIntegrationRead, domain.PermIntegrationImport,
 		}},
 		"reviewer": {allowed: perms{
 			domain.PermTenantRead, domain.PermMembersRead, domain.PermCatalogRead,
 			domain.PermTranslationsRead, domain.PermTranslationsWrite, domain.PermTranslationsReview,
 			domain.PermReleasesRead, domain.PermKnowledgeRead, domain.PermIntelligenceRead,
-			domain.PermIntelligenceTranslate,
+			domain.PermIntelligenceTranslate, domain.PermIntegrationRead, domain.PermIntegrationImport,
 		}},
 	}
 	for role, tc := range tests {
@@ -115,6 +117,13 @@ func TestLocaleScopeRestrictsOnlyLocaleScopedPermissions(t *testing.T) {
 	if g.Allows(domain.PermIntelligenceTranslate) || !g.AllowsFor(domain.PermIntelligenceTranslate, deAT) ||
 		g.AllowsFor(domain.PermIntelligenceTranslate, ja) {
 		t.Error("AI fills and suggestion decisions follow the translator's locale scope")
+	}
+	if g.Allows(domain.PermIntegrationImport) || !g.AllowsFor(domain.PermIntegrationImport, deAT) ||
+		g.AllowsFor(domain.PermIntegrationImport, ja) || g.Allows(domain.PermIntegrationManage) {
+		t.Error("a translator imports translations for their locales only, and never catalogs, TM or termbases")
+	}
+	if !g.Allows(domain.PermIntegrationRead) {
+		t.Error("the locale scope must not restrict integration.read")
 	}
 }
 
@@ -164,6 +173,10 @@ func TestScopeGrants(t *testing.T) {
 	if !read.Allows(domain.PermIntelligenceRead) || read.Allows(domain.PermIntelligenceTranslate) ||
 		!write.Allows(domain.PermIntelligenceTranslate) || write.Allows(domain.PermIntelligenceManage) {
 		t.Error("read sees AI jobs and suggestions; write requests fills and acts on suggestions; neither configures providers")
+	}
+	if !read.Allows(domain.PermIntegrationRead) || read.Allows(domain.PermIntegrationImport) ||
+		!write.Allows(domain.PermIntegrationImport) || !write.Allows(domain.PermIntegrationManage) {
+		t.Error("read sees and downloads import/export jobs; write imports (CI) catalogs, translations, TM and terms")
 	}
 	if !grant("admin").Allows(domain.PermIntelligenceManage) {
 		t.Error("admin configures AI providers, budgets and privacy")

@@ -58,6 +58,12 @@ const (
 	IntelligenceRead      = domain.PermIntelligenceRead
 	IntelligenceManage    = domain.PermIntelligenceManage
 	IntelligenceTranslate = domain.PermIntelligenceTranslate
+	// IntegrationRead, IntegrationImport and IntegrationManage are the
+	// import/export permissions (RFC 0003 §5–§6); IntegrationImport is
+	// locale-scoped.
+	IntegrationRead   = domain.PermIntegrationRead
+	IntegrationImport = domain.PermIntegrationImport
+	IntegrationManage = domain.PermIntegrationManage
 )
 
 var (

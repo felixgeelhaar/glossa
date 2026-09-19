@@ -47,6 +47,17 @@ describe("grantFor", () => {
     expect(allowsFor(tr, "intelligence.translate", "fr")).toBe(false);
   });
 
+  it("mirrors import and export permissions", () => {
+    const dev = grantFor({ roles: ["developer"], locales: [] });
+    expect(allows(dev, "integration.manage")).toBe(true);
+    expect(allowsFor(dev, "integration.import", "ja")).toBe(true);
+    const tr = grantFor({ roles: ["translator"], locales: ["de"] });
+    expect(allows(tr, "integration.read")).toBe(true);
+    expect(allowsFor(tr, "integration.import", "de-AT")).toBe(true);
+    expect(allowsFor(tr, "integration.import", "fr")).toBe(false);
+    expect(allows(tr, "integration.manage")).toBe(false);
+  });
+
   it("doesn't let a locale scope narrow another role's permission", () => {
     const g = grantFor({ roles: ["developer", "translator"], locales: ["de"] });
     expect(allowsFor(g, "translations.write", "fr")).toBe(true);

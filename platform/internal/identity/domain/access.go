@@ -39,12 +39,23 @@ const (
 	// PermIntelligenceTranslate requests AI fills, cancels jobs and
 	// accepts, edits or rejects suggestions — per locale.
 	PermIntelligenceTranslate Permission = "intelligence.translate"
+	// PermIntegrationRead sees import and export jobs, their results,
+	// and downloads exports.
+	PermIntegrationRead Permission = "integration.read"
+	// PermIntegrationImport imports translations from interchange files
+	// (XLIFF, JSON, PO) — per locale.
+	PermIntegrationImport Permission = "integration.import"
+	// PermIntegrationManage imports what is not a translation — source
+	// messages, translation memory (TMX), termbases (TBX) — and runs
+	// imports in overwrite mode.
+	PermIntegrationManage Permission = "integration.manage"
 )
 
 // AllPermissions lists every permission, sorted.
 func AllPermissions() []Permission {
 	return []Permission{
 		PermCatalogRead, PermCatalogWrite,
+		PermIntegrationImport, PermIntegrationManage, PermIntegrationRead,
 		PermIntelligenceManage, PermIntelligenceRead, PermIntelligenceTranslate,
 		PermKnowledgeRead, PermKnowledgeWrite,
 		PermMembersManage, PermMembersRead,
@@ -58,7 +69,8 @@ func AllPermissions() []Permission {
 
 // LocaleScoped reports whether a member's locale scope limits p.
 func (p Permission) LocaleScoped() bool {
-	return p == PermTranslationsWrite || p == PermTranslationsReview || p == PermIntelligenceTranslate
+	return p == PermTranslationsWrite || p == PermTranslationsReview || p == PermIntelligenceTranslate ||
+		p == PermIntegrationImport
 }
 
 // Role is a named bundle of permissions a member holds in a tenant.
@@ -75,7 +87,7 @@ const (
 
 var readAll = []Permission{
 	PermTenantRead, PermMembersRead, PermCatalogRead, PermTranslationsRead, PermReleasesRead, PermKnowledgeRead,
-	PermIntelligenceRead,
+	PermIntelligenceRead, PermIntegrationRead,
 }
 
 // rolePermissions is the role matrix; TestRolePermissionMatrix pins it.
@@ -84,9 +96,10 @@ var rolePermissions = map[Role][]Permission{
 	RoleAdmin: slices.DeleteFunc(AllPermissions(), func(p Permission) bool { return p == PermOwnersManage }),
 	RoleDeveloper: append(slices.Clone(readAll),
 		PermTokensRead, PermTokensManage, PermCatalogWrite, PermTranslationsWrite, PermReleasesPublish,
-		PermKnowledgeWrite, PermIntelligenceTranslate),
-	RoleTranslator: append(slices.Clone(readAll), PermTranslationsWrite, PermIntelligenceTranslate),
-	RoleReviewer:   append(slices.Clone(readAll), PermTranslationsWrite, PermTranslationsReview, PermIntelligenceTranslate),
+		PermKnowledgeWrite, PermIntelligenceTranslate, PermIntegrationImport, PermIntegrationManage),
+	RoleTranslator: append(slices.Clone(readAll), PermTranslationsWrite, PermIntelligenceTranslate, PermIntegrationImport),
+	RoleReviewer: append(slices.Clone(readAll), PermTranslationsWrite, PermTranslationsReview, PermIntelligenceTranslate,
+		PermIntegrationImport),
 }
 
 // localeRoles are the roles a locale scope applies to.
@@ -148,7 +161,7 @@ const (
 	ScopeRead Scope = "read"
 	// ScopeWrite pushes source messages, translations and linguistic
 	// knowledge — terms, style guides, TM retirement (CLI push, CI
-	// import, agents) — and requests AI fills. Review is a human
+	// import, agents) — requests AI fills and runs import jobs. Review is a human
 	// decision and no scope grants it.
 	ScopeWrite Scope = "write"
 	// ScopePublish creates releases.
@@ -159,8 +172,9 @@ const (
 )
 
 var scopePermissions = map[Scope][]Permission{
-	ScopeRead:    append(slices.Clone(readAll), PermTokensRead),
-	ScopeWrite:   {PermCatalogWrite, PermTranslationsWrite, PermKnowledgeWrite, PermIntelligenceTranslate},
+	ScopeRead: append(slices.Clone(readAll), PermTokensRead),
+	ScopeWrite: {PermCatalogWrite, PermTranslationsWrite, PermKnowledgeWrite, PermIntelligenceTranslate,
+		PermIntegrationImport, PermIntegrationManage},
 	ScopePublish: {PermReleasesPublish},
 	ScopeAdmin:   {PermTenantManage, PermMembersManage, PermTokensManage, PermIntelligenceManage},
 }
