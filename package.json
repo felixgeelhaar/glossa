@@ -30,7 +30,7 @@
     "overrides": {
       "js-yaml@3": "^3.15.2",
       "js-yaml@4": "^4.3.2",
-      "vite": "^6.4.3"
+      "vite@6": "^6.4.3"
     }
   },
   "dependencies": {

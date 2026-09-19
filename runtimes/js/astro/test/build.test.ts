@@ -6,6 +6,7 @@
  * fixture uses ../../dist, like an installed package).
  */
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -18,10 +19,12 @@ import type { InlineRelease } from "../src/page.js";
 import { match, msg, release, text } from "../src/testing/release.js";
 
 const fixture = fileURLToPath(new URL("./fixture/", import.meta.url));
-const astro = join(
-  dirname(createRequire(import.meta.url).resolve("astro/package.json")),
-  "astro.js",
-);
+// Resolve the CLI through the package's own `bin` entry: the file moved
+// between majors (astro.js in 5–6, bin/astro.mjs in 7).
+const astroPkg = createRequire(import.meta.url).resolve("astro/package.json");
+const astroBin = (JSON.parse(readFileSync(astroPkg, "utf8")) as { bin: { astro: string } }).bin
+  .astro;
+const astro = join(dirname(astroPkg), astroBin);
 
 const r = release("rel_42", 42, {
   de: {

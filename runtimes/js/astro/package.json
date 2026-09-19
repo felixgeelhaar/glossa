@@ -47,12 +47,15 @@
     {
       "name": "@glossa/astro/client, the islands' page runtime (@glossa/runtime excluded)",
       "path": "dist/client.js",
-      "ignore": ["@glossa/runtime", "virtual:glossa/config"],
+      "ignore": [
+        "@glossa/runtime",
+        "virtual:glossa/config"
+      ],
       "limit": "0.75 KB"
     }
   ],
   "peerDependencies": {
-    "astro": "^5.0.0"
+    "astro": "^6.4.0 || ^7.0.0"
   },
   "dependencies": {
     "@glossa/elements": "workspace:*",
@@ -60,10 +63,10 @@
     "@glossa/vue": "workspace:*"
   },
   "devDependencies": {
-    "@astrojs/vue": "5.1.4",
+    "@astrojs/vue": "7.0.3",
     "@size-limit/preset-small-lib": "11.2.0",
     "@types/node": "22.19.19",
-    "astro": "5.18.2",
+    "astro": "7.3.3",
     "size-limit": "11.2.0",
     "typescript": "5.9.3",
     "vitest": "4.1.0",
