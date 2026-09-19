@@ -81,6 +81,7 @@ func commands() []command {
 		{"messages", "List the project's messages", runMessages},
 		{"import", "Import from another system (--from v0: Glossa v0.3)", runImport},
 		{"release", "Publish, promote and roll back releases", runRelease},
+		{"tm", "Search the translation memory; list and retire units", runTM},
 	}
 }
 
@@ -137,7 +138,7 @@ Usage: glossa <command> [flags]
 Commands:
 `)
 	for _, c := range commands() {
-		fmt.Fprintf(w, "  %-9s %s\n", c.name, c.summary)
+		fmt.Fprintf(w, "  %-10s %s\n", c.name, c.summary)
 	}
 	fmt.Fprint(w, `
 Flags every command takes:
