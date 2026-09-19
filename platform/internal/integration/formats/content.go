@@ -26,15 +26,7 @@ func FromModel(m mf.Message) (mfcontent.Content, error) {
 	if err != nil {
 		return mfcontent.Content{}, fmt.Errorf("%w: message: %v", ErrInvalid, err)
 	}
-	c, err := ParseContent(mfcontent.MF2, src, bcp47.Tag{})
-	if err != nil && !IsComplex(m) {
-		// The engine's stringifier writes a simple pattern whose text
-		// starts with "." (after optional whitespace) unquoted, which
-		// then reads as a complex message. A quoted pattern is the same
-		// message.
-		return ParseContent(mfcontent.MF2, "{{"+src+"}}", bcp47.Tag{})
-	}
-	return c, err
+	return ParseContent(mfcontent.MF2, src, bcp47.Tag{})
 }
 
 // PlainText is content for literal text: a pattern without placeholders.

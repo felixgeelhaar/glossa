@@ -88,7 +88,23 @@ func stringify(msg Message) (string, error) {
 	if err != nil {
 		return "", engineError(err)
 	}
-	return src, nil
+	return quoteIfAmbiguous(msg, src), nil
+}
+
+// quoteIfAmbiguous guards a gap in the engine's serializer: a pattern
+// message whose first non-whitespace character is "." (after MF2
+// whitespace such as U+3000) must be written as a quoted pattern, but the
+// engine writes it bare and the result no longer parses. When the bare
+// form doesn't parse back, the quoted form {{…}} is used; its escaping
+// rules for text are the same as a simple pattern's.
+func quoteIfAmbiguous(msg Message, src string) string {
+	if msg.Type != PatternMessageType || len(msg.Declarations) > 0 {
+		return src
+	}
+	if _, err := parseMF2(src); err == nil {
+		return src
+	}
+	return "{{" + src + "}}"
 }
 
 // FormatOption configures Format.
