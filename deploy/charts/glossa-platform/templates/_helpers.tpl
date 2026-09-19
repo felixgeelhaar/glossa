@@ -51,6 +51,16 @@ app.kubernetes.io/component: {{ .component }}
 {{- $ref -}}
 {{- end -}}
 
+{{/* An image outside image.registry, by full repository:
+     (dict "image" .Values.minio.image). */}}
+{{- define "gp.externalImage" -}}
+{{- $ref := printf "%s:%s" .image.repository .image.tag -}}
+{{- if .image.digest -}}
+{{- $ref = printf "%s@%s" $ref .image.digest -}}
+{{- end -}}
+{{- $ref -}}
+{{- end -}}
+
 {{/* ── Hosts and URLs ───────────────────────────────────────────── */}}
 
 {{- define "gp.host.studio" -}}
@@ -152,25 +162,99 @@ affinity:
 {{- include "gp.secretEnv" (dict "name" "GLOSSA_AUTH_SECRET" "secret" (required "auth.secretName is required (Secret with GLOSSA_AUTH_SECRET)" .Values.auth.secretName) "key" .Values.auth.secretKey) }}
 {{- end -}}
 
-{{/* Object storage env; (dict "root" $ "creds" .Values.objectStorage.server). */}}
+{{/* ── Object storage ───────────────────────────────────────────── */}}
+
+{{/* host:port of the in-namespace MinIO Service. */}}
+{{- define "gp.minio.service" -}}
+{{- printf "%s:9000" (include "gp.componentName" (dict "root" . "component" "minio")) -}}
+{{- end -}}
+
+{{/* GLOSSA_S3_ENDPOINT: objectStorage.endpoint, which defaults to the
+     in-namespace MinIO when minio.enabled. */}}
+{{- define "gp.storage.endpoint" -}}
+{{- if .Values.minio.enabled -}}
+{{- .Values.objectStorage.endpoint | default (include "gp.minio.service" .) -}}
+{{- else -}}
+{{- required "objectStorage.endpoint is required (host[:port], no scheme), or set minio.enabled" .Values.objectStorage.endpoint -}}
+{{- end -}}
+{{- end -}}
+
+{{/* MinIO's S3 URL as mc sees it: in-cluster plain HTTP. */}}
+{{- define "gp.minio.url" -}}
+{{- printf "http://%s" (include "gp.storage.endpoint" .) -}}
+{{- end -}}
+
+{{- define "gp.storage.bucket" -}}
+{{- required "objectStorage.bucket is required" .Values.objectStorage.bucket -}}
+{{- end -}}
+
+{{- define "gp.storage.serverSecret" -}}
+{{- required "objectStorage.server.secretName is required (Secret with read-write S3 credentials)" .Values.objectStorage.server.secretName -}}
+{{- end -}}
+
+{{/* glossa-edge's credentials as YAML {secretName, accessKeyIdKey,
+     secretAccessKeyKey}: objectStorage.edge, else the server's. With
+     MinIO the chart provisions a separate read-only user, so the edge
+     must have its own Secret then. */}}
+{{- define "gp.storage.edgeCreds" -}}
+{{- $s := .Values.objectStorage -}}
+{{- if $s.edge.secretName -}}
+{{- if and .Values.minio.enabled (eq $s.edge.secretName $s.server.secretName) (eq $s.edge.accessKeyIdKey $s.server.accessKeyIdKey) -}}
+{{- fail "objectStorage.edge reuses objectStorage.server's access key (same Secret and key); with minio.enabled the edge gets its own read-only user" -}}
+{{- end -}}
+{{- toYaml $s.edge -}}
+{{- else if .Values.minio.enabled -}}
+{{- fail "objectStorage.edge.secretName is required with minio.enabled (glossa-edge's read-only MinIO user)" -}}
+{{- else -}}
+{{- $_ := required "objectStorage.edge.secretName or objectStorage.server.secretName is required" $s.server.secretName -}}
+{{- toYaml $s.server -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Env of the mc containers (bootstrap Job, helm test): MinIO, the
+     bucket and both application users' credentials. */}}
+{{- define "gp.minio.mcEnv" -}}
+{{- $s := .Values.objectStorage -}}
+{{- $edge := include "gp.storage.edgeCreds" . | fromYaml -}}
+{{- $serverSecret := include "gp.storage.serverSecret" . -}}
+- name: MINIO_URL
+  value: {{ include "gp.minio.url" . | quote }}
+- name: BUCKET
+  value: {{ include "gp.storage.bucket" . | quote }}
+- name: OBJECT_PREFIX
+  value: {{ trimAll "/" $s.prefix | quote }}
+- name: MC_CONFIG_DIR
+  value: /tmp/.mc
+- name: HOME
+  value: /tmp
+{{ include "gp.secretEnv" (dict "name" "RW_ACCESS_KEY" "secret" $serverSecret "key" $s.server.accessKeyIdKey) }}
+{{ include "gp.secretEnv" (dict "name" "RW_SECRET_KEY" "secret" $serverSecret "key" $s.server.secretAccessKeyKey) }}
+{{ include "gp.secretEnv" (dict "name" "RO_ACCESS_KEY" "secret" $edge.secretName "key" $edge.accessKeyIdKey) }}
+{{ include "gp.secretEnv" (dict "name" "RO_SECRET_KEY" "secret" $edge.secretName "key" $edge.secretAccessKeyKey) }}
+{{- end -}}
+
+{{/* Object storage env; (dict "root" $ "creds" .Values.objectStorage.server "secretName" "…"). */}}
 {{- define "gp.storageEnv" -}}
 {{- $s := .root.Values.objectStorage -}}
+{{- $minio := .root.Values.minio.enabled -}}
 - name: GLOSSA_STORAGE_DRIVER
   value: s3
 - name: GLOSSA_S3_ENDPOINT
-  value: {{ required "objectStorage.endpoint is required (host[:port], no scheme)" $s.endpoint | quote }}
+  value: {{ include "gp.storage.endpoint" .root | quote }}
 - name: GLOSSA_S3_BUCKET
-  value: {{ required "objectStorage.bucket is required" $s.bucket | quote }}
+  value: {{ include "gp.storage.bucket" .root | quote }}
 - name: GLOSSA_S3_REGION
   value: {{ $s.region | quote }}
 {{- with $s.prefix }}
 - name: GLOSSA_S3_PREFIX
   value: {{ . | quote }}
 {{- end }}
+{{- /* The in-namespace MinIO: path-style requests and plain HTTP on the
+       pod network, where NetworkPolicy admits only server and edge. */}}
 - name: GLOSSA_S3_PATH_STYLE
-  value: {{ $s.pathStyle | quote }}
+  value: {{ or $minio $s.pathStyle | quote }}
 - name: GLOSSA_S3_INSECURE
-  value: {{ $s.insecure | quote }}
+  value: {{ or $minio $s.insecure | quote }}
 - name: GLOSSA_S3_TIMEOUT
   value: {{ $s.timeout | quote }}
 {{ include "gp.secretEnv" (dict "name" "GLOSSA_S3_ACCESS_KEY_ID" "secret" .secretName "key" .creds.accessKeyIdKey) }}
@@ -200,6 +284,23 @@ affinity:
   to:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+{{- end -}}
+
+{{/* Egress to object storage: the in-namespace MinIO pod on 9000 with
+     minio.enabled (replacing networkPolicy.egress.objectStorage), else
+     networkPolicy.egress.objectStorage. */}}
+{{- define "gp.np.objectStorageEgress" -}}
+{{- if .Values.minio.enabled -}}
+- to:
+    - podSelector:
+        matchLabels:
+          {{- include "gp.selectorLabels" (dict "root" . "component" "minio") | nindent 10 }}
+  ports:
+    - port: 9000
+      protocol: TCP
+{{- else -}}
+{{- include "gp.np.egressRule" .Values.networkPolicy.egress.objectStorage -}}
+{{- end -}}
 {{- end -}}
 
 {{/* Ingress from the ingress controller to a port. */}}

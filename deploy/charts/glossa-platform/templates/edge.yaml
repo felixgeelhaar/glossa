@@ -1,11 +1,7 @@
 {{- $name := include "gp.componentName" (dict "root" $ "component" "edge") -}}
 {{- $v := .Values.edge -}}
-{{- $creds := .Values.objectStorage.edge -}}
+{{- $creds := include "gp.storage.edgeCreds" . | fromYaml -}}
 {{- $secret := $creds.secretName -}}
-{{- if not $secret }}
-{{- $creds = .Values.objectStorage.server -}}
-{{- $secret = required "objectStorage.edge.secretName or objectStorage.server.secretName is required" .Values.objectStorage.server.secretName -}}
-{{- end }}
 apiVersion: v1
 kind: Service
 metadata:

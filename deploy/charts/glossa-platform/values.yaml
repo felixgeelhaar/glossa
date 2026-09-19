@@ -210,30 +210,101 @@ mail:
 
 ## ── Object storage (S3-compatible) ────────────────────────────────
 ## Release artifacts, manifests and delivery keys. glossa-server writes,
-## glossa-edge only reads.
+## glossa-edge only reads. External storage, or the in-namespace MinIO
+## below (minio.enabled).
 objectStorage:
-  # -- REQUIRED. host[:port] without a scheme.
+  # -- host[:port] without a scheme. REQUIRED unless minio.enabled, which
+  # defaults it to the in-namespace MinIO (<fullname>-minio:9000).
   endpoint: ""
-  # -- REQUIRED.
+  # -- REQUIRED. With minio.enabled the bootstrap Job creates it.
   bucket: ""
   region: us-east-1
-  # -- Lets several deployments share one bucket.
+  # -- Lets several deployments share one bucket. With minio.enabled the
+  # users' object permissions are scoped to it.
   prefix: ""
-  # -- Path-style requests (MinIO and some providers).
+  # -- Path-style requests (MinIO and some providers). Always on with minio.enabled.
   pathStyle: false
-  # -- Plain HTTP. Never outside a local cluster.
+  # -- Plain HTTP. Never outside a local cluster. Always on with
+  # minio.enabled (in-namespace, NetworkPolicy-restricted traffic).
   insecure: false
   timeout: 10s
   server:
-    # -- REQUIRED. Secret with read-write credentials.
+    # -- REQUIRED. Secret with read-write credentials. With minio.enabled
+    # the bootstrap Job creates a MinIO user with exactly these.
     secretName: ""
     accessKeyIdKey: GLOSSA_S3_ACCESS_KEY_ID
     secretAccessKeyKey: GLOSSA_S3_SECRET_ACCESS_KEY
   edge:
-    # -- Secret with read-only credentials. Empty: the server's (not recommended).
+    # -- Secret with read-only credentials. Empty: the server's (not
+    # recommended; REQUIRED with minio.enabled, whose bootstrap Job creates
+    # a read-only MinIO user with exactly these).
     secretName: ""
     accessKeyIdKey: GLOSSA_S3_ACCESS_KEY_ID
     secretAccessKeyKey: GLOSSA_S3_SECRET_ACCESS_KEY
+
+## ── In-namespace MinIO ────────────────────────────────────────────
+## One single-replica MinIO per product namespace (the Klarlabs pattern),
+## on a Longhorn volume. glossa-edge serves every published release from
+## this bucket, so the delivery plane's availability depends on it; see
+## README.md, "In-namespace MinIO".
+minio:
+  # -- Run MinIO in the release's namespace and point objectStorage at it.
+  enabled: false
+  image:
+    repository: quay.io/minio/minio
+    tag: RELEASE.2025-09-07T16-13-09Z
+    digest: sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+  rootCredentials:
+    # -- REQUIRED with minio.enabled. Existing Secret with MinIO's root
+    # user and password; the chart never creates it.
+    secretName: ""
+    userKey: MINIO_ROOT_USER
+    passwordKey: MINIO_ROOT_PASSWORD
+  persistence:
+    # -- `longhorn` keeps 3 replicas across edge-1..3, so the published
+    # releases survive a node loss. `longhorn-r1` (1 replica) is fine for
+    # development. Immutable after install (a volumeClaimTemplate).
+    storageClassName: longhorn
+    # -- Immutable in the template after install; grow the PVC itself
+    # (Longhorn allows expansion).
+    size: 5Gi
+    # -- Labels on the PVC, e.g. a Longhorn recurring-job group for backups.
+    labels: {}
+    annotations: {}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  terminationGracePeriodSeconds: 30
+  pdb:
+    # -- A PodDisruptionBudget for the single pod. maxUnavailable 1 lets a
+    # node drain evict it (edges keep serving from their cache meanwhile);
+    # 0 blocks drains until MinIO is moved by hand.
+    enabled: true
+    maxUnavailable: 1
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  bootstrap:
+    # -- post-install/post-upgrade hook Job: bucket, a read-write user for
+    # glossa-server and a read-only user for glossa-edge (idempotent).
+    enabled: true
+    image:
+      repository: quay.io/minio/mc
+      tag: RELEASE.2025-08-13T08-35-41Z
+      digest: sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    # -- How long the Job waits for MinIO to answer (volume attach, pull).
+    waitSeconds: 600
+    backoffLimit: 3
+    activeDeadlineSeconds: 900
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
 
 ## ── Ingress (traefik IngressRoute + cert-manager) ─────────────────
 ## Routes:
@@ -305,7 +376,8 @@ networkPolicy:
       ports:
         - port: 5432
           protocol: TCP
-    # -- glossa-server and glossa-edge → object storage.
+    # -- glossa-server and glossa-edge → object storage. Ignored with
+    # minio.enabled: they get a podSelector rule to MinIO on 9000 instead.
     objectStorage:
       to: []
       ports:
@@ -328,6 +400,7 @@ networkPolicy:
     server: []
     edge: []
     studio: []
+    minio: []
   # -- Extra egress rules (NetworkPolicyEgressRule) per component.
   extraEgress:
     server: []

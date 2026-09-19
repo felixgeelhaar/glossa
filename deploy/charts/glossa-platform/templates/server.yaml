@@ -117,7 +117,7 @@ spec:
             - name: GLOSSA_RELEASE_RETIRED_KEYS
               value: {{ . | quote }}
             {{- end }}
-            {{- include "gp.storageEnv" (dict "root" $ "creds" .Values.objectStorage.server "secretName" (required "objectStorage.server.secretName is required (Secret with read-write S3 credentials)" .Values.objectStorage.server.secretName)) | nindent 12 }}
+            {{- include "gp.storageEnv" (dict "root" $ "creds" .Values.objectStorage.server "secretName" (include "gp.storage.serverSecret" .)) | nindent 12 }}
             {{- with $v.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
