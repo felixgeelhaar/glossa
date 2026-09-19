@@ -1,0 +1,13 @@
+# Build context is the repository root (see Dockerfile.edge). Send only
+# the three Go modules the edge is built from; tests and fixtures never
+# reach the image.
+*
+!messageformat/
+!runtimes/go/
+!platform/
+messageformat/js/
+messageformat/testdata/
+**/testdata/
+**/*_test.go
+**/node_modules/
+**/.DS_Store
