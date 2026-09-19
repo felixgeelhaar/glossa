@@ -45,6 +45,7 @@ type Config struct {
 	Generate Generate `yaml:"generate,omitempty" json:"generate,omitempty"`
 	Check    Check    `yaml:"check,omitempty" json:"check,omitempty"`
 	Pull     Pull     `yaml:"pull,omitempty" json:"pull,omitempty"`
+	Capture  Capture  `yaml:"capture,omitempty" json:"capture,omitempty"`
 
 	// Path is the file this config was read from ("" for a new one).
 	Path string `yaml:"-" json:"-"`
@@ -232,7 +233,7 @@ func (c *Config) Validate() error {
 	if c.Generate.React != "" && c.Generate.TypeScript == "" {
 		return bad("generate.react", "needs generate.typescript (the React registration imports the typed module)")
 	}
-	return nil
+	return c.validateCapture()
 }
 
 // SyntaxOrDefault is the authoring syntax of local catalogs.
