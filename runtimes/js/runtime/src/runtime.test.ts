@@ -298,7 +298,20 @@ describe("createRuntime: bundled catalogs", () => {
     await rt.refresh();
     expect(rt.explain("cart.checkout").source).toBe("network");
     expect(rt.t("cart.checkout")).toBe("Zur Kassa");
-    expect(errors.map((e) => e.type)).toEqual(["network", "network", "network"]);
+    expect(errors).toEqual([]); // bundled artifacts come before the network
+  });
+  it("takes an artifact from the bundle before the network (content-addressed, SPEC §3)", async () => {
+    const { create, edge } = setup({ storage: null });
+    edge.serve(served(r2));
+    const rt = create({ bundled });
+    await rt.ready;
+    expect(rt.release?.id).toBe("rel_2"); // r1's artifacts are no longer in memory
+    const before = edge.artifactRequests().length;
+    edge.serve(served(r1)); // a rollback to the bundled release
+    await rt.refresh();
+    expect(rt.release?.id).toBe("rel_1");
+    expect(rt.t("cart.checkout")).toBe("Zur Kassa");
+    expect(edge.artifactRequests().slice(before)).toEqual([]);
   });
 });
 
@@ -501,6 +514,59 @@ describe("createRuntime: errors", () => {
     off();
     rt.t("gone.too");
     expect(late).toEqual(["missing-message"]);
+  });
+
+  it("rejects a manifest for another environment as a schema error", async () => {
+    const staging = release("rel_s", 5, { de: { "cart.checkout": text("Staging") } });
+    const manifest = { ...staging.manifest, environment: "staging" };
+    const { create, edge, errors } = setup();
+    edge.serve(served({ ...staging, manifest }));
+    const rt = create();
+    await rt.ready;
+    expect(rt.release).toBeUndefined();
+    expect(errors.map((e) => [e.type, e.releaseId])).toEqual([["schema", "rel_s"]]);
+    const bundledStaging = { manifest, artifacts: staging.parsed };
+    expect(create({ bundled: bundledStaging, edge: undefined }).release).toBeUndefined();
+    const configured = create({ bundled: bundledStaging, edge: undefined, environment: "staging" });
+    expect(configured.t("cart.checkout")).toBe("Staging");
+  });
+
+  it("drops a message that isn't a data-model message: schema error, then it resolves as missing", async () => {
+    const odd = release(
+      "rel_m",
+      1,
+      {
+        de: { "cart.checkout": { type: "bogus" } as unknown as Message, ok: text("Gut") },
+        en: { "cart.checkout": text("Checkout") },
+      },
+      { fallback: { "*": ["en"] } },
+    );
+    const { create, edge, errors } = setup({ locales: ["de"] });
+    edge.serve(served(odd));
+    const rt = create();
+    await rt.ready;
+    expect(rt.release?.id).toBe("rel_m");
+    expect(rt.t("cart.checkout")).toBe("Checkout");
+    expect(rt.explain("cart.checkout").resolvedFrom).toBe("en");
+    expect(rt.t("ok")).toBe("Gut");
+    expect(errors).toEqual([
+      expect.objectContaining({ type: "schema", messageId: "cart.checkout", releaseId: "rel_m" }),
+    ]);
+    const bundledOdd = { manifest: odd.manifest, artifacts: odd.parsed };
+    expect(create({ bundled: bundledOdd, edge: undefined }).t("cart.checkout")).toBe("Checkout");
+  });
+
+  it("never renders an empty string: it falls through to the inline default or the ID", async () => {
+    const empty = release("rel_e", 1, {
+      de: { blank: { type: "message", declarations: [], pattern: [] } },
+    });
+    const { create, edge } = setup({ locales: ["de"] });
+    edge.serve(served(empty));
+    const rt = create();
+    await rt.ready;
+    expect(rt.t("blank")).toBe("blank");
+    expect(rt.t("blank", {}, { default: "Leer" })).toBe("Leer");
+    expect(rt.parts("blank", {}, { default: "Leer" })).toEqual([{ type: "text", value: "Leer" }]);
   });
 
   it("reports a non-JSON manifest as a schema error", async () => {

@@ -4,7 +4,7 @@
  * fallback chain; format; explain. Nothing here throws into application
  * code: failures fall through to the next source and go to the error channel.
  */
-import { format, formatToParts } from "./format.js";
+import { formatToParts, partsToString } from "./format.js";
 import type { FormatOptions, Part } from "./format.js";
 import { canonicalLocales, fallbackChain, lookupLocale, navigatorLanguages } from "./locale.js";
 import type { Artifact, Manifest, ManifestLocale } from "./manifest.js";
@@ -250,6 +250,29 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     }
   };
 
+  /**
+   * Cache an artifact, keeping only the messages that are MF2 data-model
+   * messages. Each other one is a `schema` error and resolves as missing
+   * (SPEC §3), so one bad message doesn't block the release.
+   */
+  const keep = (sha: string, a: Artifact, releaseId: string, text?: string) => {
+    const messages: Record<string, Message> = {};
+    for (const [id, m] of Object.entries(a.messages)) {
+      const x = m as unknown as Record<string, unknown> | null;
+      if (
+        x?.type === "message"
+          ? Array.isArray(x.pattern)
+          : x?.type === "select" && Array.isArray(x.selectors) && Array.isArray(x.variants)
+      ) {
+        messages[id] = m;
+      } else {
+        const detail = "not an MF2 data-model message";
+        emit({ type: "schema", detail, messageId: id, locale: a.locale, releaseId });
+      }
+    }
+    cache.set(sha, { a: { ...a, messages }, text });
+  };
+
   /** Verify an artifact's bytes against its hash and cache it (SPEC §1.3). */
   const accept = async (sha: string, text: string | undefined, releaseId: string) => {
     if (text === undefined) return false;
@@ -260,7 +283,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     try {
       const a = JSON.parse(text) as Artifact;
       if (!/^glossa\.artifact\/v1\b/.test(a.schema) || typeof a.messages !== "object") throw 0;
-      cache.set(sha, { a, text });
+      keep(sha, a, releaseId, text);
       return true;
     } catch {
       emit({ type: "schema", detail: `artifact ${sha} isn't a v1 artifact`, releaseId });
@@ -268,19 +291,22 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     }
   };
 
-  /** One artifact, by the load order of SPEC §3: memory, persisted, network, bundled. */
+  /**
+   * One artifact. Artifacts are content-addressed, so any source with the
+   * hash will do: memory, persisted, bundled, and the network only for hashes
+   * found nowhere else (SPEC §3).
+   */
   const load = async (sha: string, releaseId: string) => {
     if (cache.has(sha)) return true;
     if (await accept(sha, (await persisted())?.artifacts?.[sha], releaseId)) return true;
-    if (
-      base &&
-      (await accept(sha, (await get(`${base}/a/${sha}.json`, {}, releaseId))?.text, releaseId))
-    ) {
+    const b = o.bundled?.artifacts[sha];
+    if (b) {
+      keep(sha, b, releaseId);
       return true;
     }
-    const b = o.bundled?.artifacts[sha];
-    if (b) cache.set(sha, { a: b });
-    return !!b;
+    return (
+      !!base && accept(sha, (await get(`${base}/a/${sha}.json`, {}, releaseId))?.text, releaseId)
+    );
   };
 
   /** A locale's messages from the cache, namespaces merged; undefined if one isn't loaded. */
@@ -315,7 +341,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
    */
   const activate = async (m: Manifest, source: Source, etag?: string) => {
     const req = requested;
-    let problem = checkManifest(m);
+    let problem = checkManifest(m, env);
     let type: RuntimeError["type"] = "schema";
     if (!problem && keys.length && m !== state?.m) {
       problem = await verifySignature(m, keys);
@@ -361,9 +387,10 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
   const refresh = () =>
     (inflight ??= run(() => cycle(false)).finally(() => (inflight = undefined)));
 
-  if (o.bundled && !checkManifest(o.bundled.manifest)) {
-    for (const [s, a] of Object.entries(o.bundled.artifacts)) cache.set(s, { a });
-    commit(o.bundled.manifest, "bundled");
+  if (o.bundled && !checkManifest(o.bundled.manifest, env)) {
+    const { manifest, artifacts } = o.bundled;
+    for (const [s, a] of Object.entries(artifacts)) keep(s, a, manifest.release.id);
+    commit(manifest, "bundled");
   }
   const ready = run(() => cycle(true));
 
@@ -380,40 +407,41 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
   const onVisible = () => doc!.visibilityState === "visible" && void refresh();
   if (base) doc?.addEventListener?.("visibilitychange", onVisible);
 
-  /** Resolve `id` along the active chain (SPEC §4.3) and render it with `f`. */
-  const render =
-    <T>(
-      f: (m: Message, l: string, v?: Record<string, unknown>, o?: FormatOptions) => T,
-      wrap: (s: string) => T,
-    ) =>
-    (id: string, values?: Record<string, unknown>, opts?: TranslateOptions): T => {
-      try {
-        const st = state;
-        if (st) {
-          const releaseId = st.m.release.id;
-          for (const [locale, messages] of st.catalogs) {
-            if (!Object.hasOwn(messages, id)) continue;
-            return f(messages[id]!, locale, values, {
-              bidiIsolation: o.bidiIsolation,
-              functions: o.functions,
-              onError: (e) =>
-                emit({
-                  type: "format",
-                  detail: `${e.type} ${e.source}`,
-                  messageId: id,
-                  locale,
-                  releaseId,
-                }),
-            });
-          }
+  /**
+   * Resolve `id` along the active chain (SPEC §4.3) and format it. Missing,
+   * failing and empty renders fall through to the inline default, then the ID.
+   */
+  const resolve = (id: string, values?: Record<string, unknown>, opts?: TranslateOptions) => {
+    try {
+      const st = state;
+      if (st) {
+        const releaseId = st.m.release.id;
+        const found = st.catalogs.find(([, messages]) => Object.hasOwn(messages, id));
+        if (found) {
+          const [locale, messages] = found;
+          const parts = formatToParts(messages[id]!, locale, values, {
+            bidiIsolation: o.bidiIsolation,
+            functions: o.functions,
+            onError: (e) =>
+              emit({
+                type: "format",
+                detail: `${e.type} ${e.source}`,
+                messageId: id,
+                locale,
+                releaseId,
+              }),
+          });
+          if (partsToString(parts)) return parts;
+        } else {
           const detail = `not in ${st.chain.join(", ")}`;
           emit({ type: "missing-message", detail, messageId: id, locale: st.locale, releaseId });
         }
-      } catch {
-        // Fall through to the inline default.
       }
-      return wrap(opts?.default || id);
-    };
+    } catch {
+      // Fall through to the inline default.
+    }
+    return [{ type: "text", value: opts?.default || id }] as Part[];
+  };
 
   const explain = (id: string, locales?: string | readonly string[]): Explanation => {
     const st = state;
@@ -466,8 +494,8 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     get availableLocales() {
       return state?.m.locales ?? [];
     },
-    t: render(format, (s) => s),
-    parts: render(formatToParts, (value): Part[] => [{ type: "text", value }]),
+    t: (id, values, opts) => partsToString(resolve(id, values, opts)),
+    parts: resolve,
     explain,
     setLocales(locales) {
       requested = list(locales);

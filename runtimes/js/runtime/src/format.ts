@@ -102,15 +102,10 @@ export function formatToParts(
   }
 }
 
-/** Format a message to a string. */
-export function format(
-  message: Message,
-  locale: string | string[],
-  values?: Record<string, unknown>,
-  opts?: FormatOptions,
-): string {
+/** Join formatted parts into the string `format()` returns: markup renders as nothing. */
+export function partsToString(parts: Part[]): string {
   let out = "";
-  for (const p of formatToParts(message, locale, values, opts)) {
+  for (const p of parts) {
     out +=
       p.type === "markup"
         ? ""
@@ -121,6 +116,16 @@ export function format(
             : String((p as ExpressionPart).value);
   }
   return out;
+}
+
+/** Format a message to a string. */
+export function format(
+  message: Message,
+  locale: string | string[],
+  values?: Record<string, unknown>,
+  opts?: FormatOptions,
+): string {
+  return partsToString(formatToParts(message, locale, values, opts));
 }
 
 function interpret(
