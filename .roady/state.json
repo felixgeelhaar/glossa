@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 62,
+  "version": 73,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -184,9 +184,15 @@
       "elapsed_minutes": 2
     },
     "task-m0-identity": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "0a9fb1f..ce6a1de: Identity context on auth-go (magic link, passkeys, password+TOTP, sessions, logout-everywhere), tenants/members/tokens with RLS + system-scope policies; 152 tests incl. integration"
+      ],
+      "started_at": "2026-09-19T10:43:45.418887+02:00",
+      "completed_at": "2026-09-19T11:38:05.859767+02:00",
+      "elapsed_minutes": 54
     },
     "task-m0-kernel": {
       "status": "done",
@@ -233,11 +239,69 @@
       "elapsed_minutes": 104
     },
     "task-m0-openapi": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "platform/api/openapi.yaml /v1 with enforced conventions (cursor pagination, RFC 9457, ETag/If-Match, Idempotency-Key), oapi-codegen v2.8.0 strict server with staleness test, 28 endpoints"
+      ],
+      "started_at": "2026-09-19T10:43:47.686637+02:00",
+      "completed_at": "2026-09-19T11:38:08.457147+02:00",
+      "elapsed_minutes": 54
+    },
+    "task-m1-catalog": {
+      "status": "in_progress",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-09-19T11:38:12.843278+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-m1-cli": {
       "status": "pending",
       "path": "",
       "elapsed_minutes": 0
     },
+    "task-m1-contract": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "914a58b runtimes/SPEC.md + schemas + generated fixtures (5 scenarios, 5 loading sequences) + CI drift check"
+      ],
+      "started_at": "2026-09-19T11:22:52.670023+02:00",
+      "completed_at": "2026-09-19T11:22:55.57619+02:00",
+      "elapsed_minutes": 0
+    },
     "task-m1-core-loop": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m1-edge": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m1-go-runtime": {
+      "status": "in_progress",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-09-19T11:38:10.80484+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-m1-js-runtime": {
+      "status": "in_progress",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-09-19T11:22:58.431953+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-m1-release": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m1-studio": {
       "status": "pending",
       "path": "",
       "elapsed_minutes": 0
@@ -356,5 +420,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T10:39:19.078035+02:00"
+  "updated_at": "2026-09-19T11:38:12.843278+02:00"
 }
