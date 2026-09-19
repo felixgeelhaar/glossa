@@ -15,12 +15,14 @@ func TestTMSearchFindsExactAndFuzzyMatches(t *testing.T) {
 	w.json(&out, "tm", "search", "Pay", "{amount,", "number}", "--to", "de").want(t, ExitOK)
 	if out.Schema != "glossa.cli.tm.search/v1" || out.Query.From != "en" || out.Query.To != "de" || out.Query.Syntax != "mf1" ||
 		out.Query.Text != "Pay {amount, number}" || len(out.Matches) != 1 || out.Matches[0].Score != 100 || out.Matches[0].Kind != "exact" ||
-		out.Matches[0].Unit.MessageKey != "checkout.pay" || out.Matches[0].Unit.ProjectID == nil {
+		out.Matches[0].Unit.MessageKey != "checkout.pay" || out.Matches[0].Unit.ProjectID == nil ||
+		out.Matches[0].TargetText != "Zahle {amount, number}" || out.Matches[0].TargetSyntax != "mf1" {
 		t.Fatalf("search = %+v", out)
 	}
 	w.json(&out, "tm", "search", "Pay", "--to", "de").want(t, ExitOK)
-	if len(out.Matches) != 2 || out.Matches[1].Kind != "fuzzy" {
-		t.Errorf("fuzzy search = %+v", out)
+	if len(out.Matches) != 2 || out.Matches[1].Kind != "fuzzy" || out.Matches[1].TargetText != out.Matches[1].Target ||
+		out.Matches[1].TargetSyntax != "mf2" {
+		t.Errorf("fuzzy search (no target_text from the server) = %+v", out)
 	}
 
 	h := w.run("tm", "search", "Pay now", "--to", "de")

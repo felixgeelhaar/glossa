@@ -116,7 +116,7 @@ func knowledgeLoop(t *testing.T, r runner, s *server, owner session, base, proje
 
 	// A reviewer approves en checkout.pay; the translation memory derives
 	// a unit from it (asynchronously, through the reviewed event). Targets
-	// come back as MF2 whatever the query's syntax.
+	// come back as MF2 and in the query's syntax.
 	var tr struct{ State string }
 	h := s.do(owner.call("GET", p+"/messages/checkout.pay/translations/en", nil), http.StatusOK, &tr)
 	approve := owner.call("POST", p+"/messages/checkout.pay/translations/en/reviews", map[string]string{"state": "approved"})
@@ -124,10 +124,12 @@ func knowledgeLoop(t *testing.T, r runner, s *server, owner session, base, proje
 	s.do(approve, http.StatusOK, nil)
 	var search struct {
 		Matches []struct {
-			Score  int    `json:"score"`
-			Kind   string `json:"kind"`
-			Target string `json:"target"`
-			Unit   struct {
+			Score        int    `json:"score"`
+			Kind         string `json:"kind"`
+			Target       string `json:"target"`
+			TargetText   string `json:"target_text"`
+			TargetSyntax string `json:"target_syntax"`
+			Unit         struct {
 				ID         string `json:"id"`
 				MessageKey string `json:"message_key"`
 			} `json:"unit"`
@@ -142,6 +144,7 @@ func knowledgeLoop(t *testing.T, r runner, s *server, owner session, base, proje
 		time.Sleep(100 * time.Millisecond)
 	}
 	if len(search.Matches) == 0 || search.Matches[0].Score < 100 || search.Matches[0].Target != "Pay {$amount :number}" ||
+		search.Matches[0].TargetText != "Pay {amount, number}" || search.Matches[0].TargetSyntax != "mf1" ||
 		search.Matches[0].Unit.MessageKey != "checkout.pay" {
 		t.Fatalf("tm search = %+v", search)
 	}
@@ -166,8 +169,10 @@ func knowledgeLoop(t *testing.T, r runner, s *server, owner session, base, proje
 	r.run(cli.ExitOK, nil, "push")
 	type translateDoc struct {
 		Plan []struct {
-			Locale string   `json:"locale"`
-			Keys   []string `json:"keys"`
+			Locale   string         `json:"locale"`
+			Keys     []string       `json:"keys"`
+			Provider int            `json:"provider"`
+			Refused  map[string]int `json:"refused"`
 		} `json:"plan"`
 		Refusals []struct{ Code string } `json:"refusals"`
 		Fills    []struct {
@@ -181,22 +186,16 @@ func knowledgeLoop(t *testing.T, r runner, s *server, owner session, base, proje
 			} `json:"failed"`
 		} `json:"wait"`
 	}
-	// The message listing reads Localization's view of the catalog, which
-	// catches up with the push within moments.
+	// The push updated Localization's view of the catalog in its own
+	// transaction: the server's preview sees home.greeting at once.
 	var dry translateDoc
-	for deadline := time.Now().Add(15 * time.Second); ; {
-		dry = translateDoc{}
-		r.run(cli.ExitCheckFailed, &dry, "translate", "--locale", "en", "--dry-run")
-		if (len(dry.Plan) == 1 && len(dry.Plan[0].Keys) > 0) || time.Now().After(deadline) {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+	r.run(cli.ExitCheckFailed, &dry, "translate", "--locale", "en", "--dry-run")
 	codes := []string{}
 	for _, rf := range dry.Refusals {
 		codes = append(codes, rf.Code)
 	}
-	if len(dry.Plan) != 1 || strings.Join(dry.Plan[0].Keys, ",") != "home.greeting" || !strings.Contains(strings.Join(codes, ","), "provider_consent_off") {
+	if len(dry.Plan) != 1 || strings.Join(dry.Plan[0].Keys, ",") != "home.greeting" || !strings.Contains(strings.Join(codes, ","), "provider_consent_off") ||
+		dry.Plan[0].Refused["provider_consent"] != 1 {
 		t.Fatalf("translate --dry-run = %+v", dry)
 	}
 
@@ -220,7 +219,11 @@ func knowledgeLoop(t *testing.T, r runner, s *server, owner session, base, proje
 	if !status.Consent.Enabled || len(status.Providers) != 1 || !status.Providers[0].APIKeySet || strings.Contains(out, "sk-fake") {
 		t.Fatalf("ai status = %s", out)
 	}
+	dry = translateDoc{}
 	r.run(cli.ExitOK, &dry, "translate", "--locale", "en", "--dry-run")
+	if len(dry.Plan) != 1 || dry.Plan[0].Provider != 1 || len(dry.Refusals) != 0 {
+		t.Fatalf("translate --dry-run with consent = %+v", dry)
+	}
 
 	var fill translateDoc
 	r.run(cli.ExitOK, &fill, "translate", "--locale", "en", "--wait", "--poll-interval", "100ms", "--timeout", "60s")

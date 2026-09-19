@@ -156,7 +156,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.release.keys/v1` | `{keys: [DeliveryKey]}` |
 | `glossa.cli.release.key/v1` | `{action: created \| revoked, key: DeliveryKey}` |
 
-| `glossa.cli.tm.search/v1` | `{query: {text, from, to, syntax}, source_normalized, matches: [{score, kind (exact \| context \| fuzzy), target, variables_adapted, unit: Unit}]}` |
+| `glossa.cli.tm.search/v1` | `{query: {text, from, to, syntax}, source_normalized, matches: [{score, kind (exact \| context \| fuzzy), target (MF2), target_text, target_syntax (the query's syntax; mf2 when MF1 can't express the target), variables_adapted, unit: Unit}]}` |
 | `glossa.cli.tm.concordance/v1` | `{query: {text, side, from?, to?}, matches: [{similarity, unit: Unit}]}` |
 | `glossa.cli.tm.units/v1` | `{units: [Unit]}` |
 | `glossa.cli.tm.retire/v1` | `{unit: Unit}` |
@@ -166,7 +166,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.terms.check/v1` | `{fail_on, locales: [{code, checked, errors, warnings}], findings: [{code (term_forbidden \| term_missing), severity, locale, key, side (source \| target), text, start, end, suggestions, concept_id, term_id, message}], checked, errors, warnings, passed}` |
 | `glossa.cli.style.show/v1` | `{scope: Scope, fields: StyleFields, rules: [StyleRule], sources: [{style_guide_id, version, project_id?, locale?, namespace?}]}` |
 | `glossa.cli.style.edit/v1` | `{action: created \| updated \| unchanged, guide: {id, name, scope: Scope, version, fields: StyleFields, rules: [StyleRule]}}` |
-| `glossa.cli.translate/v1` | `{dry_run, locales, filter: {namespace?, key_prefix?, missing, outdated}, plan: [{locale, queue, keys}] (dry run), skipped: {reason: n}, refusals: [{code, message, fix}], fills: [{id, locales, keys?, jobs_created, jobs_existing, skipped, job_states, warnings}], wait: {elapsed_ms, job_states: {state: n}, failed: [{id, key, locale, state, failure_code?, error?}]} \| null}` |
+| `glossa.cli.translate/v1` | `{dry_run, locales, filter: {namespace?, key_prefix?, missing, outdated}, plan: [{locale, queue, keys, existing, tm_exact, provider, refused: {reason: n}, cost: Cost}] (dry run), skipped: {reason: n}, refusals: [{code, message, fix}], cost?: Cost (dry run), fills: [{id, locales, keys?, jobs_created, jobs_existing, skipped, job_states, warnings}], wait: {elapsed_ms, job_states: {state: n}, failed: [{id, key, locale, state, failure_code?, error?}]} \| null}`; `Cost` is `{estimated_micro_usd, max_micro_usd, unpriced}` |
 | `glossa.cli.review.list/v1` | `{suggestions: [Suggestion]}` (riskiest first) |
 | `glossa.cli.review.decision/v1` | `{decision: accepted \| rejected, edited, suggestion: Suggestion}` |
 | `glossa.cli.ai.status/v1` | `{consent: {enabled, changed_at?, changed_by?}, max_concurrent_jobs, budget: {monthly_micro_usd, spent_micro_usd, remaining_micro_usd, month_start, calls, by_provider: [{provider, model, calls, cost_micro_usd, input_tokens, output_tokens}]}, providers: [{name, kind, enabled, api_key_set, base_url?, models}], project: {auto_translate_locales, namespace_tags: {namespace: [tag]}, review: {auto_approve, auto_approve_min, recommend_min, auto_approve_environments?, force_review?}}}` |
@@ -352,8 +352,10 @@ Terminology check failed: 1 error, 0 warnings.
 
 - `tm search` parses the text in glossa.yaml's `syntax` (`--syntax`)
   and matches it against the project's and the tenant-wide units
-  (`--all-projects`: every project's). Targets come back as MF2, renamed
-  to the query's variables. `tm units` lists the project's units;
+  (`--all-projects`: every project's). Targets come back renamed to the
+  query's variables, in MF2 (`target`) and in the query's syntax
+  (`target_text`, shown in the table; MF2 when MF1 can't express the
+  target). `tm units` lists the project's units;
   `--retire <id>` takes one out of matching.
 - `terms add <term>` makes it preferred in `--locale` (default: the
   source locale); `--preferred|--admitted|--deprecated|--forbidden
@@ -363,9 +365,12 @@ Terminology check failed: 1 error, 0 warnings.
   it, and lets `forbid` add a term the concept lacks. Changes replace the
   concept conditionally (`If-Match`), so concurrent edits fail instead of
   overwriting each other.
-- `terms check` checks every translation but rejected ones (`--states`
-  narrows it) in every target locale (`--locale`, repeatable), and fails
-  on errors (`--fail-on warning`, or glossa.yaml's `check.fail_on`).
+- `terms check` has the server check every translation but rejected
+  ones (`--states` narrows it) in every target locale (`--locale`,
+  repeatable) — `GET …/terminology-findings`, a page of 100 translations
+  a request, 20 locales at a time — and fails on errors (`--fail-on
+  warning`, or glossa.yaml's `check.fail_on`). `check --terminology`
+  adds the same findings to structural QA.
 - `style edit --file` takes YAML with `name`, `fields` and `rules` (the
   API's field names; an unknown field is an error) and creates or
   replaces the guide of exactly the scope given: the project (default) or
@@ -373,11 +378,19 @@ Terminology check failed: 1 error, 0 warnings.
   show` merges every applicable guide, the narrowest winning, and names
   the versions it used.
 - `translate` queues one job per message missing in each locale
-  (`--outdated`: outdated ones instead; both flags: both), never for
-  sensitive namespaces. `--dry-run` queues nothing: it lists the keys per
-  locale and the refusals the fill would warn about
-  (`provider_consent_off`, `no_budget`, `budget_exhausted`,
-  `no_provider`), and exits 1 when there is one. `--wait` prints progress
+  (`--outdated`: outdated ones instead; both flags: both) in one fill
+  that selects them by state on the server (`select`), never for
+  sensitive namespaces. `--dry-run` queues nothing: the server's fill
+  preview (`ai-fill-previews`) lists the keys per locale and how each
+  would run — `existing` jobs reused, `tm_exact` (an exact
+  translation-memory match, no provider call), `provider`, or `refused`
+  by reason (`provider_consent`, `no_route`, `budget_exceeded`;
+  sensitive messages count as `skipped.sensitive`) — with the estimated
+  and upper-bound cost of the provider calls, and the refusals the fill
+  would warn about (`provider_consent_off`, `no_budget`,
+  `budget_exhausted`, `no_provider`); it exits 1 when there is one. A
+  push is visible to it (and to `translate`) as soon as `push` returns.
+  `--wait` prints progress
   to stderr and exits 4 when a job failed, each with its `failure_code`
   (`provider_consent`, `invalid_output`, `budget_exceeded`, `no_route`,
   …). Each invocation sends a new `Idempotency-Key`.
@@ -395,22 +408,15 @@ Terminology check failed: 1 error, 0 warnings.
   the catalog by message ID; `status` reads `GET …/translation-stats`.
   `check` needs every translation's content for its QA, so the stats
   (counts only) don't replace the listing there. The listing reads
-  Localization's view of the catalog, current once Catalog's events are
-  processed (usually within a second): a message reactivated a moment
-  ago can briefly show as missing.
+  Localization's view of the catalog: current when a push (`message-upserts`)
+  returns; after other message writes (Studio edits, renames) once their
+  events are processed, usually within a second.
 - `extract` is lexical: it finds literal IDs, not computed ones, and
   doesn't read `.gitignore` (it skips hidden directories, `node_modules`,
   `dist`, `vendor`, `build` and `coverage`).
 - Windows stores tokens in the file store.
-- `terms check` (and `check --terminology`) sends one terminology-check
-  request per translation, eight at a time: the API has no batch check.
-- `translate --dry-run` computes its plan on the client (the message
-  listing's `missing_in` and `outdated_in`, the project's namespace tags,
-  the tenant's settings, budget and providers), since fills have no dry
-  run. It can't tell which jobs an exact translation-memory match would
-  satisfy without a provider, and like `check` it reads Localization's
-  view of the catalog, so a message pushed a moment ago can be missing
-  from the plan.
-- `translate --outdated` without `--missing` sends the outdated keys
-  (500 per fill, one fill per locale), since a fill can't select only
-  outdated translations.
+- `translate --dry-run`'s `tm_exact` counts exact translation-memory
+  matches; the job still validates one before reusing it (structure,
+  plural categories, terminology), so a match that fails there goes to a
+  provider after all. Its cost is an estimate from the price table, not
+  a quote.

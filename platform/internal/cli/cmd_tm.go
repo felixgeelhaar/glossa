@@ -44,8 +44,13 @@ func toTMUnit(u remote.TMUnit) tmUnitJSON {
 type tmMatchJSON struct {
 	Score int    `json:"score"`
 	Kind  string `json:"kind"` // exact, context (101) or fuzzy
-	// Target is the unit's target with the query's variable names.
-	Target           string     `json:"target"`
+	// Target is the unit's target with the query's variable names, in
+	// MF2.
+	Target string `json:"target"`
+	// TargetText is the same target in the query's syntax (TargetSyntax):
+	// MF1 when it can express it, else MF2.
+	TargetText       string     `json:"target_text"`
+	TargetSyntax     string     `json:"target_syntax"`
 	VariablesAdapted bool       `json:"variables_adapted"`
 	Unit             tmUnitJSON `json:"unit"`
 }
@@ -218,8 +223,12 @@ func (inv *invocation) tmSearch(ctx context.Context, p *project, a tmArgs) error
 	out := tmSearchJSON{Schema: "glossa.cli.tm.search/v1", Query: tmQueryJSON{Text: a.text, From: from, To: to, Syntax: syntax},
 		SourceNormalized: res.SourceNormalized, Matches: []tmMatchJSON{}}
 	for _, m := range res.Matches {
-		out.Matches = append(out.Matches, tmMatchJSON{Score: m.Score, Kind: string(m.Kind), Target: m.Target,
-			VariablesAdapted: m.VariablesAdapted, Unit: toTMUnit(m.Unit)})
+		mj := tmMatchJSON{Score: m.Score, Kind: string(m.Kind), Target: m.Target, TargetText: m.TargetText,
+			TargetSyntax: string(m.TargetSyntax), VariablesAdapted: m.VariablesAdapted, Unit: toTMUnit(m.Unit)}
+		if mj.TargetText == "" { // a server without target_text
+			mj.TargetText, mj.TargetSyntax = m.Target, "mf2"
+		}
+		out.Matches = append(out.Matches, mj)
 	}
 	return inv.emit(out, func(pr *printer) {
 		if len(out.Matches) == 0 {
@@ -229,7 +238,7 @@ func (inv *invocation) tmSearch(ctx context.Context, p *project, a tmArgs) error
 		pr.line("%s for %q (%s → %s)", plural(len(out.Matches), "match", "matches"), a.text, from, to)
 		rows := [][]string{{"SCORE", "KIND", "TARGET", "SOURCE", "UNIT"}}
 		for _, m := range out.Matches {
-			rows = append(rows, []string{strconv.Itoa(m.Score), m.Kind, m.Target, m.Unit.Source, unitLabel(m.Unit)})
+			rows = append(rows, []string{strconv.Itoa(m.Score), m.Kind, m.TargetText, m.Unit.Source, unitLabel(m.Unit)})
 		}
 		pr.table(rows)
 	})
