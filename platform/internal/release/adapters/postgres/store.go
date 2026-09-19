@@ -1,0 +1,338 @@
+// Package postgres implements Release's persistence port on the
+// kernel's unit of work, with sqlc queries over the release_* tables.
+package postgres
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/postgres/releasesql"
+	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+)
+
+// Transactor implements app.Transactor.
+type Transactor struct{ uow *db.UnitOfWork }
+
+// NewTransactor returns a Transactor on uow.
+func NewTransactor(uow *db.UnitOfWork) *Transactor { return &Transactor{uow: uow} }
+
+// InTenant implements app.Transactor.
+func (t *Transactor) InTenant(ctx context.Context, fn func(context.Context, app.Store) error) error {
+	return t.uow.InTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
+		return fn(ctx, &store{tx: tx, q: releasesql.New(tx)})
+	})
+}
+
+type store struct {
+	tx *db.TenantTx
+	q  *releasesql.Queries
+}
+
+var _ app.Store = (*store)(nil)
+
+func storeError(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return app.ErrNotFound
+	}
+	return err
+}
+
+func int32Of(n int) int32 { return int32(n) } //nolint:gosec // versions, counters and page sizes stay small
+
+func nullID(id uuid.UUID) uuid.NullUUID { return uuid.NullUUID{UUID: id, Valid: id != uuid.Nil} }
+
+// ── environments ────────────────────────────────────────────────────
+
+func environment(r releasesql.ReleaseEnvironment) (domain.Environment, error) {
+	var p domain.Policy
+	if err := json.Unmarshal(r.Policy, &p); err != nil {
+		return domain.Environment{}, fmt.Errorf("release: stored policy of %s: %w", r.Name, err)
+	}
+	return domain.Environment{
+		ProjectID: r.ProjectID, Name: r.Name, Policy: p, Current: r.CurrentReleaseID.UUID,
+		Version: int(r.Version), CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
+	}, nil
+}
+
+func environments(rows []releasesql.ReleaseEnvironment) ([]domain.Environment, error) {
+	out := make([]domain.Environment, 0, len(rows))
+	for _, r := range rows {
+		e, err := environment(r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
+
+func (s *store) InsertEnvironment(ctx context.Context, e domain.Environment, by string) (bool, error) {
+	policy, err := json.Marshal(e.Policy)
+	if err != nil {
+		return false, err
+	}
+	n, err := s.q.InsertEnvironment(ctx, releasesql.InsertEnvironmentParams{
+		ProjectID: e.ProjectID, Name: e.Name, Policy: policy, Version: int32Of(e.Version),
+		CreatedBy: by, CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt,
+	})
+	return n == 1, storeError(err)
+}
+
+func (s *store) Environment(ctx context.Context, project uuid.UUID, name string, lock bool) (domain.Environment, error) {
+	var (
+		row releasesql.ReleaseEnvironment
+		err error
+	)
+	if lock {
+		row, err = s.q.LockEnvironment(ctx, releasesql.LockEnvironmentParams{ProjectID: project, Name: name})
+	} else {
+		row, err = s.q.GetEnvironment(ctx, releasesql.GetEnvironmentParams{ProjectID: project, Name: name})
+	}
+	if err != nil {
+		return domain.Environment{}, storeError(err)
+	}
+	return environment(row)
+}
+
+func (s *store) Environments(ctx context.Context, project uuid.UUID, after string, limit int) ([]domain.Environment, error) {
+	rows, err := s.q.ListEnvironments(ctx, releasesql.ListEnvironmentsParams{ProjectID: project, After: after, MaxRows: int32Of(limit)})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	return environments(rows)
+}
+
+func (s *store) LockProjectEnvironments(ctx context.Context, project uuid.UUID) ([]domain.Environment, error) {
+	rows, err := s.q.LockProjectEnvironments(ctx, project)
+	if err != nil {
+		return nil, storeError(err)
+	}
+	return environments(rows)
+}
+
+func (s *store) UpdateEnvironment(ctx context.Context, e domain.Environment, expected int) error {
+	policy, err := json.Marshal(e.Policy)
+	if err != nil {
+		return err
+	}
+	n, err := s.q.UpdateEnvironment(ctx, releasesql.UpdateEnvironmentParams{
+		Policy: policy, CurrentReleaseID: nullID(e.Current), Version: int32Of(e.Version), UpdatedAt: e.UpdatedAt,
+		ProjectID: e.ProjectID, Name: e.Name, ExpectedVersion: int32Of(expected),
+	})
+	if err != nil {
+		return storeError(err)
+	}
+	if n == 0 {
+		return app.ErrStaleVersion
+	}
+	return nil
+}
+
+func (s *store) DeleteProjectEnvironments(ctx context.Context, project uuid.UUID) ([]string, error) {
+	names, err := s.q.DeleteProjectEnvironments(ctx, project)
+	return names, storeError(err)
+}
+
+// ── releases ────────────────────────────────────────────────────────
+
+func release(r releasesql.ReleaseRelease) (domain.Release, error) {
+	out := domain.Release{
+		ID: r.ID, ProjectID: r.ProjectID, Version: int(r.Version), Parent: r.ParentID.UUID, Environment: r.Environment,
+		Digest: r.ManifestDigest, Note: r.Note, Author: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
+	}
+	for _, f := range []struct {
+		name string
+		raw  []byte
+		into any
+	}{{"policy", r.Policy, &out.Policy}, {"content", r.Content, &out.Content}, {"stats", r.Stats, &out.Stats}} {
+		if err := json.Unmarshal(f.raw, f.into); err != nil {
+			return domain.Release{}, fmt.Errorf("release: stored %s of %s: %w", f.name, r.ID, err)
+		}
+	}
+	return out, nil
+}
+
+func (s *store) InsertRelease(ctx context.Context, r domain.Release) (bool, error) {
+	policy, err := json.Marshal(r.Policy)
+	if err != nil {
+		return false, err
+	}
+	content, err := json.Marshal(r.Content)
+	if err != nil {
+		return false, err
+	}
+	stats, err := json.Marshal(r.Stats)
+	if err != nil {
+		return false, err
+	}
+	n, err := s.q.InsertRelease(ctx, releasesql.InsertReleaseParams{
+		ID: r.ID, ProjectID: r.ProjectID, Version: int32Of(r.Version), ParentID: nullID(r.Parent),
+		Environment: r.Environment, Policy: policy, Content: content, ManifestDigest: r.Digest, Stats: stats,
+		Note: r.Note, CreatedBy: r.Author, CreatedAt: r.CreatedAt,
+	})
+	return n == 1, storeError(err)
+}
+
+func (s *store) Release(ctx context.Context, project, id uuid.UUID) (domain.Release, error) {
+	row, err := s.q.GetRelease(ctx, releasesql.GetReleaseParams{ProjectID: project, ID: id})
+	if err != nil {
+		return domain.Release{}, storeError(err)
+	}
+	return release(row)
+}
+
+func (s *store) Releases(ctx context.Context, project uuid.UUID, beforeVersion, limit int) ([]domain.Release, error) {
+	rows, err := s.q.ListReleases(ctx, releasesql.ListReleasesParams{
+		ProjectID: project, BeforeVersion: int32Of(beforeVersion), MaxRows: int32Of(limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.Release, 0, len(rows))
+	for _, r := range rows {
+		rel, err := release(r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rel)
+	}
+	return out, nil
+}
+
+func (s *store) MaxReleaseVersion(ctx context.Context, project uuid.UUID) (int, error) {
+	n, err := s.q.MaxReleaseVersion(ctx, project)
+	return int(n), storeError(err)
+}
+
+// ── deployments ─────────────────────────────────────────────────────
+
+func (s *store) AppendDeployment(ctx context.Context, d domain.Deployment) error {
+	return storeError(s.q.InsertDeployment(ctx, releasesql.InsertDeploymentParams{
+		ProjectID: d.ProjectID, Environment: d.Environment, Number: int32Of(d.Number), ReleaseID: d.ReleaseID,
+		PreviousReleaseID: nullID(d.Previous), Action: string(d.Action), CreatedBy: d.By, CreatedAt: d.CreatedAt,
+	}))
+}
+
+func (s *store) LastDeploymentNumber(ctx context.Context, project uuid.UUID, environment string) (int, error) {
+	n, err := s.q.LastDeploymentNumber(ctx, releasesql.LastDeploymentNumberParams{ProjectID: project, Environment: environment})
+	return int(n), storeError(err)
+}
+
+func (s *store) Deployments(ctx context.Context, project uuid.UUID, environment string, before, limit int) ([]domain.Deployment, error) {
+	rows, err := s.q.ListDeployments(ctx, releasesql.ListDeploymentsParams{
+		ProjectID: project, Environment: environment, BeforeNumber: int32Of(before), MaxRows: int32Of(limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.Deployment, len(rows))
+	for i, r := range rows {
+		out[i] = domain.Deployment{
+			ProjectID: r.ProjectID, Environment: r.Environment, Number: int(r.Number), ReleaseID: r.ReleaseID,
+			Previous: r.PreviousReleaseID.UUID, Action: domain.Action(r.Action), By: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
+		}
+	}
+	return out, nil
+}
+
+func (s *store) RollbackTarget(ctx context.Context, project uuid.UUID, environment string, version int) (domain.Release, error) {
+	row, err := s.q.RollbackTarget(ctx, releasesql.RollbackTargetParams{
+		ProjectID: project, Environment: environment, CurrentVersion: int32Of(version),
+	})
+	if err != nil {
+		return domain.Release{}, storeError(err)
+	}
+	return release(row)
+}
+
+func (s *store) ServedIn(ctx context.Context, project uuid.UUID, environment string, id uuid.UUID) (bool, error) {
+	ok, err := s.q.ServedInEnvironment(ctx, releasesql.ServedInEnvironmentParams{ProjectID: project, Environment: environment, ReleaseID: id})
+	return ok, storeError(err)
+}
+
+// ── delivery keys ───────────────────────────────────────────────────
+
+func deliveryKey(r releasesql.ReleaseDeliveryKey) domain.DeliveryKey {
+	k := domain.DeliveryKey{
+		ID: r.ID, ProjectID: r.ProjectID, Key: r.Key, Name: r.Name, CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
+	}
+	if r.RevokedAt.Valid {
+		at := r.RevokedAt.Time.UTC()
+		k.RevokedAt, k.RevokedBy = &at, r.RevokedBy.String
+	}
+	return k
+}
+
+func (s *store) InsertDeliveryKey(ctx context.Context, k domain.DeliveryKey) (bool, error) {
+	n, err := s.q.InsertDeliveryKey(ctx, releasesql.InsertDeliveryKeyParams{
+		ID: k.ID, ProjectID: k.ProjectID, Key: k.Key, Name: k.Name, CreatedBy: k.CreatedBy, CreatedAt: k.CreatedAt,
+	})
+	return n == 1, storeError(err)
+}
+
+func (s *store) DeliveryKey(ctx context.Context, project, id uuid.UUID, lock bool) (domain.DeliveryKey, error) {
+	var (
+		row releasesql.ReleaseDeliveryKey
+		err error
+	)
+	if lock {
+		row, err = s.q.LockDeliveryKey(ctx, releasesql.LockDeliveryKeyParams{ProjectID: project, ID: id})
+	} else {
+		row, err = s.q.GetDeliveryKey(ctx, releasesql.GetDeliveryKeyParams{ProjectID: project, ID: id})
+	}
+	if err != nil {
+		return domain.DeliveryKey{}, storeError(err)
+	}
+	return deliveryKey(row), nil
+}
+
+func (s *store) DeliveryKeys(ctx context.Context, project, after uuid.UUID, limit int) ([]domain.DeliveryKey, error) {
+	rows, err := s.q.ListDeliveryKeys(ctx, releasesql.ListDeliveryKeysParams{ProjectID: project, After: after, MaxRows: int32Of(limit)})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.DeliveryKey, len(rows))
+	for i, r := range rows {
+		out[i] = deliveryKey(r)
+	}
+	return out, nil
+}
+
+func (s *store) ActiveDeliveryKeys(ctx context.Context, project uuid.UUID) ([]domain.DeliveryKey, error) {
+	rows, err := s.q.ActiveDeliveryKeys(ctx, project)
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.DeliveryKey, len(rows))
+	for i, r := range rows {
+		out[i] = deliveryKey(r)
+	}
+	return out, nil
+}
+
+func (s *store) RevokeDeliveryKey(ctx context.Context, k domain.DeliveryKey) error {
+	if k.RevokedAt == nil {
+		return fmt.Errorf("release: key %s is not revoked", k.ID)
+	}
+	_, err := s.q.RevokeDeliveryKey(ctx, releasesql.RevokeDeliveryKeyParams{
+		RevokedAt: pgtype.Timestamptz{Time: *k.RevokedAt, Valid: true}, RevokedBy: pgtype.Text{String: k.RevokedBy, Valid: true},
+		ProjectID: k.ProjectID, ID: k.ID,
+	})
+	return storeError(err)
+}
+
+// ── events ──────────────────────────────────────────────────────────
+
+func (s *store) Publish(ctx context.Context, e outbox.Event) error {
+	_, err := outbox.Publish(ctx, s.tx, e)
+	return err
+}

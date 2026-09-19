@@ -307,7 +307,7 @@ func cloneFallback(f map[string][]string) map[string][]string {
 // ArtifactMessages returns an artifact's messages as canonical JSON by
 // message ID (for diffs). Artifacts are canonical, so equal messages have
 // equal bytes.
-func ArtifactMessages(body []byte) (map[string]json.RawMessage, error) {
+func ArtifactMessages(body []byte) (LocaleMessages, error) {
 	var doc artifactDoc
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return nil, fmt.Errorf("release: artifact: %w", err)
@@ -315,5 +315,5 @@ func ArtifactMessages(body []byte) (map[string]json.RawMessage, error) {
 	if doc.Schema != ArtifactSchema {
 		return nil, fmt.Errorf("release: artifact schema %q", doc.Schema)
 	}
-	return doc.Messages, nil
+	return LocaleMessages(doc.Messages), nil
 }

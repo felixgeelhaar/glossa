@@ -1,0 +1,90 @@
+// Package sources adapts Catalog's and Localization's application
+// services to Release's Source port: the only way Release reads what a
+// project says (RFC 0002 §4). It is Release's anti-corruption layer:
+// nothing past it sees the other contexts' types.
+package sources
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+
+	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
+	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
+	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
+	localizationdomain "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+)
+
+// Port implements app.Source.
+type Port struct {
+	catalog      *catalogapp.Service
+	localization *localizationapp.Service
+}
+
+// New returns the port.
+func New(catalog *catalogapp.Service, localization *localizationapp.Service) *Port {
+	return &Port{catalog: catalog, localization: localization}
+}
+
+var _ app.Source = (*Port)(nil)
+
+func notFound(err error) error {
+	if errors.Is(err, catalogapp.ErrNotFound) || errors.Is(err, localizationapp.ErrNotFound) {
+		return app.ErrNotFound
+	}
+	return err
+}
+
+// CheckProject implements app.Source.
+func (p *Port) CheckProject(ctx context.Context, project uuid.UUID) error {
+	_, err := p.catalog.GetProject(ctx, catalogdomain.ProjectID(project))
+	return notFound(err)
+}
+
+// Snapshot implements app.Source: Catalog's active messages joined with
+// Localization's translations in states, by message ID. Translations of
+// messages the catalog doesn't release (obsolete, or not yet known) are
+// left out by the build.
+func (p *Port) Snapshot(ctx context.Context, project uuid.UUID, states []string) (domain.Snapshot, error) {
+	reviewStates := make([]localizationdomain.ReviewState, 0, len(states))
+	for _, s := range states {
+		rs, err := localizationdomain.ParseReviewState(s)
+		if err != nil {
+			return domain.Snapshot{}, fmt.Errorf("release: policy state: %w", err)
+		}
+		reviewStates = append(reviewStates, rs)
+	}
+	src, err := p.catalog.ReleaseSource(ctx, catalogdomain.ProjectID(project))
+	if err != nil {
+		return domain.Snapshot{}, notFound(err)
+	}
+	tr, err := p.localization.ReleaseTranslations(ctx, project, reviewStates)
+	if err != nil {
+		return domain.Snapshot{}, notFound(err)
+	}
+	snap := domain.Snapshot{
+		SourceLocale: src.Project.SourceLocale.String(),
+		Fallback:     tr.Fallback,
+		Translations: map[string]map[uuid.UUID]domain.Translation{},
+	}
+	for _, l := range tr.Locales {
+		snap.Locales = append(snap.Locales, domain.Locale{Code: l.Code.String(), Direction: string(l.Direction)})
+	}
+	for _, m := range src.Messages {
+		snap.Messages = append(snap.Messages, domain.SourceMessage{
+			ID: m.ID.UUID(), Key: string(m.Key), Namespace: string(m.Namespace), Model: m.Source.ModelJSON(),
+		})
+	}
+	for locale, byMessage := range tr.Translations {
+		out := make(map[uuid.UUID]domain.Translation, len(byMessage))
+		for id, t := range byMessage {
+			out[id] = domain.Translation{Model: t.Content.ModelJSON(), Outdated: t.Outdated()}
+		}
+		snap.Translations[locale.String()] = out
+	}
+	return snap, nil
+}
