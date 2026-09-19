@@ -2,11 +2,13 @@
  * The e2e stack, provisioned the way production is (platform/README.md):
  * Postgres 16 in a testcontainer, a CREATEROLE owner that runs the
  * migrations, the server connecting as the non-superuser `glossa_app`,
- * and the log mailer, whose captured sign-in links the tests follow.
+ * the log mailer, whose captured sign-in links the tests follow, and
+ * release object storage on the `dir` driver in a fresh directory, which
+ * the tests read the way glossa-edge would.
  */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { randomBytes } from "node:crypto";
-import { createWriteStream, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -14,6 +16,8 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 const here = dirname(fileURLToPath(import.meta.url));
 export const STATE_DIR = join(here, ".state");
 export const SERVER_LOG = join(STATE_DIR, "server.log");
+/** Release object storage (GLOSSA_STORAGE_DRIVER=dir), laid out as platform/internal/release/delivery says. */
+export const OBJECTS_DIR = join(STATE_DIR, "objects");
 const PLATFORM = resolve(here, "../../platform");
 
 export const ports = {
@@ -55,6 +59,8 @@ async function waitFor(url: string, server: ChildProcess, timeoutMs = 60_000): P
 
 export async function startStack(): Promise<() => Promise<void>> {
   mkdirSync(STATE_DIR, { recursive: true });
+  rmSync(OBJECTS_DIR, { recursive: true, force: true });
+  mkdirSync(OBJECTS_DIR, { recursive: true });
   const bin = buildServer();
 
   const pg = await new PostgreSqlContainer("postgres:16-alpine").withDatabase("glossa").withUsername("postgres").withPassword("postgres").start();
@@ -75,6 +81,8 @@ export async function startStack(): Promise<() => Promise<void>> {
     GLOSSA_LOG_LEVEL: "info",
     GLOSSA_OUTBOX_POLL_INTERVAL: "100ms",
     GLOSSA_SHUTDOWN_TIMEOUT: "5s",
+    GLOSSA_STORAGE_DRIVER: "dir",
+    GLOSSA_STORAGE_DIR: OBJECTS_DIR,
   };
 
   const migrate = spawnSync(bin, ["-migrate=only"], { env, encoding: "utf8" });
@@ -109,4 +117,15 @@ export async function signInLink(email: string, timeoutMs = 10_000): Promise<str
     await new Promise((r) => setTimeout(r, 200));
   }
   throw new Error(`no sign-in link for ${email} in ${SERVER_LOG}`);
+}
+
+/** The manifest an environment serves, as glossa-edge would read it from storage; null while there is none. */
+export function servedManifest(project: string, environment: string): { release: { version: number } } | null {
+  const file = join(OBJECTS_DIR, "v1", "projects", project, "environments", environment, "manifest.json");
+  return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null;
+}
+
+/** Whether storage holds the index object through which the edge resolves a delivery key (present while it is active). */
+export function keyIndexed(key: string): boolean {
+  return existsSync(join(OBJECTS_DIR, "v1", "keys", `${createHash("sha256").update(key).digest("hex")}.json`));
 }

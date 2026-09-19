@@ -1,11 +1,19 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { signInLink } from "./harness";
+import { keyIndexed, servedManifest, signInLink } from "./harness";
 
 /** With STUDIO_SCREENSHOTS=<dir>, keeps a full-page screenshot of each screen checked (for design review). */
 async function snap(page: Page, name: string): Promise<void> {
   const dir = process.env.STUDIO_SCREENSHOTS;
   if (dir) await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true });
+}
+
+/** Axe in the dark theme too, then back to light. */
+async function expectAccessibleInBothThemes(page: Page, screen: string): Promise<void> {
+  await expectAccessible(page, screen);
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await expectAccessible(page, `${screen} (dark)`);
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
 }
 
 /** WCAG 2.2 AA through axe; any violation fails with its rule ids and targets. */
@@ -16,7 +24,8 @@ async function expectAccessible(page: Page, screen: string): Promise<void> {
   await snap(page, screen.replace(/\W+/g, "-"));
 }
 
-test("sign in by magic link, set up a project, translate with the keyboard, fix QA, approve", async ({ page }) => {
+test("sign in by magic link, set up a project, translate with the keyboard, fix QA, approve, release", async ({ page }) => {
+  test.setTimeout(180_000);
   const email = `translator-${Date.now()}@example.com`;
 
   // ── sign in with the link the dev mailer captured ──────────────────
@@ -141,9 +150,150 @@ test("sign in by magic link, set up a project, translate with the keyboard, fix 
   await expectAccessible(page, "shortcut sheet");
   await page.keyboard.press("Escape");
 
-  // ── releases: a clear coming-soon state ────────────────────────────
+  // ── releases: publish, promote, roll back ─────────────────────────
   await page.getByRole("link", { name: "Releases" }).click();
-  await expect(page.getByTestId("releases-coming-soon")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Releases", level: 1 })).toBeVisible();
+  const dev = page.getByTestId("env-development");
+  const prod = page.getByTestId("env-production");
+  await expect(dev.getByTestId("env-version")).toHaveText("Nothing published here yet");
+  await expect(prod).toContainText("Ships: Approved; outdated included");
+  await expectAccessibleInBothThemes(page, "releases (empty)");
+
+  const publish = async (env: string) => {
+    await page.getByRole("button", { name: "Publish release" }).click();
+    const dialog = page.getByRole("dialog", { name: "Publish a release" });
+    await dialog.getByLabel("Environment").selectOption(env);
+    await expect(dialog.getByTestId("publish-preview")).toContainText(`${env} ships translations that are:`);
+    return dialog;
+  };
+
+  // Publish to development: both approved German translations ship.
+  let d = await publish("development");
+  await expect(d.getByTestId("publish-preview")).toContainText("Nothing is published to development yet");
+  await expectAccessibleInBothThemes(page, "publish dialog");
+  await d.getByRole("button", { name: "Publish to development" }).click();
+  await expect(d.getByRole("status")).toHaveText("Published v1 to development.");
+  await expect(d.locator("tr[data-locale=de]")).toContainText("2");
+  await d.getByRole("button", { name: "Done" }).click();
+  await expect(dev.getByTestId("env-version")).toHaveText("Serving v1");
+  await expect(dev).toContainText("Published by you");
+  await expect.poll(() => servedManifest(projectId, "development")?.release.version).toBe(1);
+
+  // Development ships drafts, so its releases can't go to production as they are.
+  await prod.getByRole("button", { name: "Promote to production" }).click();
+  d = page.getByRole("dialog", { name: "Promote a release" });
+  await d.getByLabel("Release").selectOption({ label: "v1 · development" });
+  await expect(d.getByTestId("promote-ineligible")).toContainText("v1 can't go to production");
+  await expect(d.getByRole("button", { name: "Promote v1 to production" })).toBeDisabled();
+  await d.getByRole("button", { name: "Cancel" }).click();
+
+  // Ship only approved text to development, then publish and promote.
+  await dev.getByRole("button", { name: "Policy of development" }).click();
+  d = page.getByRole("dialog", { name: "What ships to development" });
+  await d.getByLabel("Draft").uncheck();
+  await d.getByLabel("Needs review").uncheck();
+  await expectAccessible(page, "policy dialog");
+  await d.getByRole("button", { name: "Save policy" }).click();
+  await expect(page.getByTestId("releases-status")).toContainText("development's policy is saved");
+  await expect(dev).toContainText("Ships: Approved; outdated included");
+
+  d = await publish("development");
+  await expect(d.getByTestId("publish-preview")).toContainText("development serves v1 now:");
+  await d.getByRole("button", { name: "Publish to development" }).click();
+  await expect(d.getByRole("status")).toHaveText("Published v2 to development.");
+  await expect(d).toContainText("Nothing changed: it ships the same text as before.");
+  await d.getByRole("button", { name: "Done" }).click();
+
+  await prod.getByRole("button", { name: "Promote to production" }).click();
+  d = page.getByRole("dialog", { name: "Promote a release" });
+  await d.getByLabel("Release").selectOption({ label: "v2 · development" });
+  await expect(d.getByTestId("promote-summary")).toContainText("production: nothing → v2");
+  await d.getByRole("button", { name: "Promote v2 to production" }).click();
+  await expect(page.getByTestId("releases-status")).toHaveText("production now serves v2.");
+  await expect(prod.getByTestId("env-version")).toHaveText("Serving v2");
+  await expect.poll(() => servedManifest(projectId, "production")?.release.version).toBe(2);
+
+  // Approve one more translation, publish it and promote it.
+  await page.getByRole("link", { name: "Translate" }).click();
+  await page.getByLabel("Target locale").selectOption("de");
+  await list.getByRole("option", { name: /app\.title/ }).click();
+  await expect(page.getByRole("heading", { name: "app.title" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(editor).toBeFocused();
+  await editor.fill("Glossa-Demo");
+  await page.keyboard.press("ControlOrMeta+Shift+Enter");
+  await expect(page.getByTestId("translation-state")).toHaveText("Approved");
+
+  await page.getByRole("link", { name: "Releases" }).click();
+  d = await publish("development");
+  await d.getByLabel("Note (optional)").fill("German title");
+  await d.getByRole("button", { name: "Publish to development" }).click();
+  await expect(d.getByRole("status")).toHaveText("Published v3 to development.");
+  await expect(d.getByRole("heading", { name: "Changes since v2, per locale" })).toBeVisible();
+  await expect(d.locator("tr[data-locale=de]")).toContainText("+1");
+  await expectAccessible(page, "publish result");
+  await d.getByRole("button", { name: "Done" }).click();
+
+  await prod.getByRole("button", { name: "Promote to production" }).click();
+  d = page.getByRole("dialog", { name: "Promote a release" });
+  await d.getByLabel("Release").selectOption({ label: "v3 · development · German title" });
+  await expect(d.getByTestId("promote-summary")).toContainText("production: v2 → v3");
+  await expect(d.locator("tr[data-locale=de]")).toContainText("+1");
+  await expectAccessibleInBothThemes(page, "promote dialog");
+  await d.getByRole("button", { name: "Promote v3 to production" }).click();
+  await expect(prod.getByTestId("env-version")).toHaveText("Serving v3");
+  await expect.poll(() => servedManifest(projectId, "production")?.release.version).toBe(3);
+
+  // Roll production back: the dialog names the move and what goes away.
+  await prod.getByRole("button", { name: "Roll back production" }).click();
+  d = page.getByRole("dialog", { name: "Roll back production" });
+  await expect(d.getByTestId("rollback-summary")).toContainText("production: v3 → v2");
+  await expect(d.locator("tr[data-locale=de]")).toContainText("−1");
+  await expectAccessible(page, "rollback dialog");
+  await d.getByRole("button", { name: "Roll production back to v2" }).click();
+  await expect(page.getByTestId("releases-status")).toHaveText("production is back on v2.");
+  await expect(prod.getByTestId("env-version")).toHaveText("Serving v2");
+  await expect(prod).toContainText("Rolled back by you");
+  await expect.poll(() => servedManifest(projectId, "production")?.release.version).toBe(2);
+  await expectAccessibleInBothThemes(page, "releases");
+
+  // The deployment history, newest first.
+  await prod.getByRole("button", { name: "History of production" }).click();
+  d = page.getByRole("dialog", { name: "Deployments to production" });
+  await expect(d.getByTestId("deployments").locator("tbody tr")).toHaveCount(3);
+  await expect(d.getByTestId("deployments").locator("tbody tr").first()).toContainText("Rolled back");
+  await d.getByRole("button", { name: "Close" }).click();
+
+  // Release detail: per-locale counts and the diff to its parent.
+  await page.getByTestId("release-list").getByRole("link", { name: "v3" }).click();
+  await expect(page.getByRole("heading", { name: "Release v3" })).toBeVisible();
+  await expect(page.getByText("German title")).toBeVisible();
+  await expect(page.getByTestId("release-locales").locator("tr[data-locale=de]")).toContainText("+1");
+  await expectAccessibleInBothThemes(page, "release detail");
+
+  // ── delivery keys ──────────────────────────────────────────────────
+  await page.getByRole("link", { name: "Settings" }).click();
+  await page.locator("#dk-name").fill("web");
+  await page.getByRole("button", { name: "Create delivery key" }).click();
+  d = page.getByRole("dialog", { name: "Delivery key “web”" });
+  const key = await d.getByTestId("created-key").inputValue();
+  expect(key).toMatch(/^glossa_pk_[A-Za-z0-9_-]{32}$/);
+  await expect(d.getByRole("tab", { name: "JavaScript" })).toHaveAttribute("aria-selected", "true");
+  await expect(d.getByTestId("snippet-runtime")).toContainText(`deliveryKey: "${key}"`);
+  await d.getByRole("tab", { name: "JavaScript" }).press("End");
+  await expect(d.getByRole("tab", { name: "Go" })).toBeFocused();
+  await expect(d.getByTestId("snippet-go")).toContainText(`DeliveryKey: "${key}"`);
+  await expectAccessibleInBothThemes(page, "delivery key created");
+  await d.getByRole("button", { name: "Done" }).click();
+  await expect.poll(() => keyIndexed(key)).toBe(true);
+  await expect(page.getByTestId("delivery-keys")).toContainText("Active");
+  await expect(page.getByTestId("delivery-keys")).not.toContainText(key);
+
+  await page.getByRole("button", { name: "Revoke web" }).click();
+  d = page.getByRole("dialog", { name: "Revoke “web”?" });
+  await d.getByRole("button", { name: "Revoke key" }).click();
+  await expect(page.getByTestId("delivery-keys")).toContainText("Revoked");
+  await expect.poll(() => keyIndexed(key)).toBe(false);
 });
 
 test("dark theme stays accessible", async ({ page }) => {
