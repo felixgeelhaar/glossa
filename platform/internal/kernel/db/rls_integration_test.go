@@ -38,12 +38,13 @@ var globalTables = map[string]string{
 // a PUBLIC SELECT policy scoped by app_current_tenant(). Each entry needs
 // a reason.
 var systemTables = map[string]string{
-	"identity_people":         "a person spans all their tenants and signs in before one is chosen",
-	"identity_sessions":       "a session cookie is resolved before the tenant is known",
-	"identity_email_links":    "sign-in and reset links are redeemed before the tenant is known",
-	"identity_totp":           "a person's second factor, checked at sign-in",
-	"identity_passkeys":       "a person's passkeys, checked at sign-in",
-	"identity_login_attempts": "brute-force counters per email, checked at sign-in",
+	"identity_people":              "a person spans all their tenants and signs in before one is chosen",
+	"identity_sessions":            "a session cookie is resolved before the tenant is known",
+	"identity_email_links":         "sign-in and reset links are redeemed before the tenant is known",
+	"identity_totp":                "a person's second factor, checked at sign-in",
+	"identity_passkeys":            "a person's passkeys, checked at sign-in",
+	"identity_webauthn_ceremonies": "passkey challenges in flight, before the tenant is known",
+	"identity_login_attempts":      "brute-force counters per email, checked at sign-in",
 }
 
 // systemPolicies are the only policies allowed to target a role other
@@ -59,12 +60,13 @@ var systemPolicies = map[string][]string{
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
 	// Identity's global tables are system scope only (see systemTables).
-	"identity_people":         {"identity_people_system"},
-	"identity_sessions":       {"identity_sessions_system"},
-	"identity_email_links":    {"identity_email_links_system"},
-	"identity_totp":           {"identity_totp_system"},
-	"identity_passkeys":       {"identity_passkeys_system"},
-	"identity_login_attempts": {"identity_login_attempts_system"},
+	"identity_people":              {"identity_people_system"},
+	"identity_sessions":            {"identity_sessions_system"},
+	"identity_email_links":         {"identity_email_links_system"},
+	"identity_totp":                {"identity_totp_system"},
+	"identity_passkeys":            {"identity_passkeys_system"},
+	"identity_webauthn_ceremonies": {"identity_webauthn_ceremonies_system"},
+	"identity_login_attempts":      {"identity_login_attempts_system"},
 }
 
 type tableSecurity struct {

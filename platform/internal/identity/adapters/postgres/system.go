@@ -233,6 +233,24 @@ func (s *systemStore) AddPasskey(ctx context.Context, person domain.PersonID, c 
 	}))
 }
 
+func (s *systemStore) SaveCeremony(ctx context.Context, c app.Ceremony) error {
+	return storeError(s.q.InsertCeremony(ctx, identitysql.InsertCeremonyParams{
+		KeyHash: c.KeyHash, Purpose: c.Purpose, PersonID: nullUUID(c.Person.UUID()),
+		State: c.State, ExpiresAt: c.ExpiresAt,
+	}))
+}
+
+func (s *systemStore) TakeCeremony(ctx context.Context, keyHash, purpose string) (app.Ceremony, error) {
+	row, err := s.q.TakeCeremony(ctx, identitysql.TakeCeremonyParams{KeyHash: keyHash, Purpose: purpose})
+	if err != nil {
+		return app.Ceremony{}, storeError(err)
+	}
+	return app.Ceremony{
+		KeyHash: keyHash, Purpose: purpose, Person: domain.PersonID(row.PersonID.UUID),
+		State: row.State, ExpiresAt: row.ExpiresAt.UTC(),
+	}, nil
+}
+
 func (s *systemStore) PersonOfPasskey(ctx context.Context, credentialID []byte) (domain.PersonID, error) {
 	row, err := s.q.GetPasskey(ctx, credentialID)
 	if err != nil {

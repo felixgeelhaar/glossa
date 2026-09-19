@@ -82,6 +82,19 @@ CREATE TABLE identity_passkeys (
 );
 CREATE INDEX identity_passkeys_person ON identity_passkeys (person_id);
 
+-- In-flight WebAuthn ceremonies (auth-go's signed state), single-use and
+-- short-lived. The browser holds only a random key in an HttpOnly
+-- cookie; its SHA-256 is the primary key. Server-side so an intercepted
+-- assertion can't be replayed against the same challenge.
+CREATE TABLE identity_webauthn_ceremonies (
+    key_hash   text        PRIMARY KEY CHECK (char_length(key_hash) = 64),
+    purpose    text        NOT NULL CHECK (purpose IN ('sign_in', 'registration')),
+    person_id  uuid        REFERENCES identity_people (id) ON DELETE CASCADE,
+    state      bytea       NOT NULL,
+    expires_at timestamptz NOT NULL
+);
+CREATE INDEX identity_webauthn_ceremonies_expiry ON identity_webauthn_ceremonies (expires_at);
+
 -- Brute-force lockout counters, keyed by auth-go's LockoutKeyFromEmail
 -- (a SHA-256 of the address, so no plaintext email is kept here).
 CREATE TABLE identity_login_attempts (
@@ -144,7 +157,8 @@ DO $$
 DECLARE t text;
 BEGIN
     FOREACH t IN ARRAY ARRAY['identity_people', 'identity_sessions', 'identity_email_links',
-                             'identity_totp', 'identity_passkeys', 'identity_login_attempts']
+                             'identity_totp', 'identity_passkeys', 'identity_webauthn_ceremonies',
+                             'identity_login_attempts']
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
         EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
@@ -159,6 +173,7 @@ GRANT SELECT, INSERT, DELETE ON identity_sessions TO glossa_system;
 GRANT SELECT, INSERT, UPDATE ON identity_email_links TO glossa_system;
 GRANT SELECT, INSERT, UPDATE, DELETE ON identity_totp TO glossa_system;
 GRANT SELECT, INSERT, UPDATE, DELETE ON identity_passkeys TO glossa_system;
+GRANT SELECT, INSERT, DELETE ON identity_webauthn_ceremonies TO glossa_system;
 GRANT SELECT, INSERT, UPDATE, DELETE ON identity_login_attempts TO glossa_system;
 
 -- In tenant scope, a person's name and email are visible to the tenants

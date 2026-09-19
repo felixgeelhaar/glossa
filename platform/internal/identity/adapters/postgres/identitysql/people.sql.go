@@ -284,6 +284,30 @@ func (q *Queries) GetTOTP(ctx context.Context, personID uuid.UUID) (IdentityTotp
 	return i, err
 }
 
+const insertCeremony = `-- name: InsertCeremony :exec
+INSERT INTO identity_webauthn_ceremonies (key_hash, purpose, person_id, state, expires_at)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertCeremonyParams struct {
+	KeyHash   string
+	Purpose   string
+	PersonID  uuid.NullUUID
+	State     []byte
+	ExpiresAt time.Time
+}
+
+func (q *Queries) InsertCeremony(ctx context.Context, arg InsertCeremonyParams) error {
+	_, err := q.db.Exec(ctx, insertCeremony,
+		arg.KeyHash,
+		arg.Purpose,
+		arg.PersonID,
+		arg.State,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
 const insertEmailLink = `-- name: InsertEmailLink :exec
 INSERT INTO identity_email_links (hash, purpose, email, expires_at)
 VALUES ($1, $2, $3, $4)
@@ -529,6 +553,31 @@ type SetPasswordHashParams struct {
 func (q *Queries) SetPasswordHash(ctx context.Context, arg SetPasswordHashParams) error {
 	_, err := q.db.Exec(ctx, setPasswordHash, arg.PasswordHash, arg.At, arg.ID)
 	return err
+}
+
+const takeCeremony = `-- name: TakeCeremony :one
+DELETE FROM identity_webauthn_ceremonies
+WHERE key_hash = $1 AND purpose = $2
+RETURNING person_id, state, expires_at
+`
+
+type TakeCeremonyParams struct {
+	KeyHash string
+	Purpose string
+}
+
+type TakeCeremonyRow struct {
+	PersonID  uuid.NullUUID
+	State     []byte
+	ExpiresAt time.Time
+}
+
+// Single use: the row is gone whether or not the ceremony then succeeds.
+func (q *Queries) TakeCeremony(ctx context.Context, arg TakeCeremonyParams) (TakeCeremonyRow, error) {
+	row := q.db.QueryRow(ctx, takeCeremony, arg.KeyHash, arg.Purpose)
+	var i TakeCeremonyRow
+	err := row.Scan(&i.PersonID, &i.State, &i.ExpiresAt)
+	return i, err
 }
 
 const updatePasskeySignCount = `-- name: UpdatePasskeySignCount :execrows
