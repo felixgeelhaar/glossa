@@ -76,3 +76,16 @@ sql:
         emit_interface: false
         emit_exported_queries: false
         omit_unused_structs: true
+
+  - name: localization
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/localization
+    gen:
+      go:
+        package: localizationsql
+        out: internal/localization/adapters/postgres/localizationsql
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_exported_queries: false
+        omit_unused_structs: true
