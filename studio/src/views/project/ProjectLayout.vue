@@ -60,6 +60,7 @@ const tabs = [
   { name: "style", label: strings.nav.style },
   { name: "locales", label: strings.nav.locales },
   { name: "releases", label: strings.nav.releases },
+  { name: "ai", label: strings.nav.ai },
   { name: "settings", label: strings.nav.settings },
 ] as const;
 </script>
