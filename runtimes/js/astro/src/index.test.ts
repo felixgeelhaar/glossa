@@ -1,0 +1,104 @@
+import { describe, expect, it, vi } from "vitest";
+import type { AstroIntegration } from "astro";
+
+import glossa, { resolveRouting } from "./index.js";
+import { release, text } from "./testing/release.js";
+
+const r = release("rel_3", 3, { de: { a: text("A") }, en: { a: text("A") }, ar: { a: text("A") } });
+
+type Setup = NonNullable<AstroIntegration["hooks"]["astro:config:setup"]>;
+
+async function setup(options: Parameters<typeof glossa>[0], i18n?: unknown) {
+  const calls = {
+    updateConfig: vi.fn(),
+    addMiddleware: vi.fn(),
+    injectScript: vi.fn(),
+    logger: { info: vi.fn(), warn: vi.fn() },
+  };
+  const hook = glossa(options).hooks["astro:config:setup"] as Setup;
+  await hook({
+    ...calls,
+    config: { root: new URL("file:///site/"), base: "/", i18n },
+  } as unknown as Parameters<Setup>[0]);
+  return calls;
+}
+
+describe("resolveRouting", () => {
+  it("prefers the integration's options, then Astro's i18n, then the release", () => {
+    expect(resolveRouting({ locales: ["en"], defaultLocale: "en" }, { base: "/" }, r)).toEqual({
+      locales: [{ code: "en", path: "en" }],
+      defaultLocale: "en",
+      prefixDefaultLocale: false,
+      base: "/",
+    });
+    const i18n = {
+      locales: ["de", { path: "english", codes: ["en"] }],
+      defaultLocale: "de",
+      routing: {
+        prefixDefaultLocale: true,
+        redirectToDefaultLocale: true,
+        fallbackType: "redirect",
+      },
+    } as const;
+    expect(resolveRouting({}, { base: "/", i18n } as never, r)).toEqual({
+      locales: [
+        { code: "de", path: "de" },
+        { code: "en", path: "english" },
+      ],
+      defaultLocale: "de",
+      prefixDefaultLocale: true,
+      base: "/",
+    });
+    expect(resolveRouting({}, { base: "/" }, r)).toMatchObject({
+      locales: [
+        { code: "de", path: "de" },
+        { code: "en", path: "en" },
+        { code: "ar", path: "ar" },
+      ],
+      defaultLocale: "de",
+    });
+  });
+});
+
+describe("glossa()", () => {
+  it("serves the config and the release as virtual modules and registers the middleware", async () => {
+    const calls = await setup({ release: r, environment: "production", edge: "https://edge.test" });
+    const vite = calls.updateConfig.mock.calls[0]![0].vite;
+    expect(vite.ssr.noExternal).toContain("@glossa/astro");
+    expect(vite.optimizeDeps.exclude).toContain("@glossa/astro");
+    const plugin = vite.plugins[0];
+    expect(plugin.resolveId("virtual:glossa/config")).toBe("\0virtual:glossa/config");
+    expect(plugin.resolveId("./other.js")).toBeUndefined();
+    const config = JSON.parse(
+      plugin.load("\0virtual:glossa/config").replace("export default ", "").replace(/;$/, ""),
+    );
+    expect(config).toMatchObject({
+      edge: "https://edge.test",
+      environment: "production",
+      prerender: "static",
+      inline: "auto",
+      routing: { defaultLocale: "de" },
+    });
+    expect(plugin.load("\0virtual:glossa/release")).toContain('"rel_3"');
+    const [mw] = calls.addMiddleware.mock.calls[0]!;
+    expect(mw.order).toBe("pre");
+    expect(String(mw.entrypoint)).toMatch(/middleware\.js$/);
+    expect(calls.injectScript).not.toHaveBeenCalled();
+    expect(calls.logger.info).toHaveBeenCalledWith(expect.stringContaining("rel_3"));
+  });
+
+  it("injects the elements on every page with elements: true", async () => {
+    const calls = await setup({ release: r, elements: true });
+    expect(calls.injectScript).toHaveBeenCalledWith(
+      "page",
+      expect.stringMatching(/^import ".*elements\.js";$/),
+    );
+  });
+
+  it("warns and renders inline defaults when no release is configured", async () => {
+    const calls = await setup({});
+    expect(calls.logger.warn).toHaveBeenCalledWith(expect.stringContaining("inline defaults"));
+    const plugin = calls.updateConfig.mock.calls[0]![0].vite.plugins[0];
+    expect(plugin.load("\0virtual:glossa/release")).toBe("export default null;");
+  });
+});
