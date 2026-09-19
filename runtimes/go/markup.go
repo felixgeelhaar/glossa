@@ -72,7 +72,7 @@ func (l *Localizer) Parts(id string, args Args, opts ...Option) []Part {
 	res := snap.rel.resolve(id, l.requested)
 	return renderAs(l.c, snap, res, o,
 		func(msg messageformat.Message, locale string) ([]Part, string, error) {
-			parts, err := messageformat.FormatToParts(msg, locale, args, messageformat.WithBidiIsolation(o.bidi))
+			parts, err := messageformat.FormatToParts(msg, locale, args, o.formatOptions()...)
 			return parts, messageformat.PartsText(parts), err
 		},
 		func(text string) []Part { return []Part{{Type: PartText, Value: text}} })

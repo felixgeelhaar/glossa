@@ -3,6 +3,7 @@ package glossa
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/messageformat"
 )
@@ -21,6 +22,8 @@ type Option func(*callOptions)
 type callOptions struct {
 	defaultText string
 	bidi        bool
+	timeZone    *time.Location
+	fnOptions   map[string]string // standalone formatters only
 }
 
 // Default sets the inline default: the text rendered when no loaded
@@ -32,8 +35,9 @@ func Default(text string) Option {
 
 // BidiIsolation turns MF2 bidi isolation of placeholders on or off for
 // one call. It is on by default, as the MF2 spec requires; turn it off for
-// plain-text output such as CLI lines or email subjects in left-to-right
-// scripts.
+// plain-text output such as CLI lines, email subjects and documents (PDF)
+// in left-to-right scripts, where the isolation characters would show up
+// or be dropped by the renderer.
 func BidiIsolation(on bool) Option {
 	return func(o *callOptions) { o.bidi = on }
 }
@@ -45,6 +49,7 @@ func BidiIsolation(on bool) Option {
 type Localizer struct {
 	c         *Client
 	requested []string
+	timeZone  *time.Location // nil: UTC
 }
 
 // For returns a Localizer for locales in priority order. Tags are
@@ -78,18 +83,26 @@ func (l *Localizer) T(id string, args Args, opts ...Option) string {
 	res := snap.rel.resolve(id, l.requested)
 	return renderAs(l.c, snap, res, o,
 		func(msg messageformat.Message, locale string) (string, string, error) {
-			text, err := messageformat.Format(msg, locale, args, messageformat.WithBidiIsolation(o.bidi))
+			text, err := messageformat.Format(msg, locale, args, o.formatOptions()...)
 			return text, text, err
 		},
 		func(text string) string { return text })
 }
 
 func (l *Localizer) options(opts []Option) callOptions {
-	o := callOptions{bidi: !l.c.cfg.DisableBidiIsolation}
+	o := callOptions{bidi: !l.c.cfg.DisableBidiIsolation, timeZone: l.timeZone}
+	if o.timeZone == nil {
+		o.timeZone = time.UTC
+	}
 	for _, opt := range opts {
 		opt(&o)
 	}
 	return o
+}
+
+// formatOptions are the kernel options of a message call.
+func (o callOptions) formatOptions() []messageformat.FormatOption {
+	return []messageformat.FormatOption{messageformat.WithBidiIsolation(o.bidi), messageformat.WithTimeZone(o.timeZone)}
 }
 
 // Explain reports how id resolves, without side effects (SPEC §6).
