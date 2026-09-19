@@ -72,6 +72,8 @@ type Generate struct {
 	TypeScript string `yaml:"typescript,omitempty" json:"typescript,omitempty"`
 	// Vue is the @glossa/vue registration module; needs TypeScript.
 	Vue string `yaml:"vue,omitempty" json:"vue,omitempty"`
+	// React is the @glossa/react registration module; needs TypeScript.
+	React string `yaml:"react,omitempty" json:"react,omitempty"`
 	// Go is the typed Go file.
 	Go string `yaml:"go,omitempty" json:"go,omitempty"`
 	// GoPackage is its package name (default: the directory's name).
@@ -210,6 +212,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Generate.Vue != "" && c.Generate.TypeScript == "" {
 		return bad("generate.vue", "needs generate.typescript (the Vue registration imports the typed module)")
+	}
+	if c.Generate.React != "" && c.Generate.TypeScript == "" {
+		return bad("generate.react", "needs generate.typescript (the React registration imports the typed module)")
 	}
 	return nil
 }

@@ -3,9 +3,11 @@ package codegen_test
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -64,6 +66,7 @@ func TestTypeScriptGolden(t *testing.T) {
 	ts, warnings := codegen.TypeScript(entries(t), codegen.TSOptions{Source: "locales/en.json"})
 	golden(t, "messages.ts", ts)
 	golden(t, "glossa-vue.ts", codegen.Vue("messages.ts"))
+	golden(t, "glossa-react.ts", codegen.React("messages.ts"))
 	var keys []string
 	for _, w := range warnings {
 		keys = append(keys, w.Key)
@@ -115,51 +118,73 @@ func repoRoot(t *testing.T) string {
 	}
 }
 
-// TestGeneratedTypeScriptTypeChecks compiles the generated module and the
-// Vue registration against the real @glossa/vue sources with tsc, plus a
-// consumer whose @ts-expect-error lines prove missing and mistyped
-// arguments fail at compile time.
+// TestGeneratedTypeScriptTypeChecks compiles the generated module and
+// each framework registration against the real @glossa/vue and
+// @glossa/react sources with tsc, plus a consumer whose @ts-expect-error
+// lines prove missing and mistyped arguments fail at compile time.
 func TestGeneratedTypeScriptTypeChecks(t *testing.T) {
 	root := repoRoot(t)
-	tsc := filepath.Join(root, "runtimes", "js", "vue", "node_modules", ".bin", "tsc")
-	if _, err := os.Stat(tsc); err != nil {
-		t.Skip("tsc not installed: run `pnpm install` at the repository root to type-check generated TypeScript")
-	}
-	dir := t.TempDir()
-	ts, _ := codegen.TypeScript(entries(t), codegen.TSOptions{Source: "locales/en.json"})
-	write := func(name, body string) {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	write("messages.ts", string(ts))
-	write("glossa-vue.ts", string(codegen.Vue("messages.ts")))
-	write("consumer.ts", consumerTS)
 	js := filepath.Join(root, "runtimes", "js")
-	write("tsconfig.json", `{
+	ts, _ := codegen.TypeScript(entries(t), codegen.TSOptions{Source: "locales/en.json"})
+	for _, fw := range []struct {
+		name     string
+		render   func(modulePath string) []byte
+		consumer string
+		// paths maps bare imports of the generated file itself.
+		paths map[string]string
+	}{
+		{name: "vue", render: codegen.Vue, consumer: vueConsumerTS},
+		{name: "react", render: codegen.React, consumer: reactConsumerTS,
+			paths: map[string]string{"react": filepath.Join(js, "react", "node_modules", "@types", "react")}},
+	} {
+		t.Run(fw.name, func(t *testing.T) {
+			tsc := filepath.Join(js, fw.name, "node_modules", ".bin", "tsc")
+			if _, err := os.Stat(tsc); err != nil {
+				t.Skip("tsc not installed: run `pnpm install` at the repository root to type-check generated TypeScript")
+			}
+			dir := t.TempDir()
+			write := func(name, body string) {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			registration := "glossa-" + fw.name + ".ts"
+			write("messages.ts", string(ts))
+			write(registration, string(fw.render("messages.ts")))
+			write("consumer.ts", consumerTS+fw.consumer)
+			paths := map[string]string{
+				"@glossa/" + fw.name:     filepath.Join(js, fw.name, "src", "index.ts"),
+				"@glossa/runtime":        filepath.Join(js, "runtime", "src", "index.ts"),
+				"@glossa/elements/parts": filepath.Join(js, "elements", "src", "parts.ts"),
+			}
+			for k, v := range fw.paths {
+				paths[k] = v
+			}
+			var mapped []string
+			for k, v := range paths {
+				mapped = append(mapped, fmt.Sprintf("%q: [%q]", k, filepath.ToSlash(v)))
+			}
+			sort.Strings(mapped)
+			write("tsconfig.json", `{
   "compilerOptions": {
     "target": "ES2022", "lib": ["ES2022", "DOM"], "module": "ESNext", "moduleResolution": "Bundler",
     "strict": true, "noUncheckedIndexedAccess": true, "noEmit": true, "skipLibCheck": true, "types": [],
     "isolatedModules": true, "esModuleInterop": true,
-    "paths": {
-      "@glossa/vue": ["`+filepath.ToSlash(filepath.Join(js, "vue", "src", "index.ts"))+`"],
-      "@glossa/runtime": ["`+filepath.ToSlash(filepath.Join(js, "runtime", "src", "index.ts"))+`"],
-      "@glossa/elements/parts": ["`+filepath.ToSlash(filepath.Join(js, "elements", "src", "parts.ts"))+`"]
-    }
+    "paths": {`+strings.Join(mapped, ", ")+`}
   },
-  "files": ["messages.ts", "glossa-vue.ts", "consumer.ts"]
+  "files": ["messages.ts", "`+registration+`", "consumer.ts"]
 }`)
-	cmd := exec.Command(tsc, "-p", filepath.Join(dir, "tsconfig.json"))
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("tsc: %v\n%s", err, out)
+			cmd := exec.Command(tsc, "-p", filepath.Join(dir, "tsconfig.json"))
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("tsc: %v\n%s", err, out)
+			}
+		})
 	}
 }
 
 const consumerTS = `import { createMessages, type Messages } from "./messages.js";
-import { useTypedMessages } from "./glossa-vue.js";
-import { useGlossa } from "@glossa/vue";
 
-const t = (id: string, values: Record<string, unknown>): string => id + JSON.stringify(values);
+const t =(id: string, values: Record<string, unknown>): string => id + JSON.stringify(values);
 const messages = createMessages(t);
 
 export const ok: string[] = [
@@ -181,6 +206,11 @@ messages.checkout.pay({ amount: "12" });
 messages.checkout.refund();
 // @ts-expect-error cart.checkout takes no values
 messages.cart.checkout({ extra: 1 });
+`
+
+const vueConsumerTS = `
+import { useTypedMessages } from "./glossa-vue.js";
+import { useGlossa } from "@glossa/vue";
 
 // The registration types @glossa/vue's own t().
 export function inSetup(): string {
@@ -188,6 +218,27 @@ export function inSetup(): string {
   const { t: typed } = useGlossa();
   // @ts-expect-error unknown ID once GlossaRegister is augmented
   typed("checkout.refund");
+  const key: keyof Messages = "cart.items";
+  return m.cart.items({ count: 1 }) + typed(key, { count: 2 });
+}
+`
+
+const reactConsumerTS = `
+import { createElement } from "react";
+import { useTypedMessages } from "./glossa-react.js";
+import { T, useGlossa } from "@glossa/react";
+
+// The registration types @glossa/react's own t() and <T>.
+export function Component(): string {
+  const m = useTypedMessages();
+  const { t: typed } = useGlossa();
+  // @ts-expect-error unknown ID once GlossaRegister is augmented
+  typed("checkout.refund");
+  // @ts-expect-error <T id> is checked too
+  createElement(T, { id: "checkout.refund" });
+  // @ts-expect-error and so are its values
+  createElement(T, { id: "cart.items", values: { count: "2" } });
+  createElement(T, { id: "cart.items", values: { count: 2 } }, "2 items");
   const key: keyof Messages = "cart.items";
   return m.cart.items({ count: 1 }) + typed(key, { count: 2 });
 }

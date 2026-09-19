@@ -73,7 +73,7 @@ func commands() []command {
 		{"push", "Send the source catalog's messages to the server", runPush},
 		{"pull", "Write translations to local catalogs", runPull},
 		{"extract", "Find message usages in source code", runExtract},
-		{"generate", "Generate typed message accessors (TypeScript, Vue, Go)", runGenerate},
+		{"generate", "Generate typed message accessors (TypeScript, Vue, React, Go)", runGenerate},
 		{"check", "Check the project: structure, arguments, completeness", runCheck},
 		{"status", "Show translation coverage per locale", runStatus},
 		{"diff", "Compare local catalogs with the server", runDiff},

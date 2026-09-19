@@ -60,6 +60,7 @@ catalogs:
 generate:
   typescript: src/glossa/messages.ts
   vue: src/glossa/glossa-vue.ts
+  react: src/glossa/glossa-react.ts
   go: internal/msg/messages.go
 extract:
   include: ["src/**/*.{ts,vue}", "**/*.go"]

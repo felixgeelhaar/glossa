@@ -42,7 +42,7 @@ func runGenerate(ctx context.Context, inv *invocation, args []string) error {
 	g := cfg.Generate
 	if g.TypeScript == "" && g.Go == "" {
 		return &Error{Exit: ExitUsage, Code: "nothing_to_generate", What: "no generate outputs configured",
-			Where: cfg.Path + " (generate)", Fix: "set generate.typescript (and generate.vue) and/or generate.go, e.g. generate:\n    typescript: src/glossa/messages.ts"}
+			Where: cfg.Path + " (generate)", Fix: "set generate.typescript (and generate.vue or generate.react) and/or generate.go, e.g. generate:\n    typescript: src/glossa/messages.ts"}
 	}
 	s, label, err := inv.generateSource(ctx, cfg, *fromServer)
 	if err != nil {
@@ -116,13 +116,20 @@ func renderGenerated(cfg *config.Config, entries []codegen.Entry, source string)
 		ts, w := codegen.TypeScript(entries, codegen.TSOptions{Source: source})
 		warnings = append(warnings, w...)
 		files = append(files, renderedFile{cfg.Resolve(g.TypeScript), "typescript", ts})
-		if g.Vue != "" {
-			vuePath := cfg.Resolve(g.Vue)
-			rel, err := filepath.Rel(filepath.Dir(vuePath), cfg.Resolve(g.TypeScript))
+		// Framework registrations import the typed module relative to themselves.
+		for _, r := range []struct {
+			out, kind string
+			render    func(modulePath string) []byte
+		}{{g.Vue, "vue", codegen.Vue}, {g.React, "react", codegen.React}} {
+			if r.out == "" {
+				continue
+			}
+			path := cfg.Resolve(r.out)
+			rel, err := filepath.Rel(filepath.Dir(path), cfg.Resolve(g.TypeScript))
 			if err != nil {
 				return nil, nil, err
 			}
-			files = append(files, renderedFile{vuePath, "vue", codegen.Vue(filepath.ToSlash(rel))})
+			files = append(files, renderedFile{path, r.kind, r.render(filepath.ToSlash(rel))})
 		}
 	}
 	if g.Go != "" {

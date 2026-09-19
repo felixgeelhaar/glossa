@@ -12,8 +12,15 @@ func TestGenerateWritesTypedAccessorsAndChecksStaleness(t *testing.T) {
 	w := newWorkspace(t).withProject(nil, map[string]string{"en": sourceEN})
 	var out generateJSON
 	w.json(&out, "generate").want(t, ExitOK)
-	if out.Messages != 3 || len(out.Files) != 3 || !out.Files[0].Changed {
+	if out.Messages != 3 || len(out.Files) != 4 || !out.Files[0].Changed {
 		t.Fatalf("generate = %+v", out)
+	}
+	var kinds []string
+	for _, f := range out.Files {
+		kinds = append(kinds, f.Kind)
+	}
+	if strings.Join(kinds, ",") != "typescript,vue,react,go" {
+		t.Errorf("kinds = %v", kinds)
 	}
 	ts := w.read("src/glossa/messages.ts")
 	for _, want := range []string{`"checkout.pay": { amount: number };`, "pay: (values: Messages[\"checkout.pay\"]): string"} {
@@ -23,6 +30,10 @@ func TestGenerateWritesTypedAccessorsAndChecksStaleness(t *testing.T) {
 	}
 	if vue := w.read("src/glossa/glossa-vue.ts"); !strings.Contains(vue, `from "./messages.js"`) {
 		t.Errorf("glossa-vue.ts = %s", vue)
+	}
+	if react := w.read("src/glossa/glossa-react.ts"); !strings.Contains(react, `from "./messages.js"`) ||
+		!strings.Contains(react, `declare module "@glossa/react"`) {
+		t.Errorf("glossa-react.ts = %s", react)
 	}
 	if goSrc := w.read("internal/msg/messages.go"); !strings.Contains(goSrc, "package msg") ||
 		!strings.Contains(goSrc, "func (m Messages) CheckoutPay(amount float64, opts ...glossa.Option) string") {

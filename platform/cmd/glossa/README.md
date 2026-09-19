@@ -38,6 +38,7 @@ extract:
 generate:
   typescript: src/glossa/messages.ts
   vue: src/glossa/glossa-vue.ts  # needs typescript
+  react: src/glossa/glossa-react.ts  # needs typescript
   go: internal/msg/messages.go
   go_package: msg                # default: the directory name
 check:
@@ -66,7 +67,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 
 | Command | What it does |
 |---|---|
-| `init` | Writes glossa.yaml. Prompts on a terminal; with a token, reads the tenant and source locale from the server. `--server --project --source-locale --catalogs --typescript --vue --go --force` |
+| `init` | Writes glossa.yaml. Prompts on a terminal; with a token, reads the tenant and source locale from the server. `--server --project --source-locale --catalogs --typescript --vue --react --go --force` |
 | `login` / `logout` / `whoami` | Token storage; `--server`, `--token-stdin` |
 | `push` | Sends the source catalog through `message-upserts` (500 per request). Reports created/revised/updated/unchanged/failed per key. `--dry-run` compares canonical models with the server instead of writing. `--translations` also imports the other catalogs as translations (provenance `import`). |
 | `pull` | Writes translations to the catalogs, sorted and deterministic. `--states approved,needs_review\|all`, `--locales`. `--release <id\|v<N>\|latest> [--environment env] [--out dir]` writes a release bundle instead (see *Release*). |
@@ -223,6 +224,10 @@ export function createMessages(t: Translate) { … }   // messages.checkout.pay(
 // glossa-vue.ts
 declare module "@glossa/vue" { interface GlossaRegister { messages: Messages } }
 export function useTypedMessages() { … }              // in setup(): m.cart.items({ count })
+
+// glossa-react.ts
+declare module "@glossa/react" { interface GlossaRegister { messages: Messages } }
+export function useTypedMessages() { … }              // a hook: m.cart.items({ count }); <T id> is typed too
 ```
 
 ```go

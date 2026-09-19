@@ -32,8 +32,8 @@ type initJSON struct {
 }
 
 type initFlags struct {
-	server, tenant, project, sourceLocale, catalogs, ts, vue, goOut string
-	force                                                           bool
+	server, tenant, project, sourceLocale, catalogs, ts, vue, react, goOut string
+	force                                                                  bool
 }
 
 func runInit(ctx context.Context, inv *invocation, args []string) error {
@@ -46,6 +46,7 @@ func runInit(ctx context.Context, inv *invocation, args []string) error {
 	fs.StringVar(&f.catalogs, "catalogs", "", "catalog file pattern (default "+defaultCatalogs+")")
 	fs.StringVar(&f.ts, "typescript", "", "where `generate` writes the TypeScript module")
 	fs.StringVar(&f.vue, "vue", "", "where `generate` writes the @glossa/vue registration")
+	fs.StringVar(&f.react, "react", "", "where `generate` writes the @glossa/react registration")
 	fs.StringVar(&f.goOut, "go", "", "where `generate` writes the Go accessors")
 	fs.BoolVar(&f.force, "force", false, "overwrite an existing glossa.yaml")
 	if _, err := inv.parse(fs, args); err != nil {
@@ -63,7 +64,7 @@ func runInit(ctx context.Context, inv *invocation, args []string) error {
 		Tenant: f.tenant, Project: f.project, SourceLocale: f.sourceLocale,
 		Catalogs: config.Catalogs{Path: orDefault(f.catalogs, defaultCatalogs)},
 		Extract:  defaultExtract,
-		Generate: config.Generate{TypeScript: f.ts, Vue: f.vue, Go: f.goOut},
+		Generate: config.Generate{TypeScript: f.ts, Vue: f.vue, React: f.react, Go: f.goOut},
 		Path:     path}
 	if cfg.Project == "" {
 		return &Error{Exit: ExitUsage, Code: "invalid_usage", What: "which project?",

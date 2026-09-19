@@ -63,6 +63,7 @@ func TestLoadRejectsInvalidFiles(t *testing.T) {
 		{"bad locale", strings.Replace(valid, "en_us", "not a locale", 1), "source_locale"},
 		{"bad syntax", valid + "syntax: icu\n", "syntax: must be mf1 or mf2"},
 		{"vue without ts", valid + "generate:\n  vue: src/glossa-vue.ts\n", "generate.vue"},
+		{"react without ts", valid + "generate:\n  react: src/glossa-react.ts\n", "generate.react"},
 		{"fail_on", valid + "check:\n  fail_on: info\n", "check.fail_on"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
