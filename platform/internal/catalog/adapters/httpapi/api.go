@@ -40,16 +40,28 @@ func toProject(p domain.Project) apiv1.Project {
 		Id: p.ID.String(), Slug: string(p.Slug), Name: p.Name, SourceLocale: p.SourceLocale.String(),
 		Settings: apiv1.ProjectSettings{
 			DefaultSyntax: apiv1.Syntax(p.Settings.DefaultSyntax), ReviewRequired: p.Settings.ReviewRequired,
+			DefaultBranch: apiconv.Ptr(string(p.Settings.DefaultBranch)),
 		},
 		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 	}
 }
 
-func fromSettings(s *apiv1.ProjectSettings) *domain.Settings {
+// fromSettings reads settings from a request. An absent default_branch
+// keeps the project's (a new project gets main); an empty one is
+// invalid.
+func fromSettings(s *apiv1.ProjectSettings) (*domain.Settings, error) {
 	if s == nil {
-		return nil
+		return nil, nil
 	}
-	return &domain.Settings{DefaultSyntax: mfcontent.Syntax(s.DefaultSyntax), ReviewRequired: s.ReviewRequired}
+	out := &domain.Settings{DefaultSyntax: mfcontent.Syntax(s.DefaultSyntax), ReviewRequired: s.ReviewRequired}
+	if s.DefaultBranch != nil {
+		b, err := domain.ParseBranchName(*s.DefaultBranch)
+		if err != nil {
+			return nil, mapError(err)
+		}
+		out.DefaultBranch = b
+	}
+	return out, nil
 }
 
 func (a *API) ListProjects(ctx context.Context, req apiv1.ListProjectsRequestObject) (apiv1.ListProjectsResponseObject, error) {
@@ -73,8 +85,12 @@ func (a *API) CreateProject(ctx context.Context, req apiv1.CreateProjectRequestO
 	if req.Params.IdempotencyKey != nil {
 		key = *req.Params.IdempotencyKey
 	}
+	settings, err := fromSettings(req.Body.Settings)
+	if err != nil {
+		return nil, err
+	}
 	p, replayed, err := a.svc.CreateProject(ctx, app.NewProject{
-		Slug: req.Body.Slug, Name: req.Body.Name, SourceLocale: req.Body.SourceLocale, Settings: fromSettings(req.Body.Settings),
+		Slug: req.Body.Slug, Name: req.Body.Name, SourceLocale: req.Body.SourceLocale, Settings: settings,
 	}, key)
 	if err != nil {
 		return nil, mapError(err)
@@ -107,7 +123,11 @@ func (a *API) UpdateProject(ctx context.Context, req apiv1.UpdateProjectRequestO
 	if err != nil {
 		return nil, err
 	}
-	c := domain.ProjectChange{Name: req.Body.Name, Settings: fromSettings(req.Body.Settings)}
+	settings, err := fromSettings(req.Body.Settings)
+	if err != nil {
+		return nil, err
+	}
+	c := domain.ProjectChange{Name: req.Body.Name, Settings: settings}
 	if req.Body.Slug != nil {
 		slug, err := domain.ParseSlug(*req.Body.Slug)
 		if err != nil {

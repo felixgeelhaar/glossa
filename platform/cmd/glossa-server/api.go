@@ -12,6 +12,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
+	contextapi "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/mail"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/passkey"
@@ -38,6 +39,7 @@ type apiServer struct {
 	*knowledgeAPI
 	*intelligenceAPI
 	*integrationAPI
+	*contextAPI
 	*previewAPI
 	*metaAPI
 }
@@ -51,6 +53,7 @@ type (
 	knowledgeAPI    = knowledgeapi.API
 	intelligenceAPI = intelligenceapi.API
 	integrationAPI  = integrationapi.API
+	contextAPI      = contextapi.API
 	previewAPI      = previewapi.API
 )
 
@@ -62,7 +65,7 @@ var _ apiv1.StrictServerInterface = apiServer{}
 func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts) func(*http.ServeMux) {
 	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
 		knowledgeAPI: c.knowledgeAPI, intelligenceAPI: c.intelligenceAPI, integrationAPI: c.integrationAPI,
-		previewAPI: c.previewAPI, metaAPI: meta}
+		previewAPI: c.previewAPI, contextAPI: c.contextAPI, metaAPI: meta}
 	return func(mux *http.ServeMux) {
 		strict := apiv1.NewStrictHandlerWithOptions(server, nil, apiv1.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  identity.RequestError,

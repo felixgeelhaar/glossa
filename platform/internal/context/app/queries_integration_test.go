@@ -280,3 +280,22 @@ func TestIngestRecordsMetricsAndCoverage(t *testing.T) {
 		t.Errorf("coverage = %v, want 3 active, 1 used", got)
 	}
 }
+
+func TestUsagesOfKeySaysWhenTheLimitCutsThemShort(t *testing.T) {
+	h := newHarness(t)
+	f := h.project(t, "shop", []string{"web"}, "checkout.pay", "nav.home")
+	h.ingest(t, f, "plugin", "web", "aaaaaaa", "main", use{"checkout.pay", "a.vue", 1}, use{"checkout.pay", "b.vue", 2})
+	ctx := h.developer()
+	got, err := h.svc.UsagesOfKey(ctx, f.project, "checkout.pay", app.UsageQuery{Limit: 1})
+	if err != nil || got.MessageID != f.ids["checkout.pay"] || len(got.Usages) != 1 || !got.Truncated {
+		t.Errorf("limit 1 = %+v, err %v", got, err)
+	}
+	all, err := h.svc.UsagesOfKey(ctx, f.project, "checkout.pay", app.UsageQuery{})
+	if err != nil || len(all.Usages) != 2 || all.Truncated {
+		t.Errorf("default limit = %+v, err %v", all, err)
+	}
+	none, err := h.svc.UsagesOfKey(ctx, f.project, "nav.home", app.UsageQuery{})
+	if err != nil || none.Usages == nil || len(none.Usages) != 0 {
+		t.Errorf("unused message = %+v, err %v", none, err)
+	}
+}

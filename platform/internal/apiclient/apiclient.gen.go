@@ -411,6 +411,30 @@ func (e ArgumentType) Valid() bool {
 	}
 }
 
+// Defines values for ContextSource.
+const (
+	Capture ContextSource = "capture"
+	Extract ContextSource = "extract"
+	Plugin  ContextSource = "plugin"
+	Runtime ContextSource = "runtime"
+)
+
+// Valid indicates whether the value is a known member of the ContextSource enum.
+func (e ContextSource) Valid() bool {
+	switch e {
+	case Capture:
+		return true
+	case Extract:
+		return true
+	case Plugin:
+		return true
+	case Runtime:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeploymentAction.
 const (
 	DeploymentActionPromote  DeploymentAction = "promote"
@@ -700,6 +724,7 @@ func (e MessagePreviewErrorStage) Valid() bool {
 const (
 	MessageStateActive   MessageState = "active"
 	MessageStateObsolete MessageState = "obsolete"
+	MessageStateProposed MessageState = "proposed"
 )
 
 // Valid indicates whether the value is a known member of the MessageState enum.
@@ -708,6 +733,8 @@ func (e MessageState) Valid() bool {
 	case MessageStateActive:
 		return true
 	case MessageStateObsolete:
+		return true
+	case MessageStateProposed:
 		return true
 	default:
 		return false
@@ -1269,6 +1296,48 @@ func (e TranslationRevisionKind) Valid() bool {
 	case TranslationRevisionKindContent:
 		return true
 	case TranslationRevisionKindReview:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UsageKind.
+const (
+	Accessor  UsageKind = "accessor"
+	Component UsageKind = "component"
+	Element   UsageKind = "element"
+	T         UsageKind = "t"
+	Template  UsageKind = "template"
+)
+
+// Valid indicates whether the value is a known member of the UsageKind enum.
+func (e UsageKind) Valid() bool {
+	switch e {
+	case Accessor:
+		return true
+	case Component:
+		return true
+	case Element:
+		return true
+	case T:
+		return true
+	case Template:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UsagesDocumentSchema.
+const (
+	GlossaUsagesv1 UsagesDocumentSchema = "glossa.usages/v1"
+)
+
+// Valid indicates whether the value is a known member of the UsagesDocumentSchema enum.
+func (e UsagesDocumentSchema) Valid() bool {
+	switch e {
+	case GlossaUsagesv1:
 		return true
 	default:
 		return false
@@ -2094,6 +2163,80 @@ type ArgumentSelectorKind string
 // ArgumentType defines model for Argument.Type.
 type ArgumentType string
 
+// ContextBuild One upload of usages for one application at one commit.
+type ContextBuild struct {
+	// ApplicationId An opaque identifier.
+	ApplicationId Id     `json:"application_id"`
+	Branch        string `json:"branch"`
+	Commit        string `json:"commit"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// Digest SHA-256 (hex) of the document's RFC 8785 canonical form.
+	Digest string `json:"digest"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// OnDefaultBranch The branch was the project's default branch at upload.
+	OnDefaultBranch bool          `json:"on_default_branch"`
+	Source          ContextSource `json:"source"`
+	Tool            UsagesTool    `json:"tool"`
+
+	// UnknownKeys Usages whose key the catalog didn't know at upload.
+	UnknownKeys int `json:"unknown_keys"`
+	Usages      int `json:"usages"`
+}
+
+// ContextBuildList defines model for ContextBuildList.
+type ContextBuildList struct {
+	Items         []ContextBuild `json:"items"`
+	NextPageToken *string        `json:"next_page_token,omitempty"`
+}
+
+// ContextSource defines model for ContextSource.
+type ContextSource string
+
+// ContextUsage Where a message's key is used, in a build.
+type ContextUsage struct {
+	// ApplicationId An opaque identifier.
+	ApplicationId Id     `json:"application_id"`
+	Branch        string `json:"branch"`
+
+	// BuildId An opaque identifier.
+	BuildId   Id      `json:"build_id"`
+	Column    *int    `json:"column,omitempty"`
+	Commit    string  `json:"commit"`
+	Component *string `json:"component,omitempty"`
+	File      string  `json:"file"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
+
+	// Kind The call shape: `t` (t()/$t(), Go's T), `component` (<GlossaText
+	// id>, <T id>), `element` (<glossa-text key> and its siblings),
+	// `accessor` (typed accessors from `glossa generate`), `template`
+	// ({{t}}, {{td}}, {{th}} in Go templates).
+	Kind UsageKind `json:"kind"`
+	Line int       `json:"line"`
+
+	// MessageId The message the key named at upload; absent for an unknown key.
+	MessageId       *Id           `json:"message_id,omitempty"`
+	OnDefaultBranch bool          `json:"on_default_branch"`
+	Route           *string       `json:"route,omitempty"`
+	Source          ContextSource `json:"source"`
+}
+
+// ContextUsageList defines model for ContextUsageList.
+type ContextUsageList struct {
+	Items         []ContextUsage `json:"items"`
+	NextPageToken *string        `json:"next_page_token,omitempty"`
+}
+
 // CreateAIFill defines model for CreateAIFill.
 type CreateAIFill struct {
 	// IncludeOutdated The older spelling of `select: missing_or_outdated`.
@@ -2840,8 +2983,11 @@ type Message struct {
 	Source    MessageContent `json:"source"`
 
 	// SourceRevision The current source revision.
-	SourceRevision int          `json:"source_revision"`
-	State          MessageState `json:"state"`
+	SourceRevision int `json:"source_revision"`
+
+	// State `proposed`: new on an open branch; excluded from non-branch
+	// releases (RFC 0004 §4.1).
+	State MessageState `json:"state"`
 
 	// UpdatedAt RFC 3339, UTC.
 	UpdatedAt Timestamp `json:"updated_at"`
@@ -2931,7 +3077,8 @@ type MessagePreviewRequest struct {
 	Values *map[string]interface{} `json:"values,omitempty"`
 }
 
-// MessageState defines model for MessageState.
+// MessageState `proposed`: new on an open branch; excluded from non-branch
+// releases (RFC 0004 §4.1).
 type MessageState string
 
 // MessageUpsert defines model for MessageUpsert.
@@ -2975,6 +3122,21 @@ type MessageUpsertItemResultStatus string
 // MessageUpsertResult defines model for MessageUpsertResult.
 type MessageUpsertResult struct {
 	Results []MessageUpsertItemResult `json:"results"`
+}
+
+// MessageUsages defines model for MessageUsages.
+type MessageUsages struct {
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
+
+	// MessageId An opaque identifier.
+	MessageId Id `json:"message_id"`
+
+	// Truncated More usages exist than `limit`.
+	Truncated bool           `json:"truncated"`
+	Usages    []ContextUsage `json:"usages"`
 }
 
 // Meta defines model for Meta.
@@ -3158,6 +3320,13 @@ type ProjectLocale struct {
 
 // ProjectSettings defines model for ProjectSettings.
 type ProjectSettings struct {
+	// DefaultBranch The repository's default branch (`main` unless set): usage
+	// uploads of it are what every view of the current usages falls
+	// back to (RFC 0004 §2.2). A valid Git branch name
+	// (`invalid_branch`). Always present in responses; absent in a
+	// write, the project keeps its current one.
+	DefaultBranch *string `json:"default_branch,omitempty"`
+
 	// DefaultSyntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
 	DefaultSyntax Syntax `json:"default_syntax"`
 
@@ -3204,7 +3373,10 @@ type ProjectTranslation struct {
 	Locale Locale `json:"locale"`
 
 	// MessageId An opaque identifier.
-	MessageId    Id           `json:"message_id"`
+	MessageId Id `json:"message_id"`
+
+	// MessageState `proposed`: new on an open branch; excluded from non-branch
+	// releases (RFC 0004 §4.1).
 	MessageState MessageState `json:"message_state"`
 
 	// Model A message in the Unicode MessageFormat 2 data model, exactly as
@@ -4364,6 +4536,28 @@ type TranslationTerminologyFindings struct {
 	TargetText string `json:"target_text"`
 }
 
+// UnusedMessage defines model for UnusedMessage.
+type UnusedMessage struct {
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
+}
+
+// UnusedMessageList defines model for UnusedMessageList.
+type UnusedMessageList struct {
+	ActiveMessages int `json:"active_messages"`
+
+	// CurrentBuilds The builds considered; 0 means nothing was uploaded yet.
+	CurrentBuilds  int             `json:"current_builds"`
+	Items          []UnusedMessage `json:"items"`
+	NextPageToken  *string         `json:"next_page_token,omitempty"`
+	UnusedMessages int             `json:"unused_messages"`
+}
+
 // UpdateAIProjectSettings defines model for UpdateAIProjectSettings.
 type UpdateAIProjectSettings struct {
 	AutoTranslateLocales *[]Locale                    `json:"auto_translate_locales,omitempty"`
@@ -4435,6 +4629,67 @@ type UpdateProject struct {
 	Slug     *Slug            `json:"slug,omitempty"`
 }
 
+// UsageKind The call shape: `t` (t()/$t(), Go's T), `component` (<GlossaText
+// id>, <T id>), `element` (<glossa-text key> and its siblings),
+// `accessor` (typed accessors from `glossa generate`), `template`
+// ({{t}}, {{td}}, {{th}} in Go templates).
+type UsageKind string
+
+// UsagesDocument A `glossa.usages/v1` document (RFC 0004 §2.2): one build, one
+// application at one commit. Its JSON Schema,
+// `runtimes/testdata/schemas/usages.v1.schema.json`, has every rule;
+// the ones below are the shape.
+type UsagesDocument struct {
+	// Application The application's slug in the project.
+	Application string `json:"application"`
+
+	// Branch The short branch name (`feat/checkout-copy`).
+	Branch string `json:"branch"`
+
+	// Commit The full commit ID in lowercase hex (SHA-1 or SHA-256).
+	Commit string                `json:"commit"`
+	Schema UsagesDocumentSchema  `json:"schema"`
+	Tool   UsagesTool            `json:"tool"`
+	Usages []UsagesDocumentUsage `json:"usages"`
+}
+
+// UsagesDocumentSchema defines model for UsagesDocument.Schema.
+type UsagesDocumentSchema string
+
+// UsagesDocumentUsage defines model for UsagesDocumentUsage.
+type UsagesDocumentUsage struct {
+	// Column 1-based, in Unicode code points.
+	Column    int     `json:"column"`
+	Component *string `json:"component,omitempty"`
+
+	// File A path relative to the project root, with `/` and no `.` or `..` segments.
+	File string `json:"file"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
+
+	// Kind The call shape: `t` (t()/$t(), Go's T), `component` (<GlossaText
+	// id>, <T id>), `element` (<glossa-text key> and its siblings),
+	// `accessor` (typed accessors from `glossa generate`), `template`
+	// ({{t}}, {{td}}, {{th}} in Go templates).
+	Kind UsageKind `json:"kind"`
+	Line int       `json:"line"`
+
+	// Route A route pattern: `/checkout/[step]`.
+	Route *string `json:"route,omitempty"`
+}
+
+// UsagesTool defines model for UsagesTool.
+type UsagesTool struct {
+	// Name A package name: `@glossa/unplugin`, `glossa`.
+	Name string `json:"name"`
+
+	// Version A semantic version.
+	Version string `json:"version"`
+}
+
 // WebAuthnResponse The `PublicKeyCredential` from the browser, serialized as JSON.
 type WebAuthnResponse map[string]interface{}
 
@@ -4458,6 +4713,9 @@ type CeremonyCookie = string
 
 // ConceptPath An opaque identifier.
 type ConceptPath = Id
+
+// ContextBranch defines model for ContextBranch.
+type ContextBranch = string
 
 // DeliveryKeyPath An opaque identifier.
 type DeliveryKeyPath = Id
@@ -4871,6 +5129,23 @@ type UpdateApplicationParams struct {
 	IfMatch IfMatch `json:"If-Match"`
 }
 
+// ListContextBuildsParams defines parameters for ListContextBuilds.
+type ListContextBuildsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Application Only this application's builds (its slug).
+	Application *Slug `form:"application,omitempty" json:"application,omitempty"`
+}
+
+// CreateContextBuildParams defines parameters for CreateContextBuild.
+type CreateContextBuildParams struct {
+	// Source The collector that wrote the document: `plugin` (@glossa/unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
+	Source ContextSource `form:"source" json:"source"`
+}
+
 // ListDeliveryKeysParams defines parameters for ListDeliveryKeys.
 type ListDeliveryKeysParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -5004,6 +5279,13 @@ type ListTranslationRevisionsParams struct {
 	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
+// ListMessageUsagesParams defines parameters for ListMessageUsages.
+type ListMessageUsagesParams struct {
+	// Branch A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's.
+	Branch *ContextBranch `form:"branch,omitempty" json:"branch,omitempty"`
+	Limit  *int           `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListNamespacesParams defines parameters for ListNamespaces.
 type ListNamespacesParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -5076,6 +5358,37 @@ type ListProjectTranslationsParams struct {
 
 	// MessageState Only translations of `active` (or `obsolete`) messages.
 	MessageState *MessageState `form:"message_state,omitempty" json:"message_state,omitempty"`
+}
+
+// ListUnusedMessagesParams defines parameters for ListUnusedMessages.
+type ListUnusedMessagesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Branch A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's.
+	Branch *ContextBranch `form:"branch,omitempty" json:"branch,omitempty"`
+}
+
+// ListUsagesParams defines parameters for ListUsages.
+type ListUsagesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Branch A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's.
+	Branch *ContextBranch `form:"branch,omitempty" json:"branch,omitempty"`
+
+	// Route A route pattern, exactly (`/checkout/[step]`).
+	Route *string `form:"route,omitempty" json:"route,omitempty"`
+
+	// Component A component, exactly (`PaymentFooter`, `mail.(*Mailer).Send`).
+	Component *string `form:"component,omitempty" json:"component,omitempty"`
+
+	// File A file path relative to the project root, exactly.
+	File *string `form:"file,omitempty" json:"file,omitempty"`
 }
 
 // ListStyleGuidesParams defines parameters for ListStyleGuides.
@@ -5355,6 +5668,9 @@ type CreateApplicationJSONRequestBody = CreateApplication
 
 // UpdateApplicationJSONRequestBody defines body for UpdateApplication for application/json ContentType.
 type UpdateApplicationJSONRequestBody = UpdateApplication
+
+// CreateContextBuildJSONRequestBody defines body for CreateContextBuild for application/json ContentType.
+type CreateContextBuildJSONRequestBody = UsagesDocument
 
 // CreateDeliveryKeyJSONRequestBody defines body for CreateDeliveryKey for application/json ContentType.
 type CreateDeliveryKeyJSONRequestBody = CreateDeliveryKey
@@ -6623,7 +6939,7 @@ type ClientInterface interface {
 	//
 	// The source locale is fixed at creation. Needs `catalog.write`.
 	// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-	// `invalid_locale`, `invalid_syntax` (400).
+	// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -6634,7 +6950,7 @@ type ClientInterface interface {
 	//
 	// The source locale is fixed at creation. Needs `catalog.write`.
 	// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-	// `invalid_locale`, `invalid_syntax` (400).
+	// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -6661,7 +6977,8 @@ type ClientInterface interface {
 	//
 	// Members omitted from the body keep their value; the source locale
 	// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-	// (409).
+	// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
+	// `invalid_branch` (400).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -6672,7 +6989,8 @@ type ClientInterface interface {
 	//
 	// Members omitted from the body keep their value; the source locale
 	// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-	// (409).
+	// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
+	// `invalid_branch` (400).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -6960,6 +7278,79 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 	UpdateApplication(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListContextBuilds A project's usage uploads (builds), newest first
+	//
+	// With how many usages each holds and how many of those name a key
+	// the catalog didn't know at upload (`unknown_keys`). Retention
+	// keeps the latest 5 builds per application, branch and source plus
+	// every current one (RFC 0004 §2.3). Needs `catalog.read`. Problem
+	// codes: `unknown_application` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/context-builds (the `ListContextBuilds` operationId).
+	ListContextBuilds(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListContextBuildsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateContextBuildWithBody Upload a build's usages (glossa context push)
+	//
+	// The body is one `glossa.usages/v1` document: where one
+	// application's messages are used at one commit, as
+	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
+	// It is validated by the schema's rules — members it doesn't define
+	// are ignored within v1, anything else it refuses is
+	// `invalid_usages` — and holds at most 100 000 usages and 20 MB.
+	//
+	// Keys are resolved to message IDs now, so renaming a message later
+	// keeps its usages; a key the catalog doesn't know is stored and
+	// counted in `unknown_keys`. Whether the build is of the default
+	// branch is the project's `settings.default_branch`, not the
+	// uploader's say. `digest` is the SHA-256 of the document's
+	// RFC 8785 canonical form (without undefined members), and an upload
+	// is idempotent by application, commit, `source` and digest: the
+	// same document again answers `200` with the first upload's build
+	// and `Idempotent-Replayed: true`.
+	//
+	// Uploads are rate-limited per tenant (10 a minute, bursts of 60).
+	// Needs `catalog.write` (developers, `write` tokens: CI). Problem
+	// codes: `invalid_usages`, `too_many_usages`, `invalid_source`,
+	// `unknown_application` (400), `payload_too_large` (413),
+	// `rate_limited` (429).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/context-builds (the `CreateContextBuild` operationId).
+	CreateContextBuildWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateContextBuildParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateContextBuild Upload a build's usages (glossa context push)
+	//
+	// The body is one `glossa.usages/v1` document: where one
+	// application's messages are used at one commit, as
+	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
+	// It is validated by the schema's rules — members it doesn't define
+	// are ignored within v1, anything else it refuses is
+	// `invalid_usages` — and holds at most 100 000 usages and 20 MB.
+	//
+	// Keys are resolved to message IDs now, so renaming a message later
+	// keeps its usages; a key the catalog doesn't know is stored and
+	// counted in `unknown_keys`. Whether the build is of the default
+	// branch is the project's `settings.default_branch`, not the
+	// uploader's say. `digest` is the SHA-256 of the document's
+	// RFC 8785 canonical form (without undefined members), and an upload
+	// is idempotent by application, commit, `source` and digest: the
+	// same document again answers `200` with the first upload's build
+	// and `Idempotent-Replayed: true`.
+	//
+	// Uploads are rate-limited per tenant (10 a minute, bursts of 60).
+	// Needs `catalog.write` (developers, `write` tokens: CI). Problem
+	// codes: `invalid_usages`, `too_many_usages`, `invalid_source`,
+	// `unknown_application` (400), `payload_too_large` (413),
+	// `rate_limited` (429).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/context-builds (the `CreateContextBuild` operationId).
+	CreateContextBuild(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateContextBuildParams, body CreateContextBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDeliveryKeys Publishable delivery keys, including revoked ones
 	//
@@ -7516,6 +7907,19 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListMessageUsages Where a message appears (its current usages)
+	//
+	// The usages of the message the key names now, in the current
+	// builds: per application and source, the latest build of the
+	// default branch — or, with `branch`, that branch's latest build,
+	// falling back to the default branch's where the branch didn't
+	// rebuild. The default branch's usages come first, then by
+	// application, file and line; `truncated` says more than `limit`
+	// exist. Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/usages (the `ListMessageUsages` operationId).
+	ListMessageUsages(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *ListMessageUsagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListNamespaces A project's namespaces, by name, with their message counts
 	//
 	// Every namespace that holds a message, in name order, with how
@@ -7705,6 +8109,30 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
 	ListProjectTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListUnusedMessages Active messages no current build uses
+	//
+	// By key. They are reported, never obsoleted: a dynamic key
+	// (`t(\`plan.${tier}\`)`) is invisible to every collector.
+	// `current_builds` is how many builds were considered — with none,
+	// nothing was uploaded yet and every message is listed — and
+	// `active_messages` and `unused_messages` give the project's context
+	// coverage. `branch` selects a branch view (see `listMessageUsages`).
+	// Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/unused-messages (the `ListUnusedMessages` operationId).
+	ListUnusedMessages(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUnusedMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListUsages The current usages on a route, in a component or in a file
+	//
+	// The messages a route, component or file shows (RFC 0004 §8): the
+	// usages in the current builds (see `listMessageUsages`; `branch`
+	// selects a branch view), by build and position. Filters combine;
+	// without one, every current usage. Needs `catalog.read`. Problem
+	// codes: `invalid_branch` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/usages (the `ListUsages` operationId).
+	ListUsages(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUsagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListStyleGuides Style guides
 	//
@@ -10210,7 +10638,7 @@ func (c *Client) ListProjects(ctx context.Context, tenant TenantPath, params *Li
 //
 // The source locale is fixed at creation. Needs `catalog.write`.
 // Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-// `invalid_locale`, `invalid_syntax` (400).
+// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
 //
 // Takes any type of body and a specified content type.
 //
@@ -10231,7 +10659,7 @@ func (c *Client) CreateProjectWithBody(ctx context.Context, tenant TenantPath, p
 //
 // The source locale is fixed at creation. Needs `catalog.write`.
 // Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-// `invalid_locale`, `invalid_syntax` (400).
+// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -10288,7 +10716,8 @@ func (c *Client) GetProject(ctx context.Context, tenant TenantPath, project Proj
 //
 // Members omitted from the body keep their value; the source locale
 // can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-// (409).
+// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
+// `invalid_branch` (400).
 //
 // Takes any type of body and a specified content type.
 //
@@ -10309,7 +10738,8 @@ func (c *Client) UpdateProjectWithBody(ctx context.Context, tenant TenantPath, p
 //
 // Members omitted from the body keep their value; the source locale
 // can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-// (409).
+// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
+// `invalid_branch` (400).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -10798,6 +11228,109 @@ func (c *Client) UpdateApplicationWithBody(ctx context.Context, tenant TenantPat
 // Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 func (c *Client) UpdateApplication(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateApplicationRequest(c.Server, tenant, project, application, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListContextBuilds A project's usage uploads (builds), newest first
+//
+// With how many usages each holds and how many of those name a key
+// the catalog didn't know at upload (`unknown_keys`). Retention
+// keeps the latest 5 builds per application, branch and source plus
+// every current one (RFC 0004 §2.3). Needs `catalog.read`. Problem
+// codes: `unknown_application` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/context-builds (the `ListContextBuilds` operationId).
+func (c *Client) ListContextBuilds(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListContextBuildsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListContextBuildsRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateContextBuildWithBody Upload a build's usages (glossa context push)
+//
+// The body is one `glossa.usages/v1` document: where one
+// application's messages are used at one commit, as
+// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
+// It is validated by the schema's rules — members it doesn't define
+// are ignored within v1, anything else it refuses is
+// `invalid_usages` — and holds at most 100 000 usages and 20 MB.
+//
+// Keys are resolved to message IDs now, so renaming a message later
+// keeps its usages; a key the catalog doesn't know is stored and
+// counted in `unknown_keys`. Whether the build is of the default
+// branch is the project's `settings.default_branch`, not the
+// uploader's say. `digest` is the SHA-256 of the document's
+// RFC 8785 canonical form (without undefined members), and an upload
+// is idempotent by application, commit, `source` and digest: the
+// same document again answers `200` with the first upload's build
+// and `Idempotent-Replayed: true`.
+//
+// Uploads are rate-limited per tenant (10 a minute, bursts of 60).
+// Needs `catalog.write` (developers, `write` tokens: CI). Problem
+// codes: `invalid_usages`, `too_many_usages`, `invalid_source`,
+// `unknown_application` (400), `payload_too_large` (413),
+// `rate_limited` (429).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/context-builds (the `CreateContextBuild` operationId).
+func (c *Client) CreateContextBuildWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateContextBuildParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateContextBuildRequestWithBody(c.Server, tenant, project, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateContextBuild Upload a build's usages (glossa context push)
+//
+// The body is one `glossa.usages/v1` document: where one
+// application's messages are used at one commit, as
+// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
+// It is validated by the schema's rules — members it doesn't define
+// are ignored within v1, anything else it refuses is
+// `invalid_usages` — and holds at most 100 000 usages and 20 MB.
+//
+// Keys are resolved to message IDs now, so renaming a message later
+// keeps its usages; a key the catalog doesn't know is stored and
+// counted in `unknown_keys`. Whether the build is of the default
+// branch is the project's `settings.default_branch`, not the
+// uploader's say. `digest` is the SHA-256 of the document's
+// RFC 8785 canonical form (without undefined members), and an upload
+// is idempotent by application, commit, `source` and digest: the
+// same document again answers `200` with the first upload's build
+// and `Idempotent-Replayed: true`.
+//
+// Uploads are rate-limited per tenant (10 a minute, bursts of 60).
+// Needs `catalog.write` (developers, `write` tokens: CI). Problem
+// codes: `invalid_usages`, `too_many_usages`, `invalid_source`,
+// `unknown_application` (400), `payload_too_large` (413),
+// `rate_limited` (429).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/context-builds (the `CreateContextBuild` operationId).
+func (c *Client) CreateContextBuild(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateContextBuildParams, body CreateContextBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateContextBuildRequest(c.Server, tenant, project, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11813,6 +12346,29 @@ func (c *Client) ListTranslationRevisions(ctx context.Context, tenant TenantPath
 	return c.Client.Do(req)
 }
 
+// ListMessageUsages Where a message appears (its current usages)
+//
+// The usages of the message the key names now, in the current
+// builds: per application and source, the latest build of the
+// default branch — or, with `branch`, that branch's latest build,
+// falling back to the default branch's where the branch didn't
+// rebuild. The default branch's usages come first, then by
+// application, file and line; `truncated` says more than `limit`
+// exist. Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/usages (the `ListMessageUsages` operationId).
+func (c *Client) ListMessageUsages(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *ListMessageUsagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMessageUsagesRequest(c.Server, tenant, project, message, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListNamespaces A project's namespaces, by name, with their message counts
 //
 // Every namespace that holds a message, in name order, with how
@@ -12133,6 +12689,50 @@ func (c *Client) GetTranslationStats(ctx context.Context, tenant TenantPath, pro
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
 func (c *Client) ListProjectTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectTranslationsRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListUnusedMessages Active messages no current build uses
+//
+// By key. They are reported, never obsoleted: a dynamic key
+// (`t(\`plan.${tier}\`)`) is invisible to every collector.
+// `current_builds` is how many builds were considered — with none,
+// nothing was uploaded yet and every message is listed — and
+// `active_messages` and `unused_messages` give the project's context
+// coverage. `branch` selects a branch view (see `listMessageUsages`).
+// Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/unused-messages (the `ListUnusedMessages` operationId).
+func (c *Client) ListUnusedMessages(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUnusedMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUnusedMessagesRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListUsages The current usages on a route, in a component or in a file
+//
+// The messages a route, component or file shows (RFC 0004 §8): the
+// usages in the current builds (see `listMessageUsages`; `branch`
+// selects a branch view), by build and position. Filters combine;
+// without one, every current usage. Needs `catalog.read`. Problem
+// codes: `invalid_branch` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/usages (the `ListUsages` operationId).
+func (c *Client) ListUsages(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUsagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUsagesRequest(c.Server, tenant, project, params)
 	if err != nil {
 		return nil, err
 	}
@@ -17694,6 +18294,175 @@ func NewUpdateApplicationRequestWithBody(server string, tenant TenantPath, proje
 	return req, nil
 }
 
+// NewListContextBuildsRequest constructs an http.Request for the ListContextBuilds method
+func NewListContextBuildsRequest(server string, tenant TenantPath, project ProjectPath, params *ListContextBuildsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/context-builds", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Application != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "application", *params.Application, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateContextBuildRequest calls the generic CreateContextBuild builder with application/json body
+func NewCreateContextBuildRequest(server string, tenant TenantPath, project ProjectPath, params *CreateContextBuildParams, body CreateContextBuildJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateContextBuildRequestWithBody(server, tenant, project, params, "application/json", bodyReader)
+}
+
+// NewCreateContextBuildRequestWithBody constructs an http.Request for the CreateContextBuild method, with any body, and a specified content type
+func NewCreateContextBuildRequestWithBody(server string, tenant TenantPath, project ProjectPath, params *CreateContextBuildParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/context-builds", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListDeliveryKeysRequest constructs an http.Request for the ListDeliveryKeys method
 func NewListDeliveryKeysRequest(server string, tenant TenantPath, project ProjectPath, params *ListDeliveryKeysParams) (*http.Request, error) {
 	var err error
@@ -19829,6 +20598,93 @@ func NewListTranslationRevisionsRequest(server string, tenant TenantPath, projec
 	return req, nil
 }
 
+// NewListMessageUsagesRequest constructs an http.Request for the ListMessageUsages method
+func NewListMessageUsagesRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, params *ListMessageUsagesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "message", message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/messages/%s/usages", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListNamespacesRequest constructs an http.Request for the ListNamespaces method
 func NewListNamespacesRequest(server string, tenant TenantPath, project ProjectPath, params *ListNamespacesParams) (*http.Request, error) {
 	var err error
@@ -20700,6 +21556,226 @@ func NewListProjectTranslationsRequest(server string, tenant TenantPath, project
 		if params.MessageState != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message_state", *params.MessageState, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListUnusedMessagesRequest constructs an http.Request for the ListUnusedMessages method
+func NewListUnusedMessagesRequest(server string, tenant TenantPath, project ProjectPath, params *ListUnusedMessagesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/unused-messages", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListUsagesRequest constructs an http.Request for the ListUsages method
+func NewListUsagesRequest(server string, tenant TenantPath, project ProjectPath, params *ListUsagesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/usages", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Route != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "route", *params.Route, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Component != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "component", *params.Component, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.File != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "file", *params.File, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -24088,7 +25164,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// The source locale is fixed at creation. Needs `catalog.write`.
 	// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-	// `invalid_locale`, `invalid_syntax` (400).
+	// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -24099,7 +25175,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// The source locale is fixed at creation. Needs `catalog.write`.
 	// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-	// `invalid_locale`, `invalid_syntax` (400).
+	// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -24130,7 +25206,8 @@ type ClientWithResponsesInterface interface {
 	//
 	// Members omitted from the body keep their value; the source locale
 	// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-	// (409).
+	// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
+	// `invalid_branch` (400).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -24141,7 +25218,8 @@ type ClientWithResponsesInterface interface {
 	//
 	// Members omitted from the body keep their value; the source locale
 	// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-	// (409).
+	// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
+	// `invalid_branch` (400).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -24445,6 +25523,81 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 	UpdateApplicationWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApplicationResponse, error)
+
+	// ListContextBuildsWithResponse A project's usage uploads (builds), newest first
+	//
+	// With how many usages each holds and how many of those name a key
+	// the catalog didn't know at upload (`unknown_keys`). Retention
+	// keeps the latest 5 builds per application, branch and source plus
+	// every current one (RFC 0004 §2.3). Needs `catalog.read`. Problem
+	// codes: `unknown_application` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/context-builds (the `ListContextBuilds` operationId).
+	ListContextBuildsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListContextBuildsParams, reqEditors ...RequestEditorFn) (*ListContextBuildsResponse, error)
+
+	// CreateContextBuildWithBodyWithResponse Upload a build's usages (glossa context push)
+	//
+	// The body is one `glossa.usages/v1` document: where one
+	// application's messages are used at one commit, as
+	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
+	// It is validated by the schema's rules — members it doesn't define
+	// are ignored within v1, anything else it refuses is
+	// `invalid_usages` — and holds at most 100 000 usages and 20 MB.
+	//
+	// Keys are resolved to message IDs now, so renaming a message later
+	// keeps its usages; a key the catalog doesn't know is stored and
+	// counted in `unknown_keys`. Whether the build is of the default
+	// branch is the project's `settings.default_branch`, not the
+	// uploader's say. `digest` is the SHA-256 of the document's
+	// RFC 8785 canonical form (without undefined members), and an upload
+	// is idempotent by application, commit, `source` and digest: the
+	// same document again answers `200` with the first upload's build
+	// and `Idempotent-Replayed: true`.
+	//
+	// Uploads are rate-limited per tenant (10 a minute, bursts of 60).
+	// Needs `catalog.write` (developers, `write` tokens: CI). Problem
+	// codes: `invalid_usages`, `too_many_usages`, `invalid_source`,
+	// `unknown_application` (400), `payload_too_large` (413),
+	// `rate_limited` (429).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/context-builds (the `CreateContextBuild` operationId).
+	CreateContextBuildWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateContextBuildParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContextBuildResponse, error)
+
+	// CreateContextBuildWithResponse Upload a build's usages (glossa context push)
+	//
+	// The body is one `glossa.usages/v1` document: where one
+	// application's messages are used at one commit, as
+	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
+	// It is validated by the schema's rules — members it doesn't define
+	// are ignored within v1, anything else it refuses is
+	// `invalid_usages` — and holds at most 100 000 usages and 20 MB.
+	//
+	// Keys are resolved to message IDs now, so renaming a message later
+	// keeps its usages; a key the catalog doesn't know is stored and
+	// counted in `unknown_keys`. Whether the build is of the default
+	// branch is the project's `settings.default_branch`, not the
+	// uploader's say. `digest` is the SHA-256 of the document's
+	// RFC 8785 canonical form (without undefined members), and an upload
+	// is idempotent by application, commit, `source` and digest: the
+	// same document again answers `200` with the first upload's build
+	// and `Idempotent-Replayed: true`.
+	//
+	// Uploads are rate-limited per tenant (10 a minute, bursts of 60).
+	// Needs `catalog.write` (developers, `write` tokens: CI). Problem
+	// codes: `invalid_usages`, `too_many_usages`, `invalid_source`,
+	// `unknown_application` (400), `payload_too_large` (413),
+	// `rate_limited` (429).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/context-builds (the `CreateContextBuild` operationId).
+	CreateContextBuildWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateContextBuildParams, body CreateContextBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContextBuildResponse, error)
 
 	// ListDeliveryKeysWithResponse Publishable delivery keys, including revoked ones
 	//
@@ -25035,6 +26188,21 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*ListTranslationRevisionsResponse, error)
 
+	// ListMessageUsagesWithResponse Where a message appears (its current usages)
+	//
+	// The usages of the message the key names now, in the current
+	// builds: per application and source, the latest build of the
+	// default branch — or, with `branch`, that branch's latest build,
+	// falling back to the default branch's where the branch didn't
+	// rebuild. The default branch's usages come first, then by
+	// application, file and line; `truncated` says more than `limit`
+	// exist. Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/usages (the `ListMessageUsages` operationId).
+	ListMessageUsagesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *ListMessageUsagesParams, reqEditors ...RequestEditorFn) (*ListMessageUsagesResponse, error)
+
 	// ListNamespacesWithResponse A project's namespaces, by name, with their message counts
 	//
 	// Every namespace that holds a message, in name order, with how
@@ -25244,6 +26412,34 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
 	ListProjectTranslationsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*ListProjectTranslationsResponse, error)
+
+	// ListUnusedMessagesWithResponse Active messages no current build uses
+	//
+	// By key. They are reported, never obsoleted: a dynamic key
+	// (`t(\`plan.${tier}\`)`) is invisible to every collector.
+	// `current_builds` is how many builds were considered — with none,
+	// nothing was uploaded yet and every message is listed — and
+	// `active_messages` and `unused_messages` give the project's context
+	// coverage. `branch` selects a branch view (see `listMessageUsages`).
+	// Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/unused-messages (the `ListUnusedMessages` operationId).
+	ListUnusedMessagesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUnusedMessagesParams, reqEditors ...RequestEditorFn) (*ListUnusedMessagesResponse, error)
+
+	// ListUsagesWithResponse The current usages on a route, in a component or in a file
+	//
+	// The messages a route, component or file shows (RFC 0004 §8): the
+	// usages in the current builds (see `listMessageUsages`; `branch`
+	// selects a branch view), by build and position. Filters combine;
+	// without one, every current usage. Needs `catalog.read`. Problem
+	// codes: `invalid_branch` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/usages (the `ListUsages` operationId).
+	ListUsagesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUsagesParams, reqEditors ...RequestEditorFn) (*ListUsagesResponse, error)
 
 	// ListStyleGuidesWithResponse Style guides
 	//
@@ -31479,6 +32675,172 @@ func (r UpdateApplicationResponse) ContentType() string {
 	return ""
 }
 
+type ListContextBuildsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ContextBuildList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListContextBuildsResponse) GetJSON200() *ContextBuildList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListContextBuildsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListContextBuildsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListContextBuildsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListContextBuildsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListContextBuildsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListContextBuildsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListContextBuildsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListContextBuildsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateContextBuildResponse200Headers the declared response headers of an HTTP 200 response for CreateContextBuild
+type CreateContextBuildResponse200Headers struct {
+	IdempotentReplayed *string
+}
+
+type CreateContextBuildResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ContextBuild
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ContextBuild
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON413 the response for an HTTP 413 `application/problem+json` response
+	ApplicationproblemJSON413 *PayloadTooLarge
+	// ApplicationproblemJSON429 the response for an HTTP 429 `application/problem+json` response
+	ApplicationproblemJSON429 *TooManyRequests
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *CreateContextBuildResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CreateContextBuildResponse) GetJSON200() *ContextBuild {
+	return r.JSON200
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateContextBuildResponse) GetJSON201() *ContextBuild {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateContextBuildResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateContextBuildResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateContextBuildResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateContextBuildResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON413 returns the response for an HTTP 413 `application/problem+json` response
+func (r CreateContextBuildResponse) GetApplicationproblemJSON413() *PayloadTooLarge {
+	return r.ApplicationproblemJSON413
+}
+
+// GetApplicationproblemJSON429 returns the response for an HTTP 429 `application/problem+json` response
+func (r CreateContextBuildResponse) GetApplicationproblemJSON429() *TooManyRequests {
+	return r.ApplicationproblemJSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateContextBuildResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateContextBuildResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateContextBuildResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateContextBuildResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListDeliveryKeysResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -33897,6 +35259,75 @@ func (r ListTranslationRevisionsResponse) ContentType() string {
 	return ""
 }
 
+type ListMessageUsagesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MessageUsages
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListMessageUsagesResponse) GetJSON200() *MessageUsages {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListMessageUsagesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListMessageUsagesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListMessageUsagesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListMessageUsagesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListMessageUsagesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListMessageUsagesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListMessageUsagesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListMessageUsagesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListNamespacesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -34727,6 +36158,144 @@ func (r ListProjectTranslationsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListProjectTranslationsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListUnusedMessagesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UnusedMessageList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListUnusedMessagesResponse) GetJSON200() *UnusedMessageList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListUnusedMessagesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListUnusedMessagesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListUnusedMessagesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListUnusedMessagesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListUnusedMessagesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUnusedMessagesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUnusedMessagesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListUnusedMessagesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListUsagesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ContextUsageList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListUsagesResponse) GetJSON200() *ContextUsageList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListUsagesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListUsagesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListUsagesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListUsagesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListUsagesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUsagesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUsagesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListUsagesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -38583,7 +40152,7 @@ func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, tena
 //
 // The source locale is fixed at creation. Needs `catalog.write`.
 // Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-// `invalid_locale`, `invalid_syntax` (400).
+// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -38600,7 +40169,7 @@ func (c *ClientWithResponses) CreateProjectWithBodyWithResponse(ctx context.Cont
 //
 // The source locale is fixed at creation. Needs `catalog.write`.
 // Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-// `invalid_locale`, `invalid_syntax` (400).
+// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -38649,7 +40218,8 @@ func (c *ClientWithResponses) GetProjectWithResponse(ctx context.Context, tenant
 //
 // Members omitted from the body keep their value; the source locale
 // can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-// (409).
+// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
+// `invalid_branch` (400).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -38666,7 +40236,8 @@ func (c *ClientWithResponses) UpdateProjectWithBodyWithResponse(ctx context.Cont
 //
 // Members omitted from the body keep their value; the source locale
 // can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-// (409).
+// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
+// `invalid_branch` (400).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -39095,6 +40666,99 @@ func (c *ClientWithResponses) UpdateApplicationWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseUpdateApplicationResponse(rsp)
+}
+
+// ListContextBuildsWithResponse A project's usage uploads (builds), newest first
+//
+// With how many usages each holds and how many of those name a key
+// the catalog didn't know at upload (`unknown_keys`). Retention
+// keeps the latest 5 builds per application, branch and source plus
+// every current one (RFC 0004 §2.3). Needs `catalog.read`. Problem
+// codes: `unknown_application` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/context-builds (the `ListContextBuilds` operationId).
+func (c *ClientWithResponses) ListContextBuildsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListContextBuildsParams, reqEditors ...RequestEditorFn) (*ListContextBuildsResponse, error) {
+	rsp, err := c.ListContextBuilds(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListContextBuildsResponse(rsp)
+}
+
+// CreateContextBuildWithBodyWithResponse Upload a build's usages (glossa context push)
+//
+// The body is one `glossa.usages/v1` document: where one
+// application's messages are used at one commit, as
+// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
+// It is validated by the schema's rules — members it doesn't define
+// are ignored within v1, anything else it refuses is
+// `invalid_usages` — and holds at most 100 000 usages and 20 MB.
+//
+// Keys are resolved to message IDs now, so renaming a message later
+// keeps its usages; a key the catalog doesn't know is stored and
+// counted in `unknown_keys`. Whether the build is of the default
+// branch is the project's `settings.default_branch`, not the
+// uploader's say. `digest` is the SHA-256 of the document's
+// RFC 8785 canonical form (without undefined members), and an upload
+// is idempotent by application, commit, `source` and digest: the
+// same document again answers `200` with the first upload's build
+// and `Idempotent-Replayed: true`.
+//
+// Uploads are rate-limited per tenant (10 a minute, bursts of 60).
+// Needs `catalog.write` (developers, `write` tokens: CI). Problem
+// codes: `invalid_usages`, `too_many_usages`, `invalid_source`,
+// `unknown_application` (400), `payload_too_large` (413),
+// `rate_limited` (429).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/context-builds (the `CreateContextBuild` operationId).
+func (c *ClientWithResponses) CreateContextBuildWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateContextBuildParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContextBuildResponse, error) {
+	rsp, err := c.CreateContextBuildWithBody(ctx, tenant, project, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateContextBuildResponse(rsp)
+}
+
+// CreateContextBuildWithResponse Upload a build's usages (glossa context push)
+//
+// The body is one `glossa.usages/v1` document: where one
+// application's messages are used at one commit, as
+// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
+// It is validated by the schema's rules — members it doesn't define
+// are ignored within v1, anything else it refuses is
+// `invalid_usages` — and holds at most 100 000 usages and 20 MB.
+//
+// Keys are resolved to message IDs now, so renaming a message later
+// keeps its usages; a key the catalog doesn't know is stored and
+// counted in `unknown_keys`. Whether the build is of the default
+// branch is the project's `settings.default_branch`, not the
+// uploader's say. `digest` is the SHA-256 of the document's
+// RFC 8785 canonical form (without undefined members), and an upload
+// is idempotent by application, commit, `source` and digest: the
+// same document again answers `200` with the first upload's build
+// and `Idempotent-Replayed: true`.
+//
+// Uploads are rate-limited per tenant (10 a minute, bursts of 60).
+// Needs `catalog.write` (developers, `write` tokens: CI). Problem
+// codes: `invalid_usages`, `too_many_usages`, `invalid_source`,
+// `unknown_application` (400), `payload_too_large` (413),
+// `rate_limited` (429).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/context-builds (the `CreateContextBuild` operationId).
+func (c *ClientWithResponses) CreateContextBuildWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateContextBuildParams, body CreateContextBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContextBuildResponse, error) {
+	rsp, err := c.CreateContextBuild(ctx, tenant, project, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateContextBuildResponse(rsp)
 }
 
 // ListDeliveryKeysWithResponse Publishable delivery keys, including revoked ones
@@ -39956,6 +41620,27 @@ func (c *ClientWithResponses) ListTranslationRevisionsWithResponse(ctx context.C
 	return ParseListTranslationRevisionsResponse(rsp)
 }
 
+// ListMessageUsagesWithResponse Where a message appears (its current usages)
+//
+// The usages of the message the key names now, in the current
+// builds: per application and source, the latest build of the
+// default branch — or, with `branch`, that branch's latest build,
+// falling back to the default branch's where the branch didn't
+// rebuild. The default branch's usages come first, then by
+// application, file and line; `truncated` says more than `limit`
+// exist. Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/usages (the `ListMessageUsages` operationId).
+func (c *ClientWithResponses) ListMessageUsagesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *ListMessageUsagesParams, reqEditors ...RequestEditorFn) (*ListMessageUsagesResponse, error) {
+	rsp, err := c.ListMessageUsages(ctx, tenant, project, message, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListMessageUsagesResponse(rsp)
+}
+
 // ListNamespacesWithResponse A project's namespaces, by name, with their message counts
 //
 // Every namespace that holds a message, in name order, with how
@@ -40248,6 +41933,46 @@ func (c *ClientWithResponses) ListProjectTranslationsWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseListProjectTranslationsResponse(rsp)
+}
+
+// ListUnusedMessagesWithResponse Active messages no current build uses
+//
+// By key. They are reported, never obsoleted: a dynamic key
+// (`t(\`plan.${tier}\`)`) is invisible to every collector.
+// `current_builds` is how many builds were considered — with none,
+// nothing was uploaded yet and every message is listed — and
+// `active_messages` and `unused_messages` give the project's context
+// coverage. `branch` selects a branch view (see `listMessageUsages`).
+// Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/unused-messages (the `ListUnusedMessages` operationId).
+func (c *ClientWithResponses) ListUnusedMessagesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUnusedMessagesParams, reqEditors ...RequestEditorFn) (*ListUnusedMessagesResponse, error) {
+	rsp, err := c.ListUnusedMessages(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUnusedMessagesResponse(rsp)
+}
+
+// ListUsagesWithResponse The current usages on a route, in a component or in a file
+//
+// The messages a route, component or file shows (RFC 0004 §8): the
+// usages in the current builds (see `listMessageUsages`; `branch`
+// selects a branch view), by build and position. Filters combine;
+// without one, every current usage. Needs `catalog.read`. Problem
+// codes: `invalid_branch` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/usages (the `ListUsages` operationId).
+func (c *ClientWithResponses) ListUsagesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUsagesParams, reqEditors ...RequestEditorFn) (*ListUsagesResponse, error) {
+	rsp, err := c.ListUsages(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUsagesResponse(rsp)
 }
 
 // ListStyleGuidesWithResponse Style guides
@@ -45838,6 +47563,148 @@ func ParseUpdateApplicationResponse(rsp *http.Response) (*UpdateApplicationRespo
 	return response, nil
 }
 
+// ParseListContextBuildsResponse parses an HTTP response from a ListContextBuildsWithResponse call
+func ParseListContextBuildsResponse(rsp *http.Response) (*ListContextBuildsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListContextBuildsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ContextBuildList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateContextBuildResponse parses an HTTP response from a CreateContextBuildWithResponse call
+func ParseCreateContextBuildResponse(rsp *http.Response) (*CreateContextBuildResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateContextBuildResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ContextBuild
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ContextBuild
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest PayloadTooLarge
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest TooManyRequests
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers CreateContextBuildResponse200Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseListDeliveryKeysResponse parses an HTTP response from a ListDeliveryKeysWithResponse call
 func ParseListDeliveryKeysResponse(rsp *http.Response) (*ListDeliveryKeysResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -47944,6 +49811,60 @@ func ParseListTranslationRevisionsResponse(rsp *http.Response) (*ListTranslation
 	return response, nil
 }
 
+// ParseListMessageUsagesResponse parses an HTTP response from a ListMessageUsagesWithResponse call
+func ParseListMessageUsagesResponse(rsp *http.Response) (*ListMessageUsagesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListMessageUsagesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MessageUsages
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListNamespacesResponse parses an HTTP response from a ListNamespacesWithResponse call
 func ParseListNamespacesResponse(rsp *http.Response) (*ListNamespacesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -48574,6 +50495,114 @@ func ParseListProjectTranslationsResponse(rsp *http.Response) (*ListProjectTrans
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ProjectTranslationList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListUnusedMessagesResponse parses an HTTP response from a ListUnusedMessagesWithResponse call
+func ParseListUnusedMessagesResponse(rsp *http.Response) (*ListUnusedMessagesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUnusedMessagesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UnusedMessageList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListUsagesResponse parses an HTTP response from a ListUsagesWithResponse call
+func ParseListUsagesResponse(rsp *http.Response) (*ListUsagesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUsagesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ContextUsageList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

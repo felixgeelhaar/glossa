@@ -59,7 +59,11 @@ func (s *Service) CurrentBuilds(ctx context.Context, project uuid.UUID, branch s
 // MessageUsages returns a message's current usages: the default branch
 // first, then by application, file and line. Needs catalog.read.
 func (s *Service) MessageUsages(ctx context.Context, project, message uuid.UUID, q UsageQuery) ([]UsageView, error) {
-	view, err := s.readView(ctx, project, q.Branch)
+	return s.messageUsages(ctx, project, message, q.Branch, q.limit())
+}
+
+func (s *Service) messageUsages(ctx context.Context, project, message uuid.UUID, branch string, limit int) ([]UsageView, error) {
+	view, err := s.readView(ctx, project, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -69,25 +73,64 @@ func (s *Service) MessageUsages(ctx context.Context, project, message uuid.UUID,
 		if err != nil || len(current) == 0 {
 			return err
 		}
-		out, err = st.MessageUsages(ctx, message, current, q.limit())
+		out, err = st.MessageUsages(ctx, message, current, limit)
 		return err
 	})
 	return out, err
 }
 
-// KeyUsages is MessageUsages for the message a key names now
-// (ErrMessageNotFound). Needs catalog.read.
-func (s *Service) KeyUsages(ctx context.Context, project uuid.UUID, key string, q UsageQuery) ([]UsageView, error) {
+// KeyUsagesPage is a message's current usages, up to a limit.
+type KeyUsagesPage struct {
+	MessageID uuid.UUID
+	Usages    []UsageView
+	// Truncated says more usages exist than the limit.
+	Truncated bool
+}
+
+// UsagesOfKey is KeyUsages with the message's ID and whether the limit
+// cut the usages short. Needs catalog.read.
+func (s *Service) UsagesOfKey(ctx context.Context, project uuid.UUID, key string, q UsageQuery) (KeyUsagesPage, error) {
+	id, err := s.messageOf(ctx, project, key)
+	if err != nil {
+		return KeyUsagesPage{}, err
+	}
+	limit := q.limit()
+	usages, err := s.messageUsages(ctx, project, id, q.Branch, limit+1)
+	if err != nil {
+		return KeyUsagesPage{}, err
+	}
+	out := KeyUsagesPage{MessageID: id, Usages: usages}
+	if len(usages) > limit {
+		out.Usages, out.Truncated = usages[:limit], true
+	}
+	if out.Usages == nil {
+		out.Usages = []UsageView{}
+	}
+	return out, nil
+}
+
+// messageOf resolves a key to its message now (ErrMessageNotFound).
+func (s *Service) messageOf(ctx context.Context, project uuid.UUID, key string) (uuid.UUID, error) {
 	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 	ids, err := s.catalog.MessageIDs(ctx, project, []string{key})
 	if err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 	id, ok := ids[key]
 	if !ok {
-		return nil, ErrMessageNotFound
+		return uuid.Nil, ErrMessageNotFound
+	}
+	return id, nil
+}
+
+// KeyUsages is MessageUsages for the message a key names now
+// (ErrMessageNotFound). Needs catalog.read.
+func (s *Service) KeyUsages(ctx context.Context, project uuid.UUID, key string, q UsageQuery) ([]UsageView, error) {
+	id, err := s.messageOf(ctx, project, key)
+	if err != nil {
+		return nil, err
 	}
 	return s.MessageUsages(ctx, project, id, q)
 }

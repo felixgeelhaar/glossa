@@ -38,6 +38,7 @@ var problems = []struct {
 	{mfcontent.ErrInvalidSyntax, 400, "invalid_syntax", ""},
 	{mfcontent.ErrTooLong, 400, "message_too_long", ""},
 	{domain.ErrInvalidSlug, 400, "invalid_slug", ""},
+	{domain.ErrInvalidBranchName, 400, "invalid_branch", ""},
 	{domain.ErrInvalidName, 400, "invalid_name", ""},
 	{domain.ErrInvalidPlatform, 400, "invalid_platform", ""},
 	{domain.ErrInvalidKey, 400, "invalid_message_key", ""},

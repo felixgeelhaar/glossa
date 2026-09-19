@@ -162,6 +162,14 @@ tags:
     description: |
       Intelligence: which provider saw which message, acceptance and
       edit distance per locale, and the eval baseline.
+  - name: context
+    description: |
+      Context: where every message appears (RFC 0004 §2). Builds are the
+      usage uploads of the bundler plugin, `glossa extract` and CI, with
+      keys resolved to messages at upload; a message's current usages,
+      the usages on a route, in a component or in a file, and the active
+      messages nothing uses are read from the latest builds of the
+      default branch or a branch view.
   - name: imports
     description: |
       Integration: interchange files in — XLIFF 2.1, JSON (flat or
@@ -970,7 +978,7 @@ paths:
       description: |
         The source locale is fixed at creation. Needs `catalog.write`.
         Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-        `invalid_locale`, `invalid_syntax` (400).
+        `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
       security:
         - session: []
           csrf: []
@@ -1028,7 +1036,8 @@ paths:
       description: |
         Members omitted from the body keep their value; the source locale
         can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-        (409).
+        (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
+        `invalid_branch` (400).
       security:
         - session: []
           csrf: []
@@ -5009,6 +5018,228 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  # ── context ─────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/context-builds:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listContextBuilds
+      tags: [context]
+      summary: A project's usage uploads (builds), newest first
+      description: |
+        With how many usages each holds and how many of those name a key
+        the catalog didn't know at upload (`unknown_keys`). Retention
+        keeps the latest 5 builds per application, branch and source plus
+        every current one (RFC 0004 §2.3). Needs `catalog.read`. Problem
+        codes: `unknown_application` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - name: application
+          in: query
+          required: false
+          description: Only this application's builds (its slug).
+          schema: { $ref: "#/components/schemas/Slug" }
+      responses:
+        "200":
+          description: A page of builds.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContextBuildList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: createContextBuild
+      tags: [context]
+      summary: Upload a build's usages (glossa context push)
+      description: |
+        The body is one `glossa.usages/v1` document: where one
+        application's messages are used at one commit, as
+        `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+        write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
+        It is validated by the schema's rules — members it doesn't define
+        are ignored within v1, anything else it refuses is
+        `invalid_usages` — and holds at most 100 000 usages and 20 MB.
+
+        Keys are resolved to message IDs now, so renaming a message later
+        keeps its usages; a key the catalog doesn't know is stored and
+        counted in `unknown_keys`. Whether the build is of the default
+        branch is the project's `settings.default_branch`, not the
+        uploader's say. `digest` is the SHA-256 of the document's
+        RFC 8785 canonical form (without undefined members), and an upload
+        is idempotent by application, commit, `source` and digest: the
+        same document again answers `200` with the first upload's build
+        and `Idempotent-Replayed: true`.
+
+        Uploads are rate-limited per tenant (10 a minute, bursts of 60).
+        Needs `catalog.write` (developers, `write` tokens: CI). Problem
+        codes: `invalid_usages`, `too_many_usages`, `invalid_source`,
+        `unknown_application` (400), `payload_too_large` (413),
+        `rate_limited` (429).
+      x-glossa-idempotency: >-
+        An upload is identified by its application, commit, source and digest; repeating one returns the
+        first build (200, Idempotent-Replayed) instead of storing a second.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - name: source
+          in: query
+          required: true
+          description: >-
+            The collector that wrote the document: `plugin` (@glossa/unplugin), `extract` (`glossa extract`),
+            `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
+          schema: { $ref: "#/components/schemas/ContextSource" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UsagesDocument" }
+      responses:
+        "200":
+          description: The same document was uploaded before; its build.
+          headers:
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContextBuild" }
+        "201":
+          description: The build, stored.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContextBuild" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/usages:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+    get:
+      operationId: listMessageUsages
+      tags: [context]
+      summary: Where a message appears (its current usages)
+      description: |
+        The usages of the message the key names now, in the current
+        builds: per application and source, the latest build of the
+        default branch — or, with `branch`, that branch's latest build,
+        falling back to the default branch's where the branch didn't
+        rebuild. The default branch's usages come first, then by
+        application, file and line; `truncated` says more than `limit`
+        exist. Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/ContextBranch"
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+      responses:
+        "200":
+          description: The message's current usages.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageUsages" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/usages:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listUsages
+      tags: [context]
+      summary: The current usages on a route, in a component or in a file
+      description: |
+        The messages a route, component or file shows (RFC 0004 §8): the
+        usages in the current builds (see `listMessageUsages`; `branch`
+        selects a branch view), by build and position. Filters combine;
+        without one, every current usage. Needs `catalog.read`. Problem
+        codes: `invalid_branch` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - $ref: "#/components/parameters/ContextBranch"
+        - name: route
+          in: query
+          required: false
+          description: A route pattern, exactly (`/checkout/[step]`).
+          schema: { type: string, maxLength: 1024 }
+        - name: component
+          in: query
+          required: false
+          description: A component, exactly (`PaymentFooter`, `mail.(*Mailer).Send`).
+          schema: { type: string, maxLength: 512 }
+        - name: file
+          in: query
+          required: false
+          description: A file path relative to the project root, exactly.
+          schema: { type: string, maxLength: 1024 }
+      responses:
+        "200":
+          description: A page of usages.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContextUsageList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/unused-messages:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listUnusedMessages
+      tags: [context]
+      summary: Active messages no current build uses
+      description: |
+        By key. They are reported, never obsoleted: a dynamic key
+        (`t(\`plan.${tier}\`)`) is invisible to every collector.
+        `current_builds` is how many builds were considered — with none,
+        nothing was uploaded yet and every message is listed — and
+        `active_messages` and `unused_messages` give the project's context
+        coverage. `branch` selects a branch view (see `listMessageUsages`).
+        Needs `catalog.read`. Problem codes: `invalid_branch` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - $ref: "#/components/parameters/ContextBranch"
+      responses:
+        "200":
+          description: A page of unused messages.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UnusedMessageList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     session:
@@ -5154,6 +5385,14 @@ components:
       required: true
       description: An export job `id`.
       schema: { $ref: "#/components/schemas/Id" }
+    ContextBranch:
+      name: branch
+      in: query
+      required: false
+      description: >-
+        A branch view: that branch's latest builds, and the default branch's where it didn't rebuild.
+        Absent: the default branch's.
+      schema: { type: string, minLength: 1, maxLength: 255 }
     PageSize:
       name: page_size
       in: query
@@ -5636,6 +5875,16 @@ components:
             New translations wait for review (`needs_review`) unless a
             reviewer approves them as they write. When false, new text is
             `approved` on write.
+        default_branch:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: |
+            The repository's default branch (`main` unless set): usage
+            uploads of it are what every view of the current usages falls
+            back to (RFC 0004 §2.2). A valid Git branch name
+            (`invalid_branch`). Always present in responses; absent in a
+            write, the project keeps its current one.
     Project:
       type: object
       required: [id, slug, name, source_locale, settings, created_at, updated_at]
@@ -5718,7 +5967,10 @@ components:
       pattern: "^[a-z0-9][a-z0-9_-]{0,63}$"
     MessageState:
       type: string
-      enum: [active, obsolete]
+      description: |
+        `proposed`: new on an open branch; excluded from non-branch
+        releases (RFC 0004 §4.1).
+      enum: [active, proposed, obsolete]
     MF2Message:
       type: object
       additionalProperties: true
@@ -7682,3 +7934,159 @@ components:
         options:
           $ref: "#/components/schemas/ExportOptions"
           description: "TMX: `locales` (targets) and `source_locale`. TBX takes none."
+
+    # ── context ──────────────────────────────────────────────────────
+    ContextSource:
+      type: string
+      enum: [plugin, extract, runtime, capture]
+    UsageKind:
+      type: string
+      description: |
+        The call shape: `t` (t()/$t(), Go's T), `component` (<GlossaText
+        id>, <T id>), `element` (<glossa-text key> and its siblings),
+        `accessor` (typed accessors from `glossa generate`), `template`
+        ({{t}}, {{td}}, {{th}} in Go templates).
+      enum: [t, component, element, accessor, template]
+    UsagesTool:
+      type: object
+      required: [name, version]
+      properties:
+        name: { type: string, maxLength: 214, description: "A package name: `@glossa/unplugin`, `glossa`." }
+        version: { type: string, maxLength: 256, description: A semantic version. }
+    UsagesDocument:
+      type: object
+      description: |
+        A `glossa.usages/v1` document (RFC 0004 §2.2): one build, one
+        application at one commit. Its JSON Schema,
+        `runtimes/testdata/schemas/usages.v1.schema.json`, has every rule;
+        the ones below are the shape.
+      required: [schema, application, commit, branch, tool, usages]
+      properties:
+        schema: { type: string, enum: [glossa.usages/v1] }
+        application:
+          type: string
+          description: The application's slug in the project.
+          pattern: "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+        commit:
+          type: string
+          description: The full commit ID in lowercase hex (SHA-1 or SHA-256).
+          pattern: "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        branch:
+          type: string
+          description: The short branch name (`feat/checkout-copy`).
+          minLength: 1
+          maxLength: 255
+        tool: { $ref: "#/components/schemas/UsagesTool" }
+        usages:
+          type: array
+          maxItems: 100000
+          items: { $ref: "#/components/schemas/UsagesDocumentUsage" }
+    UsagesDocumentUsage:
+      type: object
+      required: [key, file, line, column, kind]
+      properties:
+        key: { $ref: "#/components/schemas/MessageKey" }
+        file:
+          type: string
+          description: A path relative to the project root, with `/` and no `.` or `..` segments.
+          minLength: 1
+          maxLength: 1024
+        line: { type: integer, minimum: 1 }
+        column: { type: integer, minimum: 1, description: "1-based, in Unicode code points." }
+        component: { type: string, minLength: 1, maxLength: 512 }
+        route: { type: string, maxLength: 1024, description: "A route pattern: `/checkout/[step]`." }
+        kind: { $ref: "#/components/schemas/UsageKind" }
+    ContextBuild:
+      type: object
+      description: One upload of usages for one application at one commit.
+      required: [id, application_id, commit, branch, on_default_branch, source, tool, digest, usages, unknown_keys,
+                 created_by, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        application_id: { $ref: "#/components/schemas/Id" }
+        commit: { type: string }
+        branch: { type: string }
+        on_default_branch:
+          type: boolean
+          description: The branch was the project's default branch at upload.
+        source: { $ref: "#/components/schemas/ContextSource" }
+        tool: { $ref: "#/components/schemas/UsagesTool" }
+        digest:
+          type: string
+          description: SHA-256 (hex) of the document's RFC 8785 canonical form.
+        usages: { type: integer, minimum: 0 }
+        unknown_keys:
+          type: integer
+          minimum: 0
+          description: Usages whose key the catalog didn't know at upload.
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    ContextBuildList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ContextBuild" }
+        next_page_token: { type: string }
+    ContextUsage:
+      type: object
+      description: Where a message's key is used, in a build.
+      required: [key, file, line, kind, build_id, application_id, commit, branch, on_default_branch, source]
+      properties:
+        key: { $ref: "#/components/schemas/MessageKey" }
+        message_id:
+          $ref: "#/components/schemas/Id"
+          description: The message the key named at upload; absent for an unknown key.
+        file: { type: string }
+        line: { type: integer }
+        column: { type: integer }
+        component: { type: string }
+        route: { type: string }
+        kind: { $ref: "#/components/schemas/UsageKind" }
+        build_id: { $ref: "#/components/schemas/Id" }
+        application_id: { $ref: "#/components/schemas/Id" }
+        commit: { type: string }
+        branch: { type: string }
+        on_default_branch: { type: boolean }
+        source: { $ref: "#/components/schemas/ContextSource" }
+    ContextUsageList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ContextUsage" }
+        next_page_token: { type: string }
+    MessageUsages:
+      type: object
+      required: [message_id, key, usages, truncated]
+      properties:
+        message_id: { $ref: "#/components/schemas/Id" }
+        key: { $ref: "#/components/schemas/MessageKey" }
+        usages:
+          type: array
+          items: { $ref: "#/components/schemas/ContextUsage" }
+        truncated:
+          type: boolean
+          description: More usages exist than `limit`.
+    UnusedMessage:
+      type: object
+      required: [id, key]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        key: { $ref: "#/components/schemas/MessageKey" }
+    UnusedMessageList:
+      type: object
+      required: [items, current_builds, active_messages, unused_messages]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/UnusedMessage" }
+        next_page_token: { type: string }
+        current_builds:
+          type: integer
+          minimum: 0
+          description: The builds considered; 0 means nothing was uploaded yet.
+        active_messages: { type: integer, minimum: 0 }
+        unused_messages: { type: integer, minimum: 0 }

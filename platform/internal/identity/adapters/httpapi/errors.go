@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -114,6 +115,12 @@ func (e errorWriter) ResponseError(w http.ResponseWriter, r *http.Request, err e
 
 // RequestError handles bodies the generated server couldn't decode.
 func (e errorWriter) RequestError(w http.ResponseWriter, _ *http.Request, err error) {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) { // a body without Content-Length ran past the limit
+		problem.WriteDetails(w, problem.New(http.StatusRequestEntityTooLarge, problem.CodePayloadTooLarge,
+			fmt.Sprintf("request body exceeds %d bytes", tooLarge.Limit)))
+		return
+	}
 	problem.WriteDetails(w, problem.New(http.StatusBadRequest, problem.CodeInvalidRequest, err.Error()))
 }
 

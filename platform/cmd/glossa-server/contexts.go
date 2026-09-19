@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,8 +18,11 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/projection"
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	contextcatalog "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/catalog"
+	contextapi "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/httpapi"
+	contextmetrics "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/metrics"
 	contextpg "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/postgres"
 	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
+	contextdomain "github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	integrationapi "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/httpapi"
 	integrationpg "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/postgres"
 	integrationsources "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/sources"
@@ -35,6 +39,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/configured"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/ratelimit"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/sealing"
 	knowledgeapi "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/httpapi"
 	knowledgepg "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/postgres"
@@ -76,13 +81,23 @@ type contexts struct {
 	integrationAPI    *integrationapi.API
 	integrationWorker *integrationapp.Worker
 	// usageContext is the Context context (RFC 0004): where messages
-	// appear. It has no routes yet; its subscribers erase a deleted
-	// project's or application's context.
+	// appear. contextAPI serves its uploads and reads; Intelligence's
+	// message_context reads it through its own port.
 	usageContext *contextapp.Service
+	contextAPI   *contextapi.API
 	// keyIndexes is Release's key index task: it rewrites the index
 	// objects of keys written before their current format (migration
 	// 0015 gave existing keys a scope).
 	keyIndexes func(context.Context) (int, error)
+}
+
+// Context's upload limits (RFC 0004 §10): a usages document is read
+// within contextUploadTimeout, and a tenant uploads at most 10 a minute
+// in bursts of up to 60 (a CI run uploads a few per application).
+const contextUploadTimeout = 2 * time.Minute
+
+func contextUploadLimit() ratelimit.Config {
+	return ratelimit.Config{Rate: 10, Interval: time.Minute, Burst: 60}
 }
 
 // contextDeps are what the contexts need beyond the database.
@@ -141,7 +156,13 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err := release.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
-	intelligence, err := newIntelligence(uow, catalog, localization, release, knowledge, deps)
+	usageContext := contextapp.New(contextpg.NewTransactor(uow), contextcatalog.New(catalog),
+		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger),
+		contextapp.WithLimiter(ratelimit.New(contextUploadLimit())), contextapp.WithMetrics(contextmetrics.New(deps.registerer)))
+	if err := usageContext.Subscribe(events); err != nil {
+		return contexts{}, err
+	}
+	intelligence, err := newIntelligence(uow, catalog, localization, release, knowledge, usageContext, deps)
 	if err != nil {
 		return contexts{}, err
 	}
@@ -155,7 +176,8 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	c := contexts{
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
-		previewAPI: previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),
+		previewAPI:   previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),
+		usageContext: usageContext, contextAPI: contextapi.New(usageContext),
 	}
 	scanner := releasepg.NewScanner(uow)
 	c.keyIndexes = func(ctx context.Context) (int, error) { return release.RewriteKeyIndexes(ctx, scanner) }
@@ -180,19 +202,17 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 			Lease: deps.integration.Lease, JobTimeout: deps.integration.JobTimeout,
 		})
 	}
-	c.usageContext = contextapp.New(contextpg.NewTransactor(uow), contextcatalog.New(catalog),
-		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger))
-	if err := c.usageContext.Subscribe(events); err != nil {
-		return contexts{}, err
-	}
 	return c, nil
 }
 
 // largeBodies lets import uploads and export downloads stream files
-// larger and longer than the API's default body limit and timeouts.
+// larger and longer than the API's default body limit and timeouts, and
+// usage uploads reach the 20 MB of a usages document.
 func largeBodies(cfg config.Integration) func(*http.Request) (httpserver.BodyPolicy, bool) {
 	return func(r *http.Request) (httpserver.BodyPolicy, bool) {
 		switch {
+		case contextapi.UploadPath(r.Method, r.URL.Path):
+			return httpserver.BodyPolicy{MaxBytes: contextdomain.MaxUploadBytes, Timeout: contextUploadTimeout}, true
 		case integrationapi.UploadPath(r.Method, r.URL.Path):
 			// The service enforces GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES
 			// while it streams, with its own problem code.
@@ -209,7 +229,7 @@ func largeBodies(cfg config.Integration) func(*http.Request) (httpserver.BodyPol
 // built from tenants' configuration over an SSRF-safe client, sealed
 // keys and Prometheus metrics.
 func newIntelligence(uow *db.UnitOfWork, catalog *catalogapp.Service, localization *localizationapp.Service,
-	release *releaseapp.Service, knowledge *knowledgeapp.Service, deps contextDeps,
+	release *releaseapp.Service, knowledge *knowledgeapp.Service, usages *contextapp.Service, deps contextDeps,
 ) (*intelligenceapp.Service, error) {
 	sealer, err := sealing.New(deps.sealKey)
 	if err != nil {
@@ -221,6 +241,7 @@ func newIntelligence(uow *db.UnitOfWork, catalog *catalogapp.Service, localizati
 		Localization: intelligencesources.NewLocalization(localization, catalog),
 		Environments: intelligencesources.NewEnvironments(release),
 		Knowledge:    intelligencesources.NewKnowledge(knowledge),
+		Usages:       intelligencesources.NewUsages(usages),
 		Providers: intelligenceproviders.New(intelligenceproviders.Config{
 			AllowPrivate: deps.ai.AllowPrivateEndpoints, Concurrency: deps.ai.ProviderConcurrency, Logger: deps.logger,
 		}),
