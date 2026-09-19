@@ -26,15 +26,45 @@ import (
 // tenantRoots are tenant-owned tables keyed by the tenant id itself.
 var tenantRoots = []string{"tenants"}
 
-// globalTables hold no tenant data. Each entry needs a reason.
+// globalTables hold no tenant data and are outside row-level security.
+// Each entry needs a reason. Prefer systemTables.
 var globalTables = map[string]string{
 	"schema_migrations": "golang-migrate bookkeeping; no grants to glossa_app",
 }
 
+// systemTables hold deployment-wide data that exists before a tenant is
+// known. They have no tenant_id, yet still ENABLE + FORCE row-level
+// security; glossa_app may not write them and may read them only through
+// a PUBLIC SELECT policy scoped by app_current_tenant(). Each entry needs
+// a reason.
+var systemTables = map[string]string{
+	"identity_people":         "a person spans all their tenants and signs in before one is chosen",
+	"identity_sessions":       "a session cookie is resolved before the tenant is known",
+	"identity_email_links":    "sign-in and reset links are redeemed before the tenant is known",
+	"identity_totp":           "a person's second factor, checked at sign-in",
+	"identity_passkeys":       "a person's passkeys, checked at sign-in",
+	"identity_login_attempts": "brute-force counters per email, checked at sign-in",
+}
+
 // systemPolicies are the only policies allowed to target a role other
-// than PUBLIC. Each opens a table to a background path; keep it short.
+// than PUBLIC. Each opens a table to a tenantless path; keep it short.
 var systemPolicies = map[string][]string{
+	// The outbox relay claims and settles events across tenants.
 	"outbox_events": {"outbox_events_system_select", "outbox_events_system_update"},
+	// GET /v1/me lists the tenants a person belongs to.
+	"tenants": {"tenants_system_select"},
+	// Validating /v1/tenants/{tenant} against the session's memberships,
+	// and finding invitations for a verified email at sign-in.
+	"identity_members": {"identity_members_system_select"},
+	// Resolving a bearer token's tenant by hash; bumping last_used_at.
+	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
+	// Identity's global tables are system scope only (see systemTables).
+	"identity_people":         {"identity_people_system"},
+	"identity_sessions":       {"identity_sessions_system"},
+	"identity_email_links":    {"identity_email_links_system"},
+	"identity_totp":           {"identity_totp_system"},
+	"identity_passkeys":       {"identity_passkeys_system"},
+	"identity_login_attempts": {"identity_login_attempts_system"},
 }
 
 type tableSecurity struct {
@@ -44,6 +74,10 @@ type tableSecurity struct {
 	hasTenantAllPolicy   bool
 	nonTenantPolicies    []string
 	nonPublicPolicyNames []string
+	// publicPolicies are PUBLIC policies as "name:cmd".
+	publicPolicies []string
+	// appWrites and appReads report glossa_app's table or column privileges.
+	appWrites, appReads bool
 }
 
 func TestRLSGuard(t *testing.T) {
@@ -58,9 +92,13 @@ func TestRLSGuard(t *testing.T) {
 
 func checkTable(t *testing.T, tbl tableSecurity) {
 	tenantOwned := tbl.hasTenantID || slices.Contains(tenantRoots, tbl.name)
+	if _, ok := systemTables[tbl.name]; ok && !tenantOwned {
+		checkSystemTable(t, tbl)
+		return
+	}
 	if !tenantOwned {
 		if _, ok := globalTables[tbl.name]; !ok {
-			t.Errorf("%s has no tenant_id column: add tenant_id with RLS, or list it in globalTables with a reason", tbl.name)
+			t.Errorf("%s has no tenant_id column: add tenant_id with RLS, or list it in systemTables or globalTables with a reason", tbl.name)
 		}
 		return
 	}
@@ -81,6 +119,35 @@ func checkTable(t *testing.T, tbl tableSecurity) {
 		if !slices.Contains(allowed, p) {
 			t.Errorf("%s: role-specific policy %s is not in systemPolicies", tbl.name, p)
 		}
+	}
+}
+
+// checkSystemTable holds a tenantless table to system scope: RLS on and
+// forced, no writes from glossa_app, and reads only through a PUBLIC
+// SELECT policy that is itself scoped to the current tenant.
+func checkSystemTable(t *testing.T, tbl tableSecurity) {
+	if !tbl.rowSecurity || !tbl.forced {
+		t.Errorf("%s: system table must ENABLE and FORCE row level security", tbl.name)
+	}
+	allowed := systemPolicies[tbl.name]
+	for _, p := range tbl.nonPublicPolicyNames {
+		if !slices.Contains(allowed, p) {
+			t.Errorf("%s: role-specific policy %s is not in systemPolicies", tbl.name, p)
+		}
+	}
+	for _, p := range tbl.nonTenantPolicies {
+		t.Errorf("%s: PUBLIC policy %s does not constrain on app_current_tenant()", tbl.name, p)
+	}
+	for _, p := range tbl.publicPolicies {
+		if !strings.HasSuffix(p, ":r") {
+			t.Errorf("%s: PUBLIC policy %s must be FOR SELECT", tbl.name, p)
+		}
+	}
+	if tbl.appWrites {
+		t.Errorf("%s: glossa_app must not insert, update or delete a system table", tbl.name)
+	}
+	if tbl.appReads && len(tbl.publicPolicies) == 0 {
+		t.Errorf("%s: glossa_app may read it but no tenant-scoped policy limits what it sees", tbl.name)
 	}
 }
 
@@ -107,8 +174,24 @@ func loadTableSecurity(t *testing.T) []tableSecurity {
 	}
 	for i := range tables {
 		loadPolicies(t, &tables[i])
+		loadAppPrivileges(t, &tables[i])
 	}
 	return tables
+}
+
+func loadAppPrivileges(t *testing.T, ts *tableSecurity) {
+	t.Helper()
+	err := env.Super.QueryRow(context.Background(), `
+		SELECT has_table_privilege('glossa_app', $1, 'INSERT')
+		    OR has_table_privilege('glossa_app', $1, 'UPDATE')
+		    OR has_table_privilege('glossa_app', $1, 'DELETE')
+		    OR has_any_column_privilege('glossa_app', $1, 'INSERT')
+		    OR has_any_column_privilege('glossa_app', $1, 'UPDATE'),
+		       has_any_column_privilege('glossa_app', $1, 'SELECT')`,
+		"public."+ts.name).Scan(&ts.appWrites, &ts.appReads)
+	if err != nil {
+		t.Fatalf("privileges of %s: %v", ts.name, err)
+	}
 }
 
 func loadPolicies(t *testing.T, ts *tableSecurity) {
@@ -143,6 +226,7 @@ func classifyPolicy(ts *tableSecurity, name, cmd string, permissive, public bool
 		ts.nonPublicPolicyNames = append(ts.nonPublicPolicyNames, name)
 		return
 	}
+	ts.publicPolicies = append(ts.publicPolicies, name+":"+cmd)
 	scoped := (using == "" || strings.Contains(using, fn)) && (check == "" || strings.Contains(check, fn))
 	if permissive && !scoped {
 		ts.nonTenantPolicies = append(ts.nonTenantPolicies, name)

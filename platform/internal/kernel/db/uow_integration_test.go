@@ -122,13 +122,16 @@ func TestSystemScopeReachesOnlyGrantedTables(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// tenants isn't opened to glossa_system: permission denied.
+	// tenants is opened to glossa_system for reading only (Identity lists
+	// a person's tenants): creating one is permission denied.
 	err = uow.InSystemTx(context.Background(), scope, func(ctx context.Context, tx *db.SystemTx) error {
-		_, err := countRows(ctx, tx, "tenants")
+		_, err := tx.Exec(ctx,
+			"INSERT INTO tenants (id, kind, slug, name) VALUES ($1, 'individual', 'forged', 'Forged')",
+			tenancy.NewID().UUID())
 		return err
 	})
 	if err == nil {
-		t.Error("system scope could read tenants")
+		t.Error("system scope could create a tenant")
 	}
 
 	// It can't forge events either (no INSERT grant or policy).
