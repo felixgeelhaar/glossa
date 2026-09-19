@@ -9,6 +9,66 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 )
 
+// testSecret is base64 of 42 bytes.
+const testSecret = "YS10ZXN0LWF1dGgtc2VjcmV0LXRoYXQtaXMtbG9uZy1lbm91Z2gtMTIz"
+
+func TestIdentityDefaults(t *testing.T) {
+	cfg, err := config.Load(env(map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := cfg.Identity
+	if len(id.AuthKey()) != 42 || id.StudioURL != "http://localhost:5173" || id.SessionTTL != 14*24*time.Hour {
+		t.Errorf("identity = %+v", id)
+	}
+	if id.Mail.Driver != "log" || id.WebAuthn.Enabled() {
+		t.Errorf("mail = %+v, webauthn = %+v", id.Mail, id.WebAuthn)
+	}
+	if strings.Contains(cfg.String(), testSecret) || strings.Contains(id.AuthSecret.String(), testSecret) {
+		t.Error("the auth secret leaks through String()")
+	}
+}
+
+func TestIdentityOverrides(t *testing.T) {
+	cfg, err := config.Load(env(map[string]string{
+		"DATABASE_URL":            "postgres://app@db/glossa",
+		"GLOSSA_AUTH_SECRET":      testSecret,
+		"GLOSSA_STUDIO_URL":       "https://app.glossa.test/",
+		"GLOSSA_MAIL_DRIVER":      "smtp",
+		"GLOSSA_SMTP_ADDR":        "smtp.test:587",
+		"GLOSSA_WEBAUTHN_RP_ID":   "glossa.test",
+		"GLOSSA_WEBAUTHN_ORIGINS": "https://app.glossa.test, https://studio.glossa.test",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := cfg.Identity
+	if id.StudioURL != "https://app.glossa.test" || id.Mail.SMTPAddr != "smtp.test:587" {
+		t.Errorf("identity = %+v", id)
+	}
+	if !id.WebAuthn.Enabled() || len(id.WebAuthn.Origins) != 2 || id.WebAuthn.Origins[1] != "https://studio.glossa.test" {
+		t.Errorf("webauthn = %+v", id.WebAuthn)
+	}
+}
+
+func TestIdentityValidation(t *testing.T) {
+	_, err := config.Load(env(map[string]string{
+		"DATABASE_URL":       "postgres://app@db/glossa",
+		"GLOSSA_AUTH_SECRET": "c2hvcnQ=", // "short"
+		"GLOSSA_STUDIO_URL":  "localhost:5173",
+		"GLOSSA_MAIL_DRIVER": "smtp",
+	}))
+	for _, want := range []string{
+		"GLOSSA_AUTH_SECRET: must be base64 of at least 32 random bytes",
+		`GLOSSA_STUDIO_URL: must be an absolute http(s) URL`,
+		"GLOSSA_SMTP_ADDR: required when GLOSSA_MAIL_DRIVER is smtp",
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("error %v\ndoes not contain %q", err, want)
+		}
+	}
+}
+
 func env(kv map[string]string) config.LookupFunc {
 	return func(key string) (string, bool) {
 		v, ok := kv[key]
@@ -18,7 +78,8 @@ func env(kv map[string]string) config.LookupFunc {
 
 func TestLoadDefaults(t *testing.T) {
 	cfg, err := config.Load(env(map[string]string{
-		"DATABASE_URL": "postgres://glossa_app:secret@db:5432/glossa",
+		"DATABASE_URL":       "postgres://glossa_app:secret@db:5432/glossa",
+		"GLOSSA_AUTH_SECRET": testSecret,
 	}))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -50,6 +111,7 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadOverrides(t *testing.T) {
 	cfg, err := config.Load(env(map[string]string{
 		"DATABASE_URL":                "postgres://app@db/glossa",
+		"GLOSSA_AUTH_SECRET":          testSecret,
 		"MIGRATION_DATABASE_URL":      "postgres://owner@db/glossa",
 		"GLOSSA_MIGRATE":              "up",
 		"GLOSSA_HTTP_ADDR":            "127.0.0.1:9000",
@@ -156,6 +218,7 @@ func TestLoadValidation(t *testing.T) {
 func TestStringRedactsSecrets(t *testing.T) {
 	cfg, err := config.Load(env(map[string]string{
 		"DATABASE_URL":           "postgres://glossa_app:hunter2@db:5432/glossa",
+		"GLOSSA_AUTH_SECRET":     testSecret,
 		"MIGRATION_DATABASE_URL": "postgres://owner:s3cr3t@db:5432/glossa",
 	}))
 	if err != nil {

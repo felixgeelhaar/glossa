@@ -61,6 +61,7 @@ func TestServerLifecycle(t *testing.T) {
 		"GLOSSA_HTTP_ADDR":            addr,
 		"GLOSSA_SHUTDOWN_TIMEOUT":     "5s",
 		"GLOSSA_OUTBOX_POLL_INTERVAL": "50ms",
+		"GLOSSA_AUTH_SECRET":          testAuthSecret,
 	})
 	logs := &syncBuffer{}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -94,8 +95,9 @@ func TestServerRefusesSuperuserConnection(t *testing.T) {
 	}
 	defer env.Close()
 	err = run(context.Background(), nil, lookupFrom(map[string]string{
-		"DATABASE_URL":     env.SuperDSN,
-		"GLOSSA_HTTP_ADDR": freeAddr(t),
+		"DATABASE_URL":       env.SuperDSN,
+		"GLOSSA_AUTH_SECRET": testAuthSecret,
+		"GLOSSA_HTTP_ADDR":   freeAddr(t),
 	}), &syncBuffer{})
 	if err == nil || !strings.Contains(err.Error(), "bypasses row-level security") {
 		t.Fatalf("err = %v, want the RLS bypass refusal", err)
