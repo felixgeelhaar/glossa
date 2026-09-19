@@ -3,6 +3,7 @@ import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { vi } from "vitest";
 import { computed, defineComponent, ref, type Component } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
+import { INTEGRATION, type IntegrationPort } from "../api/integration";
 import { INTELLIGENCE, type IntelligencePort } from "../api/intelligence";
 import { KNOWLEDGE, type KnowledgePort } from "../api/knowledge";
 import { RELEASES, type ReleasesPort } from "../api/releases";
@@ -12,6 +13,7 @@ import { refreshSession } from "../session/session";
 import { PROJECT, type ProjectContext } from "../views/project/context";
 
 const Empty = defineComponent({ template: "<div />" });
+const ROUTE_NAMES: Record<string, string> = { "releases/:release": "release", "files/import": "import", "files/imports/:job": "import-job" };
 
 const ME = {
   person: { id: "me", email: "me@example.com", email_verified: true, totp_enabled: false, individual_tenant_id: "t", created_at: "2026-09-01T00:00:00Z" },
@@ -50,6 +52,7 @@ export interface ScreenOptions {
   port?: ReleasesPort;
   knowledge?: KnowledgePort;
   intelligence?: IntelligencePort;
+  integration?: IntegrationPort;
   roles?: Role[];
   /** Locale scope of the member (translators, reviewers). */
   memberLocales?: string[];
@@ -72,8 +75,8 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   await refreshSession();
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: ["releases", "releases/:release", "settings", "translate", "review", "terms", "style", "ai"]
-      .map((p) => ({ path: `/t/:tenant/p/:project/${p}`, name: p === "releases/:release" ? "release" : p, component: Empty }))
+    routes: ["releases", "releases/:release", "settings", "translate", "review", "terms", "style", "ai", "files", "files/import", "files/imports/:job"]
+      .map((p) => ({ path: `/t/:tenant/p/:project/${p}`, name: ROUTE_NAMES[p] ?? p, component: Empty }))
       .concat([{ path: "/t/:tenant", name: "projects", component: Empty }]),
   });
   await router.push(options.path ?? "/t/t/p/p/releases");
@@ -81,6 +84,7 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   if (options.port) provide[RELEASES as symbol] = options.port;
   if (options.knowledge) provide[KNOWLEDGE as symbol] = options.knowledge;
   if (options.intelligence) provide[INTELLIGENCE as symbol] = options.intelligence;
+  if (options.integration) provide[INTEGRATION as symbol] = options.integration;
   const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
   await flushPromises();
   return w;

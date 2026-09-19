@@ -16,6 +16,11 @@ export function setCsrfToken(token: string | undefined): void {
   csrfToken = token;
 }
 
+/** The session's CSRF token, for the few requests that don't go through the typed client (uploads with progress). */
+export function currentCsrfToken(): string | undefined {
+  return csrfToken;
+}
+
 /** Called when a request that needed a session got a 401. */
 export function onSessionExpired(listener: () => void): () => void {
   expiredListeners.add(listener);
@@ -29,12 +34,15 @@ export const csrf: Middleware = {
   },
 };
 
+/** Tell the app a request that needed a session got a 401 (outside the auth endpoints). */
+export function reportUnauthenticated(path: string): void {
+  if (path.startsWith("/v1/auth/") || path === "/v1/me") return;
+  for (const l of expiredListeners) l();
+}
+
 export const sessionExpiry: Middleware = {
   onResponse({ request, response }) {
-    const path = new URL(request.url).pathname;
-    if (response.status === 401 && !path.startsWith("/v1/auth/") && path !== "/v1/me") {
-      for (const l of expiredListeners) l();
-    }
+    if (response.status === 401) reportUnauthenticated(new URL(request.url).pathname);
     return response;
   },
 };
