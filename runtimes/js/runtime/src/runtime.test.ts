@@ -437,6 +437,29 @@ describe("createRuntime: onRender (RFC 0004 §3.1)", () => {
     expect(rt.hooked).toBe(false);
     expect(seen).toEqual([true, false]);
   });
+
+  it("reports the active manifest's environment, so a capture can refuse production", async () => {
+    const { create } = setup();
+    const rt = create();
+    expect(rt.environment).toBeUndefined(); // nothing active yet
+    await rt.ready;
+    expect(rt.environment).toBe("production");
+    const staging = { manifest: { ...r1.manifest, environment: "staging" }, artifacts: r1.parsed };
+    expect(create({ bundled: staging, edge: undefined, environment: "staging" }).environment).toBe(
+      "staging",
+    );
+  });
+
+  it("announces itself to a capture session's registry, when the page has one", () => {
+    const { create } = setup();
+    const seen: unknown[] = [];
+    vi.stubGlobal("__glossaRuntimes", { push: (rt: unknown) => seen.push(rt) });
+    const rt = create({ bundled });
+    expect(seen).toEqual([rt]);
+    vi.unstubAllGlobals();
+    create({ bundled }); // no registry: nothing happens
+    expect(seen).toHaveLength(1);
+  });
 });
 
 describe("createRuntime: override (RFC 0004 §5.3)", () => {

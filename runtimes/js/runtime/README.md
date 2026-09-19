@@ -62,7 +62,13 @@ The `Runtime`:
 | `onRender(hook) → unsubscribe` | Capture and editor sessions only (RFC 0004 §3.1): `hook({ id, locale, values, output })` sees every `t()` render and may return a string that replaces the output. Adding or removing a hook notifies subscribers, so the page re-renders. See [`@glossa/capture`](../capture/README.md). |
 | `hooked` | Whether an `onRender` hook is installed. Components add `data-glossa-id`/`data-glossa-locale` to their host element only then. |
 | `override(id, locale, model?) → boolean` | The in-product editor's live preview (RFC 0004 §5.3), never in production: renders `model` (an MF2 data-model message, as the API parsed it) for `id` in `locale` through `t()`, `parts()` and `explain()`, until it's called without `model`. The locale must be on the active fallback chain to show. Notifies subscribers, so the page re-renders. Returns `false` and changes nothing when the runtime's `environment` is `production`. See [`@glossa/overlay`](../overlay/README.md). |
+| `environment` | The active manifest's `environment` (`undefined` until a release is active). `glossa capture` refuses a page that reports `production`. |
 | `dispose()` | Stops the timer and the visibility listener and drops listeners. |
+
+A new runtime also calls `globalThis.__glossaRuntimes?.push(runtime)`. Nothing
+defines that registry in a normal page view: `glossa capture` defines it before
+the page's scripts run, so its capture session finds every runtime on the page
+and hooks it from the first render (RFC 0004 §3.2).
 
 Errors are `{ type, detail, messageId?, locale?, releaseId? }` with `type` one of
 `network`, `integrity`, `signature`, `schema`, `format`, `missing-message`.

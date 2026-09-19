@@ -167,6 +167,11 @@ export interface Runtime {
    * environment is `production`.
    */
   override(id: string, locale: string, model?: Message): boolean;
+  /**
+   * The active manifest's `environment`, once a release is active. A capture
+   * session refuses a page that reports `production` (RFC 0004 §10).
+   */
+  readonly environment: string | undefined;
   /** Listen on the error channel. */
   onError(listener: (error: RuntimeError) => void): () => void;
   /** Stop background refresh and drop listeners. */
@@ -538,7 +543,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     return output;
   };
 
-  return {
+  const rt: Runtime = {
     ready,
     get locale() {
       return state?.locale;
@@ -581,6 +586,9 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
       call(subscribers);
       return true;
     },
+    get environment() {
+      return state?.m.environment;
+    },
     dispose() {
       stop?.();
       doc?.removeEventListener?.("visibilitychange", onVisible);
@@ -588,4 +596,8 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
       listeners.clear();
     },
   };
+  // A capture session (`glossa capture`) defines this registry before the
+  // page's scripts run, to find the page's runtimes (RFC 0004 §3.2).
+  (globalThis as { __glossaRuntimes?: { push(r: Runtime): unknown } }).__glossaRuntimes?.push(rt);
+  return rt;
 }
