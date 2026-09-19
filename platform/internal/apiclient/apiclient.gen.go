@@ -942,8 +942,17 @@ type Passkey struct {
 	CreatedAt Timestamp `json:"created_at"`
 
 	// Id The credential ID, base64url.
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	Id string `json:"id"`
+
+	// LastUsedAt The last sign-in with it; absent until it signs in.
+	LastUsedAt *Timestamp `json:"last_used_at,omitempty"`
+	Name       string     `json:"name"`
+}
+
+// PasskeyList defines model for PasskeyList.
+type PasskeyList struct {
+	Items         []Passkey `json:"items"`
+	NextPageToken *string   `json:"next_page_token,omitempty"`
 }
 
 // PasskeyOptions defines model for PasskeyOptions.
@@ -1614,6 +1623,9 @@ type PageSize = int
 // PageToken defines model for PageToken.
 type PageToken = string
 
+// PasskeyPath defines model for PasskeyPath.
+type PasskeyPath = string
+
 // ProjectPath An opaque identifier.
 type ProjectPath = Id
 
@@ -1666,6 +1678,14 @@ type UnprocessableEntity = Problem
 type FinishPasskeySignInParams struct {
 	// UnderscoreUnderscoreHostGlossaWebauthn WebAuthn ceremony state set by the matching challenge operation.
 	UnderscoreUnderscoreHostGlossaWebauthn *CeremonyCookie `form:"__Host-glossa_webauthn,omitempty" json:"__Host-glossa_webauthn,omitempty"`
+}
+
+// ListPasskeysParams defines parameters for ListPasskeys.
+type ListPasskeysParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
 // FinishPasskeyRegistrationParams defines parameters for FinishPasskeyRegistration.
@@ -2316,6 +2336,15 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/me/passkey-challenges (the `BeginPasskeyRegistration` operationId).
 	BeginPasskeyRegistration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListPasskeys The signed-in person's passkeys
+	//
+	// Every passkey registered to the person, oldest first, on any
+	// device — not only this browser's. Listed even while passkeys are
+	// not configured on the server.
+	//
+	// Corresponds with GET /v1/me/passkeys (the `ListPasskeys` operationId).
+	ListPasskeys(ctx context.Context, params *ListPasskeysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// FinishPasskeyRegistrationWithBody Add a passkey
 	//
 	// Problem codes: `passkey_invalid` (400).
@@ -2333,6 +2362,15 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/me/passkeys (the `FinishPasskeyRegistration` operationId).
 	FinishPasskeyRegistration(ctx context.Context, params *FinishPasskeyRegistrationParams, body FinishPasskeyRegistrationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeletePasskey Remove one of the signed-in person's passkeys
+	//
+	// The passkey can't sign in any more. Sessions it started stay
+	// signed in (sign out everywhere to end them). Another person's
+	// passkey is `404`, like an unknown one.
+	//
+	// Corresponds with DELETE /v1/me/passkeys/{passkey} (the `DeletePasskey` operationId).
+	DeletePasskey(ctx context.Context, passkey PasskeyPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// BeginTotpEnrollment Start enrolling an authenticator app
 	//
@@ -3708,6 +3746,25 @@ func (c *Client) BeginPasskeyRegistration(ctx context.Context, reqEditors ...Req
 	return c.Client.Do(req)
 }
 
+// ListPasskeys The signed-in person's passkeys
+//
+// Every passkey registered to the person, oldest first, on any
+// device — not only this browser's. Listed even while passkeys are
+// not configured on the server.
+//
+// Corresponds with GET /v1/me/passkeys (the `ListPasskeys` operationId).
+func (c *Client) ListPasskeys(ctx context.Context, params *ListPasskeysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPasskeysRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // FinishPasskeyRegistrationWithBody Add a passkey
 //
 // Problem codes: `passkey_invalid` (400).
@@ -3736,6 +3793,25 @@ func (c *Client) FinishPasskeyRegistrationWithBody(ctx context.Context, params *
 // Corresponds with POST /v1/me/passkeys (the `FinishPasskeyRegistration` operationId).
 func (c *Client) FinishPasskeyRegistration(ctx context.Context, params *FinishPasskeyRegistrationParams, body FinishPasskeyRegistrationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewFinishPasskeyRegistrationRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeletePasskey Remove one of the signed-in person's passkeys
+//
+// The passkey can't sign in any more. Sessions it started stay
+// signed in (sign out everywhere to end them). Another person's
+// passkey is `404`, like an unknown one.
+//
+// Corresponds with DELETE /v1/me/passkeys/{passkey} (the `DeletePasskey` operationId).
+func (c *Client) DeletePasskey(ctx context.Context, passkey PasskeyPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeletePasskeyRequest(c.Server, passkey)
 	if err != nil {
 		return nil, err
 	}
@@ -6049,6 +6125,72 @@ func NewBeginPasskeyRegistrationRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListPasskeysRequest constructs an http.Request for the ListPasskeys method
+func NewListPasskeysRequest(server string, params *ListPasskeysParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/passkeys")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewFinishPasskeyRegistrationRequest calls the generic FinishPasskeyRegistration builder with application/json body
 func NewFinishPasskeyRegistrationRequest(server string, params *FinishPasskeyRegistrationParams, body FinishPasskeyRegistrationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -6103,6 +6245,40 @@ func NewFinishPasskeyRegistrationRequestWithBody(server string, params *FinishPa
 			req.AddCookie(cookie0)
 		}
 	}
+	return req, nil
+}
+
+// NewDeletePasskeyRequest constructs an http.Request for the DeletePasskey method
+func NewDeletePasskeyRequest(server string, passkey PasskeyPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "passkey", passkey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/passkeys/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return req, nil
 }
 
@@ -10354,6 +10530,17 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/me/passkey-challenges (the `BeginPasskeyRegistration` operationId).
 	BeginPasskeyRegistrationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*BeginPasskeyRegistrationResponse, error)
 
+	// ListPasskeysWithResponse The signed-in person's passkeys
+	//
+	// Every passkey registered to the person, oldest first, on any
+	// device — not only this browser's. Listed even while passkeys are
+	// not configured on the server.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/me/passkeys (the `ListPasskeys` operationId).
+	ListPasskeysWithResponse(ctx context.Context, params *ListPasskeysParams, reqEditors ...RequestEditorFn) (*ListPasskeysResponse, error)
+
 	// FinishPasskeyRegistrationWithBodyWithResponse Add a passkey
 	//
 	// Problem codes: `passkey_invalid` (400).
@@ -10371,6 +10558,17 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/me/passkeys (the `FinishPasskeyRegistration` operationId).
 	FinishPasskeyRegistrationWithResponse(ctx context.Context, params *FinishPasskeyRegistrationParams, body FinishPasskeyRegistrationJSONRequestBody, reqEditors ...RequestEditorFn) (*FinishPasskeyRegistrationResponse, error)
+
+	// DeletePasskeyWithResponse Remove one of the signed-in person's passkeys
+	//
+	// The passkey can't sign in any more. Sessions it started stay
+	// signed in (sign out everywhere to end them). Another person's
+	// passkey is `404`, like an unknown one.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/me/passkeys/{passkey} (the `DeletePasskey` operationId).
+	DeletePasskeyWithResponse(ctx context.Context, passkey PasskeyPath, reqEditors ...RequestEditorFn) (*DeletePasskeyResponse, error)
 
 	// BeginTotpEnrollmentWithResponse Start enrolling an authenticator app
 	//
@@ -12096,6 +12294,61 @@ func (r BeginPasskeyRegistrationResponse) ContentType() string {
 	return ""
 }
 
+type ListPasskeysResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PasskeyList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPasskeysResponse) GetJSON200() *PasskeyList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListPasskeysResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListPasskeysResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPasskeysResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPasskeysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPasskeysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPasskeysResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type FinishPasskeyRegistrationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -12152,6 +12405,61 @@ func (r FinishPasskeyRegistrationResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r FinishPasskeyRegistrationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeletePasskeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeletePasskeyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeletePasskeyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeletePasskeyResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeletePasskeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeletePasskeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeletePasskeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeletePasskeyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -17196,6 +17504,23 @@ func (c *ClientWithResponses) BeginPasskeyRegistrationWithResponse(ctx context.C
 	return ParseBeginPasskeyRegistrationResponse(rsp)
 }
 
+// ListPasskeysWithResponse The signed-in person's passkeys
+//
+// Every passkey registered to the person, oldest first, on any
+// device — not only this browser's. Listed even while passkeys are
+// not configured on the server.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/me/passkeys (the `ListPasskeys` operationId).
+func (c *ClientWithResponses) ListPasskeysWithResponse(ctx context.Context, params *ListPasskeysParams, reqEditors ...RequestEditorFn) (*ListPasskeysResponse, error) {
+	rsp, err := c.ListPasskeys(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPasskeysResponse(rsp)
+}
+
 // FinishPasskeyRegistrationWithBodyWithResponse Add a passkey
 //
 // Problem codes: `passkey_invalid` (400).
@@ -17224,6 +17549,23 @@ func (c *ClientWithResponses) FinishPasskeyRegistrationWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseFinishPasskeyRegistrationResponse(rsp)
+}
+
+// DeletePasskeyWithResponse Remove one of the signed-in person's passkeys
+//
+// The passkey can't sign in any more. Sessions it started stay
+// signed in (sign out everywhere to end them). Another person's
+// passkey is `404`, like an unknown one.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/me/passkeys/{passkey} (the `DeletePasskey` operationId).
+func (c *ClientWithResponses) DeletePasskeyWithResponse(ctx context.Context, passkey PasskeyPath, reqEditors ...RequestEditorFn) (*DeletePasskeyResponse, error) {
+	rsp, err := c.DeletePasskey(ctx, passkey, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeletePasskeyResponse(rsp)
 }
 
 // BeginTotpEnrollmentWithResponse Start enrolling an authenticator app
@@ -19363,6 +19705,46 @@ func ParseBeginPasskeyRegistrationResponse(rsp *http.Response) (*BeginPasskeyReg
 	return response, nil
 }
 
+// ParseListPasskeysResponse parses an HTTP response from a ListPasskeysWithResponse call
+func ParseListPasskeysResponse(rsp *http.Response) (*ListPasskeysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPasskeysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PasskeyList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseFinishPasskeyRegistrationResponse parses an HTTP response from a FinishPasskeyRegistrationWithResponse call
 func ParseFinishPasskeyRegistrationResponse(rsp *http.Response) (*FinishPasskeyRegistrationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -19404,6 +19786,49 @@ func ParseFinishPasskeyRegistrationResponse(rsp *http.Response) (*FinishPasskeyR
 			return nil, err
 		}
 		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeletePasskeyResponse parses an HTTP response from a DeletePasskeyWithResponse call
+func ParseDeletePasskeyResponse(rsp *http.Response) (*DeletePasskeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeletePasskeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
 
 	}
 

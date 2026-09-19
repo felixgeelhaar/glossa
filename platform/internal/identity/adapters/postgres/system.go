@@ -258,3 +258,31 @@ func (s *systemStore) PersonOfPasskey(ctx context.Context, credentialID []byte) 
 	}
 	return domain.PersonID(row.PersonID), nil
 }
+
+func (s *systemStore) PasskeysOf(ctx context.Context, person domain.PersonID, after app.PasskeyCursor, limit int) ([]app.Passkey, error) {
+	rows, err := s.q.PagePasskeysOfPerson(ctx, identitysql.PagePasskeysOfPersonParams{
+		PersonID: person.UUID(), AfterCreatedAt: after.CreatedAt, AfterID: after.ID,
+		MaxRows: int32(limit), //nolint:gosec // page sizes are small
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.Passkey, len(rows))
+	for i, r := range rows {
+		out[i] = app.Passkey{ID: r.CredentialID, Name: r.Name, CreatedAt: r.CreatedAt.UTC(), LastUsedAt: timePtr(r.LastUsedAt)}
+	}
+	return out, nil
+}
+
+func (s *systemStore) DeletePasskeyOf(ctx context.Context, person domain.PersonID, credentialID []byte) error {
+	n, err := s.q.DeletePasskeyOfPerson(ctx, identitysql.DeletePasskeyOfPersonParams{
+		CredentialID: credentialID, PersonID: person.UUID(),
+	})
+	if err != nil {
+		return storeError(err)
+	}
+	if n == 0 {
+		return app.ErrNotFound
+	}
+	return nil
+}

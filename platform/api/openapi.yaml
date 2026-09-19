@@ -364,6 +364,27 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/me/passkeys:
+    get:
+      operationId: listPasskeys
+      tags: [me]
+      summary: The signed-in person's passkeys
+      description: |
+        Every passkey registered to the person, oldest first, on any
+        device — not only this browser's. Listed even while passkeys are
+        not configured on the server.
+      security:
+        - session: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of passkeys.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasskeyList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
     post:
       operationId: finishPasskeyRegistration
       tags: [me]
@@ -389,6 +410,26 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/me/passkeys/{passkey}:
+    parameters:
+      - $ref: "#/components/parameters/PasskeyPath"
+    delete:
+      operationId: deletePasskey
+      tags: [me]
+      summary: Remove one of the signed-in person's passkeys
+      description: |
+        The passkey can't sign in any more. Sessions it started stay
+        signed in (sign out everywhere to end them). Another person's
+        passkey is `404`, like an unknown one.
+      security:
+        - session: []
+          csrf: []
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/me/totp:
     put:
@@ -2371,6 +2412,12 @@ components:
       required: true
       description: A release `id`.
       schema: { $ref: "#/components/schemas/Id" }
+    PasskeyPath:
+      name: passkey
+      in: path
+      required: true
+      description: A passkey `id` (its credential ID, base64url).
+      schema: { type: string, minLength: 1, maxLength: 1400, pattern: "^[A-Za-z0-9_-]+$" }
     DeliveryKeyPath:
       name: delivery_key
       in: path
@@ -2612,6 +2659,17 @@ components:
         id: { type: string, description: "The credential ID, base64url." }
         name: { type: string }
         created_at: { $ref: "#/components/schemas/Timestamp" }
+        last_used_at:
+          $ref: "#/components/schemas/Timestamp"
+          description: The last sign-in with it; absent until it signs in.
+    PasskeyList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Passkey" }
+        next_page_token: { type: string }
     TotpEnrollment:
       type: object
       required: [secret, otpauth_uri]

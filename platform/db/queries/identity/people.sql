@@ -97,6 +97,18 @@ WHERE credential_id = sqlc.arg(credential_id);
 -- name: DeletePasskey :execrows
 DELETE FROM identity_passkeys WHERE credential_id = sqlc.arg(credential_id);
 
+-- name: PagePasskeysOfPerson :many
+-- Oldest first; keyset on (created_at, credential_id).
+SELECT credential_id, name, created_at, last_used_at FROM identity_passkeys
+WHERE person_id = sqlc.arg(person_id)
+  AND (created_at, credential_id) > (sqlc.arg(after_created_at)::timestamptz, sqlc.arg(after_id)::bytea)
+ORDER BY created_at, credential_id
+LIMIT sqlc.arg(max_rows);
+
+-- name: DeletePasskeyOfPerson :execrows
+DELETE FROM identity_passkeys
+WHERE credential_id = sqlc.arg(credential_id) AND person_id = sqlc.arg(person_id);
+
 -- name: GetLoginAttempt :one
 SELECT * FROM identity_login_attempts WHERE key = sqlc.arg(key);
 

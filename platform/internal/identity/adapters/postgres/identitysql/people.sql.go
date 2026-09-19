@@ -88,6 +88,24 @@ func (q *Queries) DeletePasskey(ctx context.Context, credentialID []byte) (int64
 	return result.RowsAffected(), nil
 }
 
+const deletePasskeyOfPerson = `-- name: DeletePasskeyOfPerson :execrows
+DELETE FROM identity_passkeys
+WHERE credential_id = $1 AND person_id = $2
+`
+
+type DeletePasskeyOfPersonParams struct {
+	CredentialID []byte
+	PersonID     uuid.UUID
+}
+
+func (q *Queries) DeletePasskeyOfPerson(ctx context.Context, arg DeletePasskeyOfPersonParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePasskeyOfPerson, arg.CredentialID, arg.PersonID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteSession = `-- name: DeleteSession :execrows
 DELETE FROM identity_sessions WHERE token_hash = $1
 `
@@ -473,6 +491,59 @@ type MarkEmailVerifiedParams struct {
 func (q *Queries) MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) error {
 	_, err := q.db.Exec(ctx, markEmailVerified, arg.At, arg.ID)
 	return err
+}
+
+const pagePasskeysOfPerson = `-- name: PagePasskeysOfPerson :many
+SELECT credential_id, name, created_at, last_used_at FROM identity_passkeys
+WHERE person_id = $1
+  AND (created_at, credential_id) > ($2::timestamptz, $3::bytea)
+ORDER BY created_at, credential_id
+LIMIT $4
+`
+
+type PagePasskeysOfPersonParams struct {
+	PersonID       uuid.UUID
+	AfterCreatedAt time.Time
+	AfterID        []byte
+	MaxRows        int32
+}
+
+type PagePasskeysOfPersonRow struct {
+	CredentialID []byte
+	Name         string
+	CreatedAt    time.Time
+	LastUsedAt   pgtype.Timestamptz
+}
+
+// Oldest first; keyset on (created_at, credential_id).
+func (q *Queries) PagePasskeysOfPerson(ctx context.Context, arg PagePasskeysOfPersonParams) ([]PagePasskeysOfPersonRow, error) {
+	rows, err := q.db.Query(ctx, pagePasskeysOfPerson,
+		arg.PersonID,
+		arg.AfterCreatedAt,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PagePasskeysOfPersonRow
+	for rows.Next() {
+		var i PagePasskeysOfPersonRow
+		if err := rows.Scan(
+			&i.CredentialID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.LastUsedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const recordLoginFailure = `-- name: RecordLoginFailure :one

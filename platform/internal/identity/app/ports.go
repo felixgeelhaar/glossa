@@ -93,6 +93,11 @@ type SystemStore interface {
 
 	AddPasskey(ctx context.Context, person domain.PersonID, c authgo.PasskeyCredential, at time.Time) error
 	PersonOfPasskey(ctx context.Context, credentialID []byte) (domain.PersonID, error)
+	// PasskeysOf lists a person's passkeys after the cursor, oldest first.
+	PasskeysOf(ctx context.Context, person domain.PersonID, after PasskeyCursor, limit int) ([]Passkey, error)
+	// DeletePasskeyOf removes the person's passkey (ErrNotFound if they
+	// have no such passkey).
+	DeletePasskeyOf(ctx context.Context, person domain.PersonID, credentialID []byte) error
 
 	SaveCeremony(ctx context.Context, c Ceremony) error
 	// TakeCeremony deletes and returns a ceremony (ErrNotFound if absent).

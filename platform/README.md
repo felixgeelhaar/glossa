@@ -289,6 +289,11 @@ state server-side, single-use). Registration writes the person, then the
 individual tenant and owner membership in one tenant transaction; every
 sign-in repairs a missing individual tenant and accepts open invitations
 to the verified address. Password reset revokes all sessions.
+`GET /v1/me/passkeys` lists the person's passkeys from every device
+(name, created, last used; oldest first) and `DELETE
+/v1/me/passkeys/{id}` removes one — scoped to the signed-in person in
+the query itself, so another person's passkey is a `404`. Both work
+while passkeys are not configured, so enrolled ones stay manageable.
 
 **Roles** — `owner`, `admin`, `developer`, `translator`, `reviewer`; the
 matrix is pinned by `TestRolePermissionMatrix`. Translators and

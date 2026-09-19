@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/postgres"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
@@ -20,6 +21,8 @@ import (
 )
 
 func firstPage() pagination.Page { return pagination.Page{Size: pagination.DefaultPageSize} }
+
+func ptr[T any](v T) *T { return &v }
 
 func TestMagicLinkRegistrationCreatesIndividualTenantAndOwner(t *testing.T) {
 	h := newHarness(t)
@@ -694,6 +697,69 @@ func TestPasskeyCeremonies(t *testing.T) {
 	h.clock.Advance(app.CeremonyTTL + time.Second)
 	if _, err := h.svc.FinishPasskeyRegistration(ctx, ada.Person.ID, ch.Key, []byte(`{}`), "mac"); !errors.Is(err, app.ErrPasskeyInvalid) {
 		t.Errorf("expired ceremony err = %v", err)
+	}
+}
+
+// A person sees and removes only their own passkeys, on every device.
+func TestListAndDeletePasskeys(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	ada, bob := h.signUp(t, "ada@example.com"), h.signUp(t, "bob@example.com")
+	repo := postgres.NewPasskeyRepo(h.uow)
+	for i, name := range []string{"mac", "phone", "key"} {
+		uid, _ := authgo.NewUserID(ada.Person.ID.String())
+		if err := repo.Add(ctx, authgo.PasskeyCredential{
+			ID: []byte{0xfa, byte(i)}, UserID: uid, PublicKey: []byte{1}, Name: name,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := repo.UpdateSignCount(ctx, []byte{0xfa, 1}, 7); err != nil {
+		t.Fatal(err)
+	}
+
+	var all []app.Passkey
+	page := pagination.Page{Size: 2}
+	for i := 0; ; i++ {
+		items, next, err := h.svc.ListPasskeys(ctx, ada.Person.ID, page)
+		if err != nil {
+			t.Fatal(err)
+		}
+		all = append(all, items...)
+		if next == nil {
+			break
+		}
+		if i > 3 {
+			t.Fatal("pagination does not terminate")
+		}
+		if page, err = pagination.Parse(ptr(2), next); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(all) != 3 || all[0].Name != "mac" || all[1].Name != "phone" || all[2].Name != "key" {
+		t.Fatalf("passkeys = %+v", all)
+	}
+	if all[0].LastUsedAt != nil || all[1].LastUsedAt == nil || all[0].CreatedAt.IsZero() {
+		t.Errorf("last used = %v, %v", all[0].LastUsedAt, all[1].LastUsedAt)
+	}
+	if _, _, err := h.svc.ListPasskeys(ctx, ada.Person.ID, pagination.Page{Size: 2, After: "garbage"}); err == nil {
+		t.Error("accepted a malformed cursor")
+	}
+	if theirs, _, err := h.svc.ListPasskeys(ctx, bob.Person.ID, firstPage()); err != nil || len(theirs) != 0 {
+		t.Errorf("bob's passkeys = %+v, %v", theirs, err)
+	}
+
+	if err := h.svc.DeletePasskey(ctx, bob.Person.ID, all[0].ID); !errors.Is(err, app.ErrNotFound) {
+		t.Errorf("deleting someone else's passkey err = %v", err)
+	}
+	if err := h.svc.DeletePasskey(ctx, ada.Person.ID, all[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.svc.DeletePasskey(ctx, ada.Person.ID, all[0].ID); !errors.Is(err, app.ErrNotFound) {
+		t.Errorf("deleting twice err = %v", err)
+	}
+	if n := count(t, "SELECT count(*) FROM identity_passkeys WHERE person_id = $1", ada.Person.ID.UUID()); n != 2 {
+		t.Errorf("passkeys left = %d", n)
 	}
 }
 

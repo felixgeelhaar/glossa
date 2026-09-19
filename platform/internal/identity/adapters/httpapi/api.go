@@ -10,6 +10,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -270,6 +271,41 @@ func (a *API) FinishPasskeyRegistration(ctx context.Context, req apiv1.FinishPas
 		return nil, err
 	}
 	return apiv1.FinishPasskeyRegistration201JSONResponse{Id: base64URL(pk.ID), Name: pk.Name, CreatedAt: pk.CreatedAt}, nil
+}
+
+func (a *API) ListPasskeys(ctx context.Context, req apiv1.ListPasskeysRequestObject) (apiv1.ListPasskeysResponseObject, error) {
+	p, err := person(ctx)
+	if err != nil {
+		return nil, err
+	}
+	page, err := pagination.Parse(req.Params.PageSize, req.Params.PageToken)
+	if err != nil {
+		return nil, err
+	}
+	pks, next, err := a.svc.ListPasskeys(ctx, p, page)
+	if err != nil {
+		return nil, err
+	}
+	out := apiv1.ListPasskeys200JSONResponse{Items: make([]apiv1.Passkey, len(pks)), NextPageToken: next}
+	for i, pk := range pks {
+		out.Items[i] = apiv1.Passkey{Id: base64URL(pk.ID), Name: pk.Name, CreatedAt: pk.CreatedAt, LastUsedAt: pk.LastUsedAt}
+	}
+	return out, nil
+}
+
+func (a *API) DeletePasskey(ctx context.Context, req apiv1.DeletePasskeyRequestObject) (apiv1.DeletePasskeyResponseObject, error) {
+	p, err := person(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := base64.RawURLEncoding.DecodeString(req.Passkey)
+	if err != nil || len(id) == 0 {
+		return nil, app.ErrNotFound
+	}
+	if err := a.svc.DeletePasskey(ctx, p, id); err != nil {
+		return nil, err
+	}
+	return apiv1.DeletePasskey204Response{}, nil
 }
 
 func passkeyOptions(raw []byte) (apiv1.PasskeyOptions, error) {
