@@ -1,10 +1,12 @@
 /**
  * M2 end to end (RFC 0003 §6): the termbase feeds term highlights and
  * live terminology QA in the editor, approved text becomes translation
- * memory, "Fill with AI" runs the real translation agent in glossa-server
+ * memory (inserted in the editor's syntax), "Fill with AI" previews what
+ * it would do and then runs the real translation agent in glossa-server
  * against the fake provider (e2e/fake-provider.ts, answering from
  * fixtures/provider-cassette.json — never a real provider), and the
- * review queue triages the suggestions riskiest first.
+ * review queue triages the suggestions riskiest first, each with its
+ * source and no request per item.
  */
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
@@ -90,6 +92,8 @@ test("terms, translation memory, fill with AI and the review queue", async ({ pa
   await page.keyboard.press("ControlOrMeta+Alt+1");
   await expect(editor).toHaveValue("Einen Arbeitsbereich erstellen");
   await expect(editor).toBeFocused();
+  // The match came in the editor's syntax (MF1, the project's default), so the translation stays MF1.
+  await expect(page.locator("#target-syntax")).toHaveValue("mf1");
 
   // ── AI settings: a provider (the fake one), consent, a budget, routing ──
   await page.getByRole("link", { name: "AI", exact: true }).click();
@@ -142,8 +146,18 @@ test("terms, translation memory, fill with AI and the review queue", async ({ pa
   await page.getByLabel("Target locale").selectOption("de");
   await page.getByRole("button", { name: "Fill with AI…" }).click();
   d = page.getByRole("dialog", { name: "Fill de with AI" });
-  await expect(d).toContainText("Every message missing in de gets an AI suggestion.");
-  await d.getByRole("button", { name: "Fill with AI" }).click();
+  await expect(d).toContainText("Every message selected below gets an AI suggestion in de.");
+  await expect(d.getByRole("radio", { name: "Missing (none yet, or rejected)" })).toBeChecked();
+  // The server's preview first: nothing is queued until it's confirmed.
+  const preview = d.getByTestId("fill-preview");
+  await expect(preview.getByTestId("fill-plan-messages")).toHaveText("4 messages to fill:");
+  await expect(preview.getByTestId("fill-plan")).toContainText("4 call an AI provider");
+  await expect(preview.getByTestId("fill-cost")).toContainText(/^Estimated cost \$[\d.]+; at most \$[\d.]+/);
+  await preview.getByText("Show the 4 keys (de)").click();
+  await expect(preview.locator("details li")).toHaveText(["billing.invoice", "terms.accept", "workspace.create_new", "workspace.delete"]);
+  expect((await v1.get(`/v1/tenants/${t}/ai-jobs?project=${project.id}`)).items).toEqual([]);
+  await expectAccessible(page, "fill preview");
+  await d.getByRole("button", { name: "Fill 4 messages" }).click();
   await expect(d.getByTestId("fill-status")).toHaveText("Done: 4 suggested, 0 skipped, 0 failed.", { timeout: 60_000 });
   await expect(d.getByTestId("fill-warnings")).toHaveCount(0);
   await expectAccessible(page, "fill dialog");
@@ -168,6 +182,11 @@ test("terms, translation memory, fill with AI and the review queue", async ({ pa
   await expectAccessibleInBothThemes(page, "workspace with an AI suggestion");
 
   // ── the review queue: riskiest first, triaged from the keyboard ──
+  // Each item carries its source: moving through the queue sends no message request.
+  const messageRequests: string[] = [];
+  page.on("request", (r) => {
+    if (/\/messages\//.test(new URL(r.url()).pathname)) messageRequests.push(r.url());
+  });
   await page.getByRole("link", { name: "Review", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Review queue", level: 1 })).toBeVisible();
   const queue = page.getByTestId("review-list").getByRole("option");
@@ -181,8 +200,11 @@ test("terms, translation memory, fill with AI and the review queue", async ({ pa
 
   await page.keyboard.press("j");
   await expect(queue.nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("review-source")).not.toHaveText("Delete this workspace");
   await page.keyboard.press("k");
   await expect(queue.first()).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("review-source")).toHaveText("Delete this workspace");
+  expect(messageRequests).toEqual([]);
   await page.keyboard.press("e");
   const edit = page.getByTestId("review-edit");
   await expect(edit).toBeFocused();
