@@ -1,6 +1,7 @@
 // Command glossa is Glossa's CLI: init, login, push, pull, extract,
-// generate, check, status, diff, locales, messages, import and release,
-// for developers and CI. See README.md; the commands live in
+// generate, check, status, diff, locales, messages, import, export,
+// jobs, release and the knowledge and AI commands, for developers and
+// CI. See README.md; the commands live in
 // internal/cli.
 package main
 
