@@ -128,3 +128,13 @@ SET failure_count = CASE WHEN a.locked_until IS NOT NULL AND a.locked_until <= s
         ELSE a.locked_until END,
     updated_at = sqlc.arg(now)::timestamptz
 RETURNING failure_count, locked_until;
+
+-- name: InsertCeremony :exec
+INSERT INTO identity_webauthn_ceremonies (key_hash, purpose, person_id, state, expires_at)
+VALUES (sqlc.arg(key_hash), sqlc.arg(purpose), sqlc.narg(person_id), sqlc.arg(state), sqlc.arg(expires_at));
+
+-- name: TakeCeremony :one
+-- Single use: the row is gone whether or not the ceremony then succeeds.
+DELETE FROM identity_webauthn_ceremonies
+WHERE key_hash = sqlc.arg(key_hash) AND purpose = sqlc.arg(purpose)
+RETURNING person_id, state, expires_at;

@@ -93,6 +93,21 @@ type SystemStore interface {
 
 	AddPasskey(ctx context.Context, person domain.PersonID, c authgo.PasskeyCredential, at time.Time) error
 	PersonOfPasskey(ctx context.Context, credentialID []byte) (domain.PersonID, error)
+
+	SaveCeremony(ctx context.Context, c Ceremony) error
+	// TakeCeremony deletes and returns a ceremony (ErrNotFound if absent).
+	TakeCeremony(ctx context.Context, keyHash, purpose string) (Ceremony, error)
+}
+
+// Ceremony is WebAuthn ceremony state held server-side between the
+// challenge and the response, keyed by the hash of a random key the
+// browser keeps in a cookie.
+type Ceremony struct {
+	KeyHash   string
+	Purpose   string
+	Person    domain.PersonID // zero for sign-in
+	State     []byte
+	ExpiresAt time.Time
 }
 
 // InvitationRef locates an open invitation.
