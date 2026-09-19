@@ -108,6 +108,14 @@ tags:
       a review state. `outdated` is derived: the translation was made
       against an older source revision than the message's current one.
 
+  - name: branches
+    description: |
+      Feature branches as an overlay on the catalog (Catalog,
+      RFC 0004 §4): a branch's push proposes new keys and source
+      changes without touching live text, its status report is what a
+      pull request check reports, and each open branch gets a preview
+      environment of its own. Merging is the default branch's push;
+      closing and merging only clean up.
   - name: environments
     description: |
       Where a project's text is served (Release): `development`,
@@ -2633,6 +2641,43 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/DeliveryKeyPath"
+    put:
+      operationId: setDeliveryKeyScope
+      tags: [delivery-keys]
+      summary: Change what a delivery key may read
+      description: |
+        Replaces the key's scope: the `environments` it reads and
+        whether it reads branch previews. The key itself never changes,
+        so a bundle that ships it keeps working; the edge follows within
+        its key cache TTL (30 s by default) plus any CDN max-age. A
+        revoked key takes no scope. Needs `releases.publish`. Problem
+        codes: `invalid_key_scope` (400), `key_revoked` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeliveryKeyScope" }
+      responses:
+        "200":
+          description: The key with its new scope.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryKey" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}:
     parameters:
@@ -5416,6 +5461,294 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  # ── branches ────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/branches:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listBranches
+      tags: [branches]
+      summary: Branches of a project, by name
+      description: |
+        `state` lists only `open`, `merged` or `closed` branches. `name`
+        is the way to find a branch whose `id` you don't have (an
+        unknown name is an empty page, not a 404). Needs `catalog.read`.
+        Problem codes: `invalid_branch_state` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - name: state
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/BranchState" }
+        - name: name
+          in: query
+          required: false
+          description: Only the branch with this exact name.
+          schema: { $ref: "#/components/schemas/BranchName" }
+      responses:
+        "200":
+          description: A page of branches.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BranchList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: upsertBranch
+      tags: [branches]
+      summary: Open a branch, or record what CI knows about it
+      description: |
+        Addressed by `name`, because a branch that doesn't exist yet has
+        no `id`: the first call creates it (`201`), later ones record its
+        head commit, its pull request number and its preview URL
+        (`200`). It proposes nothing — `pushBranchMessages` does that —
+        and a closed branch reopens. Opening a branch opens its preview
+        environment (`pr-<number>`, or `br-<hash>` without a pull
+        request). Needs `catalog.write`. Problem codes: `invalid_branch`,
+        `invalid_push`, `invalid_preview_url` (400), `branch_merged`
+        (409).
+      x-glossa-idempotency: The name is the branch's identity; the call is an upsert, so a retry is safe.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpsertBranch" }
+      responses:
+        "200":
+          description: The branch as it now stands.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Branch" }
+        "201":
+          description: The branch was created.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Branch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/projects/{project}/branch-pushes:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    post:
+      operationId: pushBranchMessages
+      tags: [branches]
+      summary: Push a branch's messages (CI, glossa push --branch)
+      description: |
+        The branch's catalog, up to 10000 messages in one transaction —
+        a whole catalog, not a batch, so `complete` can be trusted. The
+        branch is created by its first push, and a closed one reopens.
+
+        Nothing live changes: a key the project doesn't have becomes a
+        `proposed` message the branch owns, changed source for a live
+        key becomes a *source proposal*, and a key whose live source
+        already says this is `unchanged`. Two open branches proposing
+        the same new key with different source are a `key_conflict` for
+        both. With `complete`, the keys the branch proposed before and
+        no longer has are withdrawn, and the project's live keys the
+        push lacks are reported in `removed` — reported only: a branch
+        never obsoletes anything.
+
+        The answer is the branch's status report, the same one
+        `getBranch` returns, plus one result per item in request order.
+        Items fail on their own (`items[].error.code`, as for
+        `upsertMessages`) without failing the push. Needs
+        `catalog.write`. Problem codes: `too_many_branch_items`,
+        `invalid_branch`, `invalid_push` (400), `branch_merged` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BranchPush" }
+      responses:
+        "200":
+          description: The branch's status report, with a result per item.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BranchPushResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/projects/{project}/branches/{branch}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/BranchPath"
+    get:
+      operationId: getBranch
+      tags: [branches]
+      summary: A branch's status report
+      description: |
+        What the branch proposes as its last push left it: its new keys,
+        its source proposals, the live keys its last complete push
+        lacked (`removed`), the key conflicts it shares with other open
+        branches, and how many current translations per locale merging
+        it will make outdated. This is what the PR check reports. Needs
+        `catalog.read` (`outdated` also needs `translations.read`).
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The branch and its status report.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BranchStatus" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/branches/{branch}/proposals:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/BranchPath"
+    get:
+      operationId: listBranchProposals
+      tags: [branches]
+      summary: What a branch proposes, key by key
+      description: |
+        By key: the source the branch pushed for it, the message it
+        names, and for a source change the revision it was proposed
+        against. Needs `catalog.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of proposals.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProposalList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/branches/{branch}/closure:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/BranchPath"
+    post:
+      operationId: closeBranch
+      tags: [branches]
+      summary: Close a branch (its pull request was closed unmerged)
+      description: |
+        Its preview environment is destroyed, so the edge answers 404
+        for it, and its proposed messages stay proposed for 14 days
+        before they become obsolete — reopening the branch, or pushing
+        their keys again, brings them back with their translations and
+        history. Idempotent: closing a closed branch changes nothing.
+        Needs `catalog.write`. Problem codes: `branch_merged` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The closed branch.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Branch" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/projects/{project}/branches/{branch}/merge:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/BranchPath"
+    post:
+      operationId: mergeBranch
+      tags: [branches]
+      summary: Mark a branch merged
+      description: |
+        Bookkeeping and cleanup, not activation: the **default branch's
+        push** makes proposed messages active and proposals source
+        revisions, so nothing depends on this call arriving. It destroys
+        the branch's preview environment and starts the 14-day clock on
+        whatever the default branch didn't bring in. A merged branch
+        takes no more pushes. Idempotent. Needs `catalog.write`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The merged branch.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Branch" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/projects/{project}/branches/{branch}/preview:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/BranchPath"
+    put:
+      operationId: setBranchPreview
+      tags: [branches]
+      summary: Record where CI deployed the branch's preview
+      description: |
+        `glossa preview register --url`. The URL is shown in Studio and
+        in the pull request comment; it is where the in-product editor
+        runs. An empty `url` clears it. Needs `catalog.write`. Problem
+        codes: `invalid_preview_url` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BranchPreview" }
+      responses:
+        "200":
+          description: The branch, with its preview URL.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Branch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
 components:
   securitySchemes:
     session:
@@ -5483,6 +5816,15 @@ components:
       required: true
       description: A locale code; canonicalized before use.
       schema: { $ref: "#/components/schemas/Locale" }
+    BranchPath:
+      name: branch
+      in: path
+      required: true
+      description: |
+        A branch `id`. Branch names may hold `/`, and an encoded slash
+        doesn't survive every proxy, so URLs never carry the name; find
+        the `id` with `listBranches?name=…`.
+      schema: { $ref: "#/components/schemas/Id" }
     EnvironmentPath:
       name: environment
       in: path
@@ -6379,6 +6721,172 @@ components:
           type: array
           items: { $ref: "#/components/schemas/MessageUpsertItemResult" }
 
+    # ── catalog: branches ──────────────────────────────────────────────
+    BranchName:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: |
+        A Git branch name, unique per project (`feature/checkout-copy`).
+        It may hold `/`, so URLs address a branch by its `id`, never by
+        its name; `listBranches?name=…` finds the `id`.
+    BranchState:
+      type: string
+      enum: [open, merged, closed]
+      description: |
+        `open` while the branch is being worked on: it has a preview
+        environment, and its proposals live. `merged` and `closed` end
+        it — the environment is destroyed, and what the default branch
+        never brought in becomes obsolete 14 days later.
+    Branch:
+      type: object
+      required: [id, name, state, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { $ref: "#/components/schemas/BranchName" }
+        state: { $ref: "#/components/schemas/BranchState" }
+        pr_number: { type: integer, minimum: 1, description: "The pull request the branch has, when it has one." }
+        head_commit: { type: string, pattern: "^[0-9a-f]{7,64}$", description: The commit last pushed. }
+        preview_url: { type: string, maxLength: 2000, description: "Where CI deployed the branch's preview." }
+        closed_at:
+          $ref: "#/components/schemas/Timestamp"
+          description: When the branch was closed or merged; absent while it is open.
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    BranchList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Branch" }
+        next_page_token: { type: string }
+    UpsertBranch:
+      type: object
+      required: [name]
+      properties:
+        name: { $ref: "#/components/schemas/BranchName" }
+        pr_number: { type: integer, minimum: 1, description: "Omitted: keep." }
+        head_commit: { type: string, pattern: "^[0-9a-f]{7,64}$", description: "Omitted: keep." }
+        preview_url: { type: string, maxLength: 2000, description: 'Omitted: keep; "" clears it.' }
+    BranchPreview:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, maxLength: 2000, description: 'An absolute http(s) URL; "" clears it.' }
+    BranchPush:
+      type: object
+      required: [branch, items]
+      properties:
+        branch: { $ref: "#/components/schemas/BranchName" }
+        pr_number: { type: integer, minimum: 1, description: "Omitted: keep." }
+        head_commit: { type: string, pattern: "^[0-9a-f]{7,64}$", description: "Omitted: keep." }
+        complete:
+          type: boolean
+          default: false
+          description: |
+            The items are the branch's whole catalog: keys it proposed
+            before and no longer has are withdrawn, and the project's
+            live keys it lacks are reported in `removed`. A partial push
+            only adds.
+        items:
+          type: array
+          minItems: 1
+          maxItems: 10000
+          description: "`base_revision` is ignored: a branch never overwrites anyone's edit."
+          items: { $ref: "#/components/schemas/MessageUpsertItem" }
+    BranchItemResult:
+      type: object
+      required: [key, status]
+      properties:
+        key: { type: string }
+        status:
+          type: string
+          enum: [new_key, source_proposal, unchanged, key_conflict, failed]
+          description: |
+            `new_key`: the branch proposes the key's message.
+            `source_proposal`: it proposes new source for a live
+            message. `unchanged`: the live source already says this.
+            `key_conflict`: another open branch proposes the same new
+            key with different source.
+        message: { $ref: "#/components/schemas/Message" }
+        error: { $ref: "#/components/schemas/ItemError" }
+    KeyConflict:
+      type: object
+      required: [key, branches]
+      properties:
+        key: { $ref: "#/components/schemas/MessageKey" }
+        branches:
+          type: array
+          description: The other open branches proposing this key with different source.
+          items: { $ref: "#/components/schemas/BranchName" }
+    BranchStatus:
+      type: object
+      required: [branch, new_keys, source_proposals, removed, conflicts, outdated]
+      description: What a branch proposes, and what merging it would do.
+      properties:
+        branch: { $ref: "#/components/schemas/Branch" }
+        new_keys:
+          type: array
+          description: Keys the project doesn't have; their messages are `proposed`.
+          items: { $ref: "#/components/schemas/MessageKey" }
+        source_proposals:
+          type: array
+          description: Live keys whose source the branch changes.
+          items: { $ref: "#/components/schemas/MessageKey" }
+        removed:
+          type: array
+          description: Live keys the last complete push lacked. Reported only; nothing is obsoleted.
+          items: { $ref: "#/components/schemas/MessageKey" }
+        conflicts:
+          type: array
+          items: { $ref: "#/components/schemas/KeyConflict" }
+        outdated:
+          type: object
+          description: |
+            Per locale, how many current translations the branch's
+            source proposals will make outdated when it merges. Empty
+            without `translations.read`.
+          additionalProperties: { type: integer }
+    BranchPushResult:
+      allOf:
+        - $ref: "#/components/schemas/BranchStatus"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              description: One result per pushed item, in request order.
+              items: { $ref: "#/components/schemas/BranchItemResult" }
+    Proposal:
+      type: object
+      required: [key, kind, message_id, source, created_at, updated_at]
+      description: What one branch proposes for one key.
+      properties:
+        key: { $ref: "#/components/schemas/MessageKey" }
+        kind:
+          type: string
+          enum: [new_key, source_change]
+          description: |
+            `new_key`: the branch owns the key's `proposed` message
+            (shared with every other branch proposing the same source
+            for it). `source_change`: the message is live and the branch
+            proposes new source for it, against `base_revision`.
+        message_id: { $ref: "#/components/schemas/Id" }
+        source: { $ref: "#/components/schemas/MessageContent" }
+        base_revision: { type: integer, minimum: 1, description: "For a source change, the revision it was proposed against." }
+        author: { type: string, description: "`person:<id>`, `token:<id>` or `system:<name>`." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    ProposalList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Proposal" }
+        next_page_token: { type: string }
+
     # ── localization ───────────────────────────────────────────────────
     Direction:
       type: string
@@ -6624,17 +7132,37 @@ components:
         include_outdated: { type: boolean }
     Environment:
       type: object
-      required: [name, policy, created_at, updated_at]
+      required: [name, kind, policy, created_at, updated_at]
       properties:
         name: { $ref: "#/components/schemas/EnvironmentName" }
+        kind: { $ref: "#/components/schemas/EnvironmentKind" }
+        branch:
+          $ref: "#/components/schemas/BranchName"
+          description: The branch a `branch` environment previews; absent for a standard one.
         policy: { $ref: "#/components/schemas/EnvironmentPolicy" }
         current_release_id: { $ref: "#/components/schemas/Id" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+    EnvironmentKind:
+      type: string
+      enum: [standard, branch]
+      description: |
+        `standard` serves the main catalog (the default environments and
+        custom ones). `branch` is one open branch's preview: the main
+        catalog plus that branch's overlay, under a fixed policy
+        (everything not rejected, outdated included), published again
+        when the branch changes. Its releases can't be promoted
+        (`branch_release_not_promotable`), because they hold text that
+        exists only on the branch, and a project has at most 50 of them
+        (`too_many_branches`). Opening, publishing and destroying one
+        follows its branch; nothing creates one by hand.
     EnvironmentName:
       type: string
       pattern: "^[a-z0-9][a-z0-9-]{0,62}$"
-      description: '`development`, `preview`, `staging`, `production` or a custom name (not `a`).'
+      description: |
+        `development`, `preview`, `staging`, `production` or a custom
+        name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+        branch environments.
     EnvironmentList:
       type: object
       required: [items]
@@ -6830,7 +7358,7 @@ components:
           items: { $ref: "#/components/schemas/SigningKey" }
     DeliveryKey:
       type: object
-      required: [id, name, key, created_by, created_at]
+      required: [id, name, key, scope, created_by, created_at]
       properties:
         id: { $ref: "#/components/schemas/Id" }
         name: { type: string }
@@ -6838,9 +7366,32 @@ components:
           type: string
           pattern: "^glossa_pk_[A-Za-z0-9_-]{32}$"
           description: Publishable by design; shown on every read.
+        scope: { $ref: "#/components/schemas/DeliveryKeyScope" }
         created_by: { type: string, description: "`person:<id>` or `token:<id>`." }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         revoked_at: { $ref: "#/components/schemas/Timestamp" }
+    DeliveryKeyScope:
+      type: object
+      required: [environments, branches]
+      description: |
+        What the key reads at the edge: the environments on its
+        allowlist and, with `branches`, every branch preview. Anything
+        outside it answers 404, exactly like an unknown key. Branch
+        previews hold unreleased copy, so a key that ships in a
+        production bundle must not reach them.
+      properties:
+        environments:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          description: |
+            Environments by name — never a branch environment
+            (`pr-<n>`, `br-<hash>`): those are reached through
+            `branches`. Empty only when `branches` is true.
+          items: { $ref: "#/components/schemas/EnvironmentName" }
+        branches:
+          type: boolean
+          description: A preview key, for preview deployments only; it reads every branch environment.
     DeliveryKeyList:
       type: object
       required: [items]
@@ -6854,6 +7405,9 @@ components:
       required: [name]
       properties:
         name: { type: string, minLength: 1, maxLength: 200, description: 'What uses it, e.g. "web" or "go-emails".' }
+        scope:
+          $ref: "#/components/schemas/DeliveryKeyScope"
+          description: 'Omitted: `production` only. Change it later with `setDeliveryKeyScope`.'
 
     # ── knowledge: translation memory ─────────────────────────────────
     TMUnit:

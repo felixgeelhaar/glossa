@@ -63,10 +63,14 @@ func fromPolicy(p apiv1.EnvironmentPolicy) domain.Policy {
 }
 
 func toEnvironment(e domain.Environment) apiv1.Environment {
-	return apiv1.Environment{
-		Name: e.Name, Policy: toPolicy(e.Policy), CurrentReleaseId: optionalID(e.Current),
-		CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt,
+	out := apiv1.Environment{
+		Name: e.Name, Kind: apiv1.EnvironmentKind(e.Kind), Policy: toPolicy(e.Policy),
+		CurrentReleaseId: optionalID(e.Current), CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt,
 	}
+	if e.Branch != "" {
+		out.Branch = apiconv.Ptr(e.Branch)
+	}
+	return out
 }
 
 func (a *API) ListEnvironments(ctx context.Context, req apiv1.ListEnvironmentsRequestObject) (apiv1.ListEnvironmentsResponseObject, error) {
@@ -423,8 +427,21 @@ func (a *API) ListReleaseSigningKeys(ctx context.Context, req apiv1.ListReleaseS
 
 func toDeliveryKey(k domain.DeliveryKey) apiv1.DeliveryKey {
 	return apiv1.DeliveryKey{
-		Id: k.ID.String(), Name: k.Name, Key: k.Key, CreatedBy: k.CreatedBy, CreatedAt: k.CreatedAt, RevokedAt: k.RevokedAt,
+		Id: k.ID.String(), Name: k.Name, Key: k.Key, Scope: toScope(k.Scope), CreatedBy: k.CreatedBy,
+		CreatedAt: k.CreatedAt, RevokedAt: k.RevokedAt,
 	}
+}
+
+func toScope(s delivery.Scope) apiv1.DeliveryKeyScope {
+	envs := s.Environments
+	if envs == nil {
+		envs = []string{}
+	}
+	return apiv1.DeliveryKeyScope{Environments: envs, Branches: s.Branches}
+}
+
+func fromScope(s apiv1.DeliveryKeyScope) delivery.Scope {
+	return delivery.Scope{Environments: s.Environments, Branches: s.Branches}
 }
 
 func (a *API) ListDeliveryKeys(ctx context.Context, req apiv1.ListDeliveryKeysRequestObject) (apiv1.ListDeliveryKeysResponseObject, error) {
@@ -456,12 +473,12 @@ func (a *API) CreateDeliveryKey(ctx context.Context, req apiv1.CreateDeliveryKey
 	if req.Params.IdempotencyKey != nil {
 		idem = *req.Params.IdempotencyKey
 	}
-	// The API doesn't expose key scopes yet (RFC 0004 §13, wave 4). Until
-	// it does, a key it creates reads what every key read before scopes
-	// existed — the default environments, like the keys migrated to
-	// them — so Studio, the CLI and existing integrations keep working.
-	legacy := delivery.Scope{Environments: delivery.DefaultEnvironments}
-	k, replayed, err := a.svc.CreateDeliveryKey(ctx, project, app.NewDeliveryKey{Name: req.Body.Name, Scope: &legacy}, idem)
+	// Without a scope, a new key reads production only (RFC 0004 §4.3).
+	in := app.NewDeliveryKey{Name: req.Body.Name}
+	if req.Body.Scope != nil {
+		in.Scope = apiconv.Ptr(fromScope(*req.Body.Scope))
+	}
+	k, replayed, err := a.svc.CreateDeliveryKey(ctx, project, in, idem)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -470,6 +487,22 @@ func (a *API) CreateDeliveryKey(ctx context.Context, req apiv1.CreateDeliveryKey
 		h.IdempotentReplayed = apiconv.Ptr("true")
 	}
 	return apiv1.CreateDeliveryKey201JSONResponse{Body: toDeliveryKey(k), Headers: h}, nil
+}
+
+func (a *API) SetDeliveryKeyScope(ctx context.Context, req apiv1.SetDeliveryKeyScopeRequestObject) (apiv1.SetDeliveryKeyScopeResponseObject, error) {
+	project, err := parseID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	id, err := parseID(req.DeliveryKey)
+	if err != nil {
+		return nil, err
+	}
+	k, err := a.svc.ChangeDeliveryKeyScope(ctx, project, id, fromScope(*req.Body))
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return apiv1.SetDeliveryKeyScope200JSONResponse(toDeliveryKey(k)), nil
 }
 
 func (a *API) RevokeDeliveryKey(ctx context.Context, req apiv1.RevokeDeliveryKeyRequestObject) (apiv1.RevokeDeliveryKeyResponseObject, error) {

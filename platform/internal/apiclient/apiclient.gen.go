@@ -411,6 +411,54 @@ func (e ArgumentType) Valid() bool {
 	}
 }
 
+// Defines values for BranchItemResultStatus.
+const (
+	BranchItemResultStatusFailed         BranchItemResultStatus = "failed"
+	BranchItemResultStatusKeyConflict    BranchItemResultStatus = "key_conflict"
+	BranchItemResultStatusNewKey         BranchItemResultStatus = "new_key"
+	BranchItemResultStatusSourceProposal BranchItemResultStatus = "source_proposal"
+	BranchItemResultStatusUnchanged      BranchItemResultStatus = "unchanged"
+)
+
+// Valid indicates whether the value is a known member of the BranchItemResultStatus enum.
+func (e BranchItemResultStatus) Valid() bool {
+	switch e {
+	case BranchItemResultStatusFailed:
+		return true
+	case BranchItemResultStatusKeyConflict:
+		return true
+	case BranchItemResultStatusNewKey:
+		return true
+	case BranchItemResultStatusSourceProposal:
+		return true
+	case BranchItemResultStatusUnchanged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BranchState.
+const (
+	BranchStateClosed BranchState = "closed"
+	BranchStateMerged BranchState = "merged"
+	BranchStateOpen   BranchState = "open"
+)
+
+// Valid indicates whether the value is a known member of the BranchState enum.
+func (e BranchState) Valid() bool {
+	switch e {
+	case BranchStateClosed:
+		return true
+	case BranchStateMerged:
+		return true
+	case BranchStateOpen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CaptureRegionKind.
 const (
 	CaptureRegionKindAttribute CaptureRegionKind = "attribute"
@@ -504,6 +552,24 @@ func (e Direction) Valid() bool {
 	case Ltr:
 		return true
 	case Rtl:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EnvironmentKind.
+const (
+	EnvironmentKindBranch   EnvironmentKind = "branch"
+	EnvironmentKindStandard EnvironmentKind = "standard"
+)
+
+// Valid indicates whether the value is a known member of the EnvironmentKind enum.
+func (e EnvironmentKind) Valid() bool {
+	switch e {
+	case EnvironmentKindBranch:
+		return true
+	case EnvironmentKindStandard:
 		return true
 	default:
 		return false
@@ -701,19 +767,19 @@ func (e IntegrationKind) Valid() bool {
 
 // Defines values for MarkupElementKind.
 const (
-	Close      MarkupElementKind = "close"
-	Open       MarkupElementKind = "open"
-	Standalone MarkupElementKind = "standalone"
+	MarkupElementKindClose      MarkupElementKind = "close"
+	MarkupElementKindOpen       MarkupElementKind = "open"
+	MarkupElementKindStandalone MarkupElementKind = "standalone"
 )
 
 // Valid indicates whether the value is a known member of the MarkupElementKind enum.
 func (e MarkupElementKind) Valid() bool {
 	switch e {
-	case Close:
+	case MarkupElementKindClose:
 		return true
-	case Open:
+	case MarkupElementKindOpen:
 		return true
-	case Standalone:
+	case MarkupElementKindStandalone:
 		return true
 	default:
 		return false
@@ -909,6 +975,24 @@ func (e Platform) Valid() bool {
 	case PlatformOther:
 		return true
 	case PlatformWeb:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProposalKind.
+const (
+	ProposalKindNewKey       ProposalKind = "new_key"
+	ProposalKindSourceChange ProposalKind = "source_change"
+)
+
+// Valid indicates whether the value is a known member of the ProposalKind enum.
+func (e ProposalKind) Valid() bool {
+	switch e {
+	case ProposalKindNewKey:
+		return true
+	case ProposalKindSourceChange:
 		return true
 	default:
 		return false
@@ -2199,6 +2283,151 @@ type ArgumentSelectorKind string
 // ArgumentType defines model for Argument.Type.
 type ArgumentType string
 
+// Branch defines model for Branch.
+type Branch struct {
+	// ClosedAt When the branch was closed or merged; absent while it is open.
+	ClosedAt *Timestamp `json:"closed_at,omitempty"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// HeadCommit The commit last pushed.
+	HeadCommit *string `json:"head_commit,omitempty"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Name A Git branch name, unique per project (`feature/checkout-copy`).
+	// It may hold `/`, so URLs address a branch by its `id`, never by
+	// its name; `listBranches?name=…` finds the `id`.
+	Name BranchName `json:"name"`
+
+	// PrNumber The pull request the branch has, when it has one.
+	PrNumber *int `json:"pr_number,omitempty"`
+
+	// PreviewUrl Where CI deployed the branch's preview.
+	PreviewUrl *string `json:"preview_url,omitempty"`
+
+	// State `open` while the branch is being worked on: it has a preview
+	// environment, and its proposals live. `merged` and `closed` end
+	// it — the environment is destroyed, and what the default branch
+	// never brought in becomes obsolete 14 days later.
+	State BranchState `json:"state"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// BranchItemResult defines model for BranchItemResult.
+type BranchItemResult struct {
+	Error   *ItemError `json:"error,omitempty"`
+	Key     string     `json:"key"`
+	Message *Message   `json:"message,omitempty"`
+
+	// Status `new_key`: the branch proposes the key's message.
+	// `source_proposal`: it proposes new source for a live
+	// message. `unchanged`: the live source already says this.
+	// `key_conflict`: another open branch proposes the same new
+	// key with different source.
+	Status BranchItemResultStatus `json:"status"`
+}
+
+// BranchItemResultStatus `new_key`: the branch proposes the key's message.
+// `source_proposal`: it proposes new source for a live
+// message. `unchanged`: the live source already says this.
+// `key_conflict`: another open branch proposes the same new
+// key with different source.
+type BranchItemResultStatus string
+
+// BranchList defines model for BranchList.
+type BranchList struct {
+	Items         []Branch `json:"items"`
+	NextPageToken *string  `json:"next_page_token,omitempty"`
+}
+
+// BranchName A Git branch name, unique per project (`feature/checkout-copy`).
+// It may hold `/`, so URLs address a branch by its `id`, never by
+// its name; `listBranches?name=…` finds the `id`.
+type BranchName = string
+
+// BranchPreview defines model for BranchPreview.
+type BranchPreview struct {
+	// Url An absolute http(s) URL; "" clears it.
+	Url string `json:"url"`
+}
+
+// BranchPush defines model for BranchPush.
+type BranchPush struct {
+	// Branch A Git branch name, unique per project (`feature/checkout-copy`).
+	// It may hold `/`, so URLs address a branch by its `id`, never by
+	// its name; `listBranches?name=…` finds the `id`.
+	Branch BranchName `json:"branch"`
+
+	// Complete The items are the branch's whole catalog: keys it proposed
+	// before and no longer has are withdrawn, and the project's
+	// live keys it lacks are reported in `removed`. A partial push
+	// only adds.
+	Complete *bool `json:"complete,omitempty"`
+
+	// HeadCommit Omitted: keep.
+	HeadCommit *string `json:"head_commit,omitempty"`
+
+	// Items `base_revision` is ignored: a branch never overwrites anyone's edit.
+	Items []MessageUpsertItem `json:"items"`
+
+	// PrNumber Omitted: keep.
+	PrNumber *int `json:"pr_number,omitempty"`
+}
+
+// BranchPushResult defines model for BranchPushResult.
+type BranchPushResult struct {
+	Branch    Branch        `json:"branch"`
+	Conflicts []KeyConflict `json:"conflicts"`
+
+	// Items One result per pushed item, in request order.
+	Items []BranchItemResult `json:"items"`
+
+	// NewKeys Keys the project doesn't have; their messages are `proposed`.
+	NewKeys []MessageKey `json:"new_keys"`
+
+	// Outdated Per locale, how many current translations the branch's
+	// source proposals will make outdated when it merges. Empty
+	// without `translations.read`.
+	Outdated map[string]int `json:"outdated"`
+
+	// Removed Live keys the last complete push lacked. Reported only; nothing is obsoleted.
+	Removed []MessageKey `json:"removed"`
+
+	// SourceProposals Live keys whose source the branch changes.
+	SourceProposals []MessageKey `json:"source_proposals"`
+}
+
+// BranchState `open` while the branch is being worked on: it has a preview
+// environment, and its proposals live. `merged` and `closed` end
+// it — the environment is destroyed, and what the default branch
+// never brought in becomes obsolete 14 days later.
+type BranchState string
+
+// BranchStatus What a branch proposes, and what merging it would do.
+type BranchStatus struct {
+	Branch    Branch        `json:"branch"`
+	Conflicts []KeyConflict `json:"conflicts"`
+
+	// NewKeys Keys the project doesn't have; their messages are `proposed`.
+	NewKeys []MessageKey `json:"new_keys"`
+
+	// Outdated Per locale, how many current translations the branch's
+	// source proposals will make outdated when it merges. Empty
+	// without `translations.read`.
+	Outdated map[string]int `json:"outdated"`
+
+	// Removed Live keys the last complete push lacked. Reported only; nothing is obsoleted.
+	Removed []MessageKey `json:"removed"`
+
+	// SourceProposals Live keys whose source the branch changes.
+	SourceProposals []MessageKey `json:"source_proposals"`
+}
+
 // CaptureBox Whole CSS pixels from the page's top left (covering the measured box); off-screen boxes may be negative.
 type CaptureBox struct {
 	Height int `json:"height"`
@@ -2481,11 +2710,16 @@ type CreateApplication struct {
 type CreateDeliveryKey struct {
 	// Name What uses it, e.g. "web" or "go-emails".
 	Name string `json:"name"`
+
+	// Scope Omitted: `production` only. Change it later with `setDeliveryKeyScope`.
+	Scope *DeliveryKeyScope `json:"scope,omitempty"`
 }
 
 // CreateEnvironment defines model for CreateEnvironment.
 type CreateEnvironment struct {
-	// Name `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	// Name `development`, `preview`, `staging`, `production` or a custom
+	// name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+	// branch environments.
 	Name EnvironmentName `json:"name"`
 
 	// Policy Which translations ship to an environment: those in `states`
@@ -2598,12 +2832,34 @@ type DeliveryKey struct {
 
 	// RevokedAt RFC 3339, UTC.
 	RevokedAt *Timestamp `json:"revoked_at,omitempty"`
+
+	// Scope What the key reads at the edge: the environments on its
+	// allowlist and, with `branches`, every branch preview. Anything
+	// outside it answers 404, exactly like an unknown key. Branch
+	// previews hold unreleased copy, so a key that ships in a
+	// production bundle must not reach them.
+	Scope DeliveryKeyScope `json:"scope"`
 }
 
 // DeliveryKeyList defines model for DeliveryKeyList.
 type DeliveryKeyList struct {
 	Items         []DeliveryKey `json:"items"`
 	NextPageToken *string       `json:"next_page_token,omitempty"`
+}
+
+// DeliveryKeyScope What the key reads at the edge: the environments on its
+// allowlist and, with `branches`, every branch preview. Anything
+// outside it answers 404, exactly like an unknown key. Branch
+// previews hold unreleased copy, so a key that ships in a
+// production bundle must not reach them.
+type DeliveryKeyScope struct {
+	// Branches A preview key, for preview deployments only; it reads every branch environment.
+	Branches bool `json:"branches"`
+
+	// Environments Environments by name — never a branch environment
+	// (`pr-<n>`, `br-<hash>`): those are reached through
+	// `branches`. Empty only when `branches` is true.
+	Environments []EnvironmentName `json:"environments"`
 }
 
 // Deployment defines model for Deployment.
@@ -2658,13 +2914,29 @@ type EmailRequest struct {
 
 // Environment defines model for Environment.
 type Environment struct {
+	// Branch The branch a `branch` environment previews; absent for a standard one.
+	Branch *BranchName `json:"branch,omitempty"`
+
 	// CreatedAt RFC 3339, UTC.
 	CreatedAt Timestamp `json:"created_at"`
 
 	// CurrentReleaseId An opaque identifier.
 	CurrentReleaseId *Id `json:"current_release_id,omitempty"`
 
-	// Name `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	// Kind `standard` serves the main catalog (the default environments and
+	// custom ones). `branch` is one open branch's preview: the main
+	// catalog plus that branch's overlay, under a fixed policy
+	// (everything not rejected, outdated included), published again
+	// when the branch changes. Its releases can't be promoted
+	// (`branch_release_not_promotable`), because they hold text that
+	// exists only on the branch, and a project has at most 50 of them
+	// (`too_many_branches`). Opening, publishing and destroying one
+	// follows its branch; nothing creates one by hand.
+	Kind EnvironmentKind `json:"kind"`
+
+	// Name `development`, `preview`, `staging`, `production` or a custom
+	// name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+	// branch environments.
 	Name EnvironmentName `json:"name"`
 
 	// Policy Which translations ship to an environment: those in `states`
@@ -2677,13 +2949,26 @@ type Environment struct {
 	UpdatedAt Timestamp `json:"updated_at"`
 }
 
+// EnvironmentKind `standard` serves the main catalog (the default environments and
+// custom ones). `branch` is one open branch's preview: the main
+// catalog plus that branch's overlay, under a fixed policy
+// (everything not rejected, outdated included), published again
+// when the branch changes. Its releases can't be promoted
+// (`branch_release_not_promotable`), because they hold text that
+// exists only on the branch, and a project has at most 50 of them
+// (`too_many_branches`). Opening, publishing and destroying one
+// follows its branch; nothing creates one by hand.
+type EnvironmentKind string
+
 // EnvironmentList defines model for EnvironmentList.
 type EnvironmentList struct {
 	Items         []Environment `json:"items"`
 	NextPageToken *string       `json:"next_page_token,omitempty"`
 }
 
-// EnvironmentName `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+// EnvironmentName `development`, `preview`, `staging`, `production` or a custom
+// name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+// branch environments.
 type EnvironmentName = string
 
 // EnvironmentPolicy Which translations ship to an environment: those in `states`
@@ -3031,6 +3316,17 @@ type ItemError struct {
 	Code     string       `json:"code"`
 	Detail   string       `json:"detail"`
 	Findings *[]QAFinding `json:"findings,omitempty"`
+}
+
+// KeyConflict defines model for KeyConflict.
+type KeyConflict struct {
+	// Branches The other open branches proposing this key with different source.
+	Branches []BranchName `json:"branches"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
 }
 
 // KnowledgeExportJobRequest A tenant-wide TMX or TBX export; the route says which.
@@ -3655,9 +3951,53 @@ type Promotion struct {
 	ReleaseId Id `json:"release_id"`
 }
 
+// Proposal What one branch proposes for one key.
+type Proposal struct {
+	// Author `person:<id>`, `token:<id>` or `system:<name>`.
+	Author *string `json:"author,omitempty"`
+
+	// BaseRevision For a source change, the revision it was proposed against.
+	BaseRevision *int `json:"base_revision,omitempty"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
+
+	// Kind `new_key`: the branch owns the key's `proposed` message
+	// (shared with every other branch proposing the same source
+	// for it). `source_change`: the message is live and the branch
+	// proposes new source for it, against `base_revision`.
+	Kind ProposalKind `json:"kind"`
+
+	// MessageId An opaque identifier.
+	MessageId Id             `json:"message_id"`
+	Source    MessageContent `json:"source"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// ProposalKind `new_key`: the branch owns the key's `proposed` message
+// (shared with every other branch proposing the same source
+// for it). `source_change`: the message is live and the branch
+// proposes new source for it, against `base_revision`.
+type ProposalKind string
+
+// ProposalList defines model for ProposalList.
+type ProposalList struct {
+	Items         []Proposal `json:"items"`
+	NextPageToken *string    `json:"next_page_token,omitempty"`
+}
+
 // PublishRelease defines model for PublishRelease.
 type PublishRelease struct {
-	// Environment `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	// Environment `development`, `preview`, `staging`, `production` or a custom
+	// name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+	// branch environments.
 	Environment EnvironmentName `json:"environment"`
 	Note        *string         `json:"note,omitempty"`
 }
@@ -3739,7 +4079,9 @@ type Release struct {
 	// CreatedAt RFC 3339, UTC.
 	CreatedAt Timestamp `json:"created_at"`
 
-	// Environment `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	// Environment `development`, `preview`, `staging`, `production` or a custom
+	// name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+	// branch environments.
 	Environment EnvironmentName `json:"environment"`
 
 	// Id An opaque identifier.
@@ -3842,7 +4184,9 @@ type ReleasePreview struct {
 	// Counts What the release would ship; `new_artifacts` is what publishing would upload. Present when releasable.
 	Counts *ReleaseCounts `json:"counts,omitempty"`
 
-	// Environment `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	// Environment `development`, `preview`, `staging`, `production` or a custom
+	// name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+	// branch environments.
 	Environment EnvironmentName  `json:"environment"`
 	Locales     *[]ReleaseLocale `json:"locales,omitempty"`
 
@@ -4867,6 +5211,23 @@ type UpdateProject struct {
 	Slug     *Slug            `json:"slug,omitempty"`
 }
 
+// UpsertBranch defines model for UpsertBranch.
+type UpsertBranch struct {
+	// HeadCommit Omitted: keep.
+	HeadCommit *string `json:"head_commit,omitempty"`
+
+	// Name A Git branch name, unique per project (`feature/checkout-copy`).
+	// It may hold `/`, so URLs address a branch by its `id`, never by
+	// its name; `listBranches?name=…` finds the `id`.
+	Name BranchName `json:"name"`
+
+	// PrNumber Omitted: keep.
+	PrNumber *int `json:"pr_number,omitempty"`
+
+	// PreviewUrl Omitted: keep; "" clears it.
+	PreviewUrl *string `json:"preview_url,omitempty"`
+}
+
 // UsageKind The call shape: `t` (t()/$t(), Go's T), `component` (<GlossaText
 // id>, <T id>), `element` (<glossa-text key> and its siblings),
 // `accessor` (typed accessors from `glossa generate`), `template`
@@ -4946,6 +5307,9 @@ type AISuggestionPath = Id
 // ApplicationPath An opaque identifier.
 type ApplicationPath = Id
 
+// BranchPath An opaque identifier.
+type BranchPath = Id
+
 // CapturePath An opaque identifier.
 type CapturePath = Id
 
@@ -4961,7 +5325,9 @@ type ContextBranch = string
 // DeliveryKeyPath An opaque identifier.
 type DeliveryKeyPath = Id
 
-// EnvironmentPath `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+// EnvironmentPath `development`, `preview`, `staging`, `production` or a custom
+// name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+// branch environments.
 type EnvironmentPath = EnvironmentName
 
 // ExportJobPath An opaque identifier.
@@ -5368,6 +5734,26 @@ type DeleteApplicationParams struct {
 type UpdateApplicationParams struct {
 	// IfMatch The `ETag` the change is based on.
 	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListBranchesParams defines parameters for ListBranches.
+type ListBranchesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken   `form:"page_token,omitempty" json:"page_token,omitempty"`
+	State     *BranchState `form:"state,omitempty" json:"state,omitempty"`
+
+	// Name Only the branch with this exact name.
+	Name *BranchName `form:"name,omitempty" json:"name,omitempty"`
+}
+
+// ListBranchProposalsParams defines parameters for ListBranchProposals.
+type ListBranchProposalsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
 // CreateCapturesMultipartBody defines parameters for CreateCaptures.
@@ -5935,6 +6321,15 @@ type CreateApplicationJSONRequestBody = CreateApplication
 // UpdateApplicationJSONRequestBody defines body for UpdateApplication for application/json ContentType.
 type UpdateApplicationJSONRequestBody = UpdateApplication
 
+// PushBranchMessagesJSONRequestBody defines body for PushBranchMessages for application/json ContentType.
+type PushBranchMessagesJSONRequestBody = BranchPush
+
+// UpsertBranchJSONRequestBody defines body for UpsertBranch for application/json ContentType.
+type UpsertBranchJSONRequestBody = UpsertBranch
+
+// SetBranchPreviewJSONRequestBody defines body for SetBranchPreview for application/json ContentType.
+type SetBranchPreviewJSONRequestBody = BranchPreview
+
 // CreateCapturesMultipartRequestBody defines body for CreateCaptures for multipart/form-data ContentType.
 type CreateCapturesMultipartRequestBody CreateCapturesMultipartBody
 
@@ -5943,6 +6338,9 @@ type CreateContextBuildJSONRequestBody = UsagesDocument
 
 // CreateDeliveryKeyJSONRequestBody defines body for CreateDeliveryKey for application/json ContentType.
 type CreateDeliveryKeyJSONRequestBody = CreateDeliveryKey
+
+// SetDeliveryKeyScopeJSONRequestBody defines body for SetDeliveryKeyScope for application/json ContentType.
+type SetDeliveryKeyScopeJSONRequestBody = DeliveryKeyScope
 
 // CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
 type CreateEnvironmentJSONRequestBody = CreateEnvironment
@@ -7614,6 +8012,175 @@ type ClientInterface interface {
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 	UpdateApplication(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PushBranchMessagesWithBody Push a branch's messages (CI, glossa push --branch)
+	//
+	// The branch's catalog, up to 10000 messages in one transaction —
+	// a whole catalog, not a batch, so `complete` can be trusted. The
+	// branch is created by its first push, and a closed one reopens.
+	//
+	// Nothing live changes: a key the project doesn't have becomes a
+	// `proposed` message the branch owns, changed source for a live
+	// key becomes a *source proposal*, and a key whose live source
+	// already says this is `unchanged`. Two open branches proposing
+	// the same new key with different source are a `key_conflict` for
+	// both. With `complete`, the keys the branch proposed before and
+	// no longer has are withdrawn, and the project's live keys the
+	// push lacks are reported in `removed` — reported only: a branch
+	// never obsoletes anything.
+	//
+	// The answer is the branch's status report, the same one
+	// `getBranch` returns, plus one result per item in request order.
+	// Items fail on their own (`items[].error.code`, as for
+	// `upsertMessages`) without failing the push. Needs
+	// `catalog.write`. Problem codes: `too_many_branch_items`,
+	// `invalid_branch`, `invalid_push` (400), `branch_merged` (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branch-pushes (the `PushBranchMessages` operationId).
+	PushBranchMessagesWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PushBranchMessages Push a branch's messages (CI, glossa push --branch)
+	//
+	// The branch's catalog, up to 10000 messages in one transaction —
+	// a whole catalog, not a batch, so `complete` can be trusted. The
+	// branch is created by its first push, and a closed one reopens.
+	//
+	// Nothing live changes: a key the project doesn't have becomes a
+	// `proposed` message the branch owns, changed source for a live
+	// key becomes a *source proposal*, and a key whose live source
+	// already says this is `unchanged`. Two open branches proposing
+	// the same new key with different source are a `key_conflict` for
+	// both. With `complete`, the keys the branch proposed before and
+	// no longer has are withdrawn, and the project's live keys the
+	// push lacks are reported in `removed` — reported only: a branch
+	// never obsoletes anything.
+	//
+	// The answer is the branch's status report, the same one
+	// `getBranch` returns, plus one result per item in request order.
+	// Items fail on their own (`items[].error.code`, as for
+	// `upsertMessages`) without failing the push. Needs
+	// `catalog.write`. Problem codes: `too_many_branch_items`,
+	// `invalid_branch`, `invalid_push` (400), `branch_merged` (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branch-pushes (the `PushBranchMessages` operationId).
+	PushBranchMessages(ctx context.Context, tenant TenantPath, project ProjectPath, body PushBranchMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListBranches Branches of a project, by name
+	//
+	// `state` lists only `open`, `merged` or `closed` branches. `name`
+	// is the way to find a branch whose `id` you don't have (an
+	// unknown name is an empty page, not a 404). Needs `catalog.read`.
+	// Problem codes: `invalid_branch_state` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches (the `ListBranches` operationId).
+	ListBranches(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListBranchesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpsertBranchWithBody Open a branch, or record what CI knows about it
+	//
+	// Addressed by `name`, because a branch that doesn't exist yet has
+	// no `id`: the first call creates it (`201`), later ones record its
+	// head commit, its pull request number and its preview URL
+	// (`200`). It proposes nothing — `pushBranchMessages` does that —
+	// and a closed branch reopens. Opening a branch opens its preview
+	// environment (`pr-<number>`, or `br-<hash>` without a pull
+	// request). Needs `catalog.write`. Problem codes: `invalid_branch`,
+	// `invalid_push`, `invalid_preview_url` (400), `branch_merged`
+	// (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches (the `UpsertBranch` operationId).
+	UpsertBranchWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpsertBranch Open a branch, or record what CI knows about it
+	//
+	// Addressed by `name`, because a branch that doesn't exist yet has
+	// no `id`: the first call creates it (`201`), later ones record its
+	// head commit, its pull request number and its preview URL
+	// (`200`). It proposes nothing — `pushBranchMessages` does that —
+	// and a closed branch reopens. Opening a branch opens its preview
+	// environment (`pr-<number>`, or `br-<hash>` without a pull
+	// request). Needs `catalog.write`. Problem codes: `invalid_branch`,
+	// `invalid_push`, `invalid_preview_url` (400), `branch_merged`
+	// (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches (the `UpsertBranch` operationId).
+	UpsertBranch(ctx context.Context, tenant TenantPath, project ProjectPath, body UpsertBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBranch A branch's status report
+	//
+	// What the branch proposes as its last push left it: its new keys,
+	// its source proposals, the live keys its last complete push
+	// lacked (`removed`), the key conflicts it shares with other open
+	// branches, and how many current translations per locale merging
+	// it will make outdated. This is what the PR check reports. Needs
+	// `catalog.read` (`outdated` also needs `translations.read`).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches/{branch} (the `GetBranch` operationId).
+	GetBranch(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CloseBranch Close a branch (its pull request was closed unmerged)
+	//
+	// Its preview environment is destroyed, so the edge answers 404
+	// for it, and its proposed messages stay proposed for 14 days
+	// before they become obsolete — reopening the branch, or pushing
+	// their keys again, brings them back with their translations and
+	// history. Idempotent: closing a closed branch changes nothing.
+	// Needs `catalog.write`. Problem codes: `branch_merged` (409).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches/{branch}/closure (the `CloseBranch` operationId).
+	CloseBranch(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MergeBranch Mark a branch merged
+	//
+	// Bookkeeping and cleanup, not activation: the **default branch's
+	// push** makes proposed messages active and proposals source
+	// revisions, so nothing depends on this call arriving. It destroys
+	// the branch's preview environment and starts the 14-day clock on
+	// whatever the default branch didn't bring in. A merged branch
+	// takes no more pushes. Idempotent. Needs `catalog.write`.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches/{branch}/merge (the `MergeBranch` operationId).
+	MergeBranch(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetBranchPreviewWithBody Record where CI deployed the branch's preview
+	//
+	// `glossa preview register --url`. The URL is shown in Studio and
+	// in the pull request comment; it is where the in-product editor
+	// runs. An empty `url` clears it. Needs `catalog.write`. Problem
+	// codes: `invalid_preview_url` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/branches/{branch}/preview (the `SetBranchPreview` operationId).
+	SetBranchPreviewWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetBranchPreview Record where CI deployed the branch's preview
+	//
+	// `glossa preview register --url`. The URL is shown in Studio and
+	// in the pull request comment; it is where the in-product editor
+	// runs. An empty `url` clears it. Needs `catalog.write`. Problem
+	// codes: `invalid_preview_url` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/branches/{branch}/preview (the `SetBranchPreview` operationId).
+	SetBranchPreview(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, body SetBranchPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListBranchProposals What a branch proposes, key by key
+	//
+	// By key: the source the branch pushed for it, the message it
+	// names, and for a source change the revision it was proposed
+	// against. Needs `catalog.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches/{branch}/proposals (the `ListBranchProposals` operationId).
+	ListBranchProposals(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, params *ListBranchProposalsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateCapturesWithBody Upload a build's captures (glossa capture --upload)
 	//
 	// A `multipart/form-data` body: first a part named `manifest`
@@ -7787,6 +8354,34 @@ type ClientInterface interface {
 	//
 	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key} (the `RevokeDeliveryKey` operationId).
 	RevokeDeliveryKey(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetDeliveryKeyScopeWithBody Change what a delivery key may read
+	//
+	// Replaces the key's scope: the `environments` it reads and
+	// whether it reads branch previews. The key itself never changes,
+	// so a bundle that ships it keeps working; the edge follows within
+	// its key cache TTL (30 s by default) plus any CDN max-age. A
+	// revoked key takes no scope. Needs `releases.publish`. Problem
+	// codes: `invalid_key_scope` (400), `key_revoked` (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope (the `SetDeliveryKeyScope` operationId).
+	SetDeliveryKeyScopeWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetDeliveryKeyScope Change what a delivery key may read
+	//
+	// Replaces the key's scope: the `environments` it reads and
+	// whether it reads branch previews. The key itself never changes,
+	// so a bundle that ships it keeps working; the edge follows within
+	// its key cache TTL (30 s by default) plus any CDN max-age. A
+	// revoked key takes no scope. Needs `releases.publish`. Problem
+	// codes: `invalid_key_scope` (400), `key_revoked` (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope (the `SetDeliveryKeyScope` operationId).
+	SetDeliveryKeyScope(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, body SetDeliveryKeyScopeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListEnvironments Environments of a project
 	//
@@ -11649,6 +12244,285 @@ func (c *Client) UpdateApplication(ctx context.Context, tenant TenantPath, proje
 	return c.Client.Do(req)
 }
 
+// PushBranchMessagesWithBody Push a branch's messages (CI, glossa push --branch)
+//
+// The branch's catalog, up to 10000 messages in one transaction —
+// a whole catalog, not a batch, so `complete` can be trusted. The
+// branch is created by its first push, and a closed one reopens.
+//
+// Nothing live changes: a key the project doesn't have becomes a
+// `proposed` message the branch owns, changed source for a live
+// key becomes a *source proposal*, and a key whose live source
+// already says this is `unchanged`. Two open branches proposing
+// the same new key with different source are a `key_conflict` for
+// both. With `complete`, the keys the branch proposed before and
+// no longer has are withdrawn, and the project's live keys the
+// push lacks are reported in `removed` — reported only: a branch
+// never obsoletes anything.
+//
+// The answer is the branch's status report, the same one
+// `getBranch` returns, plus one result per item in request order.
+// Items fail on their own (`items[].error.code`, as for
+// `upsertMessages`) without failing the push. Needs
+// `catalog.write`. Problem codes: `too_many_branch_items`,
+// `invalid_branch`, `invalid_push` (400), `branch_merged` (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branch-pushes (the `PushBranchMessages` operationId).
+func (c *Client) PushBranchMessagesWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPushBranchMessagesRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PushBranchMessages Push a branch's messages (CI, glossa push --branch)
+//
+// The branch's catalog, up to 10000 messages in one transaction —
+// a whole catalog, not a batch, so `complete` can be trusted. The
+// branch is created by its first push, and a closed one reopens.
+//
+// Nothing live changes: a key the project doesn't have becomes a
+// `proposed` message the branch owns, changed source for a live
+// key becomes a *source proposal*, and a key whose live source
+// already says this is `unchanged`. Two open branches proposing
+// the same new key with different source are a `key_conflict` for
+// both. With `complete`, the keys the branch proposed before and
+// no longer has are withdrawn, and the project's live keys the
+// push lacks are reported in `removed` — reported only: a branch
+// never obsoletes anything.
+//
+// The answer is the branch's status report, the same one
+// `getBranch` returns, plus one result per item in request order.
+// Items fail on their own (`items[].error.code`, as for
+// `upsertMessages`) without failing the push. Needs
+// `catalog.write`. Problem codes: `too_many_branch_items`,
+// `invalid_branch`, `invalid_push` (400), `branch_merged` (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branch-pushes (the `PushBranchMessages` operationId).
+func (c *Client) PushBranchMessages(ctx context.Context, tenant TenantPath, project ProjectPath, body PushBranchMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPushBranchMessagesRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListBranches Branches of a project, by name
+//
+// `state` lists only `open`, `merged` or `closed` branches. `name`
+// is the way to find a branch whose `id` you don't have (an
+// unknown name is an empty page, not a 404). Needs `catalog.read`.
+// Problem codes: `invalid_branch_state` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches (the `ListBranches` operationId).
+func (c *Client) ListBranches(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListBranchesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBranchesRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpsertBranchWithBody Open a branch, or record what CI knows about it
+//
+// Addressed by `name`, because a branch that doesn't exist yet has
+// no `id`: the first call creates it (`201`), later ones record its
+// head commit, its pull request number and its preview URL
+// (`200`). It proposes nothing — `pushBranchMessages` does that —
+// and a closed branch reopens. Opening a branch opens its preview
+// environment (`pr-<number>`, or `br-<hash>` without a pull
+// request). Needs `catalog.write`. Problem codes: `invalid_branch`,
+// `invalid_push`, `invalid_preview_url` (400), `branch_merged`
+// (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches (the `UpsertBranch` operationId).
+func (c *Client) UpsertBranchWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertBranchRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpsertBranch Open a branch, or record what CI knows about it
+//
+// Addressed by `name`, because a branch that doesn't exist yet has
+// no `id`: the first call creates it (`201`), later ones record its
+// head commit, its pull request number and its preview URL
+// (`200`). It proposes nothing — `pushBranchMessages` does that —
+// and a closed branch reopens. Opening a branch opens its preview
+// environment (`pr-<number>`, or `br-<hash>` without a pull
+// request). Needs `catalog.write`. Problem codes: `invalid_branch`,
+// `invalid_push`, `invalid_preview_url` (400), `branch_merged`
+// (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches (the `UpsertBranch` operationId).
+func (c *Client) UpsertBranch(ctx context.Context, tenant TenantPath, project ProjectPath, body UpsertBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertBranchRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetBranch A branch's status report
+//
+// What the branch proposes as its last push left it: its new keys,
+// its source proposals, the live keys its last complete push
+// lacked (`removed`), the key conflicts it shares with other open
+// branches, and how many current translations per locale merging
+// it will make outdated. This is what the PR check reports. Needs
+// `catalog.read` (`outdated` also needs `translations.read`).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches/{branch} (the `GetBranch` operationId).
+func (c *Client) GetBranch(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBranchRequest(c.Server, tenant, project, branch)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CloseBranch Close a branch (its pull request was closed unmerged)
+//
+// Its preview environment is destroyed, so the edge answers 404
+// for it, and its proposed messages stay proposed for 14 days
+// before they become obsolete — reopening the branch, or pushing
+// their keys again, brings them back with their translations and
+// history. Idempotent: closing a closed branch changes nothing.
+// Needs `catalog.write`. Problem codes: `branch_merged` (409).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches/{branch}/closure (the `CloseBranch` operationId).
+func (c *Client) CloseBranch(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCloseBranchRequest(c.Server, tenant, project, branch)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MergeBranch Mark a branch merged
+//
+// Bookkeeping and cleanup, not activation: the **default branch's
+// push** makes proposed messages active and proposals source
+// revisions, so nothing depends on this call arriving. It destroys
+// the branch's preview environment and starts the 14-day clock on
+// whatever the default branch didn't bring in. A merged branch
+// takes no more pushes. Idempotent. Needs `catalog.write`.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches/{branch}/merge (the `MergeBranch` operationId).
+func (c *Client) MergeBranch(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMergeBranchRequest(c.Server, tenant, project, branch)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetBranchPreviewWithBody Record where CI deployed the branch's preview
+//
+// `glossa preview register --url`. The URL is shown in Studio and
+// in the pull request comment; it is where the in-product editor
+// runs. An empty `url` clears it. Needs `catalog.write`. Problem
+// codes: `invalid_preview_url` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/branches/{branch}/preview (the `SetBranchPreview` operationId).
+func (c *Client) SetBranchPreviewWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetBranchPreviewRequestWithBody(c.Server, tenant, project, branch, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetBranchPreview Record where CI deployed the branch's preview
+//
+// `glossa preview register --url`. The URL is shown in Studio and
+// in the pull request comment; it is where the in-product editor
+// runs. An empty `url` clears it. Needs `catalog.write`. Problem
+// codes: `invalid_preview_url` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/branches/{branch}/preview (the `SetBranchPreview` operationId).
+func (c *Client) SetBranchPreview(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, body SetBranchPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetBranchPreviewRequest(c.Server, tenant, project, branch, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListBranchProposals What a branch proposes, key by key
+//
+// By key: the source the branch pushed for it, the message it
+// names, and for a source change the revision it was proposed
+// against. Needs `catalog.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches/{branch}/proposals (the `ListBranchProposals` operationId).
+func (c *Client) ListBranchProposals(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, params *ListBranchProposalsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBranchProposalsRequest(c.Server, tenant, project, branch, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CreateCapturesWithBody Upload a build's captures (glossa capture --upload)
 //
 // A `multipart/form-data` body: first a part named `manifest`
@@ -11903,6 +12777,54 @@ func (c *Client) CreateDeliveryKey(ctx context.Context, tenant TenantPath, proje
 // Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key} (the `RevokeDeliveryKey` operationId).
 func (c *Client) RevokeDeliveryKey(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRevokeDeliveryKeyRequest(c.Server, tenant, project, deliveryKey)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetDeliveryKeyScopeWithBody Change what a delivery key may read
+//
+// Replaces the key's scope: the `environments` it reads and
+// whether it reads branch previews. The key itself never changes,
+// so a bundle that ships it keeps working; the edge follows within
+// its key cache TTL (30 s by default) plus any CDN max-age. A
+// revoked key takes no scope. Needs `releases.publish`. Problem
+// codes: `invalid_key_scope` (400), `key_revoked` (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope (the `SetDeliveryKeyScope` operationId).
+func (c *Client) SetDeliveryKeyScopeWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetDeliveryKeyScopeRequestWithBody(c.Server, tenant, project, deliveryKey, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetDeliveryKeyScope Change what a delivery key may read
+//
+// Replaces the key's scope: the `environments` it reads and
+// whether it reads branch previews. The key itself never changes,
+// so a bundle that ships it keeps working; the edge follows within
+// its key cache TTL (30 s by default) plus any CDN max-age. A
+// revoked key takes no scope. Needs `releases.publish`. Problem
+// codes: `invalid_key_scope` (400), `key_revoked` (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope (the `SetDeliveryKeyScope` operationId).
+func (c *Client) SetDeliveryKeyScope(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, body SetDeliveryKeyScopeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetDeliveryKeyScopeRequest(c.Server, tenant, project, deliveryKey, body)
 	if err != nil {
 		return nil, err
 	}
@@ -18811,6 +19733,510 @@ func NewUpdateApplicationRequestWithBody(server string, tenant TenantPath, proje
 	return req, nil
 }
 
+// NewPushBranchMessagesRequest calls the generic PushBranchMessages builder with application/json body
+func NewPushBranchMessagesRequest(server string, tenant TenantPath, project ProjectPath, body PushBranchMessagesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPushBranchMessagesRequestWithBody(server, tenant, project, "application/json", bodyReader)
+}
+
+// NewPushBranchMessagesRequestWithBody constructs an http.Request for the PushBranchMessages method, with any body, and a specified content type
+func NewPushBranchMessagesRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/branch-pushes", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListBranchesRequest constructs an http.Request for the ListBranches method
+func NewListBranchesRequest(server string, tenant TenantPath, project ProjectPath, params *ListBranchesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/branches", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Name != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "name", *params.Name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpsertBranchRequest calls the generic UpsertBranch builder with application/json body
+func NewUpsertBranchRequest(server string, tenant TenantPath, project ProjectPath, body UpsertBranchJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpsertBranchRequestWithBody(server, tenant, project, "application/json", bodyReader)
+}
+
+// NewUpsertBranchRequestWithBody constructs an http.Request for the UpsertBranch method, with any body, and a specified content type
+func NewUpsertBranchRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/branches", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetBranchRequest constructs an http.Request for the GetBranch method
+func NewGetBranchRequest(server string, tenant TenantPath, project ProjectPath, branch BranchPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "branch", branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/branches/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCloseBranchRequest constructs an http.Request for the CloseBranch method
+func NewCloseBranchRequest(server string, tenant TenantPath, project ProjectPath, branch BranchPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "branch", branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/branches/%s/closure", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewMergeBranchRequest constructs an http.Request for the MergeBranch method
+func NewMergeBranchRequest(server string, tenant TenantPath, project ProjectPath, branch BranchPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "branch", branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/branches/%s/merge", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetBranchPreviewRequest calls the generic SetBranchPreview builder with application/json body
+func NewSetBranchPreviewRequest(server string, tenant TenantPath, project ProjectPath, branch BranchPath, body SetBranchPreviewJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetBranchPreviewRequestWithBody(server, tenant, project, branch, "application/json", bodyReader)
+}
+
+// NewSetBranchPreviewRequestWithBody constructs an http.Request for the SetBranchPreview method, with any body, and a specified content type
+func NewSetBranchPreviewRequestWithBody(server string, tenant TenantPath, project ProjectPath, branch BranchPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "branch", branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/branches/%s/preview", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListBranchProposalsRequest constructs an http.Request for the ListBranchProposals method
+func NewListBranchProposalsRequest(server string, tenant TenantPath, project ProjectPath, branch BranchPath, params *ListBranchProposalsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "branch", branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/branches/%s/proposals", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewCreateCapturesRequestWithBody constructs an http.Request for the CreateCaptures method, with any body, and a specified content type
 func NewCreateCapturesRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
@@ -19279,6 +20705,67 @@ func NewRevokeDeliveryKeyRequest(server string, tenant TenantPath, project Proje
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewSetDeliveryKeyScopeRequest calls the generic SetDeliveryKeyScope builder with application/json body
+func NewSetDeliveryKeyScopeRequest(server string, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, body SetDeliveryKeyScopeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetDeliveryKeyScopeRequestWithBody(server, tenant, project, deliveryKey, "application/json", bodyReader)
+}
+
+// NewSetDeliveryKeyScopeRequestWithBody constructs an http.Request for the SetDeliveryKeyScope method, with any body, and a specified content type
+func NewSetDeliveryKeyScopeRequestWithBody(server string, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "delivery_key", deliveryKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/delivery-keys/%s/scope", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -26234,6 +27721,185 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 	UpdateApplicationWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApplicationResponse, error)
 
+	// PushBranchMessagesWithBodyWithResponse Push a branch's messages (CI, glossa push --branch)
+	//
+	// The branch's catalog, up to 10000 messages in one transaction —
+	// a whole catalog, not a batch, so `complete` can be trusted. The
+	// branch is created by its first push, and a closed one reopens.
+	//
+	// Nothing live changes: a key the project doesn't have becomes a
+	// `proposed` message the branch owns, changed source for a live
+	// key becomes a *source proposal*, and a key whose live source
+	// already says this is `unchanged`. Two open branches proposing
+	// the same new key with different source are a `key_conflict` for
+	// both. With `complete`, the keys the branch proposed before and
+	// no longer has are withdrawn, and the project's live keys the
+	// push lacks are reported in `removed` — reported only: a branch
+	// never obsoletes anything.
+	//
+	// The answer is the branch's status report, the same one
+	// `getBranch` returns, plus one result per item in request order.
+	// Items fail on their own (`items[].error.code`, as for
+	// `upsertMessages`) without failing the push. Needs
+	// `catalog.write`. Problem codes: `too_many_branch_items`,
+	// `invalid_branch`, `invalid_push` (400), `branch_merged` (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branch-pushes (the `PushBranchMessages` operationId).
+	PushBranchMessagesWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PushBranchMessagesResponse, error)
+
+	// PushBranchMessagesWithResponse Push a branch's messages (CI, glossa push --branch)
+	//
+	// The branch's catalog, up to 10000 messages in one transaction —
+	// a whole catalog, not a batch, so `complete` can be trusted. The
+	// branch is created by its first push, and a closed one reopens.
+	//
+	// Nothing live changes: a key the project doesn't have becomes a
+	// `proposed` message the branch owns, changed source for a live
+	// key becomes a *source proposal*, and a key whose live source
+	// already says this is `unchanged`. Two open branches proposing
+	// the same new key with different source are a `key_conflict` for
+	// both. With `complete`, the keys the branch proposed before and
+	// no longer has are withdrawn, and the project's live keys the
+	// push lacks are reported in `removed` — reported only: a branch
+	// never obsoletes anything.
+	//
+	// The answer is the branch's status report, the same one
+	// `getBranch` returns, plus one result per item in request order.
+	// Items fail on their own (`items[].error.code`, as for
+	// `upsertMessages`) without failing the push. Needs
+	// `catalog.write`. Problem codes: `too_many_branch_items`,
+	// `invalid_branch`, `invalid_push` (400), `branch_merged` (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branch-pushes (the `PushBranchMessages` operationId).
+	PushBranchMessagesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body PushBranchMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PushBranchMessagesResponse, error)
+
+	// ListBranchesWithResponse Branches of a project, by name
+	//
+	// `state` lists only `open`, `merged` or `closed` branches. `name`
+	// is the way to find a branch whose `id` you don't have (an
+	// unknown name is an empty page, not a 404). Needs `catalog.read`.
+	// Problem codes: `invalid_branch_state` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches (the `ListBranches` operationId).
+	ListBranchesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListBranchesParams, reqEditors ...RequestEditorFn) (*ListBranchesResponse, error)
+
+	// UpsertBranchWithBodyWithResponse Open a branch, or record what CI knows about it
+	//
+	// Addressed by `name`, because a branch that doesn't exist yet has
+	// no `id`: the first call creates it (`201`), later ones record its
+	// head commit, its pull request number and its preview URL
+	// (`200`). It proposes nothing — `pushBranchMessages` does that —
+	// and a closed branch reopens. Opening a branch opens its preview
+	// environment (`pr-<number>`, or `br-<hash>` without a pull
+	// request). Needs `catalog.write`. Problem codes: `invalid_branch`,
+	// `invalid_push`, `invalid_preview_url` (400), `branch_merged`
+	// (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches (the `UpsertBranch` operationId).
+	UpsertBranchWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertBranchResponse, error)
+
+	// UpsertBranchWithResponse Open a branch, or record what CI knows about it
+	//
+	// Addressed by `name`, because a branch that doesn't exist yet has
+	// no `id`: the first call creates it (`201`), later ones record its
+	// head commit, its pull request number and its preview URL
+	// (`200`). It proposes nothing — `pushBranchMessages` does that —
+	// and a closed branch reopens. Opening a branch opens its preview
+	// environment (`pr-<number>`, or `br-<hash>` without a pull
+	// request). Needs `catalog.write`. Problem codes: `invalid_branch`,
+	// `invalid_push`, `invalid_preview_url` (400), `branch_merged`
+	// (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches (the `UpsertBranch` operationId).
+	UpsertBranchWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body UpsertBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertBranchResponse, error)
+
+	// GetBranchWithResponse A branch's status report
+	//
+	// What the branch proposes as its last push left it: its new keys,
+	// its source proposals, the live keys its last complete push
+	// lacked (`removed`), the key conflicts it shares with other open
+	// branches, and how many current translations per locale merging
+	// it will make outdated. This is what the PR check reports. Needs
+	// `catalog.read` (`outdated` also needs `translations.read`).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches/{branch} (the `GetBranch` operationId).
+	GetBranchWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*GetBranchResponse, error)
+
+	// CloseBranchWithResponse Close a branch (its pull request was closed unmerged)
+	//
+	// Its preview environment is destroyed, so the edge answers 404
+	// for it, and its proposed messages stay proposed for 14 days
+	// before they become obsolete — reopening the branch, or pushing
+	// their keys again, brings them back with their translations and
+	// history. Idempotent: closing a closed branch changes nothing.
+	// Needs `catalog.write`. Problem codes: `branch_merged` (409).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches/{branch}/closure (the `CloseBranch` operationId).
+	CloseBranchWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*CloseBranchResponse, error)
+
+	// MergeBranchWithResponse Mark a branch merged
+	//
+	// Bookkeeping and cleanup, not activation: the **default branch's
+	// push** makes proposed messages active and proposals source
+	// revisions, so nothing depends on this call arriving. It destroys
+	// the branch's preview environment and starts the 14-day clock on
+	// whatever the default branch didn't bring in. A merged branch
+	// takes no more pushes. Idempotent. Needs `catalog.write`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches/{branch}/merge (the `MergeBranch` operationId).
+	MergeBranchWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*MergeBranchResponse, error)
+
+	// SetBranchPreviewWithBodyWithResponse Record where CI deployed the branch's preview
+	//
+	// `glossa preview register --url`. The URL is shown in Studio and
+	// in the pull request comment; it is where the in-product editor
+	// runs. An empty `url` clears it. Needs `catalog.write`. Problem
+	// codes: `invalid_preview_url` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/branches/{branch}/preview (the `SetBranchPreview` operationId).
+	SetBranchPreviewWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetBranchPreviewResponse, error)
+
+	// SetBranchPreviewWithResponse Record where CI deployed the branch's preview
+	//
+	// `glossa preview register --url`. The URL is shown in Studio and
+	// in the pull request comment; it is where the in-product editor
+	// runs. An empty `url` clears it. Needs `catalog.write`. Problem
+	// codes: `invalid_preview_url` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/branches/{branch}/preview (the `SetBranchPreview` operationId).
+	SetBranchPreviewWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, body SetBranchPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*SetBranchPreviewResponse, error)
+
+	// ListBranchProposalsWithResponse What a branch proposes, key by key
+	//
+	// By key: the source the branch pushed for it, the message it
+	// names, and for a source change the revision it was proposed
+	// against. Needs `catalog.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches/{branch}/proposals (the `ListBranchProposals` operationId).
+	ListBranchProposalsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, params *ListBranchProposalsParams, reqEditors ...RequestEditorFn) (*ListBranchProposalsResponse, error)
+
 	// CreateCapturesWithBodyWithResponse Upload a build's captures (glossa capture --upload)
 	//
 	// A `multipart/form-data` body: first a part named `manifest`
@@ -26415,6 +28081,34 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key} (the `RevokeDeliveryKey` operationId).
 	RevokeDeliveryKeyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, reqEditors ...RequestEditorFn) (*RevokeDeliveryKeyResponse, error)
+
+	// SetDeliveryKeyScopeWithBodyWithResponse Change what a delivery key may read
+	//
+	// Replaces the key's scope: the `environments` it reads and
+	// whether it reads branch previews. The key itself never changes,
+	// so a bundle that ships it keeps working; the edge follows within
+	// its key cache TTL (30 s by default) plus any CDN max-age. A
+	// revoked key takes no scope. Needs `releases.publish`. Problem
+	// codes: `invalid_key_scope` (400), `key_revoked` (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope (the `SetDeliveryKeyScope` operationId).
+	SetDeliveryKeyScopeWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeliveryKeyScopeResponse, error)
+
+	// SetDeliveryKeyScopeWithResponse Change what a delivery key may read
+	//
+	// Replaces the key's scope: the `environments` it reads and
+	// whether it reads branch previews. The key itself never changes,
+	// so a bundle that ships it keeps working; the edge follows within
+	// its key cache TTL (30 s by default) plus any CDN max-age. A
+	// revoked key takes no scope. Needs `releases.publish`. Problem
+	// codes: `invalid_key_scope` (400), `key_revoked` (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope (the `SetDeliveryKeyScope` operationId).
+	SetDeliveryKeyScopeWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, body SetDeliveryKeyScopeJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeliveryKeyScopeResponse, error)
 
 	// ListEnvironmentsWithResponse Environments of a project
 	//
@@ -33465,6 +35159,586 @@ func (r UpdateApplicationResponse) ContentType() string {
 	return ""
 }
 
+type PushBranchMessagesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BranchPushResult
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PushBranchMessagesResponse) GetJSON200() *BranchPushResult {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r PushBranchMessagesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PushBranchMessagesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PushBranchMessagesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r PushBranchMessagesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r PushBranchMessagesResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r PushBranchMessagesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PushBranchMessagesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PushBranchMessagesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PushBranchMessagesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListBranchesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BranchList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListBranchesResponse) GetJSON200() *BranchList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListBranchesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListBranchesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListBranchesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListBranchesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListBranchesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListBranchesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListBranchesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListBranchesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// UpsertBranchResponse201Headers the declared response headers of an HTTP 201 response for UpsertBranch
+type UpsertBranchResponse201Headers struct {
+	Location *string
+}
+
+type UpsertBranchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Branch
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Branch
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *UpsertBranchResponse201Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpsertBranchResponse) GetJSON200() *Branch {
+	return r.JSON200
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r UpsertBranchResponse) GetJSON201() *Branch {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r UpsertBranchResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r UpsertBranchResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r UpsertBranchResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r UpsertBranchResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r UpsertBranchResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r UpsertBranchResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpsertBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpsertBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpsertBranchResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetBranchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BranchStatus
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetBranchResponse) GetJSON200() *BranchStatus {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetBranchResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetBranchResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetBranchResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetBranchResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetBranchResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CloseBranchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Branch
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CloseBranchResponse) GetJSON200() *Branch {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CloseBranchResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CloseBranchResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CloseBranchResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CloseBranchResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CloseBranchResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CloseBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CloseBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CloseBranchResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type MergeBranchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Branch
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r MergeBranchResponse) GetJSON200() *Branch {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r MergeBranchResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r MergeBranchResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r MergeBranchResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r MergeBranchResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r MergeBranchResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MergeBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MergeBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MergeBranchResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetBranchPreviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Branch
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetBranchPreviewResponse) GetJSON200() *Branch {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r SetBranchPreviewResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r SetBranchPreviewResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r SetBranchPreviewResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r SetBranchPreviewResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r SetBranchPreviewResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r SetBranchPreviewResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetBranchPreviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetBranchPreviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetBranchPreviewResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListBranchProposalsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ProposalList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListBranchProposalsResponse) GetJSON200() *ProposalList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListBranchProposalsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListBranchProposalsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListBranchProposalsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListBranchProposalsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListBranchProposalsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListBranchProposalsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListBranchProposalsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListBranchProposalsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // CreateCapturesResponse200Headers the declared response headers of an HTTP 200 response for CreateCaptures
 type CreateCapturesResponse200Headers struct {
 	IdempotentReplayed *string
@@ -34022,6 +36296,82 @@ func (r RevokeDeliveryKeyResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RevokeDeliveryKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetDeliveryKeyScopeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeliveryKey
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetDeliveryKeyScopeResponse) GetJSON200() *DeliveryKey {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r SetDeliveryKeyScopeResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r SetDeliveryKeyScopeResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r SetDeliveryKeyScopeResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r SetDeliveryKeyScopeResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r SetDeliveryKeyScopeResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r SetDeliveryKeyScopeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetDeliveryKeyScopeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetDeliveryKeyScopeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetDeliveryKeyScopeResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -41709,6 +44059,251 @@ func (c *ClientWithResponses) UpdateApplicationWithResponse(ctx context.Context,
 	return ParseUpdateApplicationResponse(rsp)
 }
 
+// PushBranchMessagesWithBodyWithResponse Push a branch's messages (CI, glossa push --branch)
+//
+// The branch's catalog, up to 10000 messages in one transaction —
+// a whole catalog, not a batch, so `complete` can be trusted. The
+// branch is created by its first push, and a closed one reopens.
+//
+// Nothing live changes: a key the project doesn't have becomes a
+// `proposed` message the branch owns, changed source for a live
+// key becomes a *source proposal*, and a key whose live source
+// already says this is `unchanged`. Two open branches proposing
+// the same new key with different source are a `key_conflict` for
+// both. With `complete`, the keys the branch proposed before and
+// no longer has are withdrawn, and the project's live keys the
+// push lacks are reported in `removed` — reported only: a branch
+// never obsoletes anything.
+//
+// The answer is the branch's status report, the same one
+// `getBranch` returns, plus one result per item in request order.
+// Items fail on their own (`items[].error.code`, as for
+// `upsertMessages`) without failing the push. Needs
+// `catalog.write`. Problem codes: `too_many_branch_items`,
+// `invalid_branch`, `invalid_push` (400), `branch_merged` (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branch-pushes (the `PushBranchMessages` operationId).
+func (c *ClientWithResponses) PushBranchMessagesWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PushBranchMessagesResponse, error) {
+	rsp, err := c.PushBranchMessagesWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePushBranchMessagesResponse(rsp)
+}
+
+// PushBranchMessagesWithResponse Push a branch's messages (CI, glossa push --branch)
+//
+// The branch's catalog, up to 10000 messages in one transaction —
+// a whole catalog, not a batch, so `complete` can be trusted. The
+// branch is created by its first push, and a closed one reopens.
+//
+// Nothing live changes: a key the project doesn't have becomes a
+// `proposed` message the branch owns, changed source for a live
+// key becomes a *source proposal*, and a key whose live source
+// already says this is `unchanged`. Two open branches proposing
+// the same new key with different source are a `key_conflict` for
+// both. With `complete`, the keys the branch proposed before and
+// no longer has are withdrawn, and the project's live keys the
+// push lacks are reported in `removed` — reported only: a branch
+// never obsoletes anything.
+//
+// The answer is the branch's status report, the same one
+// `getBranch` returns, plus one result per item in request order.
+// Items fail on their own (`items[].error.code`, as for
+// `upsertMessages`) without failing the push. Needs
+// `catalog.write`. Problem codes: `too_many_branch_items`,
+// `invalid_branch`, `invalid_push` (400), `branch_merged` (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branch-pushes (the `PushBranchMessages` operationId).
+func (c *ClientWithResponses) PushBranchMessagesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body PushBranchMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PushBranchMessagesResponse, error) {
+	rsp, err := c.PushBranchMessages(ctx, tenant, project, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePushBranchMessagesResponse(rsp)
+}
+
+// ListBranchesWithResponse Branches of a project, by name
+//
+// `state` lists only `open`, `merged` or `closed` branches. `name`
+// is the way to find a branch whose `id` you don't have (an
+// unknown name is an empty page, not a 404). Needs `catalog.read`.
+// Problem codes: `invalid_branch_state` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches (the `ListBranches` operationId).
+func (c *ClientWithResponses) ListBranchesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListBranchesParams, reqEditors ...RequestEditorFn) (*ListBranchesResponse, error) {
+	rsp, err := c.ListBranches(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListBranchesResponse(rsp)
+}
+
+// UpsertBranchWithBodyWithResponse Open a branch, or record what CI knows about it
+//
+// Addressed by `name`, because a branch that doesn't exist yet has
+// no `id`: the first call creates it (`201`), later ones record its
+// head commit, its pull request number and its preview URL
+// (`200`). It proposes nothing — `pushBranchMessages` does that —
+// and a closed branch reopens. Opening a branch opens its preview
+// environment (`pr-<number>`, or `br-<hash>` without a pull
+// request). Needs `catalog.write`. Problem codes: `invalid_branch`,
+// `invalid_push`, `invalid_preview_url` (400), `branch_merged`
+// (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches (the `UpsertBranch` operationId).
+func (c *ClientWithResponses) UpsertBranchWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertBranchResponse, error) {
+	rsp, err := c.UpsertBranchWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertBranchResponse(rsp)
+}
+
+// UpsertBranchWithResponse Open a branch, or record what CI knows about it
+//
+// Addressed by `name`, because a branch that doesn't exist yet has
+// no `id`: the first call creates it (`201`), later ones record its
+// head commit, its pull request number and its preview URL
+// (`200`). It proposes nothing — `pushBranchMessages` does that —
+// and a closed branch reopens. Opening a branch opens its preview
+// environment (`pr-<number>`, or `br-<hash>` without a pull
+// request). Needs `catalog.write`. Problem codes: `invalid_branch`,
+// `invalid_push`, `invalid_preview_url` (400), `branch_merged`
+// (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches (the `UpsertBranch` operationId).
+func (c *ClientWithResponses) UpsertBranchWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body UpsertBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertBranchResponse, error) {
+	rsp, err := c.UpsertBranch(ctx, tenant, project, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertBranchResponse(rsp)
+}
+
+// GetBranchWithResponse A branch's status report
+//
+// What the branch proposes as its last push left it: its new keys,
+// its source proposals, the live keys its last complete push
+// lacked (`removed`), the key conflicts it shares with other open
+// branches, and how many current translations per locale merging
+// it will make outdated. This is what the PR check reports. Needs
+// `catalog.read` (`outdated` also needs `translations.read`).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches/{branch} (the `GetBranch` operationId).
+func (c *ClientWithResponses) GetBranchWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*GetBranchResponse, error) {
+	rsp, err := c.GetBranch(ctx, tenant, project, branch, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBranchResponse(rsp)
+}
+
+// CloseBranchWithResponse Close a branch (its pull request was closed unmerged)
+//
+// Its preview environment is destroyed, so the edge answers 404
+// for it, and its proposed messages stay proposed for 14 days
+// before they become obsolete — reopening the branch, or pushing
+// their keys again, brings them back with their translations and
+// history. Idempotent: closing a closed branch changes nothing.
+// Needs `catalog.write`. Problem codes: `branch_merged` (409).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches/{branch}/closure (the `CloseBranch` operationId).
+func (c *ClientWithResponses) CloseBranchWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*CloseBranchResponse, error) {
+	rsp, err := c.CloseBranch(ctx, tenant, project, branch, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCloseBranchResponse(rsp)
+}
+
+// MergeBranchWithResponse Mark a branch merged
+//
+// Bookkeeping and cleanup, not activation: the **default branch's
+// push** makes proposed messages active and proposals source
+// revisions, so nothing depends on this call arriving. It destroys
+// the branch's preview environment and starts the 14-day clock on
+// whatever the default branch didn't bring in. A merged branch
+// takes no more pushes. Idempotent. Needs `catalog.write`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/branches/{branch}/merge (the `MergeBranch` operationId).
+func (c *ClientWithResponses) MergeBranchWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, reqEditors ...RequestEditorFn) (*MergeBranchResponse, error) {
+	rsp, err := c.MergeBranch(ctx, tenant, project, branch, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMergeBranchResponse(rsp)
+}
+
+// SetBranchPreviewWithBodyWithResponse Record where CI deployed the branch's preview
+//
+// `glossa preview register --url`. The URL is shown in Studio and
+// in the pull request comment; it is where the in-product editor
+// runs. An empty `url` clears it. Needs `catalog.write`. Problem
+// codes: `invalid_preview_url` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/branches/{branch}/preview (the `SetBranchPreview` operationId).
+func (c *ClientWithResponses) SetBranchPreviewWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetBranchPreviewResponse, error) {
+	rsp, err := c.SetBranchPreviewWithBody(ctx, tenant, project, branch, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetBranchPreviewResponse(rsp)
+}
+
+// SetBranchPreviewWithResponse Record where CI deployed the branch's preview
+//
+// `glossa preview register --url`. The URL is shown in Studio and
+// in the pull request comment; it is where the in-product editor
+// runs. An empty `url` clears it. Needs `catalog.write`. Problem
+// codes: `invalid_preview_url` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/branches/{branch}/preview (the `SetBranchPreview` operationId).
+func (c *ClientWithResponses) SetBranchPreviewWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, body SetBranchPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*SetBranchPreviewResponse, error) {
+	rsp, err := c.SetBranchPreview(ctx, tenant, project, branch, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetBranchPreviewResponse(rsp)
+}
+
+// ListBranchProposalsWithResponse What a branch proposes, key by key
+//
+// By key: the source the branch pushed for it, the message it
+// names, and for a source change the revision it was proposed
+// against. Needs `catalog.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/branches/{branch}/proposals (the `ListBranchProposals` operationId).
+func (c *ClientWithResponses) ListBranchProposalsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, branch BranchPath, params *ListBranchProposalsParams, reqEditors ...RequestEditorFn) (*ListBranchProposalsResponse, error) {
+	rsp, err := c.ListBranchProposals(ctx, tenant, project, branch, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListBranchProposalsResponse(rsp)
+}
+
 // CreateCapturesWithBodyWithResponse Upload a build's captures (glossa capture --upload)
 //
 // A `multipart/form-data` body: first a part named `manifest`
@@ -41943,6 +44538,46 @@ func (c *ClientWithResponses) RevokeDeliveryKeyWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseRevokeDeliveryKeyResponse(rsp)
+}
+
+// SetDeliveryKeyScopeWithBodyWithResponse Change what a delivery key may read
+//
+// Replaces the key's scope: the `environments` it reads and
+// whether it reads branch previews. The key itself never changes,
+// so a bundle that ships it keeps working; the edge follows within
+// its key cache TTL (30 s by default) plus any CDN max-age. A
+// revoked key takes no scope. Needs `releases.publish`. Problem
+// codes: `invalid_key_scope` (400), `key_revoked` (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope (the `SetDeliveryKeyScope` operationId).
+func (c *ClientWithResponses) SetDeliveryKeyScopeWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeliveryKeyScopeResponse, error) {
+	rsp, err := c.SetDeliveryKeyScopeWithBody(ctx, tenant, project, deliveryKey, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetDeliveryKeyScopeResponse(rsp)
+}
+
+// SetDeliveryKeyScopeWithResponse Change what a delivery key may read
+//
+// Replaces the key's scope: the `environments` it reads and
+// whether it reads branch previews. The key itself never changes,
+// so a bundle that ships it keeps working; the edge follows within
+// its key cache TTL (30 s by default) plus any CDN max-age. A
+// revoked key takes no scope. Needs `releases.publish`. Problem
+// codes: `invalid_key_scope` (400), `key_revoked` (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope (the `SetDeliveryKeyScope` operationId).
+func (c *ClientWithResponses) SetDeliveryKeyScopeWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, body SetDeliveryKeyScopeJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeliveryKeyScopeResponse, error) {
+	rsp, err := c.SetDeliveryKeyScope(ctx, tenant, project, deliveryKey, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetDeliveryKeyScopeResponse(rsp)
 }
 
 // ListEnvironmentsWithResponse Environments of a project
@@ -48702,6 +51337,472 @@ func ParseUpdateApplicationResponse(rsp *http.Response) (*UpdateApplicationRespo
 	return response, nil
 }
 
+// ParsePushBranchMessagesResponse parses an HTTP response from a PushBranchMessagesWithResponse call
+func ParsePushBranchMessagesResponse(rsp *http.Response) (*PushBranchMessagesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PushBranchMessagesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BranchPushResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListBranchesResponse parses an HTTP response from a ListBranchesWithResponse call
+func ParseListBranchesResponse(rsp *http.Response) (*ListBranchesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListBranchesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BranchList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpsertBranchResponse parses an HTTP response from a UpsertBranchWithResponse call
+func ParseUpsertBranchResponse(rsp *http.Response) (*UpsertBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpsertBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Branch
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Branch
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers UpsertBranchResponse201Headers
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetBranchResponse parses an HTTP response from a GetBranchWithResponse call
+func ParseGetBranchResponse(rsp *http.Response) (*GetBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BranchStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCloseBranchResponse parses an HTTP response from a CloseBranchWithResponse call
+func ParseCloseBranchResponse(rsp *http.Response) (*CloseBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CloseBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Branch
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMergeBranchResponse parses an HTTP response from a MergeBranchWithResponse call
+func ParseMergeBranchResponse(rsp *http.Response) (*MergeBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MergeBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Branch
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetBranchPreviewResponse parses an HTTP response from a SetBranchPreviewWithResponse call
+func ParseSetBranchPreviewResponse(rsp *http.Response) (*SetBranchPreviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetBranchPreviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Branch
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListBranchProposalsResponse parses an HTTP response from a ListBranchProposalsWithResponse call
+func ParseListBranchProposalsResponse(rsp *http.Response) (*ListBranchProposalsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListBranchProposalsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProposalList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateCapturesResponse parses an HTTP response from a CreateCapturesWithResponse call
 func ParseCreateCapturesResponse(rsp *http.Response) (*CreateCapturesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -49177,6 +52278,67 @@ func ParseRevokeDeliveryKeyResponse(rsp *http.Response) (*RevokeDeliveryKeyRespo
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetDeliveryKeyScopeResponse parses an HTTP response from a SetDeliveryKeyScopeWithResponse call
+func ParseSetDeliveryKeyScopeResponse(rsp *http.Response) (*SetDeliveryKeyScopeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetDeliveryKeyScopeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeliveryKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthenticated

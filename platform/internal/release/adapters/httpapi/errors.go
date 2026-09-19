@@ -6,6 +6,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/idempotency"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
@@ -26,7 +27,6 @@ var problems = []struct {
 	{domain.ErrNoRollbackTarget, 409, "no_rollback_target", ""},
 	{domain.ErrNotInHistory, 409, "not_in_history", ""},
 	{domain.ErrKeyRevoked, 409, "key_revoked", ""},
-	// RFC 0004 §4.2; documented with the branches API (wave 4).
 	{domain.ErrBranchReleaseNotPromotable, 409, "branch_release_not_promotable", ""},
 	{domain.ErrTooManyBranches, 409, "too_many_branches", ""},
 	{domain.ErrFixedPolicy, 409, "fixed_policy", ""},
@@ -40,6 +40,7 @@ var problems = []struct {
 	{domain.ErrInvalidPolicy, 400, "invalid_policy", ""},
 	{domain.ErrInvalidNote, 400, "invalid_note", ""},
 	{domain.ErrInvalidKeyName, 400, "invalid_key_name", ""},
+	{delivery.ErrInvalidScope, 400, "invalid_key_scope", ""},
 }
 
 // mapError turns Release's errors into problem details; anything else
