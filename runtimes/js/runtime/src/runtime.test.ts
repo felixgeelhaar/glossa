@@ -111,6 +111,30 @@ describe("createRuntime: loading", () => {
     expect(edge.artifactRequests()).toEqual([r1.sha.en, r1.sha.de, shared.sha.de]);
   });
 
+  it("keeps a new release when the locale changes while it loads", async () => {
+    const { create, edge } = setup();
+    let open!: () => void;
+    const gate = new Promise<void>((resolve) => (open = resolve));
+    let blocked = 0;
+    const rt = create({
+      transport: async (url, init) => {
+        if (url.includes("/a/") && rt.release) {
+          blocked++;
+          await gate;
+        }
+        return edge.transport(url, init);
+      },
+    });
+    await rt.ready;
+    edge.serve(served(r2));
+    const refreshing = rt.refresh();
+    await vi.waitFor(() => expect(blocked).toBe(1));
+    const switching = rt.setLocales("en");
+    open();
+    await Promise.all([refreshing, switching]);
+    expect([rt.release?.id, rt.locale]).toEqual(["rel_2", "en"]);
+  });
+
   it("coalesces concurrent refreshes", async () => {
     const { create, edge } = setup();
     const rt = create();

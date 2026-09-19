@@ -289,16 +289,16 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
       : (Object.assign({}, ...parts) as Record<string, Message>);
   };
 
-  /** Make `m` active for the requested locales, if everything its chain needs is cached. */
-  const commit = (m: Manifest, source: Source, etag?: string) => {
-    const [locale, chain] = plan(m, requested);
+  /** Make `m` active for `req`, if everything its chain needs is cached. */
+  const commit = (m: Manifest, source: Source, etag?: string, req = requested) => {
+    const [locale, chain] = plan(m, req);
     const catalogs: Active["catalogs"] = [];
     for (const l of chain) {
       const c = catalog(m, l);
       if (!c) return false;
       catalogs.push([l, c]);
     }
-    state = { m, etag, source, requested, locale, chain, catalogs };
+    state = { m, etag, source, requested: req, locale, chain, catalogs };
     const keep = new Set(Object.keys(m.artifacts).flatMap((l) => shas(m, l)));
     for (const s of cache.keys()) if (!keep.has(s)) cache.delete(s);
     call(subscribers);
@@ -308,9 +308,11 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
   /**
    * Verify a manifest, load every artifact its active chain needs, then switch
    * to it in one step (SPEC §3: atomic activation). On any failure the
-   * previous release keeps serving.
+   * previous release keeps serving. The requested locales are pinned for the
+   * whole activation; a `setLocales()` meanwhile queues its own activation.
    */
   const activate = async (m: Manifest, source: Source, etag?: string) => {
+    const req = requested;
     let problem = checkManifest(m);
     let type: RuntimeError["type"] = "schema";
     if (!problem && keys.length && m !== state?.m) {
@@ -321,9 +323,9 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
       emit({ type, detail: problem, releaseId: (m as Partial<Manifest> | null)?.release?.id });
       return false;
     }
-    const needed = plan(m, requested)[1].flatMap((l) => shas(m, l));
+    const needed = plan(m, req)[1].flatMap((l) => shas(m, l));
     const loaded = await Promise.all(needed.map((s) => load(s, m.release.id)));
-    if (loaded.includes(false) || !commit(m, source, etag)) return false;
+    if (loaded.includes(false) || !commit(m, source, etag, req)) return false;
     if (source !== "bundled") await persist(m, etag);
     return true;
   };

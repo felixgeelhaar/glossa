@@ -124,10 +124,7 @@ describe("runtimes/testdata/loading", () => {
         const revalidation = edge.requests.slice(requests).find((r) => r.url.endsWith(".json"));
         expect(revalidation?.headers["If-None-Match"], where).toBe(lastEtag);
       }
-      if (
-        step.edge.manifest.status === 200 &&
-        rt.release?.id === step.edge.manifest.body.release.id
-      ) {
+      if (step.edge.manifest.body && rt.release?.id === step.edge.manifest.body.release.id) {
         lastEtag = step.edge.manifest.etag;
       }
       if (rt.explain(step.read.id).requested.join() !== step.read.requested.join()) {
