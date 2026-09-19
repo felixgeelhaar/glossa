@@ -222,7 +222,7 @@ func toResult(it domain.Item) apiv1.ImportResult {
 	return apiv1.ImportResult{
 		Seq: it.Seq, Kind: apiv1.ImportResultKind(it.Kind), Key: it.Key, Locale: nonEmpty(it.Locale),
 		Status: apiv1.ImportResultStatus(it.Status), Code: nonEmpty(it.Code), Detail: nonEmpty(it.Detail),
-		Line: nonZero(it.Line), Column: nonZero(it.Column),
+		Line: nonZero(it.Line), Column: nonZero(it.Column), Ref: nonEmpty(it.Ref),
 	}
 }
 

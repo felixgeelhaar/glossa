@@ -71,6 +71,9 @@ func (s *Service) CreateImport(ctx context.Context, in ImportRequest, idemKey st
 		if f == domain.FormatJSON && (opts.Locale == "" || opts.Locale == p.SourceLocale.String()) && !access.Manage {
 			return domain.Job{}, false, &authz.DeniedError{Permission: authz.IntegrationManage}
 		}
+		if err := s.checkImportLocale(ctx, p, f, opts.Locale); err != nil {
+			return domain.Job{}, false, err
+		}
 	}
 	id, err := newJobID(ctx, "import.create", by, idemKey)
 	if err != nil {
@@ -84,6 +87,53 @@ func (s *Service) CreateImport(ctx context.Context, in ImportRequest, idemKey st
 		ExpiresAt: now.Add(s.cfg.Retention),
 	}
 	return s.insertJob(ctx, j)
+}
+
+// checkImportLocale refuses a locale option that isn't the project's.
+func (s *Service) checkImportLocale(ctx context.Context, p ProjectInfo, f domain.Format, locale string) error {
+	if locale == "" || f.Kind() != domain.KindCatalog || locale == p.SourceLocale.String() && f == domain.FormatJSON {
+		return nil
+	}
+	targets, err := s.localization.Locales(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	return domain.CheckImportLocale(f, locale, p.SourceLocale, targets)
+}
+
+// KnowledgeFormat is the format of a tenant-wide translation memory
+// (TMX) or termbase (TBX) file.
+func KnowledgeFormat(k domain.Kind) (domain.Format, error) {
+	switch k {
+	case domain.KindTM:
+		return domain.FormatTMX, nil
+	case domain.KindTermbase:
+		return domain.FormatTBX, nil
+	}
+	return "", fmt.Errorf("%w: %q is not a translation memory or termbase", domain.ErrInvalidFormat, k)
+}
+
+// CreateKnowledgeImport creates an import into the workspace's own
+// translation memory (TMX) or termbase (TBX): tenant-wide, never a
+// project's. It needs integration.manage and knowledge.write for the
+// whole tenant, like every TMX and TBX import.
+func (s *Service) CreateKnowledgeImport(ctx context.Context, k domain.Kind, mode, fileName, idemKey string) (domain.Job, bool, error) {
+	f, err := KnowledgeFormat(k)
+	if err != nil {
+		return domain.Job{}, false, err
+	}
+	return s.CreateImport(ctx, ImportRequest{Format: string(f), Mode: mode, FileName: fileName}, idemKey)
+}
+
+// CreateKnowledgeExport exports the workspace's whole translation
+// memory (TMX) or termbase (TBX): every unit or concept the tenant
+// holds, its own and every project's.
+func (s *Service) CreateKnowledgeExport(ctx context.Context, k domain.Kind, opts domain.Options, idemKey string) (domain.Job, bool, error) {
+	f, err := KnowledgeFormat(k)
+	if err != nil {
+		return domain.Job{}, false, err
+	}
+	return s.CreateExport(ctx, ExportRequest{Format: string(f), Options: opts}, idemKey)
 }
 
 // importAccess snapshots what the caller may import.

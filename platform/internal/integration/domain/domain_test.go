@@ -98,7 +98,6 @@ func TestImportOptions(t *testing.T) {
 		o domain.Options
 	}{
 		"export option":      {domain.FormatJSON, domain.Options{Layout: "nested"}},
-		"locale on xliff":    {domain.FormatXLIFF, domain.Options{Locale: "de"}},
 		"mf2 plain xliff":    {domain.FormatXLIFF, domain.Options{Syntax: "mf2"}},
 		"syntax on po":       {domain.FormatPO, domain.Options{Syntax: "mf1"}},
 		"options on tmx":     {domain.FormatTMX, domain.Options{Namespace: "x"}},
@@ -114,6 +113,68 @@ func TestImportOptions(t *testing.T) {
 	}
 	if o, err := (domain.Options{Syntax: "mf1"}).NormalizeImport(domain.FormatXLIFF); err != nil || o.Syntax != "mf1" {
 		t.Errorf("xliff mf1: %v", err)
+	}
+	if o, err := (domain.Options{Locale: "de_at"}).NormalizeImport(domain.FormatXLIFF); err != nil || o.Locale != "de-AT" {
+		t.Errorf("xliff target locale = %+v, %v", o, err)
+	}
+}
+
+func TestImportLocaleMustBeTheProjects(t *testing.T) {
+	en, de, fr := bcp47.MustParse("en"), bcp47.MustParse("de"), bcp47.MustParse("fr")
+	targets := []bcp47.Tag{de, fr}
+	ok := map[string]struct {
+		f      domain.Format
+		locale string
+	}{
+		"xliff target":   {domain.FormatXLIFF, "de"},
+		"json source":    {domain.FormatJSON, "en"},
+		"json target":    {domain.FormatJSON, "fr"},
+		"po target":      {domain.FormatPO, "de"},
+		"no locale":      {domain.FormatXLIFF, ""},
+		"tmx has none":   {domain.FormatTMX, ""},
+		"json no locale": {domain.FormatJSON, ""},
+	}
+	for name, tc := range ok {
+		if err := domain.CheckImportLocale(tc.f, tc.locale, en, targets); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	bad := map[string]struct {
+		f      domain.Format
+		locale string
+		want   error
+	}{
+		"xliff unknown":   {domain.FormatXLIFF, "ja", domain.ErrLocaleNotInProject},
+		"xliff as source": {domain.FormatXLIFF, "en", domain.ErrInvalidOptions},
+		"po as source":    {domain.FormatPO, "en", domain.ErrInvalidOptions},
+		"json unknown":    {domain.FormatJSON, "de-AT", domain.ErrLocaleNotInProject},
+	}
+	for name, tc := range bad {
+		if err := domain.CheckImportLocale(tc.f, tc.locale, en, targets); !errors.Is(err, tc.want) {
+			t.Errorf("%s: err = %v, want %v", name, err, tc.want)
+		}
+	}
+}
+
+func TestItemAt(t *testing.T) {
+	it := domain.Item{Key: "a"}.At(formats.Position{Line: 3, Column: 5, Ref: "/a"})
+	if it.Line != 3 || it.Column != 5 || it.Ref != "/a" || it.Key != "a" {
+		t.Errorf("item = %+v", it)
+	}
+	long := domain.Item{}.At(formats.Position{Ref: strings.Repeat("é", domain.MaxRefRunes+10)})
+	if n := len([]rune(long.Ref)); n != domain.MaxRefRunes || !strings.HasSuffix(long.Ref, "…") {
+		t.Errorf("ref of %d runes, want %d ending in …", n, domain.MaxRefRunes)
+	}
+}
+
+func TestTargetLocaleMismatch(t *testing.T) {
+	targets := []bcp47.Tag{bcp47.MustParse("de"), bcp47.MustParse("fr")}
+	if got := domain.UnknownTargetLocales([]bcp47.Tag{bcp47.MustParse("de")}, targets); len(got) != 0 {
+		t.Errorf("de is the project's: %v", got)
+	}
+	got := domain.UnknownTargetLocales([]bcp47.Tag{bcp47.MustParse("de-AT"), bcp47.MustParse("fr"), bcp47.MustParse("de-AT")}, targets)
+	if len(got) != 1 || got[0].String() != "de-AT" {
+		t.Errorf("unknown = %v, want [de-AT]", got)
 	}
 }
 

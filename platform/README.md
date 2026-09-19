@@ -469,7 +469,11 @@ Permissions: reads need `catalog.read`, writes `catalog.write`
 (developers, admins, owners, `write` tokens), deleting a project
 `tenant.manage`. `POST …/message-upserts` is the CLI's push: up to 500
 items in one transaction, per-item results, `base_revision` to refuse
-overwriting a newer revision, obsolete keys reactivated.
+overwriting a newer revision, obsolete keys reactivated. `GET
+…/namespaces` lists a project's namespaces by name with their active
+and obsolete message counts (what Studio's export offers to choose
+from): one grouped read per page, served by the
+`catalog_messages_namespaces` index (migration 0010).
 
 ## Localization
 
@@ -891,7 +895,7 @@ their application services.
 | Table | Scope | Why |
 |---|---|---|
 | `integration_jobs` | tenant | Imports and exports: format, mode, options, the requester's access snapshot, state and progress, the file's object key, size and SHA-256, the fingerprint, summary counts, retention. `glossa_system` may SELECT and UPDATE (claims, the retention sweep). |
-| `integration_job_items` | tenant | An import's result per item, in file order. |
+| `integration_job_items` | tenant | An import's result per item, in file order, with where the item is in the file (`line`, `col`, `ref`; migration 0011). |
 
 **Files** live in object storage under
 `integration/v1/<tenant>/jobs/<job>/…` (glossa-edge never serves that
@@ -927,7 +931,14 @@ for a cancellation. A storage or database failure is retried (3
 attempts, 30 s backoff doubling), resuming after the last checkpoint; a
 malformed, unsupported or oversized file fails the job at once with the
 problem as its last result (`line`, `column`, the item); a worker whose
-lease ran out changes nothing. Events: `integration.import.completed`
+lease ran out changes nothing. **Every result carries its position**:
+the readers record where each entry, translation, unit and concept is
+(`formats.Position`) — line and column of its start and `ref`, the item
+in the format's own terms: an XLIFF 2 fragment identifier
+(`#/f=checkout/u=pay`), a JSON pointer (`/checkout/pay`), a PO entry's
+`msgctxt "…" msgid "…"`, `tu[n]` / `conceptEntry[n]` for TMX and TBX —
+so a conflict deep in a file is found as easily as the problem that
+fails it. Events: `integration.import.completed`
 and `integration.export.completed` (job, project, kind, format, mode,
 state, failure code, reused job, summary, requester) on every end;
 subscriber `integration.drop_project` on `catalog.project.deleted`
@@ -935,6 +946,15 @@ deletes the project's jobs, results and files.
 
 **Import rules.**
 
+- *Locales.* A file's source locale must be the project's
+  (`source_locale_mismatch`). Its translations' locale — XLIFF's
+  `trgLang`, a PO file's `Language`, or `options.locale`, which names
+  the locale of an XLIFF file without `trgLang` or imports one as
+  another locale than it names (`de` into a project's `de-AT`) — must
+  be one of the project's target locales: `options.locale` is checked
+  when the job is created (`locale_not_found`), the file's own locale
+  when it runs (the job fails `target_locale_mismatch`, naming the
+  project's locales, instead of reporting every translation invalid).
 - *Catalogs.* A message with source text in the file is created when
   missing (with `integration.manage`; otherwise its translations are
   `message_not_found`), `unchanged` when its source has the same MF2
@@ -1001,11 +1021,22 @@ and TBX export a project's own units and concepts, or everything the
 tenant holds without a project; TMX units carry the message key they
 were approved for as `x-glossa-message-key`.
 
+**The workspace's memory and termbase** have routes of their own, not
+under a project: `POST|GET …/tm-import-jobs`, `…/tm-export-jobs`,
+`…/termbase-import-jobs` and `…/termbase-export-jobs` create and list
+tenant-wide TMX and TBX jobs (`CreateKnowledgeImport`,
+`CreateKnowledgeExport`; the listing is `JobFilter{TenantWide, Kind}`).
+Imports need `integration.manage` and `knowledge.write` held
+tenant-wide, exports `integration.read` and `knowledge.read`. The jobs
+are ordinary ones: uploaded to, followed, cancelled and downloaded
+through `import-jobs` and `export-jobs`.
+
 Permissions: see *Identity* (`integration.read`, `integration.import`,
 `integration.manage`). **Tests**: `internal/integration/app` runs every
-format end to end on Postgres (app role, no BYPASSRLS) and MinIO;
-`cmd/glossa-server` uploads, imports, exports and downloads through the
-generated server.
+format end to end on Postgres (app role, no BYPASSRLS) and MinIO —
+including the XLIFF locale option, per-item positions and the
+workspace's routes; `cmd/glossa-server` uploads, imports, exports and
+downloads through the generated server.
 
 ## Message preview
 

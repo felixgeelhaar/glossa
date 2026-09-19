@@ -14,8 +14,10 @@ import (
 // a job never carries an option that silently did nothing.
 type Options struct {
 	// Locale (import): the locale of a JSON file (default: the project's
-	// source locale, so the file holds source messages) or the target
-	// locale of a PO file (default: its Language header).
+	// source locale, so the file holds source messages), the target
+	// locale of a PO file (default: its Language header) or of an XLIFF
+	// file (default: its trgLang; the option names the locale of a file
+	// without one, or imports a file as another locale than it names).
 	Locale string `json:"locale,omitempty"`
 	// Namespace (import, JSON and PO): the namespace of every message
 	// (default "default").
@@ -67,7 +69,7 @@ func (o Options) NormalizeImport(f Format) (Options, error) {
 	allowed := map[Format][]string{
 		FormatJSON:  {"locale", "namespace", "syntax", "state"},
 		FormatPO:    {"locale", "namespace", "state", "plural_variable"},
-		FormatXLIFF: {"syntax"},
+		FormatXLIFF: {"locale", "syntax"},
 	}[f]
 	for name, set := range map[string]bool{
 		"locale": o.Locale != "", "namespace": o.Namespace != "", "syntax": o.Syntax != "",
@@ -91,6 +93,41 @@ func (o Options) NormalizeImport(f Format) (Options, error) {
 		return Options{}, optionErr("plural_variable must be a variable name")
 	}
 	return o, nil
+}
+
+// CheckImportLocale checks an import's canonical locale option against
+// the project it imports into: a translation locale must be one of its
+// targets (ErrLocaleNotInProject), and only a JSON file may be in the
+// source locale — it is a source catalog then; XLIFF and PO carry the
+// source beside their translations (ErrInvalidOptions).
+func CheckImportLocale(f Format, locale string, source bcp47.Tag, targets []bcp47.Tag) error {
+	if locale == "" || f.Kind() != KindCatalog {
+		return nil
+	}
+	if locale == source.String() {
+		if f == FormatJSON {
+			return nil
+		}
+		return optionErr("locale %s is the project's source locale; a %s file's translations are in a target locale", locale, f)
+	}
+	if !slices.ContainsFunc(targets, func(t bcp47.Tag) bool { return t.String() == locale }) {
+		return fmt.Errorf("%w: %s", ErrLocaleNotInProject, locale)
+	}
+	return nil
+}
+
+// UnknownTargetLocales lists, once each and in order, the locales of a
+// file's translations that aren't among the project's targets: an
+// import of them fails target_locale_mismatch instead of reporting
+// every translation invalid.
+func UnknownTargetLocales(file, targets []bcp47.Tag) []bcp47.Tag {
+	var out []bcp47.Tag
+	for _, l := range file {
+		if !slices.Contains(targets, l) && !slices.Contains(out, l) {
+			out = append(out, l)
+		}
+	}
+	return out
 }
 
 // NormalizeExport validates o for an export of format and canonicalizes

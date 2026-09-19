@@ -232,7 +232,11 @@ type Transactor interface {
 type JobFilter struct {
 	Direction domain.Direction
 	ProjectID *uuid.UUID
-	State     *domain.State
+	// TenantWide lists only jobs without a project (the workspace's
+	// translation memory and termbase).
+	TenantWide bool
+	Kind       *domain.Kind
+	State      *domain.State
 }
 
 // JobCursor is the keyset position after a listed job (newest first).

@@ -61,4 +61,5 @@ type IntegrationJobItem struct {
 	Detail   pgtype.Text
 	Line     pgtype.Int4
 	Col      pgtype.Int4
+	Ref      pgtype.Text
 }

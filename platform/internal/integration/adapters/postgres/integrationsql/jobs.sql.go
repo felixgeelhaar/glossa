@@ -233,7 +233,7 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 }
 
 const listItems = `-- name: ListItems :many
-SELECT job_id, tenant_id, seq, kind, item_key, locale, status, code, detail, line, col FROM integration_job_items
+SELECT job_id, tenant_id, seq, kind, item_key, locale, status, code, detail, line, col, ref FROM integration_job_items
 WHERE job_id = $1 AND seq > $2
   AND ($3::text IS NULL OR status = $3::text)
   AND ($4::text IS NULL OR kind = $4::text)
@@ -276,6 +276,7 @@ func (q *Queries) ListItems(ctx context.Context, arg ListItemsParams) ([]Integra
 			&i.Detail,
 			&i.Line,
 			&i.Col,
+			&i.Ref,
 		); err != nil {
 			return nil, err
 		}
@@ -291,25 +292,33 @@ const listJobs = `-- name: ListJobs :many
 SELECT id, tenant_id, direction, project_id, kind, format, mode, options, access, state, file_name, file_key, file_size, file_sha256, content_type, fingerprint, reused_job_id, summary, total_items, processed_items, failure_code, failure_message, cancel_requested, attempts, max_attempts, available_at, claim_token, created_by, created_at, started_at, finished_at, updated_at, expires_at, files_deleted_at FROM integration_jobs
 WHERE direction = $1
   AND ($2::uuid IS NULL OR project_id = $2::uuid)
-  AND ($3::text IS NULL OR state = $3::text)
-  AND ($4::timestamptz IS NULL OR (created_at, id) < ($4::timestamptz, $5::uuid))
+  AND (NOT $3::boolean OR project_id IS NULL)
+  AND ($4::text IS NULL OR kind = $4::text)
+  AND ($5::text IS NULL OR state = $5::text)
+  AND ($6::timestamptz IS NULL OR (created_at, id) < ($6::timestamptz, $7::uuid))
 ORDER BY created_at DESC, id DESC
-LIMIT $6::int
+LIMIT $8::int
 `
 
 type ListJobsParams struct {
-	Direction string
-	ProjectID uuid.NullUUID
-	State     pgtype.Text
-	BeforeAt  pgtype.Timestamptz
-	BeforeID  uuid.UUID
-	MaxRows   int32
+	Direction  string
+	ProjectID  uuid.NullUUID
+	TenantWide bool
+	Kind       pgtype.Text
+	State      pgtype.Text
+	BeforeAt   pgtype.Timestamptz
+	BeforeID   uuid.UUID
+	MaxRows    int32
 }
 
+// ListJobs lists a direction's jobs, newest first: a project's, or with
+// tenant_wide the ones without a project; kind narrows it.
 func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]IntegrationJob, error) {
 	rows, err := q.db.Query(ctx, listJobs,
 		arg.Direction,
 		arg.ProjectID,
+		arg.TenantWide,
+		arg.Kind,
 		arg.State,
 		arg.BeforeAt,
 		arg.BeforeID,
@@ -552,17 +561,17 @@ func (q *Queries) ProjectJobs(ctx context.Context, projectID uuid.NullUUID) ([]I
 
 const putItems = `-- name: PutItems :exec
 
-INSERT INTO integration_job_items (job_id, tenant_id, seq, kind, item_key, locale, status, code, detail, line, col)
+INSERT INTO integration_job_items (job_id, tenant_id, seq, kind, item_key, locale, status, code, detail, line, col, ref)
 SELECT $1, app_current_tenant(), i.seq, i.kind, i.item_key, i.locale, i.status,
-       NULLIF(i.code, ''), NULLIF(i.detail, ''), NULLIF(i.line, 0), NULLIF(i.col, 0)
+       NULLIF(i.code, ''), NULLIF(i.detail, ''), NULLIF(i.line, 0), NULLIF(i.col, 0), NULLIF(i.ref, '')
 FROM (SELECT unnest($2::int[]) AS seq, unnest($3::text[]) AS kind,
              unnest($4::text[]) AS item_key, unnest($5::text[]) AS locale,
              unnest($6::text[]) AS status, unnest($7::text[]) AS code,
              unnest($8::text[]) AS detail, unnest($9::int[]) AS line,
-             unnest($10::int[]) AS col) AS i
+             unnest($10::int[]) AS col, unnest($11::text[]) AS ref) AS i
 ON CONFLICT (job_id, seq) DO UPDATE
 SET kind = excluded.kind, item_key = excluded.item_key, locale = excluded.locale, status = excluded.status,
-    code = excluded.code, detail = excluded.detail, line = excluded.line, col = excluded.col
+    code = excluded.code, detail = excluded.detail, line = excluded.line, col = excluded.col, ref = excluded.ref
 `
 
 type PutItemsParams struct {
@@ -576,6 +585,7 @@ type PutItemsParams struct {
 	Details  []string
 	Lines    []int32
 	Cols     []int32
+	Refs     []string
 }
 
 // ── results ────────────────────────────────────────────────────────
@@ -592,6 +602,7 @@ func (q *Queries) PutItems(ctx context.Context, arg PutItemsParams) error {
 		arg.Details,
 		arg.Lines,
 		arg.Cols,
+		arg.Refs,
 	)
 	return err
 }

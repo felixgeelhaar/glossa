@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 
@@ -46,9 +47,28 @@ type Item struct {
 	Status ItemStatus
 	Code   string
 	Detail string
-	// Line and Column locate a problem in the file (1-based; 0 unknown).
+	// Line and Column locate the item — or the problem that failed the
+	// file — in the file (1-based; 0 unknown).
 	Line   int
 	Column int
+	// Ref names the item in the format's own terms (formats.Position).
+	Ref string
+}
+
+// At places the item where pos says it is in the file.
+func (it Item) At(pos formats.Position) Item {
+	it.Line, it.Column, it.Ref = pos.Line, pos.Column, truncateRunes(pos.Ref, MaxRefRunes)
+	return it
+}
+
+// MaxRefRunes bounds an item's reference.
+const MaxRefRunes = 500
+
+func truncateRunes(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	return string([]rune(s)[:n-1]) + "…"
 }
 
 // Result codes of items. Codes from the contexts an import writes

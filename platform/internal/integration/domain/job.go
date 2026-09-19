@@ -30,6 +30,9 @@ var (
 	ErrUploadNotExpected = errors.New("integration: the job is not waiting for its file")
 	ErrNotReady          = errors.New("integration: the export has not finished")
 	ErrFileExpired       = errors.New("integration: the file was deleted after its retention period")
+	// ErrLocaleNotInProject: an import's locale isn't one of the
+	// project's.
+	ErrLocaleNotInProject = errors.New("integration: the project has no such locale")
 )
 
 // Direction says whether a job reads a file into Glossa or writes one.
@@ -180,6 +183,9 @@ const (
 	FailureTooLarge = "file_too_large"
 	// FailureSourceLocale: the file's source locale isn't the project's.
 	FailureSourceLocale = "source_locale_mismatch"
+	// FailureTargetLocale: the file's translations are in a locale the
+	// project doesn't have (options.locale imports them as one it has).
+	FailureTargetLocale = "target_locale_mismatch"
 	// FailureProjectGone: the project was deleted.
 	FailureProjectGone = "project_not_found"
 	// FailureUploadExpired: no file was uploaded in time.

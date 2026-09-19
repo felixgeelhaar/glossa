@@ -189,9 +189,13 @@ func (s *store) RetryJob(ctx context.Context, j domain.Job, delay time.Duration)
 }
 
 func (s *store) Jobs(ctx context.Context, f app.JobFilter, before *app.JobCursor, limit int) ([]domain.Job, error) {
-	p := integrationsql.ListJobsParams{Direction: string(f.Direction), ProjectID: nullUUID(f.ProjectID), MaxRows: i32(limit)}
+	p := integrationsql.ListJobsParams{Direction: string(f.Direction), ProjectID: nullUUID(f.ProjectID),
+		TenantWide: f.TenantWide, MaxRows: i32(limit)}
 	if f.State != nil {
 		p.State = text(string(*f.State))
+	}
+	if f.Kind != nil {
+		p.Kind = text(string(*f.Kind))
 	}
 	if before != nil {
 		p.BeforeAt, p.BeforeID = pgtype.Timestamptz{Time: before.CreatedAt, Valid: true}, before.ID
@@ -223,6 +227,7 @@ func (s *store) PutItems(ctx context.Context, jobID uuid.UUID, items []domain.It
 		p.Details = append(p.Details, it.Detail)
 		p.Lines = append(p.Lines, i32(it.Line))
 		p.Cols = append(p.Cols, i32(it.Column))
+		p.Refs = append(p.Refs, it.Ref)
 	}
 	return storeError(s.q.PutItems(ctx, p))
 }
@@ -243,7 +248,7 @@ func (s *store) Items(ctx context.Context, jobID uuid.UUID, f app.ItemFilter, af
 	for i, r := range rows {
 		out[i] = domain.Item{
 			Seq: int(r.Seq), Kind: domain.ItemKind(r.Kind), Key: r.ItemKey, Locale: r.Locale, Status: domain.ItemStatus(r.Status),
-			Code: r.Code.String, Detail: r.Detail.String, Line: int(r.Line.Int32), Column: int(r.Col.Int32),
+			Code: r.Code.String, Detail: r.Detail.String, Line: int(r.Line.Int32), Column: int(r.Col.Int32), Ref: r.Ref.String,
 		}
 	}
 	return out, nil

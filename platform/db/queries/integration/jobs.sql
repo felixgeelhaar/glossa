@@ -52,10 +52,14 @@ SET state = 'queued', available_at = now() + make_interval(secs => sqlc.arg(dela
     updated_at = sqlc.arg(updated_at)
 WHERE id = sqlc.arg(id);
 
+-- ListJobs lists a direction's jobs, newest first: a project's, or with
+-- tenant_wide the ones without a project; kind narrows it.
 -- name: ListJobs :many
 SELECT * FROM integration_jobs
 WHERE direction = sqlc.arg(direction)
   AND (sqlc.narg(project_id)::uuid IS NULL OR project_id = sqlc.narg(project_id)::uuid)
+  AND (NOT sqlc.arg(tenant_wide)::boolean OR project_id IS NULL)
+  AND (sqlc.narg(kind)::text IS NULL OR kind = sqlc.narg(kind)::text)
   AND (sqlc.narg(state)::text IS NULL OR state = sqlc.narg(state)::text)
   AND (sqlc.narg(before_at)::timestamptz IS NULL OR (created_at, id) < (sqlc.narg(before_at)::timestamptz, sqlc.arg(before_id)::uuid))
 ORDER BY created_at DESC, id DESC
@@ -78,17 +82,17 @@ DELETE FROM integration_jobs WHERE project_id = sqlc.arg(project_id);
 
 -- PutItems stores a batch of results; a retried batch replaces its own.
 -- name: PutItems :exec
-INSERT INTO integration_job_items (job_id, tenant_id, seq, kind, item_key, locale, status, code, detail, line, col)
+INSERT INTO integration_job_items (job_id, tenant_id, seq, kind, item_key, locale, status, code, detail, line, col, ref)
 SELECT sqlc.arg(job_id), app_current_tenant(), i.seq, i.kind, i.item_key, i.locale, i.status,
-       NULLIF(i.code, ''), NULLIF(i.detail, ''), NULLIF(i.line, 0), NULLIF(i.col, 0)
+       NULLIF(i.code, ''), NULLIF(i.detail, ''), NULLIF(i.line, 0), NULLIF(i.col, 0), NULLIF(i.ref, '')
 FROM (SELECT unnest(sqlc.arg(seqs)::int[]) AS seq, unnest(sqlc.arg(kinds)::text[]) AS kind,
              unnest(sqlc.arg(keys)::text[]) AS item_key, unnest(sqlc.arg(locales)::text[]) AS locale,
              unnest(sqlc.arg(statuses)::text[]) AS status, unnest(sqlc.arg(codes)::text[]) AS code,
              unnest(sqlc.arg(details)::text[]) AS detail, unnest(sqlc.arg(lines)::int[]) AS line,
-             unnest(sqlc.arg(cols)::int[]) AS col) AS i
+             unnest(sqlc.arg(cols)::int[]) AS col, unnest(sqlc.arg(refs)::text[]) AS ref) AS i
 ON CONFLICT (job_id, seq) DO UPDATE
 SET kind = excluded.kind, item_key = excluded.item_key, locale = excluded.locale, status = excluded.status,
-    code = excluded.code, detail = excluded.detail, line = excluded.line, col = excluded.col;
+    code = excluded.code, detail = excluded.detail, line = excluded.line, col = excluded.col, ref = excluded.ref;
 
 -- name: ListItems :many
 SELECT * FROM integration_job_items

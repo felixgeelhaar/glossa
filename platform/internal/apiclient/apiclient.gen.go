@@ -2576,7 +2576,13 @@ type ImportMode string
 type ImportOptions struct {
 	// Locale JSON: the file's locale (default the project's source
 	// locale, making it a source catalog). PO: the translations'
-	// locale (default the file's `Language` header).
+	// locale (default the file's `Language` header). XLIFF: the
+	// translations' locale (default the file's `trgLang`) — it
+	// names the locale of a file without `trgLang`, or imports a
+	// file as another locale than it names (`de` into `de-AT`).
+	// It must be one of the project's locales (a target locale;
+	// for JSON also the source locale): `locale_not_found` (404)
+	// otherwise.
 	//
 	//
 	// Examples: de, pt-BR, zh-Hant-TW
@@ -2602,7 +2608,9 @@ type ImportOptions struct {
 // ImportResult defines model for ImportResult.
 type ImportResult struct {
 	// Code Why a result is a conflict or invalid.
-	Code   *string `json:"code,omitempty"`
+	Code *string `json:"code,omitempty"`
+
+	// Column The byte column on that line (1-based).
 	Column *int    `json:"column,omitempty"`
 	Detail *string `json:"detail,omitempty"`
 
@@ -2610,7 +2618,10 @@ type ImportResult struct {
 	Key  string           `json:"key"`
 	Kind ImportResultKind `json:"kind"`
 
-	// Line Where in the file (1-based).
+	// Line Where the item is in the file (1-based): the XLIFF `<unit>` or
+	// `<target>`, the JSON member, the PO `msgid`/`msgctxt` or
+	// `msgstr`, the TMX `<tuv>`, the TBX concept entry — for every
+	// item of a file, not only the problem that fails it.
 	Line *int `json:"line,omitempty"`
 
 	// Locale A BCP 47 language tag. Stored and returned canonicalized
@@ -2619,6 +2630,13 @@ type ImportResult struct {
 	//
 	// Examples: de, pt-BR, zh-Hant-TW
 	Locale *Locale `json:"locale,omitempty"`
+
+	// Ref The item in the format's own terms: an XLIFF 2 fragment
+	// identifier (`#/f=checkout/u=pay`), a JSON pointer
+	// (`/checkout/pay`), a PO entry's `msgctxt` and `msgid`
+	// (`msgctxt "menu" msgid "Open"`), a TMX `tu[12]` or TBX
+	// `conceptEntry[3]` by its place in the file.
+	Ref *string `json:"ref,omitempty"`
 
 	// Seq Position in the job's results (file order).
 	Seq    int                `json:"seq"`
@@ -2671,6 +2689,19 @@ type ItemError struct {
 	Code     string       `json:"code"`
 	Detail   string       `json:"detail"`
 	Findings *[]QAFinding `json:"findings,omitempty"`
+}
+
+// KnowledgeExportJobRequest A tenant-wide TMX or TBX export; the route says which.
+type KnowledgeExportJobRequest struct {
+	// Options TMX: `locales` (targets) and `source_locale`. TBX takes none.
+	Options *ExportOptions `json:"options,omitempty"`
+}
+
+// KnowledgeImportJobRequest A tenant-wide TMX or TBX import; the route says which.
+type KnowledgeImportJobRequest struct {
+	// FileName The file's name, for people.
+	FileName *string     `json:"file_name,omitempty"`
+	Mode     *ImportMode `json:"mode,omitempty"`
 }
 
 // Locale A BCP 47 language tag. Stored and returned canonicalized
@@ -5124,6 +5155,34 @@ type ListTermConceptRevisionsParams struct {
 	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
+// ListTermbaseExportJobsParams defines parameters for ListTermbaseExportJobs.
+type ListTermbaseExportJobsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken           `form:"page_token,omitempty" json:"page_token,omitempty"`
+	State     *IntegrationJobState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateTermbaseExportJobParams defines parameters for CreateTermbaseExportJob.
+type CreateTermbaseExportJobParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListTermbaseImportJobsParams defines parameters for ListTermbaseImportJobs.
+type ListTermbaseImportJobsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken           `form:"page_token,omitempty" json:"page_token,omitempty"`
+	State     *IntegrationJobState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateTermbaseImportJobParams defines parameters for CreateTermbaseImportJob.
+type CreateTermbaseImportJobParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // SearchTranslationMemoryParams defines parameters for SearchTranslationMemory.
 type SearchTranslationMemoryParams struct {
 	Q            string                             `form:"q" json:"q"`
@@ -5139,6 +5198,34 @@ type SearchTranslationMemoryParams struct {
 
 // SearchTranslationMemoryParamsSide defines parameters for SearchTranslationMemory.
 type SearchTranslationMemoryParamsSide string
+
+// ListTMExportJobsParams defines parameters for ListTMExportJobs.
+type ListTMExportJobsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken           `form:"page_token,omitempty" json:"page_token,omitempty"`
+	State     *IntegrationJobState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateTMExportJobParams defines parameters for CreateTMExportJob.
+type CreateTMExportJobParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListTMImportJobsParams defines parameters for ListTMImportJobs.
+type ListTMImportJobsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken           `form:"page_token,omitempty" json:"page_token,omitempty"`
+	State     *IntegrationJobState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateTMImportJobParams defines parameters for CreateTMImportJob.
+type CreateTMImportJobParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
 
 // ListTranslationMemoryUnitsParams defines parameters for ListTranslationMemoryUnits.
 type ListTranslationMemoryUnitsParams struct {
@@ -5332,8 +5419,20 @@ type ReplaceTermConceptJSONRequestBody = ReplaceTermConcept
 // RecognizeTermsJSONRequestBody defines body for RecognizeTerms for application/json ContentType.
 type RecognizeTermsJSONRequestBody = TermRecognitionRequest
 
+// CreateTermbaseExportJobJSONRequestBody defines body for CreateTermbaseExportJob for application/json ContentType.
+type CreateTermbaseExportJobJSONRequestBody = KnowledgeExportJobRequest
+
+// CreateTermbaseImportJobJSONRequestBody defines body for CreateTermbaseImportJob for application/json ContentType.
+type CreateTermbaseImportJobJSONRequestBody = KnowledgeImportJobRequest
+
 // CheckTerminologyJSONRequestBody defines body for CheckTerminology for application/json ContentType.
 type CheckTerminologyJSONRequestBody = TerminologyCheckRequest
+
+// CreateTMExportJobJSONRequestBody defines body for CreateTMExportJob for application/json ContentType.
+type CreateTMExportJobJSONRequestBody = KnowledgeExportJobRequest
+
+// CreateTMImportJobJSONRequestBody defines body for CreateTMImportJob for application/json ContentType.
+type CreateTMImportJobJSONRequestBody = KnowledgeImportJobRequest
 
 // LookupTranslationMemoryJSONRequestBody defines body for LookupTranslationMemory for application/json ContentType.
 type LookupTranslationMemoryJSONRequestBody = TMLookup
@@ -6187,7 +6286,9 @@ type ClientInterface interface {
 	// source locale and matches what `glossa pull` writes (sorted
 	// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
 	// mf2). `tmx` and `tbx` export a project's own memory or termbase,
-	// or without `project_id` everything the tenant holds; `tmx`
+	// or without `project_id` everything the tenant holds (the
+	// workspace's own routes, `tm-export-jobs` and
+	// `termbase-export-jobs`, say so explicitly); `tmx`
 	// narrows by `source_locale` and target `locales`. Needs
 	// `integration.read` and `catalog.read` with
 	// `translations.read` (catalogs) or `knowledge.read`. Problem
@@ -6212,7 +6313,9 @@ type ClientInterface interface {
 	// source locale and matches what `glossa pull` writes (sorted
 	// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
 	// mf2). `tmx` and `tbx` export a project's own memory or termbase,
-	// or without `project_id` everything the tenant holds; `tmx`
+	// or without `project_id` everything the tenant holds (the
+	// workspace's own routes, `tm-export-jobs` and
+	// `termbase-export-jobs`, say so explicitly); `tmx`
 	// narrows by `source_locale` and target `locales`. Needs
 	// `integration.read` and `catalog.read` with
 	// `translations.read` (catalogs) or `knowledge.read`. Problem
@@ -6309,8 +6412,11 @@ type ClientInterface interface {
 	// catalog and needs it). TMX, TBX and `overwrite` need
 	// `integration.manage` (and `knowledge.write` for TMX and TBX).
 	// What the requester may do is recorded with the job and applied
-	// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
-	// `invalid_options`, `project_required` (400).
+	// when it runs. A tenant-wide memory or termbase has its own
+	// routes, `tm-import-jobs` and `termbase-import-jobs`. Problem
+	// codes: `invalid_format`, `invalid_mode`, `invalid_options`,
+	// `project_required` (400), `locale_not_found` (404:
+	// `options.locale` isn't one of the project's locales).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -6358,8 +6464,11 @@ type ClientInterface interface {
 	// catalog and needs it). TMX, TBX and `overwrite` need
 	// `integration.manage` (and `knowledge.write` for TMX and TBX).
 	// What the requester may do is recorded with the job and applied
-	// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
-	// `invalid_options`, `project_required` (400).
+	// when it runs. A tenant-wide memory or termbase has its own
+	// routes, `tm-import-jobs` and `termbase-import-jobs`. Problem
+	// codes: `invalid_format`, `invalid_mode`, `invalid_options`,
+	// `project_required` (400), `locale_not_found` (404:
+	// `options.locale` isn't one of the project's locales).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -6373,8 +6482,11 @@ type ClientInterface interface {
 	// the results so far by status and kind. A job ends `succeeded`,
 	// `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
 	// `file_too_large` — the problem's line and column are its last
-	// result —, `source_locale_mismatch`, `project_not_found`,
-	// `upload_expired`, `internal`) or `cancelled`. An import of a
+	// result —, `source_locale_mismatch`, `target_locale_mismatch` —
+	// the file's translations are in a locale the project doesn't
+	// have; import it as one of the project's with `options.locale`
+	// —, `project_not_found`, `upload_expired`, `internal`) or
+	// `cancelled`. An import of a
 	// file this tenant already imported with the same options
 	// succeeds at once with that job's result (`reused_job_id`);
 	// dry runs are always run. Needs `integration.read`.
@@ -6418,8 +6530,10 @@ type ClientInterface interface {
 	// `approved_translation_conflict`, `source_differs`,
 	// `concept_differs`) or `invalid` (`code` says why:
 	// `forbidden`, `message_not_found`, `invalid_message_key`,
-	// `structural_qa_failed`, `invalid_file` with `line` and
-	// `column`, …). A dry run's results are what a merge would do.
+	// `structural_qa_failed`, `invalid_file`, …). Every result of a
+	// file carries where it is — `line`, `column` and `ref`, the
+	// item in the format's own terms — so each conflict can be found
+	// in the file. A dry run's results are what a merge would do.
 	// Needs `integration.read`.
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/import-jobs/{import_job}/results (the `ListImportResults` operationId).
@@ -7793,6 +7907,76 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/tenants/{tenant}/term-recognitions (the `RecognizeTerms` operationId).
 	RecognizeTerms(ctx context.Context, tenant TenantPath, body RecognizeTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListTermbaseExportJobs The workspace's TBX exports
+	//
+	// Tenant-wide TBX exports (without a project), newest first. Needs `integration.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/termbase-export-jobs (the `ListTermbaseExportJobs` operationId).
+	ListTermbaseExportJobs(ctx context.Context, tenant TenantPath, params *ListTermbaseExportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTermbaseExportJobWithBody Export the workspace's termbase as TBX
+	//
+	// Queues a TBX export of every concept the tenant holds (its own
+	// and every project's); TBX takes no options. Download it from
+	// the job's `download_url` when it has `succeeded`. Needs
+	// `integration.read` and `knowledge.read`. Problem codes:
+	// `invalid_options` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/termbase-export-jobs (the `CreateTermbaseExportJob` operationId).
+	CreateTermbaseExportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateTermbaseExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTermbaseExportJob Export the workspace's termbase as TBX
+	//
+	// Queues a TBX export of every concept the tenant holds (its own
+	// and every project's); TBX takes no options. Download it from
+	// the job's `download_url` when it has `succeeded`. Needs
+	// `integration.read` and `knowledge.read`. Problem codes:
+	// `invalid_options` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/termbase-export-jobs (the `CreateTermbaseExportJob` operationId).
+	CreateTermbaseExportJob(ctx context.Context, tenant TenantPath, params *CreateTermbaseExportJobParams, body CreateTermbaseExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTermbaseImportJobs The workspace's TBX imports
+	//
+	// Tenant-wide TBX imports (without a project), newest first. Needs `integration.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/termbase-import-jobs (the `ListTermbaseImportJobs` operationId).
+	ListTermbaseImportJobs(ctx context.Context, tenant TenantPath, params *ListTermbaseImportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTermbaseImportJobWithBody Import a TBX file into the workspace's termbase
+	//
+	// Creates a TBX import job for the whole tenant (concepts without
+	// a project), waiting for its file: `PUT` it to the job's
+	// `upload_url` and follow it like any import. A concept with
+	// other content than the stored one is a `conflict`
+	// (`concept_differs`) unless `overwrite`. Needs
+	// `integration.manage` and `knowledge.write` for the whole
+	// tenant. Problem codes: `invalid_mode` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/termbase-import-jobs (the `CreateTermbaseImportJob` operationId).
+	CreateTermbaseImportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateTermbaseImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTermbaseImportJob Import a TBX file into the workspace's termbase
+	//
+	// Creates a TBX import job for the whole tenant (concepts without
+	// a project), waiting for its file: `PUT` it to the job's
+	// `upload_url` and follow it like any import. A concept with
+	// other content than the stored one is a `conflict`
+	// (`concept_differs`) unless `overwrite`. Needs
+	// `integration.manage` and `knowledge.write` for the whole
+	// tenant. Problem codes: `invalid_mode` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/termbase-import-jobs (the `CreateTermbaseImportJob` operationId).
+	CreateTermbaseImportJob(ctx context.Context, tenant TenantPath, params *CreateTermbaseImportJobParams, body CreateTermbaseImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CheckTerminologyWithBody Check a translation against the termbase
 	//
 	// Terminology QA (intent §29.3): `term_missing` (warning) when a
@@ -7837,6 +8021,78 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/tm-concordance (the `SearchTranslationMemory` operationId).
 	SearchTranslationMemory(ctx context.Context, tenant TenantPath, params *SearchTranslationMemoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTMExportJobs The workspace's TMX exports
+	//
+	// Tenant-wide TMX exports (without a project), newest first. Needs `integration.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/tm-export-jobs (the `ListTMExportJobs` operationId).
+	ListTMExportJobs(ctx context.Context, tenant TenantPath, params *ListTMExportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTMExportJobWithBody Export the workspace's translation memory as TMX
+	//
+	// Queues a TMX export of every active unit the tenant holds (its
+	// own and every project's), narrowed by `options.source_locale`
+	// and target `options.locales`; download it from the job's
+	// `download_url` when it has `succeeded`. Needs
+	// `integration.read` and `knowledge.read`. Problem codes:
+	// `invalid_options` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-export-jobs (the `CreateTMExportJob` operationId).
+	CreateTMExportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateTMExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTMExportJob Export the workspace's translation memory as TMX
+	//
+	// Queues a TMX export of every active unit the tenant holds (its
+	// own and every project's), narrowed by `options.source_locale`
+	// and target `options.locales`; download it from the job's
+	// `download_url` when it has `succeeded`. Needs
+	// `integration.read` and `knowledge.read`. Problem codes:
+	// `invalid_options` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-export-jobs (the `CreateTMExportJob` operationId).
+	CreateTMExportJob(ctx context.Context, tenant TenantPath, params *CreateTMExportJobParams, body CreateTMExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTMImportJobs The workspace's TMX imports
+	//
+	// Tenant-wide TMX imports (without a project), newest first. Needs `integration.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/tm-import-jobs (the `ListTMImportJobs` operationId).
+	ListTMImportJobs(ctx context.Context, tenant TenantPath, params *ListTMImportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTMImportJobWithBody Import a TMX file into the workspace's translation memory
+	//
+	// Creates a TMX import job for the whole tenant (units without a
+	// project, matched from every project), waiting for its file:
+	// `PUT` it to the job's `upload_url` and follow it like any
+	// import (`import-jobs/{import_job}`). Units whose exact text is
+	// already active tenant-wide are `unchanged`, so a TM import only
+	// ever adds. Needs `integration.manage` and `knowledge.write`
+	// for the whole tenant. Problem codes: `invalid_mode` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-import-jobs (the `CreateTMImportJob` operationId).
+	CreateTMImportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateTMImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTMImportJob Import a TMX file into the workspace's translation memory
+	//
+	// Creates a TMX import job for the whole tenant (units without a
+	// project, matched from every project), waiting for its file:
+	// `PUT` it to the job's `upload_url` and follow it like any
+	// import (`import-jobs/{import_job}`). Units whose exact text is
+	// already active tenant-wide are `unchanged`, so a TM import only
+	// ever adds. Needs `integration.manage` and `knowledge.write`
+	// for the whole tenant. Problem codes: `invalid_mode` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-import-jobs (the `CreateTMImportJob` operationId).
+	CreateTMImportJob(ctx context.Context, tenant TenantPath, params *CreateTMImportJobParams, body CreateTMImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// LookupTranslationMemoryWithBody Find translation-memory matches for a message
 	//
@@ -9417,7 +9673,9 @@ func (c *Client) ListExportJobs(ctx context.Context, tenant TenantPath, params *
 // source locale and matches what `glossa pull` writes (sorted
 // keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
 // mf2). `tmx` and `tbx` export a project's own memory or termbase,
-// or without `project_id` everything the tenant holds; `tmx`
+// or without `project_id` everything the tenant holds (the
+// workspace's own routes, `tm-export-jobs` and
+// `termbase-export-jobs`, say so explicitly); `tmx`
 // narrows by `source_locale` and target `locales`. Needs
 // `integration.read` and `catalog.read` with
 // `translations.read` (catalogs) or `knowledge.read`. Problem
@@ -9452,7 +9710,9 @@ func (c *Client) CreateExportJobWithBody(ctx context.Context, tenant TenantPath,
 // source locale and matches what `glossa pull` writes (sorted
 // keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
 // mf2). `tmx` and `tbx` export a project's own memory or termbase,
-// or without `project_id` everything the tenant holds; `tmx`
+// or without `project_id` everything the tenant holds (the
+// workspace's own routes, `tm-export-jobs` and
+// `termbase-export-jobs`, say so explicitly); `tmx`
 // narrows by `source_locale` and target `locales`. Needs
 // `integration.read` and `catalog.read` with
 // `translations.read` (catalogs) or `knowledge.read`. Problem
@@ -9599,8 +9859,11 @@ func (c *Client) ListImportJobs(ctx context.Context, tenant TenantPath, params *
 // catalog and needs it). TMX, TBX and `overwrite` need
 // `integration.manage` (and `knowledge.write` for TMX and TBX).
 // What the requester may do is recorded with the job and applied
-// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
-// `invalid_options`, `project_required` (400).
+// when it runs. A tenant-wide memory or termbase has its own
+// routes, `tm-import-jobs` and `termbase-import-jobs`. Problem
+// codes: `invalid_format`, `invalid_mode`, `invalid_options`,
+// `project_required` (400), `locale_not_found` (404:
+// `options.locale` isn't one of the project's locales).
 //
 // Takes any type of body and a specified content type.
 //
@@ -9658,8 +9921,11 @@ func (c *Client) CreateImportJobWithBody(ctx context.Context, tenant TenantPath,
 // catalog and needs it). TMX, TBX and `overwrite` need
 // `integration.manage` (and `knowledge.write` for TMX and TBX).
 // What the requester may do is recorded with the job and applied
-// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
-// `invalid_options`, `project_required` (400).
+// when it runs. A tenant-wide memory or termbase has its own
+// routes, `tm-import-jobs` and `termbase-import-jobs`. Problem
+// codes: `invalid_format`, `invalid_mode`, `invalid_options`,
+// `project_required` (400), `locale_not_found` (404:
+// `options.locale` isn't one of the project's locales).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -9683,8 +9949,11 @@ func (c *Client) CreateImportJob(ctx context.Context, tenant TenantPath, params 
 // the results so far by status and kind. A job ends `succeeded`,
 // `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
 // `file_too_large` — the problem's line and column are its last
-// result —, `source_locale_mismatch`, `project_not_found`,
-// `upload_expired`, `internal`) or `cancelled`. An import of a
+// result —, `source_locale_mismatch`, `target_locale_mismatch` —
+// the file's translations are in a locale the project doesn't
+// have; import it as one of the project's with `options.locale`
+// —, `project_not_found`, `upload_expired`, `internal`) or
+// `cancelled`. An import of a
 // file this tenant already imported with the same options
 // succeeds at once with that job's result (`reused_job_id`);
 // dry runs are always run. Needs `integration.read`.
@@ -9758,8 +10027,10 @@ func (c *Client) UploadImportFileWithBody(ctx context.Context, tenant TenantPath
 // `approved_translation_conflict`, `source_differs`,
 // `concept_differs`) or `invalid` (`code` says why:
 // `forbidden`, `message_not_found`, `invalid_message_key`,
-// `structural_qa_failed`, `invalid_file` with `line` and
-// `column`, …). A dry run's results are what a merge would do.
+// `structural_qa_failed`, `invalid_file`, …). Every result of a
+// file carries where it is — `line`, `column` and `ref`, the
+// item in the format's own terms — so each conflict can be found
+// in the file. A dry run's results are what a merge would do.
 // Needs `integration.read`.
 //
 // Corresponds with GET /v1/tenants/{tenant}/import-jobs/{import_job}/results (the `ListImportResults` operationId).
@@ -12253,6 +12524,136 @@ func (c *Client) RecognizeTerms(ctx context.Context, tenant TenantPath, body Rec
 	return c.Client.Do(req)
 }
 
+// ListTermbaseExportJobs The workspace's TBX exports
+//
+// Tenant-wide TBX exports (without a project), newest first. Needs `integration.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/termbase-export-jobs (the `ListTermbaseExportJobs` operationId).
+func (c *Client) ListTermbaseExportJobs(ctx context.Context, tenant TenantPath, params *ListTermbaseExportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTermbaseExportJobsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTermbaseExportJobWithBody Export the workspace's termbase as TBX
+//
+// Queues a TBX export of every concept the tenant holds (its own
+// and every project's); TBX takes no options. Download it from
+// the job's `download_url` when it has `succeeded`. Needs
+// `integration.read` and `knowledge.read`. Problem codes:
+// `invalid_options` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/termbase-export-jobs (the `CreateTermbaseExportJob` operationId).
+func (c *Client) CreateTermbaseExportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateTermbaseExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTermbaseExportJobRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTermbaseExportJob Export the workspace's termbase as TBX
+//
+// Queues a TBX export of every concept the tenant holds (its own
+// and every project's); TBX takes no options. Download it from
+// the job's `download_url` when it has `succeeded`. Needs
+// `integration.read` and `knowledge.read`. Problem codes:
+// `invalid_options` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/termbase-export-jobs (the `CreateTermbaseExportJob` operationId).
+func (c *Client) CreateTermbaseExportJob(ctx context.Context, tenant TenantPath, params *CreateTermbaseExportJobParams, body CreateTermbaseExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTermbaseExportJobRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListTermbaseImportJobs The workspace's TBX imports
+//
+// Tenant-wide TBX imports (without a project), newest first. Needs `integration.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/termbase-import-jobs (the `ListTermbaseImportJobs` operationId).
+func (c *Client) ListTermbaseImportJobs(ctx context.Context, tenant TenantPath, params *ListTermbaseImportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTermbaseImportJobsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTermbaseImportJobWithBody Import a TBX file into the workspace's termbase
+//
+// Creates a TBX import job for the whole tenant (concepts without
+// a project), waiting for its file: `PUT` it to the job's
+// `upload_url` and follow it like any import. A concept with
+// other content than the stored one is a `conflict`
+// (`concept_differs`) unless `overwrite`. Needs
+// `integration.manage` and `knowledge.write` for the whole
+// tenant. Problem codes: `invalid_mode` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/termbase-import-jobs (the `CreateTermbaseImportJob` operationId).
+func (c *Client) CreateTermbaseImportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateTermbaseImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTermbaseImportJobRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTermbaseImportJob Import a TBX file into the workspace's termbase
+//
+// Creates a TBX import job for the whole tenant (concepts without
+// a project), waiting for its file: `PUT` it to the job's
+// `upload_url` and follow it like any import. A concept with
+// other content than the stored one is a `conflict`
+// (`concept_differs`) unless `overwrite`. Needs
+// `integration.manage` and `knowledge.write` for the whole
+// tenant. Problem codes: `invalid_mode` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/termbase-import-jobs (the `CreateTermbaseImportJob` operationId).
+func (c *Client) CreateTermbaseImportJob(ctx context.Context, tenant TenantPath, params *CreateTermbaseImportJobParams, body CreateTermbaseImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTermbaseImportJobRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CheckTerminologyWithBody Check a translation against the termbase
 //
 // Terminology QA (intent §29.3): `term_missing` (warning) when a
@@ -12318,6 +12719,138 @@ func (c *Client) CheckTerminology(ctx context.Context, tenant TenantPath, body C
 // Corresponds with GET /v1/tenants/{tenant}/tm-concordance (the `SearchTranslationMemory` operationId).
 func (c *Client) SearchTranslationMemory(ctx context.Context, tenant TenantPath, params *SearchTranslationMemoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSearchTranslationMemoryRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListTMExportJobs The workspace's TMX exports
+//
+// Tenant-wide TMX exports (without a project), newest first. Needs `integration.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/tm-export-jobs (the `ListTMExportJobs` operationId).
+func (c *Client) ListTMExportJobs(ctx context.Context, tenant TenantPath, params *ListTMExportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTMExportJobsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTMExportJobWithBody Export the workspace's translation memory as TMX
+//
+// Queues a TMX export of every active unit the tenant holds (its
+// own and every project's), narrowed by `options.source_locale`
+// and target `options.locales`; download it from the job's
+// `download_url` when it has `succeeded`. Needs
+// `integration.read` and `knowledge.read`. Problem codes:
+// `invalid_options` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-export-jobs (the `CreateTMExportJob` operationId).
+func (c *Client) CreateTMExportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateTMExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTMExportJobRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTMExportJob Export the workspace's translation memory as TMX
+//
+// Queues a TMX export of every active unit the tenant holds (its
+// own and every project's), narrowed by `options.source_locale`
+// and target `options.locales`; download it from the job's
+// `download_url` when it has `succeeded`. Needs
+// `integration.read` and `knowledge.read`. Problem codes:
+// `invalid_options` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-export-jobs (the `CreateTMExportJob` operationId).
+func (c *Client) CreateTMExportJob(ctx context.Context, tenant TenantPath, params *CreateTMExportJobParams, body CreateTMExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTMExportJobRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListTMImportJobs The workspace's TMX imports
+//
+// Tenant-wide TMX imports (without a project), newest first. Needs `integration.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/tm-import-jobs (the `ListTMImportJobs` operationId).
+func (c *Client) ListTMImportJobs(ctx context.Context, tenant TenantPath, params *ListTMImportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTMImportJobsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTMImportJobWithBody Import a TMX file into the workspace's translation memory
+//
+// Creates a TMX import job for the whole tenant (units without a
+// project, matched from every project), waiting for its file:
+// `PUT` it to the job's `upload_url` and follow it like any
+// import (`import-jobs/{import_job}`). Units whose exact text is
+// already active tenant-wide are `unchanged`, so a TM import only
+// ever adds. Needs `integration.manage` and `knowledge.write`
+// for the whole tenant. Problem codes: `invalid_mode` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-import-jobs (the `CreateTMImportJob` operationId).
+func (c *Client) CreateTMImportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateTMImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTMImportJobRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTMImportJob Import a TMX file into the workspace's translation memory
+//
+// Creates a TMX import job for the whole tenant (units without a
+// project, matched from every project), waiting for its file:
+// `PUT` it to the job's `upload_url` and follow it like any
+// import (`import-jobs/{import_job}`). Units whose exact text is
+// already active tenant-wide are `unchanged`, so a TM import only
+// ever adds. Needs `integration.manage` and `knowledge.write`
+// for the whole tenant. Problem codes: `invalid_mode` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-import-jobs (the `CreateTMImportJob` operationId).
+func (c *Client) CreateTMImportJob(ctx context.Context, tenant TenantPath, params *CreateTMImportJobParams, body CreateTMImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTMImportJobRequest(c.Server, tenant, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -21079,6 +21612,300 @@ func NewRecognizeTermsRequestWithBody(server string, tenant TenantPath, contentT
 	return req, nil
 }
 
+// NewListTermbaseExportJobsRequest constructs an http.Request for the ListTermbaseExportJobs method
+func NewListTermbaseExportJobsRequest(server string, tenant TenantPath, params *ListTermbaseExportJobsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/termbase-export-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateTermbaseExportJobRequest calls the generic CreateTermbaseExportJob builder with application/json body
+func NewCreateTermbaseExportJobRequest(server string, tenant TenantPath, params *CreateTermbaseExportJobParams, body CreateTermbaseExportJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTermbaseExportJobRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateTermbaseExportJobRequestWithBody constructs an http.Request for the CreateTermbaseExportJob method, with any body, and a specified content type
+func NewCreateTermbaseExportJobRequestWithBody(server string, tenant TenantPath, params *CreateTermbaseExportJobParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/termbase-export-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListTermbaseImportJobsRequest constructs an http.Request for the ListTermbaseImportJobs method
+func NewListTermbaseImportJobsRequest(server string, tenant TenantPath, params *ListTermbaseImportJobsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/termbase-import-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateTermbaseImportJobRequest calls the generic CreateTermbaseImportJob builder with application/json body
+func NewCreateTermbaseImportJobRequest(server string, tenant TenantPath, params *CreateTermbaseImportJobParams, body CreateTermbaseImportJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTermbaseImportJobRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateTermbaseImportJobRequestWithBody constructs an http.Request for the CreateTermbaseImportJob method, with any body, and a specified content type
+func NewCreateTermbaseImportJobRequestWithBody(server string, tenant TenantPath, params *CreateTermbaseImportJobParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/termbase-import-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewCheckTerminologyRequest calls the generic CheckTerminology builder with application/json body
 func NewCheckTerminologyRequest(server string, tenant TenantPath, body CheckTerminologyJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -21250,6 +22077,300 @@ func NewSearchTranslationMemoryRequest(server string, tenant TenantPath, params 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListTMExportJobsRequest constructs an http.Request for the ListTMExportJobs method
+func NewListTMExportJobsRequest(server string, tenant TenantPath, params *ListTMExportJobsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/tm-export-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateTMExportJobRequest calls the generic CreateTMExportJob builder with application/json body
+func NewCreateTMExportJobRequest(server string, tenant TenantPath, params *CreateTMExportJobParams, body CreateTMExportJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTMExportJobRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateTMExportJobRequestWithBody constructs an http.Request for the CreateTMExportJob method, with any body, and a specified content type
+func NewCreateTMExportJobRequestWithBody(server string, tenant TenantPath, params *CreateTMExportJobParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/tm-export-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListTMImportJobsRequest constructs an http.Request for the ListTMImportJobs method
+func NewListTMImportJobsRequest(server string, tenant TenantPath, params *ListTMImportJobsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/tm-import-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateTMImportJobRequest calls the generic CreateTMImportJob builder with application/json body
+func NewCreateTMImportJobRequest(server string, tenant TenantPath, params *CreateTMImportJobParams, body CreateTMImportJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTMImportJobRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateTMImportJobRequestWithBody constructs an http.Request for the CreateTMImportJob method, with any body, and a specified content type
+func NewCreateTMImportJobRequestWithBody(server string, tenant TenantPath, params *CreateTMImportJobParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/tm-import-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -22608,7 +23729,9 @@ type ClientWithResponsesInterface interface {
 	// source locale and matches what `glossa pull` writes (sorted
 	// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
 	// mf2). `tmx` and `tbx` export a project's own memory or termbase,
-	// or without `project_id` everything the tenant holds; `tmx`
+	// or without `project_id` everything the tenant holds (the
+	// workspace's own routes, `tm-export-jobs` and
+	// `termbase-export-jobs`, say so explicitly); `tmx`
 	// narrows by `source_locale` and target `locales`. Needs
 	// `integration.read` and `catalog.read` with
 	// `translations.read` (catalogs) or `knowledge.read`. Problem
@@ -22633,7 +23756,9 @@ type ClientWithResponsesInterface interface {
 	// source locale and matches what `glossa pull` writes (sorted
 	// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
 	// mf2). `tmx` and `tbx` export a project's own memory or termbase,
-	// or without `project_id` everything the tenant holds; `tmx`
+	// or without `project_id` everything the tenant holds (the
+	// workspace's own routes, `tm-export-jobs` and
+	// `termbase-export-jobs`, say so explicitly); `tmx`
 	// narrows by `source_locale` and target `locales`. Needs
 	// `integration.read` and `catalog.read` with
 	// `translations.read` (catalogs) or `knowledge.read`. Problem
@@ -22738,8 +23863,11 @@ type ClientWithResponsesInterface interface {
 	// catalog and needs it). TMX, TBX and `overwrite` need
 	// `integration.manage` (and `knowledge.write` for TMX and TBX).
 	// What the requester may do is recorded with the job and applied
-	// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
-	// `invalid_options`, `project_required` (400).
+	// when it runs. A tenant-wide memory or termbase has its own
+	// routes, `tm-import-jobs` and `termbase-import-jobs`. Problem
+	// codes: `invalid_format`, `invalid_mode`, `invalid_options`,
+	// `project_required` (400), `locale_not_found` (404:
+	// `options.locale` isn't one of the project's locales).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -22787,8 +23915,11 @@ type ClientWithResponsesInterface interface {
 	// catalog and needs it). TMX, TBX and `overwrite` need
 	// `integration.manage` (and `knowledge.write` for TMX and TBX).
 	// What the requester may do is recorded with the job and applied
-	// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
-	// `invalid_options`, `project_required` (400).
+	// when it runs. A tenant-wide memory or termbase has its own
+	// routes, `tm-import-jobs` and `termbase-import-jobs`. Problem
+	// codes: `invalid_format`, `invalid_mode`, `invalid_options`,
+	// `project_required` (400), `locale_not_found` (404:
+	// `options.locale` isn't one of the project's locales).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -22802,8 +23933,11 @@ type ClientWithResponsesInterface interface {
 	// the results so far by status and kind. A job ends `succeeded`,
 	// `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
 	// `file_too_large` — the problem's line and column are its last
-	// result —, `source_locale_mismatch`, `project_not_found`,
-	// `upload_expired`, `internal`) or `cancelled`. An import of a
+	// result —, `source_locale_mismatch`, `target_locale_mismatch` —
+	// the file's translations are in a locale the project doesn't
+	// have; import it as one of the project's with `options.locale`
+	// —, `project_not_found`, `upload_expired`, `internal`) or
+	// `cancelled`. An import of a
 	// file this tenant already imported with the same options
 	// succeeds at once with that job's result (`reused_job_id`);
 	// dry runs are always run. Needs `integration.read`.
@@ -22851,8 +23985,10 @@ type ClientWithResponsesInterface interface {
 	// `approved_translation_conflict`, `source_differs`,
 	// `concept_differs`) or `invalid` (`code` says why:
 	// `forbidden`, `message_not_found`, `invalid_message_key`,
-	// `structural_qa_failed`, `invalid_file` with `line` and
-	// `column`, …). A dry run's results are what a merge would do.
+	// `structural_qa_failed`, `invalid_file`, …). Every result of a
+	// file carries where it is — `line`, `column` and `ref`, the
+	// item in the format's own terms — so each conflict can be found
+	// in the file. A dry run's results are what a merge would do.
 	// Needs `integration.read`.
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -24326,6 +25462,80 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/tenants/{tenant}/term-recognitions (the `RecognizeTerms` operationId).
 	RecognizeTermsWithResponse(ctx context.Context, tenant TenantPath, body RecognizeTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*RecognizeTermsResponse, error)
 
+	// ListTermbaseExportJobsWithResponse The workspace's TBX exports
+	//
+	// Tenant-wide TBX exports (without a project), newest first. Needs `integration.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/termbase-export-jobs (the `ListTermbaseExportJobs` operationId).
+	ListTermbaseExportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListTermbaseExportJobsParams, reqEditors ...RequestEditorFn) (*ListTermbaseExportJobsResponse, error)
+
+	// CreateTermbaseExportJobWithBodyWithResponse Export the workspace's termbase as TBX
+	//
+	// Queues a TBX export of every concept the tenant holds (its own
+	// and every project's); TBX takes no options. Download it from
+	// the job's `download_url` when it has `succeeded`. Needs
+	// `integration.read` and `knowledge.read`. Problem codes:
+	// `invalid_options` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/termbase-export-jobs (the `CreateTermbaseExportJob` operationId).
+	CreateTermbaseExportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermbaseExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTermbaseExportJobResponse, error)
+
+	// CreateTermbaseExportJobWithResponse Export the workspace's termbase as TBX
+	//
+	// Queues a TBX export of every concept the tenant holds (its own
+	// and every project's); TBX takes no options. Download it from
+	// the job's `download_url` when it has `succeeded`. Needs
+	// `integration.read` and `knowledge.read`. Problem codes:
+	// `invalid_options` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/termbase-export-jobs (the `CreateTermbaseExportJob` operationId).
+	CreateTermbaseExportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermbaseExportJobParams, body CreateTermbaseExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTermbaseExportJobResponse, error)
+
+	// ListTermbaseImportJobsWithResponse The workspace's TBX imports
+	//
+	// Tenant-wide TBX imports (without a project), newest first. Needs `integration.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/termbase-import-jobs (the `ListTermbaseImportJobs` operationId).
+	ListTermbaseImportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListTermbaseImportJobsParams, reqEditors ...RequestEditorFn) (*ListTermbaseImportJobsResponse, error)
+
+	// CreateTermbaseImportJobWithBodyWithResponse Import a TBX file into the workspace's termbase
+	//
+	// Creates a TBX import job for the whole tenant (concepts without
+	// a project), waiting for its file: `PUT` it to the job's
+	// `upload_url` and follow it like any import. A concept with
+	// other content than the stored one is a `conflict`
+	// (`concept_differs`) unless `overwrite`. Needs
+	// `integration.manage` and `knowledge.write` for the whole
+	// tenant. Problem codes: `invalid_mode` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/termbase-import-jobs (the `CreateTermbaseImportJob` operationId).
+	CreateTermbaseImportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermbaseImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTermbaseImportJobResponse, error)
+
+	// CreateTermbaseImportJobWithResponse Import a TBX file into the workspace's termbase
+	//
+	// Creates a TBX import job for the whole tenant (concepts without
+	// a project), waiting for its file: `PUT` it to the job's
+	// `upload_url` and follow it like any import. A concept with
+	// other content than the stored one is a `conflict`
+	// (`concept_differs`) unless `overwrite`. Needs
+	// `integration.manage` and `knowledge.write` for the whole
+	// tenant. Problem codes: `invalid_mode` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/termbase-import-jobs (the `CreateTermbaseImportJob` operationId).
+	CreateTermbaseImportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermbaseImportJobParams, body CreateTermbaseImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTermbaseImportJobResponse, error)
+
 	// CheckTerminologyWithBodyWithResponse Check a translation against the termbase
 	//
 	// Terminology QA (intent §29.3): `term_missing` (warning) when a
@@ -24372,6 +25582,82 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/tm-concordance (the `SearchTranslationMemory` operationId).
 	SearchTranslationMemoryWithResponse(ctx context.Context, tenant TenantPath, params *SearchTranslationMemoryParams, reqEditors ...RequestEditorFn) (*SearchTranslationMemoryResponse, error)
+
+	// ListTMExportJobsWithResponse The workspace's TMX exports
+	//
+	// Tenant-wide TMX exports (without a project), newest first. Needs `integration.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/tm-export-jobs (the `ListTMExportJobs` operationId).
+	ListTMExportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListTMExportJobsParams, reqEditors ...RequestEditorFn) (*ListTMExportJobsResponse, error)
+
+	// CreateTMExportJobWithBodyWithResponse Export the workspace's translation memory as TMX
+	//
+	// Queues a TMX export of every active unit the tenant holds (its
+	// own and every project's), narrowed by `options.source_locale`
+	// and target `options.locales`; download it from the job's
+	// `download_url` when it has `succeeded`. Needs
+	// `integration.read` and `knowledge.read`. Problem codes:
+	// `invalid_options` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-export-jobs (the `CreateTMExportJob` operationId).
+	CreateTMExportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateTMExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTMExportJobResponse, error)
+
+	// CreateTMExportJobWithResponse Export the workspace's translation memory as TMX
+	//
+	// Queues a TMX export of every active unit the tenant holds (its
+	// own and every project's), narrowed by `options.source_locale`
+	// and target `options.locales`; download it from the job's
+	// `download_url` when it has `succeeded`. Needs
+	// `integration.read` and `knowledge.read`. Problem codes:
+	// `invalid_options` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-export-jobs (the `CreateTMExportJob` operationId).
+	CreateTMExportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateTMExportJobParams, body CreateTMExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTMExportJobResponse, error)
+
+	// ListTMImportJobsWithResponse The workspace's TMX imports
+	//
+	// Tenant-wide TMX imports (without a project), newest first. Needs `integration.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/tm-import-jobs (the `ListTMImportJobs` operationId).
+	ListTMImportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListTMImportJobsParams, reqEditors ...RequestEditorFn) (*ListTMImportJobsResponse, error)
+
+	// CreateTMImportJobWithBodyWithResponse Import a TMX file into the workspace's translation memory
+	//
+	// Creates a TMX import job for the whole tenant (units without a
+	// project, matched from every project), waiting for its file:
+	// `PUT` it to the job's `upload_url` and follow it like any
+	// import (`import-jobs/{import_job}`). Units whose exact text is
+	// already active tenant-wide are `unchanged`, so a TM import only
+	// ever adds. Needs `integration.manage` and `knowledge.write`
+	// for the whole tenant. Problem codes: `invalid_mode` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-import-jobs (the `CreateTMImportJob` operationId).
+	CreateTMImportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateTMImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTMImportJobResponse, error)
+
+	// CreateTMImportJobWithResponse Import a TMX file into the workspace's translation memory
+	//
+	// Creates a TMX import job for the whole tenant (units without a
+	// project, matched from every project), waiting for its file:
+	// `PUT` it to the job's `upload_url` and follow it like any
+	// import (`import-jobs/{import_job}`). Units whose exact text is
+	// already active tenant-wide are `unchanged`, so a TM import only
+	// ever adds. Needs `integration.manage` and `knowledge.write`
+	// for the whole tenant. Problem codes: `invalid_mode` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-import-jobs (the `CreateTMImportJob` operationId).
+	CreateTMImportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateTMImportJobParams, body CreateTMImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTMImportJobResponse, error)
 
 	// LookupTranslationMemoryWithBodyWithResponse Find translation-memory matches for a message
 	//
@@ -34390,6 +35676,284 @@ func (r RecognizeTermsResponse) ContentType() string {
 	return ""
 }
 
+type ListTermbaseExportJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ExportJobList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListTermbaseExportJobsResponse) GetJSON200() *ExportJobList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListTermbaseExportJobsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListTermbaseExportJobsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListTermbaseExportJobsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListTermbaseExportJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTermbaseExportJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTermbaseExportJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListTermbaseExportJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateTermbaseExportJobResponse201Headers the declared response headers of an HTTP 201 response for CreateTermbaseExportJob
+type CreateTermbaseExportJobResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateTermbaseExportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ExportJob
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateTermbaseExportJobResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateTermbaseExportJobResponse) GetJSON201() *ExportJob {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateTermbaseExportJobResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateTermbaseExportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateTermbaseExportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateTermbaseExportJobResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateTermbaseExportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTermbaseExportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTermbaseExportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateTermbaseExportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListTermbaseImportJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ImportJobList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListTermbaseImportJobsResponse) GetJSON200() *ImportJobList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListTermbaseImportJobsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListTermbaseImportJobsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListTermbaseImportJobsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListTermbaseImportJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTermbaseImportJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTermbaseImportJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListTermbaseImportJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateTermbaseImportJobResponse201Headers the declared response headers of an HTTP 201 response for CreateTermbaseImportJob
+type CreateTermbaseImportJobResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateTermbaseImportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ImportJob
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateTermbaseImportJobResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateTermbaseImportJobResponse) GetJSON201() *ImportJob {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateTermbaseImportJobResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateTermbaseImportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateTermbaseImportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateTermbaseImportJobResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateTermbaseImportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTermbaseImportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTermbaseImportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateTermbaseImportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type CheckTerminologyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -34508,6 +36072,284 @@ func (r SearchTranslationMemoryResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SearchTranslationMemoryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListTMExportJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ExportJobList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListTMExportJobsResponse) GetJSON200() *ExportJobList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListTMExportJobsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListTMExportJobsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListTMExportJobsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListTMExportJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTMExportJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTMExportJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListTMExportJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateTMExportJobResponse201Headers the declared response headers of an HTTP 201 response for CreateTMExportJob
+type CreateTMExportJobResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateTMExportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ExportJob
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateTMExportJobResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateTMExportJobResponse) GetJSON201() *ExportJob {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateTMExportJobResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateTMExportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateTMExportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateTMExportJobResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateTMExportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTMExportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTMExportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateTMExportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListTMImportJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ImportJobList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListTMImportJobsResponse) GetJSON200() *ImportJobList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListTMImportJobsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListTMImportJobsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListTMImportJobsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListTMImportJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTMImportJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTMImportJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListTMImportJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateTMImportJobResponse201Headers the declared response headers of an HTTP 201 response for CreateTMImportJob
+type CreateTMImportJobResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateTMImportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ImportJob
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateTMImportJobResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateTMImportJobResponse) GetJSON201() *ImportJob {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateTMImportJobResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateTMImportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateTMImportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateTMImportJobResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateTMImportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTMImportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTMImportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateTMImportJobResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -36262,7 +38104,9 @@ func (c *ClientWithResponses) ListExportJobsWithResponse(ctx context.Context, te
 // source locale and matches what `glossa pull` writes (sorted
 // keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
 // mf2). `tmx` and `tbx` export a project's own memory or termbase,
-// or without `project_id` everything the tenant holds; `tmx`
+// or without `project_id` everything the tenant holds (the
+// workspace's own routes, `tm-export-jobs` and
+// `termbase-export-jobs`, say so explicitly); `tmx`
 // narrows by `source_locale` and target `locales`. Needs
 // `integration.read` and `catalog.read` with
 // `translations.read` (catalogs) or `knowledge.read`. Problem
@@ -36293,7 +38137,9 @@ func (c *ClientWithResponses) CreateExportJobWithBodyWithResponse(ctx context.Co
 // source locale and matches what `glossa pull` writes (sorted
 // keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
 // mf2). `tmx` and `tbx` export a project's own memory or termbase,
-// or without `project_id` everything the tenant holds; `tmx`
+// or without `project_id` everything the tenant holds (the
+// workspace's own routes, `tm-export-jobs` and
+// `termbase-export-jobs`, say so explicitly); `tmx`
 // narrows by `source_locale` and target `locales`. Needs
 // `integration.read` and `catalog.read` with
 // `translations.read` (catalogs) or `knowledge.read`. Problem
@@ -36428,8 +38274,11 @@ func (c *ClientWithResponses) ListImportJobsWithResponse(ctx context.Context, te
 // catalog and needs it). TMX, TBX and `overwrite` need
 // `integration.manage` (and `knowledge.write` for TMX and TBX).
 // What the requester may do is recorded with the job and applied
-// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
-// `invalid_options`, `project_required` (400).
+// when it runs. A tenant-wide memory or termbase has its own
+// routes, `tm-import-jobs` and `termbase-import-jobs`. Problem
+// codes: `invalid_format`, `invalid_mode`, `invalid_options`,
+// `project_required` (400), `locale_not_found` (404:
+// `options.locale` isn't one of the project's locales).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -36483,8 +38332,11 @@ func (c *ClientWithResponses) CreateImportJobWithBodyWithResponse(ctx context.Co
 // catalog and needs it). TMX, TBX and `overwrite` need
 // `integration.manage` (and `knowledge.write` for TMX and TBX).
 // What the requester may do is recorded with the job and applied
-// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
-// `invalid_options`, `project_required` (400).
+// when it runs. A tenant-wide memory or termbase has its own
+// routes, `tm-import-jobs` and `termbase-import-jobs`. Problem
+// codes: `invalid_format`, `invalid_mode`, `invalid_options`,
+// `project_required` (400), `locale_not_found` (404:
+// `options.locale` isn't one of the project's locales).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -36504,8 +38356,11 @@ func (c *ClientWithResponses) CreateImportJobWithResponse(ctx context.Context, t
 // the results so far by status and kind. A job ends `succeeded`,
 // `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
 // `file_too_large` — the problem's line and column are its last
-// result —, `source_locale_mismatch`, `project_not_found`,
-// `upload_expired`, `internal`) or `cancelled`. An import of a
+// result —, `source_locale_mismatch`, `target_locale_mismatch` —
+// the file's translations are in a locale the project doesn't
+// have; import it as one of the project's with `options.locale`
+// —, `project_not_found`, `upload_expired`, `internal`) or
+// `cancelled`. An import of a
 // file this tenant already imported with the same options
 // succeeds at once with that job's result (`reused_job_id`);
 // dry runs are always run. Needs `integration.read`.
@@ -36571,8 +38426,10 @@ func (c *ClientWithResponses) UploadImportFileWithBodyWithResponse(ctx context.C
 // `approved_translation_conflict`, `source_differs`,
 // `concept_differs`) or `invalid` (`code` says why:
 // `forbidden`, `message_not_found`, `invalid_message_key`,
-// `structural_qa_failed`, `invalid_file` with `line` and
-// `column`, …). A dry run's results are what a merge would do.
+// `structural_qa_failed`, `invalid_file`, …). Every result of a
+// file carries where it is — `line`, `column` and `ref`, the
+// item in the format's own terms — so each conflict can be found
+// in the file. A dry run's results are what a merge would do.
 // Needs `integration.read`.
 //
 // Returns a wrapper object for the known response body format(s).
@@ -38718,6 +40575,116 @@ func (c *ClientWithResponses) RecognizeTermsWithResponse(ctx context.Context, te
 	return ParseRecognizeTermsResponse(rsp)
 }
 
+// ListTermbaseExportJobsWithResponse The workspace's TBX exports
+//
+// Tenant-wide TBX exports (without a project), newest first. Needs `integration.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/termbase-export-jobs (the `ListTermbaseExportJobs` operationId).
+func (c *ClientWithResponses) ListTermbaseExportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListTermbaseExportJobsParams, reqEditors ...RequestEditorFn) (*ListTermbaseExportJobsResponse, error) {
+	rsp, err := c.ListTermbaseExportJobs(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTermbaseExportJobsResponse(rsp)
+}
+
+// CreateTermbaseExportJobWithBodyWithResponse Export the workspace's termbase as TBX
+//
+// Queues a TBX export of every concept the tenant holds (its own
+// and every project's); TBX takes no options. Download it from
+// the job's `download_url` when it has `succeeded`. Needs
+// `integration.read` and `knowledge.read`. Problem codes:
+// `invalid_options` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/termbase-export-jobs (the `CreateTermbaseExportJob` operationId).
+func (c *ClientWithResponses) CreateTermbaseExportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermbaseExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTermbaseExportJobResponse, error) {
+	rsp, err := c.CreateTermbaseExportJobWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTermbaseExportJobResponse(rsp)
+}
+
+// CreateTermbaseExportJobWithResponse Export the workspace's termbase as TBX
+//
+// Queues a TBX export of every concept the tenant holds (its own
+// and every project's); TBX takes no options. Download it from
+// the job's `download_url` when it has `succeeded`. Needs
+// `integration.read` and `knowledge.read`. Problem codes:
+// `invalid_options` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/termbase-export-jobs (the `CreateTermbaseExportJob` operationId).
+func (c *ClientWithResponses) CreateTermbaseExportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermbaseExportJobParams, body CreateTermbaseExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTermbaseExportJobResponse, error) {
+	rsp, err := c.CreateTermbaseExportJob(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTermbaseExportJobResponse(rsp)
+}
+
+// ListTermbaseImportJobsWithResponse The workspace's TBX imports
+//
+// Tenant-wide TBX imports (without a project), newest first. Needs `integration.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/termbase-import-jobs (the `ListTermbaseImportJobs` operationId).
+func (c *ClientWithResponses) ListTermbaseImportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListTermbaseImportJobsParams, reqEditors ...RequestEditorFn) (*ListTermbaseImportJobsResponse, error) {
+	rsp, err := c.ListTermbaseImportJobs(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTermbaseImportJobsResponse(rsp)
+}
+
+// CreateTermbaseImportJobWithBodyWithResponse Import a TBX file into the workspace's termbase
+//
+// Creates a TBX import job for the whole tenant (concepts without
+// a project), waiting for its file: `PUT` it to the job's
+// `upload_url` and follow it like any import. A concept with
+// other content than the stored one is a `conflict`
+// (`concept_differs`) unless `overwrite`. Needs
+// `integration.manage` and `knowledge.write` for the whole
+// tenant. Problem codes: `invalid_mode` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/termbase-import-jobs (the `CreateTermbaseImportJob` operationId).
+func (c *ClientWithResponses) CreateTermbaseImportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermbaseImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTermbaseImportJobResponse, error) {
+	rsp, err := c.CreateTermbaseImportJobWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTermbaseImportJobResponse(rsp)
+}
+
+// CreateTermbaseImportJobWithResponse Import a TBX file into the workspace's termbase
+//
+// Creates a TBX import job for the whole tenant (concepts without
+// a project), waiting for its file: `PUT` it to the job's
+// `upload_url` and follow it like any import. A concept with
+// other content than the stored one is a `conflict`
+// (`concept_differs`) unless `overwrite`. Needs
+// `integration.manage` and `knowledge.write` for the whole
+// tenant. Problem codes: `invalid_mode` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/termbase-import-jobs (the `CreateTermbaseImportJob` operationId).
+func (c *ClientWithResponses) CreateTermbaseImportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermbaseImportJobParams, body CreateTermbaseImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTermbaseImportJobResponse, error) {
+	rsp, err := c.CreateTermbaseImportJob(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTermbaseImportJobResponse(rsp)
+}
+
 // CheckTerminologyWithBodyWithResponse Check a translation against the termbase
 //
 // Terminology QA (intent §29.3): `term_missing` (warning) when a
@@ -38781,6 +40748,118 @@ func (c *ClientWithResponses) SearchTranslationMemoryWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseSearchTranslationMemoryResponse(rsp)
+}
+
+// ListTMExportJobsWithResponse The workspace's TMX exports
+//
+// Tenant-wide TMX exports (without a project), newest first. Needs `integration.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/tm-export-jobs (the `ListTMExportJobs` operationId).
+func (c *ClientWithResponses) ListTMExportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListTMExportJobsParams, reqEditors ...RequestEditorFn) (*ListTMExportJobsResponse, error) {
+	rsp, err := c.ListTMExportJobs(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTMExportJobsResponse(rsp)
+}
+
+// CreateTMExportJobWithBodyWithResponse Export the workspace's translation memory as TMX
+//
+// Queues a TMX export of every active unit the tenant holds (its
+// own and every project's), narrowed by `options.source_locale`
+// and target `options.locales`; download it from the job's
+// `download_url` when it has `succeeded`. Needs
+// `integration.read` and `knowledge.read`. Problem codes:
+// `invalid_options` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-export-jobs (the `CreateTMExportJob` operationId).
+func (c *ClientWithResponses) CreateTMExportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateTMExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTMExportJobResponse, error) {
+	rsp, err := c.CreateTMExportJobWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTMExportJobResponse(rsp)
+}
+
+// CreateTMExportJobWithResponse Export the workspace's translation memory as TMX
+//
+// Queues a TMX export of every active unit the tenant holds (its
+// own and every project's), narrowed by `options.source_locale`
+// and target `options.locales`; download it from the job's
+// `download_url` when it has `succeeded`. Needs
+// `integration.read` and `knowledge.read`. Problem codes:
+// `invalid_options` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-export-jobs (the `CreateTMExportJob` operationId).
+func (c *ClientWithResponses) CreateTMExportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateTMExportJobParams, body CreateTMExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTMExportJobResponse, error) {
+	rsp, err := c.CreateTMExportJob(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTMExportJobResponse(rsp)
+}
+
+// ListTMImportJobsWithResponse The workspace's TMX imports
+//
+// Tenant-wide TMX imports (without a project), newest first. Needs `integration.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/tm-import-jobs (the `ListTMImportJobs` operationId).
+func (c *ClientWithResponses) ListTMImportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListTMImportJobsParams, reqEditors ...RequestEditorFn) (*ListTMImportJobsResponse, error) {
+	rsp, err := c.ListTMImportJobs(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTMImportJobsResponse(rsp)
+}
+
+// CreateTMImportJobWithBodyWithResponse Import a TMX file into the workspace's translation memory
+//
+// Creates a TMX import job for the whole tenant (units without a
+// project, matched from every project), waiting for its file:
+// `PUT` it to the job's `upload_url` and follow it like any
+// import (`import-jobs/{import_job}`). Units whose exact text is
+// already active tenant-wide are `unchanged`, so a TM import only
+// ever adds. Needs `integration.manage` and `knowledge.write`
+// for the whole tenant. Problem codes: `invalid_mode` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-import-jobs (the `CreateTMImportJob` operationId).
+func (c *ClientWithResponses) CreateTMImportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateTMImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTMImportJobResponse, error) {
+	rsp, err := c.CreateTMImportJobWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTMImportJobResponse(rsp)
+}
+
+// CreateTMImportJobWithResponse Import a TMX file into the workspace's translation memory
+//
+// Creates a TMX import job for the whole tenant (units without a
+// project, matched from every project), waiting for its file:
+// `PUT` it to the job's `upload_url` and follow it like any
+// import (`import-jobs/{import_job}`). Units whose exact text is
+// already active tenant-wide are `unchanged`, so a TM import only
+// ever adds. Needs `integration.manage` and `knowledge.write`
+// for the whole tenant. Problem codes: `invalid_mode` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-import-jobs (the `CreateTMImportJob` operationId).
+func (c *ClientWithResponses) CreateTMImportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateTMImportJobParams, body CreateTMImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTMImportJobResponse, error) {
+	rsp, err := c.CreateTMImportJob(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTMImportJobResponse(rsp)
 }
 
 // LookupTranslationMemoryWithBodyWithResponse Find translation-memory matches for a message
@@ -47347,6 +49426,248 @@ func ParseRecognizeTermsResponse(rsp *http.Response) (*RecognizeTermsResponse, e
 	return response, nil
 }
 
+// ParseListTermbaseExportJobsResponse parses an HTTP response from a ListTermbaseExportJobsWithResponse call
+func ParseListTermbaseExportJobsResponse(rsp *http.Response) (*ListTermbaseExportJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTermbaseExportJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ExportJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTermbaseExportJobResponse parses an HTTP response from a CreateTermbaseExportJobWithResponse call
+func ParseCreateTermbaseExportJobResponse(rsp *http.Response) (*CreateTermbaseExportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTermbaseExportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ExportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateTermbaseExportJobResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListTermbaseImportJobsResponse parses an HTTP response from a ListTermbaseImportJobsWithResponse call
+func ParseListTermbaseImportJobsResponse(rsp *http.Response) (*ListTermbaseImportJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTermbaseImportJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ImportJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTermbaseImportJobResponse parses an HTTP response from a CreateTermbaseImportJobWithResponse call
+func ParseCreateTermbaseImportJobResponse(rsp *http.Response) (*CreateTermbaseImportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTermbaseImportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ImportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateTermbaseImportJobResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseCheckTerminologyResponse parses an HTTP response from a CheckTerminologyWithResponse call
 func ParseCheckTerminologyResponse(rsp *http.Response) (*CheckTerminologyResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -47436,6 +49757,248 @@ func ParseSearchTranslationMemoryResponse(rsp *http.Response) (*SearchTranslatio
 		}
 		response.ApplicationproblemJSON403 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseListTMExportJobsResponse parses an HTTP response from a ListTMExportJobsWithResponse call
+func ParseListTMExportJobsResponse(rsp *http.Response) (*ListTMExportJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTMExportJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ExportJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTMExportJobResponse parses an HTTP response from a CreateTMExportJobWithResponse call
+func ParseCreateTMExportJobResponse(rsp *http.Response) (*CreateTMExportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTMExportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ExportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateTMExportJobResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListTMImportJobsResponse parses an HTTP response from a ListTMImportJobsWithResponse call
+func ParseListTMImportJobsResponse(rsp *http.Response) (*ListTMImportJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTMImportJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ImportJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTMImportJobResponse parses an HTTP response from a CreateTMImportJobWithResponse call
+func ParseCreateTMImportJobResponse(rsp *http.Response) (*CreateTMImportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTMImportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ImportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateTMImportJobResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
 	}
 
 	return response, nil

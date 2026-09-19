@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
+	"strings"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
@@ -109,6 +111,9 @@ func (s *Service) importCatalog(ctx context.Context, c Claim, j *domain.Job, p P
 	if !cat.SourceLocale.IsZero() && cat.SourceLocale != p.SourceLocale {
 		return permanent(domain.FailureSourceLocale, "the file's source locale is %s, the project's %s", cat.SourceLocale, p.SourceLocale)
 	}
+	if err := s.checkTargetLocales(ctx, p, cat); err != nil {
+		return err
+	}
 	entries := cat.Entries
 	if j.Format == domain.FormatPO {
 		entries = poEntries(entries, j.Options.Namespace)
@@ -158,7 +163,52 @@ func (s *Service) readCatalog(j *domain.Job, p ProjectInfo, r io.Reader) (format
 			TranslatedState: formats.State(o.State), Limits: limits,
 		})
 	}
-	return xliff.Read(r, xliff.ReadOptions{Limits: limits, PlainSyntax: mfcontent.Syntax(o.Syntax)})
+	var target bcp47.Tag
+	if o.Locale != "" {
+		target = bcp47.MustParse(o.Locale)
+	}
+	return xliff.Read(r, xliff.ReadOptions{Limits: limits, PlainSyntax: mfcontent.Syntax(o.Syntax), TargetLocale: target})
+}
+
+// checkTargetLocales fails an import whose translations are in a
+// locale the project doesn't have — a German file for a project with
+// de-AT only, say — with the locale to choose instead, rather than
+// reporting every translation of the file invalid.
+func (s *Service) checkTargetLocales(ctx context.Context, p ProjectInfo, cat formats.Catalog) error {
+	var locales []bcp47.Tag
+	for _, e := range cat.Entries {
+		for _, t := range e.Targets {
+			if !slices.Contains(locales, t.Locale) {
+				locales = append(locales, t.Locale)
+			}
+		}
+	}
+	if len(locales) == 0 {
+		return nil
+	}
+	targets, err := s.localization.Locales(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	unknown := domain.UnknownTargetLocales(locales, targets)
+	if len(unknown) == 0 {
+		return nil
+	}
+	have := joinTags(targets)
+	if have == "" {
+		have = "none yet"
+	}
+	return permanent(domain.FailureTargetLocale,
+		"the file's translations are in %s, which the project doesn't have (its target locales: %s); import the file as one of them with the locale option",
+		joinTags(unknown), have)
+}
+
+func joinTags(tags []bcp47.Tag) string {
+	s := make([]string, len(tags))
+	for i, t := range tags {
+		s[i] = t.String()
+	}
+	return strings.Join(s, ", ")
 }
 
 // poEntries gives gettext entries catalog keys (domain.POMessageKey)
@@ -212,12 +262,12 @@ func (s *Service) importEntries(ctx context.Context, j *domain.Job, p ProjectInf
 		pl := entryPlan{entry: e, msgItem: -1}
 		if seen[e.ID] {
 			dup := domain.Item{Kind: domain.ItemMessage, Key: e.ID, Status: domain.ItemInvalid, Code: "duplicate_key",
-				Detail: "the key appears earlier in the file"}
+				Detail: "the key appears earlier in the file"}.At(e.Pos)
 			pl.blocked = &dup
 		}
 		seen[e.ID] = true
 		if !e.Source.IsZero() {
-			it := domain.Item{Kind: domain.ItemMessage, Key: e.ID}
+			it := domain.Item{Kind: domain.ItemMessage, Key: e.ID}.At(e.Pos)
 			switch {
 			case pl.blocked != nil:
 				it = *pl.blocked
@@ -293,7 +343,7 @@ func (s *Service) importTranslations(ctx context.Context, j *domain.Job, p Proje
 			}
 		}
 		for _, t := range pl.entry.Targets {
-			it := domain.Item{Kind: domain.ItemTranslation, Key: pl.entry.ID, Locale: t.Locale.String()}
+			it := domain.Item{Kind: domain.ItemTranslation, Key: pl.entry.ID, Locale: t.Locale.String()}.At(t.Pos.Or(pl.entry.Pos))
 			switch {
 			case !domain.Covers(j.Access.Import, t.Locale):
 				it.Status, it.Code, it.Detail = domain.ItemInvalid, domain.CodeForbidden, "no integration.import for "+t.Locale.String()
@@ -380,7 +430,7 @@ func (s *Service) importUnits(ctx context.Context, c Claim, j *domain.Job, batch
 		items[i] = domain.Item{
 			Seq: j.Summary.Total(), Kind: domain.ItemTMUnit, Key: truncate(batch[i].ID, 1000), Locale: batch[i].TargetLocale.String(),
 			Status: domain.ItemStatus(r.Status), Code: r.Code, Detail: truncate(r.Detail, 2000),
-		}
+		}.At(batch[i].Pos)
 		j.Summary.Add(items[i])
 	}
 	j.ProcessedItems += len(batch)
@@ -428,7 +478,7 @@ func (s *Service) importConcepts(ctx context.Context, c Claim, j *domain.Job, tb
 		items[i] = domain.Item{
 			Seq: j.Summary.Total(), Kind: domain.ItemConcept, Key: truncate(conceptFileID(batch[i]), 1000),
 			Status: domain.ItemStatus(r.Status), Code: r.Code, Detail: truncate(r.Detail, 2000),
-		}
+		}.At(batch[i].Pos)
 		j.Summary.Add(items[i])
 	}
 	j.ProcessedItems += len(batch)

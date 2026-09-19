@@ -23,6 +23,7 @@ var problems = []struct {
 	{app.ErrNotFound, http.StatusNotFound, problem.CodeNotFound, "no such job"},
 	{app.ErrProjectNotFound, http.StatusNotFound, problem.CodeNotFound, "no such project"},
 	{app.ErrLocaleNotFound, http.StatusNotFound, "locale_not_found", ""},
+	{domain.ErrLocaleNotInProject, http.StatusNotFound, "locale_not_found", ""},
 	{app.ErrIdempotencyReuse, http.StatusUnprocessableEntity, "idempotency_key_reused", "this Idempotency-Key was used for a different request"},
 	{app.ErrUploadTooLarge, http.StatusRequestEntityTooLarge, "file_too_large", ""},
 	{app.ErrEmptyUpload, http.StatusBadRequest, "empty_file", ""},

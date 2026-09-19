@@ -4400,8 +4400,11 @@ paths:
         catalog and needs it). TMX, TBX and `overwrite` need
         `integration.manage` (and `knowledge.write` for TMX and TBX).
         What the requester may do is recorded with the job and applied
-        when it runs. Problem codes: `invalid_format`, `invalid_mode`,
-        `invalid_options`, `project_required` (400).
+        when it runs. A tenant-wide memory or termbase has its own
+        routes, `tm-import-jobs` and `termbase-import-jobs`. Problem
+        codes: `invalid_format`, `invalid_mode`, `invalid_options`,
+        `project_required` (400), `locale_not_found` (404:
+        `options.locale` isn't one of the project's locales).
       security:
         - session: []
           csrf: []
@@ -4464,8 +4467,11 @@ paths:
         the results so far by status and kind. A job ends `succeeded`,
         `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
         `file_too_large` — the problem's line and column are its last
-        result —, `source_locale_mismatch`, `project_not_found`,
-        `upload_expired`, `internal`) or `cancelled`. An import of a
+        result —, `source_locale_mismatch`, `target_locale_mismatch` —
+        the file's translations are in a locale the project doesn't
+        have; import it as one of the project's with `options.locale`
+        —, `project_not_found`, `upload_expired`, `internal`) or
+        `cancelled`. An import of a
         file this tenant already imported with the same options
         succeeds at once with that job's result (`reused_job_id`);
         dry runs are always run. Needs `integration.read`.
@@ -4567,8 +4573,10 @@ paths:
         `approved_translation_conflict`, `source_differs`,
         `concept_differs`) or `invalid` (`code` says why:
         `forbidden`, `message_not_found`, `invalid_message_key`,
-        `structural_qa_failed`, `invalid_file` with `line` and
-        `column`, …). A dry run's results are what a merge would do.
+        `structural_qa_failed`, `invalid_file`, …). Every result of a
+        file carries where it is — `line`, `column` and `ref`, the
+        item in the format's own terms — so each conflict can be found
+        in the file. A dry run's results are what a merge would do.
         Needs `integration.read`.
       security:
         - session: []
@@ -4608,7 +4616,9 @@ paths:
         source locale and matches what `glossa pull` writes (sorted
         keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
         mf2). `tmx` and `tbx` export a project's own memory or termbase,
-        or without `project_id` everything the tenant holds; `tmx`
+        or without `project_id` everything the tenant holds (the
+        workspace's own routes, `tm-export-jobs` and
+        `termbase-export-jobs`, say so explicitly); `tmx`
         narrows by `source_locale` and target `locales`. Needs
         `integration.read` and `catalog.read` with
         `translations.read` (catalogs) or `knowledge.read`. Problem
@@ -4756,6 +4766,248 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "410": { $ref: "#/components/responses/Gone" }
         "503": { $ref: "#/components/responses/Unavailable" }
+
+  # ── the workspace's translation memory and termbase ────────────────
+  /v1/tenants/{tenant}/tm-import-jobs:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: createTMImportJob
+      tags: [imports]
+      summary: Import a TMX file into the workspace's translation memory
+      description: |
+        Creates a TMX import job for the whole tenant (units without a
+        project, matched from every project), waiting for its file:
+        `PUT` it to the job's `upload_url` and follow it like any
+        import (`import-jobs/{import_job}`). Units whose exact text is
+        already active tenant-wide are `unchanged`, so a TM import only
+        ever adds. Needs `integration.manage` and `knowledge.write`
+        for the whole tenant. Problem codes: `invalid_mode` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/KnowledgeImportJobRequest" }
+      responses:
+        "201":
+          description: The job, waiting for its file.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+    get:
+      operationId: listTMImportJobs
+      tags: [imports]
+      summary: The workspace's TMX imports
+      description: Tenant-wide TMX imports (without a project), newest first. Needs `integration.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/IntegrationJobState" } }
+      responses:
+        "200":
+          description: A page of import jobs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJobList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/tm-export-jobs:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: createTMExportJob
+      tags: [exports]
+      summary: Export the workspace's translation memory as TMX
+      description: |
+        Queues a TMX export of every active unit the tenant holds (its
+        own and every project's), narrowed by `options.source_locale`
+        and target `options.locales`; download it from the job's
+        `download_url` when it has `succeeded`. Needs
+        `integration.read` and `knowledge.read`. Problem codes:
+        `invalid_options` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/KnowledgeExportJobRequest" }
+      responses:
+        "201":
+          description: The job, queued.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+    get:
+      operationId: listTMExportJobs
+      tags: [exports]
+      summary: The workspace's TMX exports
+      description: Tenant-wide TMX exports (without a project), newest first. Needs `integration.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/IntegrationJobState" } }
+      responses:
+        "200":
+          description: A page of export jobs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportJobList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/termbase-import-jobs:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: createTermbaseImportJob
+      tags: [imports]
+      summary: Import a TBX file into the workspace's termbase
+      description: |
+        Creates a TBX import job for the whole tenant (concepts without
+        a project), waiting for its file: `PUT` it to the job's
+        `upload_url` and follow it like any import. A concept with
+        other content than the stored one is a `conflict`
+        (`concept_differs`) unless `overwrite`. Needs
+        `integration.manage` and `knowledge.write` for the whole
+        tenant. Problem codes: `invalid_mode` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/KnowledgeImportJobRequest" }
+      responses:
+        "201":
+          description: The job, waiting for its file.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+    get:
+      operationId: listTermbaseImportJobs
+      tags: [imports]
+      summary: The workspace's TBX imports
+      description: Tenant-wide TBX imports (without a project), newest first. Needs `integration.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/IntegrationJobState" } }
+      responses:
+        "200":
+          description: A page of import jobs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJobList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/termbase-export-jobs:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: createTermbaseExportJob
+      tags: [exports]
+      summary: Export the workspace's termbase as TBX
+      description: |
+        Queues a TBX export of every concept the tenant holds (its own
+        and every project's); TBX takes no options. Download it from
+        the job's `download_url` when it has `succeeded`. Needs
+        `integration.read` and `knowledge.read`. Problem codes:
+        `invalid_options` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/KnowledgeExportJobRequest" }
+      responses:
+        "201":
+          description: The job, queued.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+    get:
+      operationId: listTermbaseExportJobs
+      tags: [exports]
+      summary: The workspace's TBX exports
+      description: Tenant-wide TBX exports (without a project), newest first. Needs `integration.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/IntegrationJobState" } }
+      responses:
+        "200":
+          description: A page of export jobs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportJobList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
 components:
   securitySchemes:
@@ -7197,7 +7449,13 @@ components:
           description: |
             JSON: the file's locale (default the project's source
             locale, making it a source catalog). PO: the translations'
-            locale (default the file's `Language` header).
+            locale (default the file's `Language` header). XLIFF: the
+            translations' locale (default the file's `trgLang`) — it
+            names the locale of a file without `trgLang`, or imports a
+            file as another locale than it names (`de` into `de-AT`).
+            It must be one of the project's locales (a target locale;
+            for JSON also the source locale): `locale_not_found` (404)
+            otherwise.
         namespace: { type: string, maxLength: 64, description: "JSON and PO: every message's namespace (default `default`)." }
         syntax:
           $ref: "#/components/schemas/Syntax"
@@ -7313,8 +7571,22 @@ components:
         status: { $ref: "#/components/schemas/ImportResultStatus" }
         code: { type: string, description: Why a result is a conflict or invalid. }
         detail: { type: string }
-        line: { type: integer, description: Where in the file (1-based). }
-        column: { type: integer }
+        line:
+          type: integer
+          description: |
+            Where the item is in the file (1-based): the XLIFF `<unit>` or
+            `<target>`, the JSON member, the PO `msgid`/`msgctxt` or
+            `msgstr`, the TMX `<tuv>`, the TBX concept entry — for every
+            item of a file, not only the problem that fails it.
+        column: { type: integer, description: "The byte column on that line (1-based)." }
+        ref:
+          type: string
+          description: |
+            The item in the format's own terms: an XLIFF 2 fragment
+            identifier (`#/f=checkout/u=pay`), a JSON pointer
+            (`/checkout/pay`), a PO entry's `msgctxt` and `msgid`
+            (`msgctxt "menu" msgid "Open"`), a TMX `tu[12]` or TBX
+            `conceptEntry[3]` by its place in the file.
     ImportResultList:
       type: object
       required: [items]
@@ -7397,3 +7669,16 @@ components:
           type: array
           items: { $ref: "#/components/schemas/ExportJob" }
         next_page_token: { type: string }
+    KnowledgeImportJobRequest:
+      type: object
+      description: A tenant-wide TMX or TBX import; the route says which.
+      properties:
+        mode: { $ref: "#/components/schemas/ImportMode" }
+        file_name: { type: string, maxLength: 255, description: "The file's name, for people." }
+    KnowledgeExportJobRequest:
+      type: object
+      description: A tenant-wide TMX or TBX export; the route says which.
+      properties:
+        options:
+          $ref: "#/components/schemas/ExportOptions"
+          description: "TMX: `locales` (targets) and `source_locale`. TBX takes none."

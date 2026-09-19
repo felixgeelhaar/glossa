@@ -186,4 +186,70 @@ func TestImportExportOverHTTP(t *testing.T) {
 	r = s.do(call{method: "POST", path: base + "/import-jobs/" + big.ID + "/cancellation", bearer: ci})
 	r.want(t, http.StatusOK, "")
 	s.do(call{method: "POST", path: base + "/import-jobs/" + j.ID + "/cancellation", bearer: ci}).want(t, http.StatusConflict, "job_not_cancellable")
+
+	// An XLIFF import's locale must be the project's; each result says
+	// where its item is.
+	s.do(call{method: "POST", path: base + "/import-jobs", bearer: ci,
+		body: map[string]any{"project_id": project.ID, "format": "xliff", "options": map[string]any{"locale": "ja"}}}).
+		want(t, http.StatusNotFound, "locale_not_found")
+	var pj integrationJob
+	s.do(call{method: "POST", path: base + "/import-jobs", bearer: ci,
+		body: map[string]any{"project_id": project.ID, "format": "xliff", "mode": "dry_run", "options": map[string]any{"locale": "de"}}}).decode(t, &pj)
+	s.raw("PUT", pj.UploadURL, ci, []byte(strings.Replace(xlf, ` trgLang="de"`, "", 1))).want(t, http.StatusOK, "")
+	s.awaitJob(base+"/import-jobs/"+pj.ID, ci)
+	var positioned struct {
+		Items []struct {
+			Kind   string `json:"kind"`
+			Line   int    `json:"line"`
+			Column int    `json:"column"`
+			Ref    string `json:"ref"`
+		} `json:"items"`
+	}
+	s.do(call{method: "GET", path: base + "/import-jobs/" + pj.ID + "/results", bearer: reader}).decode(t, &positioned)
+	if len(positioned.Items) != 2 || positioned.Items[1].Line != 3 || positioned.Items[1].Ref != "#/f=f1/u=checkout.title" {
+		t.Errorf("positioned results = %+v", positioned.Items)
+	}
+
+	// The project's namespaces.
+	var namespaces struct {
+		Items []struct {
+			Name   string `json:"name"`
+			Active int    `json:"active_messages"`
+		} `json:"items"`
+	}
+	s.do(call{method: "GET", path: base + "/projects/" + project.ID + "/namespaces", bearer: reader}).decode(t, &namespaces)
+	if len(namespaces.Items) != 1 || namespaces.Items[0].Name != "default" || namespaces.Items[0].Active != 2 {
+		t.Errorf("namespaces = %+v", namespaces.Items)
+	}
+
+	// The workspace's translation memory and termbase have routes of
+	// their own; importing into them takes a manager.
+	s.do(call{method: "POST", path: base + "/tm-import-jobs", bearer: reader, body: map[string]any{}}).want(t, http.StatusForbidden, "forbidden")
+	r = s.do(call{method: "POST", path: base + "/termbase-import-jobs", bearer: ci, body: map[string]any{"file_name": "terms.tbx"}})
+	r.want(t, http.StatusCreated, "")
+	var tj integrationJob
+	r.decode(t, &tj)
+	if tj.UploadURL != base+"/import-jobs/"+tj.ID+"/file" || r.header.Get("Location") != base+"/import-jobs/"+tj.ID {
+		t.Errorf("termbase import = %s", r.body)
+	}
+	var tenantJobs struct {
+		Items []integrationJob `json:"items"`
+	}
+	s.do(call{method: "GET", path: base + "/termbase-import-jobs", bearer: reader}).decode(t, &tenantJobs)
+	if len(tenantJobs.Items) != 1 || tenantJobs.Items[0].ID != tj.ID {
+		t.Errorf("workspace termbase imports = %+v", tenantJobs.Items)
+	}
+	r = s.do(call{method: "POST", path: base + "/tm-export-jobs", bearer: reader, body: map[string]any{"options": map[string]any{"source_locale": "en"}}})
+	r.want(t, http.StatusCreated, "")
+	var tmx integrationJob
+	r.decode(t, &tmx)
+	if tmx = s.awaitJob(base+"/export-jobs/"+tmx.ID, reader); tmx.State != "succeeded" || tmx.DownloadURL == "" {
+		t.Errorf("workspace TMX export = %+v", tmx)
+	}
+	s.do(call{method: "GET", path: base + "/tm-export-jobs", bearer: reader}).decode(t, &tenantJobs)
+	if len(tenantJobs.Items) != 1 || tenantJobs.Items[0].ID != tmx.ID {
+		t.Errorf("workspace TMX exports = %+v", tenantJobs.Items)
+	}
+	s.do(call{method: "POST", path: base + "/termbase-export-jobs", bearer: reader, body: map[string]any{"options": map[string]any{"locales": []string{"de"}}}}).
+		want(t, http.StatusBadRequest, "invalid_options")
 }
