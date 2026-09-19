@@ -12,6 +12,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./idb": {
+      "types": "./dist/idb.d.ts",
+      "import": "./dist/idb.js"
     }
   },
   "files": [
@@ -35,6 +39,7 @@
     "@glossa/messageformat": "workspace:*",
     "@size-limit/preset-small-lib": "^11.0.0",
     "@types/node": "^22.0.0",
+    "fake-indexeddb": "6.2.5",
     "size-limit": "^11.0.0",
     "typescript": "^5.5.0",
     "vitest": "^4.1.0"
