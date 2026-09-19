@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 97,
+  "version": 98,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -392,11 +392,15 @@
       "elapsed_minutes": 58
     },
     "task-m2-knowledge-ai": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "1ff59e2: CI run 35463907041 green incl. platform-system M2 exit test; REPORT.md es 6.6% / fr 6.1% / ja 5.9% review"
+      ],
       "started_at": "2026-09-19T19:56:41.180936+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T21:24:39.740914+02:00",
+      "elapsed_minutes": 87
     },
     "task-m2-surfaces": {
       "status": "done",
@@ -518,5 +522,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T19:56:41.180936+02:00"
+  "updated_at": "2026-09-19T21:24:39.740915+02:00"
 }
