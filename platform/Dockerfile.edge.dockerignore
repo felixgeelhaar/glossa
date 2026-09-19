@@ -6,6 +6,7 @@
 !runtimes/go/
 !platform/
 messageformat/js/
+runtimes/go/examples/
 messageformat/testdata/
 **/testdata/
 **/*_test.go

@@ -92,7 +92,9 @@
 //
 // Correct output contains U+00A0 and U+202F (German and French spacing)
 // and CJK text, which the PDF core fonts (CP1252) can't draw: embed UTF-8
-// TrueType fonts, such as Noto Sans and Noto Sans JP.
+// TrueType fonts, such as Noto Sans and Noto Sans JP. The module in
+// examples/pdf is a complete fpdf adapter: it renders the tax summary and
+// export of testdata/documents in de, en, es, fr and ja.
 //
 // # Numbers, money and dates
 //
