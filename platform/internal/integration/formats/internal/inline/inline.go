@@ -44,6 +44,8 @@ type Span struct {
 	Pair int
 	// ID is the code's identifier (see AssignIDs); "" for text.
 	ID string
+	// Element is the pattern element of a code.
+	Element mf.PatternElement
 }
 
 // Spans splits a simple pattern into spans.
@@ -77,7 +79,7 @@ func span(el mf.PatternElement) (Span, error) {
 			kind = IsolatedClose
 		}
 	}
-	return Span{Kind: kind, Text: src}, nil
+	return Span{Kind: kind, Text: src, Element: el}, nil
 }
 
 // pairMarkup turns properly nested open/close markup of the same name
