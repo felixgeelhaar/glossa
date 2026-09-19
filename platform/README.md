@@ -4,8 +4,8 @@ Go module for Glossa's control and delivery planes (RFC 0002). It holds
 the `glossa-server` kernel (configuration, observability, the HTTP edge,
 Postgres with forced row-level security, tenancy, the transactional
 outbox), the `/v1` API contract, the bounded contexts under
-`internal/<context>/` (Identity, Catalog, Localization and Release so
-far) and `glossa-edge`, the stateless delivery server.
+`internal/<context>/` (Identity, Catalog, Localization, Release and
+Knowledge so far) and `glossa-edge`, the stateless delivery server.
 
 ```text
 api/openapi.yaml            the /v1 contract (OpenAPI 3.1), source of truth
@@ -34,6 +34,10 @@ internal/catalog/           projects, applications, messages, source revisions
 internal/localization/      locales, fallback graphs, translations, revisions
 internal/release/           environments, releases, artifacts, signing, delivery keys
   delivery/                 the bucket layout and key format glossa-edge shares
+internal/knowledge/         translation memory, termbase, style guides (RFC 0003 §2)
+  domain/                   TM normalization and derivation, term recognition, terminology QA, style merge
+  app/                      use cases, the outbox subscribers, Reader (the port Intelligence consumes)
+  adapters/                 postgres (sqlc), sources (Catalog/Localization ports), httpapi
 internal/preview/           stateless message preview (parse, MF2, format), rate-limited per caller
 internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
@@ -271,6 +275,19 @@ events.Subscribe("catalog.message.source_revised", "localization.mark_outdated",
   `outbox.Permanent` to dead-letter it immediately.
 - Handlers run under the publisher's trace and the event's tenant.
   There's no ordering guarantee.
+- A handler has a tenant but no principal. To read (or write) another
+  context through its application service — which checks permissions
+  like any use case — act as a named background principal with exactly
+  the permissions it needs:
+
+  ```go
+  bg, err := authz.Background(ctx, "knowledge.derive_tm", authz.TranslationsRead, authz.CatalogRead)
+  ```
+
+  Its actor is `system:<uuid>` (stable per name). It refuses a context
+  that already carries a principal and never grants identity
+  administration (`tenant.manage`, `members.manage`, `owners.manage`,
+  `tokens.manage`).
 
 ## Identity
 
@@ -335,6 +352,9 @@ reviewers can be limited to canonical BCP 47 locales, which cover their
 CLDR descendants (`de` covers `de-AT`). **Token scopes** — `read`,
 `write`, `publish`, `admin`; every scope implies read, none grants
 review or owner changes, and a token never exceeds its creator.
+Every role and the `read` scope hold `knowledge.read`;
+`knowledge.write` (curating the termbase, style guides and TM) belongs
+to owners, admins, developers and `write` tokens.
 
 **API tokens** look like `glossa_api_` + 43 base64url characters.
 Register `glossa_api_[A-Za-z0-9_-]{43}` with secret scanners. They're
@@ -491,6 +511,133 @@ transaction, joined by message ID:
 
 Release keeps translations of active messages in the project's locales
 and writes one artifact per locale and namespace (runtimes/SPEC.md §1).
+
+## Knowledge
+
+The organization's linguistic knowledge (RFC 0003 §2, intent §19):
+translation memory, the termbase and style guides — separate
+aggregates, never one "AI context" blob. Everything is tenant-owned and
+either tenant-wide or scoped to one project.
+
+| Table | Scope | Why |
+|---|---|---|
+| `knowledge_tm_units` | tenant | TM units, active and retired (history); at most one active unit per translation. |
+| `knowledge_tm_derivations` | tenant | The translation revision each translation's units reflect: the idempotency guard of derivation. |
+| `knowledge_concepts`, `knowledge_terms` | tenant | The termbase; terms are replaced with their concept. |
+| `knowledge_concept_revisions` | tenant | Full snapshots per version, outliving the concept. SELECT, INSERT (DELETE only to erase a deleted project). |
+| `knowledge_style_guides` | tenant | One guide per scope (`NULLS NOT DISTINCT` unique index). |
+| `knowledge_style_guide_versions` | tenant | Full snapshots per version, outliving the guide; same grants as concept revisions. |
+
+**pg_trgm.** Migration 0007 runs `CREATE EXTENSION IF NOT EXISTS
+pg_trgm` for fuzzy matching and substring search (GIN trigram indexes).
+It ships with PostgreSQL's contrib modules — in the official images
+(the `postgres:16-alpine` test container) and CloudNativePG's operand
+images — and is a trusted extension, so the CNPG database owner that
+runs `-migrate=only` creates it without superuser rights. A cluster
+built without contrib must provide it first.
+
+**Translation memory.** Units are derived, not curated:
+`knowledge.derive_tm` subscribes to `localization.translation.revised`
+and `.reviewed`, reads the translation's *current* state through
+Localization's `TranslationWithSource` (as the background principal
+`knowledge.derive_tm` with `translations.read` and `catalog.read`) and
+reconciles (`domain.Reconcile`): an approval creates a unit or keeps the
+one with the same text; other approved text supersedes it; losing the
+approval retires it (`unapproved`), unapproved new text too
+(`overwritten`). Units are retired, never deleted. Under a row lock, a
+state no newer than the revision already applied changes nothing, so
+duplicates and reordering converge (`TestDerivationIsIdempotentAndOrderIndependent`
+replays every event newest first).
+
+A unit stores both sides as canonical MF2, the target's data model, and
+the **normalized** source: pattern text with placeholders by position
+(`{$amount}` → `{1}`, `.local`s resolved to their argument), markup as
+tags (`<b>`, `</b>`, `<br/>`), whitespace collapsed, NFC; a select
+message becomes `.match {1}` plus one `keys {pattern}` line per variant.
+The **signature** lists the placeholders' types (`1:number/plural`).
+Lookups (`LookupTM`, `POST …/tm-lookups`) score:
+
+- **101** — exact, approved for the same message key in the same
+  namespace of the same project (the context match);
+- **100** — same normalized text (SHA-256) and signature;
+- **50–99** — `pg_trgm` similarity of the normalized text, floored to
+  a percentage and capped at 99 (identical text with other placeholder
+  types scores 99). `min_score` sets the similarity threshold of the
+  `%` operator, so the trigram index does the filtering.
+
+A lookup sees tenant-wide units and the query's project's
+(`all_projects` widens it to the tenant); ties rank the own project
+first, then the most recently confirmed unit, and each target appears
+once. Targets come back with their variables renamed to the query's
+(`domain.AdaptVariables`), so `Pay {$total}` reuses `{$amount} zahlen`
+as `{$total} zahlen`. `TestFuzzyMatchingQuality` pins quality on a
+seeded 40-unit en→de memory: 30 near-misses (rewording, plurals,
+renamed variables) find the intended unit first 30/30 times, and 0 of 8
+unrelated messages match at all. Concordance (`GET …/tm-concordance`)
+is an `ILIKE` substring search over either normalized side, ranked by
+`word_similarity`. Semantic (vector) matching is a later port (needs
+pgvector).
+
+**Termbase.** A concept (definition, domain, note, product reference)
+owns its terms: locale, text, status (`preferred`, `admitted`,
+`deprecated`, `forbidden`), part of speech, case sensitivity, note.
+Replacing it keeps the IDs of terms that stay; every version is a
+snapshot. A term applies to its locale and that locale's descendants.
+**Recognition** (`domain.Termbase.Recognize`) is deterministic and
+dictionary-free: words are runs of letters, marks and digits (hyphens,
+apostrophes and script changes separate them); case is folded per rune
+(Turkish/Azerbaijani i) unless the term is case-sensitive; a term
+matches whole words from a word start, each word allowing a short
+inflectional ending (≤ 3 letters from 5-letter words, ≤ 2 for 4-letter
+words, none below; Hangul ≤ 3 syllables from 2) — so *workspaces*,
+*Rechnungen*, *cartes bancaires* match, but not *Konten* or compounds.
+Terms in Han, Hiragana, Katakana, Thai, Lao, Khmer, Myanmar or Tibetan
+script match as **substrings**, because those texts have no spaces; a
+short term can then match inside a longer word (会議 in 会議室).
+Overlaps resolve leftmost-longest; homonyms on one span are all kept.
+**Terminology QA** (`domain.CheckTerminology`): `term_missing`
+(warning) when a concept found in the source has none of its preferred
+or admitted target terms in the translation; `term_forbidden` (error;
+warning for deprecated terms) for each forbidden or deprecated target
+term — unless the same words are an allowed term of a concept the
+source mentions. Messages are checked as `domain.VisibleText`
+(placeholders become U+FFFC, so `{$workspace}` is not a word). The API
+reports code point offsets.
+
+**Style guides** are structured: formality (register + pronoun), tone
+tags, punctuation (quotes, dash, spaces before units and punctuation,
+serial comma, ellipsis), number and date conventions, and rules with
+rationale and good/bad examples. A scope is any combination of project,
+locale and namespace (a namespace needs a project). The **effective**
+style (`EffectiveStyle`, `GET …/effective-style-guide`) merges the
+applicable guides leaf by leaf, the narrowest last — namespace beats
+locale, a deeper locale a shallower one, locale beats project, project
+beats tenant — a narrower rule replaces a broader one with the same
+`id` or disables it, and `sources` names each guide version used, for
+provenance.
+
+**The Intelligence read port** (`app.Reader`, implemented by
+`*app.Service`), free of HTTP types; each call is authorized with
+`knowledge.read` in the tenant on `ctx` (a job acts through
+`authz.Background(ctx, name, authz.KnowledgeRead, …)`):
+
+```go
+type Reader interface {
+	LookupTM(ctx context.Context, q TMQuery) ([]TMMatch, error)                         // tm_lookup
+	RecognizeTerms(ctx context.Context, q TermQuery) ([]RecognizedTerm, error)          // term_lookup
+	CheckTerminology(ctx context.Context, c TermCheck) ([]domain.TermFinding, error)    // validate
+	EffectiveStyle(ctx context.Context, q StyleQuery) (domain.EffectiveStyle, error)   // style_rules
+}
+```
+
+Events: `knowledge.concept.{created,updated,deleted}`,
+`knowledge.style_guide.{created,updated,deleted}` (IDs, scope, version,
+actor; TM units are derived state and publish none). Subscribers:
+`knowledge.derive_tm` (above), `knowledge.drop_project` on
+`catalog.project.deleted` (erases the project's units, concepts, guides
+and their history). Permissions: reads, lookups, recognition and checks
+need `knowledge.read`; creating, replacing, deleting and retiring
+`knowledge.write`.
 
 ## Message preview
 
