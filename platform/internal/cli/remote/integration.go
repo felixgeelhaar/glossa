@@ -165,6 +165,114 @@ func (c *Client) ExportJobs(ctx context.Context, tenant string, f IntegrationJob
 	})
 }
 
+// The workspace's own translation memory (TMX) and termbase (TBX):
+// tenant-wide jobs on routes of their own, never a project's.
+
+// KnowledgeImportJobRequest is a tenant-wide TMX or TBX import.
+type KnowledgeImportJobRequest = apiclient.KnowledgeImportJobRequest
+
+// CreateKnowledgeImportJob creates a tenant-wide TMX (format tmx) or
+// TBX (tbx) import waiting for its file (tm-import-jobs,
+// termbase-import-jobs).
+func (c *Client) CreateKnowledgeImportJob(ctx context.Context, tenant, format string, body KnowledgeImportJobRequest, idempotencyKey string) (ImportJob, error) {
+	switch format {
+	case "tmx":
+		r, err := c.api.CreateTMImportJobWithResponse(idempotent(ctx), tenant,
+			&apiclient.CreateTMImportJobParams{IdempotencyKey: optional(idempotencyKey)}, body)
+		if err := check(r, err, http.MethodPost, c.tenantPath(tenant, "/tm-import-jobs")); err != nil {
+			return ImportJob{}, err
+		}
+		return *r.JSON201, nil
+	case "tbx":
+		r, err := c.api.CreateTermbaseImportJobWithResponse(idempotent(ctx), tenant,
+			&apiclient.CreateTermbaseImportJobParams{IdempotencyKey: optional(idempotencyKey)}, body)
+		if err := check(r, err, http.MethodPost, c.tenantPath(tenant, "/termbase-import-jobs")); err != nil {
+			return ImportJob{}, err
+		}
+		return *r.JSON201, nil
+	}
+	return ImportJob{}, fmt.Errorf("remote: %q is not a translation memory or termbase format", format)
+}
+
+// CreateKnowledgeExportJob queues a tenant-wide TMX or TBX export
+// (tm-export-jobs, termbase-export-jobs).
+func (c *Client) CreateKnowledgeExportJob(ctx context.Context, tenant, format string, opts *ExportOptions, idempotencyKey string) (ExportJob, error) {
+	body := apiclient.KnowledgeExportJobRequest{Options: opts}
+	switch format {
+	case "tmx":
+		r, err := c.api.CreateTMExportJobWithResponse(idempotent(ctx), tenant,
+			&apiclient.CreateTMExportJobParams{IdempotencyKey: optional(idempotencyKey)}, body)
+		if err := check(r, err, http.MethodPost, c.tenantPath(tenant, "/tm-export-jobs")); err != nil {
+			return ExportJob{}, err
+		}
+		return *r.JSON201, nil
+	case "tbx":
+		r, err := c.api.CreateTermbaseExportJobWithResponse(idempotent(ctx), tenant,
+			&apiclient.CreateTermbaseExportJobParams{IdempotencyKey: optional(idempotencyKey)}, body)
+		if err := check(r, err, http.MethodPost, c.tenantPath(tenant, "/termbase-export-jobs")); err != nil {
+			return ExportJob{}, err
+		}
+		return *r.JSON201, nil
+	}
+	return ExportJob{}, fmt.Errorf("remote: %q is not a translation memory or termbase format", format)
+}
+
+// WorkspaceImportJobs lists the tenant-wide TMX and TBX imports, newest
+// first, at most limit of each (0: all).
+func (c *Client) WorkspaceImportJobs(ctx context.Context, tenant, state string, limit int) ([]ImportJob, error) {
+	st := jobState(state)
+	tm, err := limited(limit, func(size int, tok *string) ([]ImportJob, *string, error) {
+		r, err := c.api.ListTMImportJobsWithResponse(ctx, tenant, &apiclient.ListTMImportJobsParams{PageSize: &size, PageToken: tok, State: st})
+		if err := check(r, err, http.MethodGet, c.tenantPath(tenant, "/tm-import-jobs")); err != nil {
+			return nil, nil, err
+		}
+		return r.JSON200.Items, r.JSON200.NextPageToken, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	tb, err := limited(limit, func(size int, tok *string) ([]ImportJob, *string, error) {
+		r, err := c.api.ListTermbaseImportJobsWithResponse(ctx, tenant, &apiclient.ListTermbaseImportJobsParams{PageSize: &size, PageToken: tok, State: st})
+		if err := check(r, err, http.MethodGet, c.tenantPath(tenant, "/termbase-import-jobs")); err != nil {
+			return nil, nil, err
+		}
+		return r.JSON200.Items, r.JSON200.NextPageToken, nil
+	})
+	return append(tm, tb...), err
+}
+
+// WorkspaceExportJobs lists the tenant-wide TMX and TBX exports, newest
+// first, at most limit of each (0: all).
+func (c *Client) WorkspaceExportJobs(ctx context.Context, tenant, state string, limit int) ([]ExportJob, error) {
+	st := jobState(state)
+	tm, err := limited(limit, func(size int, tok *string) ([]ExportJob, *string, error) {
+		r, err := c.api.ListTMExportJobsWithResponse(ctx, tenant, &apiclient.ListTMExportJobsParams{PageSize: &size, PageToken: tok, State: st})
+		if err := check(r, err, http.MethodGet, c.tenantPath(tenant, "/tm-export-jobs")); err != nil {
+			return nil, nil, err
+		}
+		return r.JSON200.Items, r.JSON200.NextPageToken, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	tb, err := limited(limit, func(size int, tok *string) ([]ExportJob, *string, error) {
+		r, err := c.api.ListTermbaseExportJobsWithResponse(ctx, tenant, &apiclient.ListTermbaseExportJobsParams{PageSize: &size, PageToken: tok, State: st})
+		if err := check(r, err, http.MethodGet, c.tenantPath(tenant, "/termbase-export-jobs")); err != nil {
+			return nil, nil, err
+		}
+		return r.JSON200.Items, r.JSON200.NextPageToken, nil
+	})
+	return append(tm, tb...), err
+}
+
+func jobState(s string) *apiclient.IntegrationJobState {
+	if s == "" {
+		return nil
+	}
+	st := apiclient.IntegrationJobState(s)
+	return &st
+}
+
 // CancelExportJob cancels an export job.
 func (c *Client) CancelExportJob(ctx context.Context, tenant, id string) (ExportJob, error) {
 	r, err := c.api.CancelExportJobWithResponse(idempotent(ctx), tenant, id)

@@ -79,6 +79,7 @@ func commands() []command {
 		{"diff", "Compare local catalogs with the server", runDiff},
 		{"locales", "List the project's locales", runLocales},
 		{"messages", "List the project's messages", runMessages},
+		{"namespaces", "List the project's namespaces with their message counts", runNamespaces},
 		{"import", "Import XLIFF, JSON, PO, TMX or TBX files (--format), or Glossa v0.3 (--from v0)", runImport},
 		{"export", "Export XLIFF, JSON, TMX or TBX files, verified by SHA-256", runExport},
 		{"jobs", "List, show and cancel import and export jobs", runJobs},

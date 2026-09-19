@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -85,6 +86,13 @@ func (f *fakeServer) routeInterchange(mux *http.ServeMux) {
 	mux.HandleFunc("GET "+t+"/export-jobs/{id}", f.getIOJob("export"))
 	mux.HandleFunc("POST "+t+"/export-jobs/{id}/cancellation", f.cancelIOJob("export"))
 	mux.HandleFunc("GET "+t+"/export-jobs/{id}/file", f.downloadIOFile)
+	// The workspace's memory and termbase: tenant-wide jobs of one format.
+	for route, format := range map[string]string{"tm": "tmx", "termbase": "tbx"} {
+		mux.HandleFunc("POST "+t+"/"+route+"-import-jobs", f.createWorkspaceJob("import", format))
+		mux.HandleFunc("GET "+t+"/"+route+"-import-jobs", f.listWorkspaceJobs("import", format))
+		mux.HandleFunc("POST "+t+"/"+route+"-export-jobs", f.createWorkspaceJob("export", format))
+		mux.HandleFunc("GET "+t+"/"+route+"-export-jobs", f.listWorkspaceJobs("export", format))
+	}
 }
 
 func sha(b []byte) string {
@@ -313,6 +321,44 @@ func (f *fakeServer) listIOJobs(direction string) http.HandlerFunc {
 		}
 		if items == nil {
 			items = []map[string]any{}
+		}
+		writeJSONResp(w, 200, map[string]any{"items": items})
+	}
+}
+
+// createWorkspaceJob is a tenant-wide TMX or TBX job: the route names
+// the format, and there is no project.
+func (f *fakeServer) createWorkspaceJob(direction, format string) http.HandlerFunc {
+	create := f.createIOJob(direction)
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body == nil {
+			body = map[string]any{}
+		}
+		if _, ok := body["project_id"]; ok {
+			problemResp(w, 400, "invalid_request", "project_id isn't a field of a workspace job")
+			return
+		}
+		body["format"] = format
+		b, _ := json.Marshal(body)
+		r.Body = io.NopCloser(bytes.NewReader(b))
+		create(w, r)
+	}
+}
+
+// listWorkspaceJobs lists the tenant-wide jobs of a format.
+func (f *fakeServer) listWorkspaceJobs(direction, format string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		items := []map[string]any{}
+		for i := len(f.io.jobs) - 1; i >= 0; i-- {
+			j := f.io.jobs[i]
+			if j.direction == direction && j.format == format && j.project == nil && (q.Get("state") == "" || j.state == q.Get("state")) {
+				items = append(items, f.io.jobJSON(j))
+			}
 		}
 		writeJSONResp(w, 200, map[string]any{"items": items})
 	}

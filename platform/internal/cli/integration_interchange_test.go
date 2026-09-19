@@ -54,8 +54,8 @@ type importDoc struct {
 		} `json:"summary"`
 	} `json:"job"`
 	Results []struct {
-		Kind, Key, Locale, Status, Code, Location string
-		Line                                      int
+		Kind, Key, Locale, Status, Code, Location, Ref string
+		Line                                           int
 	} `json:"results"`
 }
 
@@ -109,12 +109,22 @@ func interchangeLoop(t *testing.T, r runner) {
 	for _, mode := range [][]string{{}, {"--apply"}} {
 		var conflict importDoc
 		r.run(cli.ExitCheckFailed, &conflict, with(append([]string{"import", "--format", "json", "incoming/en.json", "--locale", "en"}, mode...)...)...)
-		// The server reports lines for a malformed file, not per entry.
+		// Every result says where it is: the member's line and column.
 		if conflict.Job.Summary.Conflict != 1 || len(conflict.Results) != 1 || conflict.Results[0].Key != "checkout.pay" ||
 			conflict.Results[0].Locale != "en" || conflict.Results[0].Code != "approved_translation_conflict" ||
-			conflict.Results[0].Location != "" && !strings.HasPrefix(conflict.Results[0].Location, "incoming/en.json:") {
+			conflict.Results[0].Location != "incoming/en.json:2:3" || conflict.Results[0].Ref != "/checkout.pay" {
 			t.Fatalf("json conflict %v = %+v", mode, conflict)
 		}
+	}
+	// An XLIFF file without trgLang imports as the --locale given.
+	noTrg := strings.Replace(string(xlf), ` trgLang="en"`, "", 1)
+	if err := os.WriteFile(filepath.Join(r.dir, "incoming", "vendor.xlf"), []byte(noTrg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var vendor importDoc
+	r.run(cli.ExitOK, &vendor, with("import", "--format", "xliff", "incoming/vendor.xlf", "--locale", "en")...)
+	if vendor.Job.State != "succeeded" || vendor.Job.Summary.ByKind["translation"]["unchanged"] < 4 {
+		t.Fatalf("xliff --locale = %+v", vendor)
 	}
 	// A malformed file fails the job; its problem says where.
 	if err := os.WriteFile(filepath.Join(r.dir, "incoming", "broken.json"), []byte("{\n  \"checkout.pay\": \n"), 0o644); err != nil {
@@ -190,11 +200,33 @@ func interchangeLoop(t *testing.T, r runner) {
 		t.Fatalf("terms check after the TBX import = %+v", check)
 	}
 
+	// The workspace's memory, through its own route: tenant-wide units,
+	// listed with the project's jobs.
+	var ws importDoc
+	r.run(cli.ExitOK, &ws, with("tm", "import", "brot.tmx", "--scope", "tenant", "--apply")...)
+	if ws.Job.Summary.ByKind["tm_unit"]["created"] != 1 {
+		t.Fatalf("workspace tm import = %+v", ws)
+	}
+
+	var ns struct {
+		Namespaces []struct {
+			Name   string `json:"name"`
+			Active int    `json:"active_messages"`
+		} `json:"namespaces"`
+	}
+	r.run(cli.ExitOK, &ns, "namespaces")
+	if len(ns.Namespaces) == 0 || ns.Namespaces[0].Active == 0 {
+		t.Errorf("namespaces = %+v", ns)
+	}
+
 	var jobs struct {
-		Jobs []struct{ Direction, Format, State string } `json:"jobs"`
+		Jobs []struct {
+			Direction, Format, State string
+			ProjectID                *string `json:"project_id"`
+		} `json:"jobs"`
 	}
 	r.run(cli.ExitOK, &jobs, "jobs", "list", "--limit", "0")
-	if len(jobs.Jobs) != 9 {
+	if len(jobs.Jobs) != 11 || jobs.Jobs[0].Format != "tmx" || jobs.Jobs[0].ProjectID != nil {
 		t.Errorf("jobs list = %+v", jobs)
 	}
 }

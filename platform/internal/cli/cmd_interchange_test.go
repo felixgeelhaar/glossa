@@ -193,7 +193,6 @@ func TestImportFileUsage(t *testing.T) {
 		{"import", "--from", "v0", "--v0-url", "http://x", "--apply"},
 		{"import", "--from", "v0", "--v0-url", "http://x", "f.json"},
 		{"import", "--format", "json", "f.json", "--scope", "tenant"},
-		{"import", "--format", "xliff", "f.json", "--locale", "de"},
 		{"import", "--format", "xliff", "f.json", "--syntax", "mf2"},
 		{"import", "--format", "json", "f.json", "--syntax", "icu"},
 		{"import", "--format", "json", "f.json", "--state", "final"},

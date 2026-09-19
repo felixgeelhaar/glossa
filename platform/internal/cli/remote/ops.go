@@ -158,6 +158,22 @@ func optional(s string) *string {
 	return &s
 }
 
+// NamespaceSummary is a namespace with its message counts.
+type NamespaceSummary = apiclient.NamespaceSummary
+
+// Namespaces lists a project's namespaces by name, with how many of
+// their messages are active and obsolete.
+func (c *Client) Namespaces(ctx context.Context, s Scope) ([]NamespaceSummary, error) {
+	size := pageSize
+	return collect(func(tok *string) ([]NamespaceSummary, *string, error) {
+		r, err := c.api.ListNamespacesWithResponse(ctx, s.Tenant, s.Project, &apiclient.ListNamespacesParams{PageSize: &size, PageToken: tok})
+		if err := check(r, err, http.MethodGet, c.path("/v1/tenants/%s/projects/%s/namespaces", s.Tenant, s.Project)); err != nil {
+			return nil, nil, err
+		}
+		return r.JSON200.Items, r.JSON200.NextPageToken, nil
+	})
+}
+
 // Messages lists a project's messages by key.
 func (c *Client) Messages(ctx context.Context, s Scope, f MessageFilter) ([]Message, error) {
 	size := pageSize

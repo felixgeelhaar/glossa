@@ -241,11 +241,15 @@ func runExportAs(ctx context.Context, inv *invocation, args []string, usage, for
 		if err != nil {
 			return err
 		}
-		body := remote.ExportJobRequest{Format: remote.IntegrationFormat(a.format), Options: opts}
-		if a.scope != "tenant" {
-			body.ProjectId = &p.scope.Project
+		var ej remote.ExportJob
+		if a.scope == "tenant" {
+			// The workspace's own memory or termbase: tm-export-jobs,
+			// termbase-export-jobs.
+			ej, err = p.client.CreateKnowledgeExportJob(ctx, p.scope.Tenant, a.format, opts, newIdempotencyKey())
+		} else {
+			body := remote.ExportJobRequest{Format: remote.IntegrationFormat(a.format), Options: opts, ProjectId: &p.scope.Project}
+			ej, err = p.client.CreateExportJob(ctx, p.scope.Tenant, body, newIdempotencyKey())
 		}
-		ej, err := p.client.CreateExportJob(ctx, p.scope.Tenant, body, newIdempotencyKey())
 		if err != nil {
 			return inv.integrationError(err, "can't create the export job")
 		}

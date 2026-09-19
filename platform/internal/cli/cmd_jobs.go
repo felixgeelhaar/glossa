@@ -87,6 +87,9 @@ type importResultJSON struct {
 	Detail string `json:"detail,omitempty"`
 	Line   int    `json:"line,omitempty"`
 	Column int    `json:"column,omitempty"`
+	// Ref names the item in the format's own terms: an XLIFF fragment
+	// identifier, a JSON pointer, a PO msgctxt and msgid, tu[n].
+	Ref string `json:"ref,omitempty"`
 	// Location is file:line:column, for editors to jump to.
 	Location string `json:"location,omitempty"`
 }
@@ -131,7 +134,7 @@ func fromExportJob(j remote.ExportJob) jobJSON {
 
 func toResultJSON(r remote.ImportResult, file string) importResultJSON {
 	out := importResultJSON{Seq: r.Seq, Kind: string(r.Kind), Key: r.Key, Locale: derefStr(r.Locale), Status: string(r.Status),
-		Code: derefStr(r.Code), Detail: derefStr(r.Detail)}
+		Code: derefStr(r.Code), Detail: derefStr(r.Detail), Ref: derefStr(r.Ref)}
 	if r.Line != nil {
 		out.Line = *r.Line
 	}
@@ -328,7 +331,7 @@ func (inv *invocation) integrationError(err error, what string) error {
 	case ae.Status == 404 && ae.Code == "not_found":
 		e.Fix = "check the job ID (`glossa jobs list`) and project in glossa.yaml"
 	}
-	if ae.Detail != "" && contains([]string{"400", "409", "410", "413", "422"}, strconv.Itoa(ae.Status)) {
+	if ae.Detail != "" && (contains([]string{"400", "409", "410", "413", "422"}, strconv.Itoa(ae.Status)) || ae.Code == "locale_not_found") {
 		e.Why = ae.Detail
 	}
 	return e
@@ -359,7 +362,8 @@ const jobsUsage = `jobs <action> [flags]
 
 Actions:
   list [--direction import|export] [--state STATE] [--all-projects] [--limit N]
-                  import and export jobs, newest first (this project's; --all-projects: the tenant's)
+                  import and export jobs, newest first (this project's and the workspace's TMX and TBX jobs;
+                  --all-projects: every job of the tenant)
   show <id> [--all-results] [--wait [--timeout 30m] [--poll-interval 1s]]
                   one job; for imports its conflicts and invalid items (--all-results: every item).
                   With --wait it polls until the job finishes and exits like import and export
@@ -378,7 +382,7 @@ func parseJobsArgs(inv *invocation, args []string) (jobsArgs, error) {
 	var a jobsArgs
 	fs.StringVar(&a.direction, "direction", "", "list: import or export (default both)")
 	fs.StringVar(&a.state, "state", "", "list: awaiting_upload, queued, running, succeeded, failed or cancelled")
-	fs.IntVar(&a.limit, "limit", 20, "list: at most this many jobs of each direction (0: all)")
+	fs.IntVar(&a.limit, "limit", 20, "list: at most this many jobs, newest first (0: all)")
 	fs.BoolVar(&a.allProjects, "all-projects", false, "list: every job of the tenant, tenant-wide TMX and TBX jobs included")
 	fs.BoolVar(&a.allResults, "all-results", false, "show: every result of an import, not only conflicts and invalid items")
 	fs.BoolVar(&a.wait, "wait", false, "show: poll until the job finishes")
@@ -449,6 +453,15 @@ func (inv *invocation) jobsList(ctx context.Context, p *project, a jobsArgs) err
 		if err != nil {
 			return inv.integrationError(err, "can't list import jobs")
 		}
+		if !a.allProjects {
+			// The workspace's memory and termbase jobs belong to every
+			// project; --all-projects has them already.
+			ws, err := p.client.WorkspaceImportJobs(ctx, p.scope.Tenant, a.state, a.limit)
+			if err != nil {
+				return inv.integrationError(err, "can't list the workspace's import jobs")
+			}
+			js = append(js, ws...)
+		}
 		for _, j := range js {
 			out.Jobs = append(out.Jobs, fromImportJob(j))
 		}
@@ -458,19 +471,35 @@ func (inv *invocation) jobsList(ctx context.Context, p *project, a jobsArgs) err
 		if err != nil {
 			return inv.integrationError(err, "can't list export jobs")
 		}
+		if !a.allProjects {
+			ws, err := p.client.WorkspaceExportJobs(ctx, p.scope.Tenant, a.state, a.limit)
+			if err != nil {
+				return inv.integrationError(err, "can't list the workspace's export jobs")
+			}
+			js = append(js, ws...)
+		}
 		for _, j := range js {
 			out.Jobs = append(out.Jobs, fromExportJob(j))
 		}
 	}
+	// Each listing holds its newest --limit jobs, so the newest --limit
+	// of them all are among them.
 	sort.SliceStable(out.Jobs, func(i, j int) bool { return out.Jobs[i].CreatedAt.After(out.Jobs[j].CreatedAt) })
+	if a.limit > 0 && len(out.Jobs) > a.limit {
+		out.Jobs = out.Jobs[:a.limit]
+	}
 	return inv.emit(out, func(pr *printer) {
 		if len(out.Jobs) == 0 {
 			pr.line("No import or export jobs.")
 			return
 		}
-		rows := [][]string{{"ID", "DIRECTION", "FORMAT", "MODE", "STATE", "FILE", "CREATED", "RESULT"}}
+		rows := [][]string{{"ID", "DIRECTION", "FORMAT", "SCOPE", "MODE", "STATE", "FILE", "CREATED", "RESULT"}}
 		for _, j := range out.Jobs {
-			rows = append(rows, []string{j.ID, j.Direction, j.Format, dash(j.Mode), j.State, dash(j.FileName),
+			scope := "project"
+			if j.ProjectID == nil {
+				scope = "workspace"
+			}
+			rows = append(rows, []string{j.ID, j.Direction, j.Format, scope, dash(j.Mode), j.State, dash(j.FileName),
 				j.CreatedAt.Local().Format("2006-01-02 15:04"), jobOutcome(j)})
 		}
 		pr.table(rows)

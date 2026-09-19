@@ -60,7 +60,7 @@ func (f *fileImportFlags) register(fs *flag.FlagSet) {
 	fs.StringVar(&f.format, "format", "", "the file's format: xliff, json, po, tmx or tbx")
 	fs.BoolVar(&f.apply, "apply", false, "write the import (mode merge: never replaces an approved translation, a differing source or concept)")
 	fs.BoolVar(&f.overwrite, "overwrite", false, "write the import, making the stored state the file's (needs integration.manage)")
-	fs.StringVar(&f.locale, "locale", "", "json: the file's locale (default the source locale: a source catalog); po: the translations' locale (default its Language header)")
+	fs.StringVar(&f.locale, "locale", "", "json: the file's locale (default the source locale: a source catalog); po, xliff: the translations' locale (default its Language header, its trgLang)")
 	fs.StringVar(&f.namespace, "namespace", "", "json, po: every message's namespace (default default)")
 	fs.StringVar(&f.syntax, "syntax", "", "json: the messages' syntax, mf1 or mf2 (default glossa.yaml's syntax); xliff: mf1 reads other tools' plain units as ICU")
 	fs.StringVar(&f.state, "state", "", "json, po: the review state of translations the file doesn't state (json default needs_review, po approved)")
@@ -79,7 +79,7 @@ var fileImportFlagNames = []string{"format", "apply", "overwrite", "locale", "na
 
 // formatOptions says which option flags each format takes.
 var importFormatOptions = map[string][]string{
-	"xliff": {"syntax"},
+	"xliff": {"locale", "syntax"},
 	"json":  {"locale", "namespace", "syntax", "state"},
 	"po":    {"locale", "namespace", "state", "plural-variable"},
 	"tmx":   {"scope"},
@@ -192,7 +192,7 @@ func (inv *invocation) importFile(ctx context.Context, in fileImport) error {
 		return err
 	}
 	body := in.request(p, filepath.Base(in.path))
-	created, err := p.client.CreateImportJob(ctx, p.scope.Tenant, body, newIdempotencyKey())
+	created, err := in.create(ctx, p, body)
 	if err != nil {
 		return inv.integrationError(err, "can't create the import job")
 	}
@@ -229,6 +229,17 @@ func scopeOf(project *string) string {
 		return "tenant"
 	}
 	return "project"
+}
+
+// create creates the import job: a tenant-wide TMX or TBX file goes
+// to the workspace's own routes (tm-import-jobs, termbase-import-jobs),
+// everything else to import-jobs.
+func (in fileImport) create(ctx context.Context, p *project, body remote.ImportJobRequest) (remote.ImportJob, error) {
+	if body.ProjectId == nil {
+		return p.client.CreateKnowledgeImportJob(ctx, p.scope.Tenant, in.format,
+			remote.KnowledgeImportJobRequest{Mode: body.Mode, FileName: body.FileName}, newIdempotencyKey())
+	}
+	return p.client.CreateImportJob(ctx, p.scope.Tenant, body, newIdempotencyKey())
 }
 
 // request is the import job to create.
@@ -324,6 +335,9 @@ func printFileImport(pr *printer, out fileImportJSON, project string) {
 	switch j.State {
 	case jobFailed:
 		pr.line("%s job %s failed: %s", pr.fail(), j.ID, strings.TrimSpace(j.FailureCode+" "+j.FailureMessage))
+		if j.FailureCode == "target_locale_mismatch" {
+			pr.line("  %s", pr.dim("import it as one of the project's locales with --locale (`glossa locales` lists them)"))
+		}
 	case jobCancelled:
 		pr.line("%s job %s was cancelled; what it applied before stays applied", pr.fail(), j.ID)
 	}

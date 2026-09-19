@@ -65,6 +65,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 		writeJSONResp(w, 200, map[string]any{"fallback": map[string][]string{"*": {"en"}}})
 	})
 	mux.HandleFunc("GET "+p+"/messages", f.listMessages)
+	mux.HandleFunc("GET "+p+"/namespaces", f.listNamespaces)
 	mux.HandleFunc("POST "+p+"/message-upserts", f.upsert)
 	mux.HandleFunc("GET "+p+"/messages/{key}/translations", f.listTranslations)
 	mux.HandleFunc("POST "+p+"/translation-imports", f.importTranslations)
@@ -182,6 +183,26 @@ func (f *fakeServer) listMessages(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		items = append(items, f.messageJSON(m))
+	}
+	writeJSONResp(w, 200, map[string]any{"items": items})
+}
+
+// listNamespaces counts the messages by state; the fake's messages are
+// all in the default namespace.
+func (f *fakeServer) listNamespaces(w http.ResponseWriter, _ *http.Request) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	items := []map[string]any{}
+	if len(f.messages) > 0 {
+		active, obsolete := 0, 0
+		for _, m := range f.messages {
+			if m.state == "obsolete" {
+				obsolete++
+			} else {
+				active++
+			}
+		}
+		items = append(items, map[string]any{"name": "default", "active_messages": active, "obsolete_messages": obsolete})
 	}
 	writeJSONResp(w, 200, map[string]any{"items": items})
 }

@@ -46,11 +46,11 @@ const importUsage = `import --format xliff|json|po|tmx|tbx <file> [--apply | --o
 
 An interchange file (--format) goes through the server's import jobs. Without --apply or
 --overwrite it is a dry run: every check of a merge, nothing written. Options per format:
-  xliff  --syntax mf1 (read other tools' plain units as ICU)
+  xliff  --locale L (the translations' locale; default its trgLang) --syntax mf1 (read other tools' plain units as ICU)
   json   --locale L (default the source: a source catalog) --namespace N --syntax mf1|mf2 --state S
   po     --locale L (default its Language header) --namespace N --state S --plural-variable V
-  tmx    --scope project|tenant
-  tbx    --scope project|tenant
+  tmx    --scope project|tenant (tenant: the workspace's memory, tm-import-jobs)
+  tbx    --scope project|tenant (tenant: the workspace's termbase, termbase-import-jobs)
 Exit codes: 0 ok, 1 conflicts or invalid items, 2 usage, 3 refused, 4 the job failed.
 
 --from v0 imports a Glossa v0.3 project through its API (flags --v0-*, --locales, --dry-run).`

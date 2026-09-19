@@ -150,6 +150,51 @@ func runMessages(ctx context.Context, inv *invocation, args []string) error {
 	})
 }
 
+// ── namespaces ──────────────────────────────────────────────────────
+
+type namespaceJSON struct {
+	Name     string `json:"name"`
+	Active   int    `json:"active_messages"`
+	Obsolete int    `json:"obsolete_messages"`
+}
+
+// namespacesJSON is glossa.cli.namespaces/v1.
+type namespacesJSON struct {
+	Schema     string          `json:"schema"`
+	Namespaces []namespaceJSON `json:"namespaces"`
+}
+
+func runNamespaces(ctx context.Context, inv *invocation, args []string) error {
+	fs := inv.flags("namespaces")
+	pos, err := inv.parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := noMore(inv, pos); err != nil {
+		return err
+	}
+	p, err := inv.connect(ctx)
+	if err != nil {
+		return err
+	}
+	ns, err := p.client.Namespaces(ctx, p.scope)
+	if err != nil {
+		return inv.apiError(err, "can't list namespaces")
+	}
+	out := namespacesJSON{Schema: "glossa.cli.namespaces/v1", Namespaces: []namespaceJSON{}}
+	for _, n := range ns {
+		out.Namespaces = append(out.Namespaces, namespaceJSON{Name: n.Name, Active: n.ActiveMessages, Obsolete: n.ObsoleteMessages})
+	}
+	return inv.emit(out, func(pr *printer) {
+		rows := [][]string{{"NAMESPACE", "MESSAGES", "OBSOLETE"}}
+		for _, n := range out.Namespaces {
+			rows = append(rows, []string{n.Name, strconv.Itoa(n.Active), strconv.Itoa(n.Obsolete)})
+		}
+		pr.table(rows)
+		pr.line("%s", pr.dim(plural(len(out.Namespaces), "namespace", "namespaces")))
+	})
+}
+
 func oneLine(s string, n int) string {
 	s = strings.Join(strings.Fields(s), " ")
 	if r := []rune(s); len(r) > n {

@@ -75,10 +75,10 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `check` | Structural QA: invalid messages, translation/source compatibility (`messageformat.CheckCompat`), missing and outdated translations. `--offline` checks local catalogs. `--require-complete=de,en\|none`, `--fail-on=error\|warning`. |
 | `status` | Coverage per locale: translated, approved, needs review, draft, outdated, missing. One request: the server's `translation-stats`. `--offline` counts the local catalogs. |
 | `diff` | Local catalogs vs the server by canonical model (so MF1 spelling changes aren't changes). `--exit-code`. |
-| `locales`, `messages` | Lists. `messages --prefix --namespace --missing-in --outdated-in --state active\|obsolete\|all` |
+| `locales`, `messages`, `namespaces` | Lists. `messages --prefix --namespace --missing-in --outdated-in --state active\|obsolete\|all`; `namespaces`: each namespace with its active and obsolete message counts (`GET …/namespaces`) |
 | `import --format xliff\|json\|po\|tmx\|tbx <file>` | Imports an interchange file through the server's import jobs: a dry run unless `--apply` (merge) or `--overwrite`; conflicts and invalid items as `file:line:column` (see *Import and export*). |
 | `export --format xliff\|json\|tmx\|tbx` | Exports through the server's export jobs and downloads the file, checked against its SHA-256. `-o`, `--unzip`, `--job` (see *Import and export*). |
-| `jobs` | Import and export jobs: `list [--direction --state --all-projects]`, `show <id> [--wait] [--all-results]`, `cancel <id>`. |
+| `jobs` | Import and export jobs: `list [--direction --state --all-projects --limit]` (the project's and the workspace's TMX and TBX jobs), `show <id> [--wait] [--all-results]`, `cancel <id>`. |
 | `import --from v0` | Imports a Glossa v0.3 project (below). |
 | `release` | `publish [--dry-run]`, `list`, `show`, `diff`, `promote`, `rollback`, `environments`, `keys [list\|create\|revoke]` (see *Release*). |
 | `tm` | Translation memory: `search <text> --to L`, `concordance <text>`, `units [--locale-pair de:en] [--retire <id>]` (see *Knowledge and AI*); `export` / `import <file>`: TMX (`export`/`import --format tmx`). |
@@ -148,10 +148,11 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.diff/v1` | `{source: {locale, added, changed: [{key, local, server}], removed, unchanged}, translations: [same], identical}` |
 | `glossa.cli.locales/v1` | `{locales: [{code, direction, is_source}], fallback}` |
 | `glossa.cli.messages/v1` | `{messages: [{key, namespace, state, source_revision, text, syntax, arguments: [{name, type}], description?}]}` |
+| `glossa.cli.namespaces/v1` | `{namespaces: [{name, active_messages, obsolete_messages}]}` (by name) |
 | `glossa.cli.import/v1` | `{from, source: {url, project}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?}]}` (`--from v0`) |
 | `glossa.cli.import.job/v1` | `{format, mode (dry_run \| merge \| overwrite), dry_run, scope (project \| tenant), file: {path, size, sha256}, job: Job, waited, results: [Result], results_filter (problems \| all)}` (`import --format`, `tm import`, `terms import`) |
 | `glossa.cli.export/v1` | `{format, scope, job: Job, waited, file: {path?, name, size, sha256, content_type, verified} \| null, extracted: [{path, size}]}` (`export`, `tm export`, `terms export`) |
-| `glossa.cli.jobs.list/v1` | `{jobs: [Job]}` (newest first) |
+| `glossa.cli.jobs.list/v1` | `{jobs: [Job]}` (newest first; the project's and the workspace's, or with `--all-projects` the tenant's) |
 | `glossa.cli.jobs.show/v1` | `{job: Job, results: [Result], results_filter}` |
 | `glossa.cli.jobs.cancel/v1` | `{job: Job}` |
 | `glossa.cli.release.publish/v1` | `{replayed, idempotency_key, release: Release}` |
@@ -182,7 +183,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 The import and export shapes share:
 
 - `Job`: `{id, direction (import \| export), kind (catalog \| tm \| termbase), format, mode? (imports), state (awaiting_upload \| queued \| running \| succeeded \| failed \| cancelled), project_id (null: tenant-wide), file_name, file?: {size, sha256, content_type}, options (the API's ImportOptions or ExportOptions), total_items?, processed_items?, summary?: {created, updated, unchanged, conflict, invalid, by_kind: {kind: counts}} (imports), written? (exports), reused_job_id?, failure_code?, failure_message?, cancel_requested, created_by, created_at, started_at?, finished_at?, expires_at, files_deleted_at?}`
-- `Result`: `{seq, kind (message \| translation \| tm_unit \| concept), key, locale?, status (created \| updated \| unchanged \| conflict \| invalid), code?, detail?, line?, column?, location? (file:line:column)}`
+- `Result`: `{seq, kind (message \| translation \| tm_unit \| concept), key, locale?, status (created \| updated \| unchanged \| conflict \| invalid), code?, detail?, line?, column?, ref? (the item in the format's own terms: an XLIFF fragment identifier `#/f=…/u=…`, a JSON pointer, `msgctxt "…" msgid "…"`, `tu[n]`, `conceptEntry[n]`), location? (file:line:column)}`
 
 The Knowledge and AI shapes share:
 
@@ -247,10 +248,13 @@ glossa import --format xliff translations/de.xlf            # dry run: what woul
 glossa import --format xliff translations/de.xlf --apply    # merge
 glossa import --format json locales/fr.json --locale fr --apply
 glossa import --format po po/de.po --state needs_review --apply
+glossa import --format xliff vendor/fr-CA.xlf --locale fr --apply  # the file's trgLang says fr-CA; the project has fr
 glossa export --format xliff --locale de,fr -o out --unzip  # one XLIFF per locale
 glossa export --format json --locale de --layout nested -o locales/de.json
 glossa tm export -o memory.tmx          && glossa tm import vendor.tmx --apply
 glossa terms export -o termbase.tbx     && glossa terms import glossary.tbx --apply
+glossa tm import agency.tmx --scope tenant --apply                 # the workspace's memory (tm-import-jobs)
+glossa namespaces                                                  # what --namespace can take
 glossa jobs list && glossa jobs show <id> && glossa jobs cancel <id>
 ```
 
@@ -283,8 +287,11 @@ translations/de.xlf:118:9: conflict translation de checkout.pay  approved_transl
   not at all with `--json` or `--quiet`.
 - **Results.** Conflicts and invalid items are listed in file order as
   `file:line:column: status kind [locale] key  code: detail` (the path as
-  given, so editors and CI annotations jump to it); `--all-results` lists
-  every item (`--json`: `results`). The summary counts
+  given, so editors and CI annotations jump to it) — every item, since
+  the server records where each entry of the file is; `--json` adds
+  `ref`, the item in the format's own terms (an XLIFF fragment
+  identifier, a JSON pointer, a PO `msgctxt` and `msgid`, `tu[n]`).
+  `--all-results` lists every item (`--json`: `results`). The summary counts
   created/updated/unchanged/conflict/invalid per kind (messages,
   translations, TM units, concepts). An applied import of a file and
   options already applied successfully reuses that job's result
@@ -294,16 +301,23 @@ translations/de.xlf:118:9: conflict translation de checkout.pay  approved_transl
 
   | Format | Import | Export |
   |---|---|---|
-  | `xliff` | `--syntax mf1` (read other tools' plain units as ICU) | `--locale L…` (one document per target locale; none: the source only), `--namespace N…`, `--state S…` |
+  | `xliff` | `--locale L` (the translations' locale, default its `trgLang`: names it for a file without one, or imports a file as another of the project's locales), `--syntax mf1` (read other tools' plain units as ICU) | `--locale L…` (one document per target locale; none: the source only), `--namespace N…`, `--state S…` |
   | `json` | `--locale L` (default the source locale: a source catalog, needs `integration.manage`), `--namespace N`, `--syntax mf1\|mf2` (default glossa.yaml's `syntax`), `--state S` (default `needs_review`) | `--locale L…` (default the source), `--namespace N…`, `--state S…`, `--layout flat\|nested`, `--syntax` |
   | `po` | `--locale L` (default its `Language` header), `--namespace N`, `--state S` (entries without `fuzzy`; default `approved`), `--plural-variable V` | — (import only) |
   | `tmx` | `--scope project\|tenant` | `--locale L…` (targets), `--source-locale L`, `--scope` |
   | `tbx` | `--scope project\|tenant` | `--scope` |
 
   `--locale`, `--namespace` and `--state` repeat or take commas on
-  exports; `--state` defaults to `approved`. `--scope tenant` imports
-  TMX and TBX tenant-wide and exports every unit or concept of the
-  tenant; catalogs always belong to the project.
+  exports (`glossa namespaces` lists the project's); `--state` defaults
+  to `approved`. An import's `--locale` must be one of the project's
+  locales (`locale_not_found`, exit 2); a file whose translations are in
+  a locale the project lacks fails `target_locale_mismatch` (exit 4)
+  naming the project's locales — import it again with `--locale`.
+  `--scope tenant` goes through the workspace's own routes
+  (`tm-import-jobs`, `tm-export-jobs`, `termbase-import-jobs`,
+  `termbase-export-jobs`): TMX and TBX imported tenant-wide, every unit
+  or concept of the tenant exported; catalogs always belong to the
+  project.
 - **Downloads are verified.** `export` streams the file into a temporary
   file next to its destination while hashing it, compares the SHA-256
   with the `ETag` and the job's recorded digest, and only then renames it
@@ -522,12 +536,5 @@ Terminology check failed: 1 error, 0 warnings.
   plural categories, terminology), so a match that fails there goes to a
   provider after all. Its cost is an estimate from the price table, not
   a quote.
-- Import results carry a line and column only where the server knows
-  them: today the problem that fails a malformed file. Per-entry
-  conflicts and invalid items come without a position (the converters
-  don't track entry positions yet), so they're listed by key alone.
 - `import --format` reads a file from disk (no `-`/stdin): the upload
   sends its size up front.
-- `jobs list --limit N` applies to imports and exports each, then
-  merges them newest first; without `--all-projects` it lists the
-  project's jobs, so tenant-wide TMX and TBX jobs need the flag.
