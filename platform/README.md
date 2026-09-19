@@ -5,8 +5,8 @@ the `glossa-server` kernel (configuration, observability, the HTTP edge,
 Postgres with forced row-level security, tenancy, the transactional
 outbox), the `/v1` API contract, the bounded contexts under
 `internal/<context>/` (Identity, Catalog, Localization, Release,
-Knowledge and Intelligence so far) and `glossa-edge`, the stateless
-delivery server.
+Knowledge, Intelligence and Integration so far) and `glossa-edge`, the
+stateless delivery server.
 
 ```text
 api/openapi.yaml            the /v1 contract (OpenAPI 3.1), source of truth
@@ -46,6 +46,11 @@ internal/intelligence/      AI translation (RFC 0003 §3–§4, §7)
   adapters/                 anthropic, openaicompat, gemini, resilient, cassette, memory (library);
                             postgres (sqlc), sources, providers, metrics, httpapi (wiring)
   prompts/, evals/          versioned prompts; golden sets, cassettes and the tracked baseline
+internal/integration/       interchange (RFC 0003 §5–§6)
+  formats/                  pure converters: XLIFF 2.1, JSON, PO (read), TMX, TBX ↔ the exchange model
+  domain/                   import/export jobs, options, access snapshot, state capping, merge conflicts, PO keys
+  app/                      import and export use cases, the Worker (claims, checkpoints, retention), mapping
+  adapters/                 postgres (sqlc), sources (Catalog/Localization/Knowledge ports), httpapi
 internal/preview/           stateless message preview (parse, MF2, format), rate-limited per caller
 internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
@@ -143,6 +148,13 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_AI_JOB_TIMEOUT` / `_JOB_LEASE` | `10m` / `15m` | Budget for one job (model calls and retries included); how long a claimed job is reserved before another worker takes it over. The lease must be longer. |
 | `GLOSSA_AI_PROVIDER_CONCURRENCY` | `4` | Calls in flight per configured provider in this process. |
 | `GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS` | `false` | Let tenants point providers at loopback and private addresses (self-hosted models in the cluster). Off: such base URLs are refused and the provider client won't connect to them. |
+| `GLOSSA_INTEGRATION_WORKERS_ENABLED` | `true` | Run import/export job workers (and the retention sweep) in this process. |
+| `GLOSSA_INTEGRATION_WORKERS` | `1` | Import/export jobs this process runs at once. A tenant runs at most 2 across replicas. |
+| `GLOSSA_INTEGRATION_POLL_INTERVAL` | `1s` | Idle poll interval of an import/export worker. |
+| `GLOSSA_INTEGRATION_JOB_TIMEOUT` / `_JOB_LEASE` | `30m` / `35m` | Budget for one attempt of a job; how long a claimed job is reserved before another worker resumes it from its last checkpoint. The lease must be longer. |
+| `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES` | `67108864` | Largest import file (64 MiB; at most 2 GiB). The upload route streams it to object storage instead of taking `GLOSSA_HTTP_MAX_BODY_BYTES`. |
+| `GLOSSA_INTEGRATION_UPLOAD_TIMEOUT` | `10m` | Read deadline of an upload and write deadline of a download, instead of the HTTP read/write timeouts. |
+| `GLOSSA_INTEGRATION_RETENTION` | `168h` | How long uploaded and exported files are kept; the sweep deletes them afterwards (jobs and results stay). |
 
 `glossa-edge` reads `GLOSSA_HTTP_*` (listening on `:8081` by default),
 `GLOSSA_LOG_LEVEL`, `GLOSSA_SHUTDOWN_TIMEOUT`, `OTEL_*` (service
@@ -377,7 +389,13 @@ admins and `admin` tokens; `intelligence.translate` (request fills,
 cancel jobs, accept, edit or reject suggestions) is **locale-scoped**
 like `translations.write`: translators and reviewers hold it within
 their locales; developers, admins, owners and `write` tokens hold it
-for every locale.
+for every locale. The import/export permissions: every role and the
+`read` scope hold `integration.read` (see jobs and results, create
+exports and download them); `integration.import` (import translations
+from XLIFF, JSON and PO) is **locale-scoped** like `translations.write`;
+`integration.manage` (create and revise messages from files, TMX and TBX
+imports, overwrite mode) belongs to owners, admins, developers and
+`write` tokens.
 
 **API tokens** look like `glossa_api_` + 43 base64url characters.
 Register `glossa_api_[A-Za-z0-9_-]{43}` with secret scanners. They're
@@ -559,7 +577,9 @@ images — and is a trusted extension, so the CNPG database owner that
 runs `-migrate=only` creates it without superuser rights. A cluster
 built without contrib must provide it first.
 
-**Translation memory.** Units are derived, not curated:
+**Translation memory.** Units are derived, not curated — or imported
+from TMX (origin `import`, `ImportTMUnits`, run by Integration's jobs;
+an exact duplicate in its scope is not added again):
 `knowledge.derive_tm` subscribes to `localization.translation.revised`
 and `.reviewed`, reads the translation's *current* state through
 Localization's `TranslationWithSource` (as the background principal
@@ -795,6 +815,133 @@ spend stays). Permissions: see *Identity* (`intelligence.read`,
 (`app/testdata/wiring`, re-recorded from each test's scripted answers
 with `go test -tags=integration ./internal/intelligence/app -run
 TestWiring -record-wiring`).
+
+## Integration
+
+Interchange files in and out as asynchronous jobs (RFC 0003 §5–§6,
+intent §48): the pure converters in `formats` (XLIFF 2.1, flat and
+nested JSON, gettext PO read-only, TMX 1.4b, TBX-Basic), run by workers
+in glossa-server against Catalog, Localization and Knowledge through
+their application services.
+
+| Table | Scope | Why |
+|---|---|---|
+| `integration_jobs` | tenant | Imports and exports: format, mode, options, the requester's access snapshot, state and progress, the file's object key, size and SHA-256, the fingerprint, summary counts, retention. `glossa_system` may SELECT and UPDATE (claims, the retention sweep). |
+| `integration_job_items` | tenant | An import's result per item, in file order. |
+
+**Files** live in object storage under
+`integration/v1/<tenant>/jobs/<job>/…` (glossa-edge never serves that
+prefix). An upload (`PUT …/import-jobs/{id}/file`, the requester only,
+once) is streamed to storage while it is hashed and counted against
+`GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES` — that route takes no API body
+limit and gets `GLOSSA_INTEGRATION_UPLOAD_TIMEOUT` as its deadline —,
+and `objectstore.Streamer` writes it whole or not at all (a temp file
+renamed into place; an S3 multipart upload aborted on failure). An
+export is generated into a temporary file and streamed up; its download
+(`GET …/export-jobs/{id}/file`) streams it back with its name and
+SHA-256 (`ETag`). Retention deletes both after `expires_at`
+(`GLOSSA_INTEGRATION_RETENTION`, 7 days): `integration.jobs`' sweep
+lists expired files across tenants, deletes them and records
+`files_deleted_at` (a download is then `410 file_expired`); imports
+still waiting for their file after 24 hours fail `upload_expired`.
+
+**Jobs.** `awaiting_upload` (imports) → `queued` → `running` →
+`succeeded` | `failed` | `cancelled`. A claim is one statement in the
+system scope `integration.jobs`, serialized by an advisory lock, `FOR
+UPDATE SKIP LOCKED`, at most two running jobs per tenant across
+replicas; new and queued jobs are due on the database's clock. The job
+runs in its tenant as `integration.worker` (catalog, translations and
+knowledge read and write, translations review) **within the access its
+requester had when they asked**, snapshotted on the job
+(`authz.ScopeOf`): the locales they may import (`integration.import` ∩
+`translations.write`), the locales they may review, and whether they
+may manage (`integration.manage` with `catalog.write`, or with
+`knowledge.write` for TMX and TBX). An import applies its file in
+batches of 500 entries, units or concepts; after each batch it stores
+the batch's results and its progress under the claim token and checks
+for a cancellation. A storage or database failure is retried (3
+attempts, 30 s backoff doubling), resuming after the last checkpoint; a
+malformed, unsupported or oversized file fails the job at once with the
+problem as its last result (`line`, `column`, the item); a worker whose
+lease ran out changes nothing. Events: `integration.import.completed`
+and `integration.export.completed` (job, project, kind, format, mode,
+state, failure code, reused job, summary, requester) on every end;
+subscriber `integration.drop_project` on `catalog.project.deleted`
+deletes the project's jobs, results and files.
+
+**Import rules.**
+
+- *Catalogs.* A message with source text in the file is created when
+  missing (with `integration.manage`; otherwise its translations are
+  `message_not_found`), `unchanged` when its source has the same MF2
+  model, revised in `overwrite` mode and a `conflict` (`source_differs`)
+  otherwise — a translator's XLIFF never rewrites the source it was
+  exported with, and its translations of such a message are conflicts
+  too (they were made for other text). Created messages take the file's
+  namespace, description and max length; revisions change the source
+  only. Translations go through Localization's bulk import with
+  provenance `import` and `origin_detail` `{job, file, format,
+  requested_by}`, written by `integration.worker`.
+- *Merge never lowers an approval.* Under the translation's row lock
+  (`localizationapp.ImportOptions.KeepApproved`): other text for an
+  approved translation is a `conflict`
+  (`approved_translation_conflict`), the same text in a lower state is
+  `unchanged`. This protects every approval — a reviewer's, or an
+  auto-approval policy a manager set — not only text a person typed.
+- *Review states are capped* (`domain.RequestedState`): a file's
+  approval (XLIFF `final`, PO without `fuzzy`) or rejection is kept only
+  for someone who may review the locale, or — approvals — in a project
+  that doesn't require review; otherwise the translation waits in
+  `needs_review`. New text can't be imported as rejected
+  (`write_cannot_reject`).
+- *gettext keys* (`domain.POMessageKey`): `[<msgctxt slug>.]<msgid
+  slug>_<hash>` — the text folded to lowercase ASCII words joined by `_`
+  (accents dropped, other scripts left out, at most 40 characters at a
+  word boundary) plus the first 8 hex digits of SHA-256 over msgctxt,
+  U+0004 and msgid. The same entry always gets the same key, equal texts
+  in different contexts different ones; `options.namespace` is every
+  entry's namespace. Plurals become MF2 selects on `$count` with the
+  target locale's CLDR categories.
+- *TMX* adds units with origin `import` to a project or tenant-wide; a
+  unit whose exact text is already active in the scope is `unchanged`,
+  so TM imports only ever add (in either mode). *TBX* concepts are stored
+  under their own ID when it is a UUID the tenant already has (a Glossa
+  export coming back), else under one derived from the tenant, the
+  scope and the file's ID (UUIDv5), so re-imports find them; identical
+  content is `unchanged`, other content a `conflict`
+  (`concept_differs`) unless `overwrite`. One definition and one note are
+  kept per concept and term; the rest (other-language definitions, a
+  term's context) joins the note. Case sensitivity, which TBX can't
+  carry, is kept from the stored terms.
+- *Dry runs* run every check a merge runs and store only the results:
+  Localization's and Knowledge's writes (structural QA, the approval
+  rule, concept and unit rules) run in transactions that are rolled
+  back; Catalog's key, namespace and source rules are checked without
+  writing, and the translations of messages that would be created are
+  predicted `created`.
+- *Idempotency.* `Idempotency-Key` on create, as everywhere. And an
+  upload whose fingerprint (file SHA-256, project, format, mode,
+  options) matches an earlier import that succeeded and hasn't expired
+  succeeds at once with that job's summary and results
+  (`reused_job_id`) instead of being applied twice; dry runs always run.
+
+**Exports.** Catalogs read Catalog's `ReleaseSource` and Localization's
+`ReleaseTranslations` (the chosen review states, default `approved`),
+filtered by namespace: XLIFF one document per target locale (the source
+alone without locales), JSON one catalog per locale — byte for byte what
+`glossa pull` writes (sorted keys, two-space indent, no HTML escaping,
+trailing newline); several locales are zipped as `<locale>.<ext>`. A
+catalog the format can't express (MF2-only messages in an MF1 JSON
+file, an XLIFF file without messages) fails `not_representable`. TMX
+and TBX export a project's own units and concepts, or everything the
+tenant holds without a project; TMX units carry the message key they
+were approved for as `x-glossa-message-key`.
+
+Permissions: see *Identity* (`integration.read`, `integration.import`,
+`integration.manage`). **Tests**: `internal/integration/app` runs every
+format end to end on Postgres (app role, no BYPASSRLS) and MinIO;
+`cmd/glossa-server` uploads, imports, exports and downloads through the
+generated server.
 
 ## Message preview
 

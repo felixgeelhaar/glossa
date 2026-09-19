@@ -2,7 +2,7 @@
 // (RFC 0003 §5): pure converters between localization exchange formats
 // and a neutral in-memory exchange model. There is no I/O beyond the
 // io.Reader/io.Writer a caller hands in, no database and no HTTP; the
-// import/export jobs that use these converters live elsewhere.
+// import/export jobs that use these converters live in integration/app.
 //
 // Formats are import/export formats, never the model (AGENTS.md):
 // every message crosses this boundary as the canonical MessageFormat 2
