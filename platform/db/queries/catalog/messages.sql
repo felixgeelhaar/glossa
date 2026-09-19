@@ -58,6 +58,18 @@ WHERE project_id = sqlc.arg(project_id)
 ORDER BY key
 LIMIT sqlc.arg(max_rows);
 
+-- name: ListNamespaces :many
+-- A page of a project's namespaces after a name, with message counts by
+-- state; catalog_messages_namespaces serves it from the index alone.
+SELECT namespace,
+       count(*) FILTER (WHERE state = 'active')::int AS active,
+       count(*) FILTER (WHERE state = 'obsolete')::int AS obsolete
+FROM catalog_messages
+WHERE project_id = sqlc.arg(project_id) AND namespace > sqlc.arg(after)
+GROUP BY namespace
+ORDER BY namespace
+LIMIT sqlc.arg(max_rows);
+
 -- name: ListActiveMessages :many
 -- Every active message of a project, for a release snapshot.
 SELECT * FROM catalog_messages

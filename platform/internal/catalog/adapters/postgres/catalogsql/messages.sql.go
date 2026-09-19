@@ -415,6 +415,51 @@ func (q *Queries) ListMessages(ctx context.Context, arg ListMessagesParams) ([]C
 	return items, nil
 }
 
+const listNamespaces = `-- name: ListNamespaces :many
+SELECT namespace,
+       count(*) FILTER (WHERE state = 'active')::int AS active,
+       count(*) FILTER (WHERE state = 'obsolete')::int AS obsolete
+FROM catalog_messages
+WHERE project_id = $1 AND namespace > $2
+GROUP BY namespace
+ORDER BY namespace
+LIMIT $3
+`
+
+type ListNamespacesParams struct {
+	ProjectID uuid.UUID
+	After     string
+	MaxRows   int32
+}
+
+type ListNamespacesRow struct {
+	Namespace string
+	Active    int32
+	Obsolete  int32
+}
+
+// A page of a project's namespaces after a name, with message counts by
+// state; catalog_messages_namespaces serves it from the index alone.
+func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) ([]ListNamespacesRow, error) {
+	rows, err := q.db.Query(ctx, listNamespaces, arg.ProjectID, arg.After, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNamespacesRow
+	for rows.Next() {
+		var i ListNamespacesRow
+		if err := rows.Scan(&i.Namespace, &i.Active, &i.Obsolete); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSourceRevisions = `-- name: ListSourceRevisions :many
 SELECT tenant_id, message_id, revision, syntax, text, model, author, created_at FROM catalog_source_revisions
 WHERE message_id = $1 AND revision < $2

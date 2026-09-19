@@ -308,6 +308,45 @@ func TestListMessagesFilters(t *testing.T) {
 	}
 }
 
+func TestListNamespaces(t *testing.T) {
+	h := newHarness(t)
+	ctx := h.developer()
+	p := h.project(t, ctx)
+	items := []app.UpsertItem{
+		{Key: "a.one", Text: "1"}, {Key: "a.two", Text: "2"},
+		{Key: "b.one", Text: "1", Namespace: ptr("checkout")}, {Key: "b.two", Text: "2", Namespace: ptr("checkout")},
+		{Key: "c.one", Text: "1", Namespace: ptr("landing")},
+	}
+	if _, err := h.svc.UpsertMessages(ctx, p.ID, items); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.svc.ObsoleteMessage(ctx, p.ID, "b.two", nil); err != nil {
+		t.Fatal(err)
+	}
+	page1, next, err := h.svc.ListNamespaces(ctx, p.ID, pagination.Page{Size: 2})
+	if err != nil || next == nil {
+		t.Fatalf("page 1: %v %v", err, next)
+	}
+	want := []app.NamespaceSummary{{Name: "checkout", Active: 1, Obsolete: 1}, {Name: "default", Active: 2}}
+	if len(page1) != 2 || page1[0] != want[0] || page1[1] != want[1] {
+		t.Errorf("page 1 = %+v, want %+v", page1, want)
+	}
+	page, err := pagination.Parse(ptr(2), next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page2, next, err := h.svc.ListNamespaces(ctx, p.ID, page)
+	if err != nil || next != nil || len(page2) != 1 || page2[0] != (app.NamespaceSummary{Name: "landing", Active: 1}) {
+		t.Errorf("page 2 = %+v %v %v", page2, next, err)
+	}
+	if _, _, err := h.svc.ListNamespaces(ctx, domain.NewProjectID(), firstPage()); !errors.Is(err, app.ErrNotFound) {
+		t.Errorf("unknown project: %v", err)
+	}
+	if _, _, err := h.svc.ListNamespaces(context.Background(), p.ID, firstPage()); err == nil {
+		t.Error("listed without a principal")
+	}
+}
+
 func TestCatalogIsTenantIsolated(t *testing.T) {
 	h := newHarness(t)
 	ctx := h.developer()

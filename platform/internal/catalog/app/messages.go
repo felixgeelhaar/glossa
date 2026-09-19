@@ -188,6 +188,29 @@ func (s *Service) ListMessages(ctx context.Context, project domain.ProjectID, q 
 	return items, next, nil
 }
 
+// ListNamespaces lists the namespaces of a project's messages by name,
+// with how many messages each holds by state: one grouped read of the
+// project's messages per page. Needs catalog.read.
+func (s *Service) ListNamespaces(ctx context.Context, project domain.ProjectID, page pagination.Page) ([]NamespaceSummary, *string, error) {
+	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+		return nil, nil, err
+	}
+	var rows []NamespaceSummary
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		if _, err := st.Project(ctx, project); err != nil {
+			return err
+		}
+		var err error
+		rows, err = st.Namespaces(ctx, project, domain.Namespace(page.After), page.Limit())
+		return err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	items, next := pagination.Trim(rows, page, func(n NamespaceSummary) string { return string(n.Name) })
+	return items, next, nil
+}
+
 // messagesByCoverage asks Localization which messages match, then loads
 // them. Localization learns about messages from events, so a message
 // created a moment ago may not be listed as missing yet.

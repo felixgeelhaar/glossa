@@ -1307,6 +1307,36 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
 
+  /v1/tenants/{tenant}/projects/{project}/namespaces:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listNamespaces
+      tags: [messages]
+      summary: A project's namespaces, by name, with their message counts
+      description: |
+        Every namespace that holds a message, in name order, with how
+        many of its messages are `active` and `obsolete` — what an
+        export or a filter offers to choose from. One grouped read of
+        the project's messages per page. Needs `catalog.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of namespaces.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NamespaceList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/tenants/{tenant}/projects/{project}/message-upserts:
     parameters:
       - $ref: "#/components/parameters/TenantPath"
@@ -5503,6 +5533,21 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/Message" }
+        next_page_token: { type: string }
+    NamespaceSummary:
+      type: object
+      required: [name, active_messages, obsolete_messages]
+      properties:
+        name: { $ref: "#/components/schemas/Namespace" }
+        active_messages: { type: integer, description: "Messages in the namespace that are `active`." }
+        obsolete_messages: { type: integer, description: "Messages in the namespace that are `obsolete`." }
+    NamespaceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/NamespaceSummary" }
         next_page_token: { type: string }
     CreateMessage:
       type: object

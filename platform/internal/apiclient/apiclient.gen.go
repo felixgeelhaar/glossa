@@ -2976,6 +2976,24 @@ type MicroUSD = int64
 // Namespace Groups messages into separately loadable bundles. Default `default`.
 type Namespace = string
 
+// NamespaceList defines model for NamespaceList.
+type NamespaceList struct {
+	Items         []NamespaceSummary `json:"items"`
+	NextPageToken *string            `json:"next_page_token,omitempty"`
+}
+
+// NamespaceSummary defines model for NamespaceSummary.
+type NamespaceSummary struct {
+	// ActiveMessages Messages in the namespace that are `active`.
+	ActiveMessages int `json:"active_messages"`
+
+	// Name Groups messages into separately loadable bundles. Default `default`.
+	Name Namespace `json:"name"`
+
+	// ObsoleteMessages Messages in the namespace that are `obsolete`.
+	ObsoleteMessages int `json:"obsolete_messages"`
+}
+
 // Origin defines model for Origin.
 type Origin string
 
@@ -4949,6 +4967,14 @@ type ReviewTranslationParams struct {
 
 // ListTranslationRevisionsParams defines parameters for ListTranslationRevisions.
 type ListTranslationRevisionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// ListNamespacesParams defines parameters for ListNamespaces.
+type ListNamespacesParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 
 	// PageToken The `next_page_token` of the previous page.
@@ -7375,6 +7401,16 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListNamespaces A project's namespaces, by name, with their message counts
+	//
+	// Every namespace that holds a message, in name order, with how
+	// many of its messages are `active` and `obsolete` — what an
+	// export or a filter offers to choose from. One grouped read of
+	// the project's messages per page. Needs `catalog.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/namespaces (the `ListNamespaces` operationId).
+	ListNamespaces(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListReleaseSigningKeys The public keys manifests are signed with
 	//
@@ -11496,6 +11532,26 @@ func (c *Client) ReviewTranslation(ctx context.Context, tenant TenantPath, proje
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 func (c *Client) ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListTranslationRevisionsRequest(c.Server, tenant, project, message, locale, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListNamespaces A project's namespaces, by name, with their message counts
+//
+// Every namespace that holds a message, in name order, with how
+// many of its messages are `active` and `obsolete` — what an
+// export or a filter offers to choose from. One grouped read of
+// the project's messages per page. Needs `catalog.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/namespaces (the `ListNamespaces` operationId).
+func (c *Client) ListNamespaces(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNamespacesRequest(c.Server, tenant, project, params)
 	if err != nil {
 		return nil, err
 	}
@@ -19240,6 +19296,86 @@ func NewListTranslationRevisionsRequest(server string, tenant TenantPath, projec
 	return req, nil
 }
 
+// NewListNamespacesRequest constructs an http.Request for the ListNamespaces method
+func NewListNamespacesRequest(server string, tenant TenantPath, project ProjectPath, params *ListNamespacesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/namespaces", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListReleaseSigningKeysRequest constructs an http.Request for the ListReleaseSigningKeys method
 func NewListReleaseSigningKeysRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
 	var err error
@@ -23762,6 +23898,18 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*ListTranslationRevisionsResponse, error)
+
+	// ListNamespacesWithResponse A project's namespaces, by name, with their message counts
+	//
+	// Every namespace that holds a message, in name order, with how
+	// many of its messages are `active` and `obsolete` — what an
+	// export or a filter offers to choose from. One grouped read of
+	// the project's messages per page. Needs `catalog.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/namespaces (the `ListNamespaces` operationId).
+	ListNamespacesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*ListNamespacesResponse, error)
 
 	// ListReleaseSigningKeysWithResponse The public keys manifests are signed with
 	//
@@ -32463,6 +32611,75 @@ func (r ListTranslationRevisionsResponse) ContentType() string {
 	return ""
 }
 
+type ListNamespacesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *NamespaceList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListNamespacesResponse) GetJSON200() *NamespaceList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListNamespacesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListNamespacesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListNamespacesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListNamespacesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListNamespacesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListNamespacesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListNamespacesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListNamespacesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListReleaseSigningKeysResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -37880,6 +38097,24 @@ func (c *ClientWithResponses) ListTranslationRevisionsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseListTranslationRevisionsResponse(rsp)
+}
+
+// ListNamespacesWithResponse A project's namespaces, by name, with their message counts
+//
+// Every namespace that holds a message, in name order, with how
+// many of its messages are `active` and `obsolete` — what an
+// export or a filter offers to choose from. One grouped read of
+// the project's messages per page. Needs `catalog.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/namespaces (the `ListNamespaces` operationId).
+func (c *ClientWithResponses) ListNamespacesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*ListNamespacesResponse, error) {
+	rsp, err := c.ListNamespaces(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListNamespacesResponse(rsp)
 }
 
 // ListReleaseSigningKeysWithResponse The public keys manifests are signed with
@@ -45592,6 +45827,60 @@ func ParseListTranslationRevisionsResponse(rsp *http.Response) (*ListTranslation
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest TranslationRevisionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListNamespacesResponse parses an HTTP response from a ListNamespacesWithResponse call
+func ParseListNamespacesResponse(rsp *http.Response) (*ListNamespacesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListNamespacesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NamespaceList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

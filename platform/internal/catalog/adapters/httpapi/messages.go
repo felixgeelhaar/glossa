@@ -59,6 +59,26 @@ func (a *API) ListMessages(ctx context.Context, req apiv1.ListMessagesRequestObj
 	return out, nil
 }
 
+func (a *API) ListNamespaces(ctx context.Context, req apiv1.ListNamespacesRequestObject) (apiv1.ListNamespacesResponseObject, error) {
+	project, err := projectID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	page, err := pagination.Parse(req.Params.PageSize, req.Params.PageToken)
+	if err != nil {
+		return nil, err
+	}
+	ns, next, err := a.svc.ListNamespaces(ctx, project, page)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := apiv1.ListNamespaces200JSONResponse{Items: make([]apiv1.NamespaceSummary, len(ns)), NextPageToken: next}
+	for i, n := range ns {
+		out.Items[i] = apiv1.NamespaceSummary{Name: string(n.Name), ActiveMessages: n.Active, ObsoleteMessages: n.Obsolete}
+	}
+	return out, nil
+}
+
 func (a *API) CreateMessage(ctx context.Context, req apiv1.CreateMessageRequestObject) (apiv1.CreateMessageResponseObject, error) {
 	project, err := projectID(req.Project)
 	if err != nil {

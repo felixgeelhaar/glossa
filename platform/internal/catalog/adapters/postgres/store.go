@@ -398,6 +398,20 @@ func (s *store) Messages(ctx context.Context, project domain.ProjectID, f app.Me
 	return messages(rows)
 }
 
+func (s *store) Namespaces(ctx context.Context, project domain.ProjectID, after domain.Namespace, limit int) ([]app.NamespaceSummary, error) {
+	rows, err := s.q.ListNamespaces(ctx, catalogsql.ListNamespacesParams{
+		ProjectID: project.UUID(), After: string(after), MaxRows: int32Of(limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.NamespaceSummary, len(rows))
+	for i, r := range rows {
+		out[i] = app.NamespaceSummary{Name: domain.Namespace(r.Namespace), Active: int(r.Active), Obsolete: int(r.Obsolete)}
+	}
+	return out, nil
+}
+
 func (s *store) ActiveMessages(ctx context.Context, project domain.ProjectID) ([]domain.Message, error) {
 	rows, err := s.q.ListActiveMessages(ctx, project.UUID())
 	if err != nil {

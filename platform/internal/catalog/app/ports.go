@@ -36,6 +36,14 @@ type Transactor interface {
 	InTenant(ctx context.Context, fn func(context.Context, Store) error) error
 }
 
+// NamespaceSummary is a namespace of a project with how many of its
+// messages are active and obsolete.
+type NamespaceSummary struct {
+	Name     domain.Namespace
+	Active   int
+	Obsolete int
+}
+
 // MessageFilter narrows a message list.
 type MessageFilter struct {
 	Namespace *domain.Namespace
@@ -78,6 +86,9 @@ type Store interface {
 	// Messages lists by key, after the given key.
 	Messages(ctx context.Context, project domain.ProjectID, f MessageFilter, after domain.MessageKey, limit int) ([]domain.Message, error)
 	ActiveMessages(ctx context.Context, project domain.ProjectID) ([]domain.Message, error)
+	// Namespaces lists the namespaces that hold messages, by name, after
+	// the given one, with their message counts.
+	Namespaces(ctx context.Context, project domain.ProjectID, after domain.Namespace, limit int) ([]NamespaceSummary, error)
 	// UpdateMessage saves m if the stored version is still expected.
 	UpdateMessage(ctx context.Context, m domain.Message, expected int) error
 	// AppendSourceRevision adds to the append-only source log.
