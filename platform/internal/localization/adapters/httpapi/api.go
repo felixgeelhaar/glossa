@@ -222,6 +222,28 @@ func (a *API) ListProjectTranslations(ctx context.Context, req apiv1.ListProject
 	return out, nil
 }
 
+func (a *API) GetTranslationStats(ctx context.Context, req apiv1.GetTranslationStatsRequestObject) (apiv1.GetTranslationStatsResponseObject, error) {
+	project, err := projectID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	stats, err := a.svc.TranslationStats(ctx, project)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := apiv1.GetTranslationStats200JSONResponse{Messages: stats.Messages, Locales: make([]apiv1.LocaleStats, len(stats.Locales))}
+	for i, l := range stats.Locales {
+		out.Locales[i] = apiv1.LocaleStats{
+			Code: l.Code.String(), Direction: apiv1.Direction(l.Direction()), IsSource: l.IsSource,
+			Translated: l.Translated, Missing: l.Missing, Outdated: l.Outdated,
+			States: apiv1.ReviewStateCounts{
+				Draft: l.States.Draft, NeedsReview: l.States.NeedsReview, Approved: l.States.Approved, Rejected: l.States.Rejected,
+			},
+		}
+	}
+	return out, nil
+}
+
 func (a *API) GetTranslation(ctx context.Context, req apiv1.GetTranslationRequestObject) (apiv1.GetTranslationResponseObject, error) {
 	project, err := projectID(req.Project)
 	if err != nil {

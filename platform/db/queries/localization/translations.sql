@@ -130,6 +130,42 @@ WHERE m.project_id = sqlc.arg(project_id)
 ORDER BY m.key, m.message_id, t.locale
 LIMIT sqlc.arg(max_rows);
 
+-- name: TranslationStats :many
+-- Per locale of a project: translations of active messages by review
+-- state, and how many of the usable (not rejected) ones are outdated,
+-- with the number of active messages on every row. One row with a NULL
+-- code when Localization has no locale of the project yet. A single
+-- pass over the project's translations joined to its active messages,
+-- grouped by locale; translations of removed locales drop out in the
+-- join with the project's locales.
+WITH total AS (
+    SELECT count(*)::integer AS messages FROM localization_messages am
+    WHERE am.project_id = sqlc.arg(project_id) AND am.state = 'active'
+), counts AS (
+    SELECT t.locale,
+           count(*) FILTER (WHERE t.state = 'draft')::integer        AS draft,
+           count(*) FILTER (WHERE t.state = 'needs_review')::integer AS needs_review,
+           count(*) FILTER (WHERE t.state = 'approved')::integer     AS approved,
+           count(*) FILTER (WHERE t.state = 'rejected')::integer     AS rejected,
+           count(*) FILTER (WHERE t.state <> 'rejected'
+                              AND t.source_revision < m.source_revision)::integer AS outdated
+    FROM localization_translations t
+    JOIN localization_messages m ON m.message_id = t.message_id
+                                AND m.project_id = sqlc.arg(project_id) AND m.state = 'active'
+    WHERE t.project_id = sqlc.arg(project_id)
+    GROUP BY t.locale
+)
+SELECT total.messages, l.code, l.is_source,
+       coalesce(c.draft, 0)::integer        AS draft,
+       coalesce(c.needs_review, 0)::integer AS needs_review,
+       coalesce(c.approved, 0)::integer     AS approved,
+       coalesce(c.rejected, 0)::integer     AS rejected,
+       coalesce(c.outdated, 0)::integer     AS outdated
+FROM total
+LEFT JOIN localization_locales l ON l.project_id = sqlc.arg(project_id)
+LEFT JOIN counts c ON c.locale = l.code
+ORDER BY l.code;
+
 -- name: DeleteProjectTranslations :exec
 DELETE FROM localization_translations WHERE project_id = sqlc.arg(project_id);
 

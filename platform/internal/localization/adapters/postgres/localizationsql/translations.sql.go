@@ -725,6 +725,83 @@ func (q *Queries) SnapshotTranslations(ctx context.Context, arg SnapshotTranslat
 	return items, nil
 }
 
+const translationStats = `-- name: TranslationStats :many
+WITH total AS (
+    SELECT count(*)::integer AS messages FROM localization_messages am
+    WHERE am.project_id = $1 AND am.state = 'active'
+), counts AS (
+    SELECT t.locale,
+           count(*) FILTER (WHERE t.state = 'draft')::integer        AS draft,
+           count(*) FILTER (WHERE t.state = 'needs_review')::integer AS needs_review,
+           count(*) FILTER (WHERE t.state = 'approved')::integer     AS approved,
+           count(*) FILTER (WHERE t.state = 'rejected')::integer     AS rejected,
+           count(*) FILTER (WHERE t.state <> 'rejected'
+                              AND t.source_revision < m.source_revision)::integer AS outdated
+    FROM localization_translations t
+    JOIN localization_messages m ON m.message_id = t.message_id
+                                AND m.project_id = $1 AND m.state = 'active'
+    WHERE t.project_id = $1
+    GROUP BY t.locale
+)
+SELECT total.messages, l.code, l.is_source,
+       coalesce(c.draft, 0)::integer        AS draft,
+       coalesce(c.needs_review, 0)::integer AS needs_review,
+       coalesce(c.approved, 0)::integer     AS approved,
+       coalesce(c.rejected, 0)::integer     AS rejected,
+       coalesce(c.outdated, 0)::integer     AS outdated
+FROM total
+LEFT JOIN localization_locales l ON l.project_id = $1
+LEFT JOIN counts c ON c.locale = l.code
+ORDER BY l.code
+`
+
+type TranslationStatsRow struct {
+	Messages    int32
+	Code        pgtype.Text
+	IsSource    pgtype.Bool
+	Draft       int32
+	NeedsReview int32
+	Approved    int32
+	Rejected    int32
+	Outdated    int32
+}
+
+// Per locale of a project: translations of active messages by review
+// state, and how many of the usable (not rejected) ones are outdated,
+// with the number of active messages on every row. One row with a NULL
+// code when Localization has no locale of the project yet. A single
+// pass over the project's translations joined to its active messages,
+// grouped by locale; translations of removed locales drop out in the
+// join with the project's locales.
+func (q *Queries) TranslationStats(ctx context.Context, projectID uuid.UUID) ([]TranslationStatsRow, error) {
+	rows, err := q.db.Query(ctx, translationStats, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TranslationStatsRow
+	for rows.Next() {
+		var i TranslationStatsRow
+		if err := rows.Scan(
+			&i.Messages,
+			&i.Code,
+			&i.IsSource,
+			&i.Draft,
+			&i.NeedsReview,
+			&i.Approved,
+			&i.Rejected,
+			&i.Outdated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateTranslation = `-- name: UpdateTranslation :execrows
 UPDATE localization_translations
 SET syntax = $1, text = $2, model = $3, state = $4,

@@ -469,6 +469,31 @@ func (s *store) ProjectTranslations(ctx context.Context, project uuid.UUID, q ap
 	return out, nil
 }
 
+func (s *store) TranslationStats(ctx context.Context, project uuid.UUID) (app.StoredStats, error) {
+	rows, err := s.q.TranslationStats(ctx, project)
+	if err != nil {
+		return app.StoredStats{}, storeError(err)
+	}
+	var out app.StoredStats
+	for _, r := range rows {
+		out.Messages = int(r.Messages)
+		if !r.Code.Valid { // the project has no locale yet
+			continue
+		}
+		code, err := bcp47.Parse(r.Code.String)
+		if err != nil {
+			return app.StoredStats{}, fmt.Errorf("localization: stored locale %q: %w", r.Code.String, err)
+		}
+		out.Locales = append(out.Locales, app.LocaleCounts{
+			Code: code, IsSource: r.IsSource.Bool, Outdated: int(r.Outdated),
+			States: domain.StateCounts{
+				Draft: int(r.Draft), NeedsReview: int(r.NeedsReview), Approved: int(r.Approved), Rejected: int(r.Rejected),
+			},
+		})
+	}
+	return out, nil
+}
+
 func (s *store) DeleteProjectData(ctx context.Context, project uuid.UUID) error {
 	for _, del := range []func(context.Context, uuid.UUID) error{
 		s.q.DeleteProjectTranslations, s.q.DeleteProjectMessages, s.q.DeleteProjectFallbackGraph, s.q.DeleteProjectLocales,

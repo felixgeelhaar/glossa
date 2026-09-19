@@ -1841,6 +1841,36 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenants/{tenant}/projects/{project}/translation-stats:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: getTranslationStats
+      tags: [translations]
+      summary: Per-locale status of a project's translations
+      description: |
+        For every locale of the project (the source included, by code):
+        how many of its active messages are translated (a usable — not
+        rejected — translation exists), missing (none, or rejected) and
+        outdated (usable but made against an older source revision), and
+        its translations of active messages per review state. The source
+        locale counts every active message as translated and approved.
+        Computed in one query on each request, from Localization's view
+        of the catalog. Needs `translations.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The summary.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TranslationStats" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/tenants/{tenant}/projects/{project}/translation-imports:
     parameters:
       - $ref: "#/components/parameters/TenantPath"
@@ -3303,6 +3333,35 @@ components:
           type: array
           items: { $ref: "#/components/schemas/ProjectTranslation" }
         next_page_token: { type: string }
+    ReviewStateCounts:
+      type: object
+      required: [draft, needs_review, approved, rejected]
+      properties:
+        draft: { type: integer, minimum: 0 }
+        needs_review: { type: integer, minimum: 0 }
+        approved: { type: integer, minimum: 0 }
+        rejected: { type: integer, minimum: 0 }
+    LocaleStats:
+      type: object
+      required: [code, direction, is_source, translated, missing, outdated, states]
+      properties:
+        code: { $ref: "#/components/schemas/Locale" }
+        direction: { $ref: "#/components/schemas/Direction" }
+        is_source: { type: boolean }
+        translated: { type: integer, minimum: 0, description: Active messages with a usable (not rejected) translation. }
+        missing: { type: integer, minimum: 0, description: "Active messages without one: untranslated or rejected." }
+        outdated: { type: integer, minimum: 0, description: Usable translations made against an older source revision. }
+        states:
+          $ref: "#/components/schemas/ReviewStateCounts"
+          description: Translations of active messages per review state.
+    TranslationStats:
+      type: object
+      required: [messages, locales]
+      properties:
+        messages: { type: integer, minimum: 0, description: The project's active messages. }
+        locales:
+          type: array
+          items: { $ref: "#/components/schemas/LocaleStats" }
     PutTranslation:
       type: object
       required: [text]

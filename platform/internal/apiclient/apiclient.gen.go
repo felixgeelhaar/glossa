@@ -764,6 +764,32 @@ type LocaleList struct {
 	NextPageToken *string         `json:"next_page_token,omitempty"`
 }
 
+// LocaleStats defines model for LocaleStats.
+type LocaleStats struct {
+	// Code A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Code Locale `json:"code"`
+
+	// Direction Derived from the locale's (likely) script.
+	Direction Direction `json:"direction"`
+	IsSource  bool      `json:"is_source"`
+
+	// Missing Active messages without one: untranslated or rejected.
+	Missing int `json:"missing"`
+
+	// Outdated Usable translations made against an older source revision.
+	Outdated int `json:"outdated"`
+
+	// States Translations of active messages per review state.
+	States ReviewStateCounts `json:"states"`
+
+	// Translated Active messages with a usable (not rejected) translation.
+	Translated int `json:"translated"`
+}
+
 // MF2Message A message in the Unicode MessageFormat 2 data model, exactly as
 // messageformat/testdata/unicode/data-model/message.schema.json
 // defines it — the canonical form releases ship.
@@ -1317,6 +1343,14 @@ type RenameMessage struct {
 // ReviewState defines model for ReviewState.
 type ReviewState string
 
+// ReviewStateCounts defines model for ReviewStateCounts.
+type ReviewStateCounts struct {
+	Approved    int `json:"approved"`
+	Draft       int `json:"draft"`
+	NeedsReview int `json:"needs_review"`
+	Rejected    int `json:"rejected"`
+}
+
 // ReviewTranslation defines model for ReviewTranslation.
 type ReviewTranslation struct {
 	State ReviewState `json:"state"`
@@ -1599,6 +1633,14 @@ type TranslationRevisionKind string
 type TranslationRevisionList struct {
 	Items         []TranslationRevision `json:"items"`
 	NextPageToken *string               `json:"next_page_token,omitempty"`
+}
+
+// TranslationStats defines model for TranslationStats.
+type TranslationStats struct {
+	Locales []LocaleStats `json:"locales"`
+
+	// Messages The project's active messages.
+	Messages int `json:"messages"`
 }
 
 // UpdateApplication defines model for UpdateApplication.
@@ -3381,6 +3423,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/translation-imports (the `ImportTranslations` operationId).
 	ImportTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, body ImportTranslationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTranslationStats Per-locale status of a project's translations
+	//
+	// For every locale of the project (the source included, by code):
+	// how many of its active messages are translated (a usable — not
+	// rejected — translation exists), missing (none, or rejected) and
+	// outdated (usable but made against an older source revision), and
+	// its translations of active messages per review state. The source
+	// locale counts every active message as translated and approved.
+	// Computed in one query on each request, from Localization's view
+	// of the catalog. Needs `translations.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translation-stats (the `GetTranslationStats` operationId).
+	GetTranslationStats(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjectTranslations A project's translations in one or more locales, by key
 	//
@@ -5680,6 +5736,30 @@ func (c *Client) ImportTranslationsWithBody(ctx context.Context, tenant TenantPa
 // Corresponds with POST /v1/tenants/{tenant}/projects/{project}/translation-imports (the `ImportTranslations` operationId).
 func (c *Client) ImportTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, body ImportTranslationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewImportTranslationsRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetTranslationStats Per-locale status of a project's translations
+//
+// For every locale of the project (the source included, by code):
+// how many of its active messages are translated (a usable — not
+// rejected — translation exists), missing (none, or rejected) and
+// outdated (usable but made against an older source revision), and
+// its translations of active messages per review state. The source
+// locale counts every active message as translated and approved.
+// Computed in one query on each request, from Localization's view
+// of the catalog. Needs `translations.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translation-stats (the `GetTranslationStats` operationId).
+func (c *Client) GetTranslationStats(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTranslationStatsRequest(c.Server, tenant, project)
 	if err != nil {
 		return nil, err
 	}
@@ -10188,6 +10268,47 @@ func NewImportTranslationsRequestWithBody(server string, tenant TenantPath, proj
 	return req, nil
 }
 
+// NewGetTranslationStatsRequest constructs an http.Request for the GetTranslationStats method
+func NewGetTranslationStatsRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/translation-stats", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListProjectTranslationsRequest constructs an http.Request for the ListProjectTranslations method
 func NewListProjectTranslationsRequest(server string, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams) (*http.Request, error) {
 	var err error
@@ -11845,6 +11966,22 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/translation-imports (the `ImportTranslations` operationId).
 	ImportTranslationsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body ImportTranslationsJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportTranslationsResponse, error)
+
+	// GetTranslationStatsWithResponse Per-locale status of a project's translations
+	//
+	// For every locale of the project (the source included, by code):
+	// how many of its active messages are translated (a usable — not
+	// rejected — translation exists), missing (none, or rejected) and
+	// outdated (usable but made against an older source revision), and
+	// its translations of active messages per review state. The source
+	// locale counts every active message as translated and approved.
+	// Computed in one query on each request, from Localization's view
+	// of the catalog. Needs `translations.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translation-stats (the `GetTranslationStats` operationId).
+	GetTranslationStatsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*GetTranslationStatsResponse, error)
 
 	// ListProjectTranslationsWithResponse A project's translations in one or more locales, by key
 	//
@@ -17212,6 +17349,68 @@ func (r ImportTranslationsResponse) ContentType() string {
 	return ""
 }
 
+type GetTranslationStatsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TranslationStats
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetTranslationStatsResponse) GetJSON200() *TranslationStats {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetTranslationStatsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetTranslationStatsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetTranslationStatsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetTranslationStatsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTranslationStatsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTranslationStatsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetTranslationStatsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProjectTranslationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -19435,6 +19634,28 @@ func (c *ClientWithResponses) ImportTranslationsWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseImportTranslationsResponse(rsp)
+}
+
+// GetTranslationStatsWithResponse Per-locale status of a project's translations
+//
+// For every locale of the project (the source included, by code):
+// how many of its active messages are translated (a usable — not
+// rejected — translation exists), missing (none, or rejected) and
+// outdated (usable but made against an older source revision), and
+// its translations of active messages per review state. The source
+// locale counts every active message as translated and approved.
+// Computed in one query on each request, from Localization's view
+// of the catalog. Needs `translations.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translation-stats (the `GetTranslationStats` operationId).
+func (c *ClientWithResponses) GetTranslationStatsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*GetTranslationStatsResponse, error) {
+	rsp, err := c.GetTranslationStats(ctx, tenant, project, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTranslationStatsResponse(rsp)
 }
 
 // ListProjectTranslationsWithResponse A project's translations in one or more locales, by key
@@ -24046,6 +24267,53 @@ func ParseImportTranslationsResponse(rsp *http.Response) (*ImportTranslationsRes
 			return nil, err
 		}
 		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTranslationStatsResponse parses an HTTP response from a GetTranslationStatsWithResponse call
+func ParseGetTranslationStatsResponse(rsp *http.Response) (*GetTranslationStatsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTranslationStatsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TranslationStats
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthenticated

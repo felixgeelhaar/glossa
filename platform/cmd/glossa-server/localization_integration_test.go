@@ -146,3 +146,45 @@ func TestProjectTranslationsOverHTTP(t *testing.T) {
 	carol := s.signIn("carol@example.com")
 	s.do(call{method: "GET", path: tp.path + "/translations?locale=de", cookie: carol.cookie}).want(t, http.StatusForbidden, "forbidden")
 }
+
+// Studio's badges and the CLI's status read every locale's counts in
+// one request.
+func TestTranslationStatsOverHTTP(t *testing.T) {
+	tp := newTranslatedProject(t)
+	s := tp.s
+	type counts struct {
+		Code       string         `json:"code"`
+		Direction  string         `json:"direction"`
+		IsSource   bool           `json:"is_source"`
+		Translated int            `json:"translated"`
+		Missing    int            `json:"missing"`
+		Outdated   int            `json:"outdated"`
+		States     map[string]int `json:"states"`
+	}
+	var stats struct {
+		Messages int      `json:"messages"`
+		Locales  []counts `json:"locales"`
+	}
+	r := s.do(call{method: "GET", path: tp.path + "/translation-stats", bearer: tp.token})
+	r.want(t, http.StatusOK, "")
+	r.decode(t, &stats)
+	if stats.Messages != 3 || len(stats.Locales) != 3 {
+		t.Fatalf("stats = %s", r.body)
+	}
+	de, en, fr := stats.Locales[0], stats.Locales[1], stats.Locales[2]
+	if de.Code != "de" || de.Translated != 2 || de.Missing != 1 || de.Outdated != 1 ||
+		de.States["draft"] != 1 || de.States["approved"] != 1 || de.States["needs_review"] != 0 || de.States["rejected"] != 0 {
+		t.Errorf("de = %+v", de)
+	}
+	if en.Code != "en" || !en.IsSource || en.Direction != "ltr" || en.Translated != 3 || en.Missing != 0 || en.States["approved"] != 3 {
+		t.Errorf("en = %+v", en)
+	}
+	if fr.Code != "fr" || fr.Translated != 1 || fr.Missing != 2 || fr.Outdated != 0 {
+		t.Errorf("fr = %+v", fr)
+	}
+	s.do(call{method: "GET", path: tp.path + "/translation-stats"}).want(t, http.StatusUnauthorized, "unauthenticated")
+	carol := s.signIn("carol@example.com")
+	s.do(call{method: "GET", path: tp.path + "/translation-stats", cookie: carol.cookie}).want(t, http.StatusForbidden, "forbidden")
+	s.do(call{method: "GET", path: strings.Replace(tp.path, "/projects/", "/projects/0", 1) + "/translation-stats", bearer: tp.token}).
+		want(t, http.StatusNotFound, "not_found")
+}

@@ -424,6 +424,15 @@ pagination on `(key, message_id, locale)`, driven by the
 message_id) INCLUDE (namespace, state, source_revision)`) and the
 translations' `UNIQUE (message_id, locale)`, so a page costs the same
 at any depth. Translations of removed locales are not listed.
+`GET …/projects/{project}/translation-stats` summarizes every locale
+in one query: active messages, `translated` (a usable — not rejected —
+translation), `missing` (none or rejected), `outdated` (usable, older
+source revision) and translations of active messages per review state;
+the source locale counts as fully translated and approved. It is an
+aggregate computed per request rather than counters kept on every
+write: one source revision changes every locale's outdated count, and a
+single grouped pass over the project's rows (about 0.1 s for 100 000
+translations) is correct by construction.
 
 Permissions: reads need `translations.read`; locales and the fallback
 graph `catalog.write`; writing a translation `translations.write` for

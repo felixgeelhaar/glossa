@@ -139,6 +139,9 @@ type Store interface {
 	// ProjectTranslations lists translations across a project's messages
 	// in (key, message ID, locale) order after q.After, in one query.
 	ProjectTranslations(ctx context.Context, project uuid.UUID, q ProjectTranslationQuery) ([]ProjectTranslationRow, error)
+	// TranslationStats counts a project's active messages and, per
+	// locale it has, the translations of them, in one query.
+	TranslationStats(ctx context.Context, project uuid.UUID) (StoredStats, error)
 
 	DeleteProjectData(ctx context.Context, project uuid.UUID) error
 
