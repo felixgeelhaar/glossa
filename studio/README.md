@@ -25,7 +25,9 @@ the jobs' history. See *Import and export* below.
 |---|---|
 | `/auth/sign-in` | Follows what the server offers (`GET /v1/meta`): with email, the magic link leads (the emailed link lands here as `#token=…`), a passkey button beside it when the server has passkeys, password + TOTP under “Other ways”; without email, password + TOTP and passkey are the way in and nothing mentions email. |
 | `/auth/register`, `/auth/reset-password` | Registration (without email the new account is signed in right away) and password reset by email (link lands as `#token=…`; without email the page says it isn't available). |
-| `/t/:tenant` | Projects of the tenant; create one (source locale, authoring syntax, review requirement). The top bar switches tenants (personal and organizations) and creates organizations. |
+| `/t/:tenant` | Projects of the tenant; create one (source locale, authoring syntax, review requirement). The top bar switches tenants (personal and organizations) and creates organizations. Links to workspace settings. |
+| `/t/:tenant/settings/knowledge` | Workspace settings › Translation memory & termbase: the workspace's own memory and termbase, shared by every project — import TMX and TBX into them, export all of them, and their jobs. |
+| `/t/:tenant/settings/knowledge/imports/:job` | One import into the workspace's memory or termbase: its results, like a project import's. |
 | `…/p/:project/translate` | The translator workspace. Locale, filters and the selected key live in the query string, so a view can be bookmarked. |
 | `…/p/:project/review` | The review queue: pending AI suggestions riskiest first, triaged from the keyboard (`?locale=` narrows it). |
 | `…/p/:project/terms` | The termbase: concepts and their terms per locale with status; history. |
@@ -35,9 +37,9 @@ the jobs' history. See *Import and export* below.
 | `…/p/:project/settings` | Name, slug, syntax, review requirement, applications, delivery keys, delete. |
 | `…/p/:project/releases` | Environments, publish, promote, rollback, release list (see below). |
 | `…/p/:project/releases/:release` | One release: per-locale counts and the diff to its parent, promote. |
-| `…/p/:project/files` | Import & export: import and export history (state, requester, counts; cancel, download) for the project or the whole workspace; export a catalog, the translation memory (TMX) or the termbase (TBX). |
-| `…/p/:project/files/import` | The import wizard: file (drop or choose; format recognized, can be changed), options per format, mode, upload with progress. |
-| `…/p/:project/files/imports/:job` | One import: summary, per-item results with line and column, conflicts explained, “Apply this import” after a dry run. |
+| `…/p/:project/files` | Import & export: import and export history (state, requester, counts; cancel, download) for the project or the whole workspace; export a catalog, or the project's translation memory (TMX) or termbase (TBX). |
+| `…/p/:project/files/import` | The import wizard: file (drop or choose; format recognized, can be changed), options per format (an XLIFF file's target locale is chosen), mode, upload with progress. |
+| `…/p/:project/files/imports/:job` | One import: summary, per-item results with where each item is in the file (line, column, reference), conflicts explained, “Apply this import” after a dry run. |
 | `/account` | Every passkey of the person on any device (from `GET /v1/me/passkeys`: name, added, last used), removable after confirming; adding one where the server has passkeys; authenticator app (TOTP); sign out everywhere. While the person has no passkey and the server has passkeys, a banner promotes them. |
 
 The app shell carries the persistent **Public Beta** badge (Klarlabs
@@ -249,9 +251,15 @@ are in `src/styles/studio.css`.
   conflict (“the approved one is kept”) and changes nothing; *Apply this
   import* merges it — the new translation arrives with origin `import`,
   the approval stays — and the history lists both jobs. Then it exports
-  JSON for `en` and `de`, downloads the zip and checks both files in it
-  (the harness sets `GLOSSA_INTEGRATION_POLL_INTERVAL=200ms`). Axe runs on
-  the list, the wizard, the results and the export dialog.
+  JSON for `en` and `de` narrowed to a namespace chosen from the
+  project's, downloads the zip and checks both files in it (the harness
+  sets `GLOSSA_INTEGRATION_POLL_INTERVAL=200ms`); every result shows its
+  line, column and XLIFF reference. A second test imports an XLIFF file
+  whose `trgLang` (`de-CH`) the project lacks as `de`, chosen in the
+  wizard, then imports a TMX file into the workspace's memory on its own
+  screen (results with `tu[1]` and its line) and exports and downloads
+  the whole memory. Axe runs on the list, the wizard, the results, the
+  export dialog and the workspace screen.
 
   **No real AI provider is ever called.** The harness starts
   `e2e/fake-provider.ts`, an OpenAI-compatible `/chat/completions`
@@ -411,14 +419,19 @@ schemas in `integration-schemas.ts`), loaded with the screens that use it.
 
 - **Import wizard** (`i` on Import & export): drop or choose a file. The
   format is recognized by its extension, else by its first bytes, and can
-  be changed. Options per format: **XLIFF** shows the target locale the
-  file names (`trgLang`; none means the source only) and can read units
-  from other tools as ICU MessageFormat; **JSON** the file's locale (the
+  be changed. Options per format: **XLIFF** imports its translations as a
+  target locale of the project chosen in a picker (`options.locale`): the
+  file's `trgLang` by default when the project has it; a file whose
+  `trgLang` the project lacks (`de-CH` into a project with `de`), or that
+  names none, has to be given one before it can be sent (a file without
+  translations and without `trgLang` is a source catalog); it can read
+  units from other tools as ICU MessageFormat; **JSON** the file's locale (the
   source locale makes it a source catalog; guessed from names like
   `de.json`), syntax and namespace (flat and nested files are both read);
   **PO** the target locale (default: the file's `Language` header), the
   review state for entries without `fuzzy`, namespace and plural variable;
-  **TMX/TBX** this project or the whole workspace. Then the mode, each
+  **TMX/TBX** import into this project (the whole workspace's memory and
+  termbase have their own screen, below). Then the mode, each
   with what it does: **dry run** (the default: every check of a merge,
   nothing changes), **merge** (never replaces an approved translation, a
   differing source or concept: those are conflicts) and **overwrite**
@@ -435,8 +448,10 @@ schemas in `integration-schemas.ts`), loaded with the screens that use it.
   with the access the requester had when they asked.
 - **Results**: counts by status (created, updated, unchanged, conflict,
   invalid) and by kind, then every item in file order — filterable by
-  status and kind, paged — with line and column where the file has them
-  and why a conflict or an invalid item is one (“An approved translation
+  status and kind, paged — with where each item is in the file (line,
+  column and its reference in the format's own terms: an XLIFF fragment
+  identifier `#/f=…/u=…`, a JSON pointer, a PO `msgctxt`/`msgid`, `tu[n]`,
+  `conceptEntry[n]`) and why a conflict or an invalid item is one (“An approved translation
   differs; the approved one is kept.”). After a **dry run**, *Apply this
   import* runs the same file with the same options as a merge: the file
   the wizard sent is kept in memory for that; after a reload, you choose
@@ -445,8 +460,10 @@ schemas in `integration-schemas.ts`), loaded with the screens that use it.
   before) says nothing was applied again and links the earlier one.
 - **Export** (`x`; *Export translation memory (TMX)* on Import & export,
   *Export termbase (TBX)* on the termbase): format (`po` is import only),
-  locales (several make a zip), namespaces, review states, JSON layout and
-  syntax, TMX source and target locales, this project or the workspace.
+  locales (several make a zip), namespaces — chosen from the project's
+  own (`GET …/namespaces`, with their message counts, a page at a time;
+  none chosen means all) —, review states, JSON layout and syntax, TMX
+  source and target locales; TMX and TBX export this project's own.
   The job is followed until it's written; **Download** fetches the file
   with the session (never a bare link: it needs the cookie), names it from
   `Content-Disposition` and hands the blob to the browser.
@@ -455,6 +472,15 @@ schemas in `integration-schemas.ts`), loaded with the screens that use it.
   they refresh while any job is running. Running imports (they stop after
   the current batch) and queued exports can be cancelled; finished exports
   downloaded until retention deletes their file.
+- **The workspace's translation memory and termbase** (workspace
+  settings, `/t/:tenant/settings/knowledge`, linked from the projects
+  screen and Import & export) live outside any project, on the tenant's
+  own routes (`tm-import-jobs`, `termbase-import-jobs`, `tm-export-jobs`,
+  `termbase-export-jobs`): import a TMX or TBX file (dry run by default,
+  merge, overwrite after confirming; needs `integration.manage` and
+  `knowledge.write`, mirrored), export the whole memory (narrowed by a
+  source locale and target locales) or termbase and download it, and both
+  job lists. Its imports open on a results screen shared with projects.
 
 ## Layout
 
@@ -463,7 +489,7 @@ src/api/        generated contract types, client, zod schemas, endpoints, errors
 src/session/    session store, deployment facts (GET /v1/meta), permission mirror, names for principals
 src/lib/        pure logic: bcp47, fallback, diff, samples, preview, shortcuts, virtual, webauthn, releases, snippets, terms, confidence, money, style, integration, …
 src/components/ app shell, message list, editor, preview, QA, history, modal dialog, releases/*, assist/* (editor panes), knowledge/*, ai/*, integration/*, …
-src/views/      auth, projects, account, project/* (workspace, review queue, termbase, style guides, AI, locales, settings, releases, release detail, import & export, import wizard, import results)
+src/views/      auth, projects, account, project/* (workspace, review queue, termbase, style guides, AI, locales, settings, releases, release detail, import & export, import wizard, import results), workspace/* (workspace settings: translation memory & termbase files, their import results)
 src/strings.ts  every user-facing string, ready to become Glossa messages
 src/test/       component-test helpers: in-memory Releases, Knowledge, Intelligence and Integration ports, mounting a project screen
 e2e/            Playwright specs, the server harness and the fake AI provider with its cassette
