@@ -84,6 +84,19 @@ func Default() []Checker {
 	return []Checker{structure{}, arguments{}, completeness{}}
 }
 
+// Precomputed is a Checker reporting findings computed elsewhere, such
+// as the terminology layer, which asks the server.
+func Precomputed(name string, fs []Finding) Checker { return precomputed{name: name, findings: fs} }
+
+type precomputed struct {
+	name     string
+	findings []Finding
+}
+
+func (c precomputed) Name() string { return c.name }
+
+func (c precomputed) Check(*snapshot.Snapshot, Policy) []Finding { return c.findings }
+
 // LocaleReport summarizes one locale.
 type LocaleReport struct {
 	Code     string `json:"code"`

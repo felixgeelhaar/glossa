@@ -82,6 +82,7 @@ func commands() []command {
 		{"import", "Import from another system (--from v0: Glossa v0.3)", runImport},
 		{"release", "Publish, promote and roll back releases", runRelease},
 		{"tm", "Search the translation memory; list and retire units", runTM},
+		{"terms", "Manage the termbase; check translations against it", runTerms},
 	}
 }
 

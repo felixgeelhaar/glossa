@@ -8,6 +8,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/terminology"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 )
 
@@ -27,8 +28,9 @@ type checkJSON struct {
 }
 
 func runCheck(ctx context.Context, inv *invocation, args []string) error {
-	fs := inv.flags("check [--offline] [--require-complete=de,en|none] [--fail-on=error|warning]")
+	fs := inv.flags("check [--offline] [--terminology] [--require-complete=de,en|none] [--fail-on=error|warning]")
 	offline := fs.Bool("offline", false, "check the local catalogs instead of the server's project")
+	terms := fs.Bool("terminology", false, "also check the translations against the termbase (needs the server)")
 	require := fs.String("require-complete", "", "locales that must be complete (comma-separated, or none; default: glossa.yaml's check.require_complete, else all)")
 	failOn := fs.String("fail-on", "", "lowest severity that fails the check: error (default) or warning")
 	if _, err := inv.parse(fs, args); err != nil {
@@ -42,11 +44,22 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	if err != nil {
 		return err
 	}
-	s, label, err := inv.snapshot(ctx, cfg, *offline, snapshot.Options{})
-	if err != nil {
+	if *terms && *offline {
+		return usageError(inv.name, "--terminology checks against the server's termbase: drop --offline")
+	}
+	checkers := qa.Default()
+	var (
+		s     *snapshot.Snapshot
+		label string
+	)
+	if *terms {
+		if s, label, checkers, err = inv.terminologySnapshot(ctx, cfg, checkers); err != nil {
+			return err
+		}
+	} else if s, label, err = inv.snapshot(ctx, cfg, *offline, snapshot.Options{}); err != nil {
 		return err
 	}
-	report := qa.Run(s, policy, qa.Default()...)
+	report := qa.Run(s, policy, checkers...)
 	out := checkJSON{Schema: "glossa.cli.check/v1", Policy: policyJSON{RequireComplete: policy.RequireComplete, FailOn: string(policy.FailOn)}, Report: report}
 	if err := inv.emit(out, func(p *printer) { printCheck(p, label, report, s.SourceLocale) }); err != nil {
 		return err
@@ -109,6 +122,26 @@ func (inv *invocation) snapshot(ctx context.Context, cfg *config.Config, offline
 		return nil, "", inv.apiError(err, "can't read the project from the server")
 	}
 	return s, fmt.Sprintf("%s on %s", p.info.Slug, cfg.Server), nil
+}
+
+// terminologySnapshot reads the project from the server and adds the
+// terminology layer to checkers: every translation but rejected ones,
+// checked against the termbase.
+func (inv *invocation) terminologySnapshot(ctx context.Context, cfg *config.Config, checkers []qa.Checker) (*snapshot.Snapshot, string, []qa.Checker, error) {
+	p, err := inv.connectWith(ctx, cfg)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	s, err := snapshot.FromServer(ctx, p.client, p.scope, p.info.SourceLocale, snapshot.Options{})
+	if err != nil {
+		return nil, "", nil, inv.apiError(err, "can't read the project from the server")
+	}
+	report, err := inv.terminology(ctx, p, s, terminology.Options{})
+	if err != nil {
+		return nil, "", nil, err
+	}
+	label := fmt.Sprintf("%s on %s", p.info.Slug, cfg.Server)
+	return s, label, append(checkers, qa.Precomputed(terminology.CheckName, report.QA())), nil
 }
 
 func printCheck(p *printer, label string, r qa.Report, source string) {

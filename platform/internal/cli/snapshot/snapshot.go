@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 
 	mf "github.com/felixgeelhaar/glossa/messageformat"
@@ -233,6 +234,9 @@ type Reader interface {
 type Options struct {
 	// SkipTranslations reads only locales and messages.
 	SkipTranslations bool
+	// Locales limits the translations read to these target locales
+	// (empty: every locale).
+	Locales []string
 }
 
 // FromServer reads the project's active messages, locales and
@@ -271,7 +275,12 @@ func FromServer(ctx context.Context, r Reader, scope remote.Scope, sourceLocale 
 	}
 	targets := make([]string, 0, len(s.Translations))
 	for _, l := range s.TargetLocales() {
-		targets = append(targets, l.Code)
+		if len(opts.Locales) == 0 || slices.Contains(opts.Locales, l.Code) {
+			targets = append(targets, l.Code)
+		}
+	}
+	if len(targets) == 0 {
+		return s, nil
 	}
 	trs, err := r.ProjectTranslations(ctx, scope, targets, remote.TranslationFilter{MessageState: "active"})
 	if err != nil {
