@@ -2,8 +2,8 @@
 {{- $name := include "gp.componentName" (dict "root" $ "component" "postgres") -}}
 {{- $v := .Values.postgres -}}
 {{- $uid := include "gp.postgres.uid" . | int -}}
-# Postgres on 5432 for glossa-server, the migration and bootstrap Jobs
-# and the `helm test` Pod (NetworkPolicy).
+# Postgres on 5432 for glossa-server, the migration and bootstrap Jobs,
+# the backup Job and the `helm test` Pod (NetworkPolicy).
 apiVersion: v1
 kind: Service
 metadata:

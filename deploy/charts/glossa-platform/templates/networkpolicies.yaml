@@ -87,9 +87,10 @@ spec:
   egress: []
 {{- if .Values.minio.enabled }}
 ---
-# MinIO: S3 (9000) in from glossa-server, glossa-edge, the bootstrap Job
-# and the `helm test` Pod only; out to DNS only. The console (9001) takes
-# no traffic from other pods (kubectl port-forward still reaches it).
+# MinIO: S3 (9000) in from glossa-server, glossa-edge, the bootstrap Job,
+# the backup Job and the `helm test` Pod only; out to DNS only. The
+# console (9001) takes no traffic from other pods (kubectl port-forward
+# still reaches it).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -110,7 +111,7 @@ spec:
             matchExpressions:
               - key: app.kubernetes.io/component
                 operator: In
-                values: [server, edge, minio-bootstrap, minio-test]
+                values: [server, edge, minio-bootstrap, minio-test, minio-backup]
       ports:
         - port: 9000
           protocol: TCP
@@ -122,8 +123,10 @@ spec:
 {{- end }}
 {{- if .Values.postgres.enabled }}
 ---
-# Postgres: 5432 in from glossa-server, the migration and bootstrap Jobs
-# and the `helm test` Pod only; out to DNS only.
+# Postgres: 5432 in from glossa-server, the migration and bootstrap Jobs,
+# the backup Job and the `helm test` Pod only; out to DNS only. The
+# restore drill restores into its own throwaway Postgres and never
+# connects here.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -144,7 +147,7 @@ spec:
             matchExpressions:
               - key: app.kubernetes.io/component
                 operator: In
-                values: [server, migrate, postgres-bootstrap, postgres-test]
+                values: [server, migrate, postgres-bootstrap, postgres-backup, postgres-test]
       ports:
         - port: 5432
           protocol: TCP

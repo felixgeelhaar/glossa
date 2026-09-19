@@ -1,5 +1,6 @@
-# The in-namespace Postgres (postgres.enabled) and MinIO, so CI renders
-# the StatefulSet, the bootstrap hooks and both `helm test` Pods. No database.* Secret: the DSNs
+# The in-namespace Postgres (postgres.enabled) and MinIO with every backup
+# on, so CI renders the StatefulSet, the bootstrap hooks, the three backup
+# CronJobs and both `helm test` Pods. No database.* Secret: the DSNs
 # default to the in-namespace Postgres. Names are placeholders (RFC 2606).
 hosts:
   studio: app.example.com
@@ -36,7 +37,25 @@ postgres:
       recurring-job-group.longhorn.io/glossa-backup: enabled
   nodeSelector:
     kubernetes.io/os: linux
+backup:
+  enabled: true
+  rclone:
+    configSecretName: rclone-config
+  postgres:
+    remote: storagebox:db/glossa-platform
+    retentionDays: 14
+    role:
+      secretName: glossa-pg-backup
+  minio:
+    remote: storagebox:glossa-platform/minio
+  restoreTest:
+    nonEmptyTables: [tenants]
 networkPolicy:
+  egress:
+    backupRemote:
+      to:
+        - ipBlock:
+            cidr: 203.0.113.10/32
   extraIngress:
     postgres:
       - from:

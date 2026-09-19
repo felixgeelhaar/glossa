@@ -304,6 +304,10 @@ affinity:
 {{- required "postgres.app.secretName is required with postgres.enabled (existing Secret with glossa_app's password)" .Values.postgres.app.secretName -}}
 {{- end -}}
 
+{{- define "gp.backup.roleSecret" -}}
+{{- required "backup.postgres.role.secretName is required with backups on (existing Secret with the backup role's password)" .Values.backup.postgres.role.secretName -}}
+{{- end -}}
+
 {{/* A keyword/value DSN for the in-namespace Postgres; the password is a
      $(VAR) reference to an env var defined before it (Kubernetes expands
      it). Keyword/value rather than a URL: a password needs no percent-
@@ -345,6 +349,48 @@ affinity:
 
 {{/* The pod securityContext of the postgres image (alpine: uid/gid 70). */}}
 {{- define "gp.postgres.uid" -}}70{{- end -}}
+
+{{/* Is the component rendered? (backup CronJobs need their data source.) */}}
+{{- define "gp.backup.postgres.enabled" -}}
+{{- if and .Values.backup.enabled .Values.backup.postgres.enabled .Values.postgres.enabled }}true{{ end -}}
+{{- end -}}
+
+{{- define "gp.backup.minio.enabled" -}}
+{{- if and .Values.backup.enabled .Values.backup.minio.enabled .Values.minio.enabled }}true{{ end -}}
+{{- end -}}
+
+{{- define "gp.backup.restoreTest.enabled" -}}
+{{- if and (include "gp.backup.postgres.enabled" .) .Values.backup.restoreTest.enabled }}true{{ end -}}
+{{- end -}}
+
+{{/* An rclone remote path "<remote>:<path>"; the remote's root is refused,
+     because retention deletes below it. (dict "value" … "name" "…") */}}
+{{- define "gp.backup.remote" -}}
+{{- $v := required (printf "%s is required with backups on (an rclone remote path, e.g. storagebox:db/glossa-platform)" .name) .value -}}
+{{- if not (regexMatch "^[A-Za-z0-9_.-]+:[^/].*[^/]$|^[A-Za-z0-9_.-]+:[^/]$" $v) -}}
+{{- fail (printf "%s must be <remote>:<directory> without a leading or trailing /, never a remote's root (got %q)" .name $v) -}}
+{{- end -}}
+{{- $v -}}
+{{- end -}}
+
+{{/* rclone's environment and config Secret volume (mounted at /etc/rclone,
+     where rclone.conf's key_file and known_hosts_file point). */}}
+{{- define "gp.backup.rcloneEnv" -}}
+- name: RCLONE_CONFIG
+  value: /etc/rclone/{{ .Values.backup.rclone.configKey }}
+- name: RCLONE_CACHE_DIR
+  value: /tmp/rclone-cache
+- name: HOME
+  value: /tmp
+{{- end -}}
+
+{{- define "gp.backup.rcloneVolume" -}}
+- name: rclone-config
+  secret:
+    secretName: {{ required "backup.rclone.configSecretName is required with backup.enabled (Secret with rclone.conf and the keys it references)" .Values.backup.rclone.configSecretName }}
+    # Group-readable: the pod's fsGroup owns the files, the uid differs.
+    defaultMode: 0440
+{{- end -}}
 
 {{/* ── NetworkPolicy fragments ──────────────────────────────────── */}}
 
@@ -403,6 +449,11 @@ affinity:
 {{- else -}}
 {{- include "gp.np.egressRule" .Values.networkPolicy.egress.postgres -}}
 {{- end -}}
+{{- end -}}
+
+{{/* Egress to the rclone remote of the backups (outside the cluster). */}}
+{{- define "gp.np.backupRemoteEgress" -}}
+{{- include "gp.np.egressRule" .Values.networkPolicy.egress.backupRemote -}}
 {{- end -}}
 
 {{/* A NetworkPolicy for a hook pod: no ingress; egress to DNS plus the

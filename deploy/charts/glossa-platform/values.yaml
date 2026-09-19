@@ -264,6 +264,95 @@ postgres:
       limits:
         memory: 128Mi
 
+## ── Backups ───────────────────────────────────────────────────────
+## Nightly CronJobs to an rclone remote outside the cluster (Klarlabs: the
+## shared Hetzner Storage Box over SFTP): a pg_dump of the in-namespace
+## Postgres, a mirror of the MinIO bucket, and a weekly restore drill of
+## the newest dump. See README.md, "Backups".
+backup:
+  enabled: false
+  rclone:
+    image:
+      repository: docker.io/rclone/rclone
+      tag: 1.75.1
+      digest: sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5
+    # -- REQUIRED with backup.enabled. Existing Secret mounted at
+    # /etc/rclone: rclone.conf plus the files it references there (SSH key,
+    # known_hosts). The chart never creates it.
+    configSecretName: ""
+    configKey: rclone.conf
+  # -- History kept per CronJob.
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  postgres:
+    # -- Nightly pg_dump of the in-namespace Postgres (needs postgres.enabled).
+    enabled: true
+    schedule: "40 3 * * *"
+    # -- REQUIRED. rclone remote path for the dumps, e.g.
+    # storagebox:db/glossa-platform. Never a remote's root: retention
+    # deletes old dumps in it.
+    remote: ""
+    # -- Dumps older than this are deleted from the remote after each
+    # successful upload (only this release's own dump files).
+    retentionDays: 30
+    # -- A dedicated read-only role for pg_dump: LOGIN BYPASSRLS, member of
+    # pg_read_all_data, created by the bootstrap Job. (The owner cannot
+    # dump: FORCE ROW LEVEL SECURITY applies to it.)
+    role:
+      username: glossa_backup
+      # -- REQUIRED with backups on. Existing Secret with its password.
+      secretName: ""
+      passwordKey: password
+    backoffLimit: 2
+    activeDeadlineSeconds: 3600
+    # -- emptyDir for the compressed dump.
+    scratchSize: 2Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 512Mi
+  minio:
+    # -- Nightly mirror of the MinIO bucket (needs minio.enabled).
+    enabled: true
+    schedule: "50 3 * * *"
+    # -- REQUIRED. rclone remote path, e.g. storagebox:minio/glossa-platform.
+    # The bucket is mirrored to <remote>/current; objects deleted or
+    # overwritten since the last run move to <remote>/deleted/<timestamp>.
+    remote: ""
+    # -- How long <remote>/deleted/ keeps them.
+    deletedRetentionDays: 30
+    backoffLimit: 2
+    activeDeadlineSeconds: 3600
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 512Mi
+  restoreTest:
+    # -- Weekly drill: restore the newest dump into a throwaway Postgres in
+    # the Job's own pod and check it (never touches the live database).
+    enabled: true
+    schedule: "40 5 * * 0"
+    # -- Tables that must come back with at least one row. Empty: only
+    # schema checks (a new installation has no data yet).
+    nonEmptyTables: []
+    # -- The drill fails when the newest dump is older than this: the
+    # nightly backup has stopped.
+    maxDumpAgeHours: 48
+    backoffLimit: 1
+    activeDeadlineSeconds: 3600
+    # -- emptyDir for the dump and the throwaway data directory.
+    scratchSize: 4Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+
 ## ── Secrets of glossa-server ──────────────────────────────────────
 auth:
   # -- REQUIRED. Secret holding GLOSSA_AUTH_SECRET (base64 of ≥ 32 random bytes).
@@ -483,6 +572,13 @@ networkPolicy:
       to: []
       ports:
         - port: 4318
+          protocol: TCP
+    # -- The backup Jobs → the rclone remote (only with backup.enabled).
+    # 23 is the Hetzner Storage Box's SFTP port.
+    backupRemote:
+      to: []
+      ports:
+        - port: 23
           protocol: TCP
   # -- Extra ingress rules (NetworkPolicyIngressRule) per component.
   extraIngress:

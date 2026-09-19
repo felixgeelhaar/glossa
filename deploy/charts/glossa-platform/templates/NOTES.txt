@@ -19,6 +19,21 @@ Check that glossa_app cannot reach a superuser role:
 
 Migrations ran as the Job {{ include "gp.componentName" (dict "root" $ "component" "migrate") }} before the server started.
 {{- end }}
+{{- if .Values.backup.enabled }}
+
+Backups (UTC):
+{{- if include "gp.backup.postgres.enabled" . }}
+  {{ include "gp.componentName" (dict "root" $ "component" "postgres-backup") }}  "{{ .Values.backup.postgres.schedule }}"  → {{ .Values.backup.postgres.remote }}
+{{- end }}
+{{- if include "gp.backup.minio.enabled" . }}
+  {{ include "gp.componentName" (dict "root" $ "component" "minio-backup") }}     "{{ .Values.backup.minio.schedule }}"  → {{ .Values.backup.minio.remote }}/current
+{{- end }}
+{{- if include "gp.backup.restoreTest.enabled" . }}
+  {{ include "gp.componentName" (dict "root" $ "component" "postgres-restore-test") }}  "{{ .Values.backup.restoreTest.schedule }}"  restore drill
+{{- end }}
+Run the first backup now instead of waiting for the night:
+  kubectl -n {{ .Release.Namespace }} create job --from=cronjob/{{ include "gp.componentName" (dict "root" $ "component" (ternary "postgres-backup" "minio-backup" (not (not (include "gp.backup.postgres.enabled" .))))) }} first-backup
+{{- end }}
 
 {{- if .Values.minio.enabled }}
 
@@ -52,6 +67,7 @@ Invitations can't be accepted until email is configured.
 {{- $open := list }}
 {{- if not .Values.postgres.enabled }}{{ if not $np.egress.postgres.to }}{{ $open = append $open "postgres" }}{{ end }}{{ end }}
 {{- if not .Values.minio.enabled }}{{ if not $np.egress.objectStorage.to }}{{ $open = append $open "objectStorage" }}{{ end }}{{ end }}
+{{- if .Values.backup.enabled }}{{ if not $np.egress.backupRemote.to }}{{ $open = append $open "backupRemote" }}{{ end }}{{ end }}
 {{- if and $np.enabled $open }}
 
 NOTE: networkPolicy.egress.{{ join ".to / " $open }}.to is empty, so those

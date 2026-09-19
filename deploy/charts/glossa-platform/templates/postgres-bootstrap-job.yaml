@@ -2,6 +2,7 @@
 {{- $v := .Values.postgres -}}
 {{- $b := .Values.postgres.bootstrap -}}
 {{- $hook := include "gp.db.hook" . -}}
+{{- $backup := include "gp.backup.postgres.enabled" . -}}
 {{- $uid := include "gp.postgres.uid" . | int -}}
 {{- if .Values.networkPolicy.enabled }}
 # Created before the Jobs on every install and upgrade (hook resources
@@ -16,7 +17,7 @@
 ---
 # Postgres bootstrap, phase {{ $phase.name }} (files/postgres-bootstrap.sh):
 {{- if eq $phase.name "init" }}
-# the schema owner and the database, before the
+# the schema owner, the database and the backup role, before the
 # migration; glossa_app's password too once the role exists.
 {{- else }}
 # LOGIN and the password for glossa_app, which the migration just created.
@@ -70,6 +71,11 @@ spec:
               value: {{ $v.owner.username | quote }}
             {{- include "gp.secretEnv" (dict "name" "OWNER_PASSWORD" "secret" (include "gp.postgres.ownerSecret" $) "key" $v.owner.passwordKey) | nindent 12 }}
             {{- include "gp.secretEnv" (dict "name" "APP_PASSWORD" "secret" (include "gp.postgres.appSecret" $) "key" $v.app.passwordKey) | nindent 12 }}
+            {{- if and $backup (eq $phase.name "init") }}
+            - name: BACKUP_USER
+              value: {{ $.Values.backup.postgres.role.username | quote }}
+            {{- include "gp.secretEnv" (dict "name" "BACKUP_PASSWORD" "secret" (include "gp.backup.roleSecret" $) "key" $.Values.backup.postgres.role.passwordKey) | nindent 12 }}
+            {{- end }}
             - name: WAIT_SECONDS
               value: {{ $b.waitSeconds | quote }}
           resources:
