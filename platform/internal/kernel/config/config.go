@@ -99,6 +99,8 @@ type Config struct {
 	OTel                 OTel
 	Outbox               Outbox
 	Identity             Identity
+	Storage              Storage
+	Release              Release
 }
 
 // Identity configures authentication (the Identity context).
@@ -159,9 +161,9 @@ func decodeKey(s string) ([]byte, error) {
 // String renders the configuration with secrets redacted.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"database=%s migrate=%s http=%s log=%s shutdown=%s otel=%q outbox=%t",
+		"database=%s migrate=%s http=%s log=%s shutdown=%s otel=%q outbox=%t storage=%s",
 		c.DatabaseURL, c.Migrate, c.HTTP.Addr, c.LogLevel, c.ShutdownTimeout,
-		c.OTel.Endpoint, c.Outbox.Enabled,
+		c.OTel.Endpoint, c.Outbox.Enabled, c.Storage.Driver,
 	)
 }
 
@@ -172,16 +174,9 @@ func Load(lookup LookupFunc) (Config, error) {
 		DatabaseURL:          Secret{r.required("DATABASE_URL")},
 		MigrationDatabaseURL: Secret{r.str("MIGRATION_DATABASE_URL", "")},
 		Migrate:              r.migrateMode("GLOSSA_MIGRATE"),
-		HTTP: HTTP{
-			Addr:              r.str("GLOSSA_HTTP_ADDR", ":8080"),
-			ReadHeaderTimeout: r.duration("GLOSSA_HTTP_READ_HEADER_TIMEOUT", 5*time.Second),
-			ReadTimeout:       r.duration("GLOSSA_HTTP_READ_TIMEOUT", 30*time.Second),
-			WriteTimeout:      r.duration("GLOSSA_HTTP_WRITE_TIMEOUT", 30*time.Second),
-			IdleTimeout:       r.duration("GLOSSA_HTTP_IDLE_TIMEOUT", 120*time.Second),
-			MaxBodyBytes:      int64(r.intRange("GLOSSA_HTTP_MAX_BODY_BYTES", 1<<20, 1, 1<<30)),
-		},
-		LogLevel:        r.logLevel("GLOSSA_LOG_LEVEL"),
-		ShutdownTimeout: r.duration("GLOSSA_SHUTDOWN_TIMEOUT", 25*time.Second),
+		HTTP:                 r.http(":8080"),
+		LogLevel:             r.logLevel("GLOSSA_LOG_LEVEL"),
+		ShutdownTimeout:      r.duration("GLOSSA_SHUTDOWN_TIMEOUT", 25*time.Second),
 		OTel: OTel{
 			Endpoint:    r.str("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
 			ServiceName: r.str("OTEL_SERVICE_NAME", "glossa-server"),
@@ -196,6 +191,8 @@ func Load(lookup LookupFunc) (Config, error) {
 		},
 	}
 	cfg.Identity = r.identity()
+	cfg.Storage = r.storage()
+	cfg.Release = r.release()
 	cfg.validate(&r)
 	if len(r.errs) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %w", errors.Join(r.errs...))
