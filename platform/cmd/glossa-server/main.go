@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"runtime/debug"
 	"syscall"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
@@ -112,7 +113,9 @@ type app struct {
 	aiWorker *intelligenceapp.Worker
 	// integrationWorker runs import and export jobs; nil when disabled.
 	integrationWorker *integrationapp.Worker
-	shutdownTP        observability.ShutdownFunc
+	// keyIndexes is Release's key index task (see contexts).
+	keyIndexes func(context.Context) (int, error)
+	shutdownTP observability.ShutdownFunc
 }
 
 func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
@@ -164,7 +167,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger) (*app, e
 	})
 	return &app{
 		cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, aiWorker: bounded.aiWorker,
-		integrationWorker: bounded.integrationWorker, shutdownTP: shutdownTP,
+		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, shutdownTP: shutdownTP,
 	}, nil
 }
 
@@ -199,6 +202,7 @@ func (a *app) run(ctx context.Context) error {
 	dispatched := a.startDispatcher(dispatchCtx, errc)
 	worked := a.startWorker(dispatchCtx)
 	moved := a.startIntegrationWorker(dispatchCtx)
+	a.startKeyIndexTask(dispatchCtx)
 
 	var runErr error
 	select {
@@ -208,6 +212,40 @@ func (a *app) run(ctx context.Context) error {
 		a.logger.Error("component failed; shutting down", slog.Any("error", runErr))
 	}
 	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved))
+}
+
+// keyIndexRetry is how long the key index task waits after a failure.
+const keyIndexRetry = time.Minute
+
+// startKeyIndexTask runs Release's key index task in the background
+// until it succeeds once (every replica runs it; it is idempotent).
+// Until it has, the edge reads an index object without a scope as the
+// default environments, the scope those keys migrated to.
+func (a *app) startKeyIndexTask(ctx context.Context) {
+	if a.keyIndexes == nil {
+		return
+	}
+	go func() {
+		for {
+			n, err := a.keyIndexes(ctx)
+			if err == nil {
+				if n > 0 {
+					a.logger.InfoContext(ctx, "release: delivery key index objects rewritten", slog.Int("keys", n))
+				}
+				return
+			}
+			if ctx.Err() != nil {
+				return
+			}
+			a.logger.WarnContext(ctx, "release: delivery key index objects not rewritten yet; retrying",
+				slog.Any("error", err), slog.Duration("retry_in", keyIndexRetry))
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(keyIndexRetry):
+			}
+		}
+	}()
 }
 
 // startIntegrationWorker runs the import and export workers until ctx

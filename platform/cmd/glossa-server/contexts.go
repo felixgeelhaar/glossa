@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
@@ -78,6 +79,10 @@ type contexts struct {
 	// appear. It has no routes yet; its subscribers erase a deleted
 	// project's or application's context.
 	usageContext *contextapp.Service
+	// keyIndexes is Release's key index task: it rewrites the index
+	// objects of keys written before their current format (migration
+	// 0015 gave existing keys a scope).
+	keyIndexes func(context.Context) (int, error)
 }
 
 // contextDeps are what the contexts need beyond the database.
@@ -152,6 +157,8 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
 		previewAPI: previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),
 	}
+	scanner := releasepg.NewScanner(uow)
+	c.keyIndexes = func(ctx context.Context) (int, error) { return release.RewriteKeyIndexes(ctx, scanner) }
 	if deps.ai.WorkersEnabled {
 		c.aiWorker = intelligenceapp.NewWorker(intelligence, intelligencepg.NewClaimer(uow), intelligenceapp.WorkerConfig{
 			Workers: deps.ai.Workers, PollInterval: deps.ai.PollInterval, Lease: deps.ai.Lease, JobTimeout: deps.ai.JobTimeout,
