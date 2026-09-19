@@ -35,3 +35,12 @@ against the MF2 data-model schema, and every manifest and artifact against [`sch
 
 Each loading file starts with empty persisted storage. The Ed25519 key that signs these
 fixtures is a fixed, test-only key (seed in the generator); it signs nothing else.
+
+## `usages/` (context, RFC 0004 §2.1)
+
+This is the shared fixture suite for `@glossa/unplugin` and `glossa extract`: source trees, and the
+`glossa.usages/v1` document each tool must produce from them. These `expected.json` files are
+written by hand, unlike the generated files above. [`gen/check_usages.py`](./gen/check_usages.py)
+validates them. It also validates `schemas/usages.v1.schema.json`,
+`schemas/captures.v1.schema.json` and their [`examples/`](./schemas/examples). CI runs it next to
+`generate.py --check`. The contract itself is in [`usages/README.md`](./usages/README.md).

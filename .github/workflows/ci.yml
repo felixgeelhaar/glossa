@@ -128,6 +128,8 @@ jobs:
       - run: pip install jsonschema==4.26.0 cryptography==46.0.3
       - name: fixtures match their generator (runtimes/SPEC.md §7)
         run: python3 runtimes/testdata/gen/generate.py --check
+      - name: usage fixtures and context schemas agree (RFC 0004 §2.1)
+        run: python3 runtimes/testdata/gen/check_usages.py
 
   packages:
     name: JS workspaces
