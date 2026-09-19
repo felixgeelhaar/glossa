@@ -221,3 +221,11 @@ export const translations = {
       ),
     ),
 };
+
+// ── members (to name the people behind `person:<id>`) ─────────────────
+export const members = {
+  list: (tenant: string) =>
+    all((page_token) =>
+      value(read(client.GET("/v1/tenants/{tenant}/members", { params: { path: { tenant }, query: { page_size: PAGE, page_token } } }), S.page(S.Member))),
+    ),
+};

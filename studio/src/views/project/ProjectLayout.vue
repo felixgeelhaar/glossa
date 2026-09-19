@@ -70,7 +70,13 @@ const tabs = [
         <span class="current" aria-current="page">{{ project?.name ?? "…" }}</span>
       </nav>
       <nav :aria-label="strings.nav.projectSections" class="tabs">
-        <RouterLink v-for="t in tabs" :key="t.name" :to="{ name: t.name, params: { tenant, project: projectId } }" class="tab">
+        <RouterLink
+          v-for="t in tabs"
+          :key="t.name"
+          :to="{ name: t.name, params: { tenant, project: projectId } }"
+          class="tab"
+          :class="{ 'router-link-active': t.name === 'releases' && route.name === 'release' }"
+        >
           {{ t.label }}
         </RouterLink>
       </nav>

@@ -30,6 +30,7 @@ export const routes: RouteRecordRaw[] = [
           { path: "locales", name: "locales", component: () => import("./views/project/LocalesView.vue"), meta: { title: "Locales" } },
           { path: "settings", name: "settings", component: () => import("./views/project/SettingsView.vue"), meta: { title: "Settings" } },
           { path: "releases", name: "releases", component: () => import("./views/project/ReleasesView.vue"), meta: { title: "Releases" } },
+          { path: "releases/:release", name: "release", component: () => import("./views/project/ReleaseDetailView.vue"), meta: { title: "Release" } },
         ],
       },
       { path: ":pathMatch(.*)*", name: "not-found", component: () => import("./views/NotFoundView.vue"), meta: { title: "Not found" } },

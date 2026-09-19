@@ -1,92 +1,235 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch } from "vue";
-import { comingSoonReleases, RELEASES, type ReleaseSummary } from "../../api/releases";
+import { computed, ref, watch } from "vue";
+import { RouterLink } from "vue-router";
+import { useReleases } from "../../api/releases";
 import ErrorAlert from "../../components/ErrorAlert.vue";
+import { createReleaseBook } from "../../components/releases/book";
+import DeploymentsDialog from "../../components/releases/DeploymentsDialog.vue";
+import EnvironmentCard from "../../components/releases/EnvironmentCard.vue";
+import PolicyDialog from "../../components/releases/PolicyDialog.vue";
+import PromoteDialog from "../../components/releases/PromoteDialog.vue";
+import PublishDialog from "../../components/releases/PublishDialog.vue";
+import RollbackDialog from "../../components/releases/RollbackDialog.vue";
+import { servingMap } from "../../lib/releases";
+import { useShortcuts } from "../../lib/shortcuts";
+import { absoluteTime, relativeTime } from "../../lib/time";
 import { allows } from "../../session/permissions";
+import { usePeople } from "../../session/people";
 import { strings } from "../../strings";
 import { useProject } from "./context";
 
-const port = inject(RELEASES, comingSoonReleases);
+const port = useReleases();
 const { tenant, projectId, grant } = useProject();
 const s = strings.releases;
-const available = port.availability === "available";
+const c = s.columns;
+const project = () => ({ tenant: tenant.value, project: projectId.value });
 const canPublish = computed(() => allows(grant.value, "releases.publish"));
+const person = usePeople(() => tenant.value);
+const book = createReleaseBook(port, project);
+const serving = computed(() => servingMap(book.environments.value));
+const releaseRoute = (id: string) => ({ name: "release", params: { tenant: tenant.value, project: projectId.value, release: id } });
 
-const list = ref<ReleaseSummary[]>([]);
 const error = ref<unknown>(null);
-const busy = ref(false);
+const status = ref("");
 
 async function load(): Promise<void> {
-  if (!available) return;
+  error.value = null;
   try {
-    list.value = await port.list({ tenant: tenant.value, project: projectId.value });
+    await book.load();
   } catch (e) {
     error.value = e;
   }
 }
 watch(projectId, load, { immediate: true });
 
-async function publish(): Promise<void> {
-  busy.value = true;
-  error.value = null;
+async function more(): Promise<void> {
   try {
-    await port.publish({ tenant: tenant.value, project: projectId.value });
-    await load();
+    await book.more();
   } catch (e) {
     error.value = e;
-  } finally {
-    busy.value = false;
   }
 }
+
+// ── dialogs ─────────────────────────────────────────────────────────
+type Dialog =
+  | { kind: "publish"; environment?: string | undefined }
+  | { kind: "promote"; environment?: string | undefined; releaseId?: string | undefined }
+  | { kind: "rollback" | "history" | "policy"; environment: string };
+const dialog = ref<Dialog | null>(null);
+const envOf = (d: Dialog | null) => (d && "environment" in d ? d.environment ?? "" : "");
+
+function open(d: Dialog): void {
+  status.value = "";
+  dialog.value = d;
+}
+function close(): void {
+  dialog.value = null;
+}
+async function changed(message: string): Promise<void> {
+  dialog.value = null;
+  status.value = message;
+  await load();
+}
+
+useShortcuts({
+  publish: () => {
+    if (!canPublish.value || !book.loaded.value) return false;
+    open({ kind: "publish" });
+  },
+});
 </script>
 
 <template>
   <div class="page stack">
-    <h1>{{ s.title }}</h1>
-    <section v-if="!available" class="card stack soon" aria-labelledby="soon-h" data-testid="releases-coming-soon">
-      <div class="row">
-        <h2 id="soon-h">{{ s.comingSoonTitle }}</h2>
-        <span class="pill pill-accent">{{ s.comingSoon }}</span>
+    <div class="page-header">
+      <div class="stack-sm">
+        <h1>{{ s.title }}</h1>
+        <p class="muted lead">{{ s.lead }}</p>
       </div>
-      <p>{{ s.comingSoonLead }}</p>
-      <ul>
-        <li v-for="item in s.planned" :key="item">{{ item }}</li>
-      </ul>
-      <p class="muted">{{ s.meanwhile }}</p>
+      <button v-if="canPublish" type="button" class="btn btn-primary" :disabled="!book.loaded.value" aria-keyshortcuts="p" @click="open({ kind: 'publish' })">
+        {{ s.publish }}
+      </button>
+    </div>
+    <p v-if="!canPublish" class="alert" data-testid="releases-read-only">{{ s.readOnly }}</p>
+    <ErrorAlert :error="error" />
+    <p v-if="status" class="alert alert-ok" role="status" data-testid="releases-status">{{ status }}</p>
+
+    <section class="stack" aria-labelledby="envs-h">
+      <h2 id="envs-h">{{ s.environments }}</h2>
+      <p v-if="!book.loaded.value && !error" class="muted" role="status">{{ strings.app.loading }}</p>
+      <div class="envs">
+        <EnvironmentCard
+          v-for="e in book.environments.value"
+          :key="e.name"
+          :env="e"
+          :release="book.byId.value.get(e.current_release_id ?? '')"
+          :latest="book.latest.value.get(e.name)"
+          :can-publish="canPublish"
+          :person="person"
+          :release-route="releaseRoute"
+          @promote="open({ kind: 'promote', environment: e.name })"
+          @rollback="open({ kind: 'rollback', environment: e.name })"
+          @history="open({ kind: 'history', environment: e.name })"
+          @policy="open({ kind: 'policy', environment: e.name })"
+        />
+      </div>
     </section>
-    <template v-else>
-      <ErrorAlert :error="error" />
-      <div v-if="canPublish"><button type="button" class="btn btn-primary" :disabled="busy" @click="publish">{{ s.publish }}</button></div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">{{ s.columns.release }}</th>
-            <th scope="col">{{ s.columns.created }}</th>
-            <th scope="col">{{ s.columns.environments }}</th>
-            <th scope="col">{{ s.columns.locales }}</th>
-            <th scope="col">{{ s.columns.messages }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="r in list" :key="r.id">
-            <td>{{ r.name }}</td>
-            <td><time :datetime="r.createdAt">{{ new Date(r.createdAt).toLocaleString() }}</time></td>
-            <td>{{ r.environments.join(", ") }}</td>
-            <td>{{ r.locales }}</td>
-            <td>{{ r.messages }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </template>
+
+    <section class="stack" aria-labelledby="rels-h">
+      <h2 id="rels-h">{{ s.releases }}</h2>
+      <p v-if="book.loaded.value && !book.releases.value.length" class="muted">{{ s.noReleases }}</p>
+      <div v-else-if="book.releases.value.length" class="scroll">
+        <table class="table" data-testid="release-list">
+          <thead>
+            <tr>
+              <th scope="col">{{ c.release }}</th>
+              <th scope="col">{{ c.builtFor }}</th>
+              <th scope="col">{{ c.serving }}</th>
+              <th scope="col" class="num">{{ c.locales }}</th>
+              <th scope="col" class="num">{{ c.messages }}</th>
+              <th scope="col">{{ c.note }}</th>
+              <th scope="col">{{ c.published }}</th>
+              <th v-if="canPublish" scope="col"><span class="visually-hidden">{{ c.actions }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in book.releases.value" :key="r.id">
+              <th scope="row">
+                <RouterLink :to="releaseRoute(r.id)">{{ s.version(r.version) }}</RouterLink>
+              </th>
+              <td>{{ r.environment }}</td>
+              <td>
+                <span v-for="env in serving.get(r.id) ?? []" :key="env" class="pill pill-accent">{{ env }}</span>
+              </td>
+              <td class="num">{{ r.locales.length }}</td>
+              <td class="num">{{ r.counts.messages.toLocaleString() }}</td>
+              <td class="note">{{ r.note }}</td>
+              <td>
+                <time :datetime="r.created_at" :title="absoluteTime(r.created_at)">{{ relativeTime(r.created_at) }}</time>
+                <span class="muted"> · {{ person(r.author) }}</span>
+              </td>
+              <td v-if="canPublish" class="actions">
+                <button type="button" class="btn btn-sm" @click="open({ kind: 'promote', releaseId: r.id })">
+                  {{ s.promote }}<span class="visually-hidden">{{ s.ofRelease(s.version(r.version)) }}</span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-if="book.hasMore.value"><button type="button" class="btn" @click="more">{{ s.loadMore }}</button></div>
+    </section>
+
+    <PublishDialog
+      :open="dialog?.kind === 'publish'"
+      :port="port"
+      :project="project()"
+      :book="book"
+      :environment="dialog?.kind === 'publish' ? dialog.environment : undefined"
+      @close="close"
+      @published="load"
+    />
+    <PromoteDialog
+      :open="dialog?.kind === 'promote'"
+      :port="port"
+      :project="project()"
+      :book="book"
+      :environment="dialog?.kind === 'promote' ? dialog.environment : undefined"
+      :release-id="dialog?.kind === 'promote' ? dialog.releaseId : undefined"
+      @close="close"
+      @done="changed"
+    />
+    <RollbackDialog
+      :open="dialog?.kind === 'rollback'"
+      :port="port"
+      :project="project()"
+      :book="book"
+      :environment="envOf(dialog)"
+      @close="close"
+      @done="changed"
+    />
+    <PolicyDialog :open="dialog?.kind === 'policy'" :port="port" :project="project()" :environment="envOf(dialog)" @close="close" @done="changed" />
+    <DeploymentsDialog
+      :open="dialog?.kind === 'history'"
+      :port="port"
+      :project="project()"
+      :book="book"
+      :environment="envOf(dialog)"
+      :person="person"
+      :release-route="releaseRoute"
+      @close="close"
+    />
   </div>
 </template>
 
 <style scoped>
-.soon {
+.lead {
   max-inline-size: var(--kl-content-md);
 }
-.soon ul {
-  margin: 0;
-  padding-inline-start: var(--kl-space-5);
+.envs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--kl-space-4);
+}
+.envs > * {
+  display: flex;
+  flex-direction: column;
+}
+.scroll {
+  overflow-x: auto;
+}
+.num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+.note {
+  max-inline-size: 18rem;
+  overflow-wrap: anywhere;
+}
+.actions {
+  text-align: end;
+}
+td .pill + .pill {
+  margin-inline-start: var(--kl-space-1);
 }
 </style>

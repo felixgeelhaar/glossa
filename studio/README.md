@@ -43,6 +43,7 @@ from `src/lib/shortcuts.ts`, and a unit test keeps this table in step.
 | `Esc` | Leave the editor, back to the message list | Translation editor |
 | `⌘ Enter` / `Ctrl Enter` | Save the translation | Translation editor |
 | `⌘ ⇧ Enter` / `Ctrl Shift Enter` | Save and approve | Translation editor |
+| `p` | Publish a release | Releases |
 
 The message list is a WAI-ARIA listbox, so `↑`, `↓`, `Home`, `End`,
 `PageUp` and `PageDown` work in it too. Single-key shortcuts never fire

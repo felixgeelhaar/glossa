@@ -5,7 +5,7 @@
  */
 import { onBeforeUnmount, onMounted } from "vue";
 
-export type ShortcutId = "help" | "search" | "next" | "prev" | "edit" | "leave" | "save" | "saveApprove";
+export type ShortcutId = "help" | "search" | "next" | "prev" | "edit" | "leave" | "save" | "saveApprove" | "publish";
 
 export interface Shortcut {
   id: ShortcutId;
@@ -13,7 +13,7 @@ export interface Shortcut {
   keys: string[];
   description: string;
   /** Where it applies. */
-  context: "Everywhere" | "Translator workspace" | "Translation editor";
+  context: "Everywhere" | "Translator workspace" | "Translation editor" | "Releases";
   /** Fires while focus is in a text field (only chords with a modifier or Escape do). */
   inText: boolean;
   match: (e: KeyboardEvent) => boolean;
@@ -55,6 +55,10 @@ export const SHORTCUTS: readonly Shortcut[] = [
   {
     id: "saveApprove", keys: ["Mod", "Shift", "Enter"], description: "Save and approve", context: "Translation editor",
     inText: true, match: (e) => e.key === "Enter" && mod(e) && e.shiftKey && !e.altKey,
+  },
+  {
+    id: "publish", keys: ["p"], description: "Publish a release", context: "Releases", inText: false,
+    match: (e) => e.key === "p" && plain(e) && !e.shiftKey,
   },
 ];
 

@@ -26,6 +26,7 @@ describe("matchShortcut", () => {
     [{ key: "Enter", ctrlKey: true }, "save"],
     [{ key: "Enter", ctrlKey: true, shiftKey: true }, "saveApprove"],
     [{ key: "Enter", metaKey: true, shiftKey: true }, "saveApprove"],
+    [{ key: "p" }, "publish"],
   ])("%j → %s", (init, id) => {
     expect(matchShortcut(key(init), all)?.id).toBe(id);
   });

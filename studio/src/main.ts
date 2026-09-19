@@ -6,7 +6,7 @@ import "./styles/studio.css";
 import { createApp } from "vue";
 import App from "./App.vue";
 import { onSessionExpired } from "./api/client";
-import { comingSoonReleases, RELEASES } from "./api/releases";
+import { apiReleases, RELEASES } from "./api/releases";
 import { createStudioRouter } from "./router";
 import { sessionExpired } from "./session/session";
 
@@ -21,8 +21,7 @@ onSessionExpired(() => {
 
 createApp(App)
   .use(router)
-  // Swap for the API adapter when the /v1 release endpoints land.
-  .provide(RELEASES, comingSoonReleases)
+  .provide(RELEASES, apiReleases)
   .mount("#app");
 
 /** The design system wants an explicit theme; kl-theme-toggle persists the choice under "kl-theme". */
