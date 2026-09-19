@@ -1074,8 +1074,9 @@ Go packages live in `internal/context/`; their names (`domain`, `app`,
 `postgres`, `catalog`) never clash with the standard library's
 `context`, and callers alias them `contextapp`, `contextpg` and so on.
 Its HTTP edge is `adapters/httpapi` (the Context API below), its
-Prometheus metrics `adapters/metrics`; Intelligence reads it through
-its own port (`sources.Usages`).
+Prometheus metrics `adapters/metrics`, its image normalizer
+`adapters/imaging`; Intelligence reads it through its own port
+(`sources.Usages`).
 
 - A **build** is one upload for one application at one commit: branch,
   whether that branch is the repository's default, source (`plugin`,
@@ -1094,7 +1095,8 @@ its own port (`sources.Usages`).
   rendered on it, resolved like usages.
 - Limits (§10): a document of at most 20 MB and 100 000 usages; 500
   captures per build (held under an advisory lock on the build); 10 000
-  regions per capture; images of at most 40 megapixels.
+  regions per capture; images of at most 10 MB and 40 megapixels; a
+  capture upload (manifest and images) of at most 200 MB.
 
 `IngestUsages` takes a `glossa.usages/v1` document
 (`domain.UsagesDocument`; field names exactly as RFC 0004 §2.2) and the
@@ -1112,7 +1114,8 @@ Catalog's `settings.default_branch` (`main` unless set), read through
 the port at ingest — never the uploader's say; a later change of the
 setting leaves existing builds as they were. Uploads go through a
 per-tenant `Limiter` (the kernel's token bucket: 10 a minute, bursts of
-60). `IngestCapture` adds a capture to a build of the project. Both need
+60). `IngestCapture` adds a capture to a build of the project;
+`IngestCaptures` (below) stores a whole capture upload. They need
 `catalog.write` (developers, `write` tokens: CI) and publish
 `context.build.ingested` (`build_id`, `project_id`, `application_id`,
 `commit`, `branch`, `on_default_branch`, `source`, `usages`,
@@ -1136,6 +1139,40 @@ first, with their unknown keys; `UnusedMessages` lists the active
 messages without a current usage — reported, never obsoleted. Reads
 need `catalog.read`.
 
+**Captures** (§3.2–§3.3). `glossa capture --upload` sends a
+`glossa.captures/v1` manifest with its images; `domain.ParseCaptures`
+validates the manifest by `captures.v1.schema.json`'s rules like a
+usages document (`schema_test.go` holds it to the schema, deviations
+listed: undefined members ignored; viewports over 10 000 CSS pixels and
+images over 40 megapixels refused; every region `index` must name an
+entry of its render log). Region boxes are stored as the whole pixels
+that cover the measured box; a region found through the render log
+takes that entry's key. Its digest is the SHA-256 of the manifest's RFC
+8785 canonical form. `IngestCaptures` then reads the image parts one at
+a time (`ImageParts`): each must name an image of the manifest, once,
+and every image needs a part. The `ImageNormalizer` port
+(`adapters/imaging`) spools a part to a temporary file while hashing it
+(at most 10 MB; its SHA-256 must be its name), refuses anything but a
+PNG of at most 40 megapixels from the header alone, and decodes and
+re-encodes the pixels with `image/png` — no chunk of the upload
+survives, and the same pixels always encode to the same bytes. Decoding
+is a bulkhead (2 images at once per process). The width and height must
+be the manifest's. The re-encoded image is stored in object storage
+(the `Objects` port, `objectstore.StreamStore`) at
+`context/<tenant>/<project>/img/<sha256>.png` unless that key exists
+(dedupe across builds and within an upload); then one unit of work
+stores a build of source `capture` (default branch from Catalog, as for
+usages) with its captures and regions, keys resolved at ingest (unknown
+ones kept with a null ID and listed), and publishes
+`context.build.ingested` and a `context.capture.ingested` per capture.
+It is idempotent by (application, commit, source, manifest digest): a
+repeat is a replay that reads no image. Images are stored before the
+rows, so a failed unit of work leaves at most unreferenced objects the
+next upload of the same pixels reuses. `CapturesOfKey` lists a message's
+current captures (views as for usages) with only its regions;
+`CaptureImage` reads an image through the service (`ErrCaptureNotFound`
+across projects and tenants, or when retention removed it).
+
 **The Context API** (`api/openapi.yaml`, tag `context`):
 
 | Operation | What |
@@ -1145,6 +1182,9 @@ need `catalog.read`.
 | `GET …/messages/{message}/usages[?branch=&limit=]` | A message's current usages (`truncated` past `limit`, 1–1000). |
 | `GET …/usages[?route=&component=&file=&branch=]` | The current usages matching, by build and position. |
 | `GET …/unused-messages[?branch=]` | The active messages without a usage, by key, with `current_builds`, `active_messages` and `unused_messages`. |
+| `POST …/projects/{project}/captures` | A capture upload, `multipart/form-data`: the `manifest` part (`glossa.captures/v1`), then one `image/png` part per distinct image named by its lowercase hex SHA-256. The route lifts the body limit to 200 MB (10-minute read deadline); parts stream into the service. `201` `{build, captures, images_stored, images_deduplicated, unknown_keys}`, or `200` + `Idempotent-Replayed` for the same manifest. `invalid_request` (not multipart), `invalid_captures`, `too_many_captures`, `too_many_regions`, `invalid_image`, `unknown_application` (400), `payload_too_large`, `image_too_large` (413), `rate_limited` (429, shared with usage uploads), `storage_unavailable` (503). `remote.UploadCaptures` is the CLI's call. |
+| `GET …/messages/{message}/captures[?branch=&limit=]` | A message's current captures with its regions (kind, box, visible), route, viewport, locale and image (digest, size, API path). |
+| `GET …/captures/{capture}/image` | The re-encoded PNG through the API — never a presigned or public URL — with `ETag` = its digest (`If-None-Match` → `304`) and `Cache-Control: private, max-age=31536000, immutable`. |
 
 **Metrics** (RFC 0004 §11): `glossa_context_builds_total{source,
 outcome}` (stored, replayed), `glossa_context_usages_ingested_total`
@@ -1154,18 +1194,29 @@ messages with a current default-branch usage, measured by the
 subscriber `context.measure_coverage` (background principal, catalog
 read) after every default-branch build and by every default-view
 `UnusedMessages` read. Each instance reports what it measured last;
-take the max across instances.
+take the max across instances. Capture uploads add
+`glossa_context_captures_ingested_total{tenant}`,
+`glossa_context_regions_ingested_total{tenant}`,
+`glossa_context_capture_images_total{tenant, outcome}` (stored,
+deduplicated), `glossa_context_capture_bytes_stored_total{tenant}` (the
+re-encoded bytes written) and, measured by the same subscriber,
+`glossa_context_capture_coverage_ratio{tenant, project}`: the share of
+active messages with a visible region on a current default-branch
+capture.
 
 **Retention** (`domain.RetentionPolicy`, §2.3): per (application,
 branch, source) the latest 5 builds are kept, plus every current one; a
 closed branch's builds go 14 days after it closed (default-branch builds
 never do). `PurgeProject` applies it and returns the deleted builds and
-the images no remaining capture references, for the caller to delete
-from object storage. `Purge` visits every project holding builds through
-the system scope `context.retention` (migration 0012 opens only
+the images no remaining capture references, which it deletes from object
+storage (a failure is logged and reported; the rest go on). `Purge`
+visits every project holding builds through the system scope `context.retention` (migration 0012 opens only
 `context_builds.tenant_id` and `project_id` to `glossa_system`) and
 purges each in its tenant as the background principal `context.purge`.
-Scheduling it daily, and deleting images, come with the purge jobs
+A deleted project's images go first, then its rows (so a redelivery
+finds them again); a deleted application's images go when no other
+capture of the project references them. Scheduling the purge daily
+comes with the purge jobs
 (RFC 0004 §13, wave 7). Closed branches come from Catalog's branch
 overlay (§4.1); until then the port reports none.
 
@@ -1187,8 +1238,13 @@ pages, co-located messages, unused messages, the upload limit, metrics
 and coverage, captures and their limit, retention with orphaned images,
 the cross-tenant sweep and tenant isolation; `adapters/httpapi` (routes,
 problem codes); `cmd/glossa-server` runs the API over HTTP with a write
-token (uploads, replays, refusals, reads, the coverage metric) and
-checks the composition.
+token (uploads, replays, refusals, reads, the coverage metric), the
+Captures API over multipart (uploads, replays, refusals, captures per
+message, the image with its ETag and 304, the capture metrics) and
+checks the composition; `adapters/imaging` (re-encoding without
+metadata, dedupe of the same pixels, refusals, nothing left on disk);
+the CLI's real-server loop uploads captures with
+`remote.UploadCaptures` against MinIO.
 
 ## Message preview
 
