@@ -164,6 +164,44 @@ func TestLoadOverrides(t *testing.T) {
 	}
 }
 
+func TestIntegrationConfig(t *testing.T) {
+	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
+	cfg, err := config.Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := cfg.Integration
+	if !in.WorkersEnabled || in.Workers != 1 || in.PollInterval != time.Second || in.JobTimeout != 30*time.Minute ||
+		in.Lease != 35*time.Minute || in.MaxUploadBytes != 64<<20 || in.UploadTimeout != 10*time.Minute ||
+		in.Retention != 7*24*time.Hour {
+		t.Errorf("defaults = %+v", in)
+	}
+	over := map[string]string{
+		"GLOSSA_INTEGRATION_WORKERS_ENABLED": "false", "GLOSSA_INTEGRATION_WORKERS": "3",
+		"GLOSSA_INTEGRATION_JOB_TIMEOUT": "5m", "GLOSSA_INTEGRATION_JOB_LEASE": "6m",
+		"GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES": "1048576", "GLOSSA_INTEGRATION_UPLOAD_TIMEOUT": "1m",
+		"GLOSSA_INTEGRATION_RETENTION": "24h",
+	}
+	for k, v := range base {
+		over[k] = v
+	}
+	if cfg, err = config.Load(env(over)); err != nil {
+		t.Fatal(err)
+	}
+	in = cfg.Integration
+	if in.WorkersEnabled || in.Workers != 3 || in.JobTimeout != 5*time.Minute || in.Lease != 6*time.Minute ||
+		in.MaxUploadBytes != 1<<20 || in.UploadTimeout != time.Minute || in.Retention != 24*time.Hour {
+		t.Errorf("overrides = %+v", in)
+	}
+	over["GLOSSA_INTEGRATION_JOB_LEASE"] = "5m"
+	over["GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES"] = "0"
+	_, err = config.Load(env(over))
+	if err == nil || !strings.Contains(err.Error(), "GLOSSA_INTEGRATION_JOB_LEASE") ||
+		!strings.Contains(err.Error(), "GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES") {
+		t.Errorf("invalid integration settings: %v", err)
+	}
+}
+
 func TestIntelligenceConfig(t *testing.T) {
 	cfg, err := config.Load(env(map[string]string{
 		"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret,

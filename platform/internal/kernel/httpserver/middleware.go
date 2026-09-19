@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 )
@@ -34,9 +35,26 @@ func recoverPanics(logger *slog.Logger) func(http.Handler) http.Handler {
 
 // limitBody caps request bodies: a declared oversize body is refused
 // up front; an undeclared one fails with *http.MaxBytesError on read.
-func limitBody(limit int64) func(http.Handler) http.Handler {
+// Requests large names get their policy's limit (none when it is 0:
+// the handler enforces its own while it streams), and read and write
+// deadlines in place of the server's timeouts (best effort: a writer
+// that can't set deadlines keeps the server's).
+func limitBody(def int64, large func(*http.Request) (BodyPolicy, bool)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			limit := def
+			if large != nil {
+				if p, ok := large(r); ok {
+					rc, deadline := http.NewResponseController(w), time.Now().Add(p.Timeout)
+					_ = rc.SetReadDeadline(deadline)
+					_ = rc.SetWriteDeadline(deadline)
+					if p.MaxBytes <= 0 {
+						next.ServeHTTP(w, r)
+						return
+					}
+					limit = p.MaxBytes
+				}
+			}
 			if r.ContentLength > limit {
 				problem.Write(w, http.StatusRequestEntityTooLarge,
 					fmt.Sprintf("request body exceeds %d bytes", limit))

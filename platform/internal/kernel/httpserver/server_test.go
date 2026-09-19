@@ -144,6 +144,44 @@ func TestBodyLimit(t *testing.T) {
 	}
 }
 
+// Routes that stream files (uploads) get their own body limit.
+func TestLargeBodyRoutes(t *testing.T) {
+	h := httpserver.New(httpConfig(), httpserver.Deps{
+		Logger: slog.New(slog.DiscardHandler), Registry: observability.NewRegistry(),
+		Routes: func(mux *http.ServeMux) {
+			mux.HandleFunc("PUT /files/{name}", func(w http.ResponseWriter, r *http.Request) {
+				if _, err := io.ReadAll(r.Body); err != nil {
+					problem.Write(w, http.StatusRequestEntityTooLarge, "too big")
+					return
+				}
+				w.WriteHeader(http.StatusNoContent)
+			})
+		},
+		LargeBodies: func(r *http.Request) (httpserver.BodyPolicy, bool) {
+			if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/files/") {
+				max := int64(100)
+				if r.URL.Path == "/files/streamed" {
+					max = 0 // the handler enforces its own
+				}
+				return httpserver.BodyPolicy{MaxBytes: max, Timeout: time.Minute}, true
+			}
+			return httpserver.BodyPolicy{}, false
+		},
+	}).Handler()
+	if rec := do(t, h, http.MethodPut, "/files/streamed", strings.NewReader(strings.Repeat("x", 1000))); rec.Code != http.StatusNoContent {
+		t.Errorf("a route that enforces its own limit: status %d", rec.Code)
+	}
+	if rec := do(t, h, http.MethodPut, "/files/a", strings.NewReader(strings.Repeat("x", 64))); rec.Code != http.StatusNoContent {
+		t.Errorf("64 bytes under a 100-byte route limit: status %d", rec.Code)
+	}
+	if rec := do(t, h, http.MethodPut, "/files/a", strings.NewReader(strings.Repeat("x", 101))); rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("over the route limit: status %d", rec.Code)
+	}
+	if rec := do(t, h, http.MethodPost, "/files/a", strings.NewReader(strings.Repeat("x", 64))); rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("other routes keep the default limit: status %d", rec.Code)
+	}
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	rec := do(t, newServer(t, nil, nil).Handler(), http.MethodGet, "/livez", nil)
 	if rec.Header().Get("X-Content-Type-Options") != "nosniff" {

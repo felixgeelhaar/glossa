@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"sync/atomic"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -43,6 +44,20 @@ type Deps struct {
 	Readiness []Check
 	// Routes registers the bounded contexts' handlers.
 	Routes func(mux *http.ServeMux)
+	// LargeBodies names the requests that stream files (uploads,
+	// downloads) and the policy they get instead of the defaults; nil
+	// means none.
+	LargeBodies func(r *http.Request) (BodyPolicy, bool)
+}
+
+// BodyPolicy replaces the default body limit and read/write timeouts
+// for a request that streams a file.
+type BodyPolicy struct {
+	// MaxBytes bounds the request body; 0 leaves it to the handler,
+	// which enforces its own limit while it streams.
+	MaxBytes int64
+	// Timeout is the read and write deadline, from the request's start.
+	Timeout time.Duration
 }
 
 // Server is the configured HTTP server.
@@ -97,7 +112,7 @@ func (s *Server) chain(mux http.Handler, cfg config.HTTP, deps Deps) http.Handle
 	metrics := observability.NewHTTPMetrics(deps.Registry)
 
 	var h http.Handler = mux
-	h = limitBody(cfg.MaxBodyBytes)(h)
+	h = limitBody(cfg.MaxBodyBytes, deps.LargeBodies)(h)
 	h = securityHeaders(h)
 	h = recoverPanics(s.logger)(h)
 	h = observability.AccessLog(s.logger, metrics)(h)

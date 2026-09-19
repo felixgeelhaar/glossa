@@ -102,6 +102,28 @@ type Config struct {
 	Storage              Storage
 	Release              Release
 	Intelligence         Intelligence
+	Integration          Integration
+}
+
+// Integration configures the import and export jobs (RFC 0003 §5–§6):
+// the workers that run in glossa-server, uploads and retention.
+type Integration struct {
+	// WorkersEnabled runs import/export workers in this process.
+	WorkersEnabled bool
+	// Workers is the number of jobs this process runs at once.
+	Workers      int
+	PollInterval time.Duration
+	// JobTimeout bounds one attempt of a job; Lease (longer) is how long
+	// a claimed job is reserved before another worker may take it over.
+	JobTimeout time.Duration
+	Lease      time.Duration
+	// MaxUploadBytes bounds an import's file.
+	MaxUploadBytes int64
+	// UploadTimeout bounds reading one upload's body (and writing one
+	// download), instead of the HTTP read and write timeouts.
+	UploadTimeout time.Duration
+	// Retention is how long uploaded and exported files are kept.
+	Retention time.Duration
 }
 
 // Intelligence configures the AI translation job workers that run in
@@ -236,6 +258,16 @@ func Load(lookup LookupFunc) (Config, error) {
 		AllowPrivateEndpoints: r.boolean("GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS", false),
 		ProviderConcurrency:   r.intRange("GLOSSA_AI_PROVIDER_CONCURRENCY", 4, 1, 256),
 	}
+	cfg.Integration = Integration{
+		WorkersEnabled: r.boolean("GLOSSA_INTEGRATION_WORKERS_ENABLED", true),
+		Workers:        r.intRange("GLOSSA_INTEGRATION_WORKERS", 1, 1, 64),
+		PollInterval:   r.duration("GLOSSA_INTEGRATION_POLL_INTERVAL", time.Second),
+		JobTimeout:     r.duration("GLOSSA_INTEGRATION_JOB_TIMEOUT", 30*time.Minute),
+		Lease:          r.duration("GLOSSA_INTEGRATION_JOB_LEASE", 35*time.Minute),
+		MaxUploadBytes: int64(r.intRange("GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES", 64<<20, 1, 2<<30)),
+		UploadTimeout:  r.duration("GLOSSA_INTEGRATION_UPLOAD_TIMEOUT", 10*time.Minute),
+		Retention:      r.duration("GLOSSA_INTEGRATION_RETENTION", 7*24*time.Hour),
+	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %w", errors.Join(r.errs...))
@@ -253,6 +285,9 @@ func (c Config) validate(r *reader) {
 	}
 	if c.Intelligence.Lease <= c.Intelligence.JobTimeout {
 		r.fail("GLOSSA_AI_JOB_LEASE", "must be longer than GLOSSA_AI_JOB_TIMEOUT")
+	}
+	if c.Integration.Lease <= c.Integration.JobTimeout {
+		r.fail("GLOSSA_INTEGRATION_JOB_LEASE", "must be longer than GLOSSA_INTEGRATION_JOB_TIMEOUT")
 	}
 }
 
