@@ -52,20 +52,30 @@ func releaseOf(err error) string {
 	return ""
 }
 
-// assemble builds a release from manifest bytes. prev, when not nil, lends
-// its already parsed artifacts.
+// assembly loads one release's artifacts. prev, when not nil, lends its
+// already parsed artifacts.
+type assembly struct {
+	c       *Client
+	rel     *release
+	sources []blobSource
+	prev    *release
+}
+
+// assemble builds a release from manifest bytes.
 func (c *Client) assemble(ctx context.Context, raw []byte, etag string, sources []blobSource, prev *release) (*release, error) {
 	m, err := c.verifiedManifest(raw)
 	if err != nil {
 		return nil, err
 	}
-	rel := &release{manifest: m, raw: raw, etag: etag, catalogs: map[string]catalog{}, bySHA: map[string]catalog{}}
+	a := &assembly{c: c, sources: sources, prev: prev, rel: &release{
+		manifest: m, raw: raw, etag: etag, catalogs: map[string]catalog{}, bySHA: map[string]catalog{},
+	}}
 	for _, locale := range neededLocales(m, c.cfg.Locales) {
-		if err := c.loadLocale(ctx, rel, locale, sources, prev); err != nil {
+		if err := a.loadLocale(ctx, locale); err != nil {
 			return nil, &loadError{releaseID: m.Release.ID, err: err}
 		}
 	}
-	return rel, nil
+	return a.rel, nil
 }
 
 func (c *Client) verifiedManifest(raw []byte) (*manifest, error) {
@@ -101,29 +111,30 @@ func neededLocales(m *manifest, configured []string) []string {
 	return out
 }
 
-func (c *Client) loadLocale(ctx context.Context, rel *release, locale string, sources []blobSource, prev *release) error {
+// loadLocale loads and merges every namespace of locale.
+func (a *assembly) loadLocale(ctx context.Context, locale string) error {
 	merged := catalog{}
-	namespaces := rel.manifest.Artifacts[locale]
+	namespaces := a.rel.manifest.Artifacts[locale]
 	for _, ns := range slices.Sorted(maps.Keys(namespaces)) {
 		ref := namespaces[ns]
-		cat, err := c.loadArtifact(ctx, rel.manifest.Release.ID, ref, locale, ns, sources, prev)
+		cat, err := a.loadArtifact(ctx, ref, locale, ns)
 		if err != nil {
 			return err
 		}
-		rel.bySHA[ref.SHA256] = cat
+		a.rel.bySHA[ref.SHA256] = cat
 		maps.Copy(merged, cat)
 	}
-	rel.catalogs[locale] = merged
+	a.rel.catalogs[locale] = merged
 	return nil
 }
 
-func (c *Client) loadArtifact(ctx context.Context, releaseID string, ref artifactRef, locale, ns string, sources []blobSource, prev *release) (catalog, error) {
-	if prev != nil {
-		if cat, ok := prev.bySHA[ref.SHA256]; ok {
+func (a *assembly) loadArtifact(ctx context.Context, ref artifactRef, locale, ns string) (catalog, error) {
+	if a.prev != nil {
+		if cat, ok := a.prev.bySHA[ref.SHA256]; ok {
 			return cat, nil
 		}
 	}
-	body, fromRemote, err := fetchVerified(ctx, ref, sources)
+	body, fromRemote, err := fetchVerified(ctx, ref, a.sources)
 	if err != nil {
 		return nil, err
 	}
@@ -132,14 +143,20 @@ func (c *Client) loadArtifact(ctx context.Context, releaseID string, ref artifac
 		return nil, err
 	}
 	for _, b := range bad {
-		c.reporter.report(Error{Type: ErrorSchema, Detail: b.err.Error(), MessageID: b.id, Locale: locale, ReleaseID: releaseID})
+		a.c.reporter.report(Error{Type: ErrorSchema, Detail: b.err.Error(), MessageID: b.id, Locale: locale, ReleaseID: a.rel.manifest.Release.ID})
 	}
 	if fromRemote {
-		if err := c.store.saveArtifact(ref.SHA256, body); err != nil {
-			c.cfg.Logger.Warn("glossa: caching an artifact failed", "sha256", ref.SHA256, "error", err)
-		}
+		a.cache(ref.SHA256, body)
 	}
 	return cat, nil
+}
+
+// cache persists a verified artifact from the edge. It's best effort: the
+// release activates either way.
+func (a *assembly) cache(digest string, body []byte) {
+	if err := a.c.store.saveArtifact(digest, body); err != nil {
+		a.c.cfg.Logger.Warn("glossa: caching an artifact failed", "sha256", digest, "error", err)
+	}
 }
 
 // fetchVerified returns the first bytes for ref that match its digest.

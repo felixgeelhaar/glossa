@@ -3,6 +3,7 @@ package glossa
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -65,6 +66,22 @@ func TestBundledArtifactsAreTrusted(t *testing.T) {
 	c := newTestClient(t, Config{Bundled: fsys})
 	if got := c.For("en").T("v", nil); got != "uno" {
 		t.Fatalf("T = %q; bundled artifacts ship like code and aren't re-hashed", got)
+	}
+}
+
+func TestUnreadableMessageDegradesToFallback(t *testing.T) {
+	broken := json.RawMessage(`{"type":"message","declarations":[],"pattern":[{"type":"nonsense"}]}`)
+	rel := buildReleaseModels(t, "rel_1", 1, map[string]map[string]any{
+		"en": {"a": broken, "b": json.RawMessage(`{"type":"message","declarations":[],"pattern":["B"]}`)},
+	})
+	log := &errorLog{}
+	c := newTestClient(t, Config{Bundled: rel.fs(), OnError: log.handle})
+	if got := c.For("en").T("b", nil); got != "B" {
+		t.Fatalf("T(b) = %q; one bad message must not block the release", got)
+	}
+	errs := log.all()
+	if len(errs) != 1 || errs[0].Type != ErrorSchema || errs[0].MessageID != "a" || errs[0].ReleaseID != "rel_1" {
+		t.Fatalf("errors = %+v", errs)
 	}
 }
 

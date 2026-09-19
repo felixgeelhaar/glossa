@@ -71,7 +71,9 @@ type Config struct {
 
 	// OnError receives load, verification and format errors (SPEC §6).
 	// When nil, errors are logged to Logger as warnings. Identical errors
-	// are reported at most once per ErrorRepeatInterval (default 1m).
+	// (all fields equal) are reported at most once per ErrorRepeatInterval
+	// (default 1m). OnError may be called concurrently, from rendering
+	// goroutines and from background refresh, and must not block.
 	OnError             func(Error)
 	ErrorRepeatInterval time.Duration
 	// Logger is used for the default error channel and for cache
