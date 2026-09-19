@@ -24,7 +24,7 @@ spec:
     {{- end }}
   egress:
     {{- include "gp.np.dnsEgress" . | nindent 4 }}
-    {{- include "gp.np.egressRule" $np.egress.postgres | nindent 4 }}
+    {{- include "gp.np.postgresEgress" . | nindent 4 }}
     {{- include "gp.np.objectStorageEgress" . | nindent 4 }}
     {{- if eq (include "gp.mailDriver" .) "smtp" }}
     {{- include "gp.np.egressRule" $np.egress.smtp | nindent 4 }}
@@ -115,6 +115,40 @@ spec:
         - port: 9000
           protocol: TCP
     {{- with $np.extraIngress.minio }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    {{- include "gp.np.dnsEgress" . | nindent 4 }}
+{{- end }}
+{{- if .Values.postgres.enabled }}
+---
+# Postgres: 5432 in from glossa-server, the migration and bootstrap Jobs
+# and the `helm test` Pod only; out to DNS only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gp.componentName" (dict "root" $ "component" "postgres") }}
+  labels:
+    {{- include "gp.componentLabels" (dict "root" $ "component" "postgres") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "gp.selectorLabels" (dict "root" $ "component" "postgres") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "gp.name" . }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [server, migrate, postgres-bootstrap, postgres-test]
+      ports:
+        - port: 5432
+          protocol: TCP
+    {{- with $np.extraIngress.postgres }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
   egress:

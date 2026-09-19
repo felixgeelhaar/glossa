@@ -7,30 +7,15 @@
 # the release's own NetworkPolicies exist, and a namespace-wide default
 # deny would otherwise block the first migration. Helm keeps hook
 # resources after uninstall; delete this one by hand then.
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: {{ $name }}
-  labels:
-    {{- include "gp.componentLabels" (dict "root" $ "component" "migrate") | nindent 4 }}
-  annotations:
-    helm.sh/hook: pre-install,pre-upgrade
-    helm.sh/hook-weight: "-10"
-    helm.sh/hook-delete-policy: before-hook-creation
-spec:
-  podSelector:
-    matchLabels:
-      {{- include "gp.selectorLabels" (dict "root" $ "component" "migrate") | nindent 6 }}
-  policyTypes: [Ingress, Egress]
-  ingress: []
-  egress:
-    {{- include "gp.np.dnsEgress" . | nindent 4 }}
-    {{- include "gp.np.egressRule" .Values.networkPolicy.egress.postgres | nindent 4 }}
+{{ include "gp.np.hookPolicy" (dict "root" $ "component" "migrate" "hook" (include "gp.db.hook" .) "egress" (include "gp.np.postgresEgress" .)) }}
 ---
 {{- end }}
 # glossa-server -migrate=only as the schema owner (CREATEROLE, never a
 # superuser), before any server pod of the new version starts. The owner
-# DSN reaches only this Job, never the server pods.
+# DSN reaches only this Job, never the server pods. With postgres.enabled
+# it runs between the Postgres bootstrap (weight -5) and glossa_app's
+# login (weight 5), post-install on the first install (README.md, "Order
+# of the database hooks").
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -38,7 +23,7 @@ metadata:
   labels:
     {{- include "gp.componentLabels" (dict "root" $ "component" "migrate") | nindent 4 }}
   annotations:
-    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook: {{ include "gp.db.hook" . }}
     helm.sh/hook-weight: "0"
     # A failed Job stays for `kubectl logs`; the next upgrade replaces it.
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
@@ -72,7 +57,7 @@ spec:
           env:
             - name: GLOSSA_LOG_LEVEL
               value: {{ $v.logLevel | quote }}
-            {{- include "gp.secretEnv" (dict "name" "MIGRATION_DATABASE_URL" "secret" (required "database.migration.secretName is required when server.migrations.enabled (Secret with the owner DSN)" .Values.database.migration.secretName) "key" .Values.database.migration.secretKey) | nindent 12 }}
+            {{- include "gp.databaseMigrationEnv" . | nindent 12 }}
             {{- include "gp.databaseAppEnv" . | nindent 12 }}
             {{- include "gp.authEnv" . | nindent 12 }}
           resources:

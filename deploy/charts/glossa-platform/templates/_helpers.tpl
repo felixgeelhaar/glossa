@@ -154,8 +154,32 @@ affinity:
       key: {{ .key }}
 {{- end -}}
 
+{{/* DATABASE_URL (glossa_app): database.app's Secret, else with
+     postgres.enabled a DSN for the in-namespace Postgres built from
+     glossa_app's password. */}}
 {{- define "gp.databaseAppEnv" -}}
-{{- include "gp.secretEnv" (dict "name" "DATABASE_URL" "secret" (required "database.app.secretName is required (Secret with the glossa_app DSN)" .Values.database.app.secretName) "key" .Values.database.app.secretKey) }}
+{{- if .Values.database.app.secretName -}}
+{{- include "gp.secretEnv" (dict "name" "DATABASE_URL" "secret" .Values.database.app.secretName "key" .Values.database.app.secretKey) }}
+{{- else if .Values.postgres.enabled -}}
+{{- include "gp.secretEnv" (dict "name" "GLOSSA_DB_APP_PASSWORD" "secret" (include "gp.postgres.appSecret" .) "key" .Values.postgres.app.passwordKey) }}
+- name: DATABASE_URL
+  value: {{ include "gp.postgres.dsn" (dict "root" . "user" "glossa_app" "passwordVar" "GLOSSA_DB_APP_PASSWORD" "extra" (printf "pool_max_conns=%d" (int .Values.postgres.app.poolMaxConns))) | quote }}
+{{- else -}}
+{{- fail "database.app.secretName is required (Secret with the glossa_app DSN), or set postgres.enabled" -}}
+{{- end -}}
+{{- end -}}
+
+{{/* MIGRATION_DATABASE_URL (the schema owner), like gp.databaseAppEnv. */}}
+{{- define "gp.databaseMigrationEnv" -}}
+{{- if .Values.database.migration.secretName -}}
+{{- include "gp.secretEnv" (dict "name" "MIGRATION_DATABASE_URL" "secret" .Values.database.migration.secretName "key" .Values.database.migration.secretKey) }}
+{{- else if .Values.postgres.enabled -}}
+{{- include "gp.secretEnv" (dict "name" "GLOSSA_DB_OWNER_PASSWORD" "secret" (include "gp.postgres.ownerSecret" .) "key" .Values.postgres.owner.passwordKey) }}
+- name: MIGRATION_DATABASE_URL
+  value: {{ include "gp.postgres.dsn" (dict "root" . "user" .Values.postgres.owner.username "passwordVar" "GLOSSA_DB_OWNER_PASSWORD" "extra" "") | quote }}
+{{- else -}}
+{{- fail "database.migration.secretName is required when server.migrations.enabled (Secret with the owner DSN), or set postgres.enabled" -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "gp.authEnv" -}}
@@ -261,6 +285,67 @@ affinity:
 {{ include "gp.secretEnv" (dict "name" "GLOSSA_S3_SECRET_ACCESS_KEY" "secret" .secretName "key" .creds.secretAccessKeyKey) }}
 {{- end -}}
 
+{{/* ── In-namespace Postgres ─────────────────────────────────────── */}}
+
+{{/* Host of the in-namespace Postgres Service. */}}
+{{- define "gp.postgres.host" -}}
+{{- include "gp.componentName" (dict "root" . "component" "postgres") -}}
+{{- end -}}
+
+{{- define "gp.postgres.superuserSecret" -}}
+{{- required "postgres.superuser.secretName is required with postgres.enabled (existing Secret with the superuser's password)" .Values.postgres.superuser.secretName -}}
+{{- end -}}
+
+{{- define "gp.postgres.ownerSecret" -}}
+{{- required "postgres.owner.secretName is required with postgres.enabled (existing Secret with the schema owner's password)" .Values.postgres.owner.secretName -}}
+{{- end -}}
+
+{{- define "gp.postgres.appSecret" -}}
+{{- required "postgres.app.secretName is required with postgres.enabled (existing Secret with glossa_app's password)" .Values.postgres.app.secretName -}}
+{{- end -}}
+
+{{/* A keyword/value DSN for the in-namespace Postgres; the password is a
+     $(VAR) reference to an env var defined before it (Kubernetes expands
+     it). Keyword/value rather than a URL: a password needs no percent-
+     encoding, only no ' or \ (the bootstrap Job refuses those).
+     (dict "root" $ "user" "…" "passwordVar" "…" "extra" "k=v …") */}}
+{{- define "gp.postgres.dsn" -}}
+{{- $r := .root -}}
+{{- $dsn := printf "host=%s port=5432 dbname=%s user=%s password='$(%s)' sslmode=disable" (include "gp.postgres.host" $r) $r.Values.postgres.database .user .passwordVar -}}
+{{- if .extra }}{{ $dsn = printf "%s %s" $dsn .extra }}{{ end -}}
+{{- $dsn -}}
+{{- end -}}
+
+{{/* libpq env (PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD) for psql
+     and pg_dump against the in-namespace Postgres:
+     (dict "root" $ "user" "…" "secret" "…" "key" "…" "database" "…"). */}}
+{{- define "gp.postgres.libpqEnv" -}}
+- name: PGHOST
+  value: {{ include "gp.postgres.host" .root | quote }}
+- name: PGPORT
+  value: "5432"
+- name: PGDATABASE
+  value: {{ .database | default .root.Values.postgres.database | quote }}
+- name: PGUSER
+  value: {{ .user | quote }}
+{{ include "gp.secretEnv" (dict "name" "PGPASSWORD" "secret" .secret "key" .key) }}
+- name: PGCONNECT_TIMEOUT
+  value: "10"
+{{- end -}}
+
+{{/* When the database hooks (Postgres bootstrap, migrations, glossa_app's
+     login) run. An external database exists before the release, so they
+     run pre-install. The in-namespace Postgres is created BY the release,
+     so on the first install they can only run post-install; on upgrades
+     it already exists and they run pre-upgrade, before the new server
+     version rolls out. */}}
+{{- define "gp.db.hook" -}}
+{{- ternary "post-install,pre-upgrade" "pre-install,pre-upgrade" (not (not .Values.postgres.enabled)) -}}
+{{- end -}}
+
+{{/* The pod securityContext of the postgres image (alpine: uid/gid 70). */}}
+{{- define "gp.postgres.uid" -}}70{{- end -}}
+
 {{/* ── NetworkPolicy fragments ──────────────────────────────────── */}}
 
 {{- define "gp.np.dnsEgress" -}}
@@ -301,6 +386,47 @@ affinity:
 {{- else -}}
 {{- include "gp.np.egressRule" .Values.networkPolicy.egress.objectStorage -}}
 {{- end -}}
+{{- end -}}
+
+{{/* Egress to Postgres: the in-namespace Postgres pod on 5432 with
+     postgres.enabled (replacing networkPolicy.egress.postgres), else
+     networkPolicy.egress.postgres. */}}
+{{- define "gp.np.postgresEgress" -}}
+{{- if .Values.postgres.enabled -}}
+- to:
+    - podSelector:
+        matchLabels:
+          {{- include "gp.selectorLabels" (dict "root" . "component" "postgres") | nindent 10 }}
+  ports:
+    - port: 5432
+      protocol: TCP
+{{- else -}}
+{{- include "gp.np.egressRule" .Values.networkPolicy.egress.postgres -}}
+{{- end -}}
+{{- end -}}
+
+{{/* A NetworkPolicy for a hook pod: no ingress; egress to DNS plus the
+     given rules. (dict "root" $ "component" "…" "hook" "…" "egress" "<yaml>") */}}
+{{- define "gp.np.hookPolicy" -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gp.componentName" (dict "root" .root "component" .component) }}
+  labels:
+    {{- include "gp.componentLabels" (dict "root" .root "component" .component) | nindent 4 }}
+  annotations:
+    helm.sh/hook: {{ .hook }}
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "gp.selectorLabels" (dict "root" .root "component" .component) | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    {{- include "gp.np.dnsEgress" .root | nindent 4 }}
+    {{- .egress | nindent 4 }}
 {{- end -}}
 
 {{/* Ingress from the ingress controller to a port. */}}

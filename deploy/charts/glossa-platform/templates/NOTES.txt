@@ -4,7 +4,18 @@ Glossa platform {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }
   API           https://{{ .Values.hosts.api }}/v1
   Delivery      https://{{ .Values.hosts.cdn }}/v1
 
-{{- if .Values.server.migrations.enabled }}
+{{- if .Values.postgres.enabled }}
+
+Database: the in-namespace Postgres {{ include "gp.postgres.host" . }}:5432 (database "{{ .Values.postgres.database }}").
+{{- if .Release.IsInstall }}
+On this first install the database hooks ran post-install, in order:
+{{ include "gp.componentName" (dict "root" $ "component" "postgres-init") }} (owner, database), {{ include "gp.componentName" (dict "root" $ "component" "migrate") }}, {{ include "gp.componentName" (dict "root" $ "component" "postgres-app-login") }} (glossa_app LOGIN).
+Server pods restart until glossa_app can log in; watch them come up:
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "gp.componentName" (dict "root" $ "component" "server") }}
+{{- end }}
+Check that glossa_app cannot reach a superuser role:
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+{{- else if .Values.server.migrations.enabled }}
 
 Migrations ran as the Job {{ include "gp.componentName" (dict "root" $ "component" "migrate") }} before the server started.
 {{- end }}
@@ -38,8 +49,11 @@ verification and password reset by email are off (404 email_disabled), and
 Invitations can't be accepted until email is configured.
 {{- end }}
 {{- $np := .Values.networkPolicy }}
-{{- if and $np.enabled (or (not $np.egress.postgres.to) (and (not .Values.minio.enabled) (not $np.egress.objectStorage.to))) }}
+{{- $open := list }}
+{{- if not .Values.postgres.enabled }}{{ if not $np.egress.postgres.to }}{{ $open = append $open "postgres" }}{{ end }}{{ end }}
+{{- if not .Values.minio.enabled }}{{ if not $np.egress.objectStorage.to }}{{ $open = append $open "objectStorage" }}{{ end }}{{ end }}
+{{- if and $np.enabled $open }}
 
-NOTE: networkPolicy.egress.postgres.to{{ if not .Values.minio.enabled }} / objectStorage.to{{ end }} is empty, so those
+NOTE: networkPolicy.egress.{{ join ".to / " $open }}.to is empty, so those
 ports are open to any destination. Pin them to the provider's addresses.
 {{- end }}

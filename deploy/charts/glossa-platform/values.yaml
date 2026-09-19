@@ -163,19 +163,106 @@ studio:
   affinity: {}
   topologySpreadConstraints: []
 
-## ── Postgres (external; this chart bundles none) ──────────────────
+## ── Database DSNs ─────────────────────────────────────────────────
 ## Klarlabs standard §2: the server connects as the non-superuser
 ## glossa_app (FORCE RLS); the owner (CREATEROLE, never superuser) only
-## runs migrations. Each DSN comes from an existing Secret.
+## runs migrations. An external Postgres: each DSN comes from an existing
+## Secret. With postgres.enabled both default to the in-namespace Postgres
+## (built from the passwords in postgres.owner/postgres.app); setting a
+## Secret here still overrides that.
 database:
   app:
-    # -- REQUIRED. Secret holding the glossa_app DSN (DATABASE_URL).
+    # -- REQUIRED unless postgres.enabled. Secret holding the glossa_app DSN (DATABASE_URL).
     secretName: ""
     secretKey: DATABASE_URL
   migration:
-    # -- REQUIRED when server.migrations.enabled. Secret holding the owner DSN.
+    # -- REQUIRED when server.migrations.enabled, unless postgres.enabled.
+    # Secret holding the owner DSN.
     secretName: ""
     secretKey: MIGRATION_DATABASE_URL
+
+## ── In-namespace Postgres ─────────────────────────────────────────
+## The Klarlabs pattern: one plain single-replica Postgres StatefulSet
+## per product namespace on a Longhorn volume, with nightly dumps (see
+## backup below). No operator. See README.md, "In-namespace Postgres".
+postgres:
+  # -- Run Postgres in the release's namespace and point the DSNs at it.
+  enabled: false
+  # -- The server's major version is also the pg_dump/psql major of every
+  # Job (they all use this image): a newer pg_dump writes dumps an older
+  # server cannot restore (README.md, "Backups").
+  image:
+    repository: docker.io/library/postgres
+    tag: 16.15-alpine
+    digest: sha256:3c5c8892d184f738f4fe282d14ddaa613a38f00f4189d2d94725ebe6f2909ddb
+  # -- The application database; the bootstrap Job creates it, owned by
+  # postgres.owner.username.
+  database: glossa
+  superuser:
+    # -- The image's superuser (POSTGRES_USER at initdb).
+    username: postgres
+    # -- REQUIRED with postgres.enabled. Existing Secret with its password;
+    # read by Postgres (initdb) and the bootstrap Jobs only.
+    secretName: ""
+    passwordKey: password
+  owner:
+    # -- The schema owner that runs migrations: LOGIN CREATEROLE, never a
+    # superuser. The bootstrap Job creates it and the database.
+    username: glossa_owner
+    # -- REQUIRED with postgres.enabled. Existing Secret with its password.
+    secretName: ""
+    passwordKey: password
+  app:
+    # -- REQUIRED with postgres.enabled. Existing Secret with glossa_app's
+    # password; the bootstrap Job gives glossa_app (created by the first
+    # migration) LOGIN with it.
+    secretName: ""
+    passwordKey: password
+    # -- pool_max_conns in the server's DSN, per server pod.
+    poolMaxConns: 20
+  persistence:
+    # -- `longhorn` keeps 3 replicas across the nodes (the v0.3 lesson: a
+    # one-node volume took the database down with that node). Immutable
+    # after install (a volumeClaimTemplate).
+    storageClassName: longhorn
+    # -- Immutable in the template after install; grow the PVC itself.
+    size: 5Gi
+    # -- Labels on the PVC, e.g. a Longhorn recurring-job group.
+    labels: {}
+    annotations: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  # -- Room for a fast shutdown (SIGINT, the image's STOPSIGNAL) to
+  # checkpoint.
+  terminationGracePeriodSeconds: 60
+  pdb:
+    # -- maxUnavailable 1 lets a node drain evict the single pod (the
+    # server is unavailable until it is back); 0 blocks drains.
+    enabled: true
+    maxUnavailable: 1
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  bootstrap:
+    # -- Hook Jobs around the migration: <fullname>-postgres-init (owner
+    # role, database, backup role) before it and <fullname>-postgres-app-login
+    # (glossa_app LOGIN + password) after it. Idempotent; they re-apply
+    # rotated passwords on every upgrade.
+    enabled: true
+    # -- How long the init Job waits for Postgres (volume attach, initdb).
+    waitSeconds: 600
+    backoffLimit: 3
+    activeDeadlineSeconds: 900
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
 
 ## ── Secrets of glossa-server ──────────────────────────────────────
 auth:
@@ -370,7 +457,9 @@ networkPolicy:
       matchLabels:
         k8s-app: kube-dns
   egress:
-    # -- glossa-server and the migration Job → Postgres.
+    # -- glossa-server and the migration Job → an external Postgres.
+    # Ignored with postgres.enabled: they get a podSelector rule to the
+    # in-namespace Postgres on 5432 instead.
     postgres:
       to: []
       ports:
@@ -399,6 +488,7 @@ networkPolicy:
   extraIngress:
     server: []
     edge: []
+    postgres: []
     studio: []
     minio: []
   # -- Extra egress rules (NetworkPolicyEgressRule) per component.
