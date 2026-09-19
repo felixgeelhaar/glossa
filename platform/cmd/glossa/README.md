@@ -94,7 +94,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 |---|---|
 | `init` | Writes glossa.yaml. Prompts on a terminal; with a token, reads the tenant and source locale from the server. `--server --project --source-locale --catalogs --typescript --vue --react --go --force` |
 | `login` / `logout` / `whoami` | Token storage; `--server`, `--token-stdin` |
-| `push` | Sends the source catalog through `message-upserts` (500 per request). Reports created/revised/updated/unchanged/failed per key. `--dry-run` compares canonical models with the server instead of writing. `--translations` also imports the other catalogs as translations (provenance `import`). |
+| `push` | Sends the source catalog through `message-upserts` (500 per request). Reports created/revised/updated/unchanged/failed per key. `--dry-run` compares canonical models with the server instead of writing. `--translations` also imports the other catalogs as translations (provenance `import`). `--branch <name> [--pr <n>] [--commit <sha>]` pushes as a feature branch instead (RFC 0004 §4.1): the whole catalog in one request, where a new key becomes a `proposed` message the branch owns, changed source for a live key a source proposal, and nothing live changes. It answers with the branch's status report (new keys, source proposals, removed keys, conflicts, outdated per locale). Without values, the branch, commit and pull request come from the CI environment (`GITHUB_HEAD_REF`/`GITHUB_REF_NAME`, `GITHUB_SHA`, `PR_NUMBER`); `--dry-run` doesn't apply to a branch push. |
 | `pull` | Writes translations to the catalogs, sorted and deterministic. `--states approved,needs_review\|all`, `--locales`. `--release <id\|v<N>\|latest> [--environment env] [--out dir]` writes a release bundle instead (see *Release*). |
 | `extract` | Finds message usages and prints them as a `glossa.usages/v1` document (RFC 0004 §2.2; contract and fixtures: `runtimes/testdata/usages/`). Go is parsed with `go/parser`: `.T(…)` calls (`Client.T(ctx, "…")`, `l.T("…")`, `For(…).T("…")`) and the generated accessors, with the enclosing `pkg.Func` / `pkg.(*Type).Method` as component; files starting with `// Code generated … DO NOT EDIT.` are skipped. Go templates (`extract.templates`) are parsed with `text/template/parse`: `{{t}}`, `{{td}}`, `{{th}}`. Web files are scanned lexically: `t("…")`/`$t("…")`, `<glossa-text\|rich\|plural\|select key\|message>`, `<GlossaText id>`, `<T id>`, typed accessors; Vue and Astro files are their own component, Astro pages carry their route. Only literal keys count. Reports keys missing from the catalog and catalog messages nothing uses; `--strict` exits 1 on unknown keys. `--upload` sends the document to the project's context builds as an `extract` build (what `context push` does). The document's application is `--application`, `GLOSSA_APPLICATION` or `extract.application`; its commit and branch are `--commit`/`--branch`, `GLOSSA_COMMIT`/`GLOSSA_BRANCH`, GitHub Actions (a pull request's head, not its merge commit) or GitLab CI, else git. |
 | `context push <file>` | Uploads a `glossa.usages/v1` document — `@glossa/unplugin`'s `.glossa/usages.json`, or a saved `extract --json` — to the project's context builds (`POST …/context-builds`, RFC 0004 §2). `--source plugin\|extract\|runtime\|capture` names the collector; by default `extract` when the document's tool is `glossa`, else `plugin`. Prints the build and how many usages name keys the catalog doesn't know; the same document again is "Already uploaded" (the server answers with the first build). Whether a build is of the default branch is the project's `default_branch` setting, not the uploader's say. A document the server refuses (`invalid_usages`, `too_many_usages`, `unknown_application`, `invalid_source`, `payload_too_large`) exits 2. |
@@ -108,7 +108,9 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `export --format xliff\|json\|tmx\|tbx` | Exports through the server's export jobs and downloads the file, checked against its SHA-256. `-o`, `--unzip`, `--job` (see *Import and export*). |
 | `jobs` | Import and export jobs: `list [--direction --state --all-projects --limit]` (the project's and the workspace's TMX and TBX jobs), `show <id> [--wait] [--all-results]`, `cancel <id>`. |
 | `import --from v0` | Imports a Glossa v0.3 project (below). |
-| `release` | `publish [--dry-run]`, `list`, `show`, `diff`, `promote`, `rollback`, `environments`, `keys [list\|create\|revoke]` (see *Release*). |
+| `release` | `publish [--dry-run]`, `list`, `show`, `diff`, `promote`, `rollback`, `environments`, `keys [list\|create\|scope\|revoke]` (see *Release*). |
+| `branch` | `status [<name>]`: what the branch proposes — new keys, source proposals, removed keys, key conflicts with other open branches, and the translations per locale merging it will make outdated (exit 1 on a conflict). `close [<name>]`: closes an unmerged branch, which destroys its preview environment; its proposed messages become obsolete 14 days later unless it is reopened. Without `<name>`, the branch comes from `GITHUB_HEAD_REF`/`GITHUB_REF_NAME`. |
+| `preview register --url <url>` | Records where CI deployed the branch's preview (`--branch`, else the CI environment's). Studio and the pull request comment link to it. |
 | `tm` | Translation memory: `search <text> --to L`, `concordance <text>`, `units [--locale-pair de:en] [--retire <id>]` (see *Knowledge and AI*); `export` / `import <file>`: TMX (`export`/`import --format tmx`). |
 | `terms` | Termbase: `list`, `show`, `add`, `edit`, `deprecate`, `forbid`, and `check`, terminology QA over the project's translations; `export` / `import <file>`: TBX (`export`/`import --format tbx`). |
 | `style` | `show [--locale --namespace]`: the effective style guide; `edit --file style.yaml`: create or replace one. |
@@ -167,7 +169,9 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.init/v1` | `{path, config, checked_with_server}` |
 | `glossa.cli.login/v1` | `{server, stored_in, tenant: {id, slug, name, kind}}` |
 | `glossa.cli.whoami/v1` | `{server, token (redacted), token_source, tenant, project?: {id, slug, name, source_locale}}` |
-| `glossa.cli.push/v1` | `{dry_run, source, summary: {created, revised, updated, unchanged, failed}, messages: [{key, status, revision?, error?: {code, detail}}], translations?: [{key, locale, status, state?, error?}]}` |
+| `glossa.cli.push/v1` | `{dry_run, source, branch?: Branch, summary: {created, revised, updated, unchanged, failed}, messages: [{key, status, revision?, state?, error?: {code, detail}}], translations?: [{key, locale, status, state?, error?}]}`; with `--branch` a message's status is `new_key`, `source_proposal`, `unchanged`, `key_conflict` or `failed` |
+| `glossa.cli.branch/v1` | `{action (status \| close), branch: Branch}` where Branch is `{id, name, state, pr_number?, head_commit?, preview_url?, new_keys?, source_proposals?, removed?, conflicts?: [{key, branches}], outdated?: {locale: n}}` |
+| `glossa.cli.preview/v1` | `{url, branch: Branch}` |
 | `glossa.cli.pull/v1` | `{states, locales: [{locale, path, messages, skipped: {state: n}, outdated, changed}], release?: {dir, release_id, version, environment, locales, artifacts, bytes, removed}}` |
 | `glossa.usages/v1` | `extract --json` (with or without `--upload`): `{application, commit, branch, tool: {name, version}, usages: [{key, file, line, column, component?, route?, kind}]}`, sorted by key, file, line, column; kind is `t`, `component`, `element`, `accessor` or `template` (the schema: `runtimes/testdata/schemas/usages.v1.schema.json`) |
 | `glossa.cli.context.push/v1` | `{file, source, replayed, build: {id, application_id, commit, branch, on_default_branch, source, tool: {name, version}, digest, usages, unknown_keys, created_by, created_at}}` (the API's `ContextBuild`) |
@@ -193,7 +197,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.release.promote/v1`, `glossa.cli.release.rollback/v1` | `{environment: Environment, previous: Ref \| null}` |
 | `glossa.cli.release.environments/v1` | `{environments: [Environment]}` |
 | `glossa.cli.release.keys/v1` | `{keys: [DeliveryKey]}` |
-| `glossa.cli.release.key/v1` | `{action: created \| revoked, key: DeliveryKey}` |
+| `glossa.cli.release.key/v1` | `{action: created \| scoped \| revoked, key: DeliveryKey}` |
 
 | `glossa.cli.tm.search/v1` | `{query: {text, from, to, syntax}, source_normalized, matches: [{score, kind (exact \| context \| fuzzy), target (MF2), target_text, target_syntax (the query's syntax; mf2 when MF1 can't express the target), variables_adapted, unit: Unit}]}` |
 | `glossa.cli.tm.concordance/v1` | `{query: {text, side, from?, to?}, matches: [{similarity, unit: Unit}]}` |
@@ -228,7 +232,7 @@ The release shapes share:
 - `Release`: `{id, version, environment (published to), parent_id?, note?, author, created_at, source_locale, locales: [code], manifest_digest, policy: {states, include_outdated}, counts: {messages, artifacts, new_artifacts, bytes, locales: {code: {messages, outdated}}}}`
 - `Ref`: `{id, version}`
 - `Environment`: `{name, release: Ref | null, policy: {states, include_outdated}, updated_at}`
-- `DeliveryKey`: `{id, name, key, created_at, revoked_at?}`
+- `DeliveryKey`: `{id, name, key, scope: {environments, branches}, created_at, revoked_at?}`
 
 Finding codes are the kernel's (`missing-argument`, `extra-argument`,
 `argument-type-changed`, `selector-*`, `invalid-plural-key`,
@@ -460,8 +464,12 @@ v6 → v7 (0191… → 0192…)
 - `keys create <name>` prints the delivery key runtimes fetch releases
   with (`/v1/<key>/<environment>/manifest.json` on glossa-edge). Keys are
   publishable by design (they ship in browser bundles), scoped to the
-  project and read-only. `keys revoke` takes the ID or the name of an
-  active key.
+  project and read-only. A new key reads `production` only;
+  `--environments a,b` names the environments it reads and `--preview`
+  adds every branch preview (RFC 0004 §4.3), which is what a key in a
+  preview deployment needs. `keys scope <id|name>` changes that later
+  without changing the key, so bundles that ship it keep working, and
+  `keys revoke` takes the ID or the name of an active key.
 - `pull --release` writes the bundle runtimes load offline
   (runtimes/SPEC.md §3.4): `manifest.json` exactly as the edge serves it
   for `--environment`, and `a/<sha256>.json` for every artifact, each

@@ -36,6 +36,8 @@ type fakeRel struct {
 
 type fakeKey struct {
 	id, name, key string
+	environments  []string
+	branches      bool
 	revoked       *time.Time
 }
 
@@ -77,6 +79,7 @@ func (f *fakeServer) routeReleases(mux *http.ServeMux, p string) {
 	mux.HandleFunc("GET "+p+"/releases/{id}/artifacts/{digest}", f.artifact)
 	mux.HandleFunc("GET "+p+"/delivery-keys", f.listKeys)
 	mux.HandleFunc("POST "+p+"/delivery-keys", f.createKey)
+	mux.HandleFunc("PUT "+p+"/delivery-keys/{id}/scope", f.setKeyScope)
 	mux.HandleFunc("DELETE "+p+"/delivery-keys/{id}", f.revokeKey)
 }
 
@@ -436,7 +439,12 @@ func (f *fakeServer) rollback(w http.ResponseWriter, r *http.Request) {
 }
 
 func keyJSON(k *fakeKey) map[string]any {
-	out := map[string]any{"id": k.id, "name": k.name, "key": k.key, "created_by": "token:1", "created_at": "2026-09-19T00:00:00Z"}
+	envs := k.environments
+	if envs == nil {
+		envs = []string{}
+	}
+	out := map[string]any{"id": k.id, "name": k.name, "key": k.key, "created_by": "token:1", "created_at": "2026-09-19T00:00:00Z",
+		"scope": map[string]any{"environments": envs, "branches": k.branches}}
 	if k.revoked != nil {
 		out["revoked_at"] = k.revoked.Format(time.RFC3339)
 	}
@@ -454,7 +462,13 @@ func (f *fakeServer) listKeys(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (f *fakeServer) createKey(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Name string }
+	var body struct {
+		Name  string
+		Scope *struct {
+			Environments []string
+			Branches     bool
+		}
+	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	if body.Name == "" {
 		problemResp(w, 400, "invalid_key_name", "a key needs a name")
@@ -463,9 +477,41 @@ func (f *fakeServer) createKey(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	n := len(f.rel.keys) + 1
-	k := &fakeKey{id: fmt.Sprintf("key_%d", n), name: body.Name, key: fmt.Sprintf("glossa_pk_%040d", n)}
+	k := &fakeKey{id: fmt.Sprintf("key_%d", n), name: body.Name, key: fmt.Sprintf("glossa_pk_%040d", n),
+		environments: []string{"production"}}
+	if body.Scope != nil {
+		k.environments, k.branches = body.Scope.Environments, body.Scope.Branches
+	}
 	f.rel.keys = append(f.rel.keys, k)
 	writeJSONResp(w, 201, keyJSON(k))
+}
+
+// setKeyScope is PUT …/delivery-keys/{id}/scope.
+func (f *fakeServer) setKeyScope(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Environments []string
+		Branches     bool
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, k := range f.rel.keys {
+		if k.id != r.PathValue("id") {
+			continue
+		}
+		if k.revoked != nil {
+			problemResp(w, 409, "key_revoked", "the key is revoked")
+			return
+		}
+		if len(body.Environments) == 0 && !body.Branches {
+			problemResp(w, 400, "invalid_key_scope", "a scope allows 1-50 environments, or branches")
+			return
+		}
+		k.environments, k.branches = body.Environments, body.Branches
+		writeJSONResp(w, 200, keyJSON(k))
+		return
+	}
+	problemResp(w, 404, "not_found", "no such key")
 }
 
 func (f *fakeServer) revokeKey(w http.ResponseWriter, r *http.Request) {

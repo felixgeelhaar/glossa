@@ -234,6 +234,34 @@ func TestReleaseKeysCreateListRevoke(t *testing.T) {
 	wantError(t, w, ExitUsage, "key_not_found", "release", "keys", "revoke", "nope")
 }
 
+// A key's scope (RFC 0004 §4.3): production by default, a preview key
+// on request, and changeable without changing the key.
+func TestReleaseKeyScopes(t *testing.T) {
+	_, w := seeded(t)
+	var created releaseKeyJSON
+	w.json(&created, "release", "keys", "create", "web").want(t, ExitOK)
+	if len(created.Key.Scope.Environments) != 1 || created.Key.Scope.Environments[0] != "production" || created.Key.Scope.Branches {
+		t.Fatalf("a new key reads %+v", created.Key.Scope)
+	}
+	var preview releaseKeyJSON
+	w.json(&preview, "release", "keys", "create", "previews", "--environments", "preview", "--preview").want(t, ExitOK)
+	if !preview.Key.Scope.Branches || len(preview.Key.Scope.Environments) != 1 {
+		t.Fatalf("preview key reads %+v", preview.Key.Scope)
+	}
+
+	var scoped releaseKeyJSON
+	w.json(&scoped, "release", "keys", "scope", "web", "--environments", "production,staging").want(t, ExitOK)
+	if scoped.Action != "scoped" || scoped.Key.Key != created.Key.Key || len(scoped.Key.Scope.Environments) != 2 {
+		t.Fatalf("scope = %+v", scoped)
+	}
+	h := w.run("release", "keys", "list")
+	if !strings.Contains(h.stdout, "production, staging") || !strings.Contains(h.stdout, "branch previews") {
+		t.Errorf("keys list output:\n%s", h.stdout)
+	}
+	wantError(t, w, ExitUsage, "invalid_usage", "release", "keys", "scope", "web")
+	wantError(t, w, ExitUsage, "key_not_found", "release", "keys", "scope", "nope", "--preview")
+}
+
 func TestReleaseUsageAndServerRefusals(t *testing.T) {
 	srv := newFakeServer(t)
 	w := newWorkspace(t).withProject(srv, map[string]string{"en": sourceEN})

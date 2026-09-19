@@ -106,7 +106,7 @@ type releaseKeysJSON struct {
 
 type releaseKeyJSON struct {
 	Schema string              `json:"schema"`
-	Action string              `json:"action"` // created, revoked
+	Action string              `json:"action"` // created, scoped, revoked
 	Key    release.DeliveryKey `json:"key"`
 }
 
@@ -122,7 +122,12 @@ type releaseArgs struct {
 	idempotencyKey string
 	dryRun         bool
 	limit          int
-	name           string // keys create: the name; keys revoke: the ID or name
+	name           string // keys create: the name; keys revoke, keys scope: the ID or name
+	// environments and preview are the scope of keys create and keys
+	// scope: what the key may read at the edge (RFC 0004 4.3).
+	environments []string
+	preview      bool
+	scopeGiven   bool
 }
 
 const releaseUsage = `release <action> [flags]
@@ -139,7 +144,11 @@ Actions:
   rollback      --environment NAME [--to RELEASE]  point it back (default: the release it served before)
   environments                                     environments and the release each serves
   keys          [list]                             delivery keys for glossa-edge
-  keys create   <name>                             create one (publishable: it ships in app bundles)
+  keys create   <name> [--environments a,b] [--preview]
+                                                   create one (publishable: it ships in app bundles);
+                                                   it reads production only unless the scope says otherwise
+  keys scope    <id|name> [--environments a,b] [--preview]
+                                                   change what a key reads (the key itself stays)
   keys revoke   <id|name>                          revoke one
 
 A <release> is its ID or v<N> (its version).`
@@ -155,6 +164,8 @@ func parseReleaseArgs(inv *invocation, args []string) (releaseArgs, error) {
 	fs.StringVar(&r.idempotencyKey, "idempotency-key", "", "publish, keys create: the Idempotency-Key (default: a new one per invocation)")
 	fs.IntVar(&r.limit, "limit", 20, "list: at most this many releases (0: all)")
 	fs.BoolVar(&r.dryRun, "dry-run", false, "publish: show what would ship and what would change; store nothing")
+	environments := fs.String("environments", "", "keys create, keys scope: the environments the key reads, comma-separated (default: production)")
+	fs.BoolVar(&r.preview, "preview", false, "keys create, keys scope: a preview key, which also reads every branch environment")
 	pos, err := inv.parse(fs, args)
 	if err != nil {
 		return r, err
@@ -165,6 +176,12 @@ func parseReleaseArgs(inv *invocation, args []string) (releaseArgs, error) {
 	if r.idempotencyKey != "" && !idempotencyKeyPattern.MatchString(r.idempotencyKey) {
 		return r, usageError(inv.name, "--idempotency-key must be 1-255 printable ASCII characters without spaces")
 	}
+	for _, e := range strings.Split(*environments, ",") {
+		if e = strings.TrimSpace(e); e != "" {
+			r.environments = append(r.environments, e)
+		}
+	}
+	r.scopeGiven = len(r.environments) > 0 || r.preview
 	r.action, pos = pos[0], pos[1:]
 	switch r.action {
 	case "publish":
@@ -217,18 +234,21 @@ func parseKeysArgs(inv *invocation, r releaseArgs, pos []string) (releaseArgs, e
 	switch r.keysAction {
 	case "list":
 		return r, noMore(inv, pos)
-	case "create", "revoke":
+	case "create", "revoke", "scope":
 		if len(pos) != 1 {
 			what := "a name"
-			if r.keysAction == "revoke" {
+			if r.keysAction != "create" {
 				what = "the key's ID or name"
 			}
 			return r, usageError(inv.name, "keys %s takes %s", r.keysAction, what)
 		}
 		r.name = pos[0]
+		if r.keysAction == "scope" && !r.scopeGiven {
+			return r, usageError(inv.name, "keys scope takes --environments, --preview, or both")
+		}
 		return r, nil
 	}
-	return r, usageError(inv.name, "unknown keys action %q (list, create, revoke)", r.keysAction)
+	return r, usageError(inv.name, "unknown keys action %q (list, create, scope, revoke)", r.keysAction)
 }
 
 func noMore(inv *invocation, pos []string) error {
@@ -725,7 +745,11 @@ func (inv *invocation) releaseEnvironments(ctx context.Context, rc *releaseClien
 func (inv *invocation) releaseKeys(ctx context.Context, rc *releaseClient, r releaseArgs) error {
 	switch r.keysAction {
 	case "create":
-		k, err := rc.svc.CreateDeliveryKey(ctx, rc.scope, r.name, orDefault(r.idempotencyKey, newIdempotencyKey()))
+		var scope *release.KeyScope
+		if r.scopeGiven {
+			scope = &release.KeyScope{Environments: r.environments, Branches: r.preview}
+		}
+		k, err := rc.svc.CreateDeliveryKey(ctx, rc.scope, r.name, scope, orDefault(r.idempotencyKey, newIdempotencyKey()))
 		if err != nil {
 			return inv.releaseError(err, "can't create delivery key "+r.name)
 		}
@@ -733,9 +757,12 @@ func (inv *invocation) releaseKeys(ctx context.Context, rc *releaseClient, r rel
 		return inv.emit(out, func(pr *printer) {
 			pr.line("%s Created delivery key %q %s", pr.pass(), k.Name, pr.dim("("+k.ID+")"))
 			pr.line("  %s", pr.bold(k.Key))
+			pr.line("  %s", pr.dim("It reads "+scopeText(k.Scope)+"; anything else answers 404."))
 			pr.line("  %s", pr.dim("Publishable by design: runtimes fetch releases from glossa-edge with it (/v1/<key>/<environment>/manifest.json)."))
 			pr.line("  %s", pr.dim(fmt.Sprintf("Revoke it with `glossa release keys revoke %s`.", k.ID)))
 		})
+	case "scope":
+		return inv.setKeyScope(ctx, rc, r)
 	case "revoke":
 		return inv.revokeKey(ctx, rc, r.name)
 	}
@@ -752,15 +779,52 @@ func (inv *invocation) releaseKeys(ctx context.Context, rc *releaseClient, r rel
 			pr.line("No delivery keys yet: `glossa release keys create web` makes one.")
 			return
 		}
-		rows := [][]string{{"NAME", "KEY", "STATUS", "CREATED", "ID"}}
+		rows := [][]string{{"NAME", "KEY", "READS", "STATUS", "CREATED", "ID"}}
 		for _, k := range keys {
 			status := "active"
 			if k.RevokedAt != nil {
 				status = "revoked " + when(*k.RevokedAt)
 			}
-			rows = append(rows, []string{k.Name, k.Key, status, when(k.CreatedAt), k.ID})
+			rows = append(rows, []string{k.Name, k.Key, scopeText(k.Scope), status, when(k.CreatedAt), k.ID})
 		}
 		pr.table(rows)
+	})
+}
+
+// scopeText reads a key's scope back: "production", or
+// "preview + branch previews".
+func scopeText(s release.KeyScope) string {
+	what := strings.Join(s.Environments, ", ")
+	switch {
+	case s.Branches && what != "":
+		return what + " + branch previews"
+	case s.Branches:
+		return "branch previews"
+	case what == "":
+		return "nothing"
+	}
+	return what
+}
+
+// setKeyScope replaces what a key reads (keys scope). The key itself
+// stays, so bundles that ship it keep working.
+func (inv *invocation) setKeyScope(ctx context.Context, rc *releaseClient, r releaseArgs) error {
+	keys, err := rc.svc.DeliveryKeys(ctx, rc.scope)
+	if err != nil {
+		return inv.releaseError(err, "can't list delivery keys")
+	}
+	k, err := findKey(keys, r.name)
+	if err != nil {
+		return err
+	}
+	updated, err := rc.svc.SetDeliveryKeyScope(ctx, rc.scope, k.ID, release.KeyScope{Environments: r.environments, Branches: r.preview})
+	if err != nil {
+		return inv.releaseError(err, fmt.Sprintf("can't change the scope of delivery key %q", k.Name))
+	}
+	out := releaseKeyJSON{Schema: "glossa.cli.release.key/v1", Action: "scoped", Key: updated}
+	return inv.emit(out, func(pr *printer) {
+		pr.line("%s Delivery key %q now reads %s", pr.pass(), updated.Name, scopeText(updated.Scope))
+		pr.line("  %s", pr.dim("glossa-edge follows within its key cache TTL (30 s by default) plus any CDN max-age."))
 	})
 }
 

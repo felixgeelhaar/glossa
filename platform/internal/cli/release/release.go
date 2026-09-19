@@ -90,11 +90,20 @@ type Diff struct {
 // from glossa-edge with. It is public by design (it ships in browser
 // bundles) and scoped to one project.
 type DeliveryKey struct {
-	ID        string     `json:"id"`
-	Name      string     `json:"name"`
-	Key       string     `json:"key"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Key  string `json:"key"`
+	// Scope is what the key reads at the edge (RFC 0004 4.3).
+	Scope     KeyScope   `json:"scope"`
 	CreatedAt time.Time  `json:"created_at"`
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+}
+
+// KeyScope is the environments a delivery key may read and, with
+// Branches, every branch preview.
+type KeyScope struct {
+	Environments []string `json:"environments"`
+	Branches     bool     `json:"branches"`
 }
 
 // PublishRequest publishes the project's eligible translations to an
@@ -164,7 +173,11 @@ type Service interface {
 	// release it served before the current one).
 	Rollback(ctx context.Context, s Scope, environment, toRelease string) (Environment, error)
 	DeliveryKeys(ctx context.Context, s Scope) ([]DeliveryKey, error)
-	CreateDeliveryKey(ctx context.Context, s Scope, name, idempotencyKey string) (DeliveryKey, error)
+	// CreateDeliveryKey creates a key; a nil scope reads production only.
+	CreateDeliveryKey(ctx context.Context, s Scope, name string, scope *KeyScope, idempotencyKey string) (DeliveryKey, error)
+	// SetDeliveryKeyScope replaces what a key reads; the key itself
+	// doesn't change, so bundles that ship it keep working.
+	SetDeliveryKeyScope(ctx context.Context, s Scope, id string, scope KeyScope) (DeliveryKey, error)
 	RevokeDeliveryKey(ctx context.Context, s Scope, id string) error
 	// BundleSource serves a release's manifest as environment serves it,
 	// and its artifacts.

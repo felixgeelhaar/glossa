@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
@@ -45,17 +46,28 @@ type pushJSON struct {
 	Schema       string         `json:"schema"`
 	DryRun       bool           `json:"dry_run"`
 	Source       string         `json:"source"`
+	Branch       *branchJSON    `json:"branch,omitempty"`
 	Summary      map[string]int `json:"summary"`
 	Messages     []pushItem     `json:"messages"`
 	Translations []pushItem     `json:"translations,omitempty"`
 }
 
 func runPush(ctx context.Context, inv *invocation, args []string) error {
-	fs := inv.flags("push [--dry-run] [--translations]")
+	fs := inv.flags("push [--branch <name> [--pr <n>] [--commit <sha>]] [--dry-run] [--translations]")
 	dryRun := fs.Bool("dry-run", false, "report what would change without writing")
 	withTranslations := fs.Bool("translations", false, "also import the other locales' catalogs as translations (provenance import)")
+	branch := fs.String("branch", "", "push from a feature branch: new keys are proposed and changed source becomes a proposal (RFC 0004 §4)")
+	pr := fs.Int("pr", 0, "the branch's pull request number (default: $PR_NUMBER)")
+	commit := fs.String("commit", "", "the head commit of the push (default: $GITHUB_SHA)")
 	if _, err := inv.parse(fs, args); err != nil {
 		return err
+	}
+	push := branchPush{branch: *branch, pr: *pr, commit: *commit}
+	if err := push.fromEnv(inv); err != nil {
+		return err
+	}
+	if push.branch != "" && *dryRun {
+		return usageError(inv.name, "--dry-run doesn't apply to a branch push: it would compare the branch with the live catalog")
 	}
 	cfg, err := inv.loadConfig()
 	if err != nil {
@@ -75,7 +87,11 @@ func runPush(ctx context.Context, inv *invocation, args []string) error {
 			Where: cfg.Path + " (source_locale)", Fix: "set source_locale: " + p.info.SourceLocale}
 	}
 	out := pushJSON{Schema: "glossa.cli.push/v1", DryRun: *dryRun, Source: relPath(cfg, local.Locales[0].File)}
-	if out.Messages, err = pushMessages(ctx, p, local, *dryRun); err != nil {
+	if push.branch != "" {
+		if out.Messages, out.Branch, err = pushBranch(ctx, p, local, push); err != nil {
+			return inv.apiError(err, "branch push failed")
+		}
+	} else if out.Messages, err = pushMessages(ctx, p, local, *dryRun); err != nil {
 		return inv.apiError(err, "push failed")
 	}
 	if *withTranslations {
@@ -164,6 +180,88 @@ func pushMessages(ctx context.Context, p *project, local *snapshot.Snapshot, dry
 		}
 	}
 	return items, nil
+}
+
+// branchPush is `glossa push --branch`: what the push says about the
+// branch itself (RFC 0004 §6.3).
+type branchPush struct {
+	branch, commit string
+	pr             int
+}
+
+// fromEnv fills what CI knows and the flags didn't say.
+func (b *branchPush) fromEnv(inv *invocation) error {
+	if b.branch == "" && b.pr == 0 && b.commit == "" {
+		return nil // a plain push: the default branch
+	}
+	if b.branch == "" {
+		b.branch = inv.ciBranch()
+	}
+	if b.branch == "" {
+		return usageError(inv.name, "--pr and --commit belong to a branch push: add --branch <name>")
+	}
+	if b.commit == "" {
+		b.commit = inv.env.getenv("GITHUB_SHA")
+	}
+	if b.pr == 0 {
+		if n, err := strconv.Atoi(inv.env.getenv("PR_NUMBER")); err == nil {
+			b.pr = n
+		}
+	}
+	return nil
+}
+
+// pushBranch pushes the local catalog as the branch's: it is the whole
+// catalog, so the push is complete — keys the branch no longer has are
+// withdrawn, and the project's live keys it lacks are reported.
+func pushBranch(ctx context.Context, p *project, local *snapshot.Snapshot, push branchPush) ([]pushItem, *branchJSON, error) {
+	syntax := remote.Syntax(p.cfg.SyntaxOrDefault())
+	var (
+		items []pushItem
+		send  []remote.MessageUpsertItem
+		index []int
+	)
+	for _, m := range local.Messages {
+		if e := localFailure(m.Key, m.Text, m.Invalid); e != nil {
+			items = append(items, pushItem{Key: m.Key, Status: statusFailed, Error: e})
+			continue
+		}
+		index = append(index, len(items))
+		items = append(items, pushItem{Key: m.Key})
+		send = append(send, remote.MessageUpsertItem{Key: m.Key, Text: m.Text, Syntax: &syntax})
+	}
+	if len(send) == 0 {
+		return items, nil, nil
+	}
+	if len(send) > remote.MaxBranchItems {
+		return nil, nil, &Error{Exit: ExitUsage, Code: "too_many_branch_items",
+			What: "a branch push holds at most 10000 messages", Why: fmt.Sprintf("this catalog has %d", len(send))}
+	}
+	in := remote.BranchPushInput{Branch: push.branch, HeadCommit: push.commit, Complete: true, Items: send}
+	if push.pr > 0 {
+		in.PR = &push.pr
+	}
+	res, err := p.client.PushBranch(ctx, p.scope, in)
+	if err != nil {
+		return nil, nil, err
+	}
+	for i, r := range res.Items {
+		it := &items[index[i]]
+		it.Status = string(r.Status)
+		if r.Message != nil {
+			it.Revision = r.Message.SourceRevision
+			it.State = string(r.Message.State)
+		}
+		if r.Error != nil {
+			it.Status = statusFailed
+			it.Error = &itemError{Code: r.Error.Code, Detail: r.Error.Detail}
+		}
+	}
+	report := statusOf(remote.BranchStatus{
+		Branch: res.Branch, NewKeys: res.NewKeys, SourceProposals: res.SourceProposals, Removed: res.Removed,
+		Conflicts: res.Conflicts, Outdated: res.Outdated,
+	})
+	return items, &report, nil
 }
 
 // planMessages fills in what a push would do, comparing canonical models.
@@ -302,7 +400,16 @@ func printPush(pr *printer, p *project, out pushJSON) {
 	if out.DryRun {
 		verb = "Would push"
 	}
-	pr.line("%s %s from %s to %s (%s)", verb, plural(len(out.Messages), "message", "messages"), out.Source, p.info.Slug, p.cfg.Server)
+	where := p.info.Slug
+	if out.Branch != nil {
+		where += " on " + out.Branch.Name
+	}
+	pr.line("%s %s from %s to %s (%s)", verb, plural(len(out.Messages), "message", "messages"), out.Source, where, p.cfg.Server)
+	if out.Branch != nil {
+		printBranch(pr, p, *out.Branch)
+		printFailures(pr, out.Messages)
+		return
+	}
 	printItemCounts(pr, "messages", out.Messages)
 	if out.Translations != nil {
 		printItemCounts(pr, "translations", out.Translations)
@@ -316,14 +423,23 @@ func printItemCounts(pr *printer, what string, items []pushItem) {
 	if counts[statusFailed] == 0 {
 		return
 	}
-	pr.line("%s %d failed", pr.fail(), counts[statusFailed])
+	printFailures(pr, items)
+}
+
+// printFailures lists the items the server refused.
+func printFailures(pr *printer, items []pushItem) {
+	failed := 0
 	for _, it := range items {
 		if it.Error == nil {
 			continue
 		}
+		failed++
 		label := it.Key
 		if it.Locale != "" {
 			label = it.Locale + " " + it.Key
+		}
+		if failed == 1 {
+			pr.line("%s %s", pr.fail(), "some messages failed")
 		}
 		pr.line("  %s  %s: %s", label, it.Error.Code, it.Error.Detail)
 	}

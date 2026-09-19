@@ -86,6 +86,8 @@ func commands() []command {
 		{"export", "Export XLIFF, JSON, TMX or TBX files, verified by SHA-256", runExport},
 		{"jobs", "List, show and cancel import and export jobs", runJobs},
 		{"release", "Publish, promote and roll back releases", runRelease},
+		{"branch", "Show or close a feature branch's proposals", runBranch},
+		{"preview", "Register where CI deployed a branch's preview", runPreview},
 		{"tm", "Search the translation memory; list and retire units; TMX export and import", runTM},
 		{"terms", "Manage the termbase; check translations against it; TBX export and import", runTerms},
 		{"style", "Show the effective style guide; edit one from YAML", runStyle},

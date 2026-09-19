@@ -105,7 +105,7 @@ func TestRollbackAndKeysSpeakTheContract(t *testing.T) {
 			_, _ = io.WriteString(w, `{"name":"production","current_release_id":"r1","policy":{"states":["approved"],"include_outdated":false},"created_at":"2026-09-19T10:00:00Z","updated_at":"2026-09-19T10:00:00Z"}`)
 		case "POST /v1/tenants/t1/projects/p1/delivery-keys":
 			w.WriteHeader(http.StatusCreated)
-			_, _ = io.WriteString(w, `{"id":"k1","name":"web","key":"glossa_pk_x","created_by":"token:1","created_at":"2026-09-19T10:00:00Z"}`)
+			_, _ = io.WriteString(w, `{"id":"k1","name":"web","key":"glossa_pk_x","scope":{"environments":["preview"],"branches":true},"created_by":"token:1","created_at":"2026-09-19T10:00:00Z"}`)
 		case "DELETE /v1/tenants/t1/projects/p1/delivery-keys/k1":
 			w.Header().Set("Content-Type", "application/problem+json")
 			w.WriteHeader(http.StatusConflict)
@@ -117,8 +117,9 @@ func TestRollbackAndKeysSpeakTheContract(t *testing.T) {
 	if err != nil || env.CurrentReleaseID != "r1" {
 		t.Errorf("rollback = %+v, %v", env, err)
 	}
-	k, err := svc.CreateDeliveryKey(context.Background(), scope, "web", "idem")
-	if err != nil || k.Key != "glossa_pk_x" || k.Name != "web" || k.RevokedAt != nil {
+	k, err := svc.CreateDeliveryKey(context.Background(), scope, "web", &release.KeyScope{Environments: []string{"preview"}, Branches: true}, "idem")
+	if err != nil || k.Key != "glossa_pk_x" || k.Name != "web" || k.RevokedAt != nil ||
+		!k.Scope.Branches || len(k.Scope.Environments) != 1 {
 		t.Errorf("key = %+v, %v", k, err)
 	}
 	var ae *remote.APIError
@@ -127,7 +128,7 @@ func TestRollbackAndKeysSpeakTheContract(t *testing.T) {
 	}
 	want := []string{
 		"POST /v1/tenants/t1/projects/p1/environments/production/rollbacks {} ",
-		`POST /v1/tenants/t1/projects/p1/delivery-keys {"name":"web"} idem`,
+		`POST /v1/tenants/t1/projects/p1/delivery-keys {"name":"web","scope":{"branches":true,"environments":["preview"]}} idem`,
 		"DELETE /v1/tenants/t1/projects/p1/delivery-keys/k1  ",
 	}
 	for i, w := range want {

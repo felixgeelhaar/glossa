@@ -69,7 +69,18 @@ func toRelease(r apiclient.Release) release.Release {
 }
 
 func toDeliveryKey(k apiclient.DeliveryKey) release.DeliveryKey {
-	return release.DeliveryKey{ID: k.Id, Name: k.Name, Key: k.Key, CreatedAt: k.CreatedAt, RevokedAt: k.RevokedAt}
+	return release.DeliveryKey{
+		ID: k.Id, Name: k.Name, Key: k.Key, CreatedAt: k.CreatedAt, RevokedAt: k.RevokedAt,
+		Scope: release.KeyScope{Environments: k.Scope.Environments, Branches: k.Scope.Branches},
+	}
+}
+
+func fromKeyScope(s release.KeyScope) apiclient.DeliveryKeyScope {
+	envs := s.Environments
+	if envs == nil {
+		envs = []string{}
+	}
+	return apiclient.DeliveryKeyScope{Environments: envs, Branches: s.Branches}
 }
 
 func mapAll[A, B any](in []A, f func(A) B) []B {
@@ -244,17 +255,31 @@ func (r *ReleaseService) DeliveryKeys(ctx context.Context, s release.Scope) ([]r
 }
 
 // CreateDeliveryKey implements release.Service.
-func (r *ReleaseService) CreateDeliveryKey(ctx context.Context, s release.Scope, name, idempotencyKey string) (release.DeliveryKey, error) {
+func (r *ReleaseService) CreateDeliveryKey(ctx context.Context, s release.Scope, name string, scope *release.KeyScope, idempotencyKey string) (release.DeliveryKey, error) {
 	params := &apiclient.CreateDeliveryKeyParams{}
 	if idempotencyKey != "" {
 		params.IdempotencyKey = &idempotencyKey
 		ctx = idempotent(ctx)
 	}
-	resp, err := r.c.api.CreateDeliveryKeyWithResponse(ctx, s.Tenant, s.Project, params, apiclient.CreateDeliveryKey{Name: name})
+	body := apiclient.CreateDeliveryKey{Name: name}
+	if scope != nil {
+		sc := fromKeyScope(*scope)
+		body.Scope = &sc
+	}
+	resp, err := r.c.api.CreateDeliveryKeyWithResponse(ctx, s.Tenant, s.Project, params, body)
 	if err := check(resp, err, http.MethodPost, r.project(s, "/delivery-keys")); err != nil {
 		return release.DeliveryKey{}, err
 	}
 	return toDeliveryKey(*resp.JSON201), nil
+}
+
+// SetDeliveryKeyScope implements release.Service.
+func (r *ReleaseService) SetDeliveryKeyScope(ctx context.Context, s release.Scope, id string, scope release.KeyScope) (release.DeliveryKey, error) {
+	resp, err := r.c.api.SetDeliveryKeyScopeWithResponse(ctx, s.Tenant, s.Project, id, fromKeyScope(scope))
+	if err := check(resp, err, http.MethodPut, r.project(s, "/delivery-keys/%s/scope", id)); err != nil {
+		return release.DeliveryKey{}, err
+	}
+	return toDeliveryKey(*resp.JSON200), nil
 }
 
 // RevokeDeliveryKey implements release.Service.
