@@ -12,7 +12,9 @@
     {"key": "email.welcome.paid", "file": "templates/emails/welcome.html.tmpl", "line": 8, "column": 86, "kind": "template"},
     {"key": "email.welcome.subject", "file": "templates/emails/welcome.html.tmpl", "line": 1, "column": 26, "kind": "template"},
     {"key": "email.welcome.trial", "file": "templates/emails/welcome.html.tmpl", "line": 8, "column": 26, "kind": "template"},
+    {"key": "report.caption", "file": "templates/reports/summary.gotmpl", "line": 9, "column": 55, "kind": "template"},
     {"key": "report.piped", "file": "templates/reports/summary.gotmpl", "line": 7, "column": 4, "kind": "template"},
+    {"key": "report.subtitle", "file": "templates/reports/summary.gotmpl", "line": 9, "column": 4, "kind": "template"},
     {"key": "report.title", "file": "templates/reports/summary.gotmpl", "line": 8, "column": 15, "kind": "template"},
     {"key": "report.totals", "file": "templates/reports/summary.gotmpl", "line": 6, "column": 22, "kind": "template"}
   ]

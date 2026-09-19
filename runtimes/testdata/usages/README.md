@@ -61,8 +61,8 @@ A case with no usages expected still needs its `expected.json` (with `"usages": 
   second (`Client.T(ctx, "…")`). A plain function named `T` doesn't count. Neither does a call on an
   imported package (`strings.Title(…)`), even when its name matches an accessor.
 - In Go templates, the key is the first argument of `t`, `td` or `th`, in any action, branch, block
-  or parenthesized pipeline. A string literal piped into a bare `t` (`{{"…" | t}}`) is its first
-  argument too.
+  or parenthesized pipeline. A string literal piped into a bare `t` or `th` (`{{"…" | t}}`) is its
+  first argument too. Piped into `td`, it's the default text, never a key.
 - **Typed accessors** are calls `<receiver>.<path>(…)` whose path is a key's accessor path (TS:
   camelCased segments; Go: the PascalCase method name). Collisions follow codegen: of two keys with
   the same path, only the first in sort order gets it, and a key that is also a group (`nav.home`
