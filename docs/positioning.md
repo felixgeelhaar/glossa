@@ -8,7 +8,7 @@ The brief follows April Dunford's five components: alternatives → capabilities
 
 ## Shipped vs direction
 
-Positioning must never claim what doesn't exist yet. Everything below is marked **shipped** (in v0.3) or **Phase 1** (in progress, see [RFC 0001](./rfcs/0001-platform-foundation.md)).
+Positioning must never claim what doesn't exist yet. Everything below is marked **shipped** (in v0.3) or with the rewrite milestone that delivers it (**M1**, **M2**, …; see [RFC 0002](./rfcs/0002-platform-architecture.md) §13).
 
 ## Early Customer Profile (ECP)
 
@@ -39,16 +39,16 @@ Not a fit *yet*:
 
 ### 2. Differentiated capabilities
 
-1. **One message model across every runtime.** Typed messages (`messages.checkout.pay({ amount })`) on the web, the same messages through `i18n.T(ctx, …)` in Go. One MessageFormat semantics, one conformance suite. *Phase 1: web components and the TS SDK are shipped. Typed accessors and the Go runtime are in progress.*
-2. **AI translation grounded in your knowledge, with provenance.** BYO provider (OpenAI, Anthropic, Gemini, OpenAI-compatible). *Shipped:* automatic fan-out with per-row attribution. *Phase 1:* translation memory, terminology, structural validation, and a record of the model, prompt and knowledge used for each translation.
-3. **Immutable releases, resilient delivery.** Publish, promote and roll back per environment. Content-addressed bundles keep serving when the control plane is down. *Shipped:* live updates over SSE and fallback-first rendering. *Phase 1:* releases, environments, delivery plane and fallback graph.
+1. **One message model across every runtime.** Typed messages (`messages.checkout.pay({ amount })`) on the web, the same messages through `i18n.T(ctx, …)` in Go. One MessageFormat semantics, one conformance suite. *Shipped: web components and TS SDK. M1: typed accessors, Vue/Astro and the Go runtime.*
+2. **AI translation grounded in your knowledge, with provenance.** BYO provider (OpenAI, Anthropic, Gemini, OpenAI-compatible). *Shipped:* automatic fan-out with per-row attribution. *M2:* translation memory, terminology, structural validation, confidence, and a record of the model, prompt and knowledge used for each translation.
+3. **Immutable releases, resilient delivery.** Publish, promote and roll back per environment. Content-addressed bundles keep serving when the control plane is down. *Shipped:* live updates over SSE and fallback-first rendering. *M1:* releases, environments, delivery plane and fallback graph.
 4. **You own it.** MIT-licensed and self-hostable (Helm chart, Docker Compose). Tenant isolation is enforced by Postgres RLS. Your data, your LLM keys. *Shipped.*
 
 ### 3. Differentiated value
 
 - **The next language is configuration, not a project.** This is the metric that matters (intent §70): the engineering effort to ship one more language should keep falling.
 - **Translators get context engineers never wrote down.** Source locations and usage first. Screenshots and live preview come in Phase 2.
-- **Localization behaves like CI.** `glossa check` fails the build on broken placeholders or missing translations (Phase 1) instead of users finding them in production.
+- **Localization behaves like CI.** `glossa check` fails the build on broken placeholders or missing translations (M1, full policies in M4) instead of users finding them in production.
 - **No lock-in.** Standard formats in and out, and your own database.
 
 ### 4. Best-fit target customer
@@ -87,6 +87,6 @@ From intent §61. What Glossa is not, even when asked nicely:
 > "Teams will adopt a new localization runtime (typed messages plus releases) in place of the i18n library and JSON files they already have."
 
 Validation plan:
-1. **Dogfood.** Move Brotwerk and IRI, frontend *and* backend, onto the Phase 1 runtime. Measure engineering hours to add one more locale before and after. That number is the headline claim or it's nothing.
+1. **Dogfood.** Move Brotwerk (the M1 pilot), then KraftSport, frontend *and* backend, onto the new runtime. Measure engineering hours to add one more locale before and after. That number is the headline claim or it's nothing.
 2. **Second-team test.** Onboard one team outside Felix's projects. Time to the first localized environment is the target (intent §66: minutes, not days).
 3. **If adoption stalls at the runtime,** lead with the pieces that don't require a runtime switch (`glossa check` in CI, knowledge-aware AI translation over existing catalogs) and let the runtime follow.
