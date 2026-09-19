@@ -98,9 +98,10 @@ curl -i -X POST localhost:8080/v1/auth/magic-link-redemptions \
   -H 'content-type: application/json' -d '{"token":"…"}'
 ```
 
-In a deployment, the CNPG database owner (with `CREATEROLE`, never a
-superuser) runs `glossa-server -migrate=only` as a Job. `glossa_app` gets
-its login and password from a CNPG managed role with a `passwordSecret`.
+In a deployment, the database owner (with `CREATEROLE`, never a
+superuser) runs `glossa-server -migrate=only` as a Job, and a later hook
+gives `glossa_app` its login and password (see
+`deploy/charts/glossa-platform/README.md` for the order).
 The server refuses to start if `DATABASE_URL` is a superuser or
 `BYPASSRLS` role, or if that role can't `SET ROLE glossa_system`.
 
@@ -571,10 +572,10 @@ either tenant-wide or scoped to one project.
 
 **pg_trgm.** Migration 0007 runs `CREATE EXTENSION IF NOT EXISTS
 pg_trgm` for fuzzy matching and substring search (GIN trigram indexes).
-It ships with PostgreSQL's contrib modules — in the official images
-(the `postgres:16-alpine` test container) and CloudNativePG's operand
-images — and is a trusted extension, so the CNPG database owner that
-runs `-migrate=only` creates it without superuser rights. A cluster
+It ships with PostgreSQL's contrib modules — in the official images the
+chart and the tests use (`postgres:16-alpine`) — and is a trusted
+extension, so the database owner that runs `-migrate=only` creates it
+without superuser rights. A cluster
 built without contrib must provide it first.
 
 **Translation memory.** Units are derived, not curated — or imported

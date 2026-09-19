@@ -58,6 +58,22 @@ server:
   outbox:
     # -- GLOSSA_OUTBOX_ENABLED: run the dispatcher in the server pods.
     enabled: true
+  ai:
+    # -- GLOSSA_AI_WORKERS_ENABLED: run AI translation job workers in the server pods.
+    workersEnabled: true
+    # -- GLOSSA_AI_WORKERS per pod.
+    workers: 2
+    # -- GLOSSA_AI_PROVIDER_CONCURRENCY: in-flight calls per provider, per pod.
+    providerConcurrency: 4
+  integration:
+    # -- GLOSSA_INTEGRATION_WORKERS_ENABLED: run import/export workers (and the retention sweep).
+    workersEnabled: true
+    # -- GLOSSA_INTEGRATION_WORKERS per pod.
+    workers: 1
+    # -- GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES (default 64 MiB).
+    maxUploadBytes: 67108864
+    # -- GLOSSA_INTEGRATION_RETENTION: how long import/export files are kept.
+    retention: 168h
   webauthn:
     # -- GLOSSA_WEBAUTHN_RP_ID (registrable domain). Default: hosts.studio.
     rpId: ""

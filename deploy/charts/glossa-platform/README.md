@@ -643,6 +643,13 @@ the value until it is set.
 | `server.terminationGracePeriodSeconds` | `35` | Must exceed the shutdown timeout. |
 | `server.sessionTTL` | `336h` | `GLOSSA_SESSION_TTL` |
 | `server.outbox.enabled` | `true` | `GLOSSA_OUTBOX_ENABLED` (dispatchers claim with leases, so replicas share work). |
+| `server.ai.workersEnabled` | `true` | `GLOSSA_AI_WORKERS_ENABLED`: AI translation job workers in the server pods. No provider is called until a tenant configures one and gives consent. |
+| `server.ai.workers` | `2` | `GLOSSA_AI_WORKERS` per pod. |
+| `server.ai.providerConcurrency` | `4` | `GLOSSA_AI_PROVIDER_CONCURRENCY`: in-flight calls per provider, per pod (the per-tenant cap is exact across replicas). |
+| `server.integration.workersEnabled` | `true` | `GLOSSA_INTEGRATION_WORKERS_ENABLED`: import/export workers and the file-retention sweep. |
+| `server.integration.workers` | `1` | `GLOSSA_INTEGRATION_WORKERS` per pod. |
+| `server.integration.maxUploadBytes` | `67108864` | `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES` (64 MiB). The upload route enforces it itself; keep any ingress body limit above it. |
+| `server.integration.retention` | `168h` | `GLOSSA_INTEGRATION_RETENTION`: import/export files are deleted after this; jobs and results stay. |
 | `server.webauthn.rpId` | `hosts.studio` | `GLOSSA_WEBAUTHN_RP_ID`; changing it later invalidates enrolled passkeys. |
 | `server.webauthn.rpName` | `Glossa` | `GLOSSA_WEBAUTHN_RP_NAME` |
 | `server.webauthn.origins` | `[https://<hosts.studio>]` | `GLOSSA_WEBAUTHN_ORIGINS` |

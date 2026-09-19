@@ -79,6 +79,20 @@ spec:
               value: {{ $v.shutdownTimeout | quote }}
             - name: GLOSSA_OUTBOX_ENABLED
               value: {{ $v.outbox.enabled | quote }}
+            - name: GLOSSA_AI_WORKERS_ENABLED
+              value: {{ $v.ai.workersEnabled | quote }}
+            - name: GLOSSA_AI_WORKERS
+              value: {{ $v.ai.workers | quote }}
+            - name: GLOSSA_AI_PROVIDER_CONCURRENCY
+              value: {{ $v.ai.providerConcurrency | quote }}
+            - name: GLOSSA_INTEGRATION_WORKERS_ENABLED
+              value: {{ $v.integration.workersEnabled | quote }}
+            - name: GLOSSA_INTEGRATION_WORKERS
+              value: {{ $v.integration.workers | quote }}
+            - name: GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES
+              value: {{ $v.integration.maxUploadBytes | int64 | quote }}
+            - name: GLOSSA_INTEGRATION_RETENTION
+              value: {{ $v.integration.retention | quote }}
             - name: GLOSSA_STUDIO_URL
               value: {{ include "gp.studioUrl" . | quote }}
             # Surfaced to clients by GET /v1/meta (Studio's runtime snippets).
