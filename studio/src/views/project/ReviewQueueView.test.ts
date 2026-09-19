@@ -1,6 +1,7 @@
 import { flushPromises, type VueWrapper } from "@vue/test-utils";
-import { afterEach, describe, expect, it } from "vitest";
-import { createFakeIntelligence, suggestion, type FakeIntelligence } from "../../test/fake-intelligence";
+import { afterEach, describe, expect, it, type Mock } from "vitest";
+import type { AISuggestion } from "../../api/intelligence-schemas";
+import { createFakeIntelligence, suggestion as baseSuggestion, suggestionSource, type FakeIntelligence } from "../../test/fake-intelligence";
 import { locale, mountProjectScreen, type ScreenOptions } from "../../test/project";
 import ReviewQueueView from "./ReviewQueueView.vue";
 
@@ -11,17 +12,8 @@ afterEach(() => {
 });
 
 const locales = [locale("en", true), locale("de"), locale("fr")];
-const message = (key: string) => ({
-  id: key,
-  key,
-  namespace: "default",
-  description: "",
-  state: "active",
-  source: { text: `source of ${key}`, syntax: "mf1", model: { type: "message" }, arguments: [], markup: [] },
-  source_revision: 1,
-  created_at: "t",
-  updated_at: "t",
-});
+/** Each item carries its message's current source, as the server embeds it. */
+const suggestion = (over: Partial<AISuggestion>) => baseSuggestion({ source: suggestionSource(over.message_key!, { text: `source of ${over.message_key}` }), ...over });
 
 function queue(): FakeIntelligence {
   const i = createFakeIntelligence();
@@ -40,7 +32,6 @@ async function screen(i: FakeIntelligence, options: Partial<ScreenOptions> = {})
     locales,
     roles: ["owner"],
     path: "/t/t/p/p/review",
-    fetch: (path) => message(path.split("/").at(-1)!),
     ...options,
   });
   return wrapper;
@@ -60,6 +51,28 @@ describe("ReviewQueueView", () => {
     expect(options(w)[0]!.text()).toContain("Forbidden term");
     expect(options(w)[0]!.attributes("aria-selected")).toBe("true");
     expect(w.get("[data-testid=review-source]").text()).toBe("source of workspace.delete");
+  });
+
+  it("shows each item's source from the queue itself, with no request per item", async () => {
+    const w = await screen(queue());
+    await press("j");
+    expect(w.get("[data-testid=review-source]").text()).toBe("source of terms.accept");
+    await press("j");
+    expect(w.get("[data-testid=review-source]").text()).toBe("source of billing.invoice");
+    const paths = (fetch as unknown as Mock<(r: Request) => Promise<Response>>).mock.calls.map((c) => new URL(c[0].url).pathname);
+    expect(paths.filter((p) => p !== "/v1/me")).toEqual([]);
+  });
+
+  it("says when the source moved on since the suggestion, and follows a rename", async () => {
+    const i = createFakeIntelligence();
+    i.state.suggestions.push(
+      baseSuggestion({ id: "old", message_key: "cart.checkout", source_revision: 1, source: suggestionSource("checkout.start", { source_revision: 3, text: "Start checkout" }) }),
+    );
+    const w = await screen(i);
+    expect(w.get("[data-testid=review-source]").text()).toBe("Start checkout");
+    expect(w.get("[data-testid=review-source-changed]").text()).toContain("source revision 1; the source is now at revision 3");
+    expect(w.get("[data-testid=review-detail]").text()).toContain("Now checkout.start.");
+    expect(w.get("[data-testid=review-detail] a").attributes("href")).toContain("key=checkout.start");
   });
 
   it("triages from the keyboard: j/k move, a accepts, r rejects, e edits and Mod+Enter accepts the edit", async () => {

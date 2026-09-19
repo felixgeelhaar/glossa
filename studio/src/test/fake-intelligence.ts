@@ -21,6 +21,7 @@ import type {
   AISettings,
   AISpendEntry,
   AISuggestion,
+  AISuggestionSource,
 } from "../api/intelligence-schemas";
 
 const NOW = "2026-09-19T08:00:00Z";
@@ -44,8 +45,24 @@ export interface FakeIntelligence extends IntelligencePort {
   settle(): void;
 }
 
+/** A suggestion's message as it is now, as the server embeds it. */
+export function suggestionSource(key: string, over: Partial<AISuggestionSource> = {}): AISuggestionSource {
+  return {
+    message_key: key,
+    namespace: "default",
+    state: "active",
+    source_revision: 1,
+    text: "Hello, {name}!",
+    syntax: "mf1",
+    mf2: "Hello, {$name}!",
+    model: { type: "message", declarations: [], pattern: ["Hello, ", { type: "expression", arg: { type: "variable", name: "name" } }, "!"] },
+    ...over,
+  };
+}
+
 export function suggestion(over: Partial<AISuggestion> = {}): AISuggestion {
   return {
+    source: suggestionSource(over.message_key ?? "greeting"),
     id: "s1",
     job_id: "j1",
     project_id: "p",

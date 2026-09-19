@@ -721,6 +721,11 @@ export const strings = {
     loadMore: "Load more",
     count: (n: number, more: boolean) => `${n.toLocaleString()}${more ? "+" : ""} waiting`,
     source: "Source",
+    renamed: (key: string) => `Now ${key}.`,
+    sourceChanged: (was: number, now: number) =>
+      `This suggestion translates source revision ${was}; the source is now at revision ${now}, so it can't be accepted. Open it in the editor to translate the current source.`,
+    sourceObsolete: "The message is obsolete: it's no longer in the code.",
+    sourceGone: "The message no longer exists.",
     openInEditor: "Open in the editor",
     accept: "Accept",
     edit: "Edit",

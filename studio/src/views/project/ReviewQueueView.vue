@@ -7,11 +7,9 @@
  */
 import { computed, nextTick, ref, shallowRef, useTemplateRef, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
-import { messages as messagesApi } from "../../api/endpoints";
 import { isApiError } from "../../api/errors";
 import type { AISuggestion } from "../../api/intelligence-schemas";
 import { useIntelligence } from "../../api/intelligence";
-import type { Message } from "../../api/schemas";
 import SuggestionCard from "../../components/assist/SuggestionCard.vue";
 import ErrorAlert from "../../components/ErrorAlert.vue";
 import ModalDialog from "../../components/ModalDialog.vue";
@@ -75,24 +73,18 @@ const current = computed(() => items.value[active.value]);
 const canDecide = (sg: AISuggestion | undefined) =>
   !!sg && allowsFor(grant.value, "intelligence.translate", sg.locale) && allowsFor(grant.value, "translations.write", sg.locale);
 
-// The source of the focused message, for context.
-const sourceMessage = shallowRef<Message>();
+// Moving on leaves an edit behind. Each item carries its message's
+// current source (read by the server in one query per page), so focusing
+// one needs no request.
 watch(
-  () => current.value?.message_key,
-  async (key) => {
-    sourceMessage.value = undefined;
-    editing.value = false;
-    if (!key) return;
-    try {
-      const r = await messagesApi.get({ ...ref_(), message: key });
-      if (current.value?.message_key === key) sourceMessage.value = r.value;
-    } catch {
-      // Context is a convenience; the suggestion stands on its own.
-    }
-  },
-  { immediate: true },
+  () => current.value?.id,
+  () => (editing.value = false),
 );
 const source = computed(() => locales.value.find((l) => l.is_source));
+/** The message's key now: a rename since the suggestion shows here. */
+const keyOf = (sg: AISuggestion) => sg.source?.message_key ?? sg.message_key;
+/** The source moved on since the suggestion was made against it. */
+const sourceChanged = (sg: AISuggestion) => !!sg.source && sg.source.source_revision > sg.source_revision;
 
 function move(by: number): void {
   if (!items.value.length) return;
@@ -269,13 +261,16 @@ function setLocale(code: string): void {
           <h2 :id="`rq-h-${current.id}`" class="mono">{{ current.message_key }}</h2>
           <span class="pill pill-neutral">{{ current.locale }}</span>
           <span class="spacer" />
-          <RouterLink :to="{ name: 'translate', params: { tenant, project: projectId }, query: { key: current.message_key, locale: current.locale } }">{{ s.openInEditor }}</RouterLink>
+          <RouterLink :to="{ name: 'translate', params: { tenant, project: projectId }, query: { key: keyOf(current), locale: current.locale } }">{{ s.openInEditor }}</RouterLink>
         </div>
-        <div v-if="sourceMessage" class="stack-sm">
+        <div v-if="current.source" class="stack-sm">
           <h3>{{ s.source }} <span class="muted mono">{{ source?.code }}</span></h3>
-          <p v-if="sourceMessage.description" class="hint">{{ sourceMessage.description }}</p>
-          <p class="source" :lang="source?.code" :dir="source?.direction" data-testid="review-source">{{ sourceMessage.source.text }}</p>
+          <p v-if="current.source.message_key !== current.message_key" class="hint">{{ s.renamed(current.source.message_key) }}</p>
+          <p class="source" :lang="source?.code" :dir="source?.direction" data-testid="review-source">{{ current.source.text }}</p>
+          <p v-if="sourceChanged(current)" class="alert alert-warn" data-testid="review-source-changed">{{ s.sourceChanged(current.source_revision, current.source.source_revision) }}</p>
+          <p v-if="current.source.state === 'obsolete'" class="hint">{{ s.sourceObsolete }}</p>
         </div>
+        <p v-else class="hint">{{ s.sourceGone }}</p>
         <SuggestionCard :suggestion="current" :lang="current.locale" :dir="localeOf(current.locale)?.direction ?? 'auto'" />
         <template v-if="canDecide(current)">
           <div v-if="editing" class="stack-sm">
