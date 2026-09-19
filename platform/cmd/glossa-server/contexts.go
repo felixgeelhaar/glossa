@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,6 +14,10 @@ import (
 	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
 	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
+	integrationapi "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/httpapi"
+	integrationpg "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/postgres"
+	integrationsources "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/sources"
+	integrationapp "github.com/felixgeelhaar/glossa/platform/internal/integration/app"
 	intelligenceapi "github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/httpapi"
 	intelligencemetrics "github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/metrics"
 	intelligencepg "github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/postgres"
@@ -21,6 +26,7 @@ import (
 	intelligenceapp "github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/httpserver"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/configured"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
@@ -60,18 +66,23 @@ type contexts struct {
 	previewAPI *previewapi.API
 	// aiWorker runs Intelligence's jobs; nil when disabled.
 	aiWorker *intelligenceapp.Worker
+	// integrationAPI serves import and export jobs; integrationWorker
+	// runs them (nil when disabled).
+	integrationAPI    *integrationapi.API
+	integrationWorker *integrationapp.Worker
 }
 
 // contextDeps are what the contexts need beyond the database.
 type contextDeps struct {
-	objects objectstore.Store
+	objects objectstore.StreamStore
 	signer  *releasedomain.Signer
 	logger  *slog.Logger
 	// sealKey seals tenants' provider keys (derived from the auth
 	// secret).
-	sealKey    []byte
-	registerer prometheus.Registerer
-	ai         config.Intelligence
+	sealKey     []byte
+	registerer  prometheus.Registerer
+	ai          config.Intelligence
+	integration config.Integration
 }
 
 // buildContexts opens object storage and the signer, then the contexts.
@@ -90,6 +101,7 @@ func buildContexts(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, e
 	}
 	return newContexts(pool, events, contextDeps{
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
+		integration: cfg.Integration,
 	})
 }
 
@@ -134,7 +146,39 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 			Workers: deps.ai.Workers, PollInterval: deps.ai.PollInterval, Lease: deps.ai.Lease, JobTimeout: deps.ai.JobTimeout,
 		})
 	}
+	integration := integrationapp.New(integrationapp.Deps{
+		Tx: integrationpg.NewTransactor(uow), Catalog: integrationsources.NewCatalog(catalog),
+		Localization: integrationsources.NewLocalization(localization, catalog), Knowledge: integrationsources.NewKnowledge(knowledge),
+		Objects: deps.objects, Logger: deps.logger,
+		Config: integrationapp.Config{MaxUploadBytes: deps.integration.MaxUploadBytes, Retention: deps.integration.Retention},
+	})
+	if err := integration.Subscribe(events); err != nil {
+		return contexts{}, err
+	}
+	c.integrationAPI = integrationapi.New(integration)
+	if deps.integration.WorkersEnabled {
+		c.integrationWorker = integrationapp.NewWorker(integration, integrationpg.NewClaimer(uow), integrationapp.WorkerConfig{
+			Workers: deps.integration.Workers, PollInterval: deps.integration.PollInterval,
+			Lease: deps.integration.Lease, JobTimeout: deps.integration.JobTimeout,
+		})
+	}
 	return c, nil
+}
+
+// largeBodies lets import uploads and export downloads stream files
+// larger and longer than the API's default body limit and timeouts.
+func largeBodies(cfg config.Integration) func(*http.Request) (httpserver.BodyPolicy, bool) {
+	return func(r *http.Request) (httpserver.BodyPolicy, bool) {
+		switch {
+		case integrationapi.UploadPath(r.Method, r.URL.Path):
+			// The service enforces GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES
+			// while it streams, with its own problem code.
+			return httpserver.BodyPolicy{Timeout: cfg.UploadTimeout}, true
+		case integrationapi.DownloadPath(r.Method, r.URL.Path):
+			return httpserver.BodyPolicy{MaxBytes: 1, Timeout: cfg.UploadTimeout}, true
+		}
+		return httpserver.BodyPolicy{}, false
+	}
 }
 
 // newIntelligence wires the Intelligence context: its Postgres store,

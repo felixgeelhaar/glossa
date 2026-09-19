@@ -157,6 +157,17 @@ tags:
     description: |
       Intelligence: which provider saw which message, acceptance and
       edit distance per locale, and the eval baseline.
+  - name: imports
+    description: |
+      Integration: interchange files in — XLIFF 2.1, JSON (flat or
+      nested), gettext PO, TMX 1.4b, TBX-Basic — as asynchronous jobs.
+      Create the job, upload its file, follow its progress, page
+      through its per-item results.
+  - name: exports
+    description: |
+      Integration: catalogs (XLIFF, JSON), translation memory (TMX) and
+      termbases (TBX) out, as asynchronous jobs whose file is
+      downloaded when they finish.
 
 paths:
   # ── meta ────────────────────────────────────────────────────────────
@@ -4157,6 +4168,409 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  # ── imports ─────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/import-jobs:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: createImportJob
+      tags: [imports]
+      summary: Create an import job (then upload its file)
+      description: |
+        Creates a job in `awaiting_upload`; `PUT` the file to its
+        `upload_url` next (within 24 hours). Catalog formats (`xliff`,
+        `json`, `po`) belong to a project; `tmx` and `tbx` import into
+        a project, or tenant-wide without `project_id`.
+
+        **Modes.** `merge` (default) creates what is missing and updates
+        what changed, but never replaces an approved translation, a
+        message's source that differs from the file's, or a concept that
+        differs: those are `conflict` results (and a translation of a
+        message whose source differs is one too — it was made for other
+        text). `overwrite` makes the stored state the file's (needs
+        `integration.manage`). `dry_run` runs every check of a merge and
+        reports its results without changing anything.
+
+        **Review states.** A file's states (XLIFF `final` → approved,
+        `translated` → needs_review, `initial` → draft; PO fuzzy →
+        needs_review; JSON: `options.state`, default needs_review) are
+        kept only as far as the requester may decide them: an approval
+        (or rejection) needs `translations.review` for the locale, or —
+        approvals — a project that doesn't require review; otherwise
+        the translation waits for review. Translations are written with
+        provenance `import` and `origin_detail` `{job, file, format,
+        requested_by}`.
+
+        **Keys.** XLIFF units and JSON keys are message keys. gettext
+        keys messages by text: a PO entry's key is
+        `[<msgctxt slug>.]<msgid slug>_<hash>` — the text folded to
+        lowercase ASCII words joined by `_` (at most 40 characters) and
+        the first 8 hex digits of SHA-256 over msgctxt, U+0004 and msgid
+        (`Add to cart` → `add_to_cart_…`), so the same entry always
+        gets the same key.
+
+        **Permissions.** Catalog formats need `integration.import`
+        (translations of the locales in the requester's scope — a
+        translator's) or `integration.manage` (also creating and
+        revising messages; a JSON file in the source locale is a source
+        catalog and needs it). TMX, TBX and `overwrite` need
+        `integration.manage` (and `knowledge.write` for TMX and TBX).
+        What the requester may do is recorded with the job and applied
+        when it runs. Problem codes: `invalid_format`, `invalid_mode`,
+        `invalid_options`, `project_required` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ImportJobRequest" }
+      responses:
+        "201":
+          description: The job, waiting for its file.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+    get:
+      operationId: listImportJobs
+      tags: [imports]
+      summary: Import jobs
+      description: Newest first. Needs `integration.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/IntegrationJobState" } }
+      responses:
+        "200":
+          description: A page of import jobs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJobList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/import-jobs/{import_job}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ImportJobPath"
+    get:
+      operationId: getImportJob
+      tags: [imports]
+      summary: An import job with its progress and counts
+      description: |
+        `processed_items` of `total_items` (entries, units or concepts
+        of the file; 0 until known — a TMX file streams) and `summary`,
+        the results so far by status and kind. A job ends `succeeded`,
+        `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
+        `file_too_large` — the problem's line and column are its last
+        result —, `source_locale_mismatch`, `project_not_found`,
+        `upload_expired`, `internal`) or `cancelled`. An import of a
+        file this tenant already imported with the same options
+        succeeds at once with that job's result (`reused_job_id`);
+        dry runs are always run. Needs `integration.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJob" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/import-jobs/{import_job}/file:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ImportJobPath"
+    put:
+      operationId: uploadImportFile
+      tags: [imports]
+      summary: Upload an import job's file
+      description: |
+        The raw file (any `Content-Type`; the job's `format` says how it
+        is read), streamed to object storage — once, by the job's
+        requester, while it is `awaiting_upload`. The job is `queued`,
+        or `succeeded` at once when it reuses an earlier result. Problem
+        codes: `empty_file`, `upload_interrupted` (400: the body broke
+        off), `upload_not_expected` (409), `file_too_large` (413; the
+        limit is the deployment's `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES`,
+        64 MiB by default), `storage_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: The job, queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/import-jobs/{import_job}/cancellation:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ImportJobPath"
+    post:
+      operationId: cancelImportJob
+      tags: [imports]
+      summary: Cancel an import job
+      description: |
+        A job waiting for its file or queued is cancelled at once; a
+        running one stops after its current batch of 500
+        (`cancel_requested`), and what it already applied stays
+        applied. Cancelling a cancelled job changes nothing. The
+        requester, or someone with `integration.manage`, may cancel.
+        Problem code: `job_not_cancellable` (409: it has finished).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJob" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/import-jobs/{import_job}/results:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ImportJobPath"
+    get:
+      operationId: listImportResults
+      tags: [imports]
+      summary: An import job's per-item results
+      description: |
+        In file order: each message, then its translations; TM units;
+        concepts. `status` is `created`, `updated`, `unchanged`,
+        `conflict` (stored data differs and the mode keeps it: `code`
+        `approved_translation_conflict`, `source_differs`,
+        `concept_differs`) or `invalid` (`code` says why:
+        `forbidden`, `message_not_found`, `invalid_message_key`,
+        `structural_qa_failed`, `invalid_file` with `line` and
+        `column`, …). A dry run's results are what a merge would do.
+        Needs `integration.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: status, in: query, required: false, schema: { $ref: "#/components/schemas/ImportResultStatus" } }
+        - { name: kind, in: query, required: false, schema: { $ref: "#/components/schemas/ImportResultKind" } }
+      responses:
+        "200":
+          description: A page of results.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResultList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── exports ─────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/export-jobs:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: createExportJob
+      tags: [exports]
+      summary: Export a catalog, translation memory or termbase
+      description: |
+        Queues the export; download its file when it has `succeeded`.
+        Catalogs (`xliff`, `json`) belong to a project and write one
+        file per locale in `options.locales` — several are zipped as
+        `<locale>.<ext>` —, the project's active messages (in
+        `options.namespaces`) with their translations in
+        `options.states` (default `approved`). An XLIFF export without
+        locales carries the source only; a JSON export defaults to the
+        source locale and matches what `glossa pull` writes (sorted
+        keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
+        mf2). `tmx` and `tbx` export a project's own memory or termbase,
+        or without `project_id` everything the tenant holds; `tmx`
+        narrows by `source_locale` and target `locales`. Needs
+        `integration.read` and `catalog.read` with
+        `translations.read` (catalogs) or `knowledge.read`. Problem
+        codes: `invalid_format` (400; `po` is import only),
+        `invalid_options`, `project_required` (400),
+        `locale_not_found` (404).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportJobRequest" }
+      responses:
+        "201":
+          description: The job, queued.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+    get:
+      operationId: listExportJobs
+      tags: [exports]
+      summary: Export jobs
+      description: Newest first. Needs `integration.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/IntegrationJobState" } }
+      responses:
+        "200":
+          description: A page of export jobs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportJobList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/export-jobs/{export_job}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ExportJobPath"
+    get:
+      operationId: getExportJob
+      tags: [exports]
+      summary: An export job
+      description: |
+        A job ends `succeeded` (with `file` and `download_url`),
+        `failed` (`failure_code`: `not_representable` — the format can't
+        express the catalog with these options, such as MF2-only
+        messages in an MF1 JSON file or an XLIFF file without messages
+        —, `project_not_found`, `internal`) or `cancelled`. Needs
+        `integration.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportJob" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/export-jobs/{export_job}/cancellation:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ExportJobPath"
+    post:
+      operationId: cancelExportJob
+      tags: [exports]
+      summary: Cancel a queued export
+      description: |
+        A queued export is cancelled at once; a running one finishes.
+        The requester, or someone with `integration.manage`, may cancel.
+        Problem code: `job_not_cancellable` (409: it has finished).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportJob" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/export-jobs/{export_job}/file:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ExportJobPath"
+    get:
+      operationId: downloadExportFile
+      tags: [exports]
+      summary: Download a finished export
+      description: |
+        The file, streamed from object storage, with its name in
+        `Content-Disposition` (its media type is the job's
+        `file.content_type`) and its SHA-256 as the `ETag`. Files are
+        kept for the deployment's retention period
+        (`GLOSSA_INTEGRATION_RETENTION`, 7 days by default). Needs
+        `integration.read`. Problem codes: `export_not_ready` (409),
+        `file_expired` (410), `storage_unavailable` (503).
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The file.
+          headers:
+            Content-Disposition:
+              description: "`attachment; filename=\"…\"`"
+              schema: { type: string }
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "410": { $ref: "#/components/responses/Gone" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   securitySchemes:
     session:
@@ -4290,6 +4704,18 @@ components:
       required: true
       description: A suggestion `id`.
       schema: { $ref: "#/components/schemas/Id" }
+    ImportJobPath:
+      name: import_job
+      in: path
+      required: true
+      description: An import job `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    ExportJobPath:
+      name: export_job
+      in: path
+      required: true
+      description: An export job `id`.
+      schema: { $ref: "#/components/schemas/Id" }
     PageSize:
       name: page_size
       in: query
@@ -4400,6 +4826,16 @@ components:
           schema: { $ref: "#/components/schemas/Problem" }
     Unavailable:
       description: A dependency (object storage) is unavailable; retry.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    PayloadTooLarge:
+      description: The request body exceeds the limit.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Gone:
+      description: The resource existed and was deleted (retention).
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -6420,3 +6856,232 @@ components:
           type: object
           description: A locale pair (`en-de`) or `all` to its tracked metrics.
           additionalProperties: { $ref: "#/components/schemas/AIEvalMetrics" }
+
+    # ── integration ──────────────────────────────────────────────────
+    IntegrationFormat:
+      type: string
+      enum: [xliff, json, po, tmx, tbx]
+      description: |
+        `xliff` XLIFF 2.1, `json` flat or nested `{key: message}`, `po`
+        gettext (import only), `tmx` TMX 1.4b, `tbx` TBX-Basic.
+    IntegrationKind:
+      type: string
+      enum: [catalog, tm, termbase]
+      description: What the job moves; follows from the format.
+    ImportMode:
+      type: string
+      enum: [dry_run, merge, overwrite]
+    IntegrationJobState:
+      type: string
+      enum: [awaiting_upload, queued, running, succeeded, failed, cancelled]
+    ImportOptions:
+      type: object
+      description: |
+        How the file is read; options a format doesn't take are refused
+        (`invalid_options`).
+      properties:
+        locale:
+          $ref: "#/components/schemas/Locale"
+          description: |
+            JSON: the file's locale (default the project's source
+            locale, making it a source catalog). PO: the translations'
+            locale (default the file's `Language` header).
+        namespace: { type: string, maxLength: 64, description: "JSON and PO: every message's namespace (default `default`)." }
+        syntax:
+          $ref: "#/components/schemas/Syntax"
+          description: |
+            JSON: the messages' syntax (default mf1). XLIFF (`mf1` only):
+            read units from other tools that carry plain text as ICU
+            MessageFormat instead of literally.
+        state:
+          $ref: "#/components/schemas/ReviewState"
+          description: |
+            The review state of translations the file doesn't state:
+            JSON (default needs_review), PO entries without the fuzzy
+            flag (default approved). Capped like the file's own states.
+        plural_variable: { type: string, maxLength: 64, description: "PO: the count variable of plurals (default `count`)." }
+    ImportJobRequest:
+      type: object
+      required: [format]
+      properties:
+        project_id:
+          $ref: "#/components/schemas/Id"
+          description: Required for catalog formats; without it TMX and TBX import tenant-wide.
+        format: { $ref: "#/components/schemas/IntegrationFormat" }
+        mode: { $ref: "#/components/schemas/ImportMode" }
+        file_name: { type: string, maxLength: 255, description: "The file's name, for people." }
+        options: { $ref: "#/components/schemas/ImportOptions" }
+    IntegrationFile:
+      type: object
+      required: [size, sha256, content_type]
+      properties:
+        size: { type: integer, format: int64 }
+        sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        content_type: { type: string }
+    ImportCounts:
+      type: object
+      required: [created, updated, unchanged, conflict, invalid]
+      properties:
+        created: { type: integer }
+        updated: { type: integer }
+        unchanged: { type: integer }
+        conflict: { type: integer }
+        invalid: { type: integer }
+    ImportSummary:
+      type: object
+      required: [created, updated, unchanged, conflict, invalid, by_kind]
+      properties:
+        created: { type: integer }
+        updated: { type: integer }
+        unchanged: { type: integer }
+        conflict: { type: integer }
+        invalid: { type: integer }
+        by_kind:
+          type: object
+          description: The same counts per kind of result (`message`, `translation`, `tm_unit`, `concept`).
+          additionalProperties: { $ref: "#/components/schemas/ImportCounts" }
+    ImportJob:
+      type: object
+      required: [id, kind, format, mode, options, state, file_name, summary, total_items, processed_items,
+                 cancel_requested, attempts, created_by, created_at, updated_at, expires_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        kind: { $ref: "#/components/schemas/IntegrationKind" }
+        format: { $ref: "#/components/schemas/IntegrationFormat" }
+        mode: { $ref: "#/components/schemas/ImportMode" }
+        options: { $ref: "#/components/schemas/ImportOptions" }
+        state: { $ref: "#/components/schemas/IntegrationJobState" }
+        file_name: { type: string }
+        upload_url:
+          type: string
+          description: Where to `PUT` the file; present while the job is `awaiting_upload`.
+        file: { $ref: "#/components/schemas/IntegrationFile" }
+        reused_job_id:
+          $ref: "#/components/schemas/Id"
+          description: The earlier import of the same file and options whose result this job reuses.
+        summary: { $ref: "#/components/schemas/ImportSummary" }
+        total_items: { type: integer, description: "Entries, units or concepts in the file; 0 until known." }
+        processed_items: { type: integer }
+        failure_code: { type: string }
+        failure_message: { type: string }
+        cancel_requested: { type: boolean }
+        attempts: { type: integer }
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        finished_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at:
+          $ref: "#/components/schemas/Timestamp"
+          description: When retention deletes the uploaded file (the job and its results stay).
+        files_deleted_at: { $ref: "#/components/schemas/Timestamp" }
+    ImportJobList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ImportJob" }
+        next_page_token: { type: string }
+    ImportResultKind:
+      type: string
+      enum: [message, translation, tm_unit, concept]
+    ImportResultStatus:
+      type: string
+      enum: [created, updated, unchanged, conflict, invalid]
+    ImportResult:
+      type: object
+      required: [seq, kind, key, status]
+      properties:
+        seq: { type: integer, description: Position in the job's results (file order). }
+        kind: { $ref: "#/components/schemas/ImportResultKind" }
+        key: { type: string, description: "The message key, the TMX unit's `tuid` or the TBX concept's id." }
+        locale: { $ref: "#/components/schemas/Locale" }
+        status: { $ref: "#/components/schemas/ImportResultStatus" }
+        code: { type: string, description: Why a result is a conflict or invalid. }
+        detail: { type: string }
+        line: { type: integer, description: Where in the file (1-based). }
+        column: { type: integer }
+    ImportResultList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ImportResult" }
+        next_page_token: { type: string }
+    ExportOptions:
+      type: object
+      description: |
+        What is written; options a format doesn't take are refused
+        (`invalid_options`).
+      properties:
+        locales:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/Locale" }
+          description: |
+            Catalogs: one file per locale (XLIFF targets; JSON any locale,
+            default the source). TMX: keep units with these targets.
+        source_locale:
+          $ref: "#/components/schemas/Locale"
+          description: "TMX: keep units with this source locale."
+        namespaces:
+          type: array
+          maxItems: 100
+          items: { type: string, maxLength: 64 }
+          description: "Catalogs: only these namespaces (default all)."
+        states:
+          type: array
+          items: { $ref: "#/components/schemas/ReviewState" }
+          description: "Catalogs: translations in these review states (default approved)."
+        layout: { type: string, enum: [flat, nested], description: "JSON: default flat." }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+    ExportJobRequest:
+      type: object
+      required: [format]
+      properties:
+        project_id:
+          $ref: "#/components/schemas/Id"
+          description: Required for catalogs; without it TMX and TBX export the whole tenant's.
+        format: { $ref: "#/components/schemas/IntegrationFormat" }
+        options: { $ref: "#/components/schemas/ExportOptions" }
+    ExportJob:
+      type: object
+      required: [id, kind, format, options, state, file_name, written, cancel_requested, attempts, created_by,
+                 created_at, updated_at, expires_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        kind: { $ref: "#/components/schemas/IntegrationKind" }
+        format: { $ref: "#/components/schemas/IntegrationFormat" }
+        options: { $ref: "#/components/schemas/ExportOptions" }
+        state: { $ref: "#/components/schemas/IntegrationJobState" }
+        file_name: { type: string, description: "The file's name once written (`shop.de.xlf`, `shop.json.zip`)." }
+        file: { $ref: "#/components/schemas/IntegrationFile" }
+        download_url:
+          type: string
+          description: Where to download the file; present while it is kept.
+        written: { type: integer, description: "Messages, units or concepts written." }
+        failure_code: { type: string }
+        failure_message: { type: string }
+        cancel_requested: { type: boolean }
+        attempts: { type: integer }
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        finished_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at:
+          $ref: "#/components/schemas/Timestamp"
+          description: When retention deletes the file.
+        files_deleted_at: { $ref: "#/components/schemas/Timestamp" }
+    ExportJobList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ExportJob" }
+        next_page_token: { type: string }

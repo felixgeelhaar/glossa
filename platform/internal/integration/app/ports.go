@@ -31,7 +31,11 @@ var (
 	ErrIdempotencyReuse = errors.New("integration: Idempotency-Key reused for a different request")
 	ErrUploadTooLarge   = errors.New("integration: the file exceeds the upload limit")
 	ErrEmptyUpload      = errors.New("integration: the file is empty")
-	ErrInvalidQuery     = errors.New("integration: invalid query")
+	// ErrUploadInterrupted means the request body broke off mid-file.
+	ErrUploadInterrupted = errors.New("integration: the upload was interrupted")
+	ErrInvalidQuery      = errors.New("integration: invalid query")
+	// ErrStorage means object storage failed; the request can be retried.
+	ErrStorage = errors.New("integration: file storage is unavailable")
 	// ErrLeaseLost means another worker holds the job now.
 	ErrLeaseLost = errors.New("integration: the job's lease was lost")
 )

@@ -432,6 +432,174 @@ func (e EnvironmentPolicyStates) Valid() bool {
 	}
 }
 
+// Defines values for ExportOptionsLayout.
+const (
+	Flat   ExportOptionsLayout = "flat"
+	Nested ExportOptionsLayout = "nested"
+)
+
+// Valid indicates whether the value is a known member of the ExportOptionsLayout enum.
+func (e ExportOptionsLayout) Valid() bool {
+	switch e {
+	case Flat:
+		return true
+	case Nested:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ImportMode.
+const (
+	DryRun    ImportMode = "dry_run"
+	Merge     ImportMode = "merge"
+	Overwrite ImportMode = "overwrite"
+)
+
+// Valid indicates whether the value is a known member of the ImportMode enum.
+func (e ImportMode) Valid() bool {
+	switch e {
+	case DryRun:
+		return true
+	case Merge:
+		return true
+	case Overwrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ImportResultKind.
+const (
+	ImportResultKindConcept     ImportResultKind = "concept"
+	ImportResultKindMessage     ImportResultKind = "message"
+	ImportResultKindTmUnit      ImportResultKind = "tm_unit"
+	ImportResultKindTranslation ImportResultKind = "translation"
+)
+
+// Valid indicates whether the value is a known member of the ImportResultKind enum.
+func (e ImportResultKind) Valid() bool {
+	switch e {
+	case ImportResultKindConcept:
+		return true
+	case ImportResultKindMessage:
+		return true
+	case ImportResultKindTmUnit:
+		return true
+	case ImportResultKindTranslation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ImportResultStatus.
+const (
+	ImportResultStatusConflict  ImportResultStatus = "conflict"
+	ImportResultStatusCreated   ImportResultStatus = "created"
+	ImportResultStatusInvalid   ImportResultStatus = "invalid"
+	ImportResultStatusUnchanged ImportResultStatus = "unchanged"
+	ImportResultStatusUpdated   ImportResultStatus = "updated"
+)
+
+// Valid indicates whether the value is a known member of the ImportResultStatus enum.
+func (e ImportResultStatus) Valid() bool {
+	switch e {
+	case ImportResultStatusConflict:
+		return true
+	case ImportResultStatusCreated:
+		return true
+	case ImportResultStatusInvalid:
+		return true
+	case ImportResultStatusUnchanged:
+		return true
+	case ImportResultStatusUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IntegrationFormat.
+const (
+	Json  IntegrationFormat = "json"
+	Po    IntegrationFormat = "po"
+	Tbx   IntegrationFormat = "tbx"
+	Tmx   IntegrationFormat = "tmx"
+	Xliff IntegrationFormat = "xliff"
+)
+
+// Valid indicates whether the value is a known member of the IntegrationFormat enum.
+func (e IntegrationFormat) Valid() bool {
+	switch e {
+	case Json:
+		return true
+	case Po:
+		return true
+	case Tbx:
+		return true
+	case Tmx:
+		return true
+	case Xliff:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IntegrationJobState.
+const (
+	IntegrationJobStateAwaitingUpload IntegrationJobState = "awaiting_upload"
+	IntegrationJobStateCancelled      IntegrationJobState = "cancelled"
+	IntegrationJobStateFailed         IntegrationJobState = "failed"
+	IntegrationJobStateQueued         IntegrationJobState = "queued"
+	IntegrationJobStateRunning        IntegrationJobState = "running"
+	IntegrationJobStateSucceeded      IntegrationJobState = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the IntegrationJobState enum.
+func (e IntegrationJobState) Valid() bool {
+	switch e {
+	case IntegrationJobStateAwaitingUpload:
+		return true
+	case IntegrationJobStateCancelled:
+		return true
+	case IntegrationJobStateFailed:
+		return true
+	case IntegrationJobStateQueued:
+		return true
+	case IntegrationJobStateRunning:
+		return true
+	case IntegrationJobStateSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IntegrationKind.
+const (
+	Catalog  IntegrationKind = "catalog"
+	Termbase IntegrationKind = "termbase"
+	Tm       IntegrationKind = "tm"
+)
+
+// Valid indicates whether the value is a known member of the IntegrationKind enum.
+func (e IntegrationKind) Valid() bool {
+	switch e {
+	case Catalog:
+		return true
+	case Termbase:
+		return true
+	case Tm:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MarkupElementKind.
 const (
 	Close      MarkupElementKind = "close"
@@ -2051,6 +2219,109 @@ type EnvironmentPolicy struct {
 // EnvironmentPolicyStates defines model for EnvironmentPolicy.States.
 type EnvironmentPolicyStates string
 
+// ExportJob defines model for ExportJob.
+type ExportJob struct {
+	Attempts        int  `json:"attempts"`
+	CancelRequested bool `json:"cancel_requested"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// DownloadUrl Where to download the file; present while it is kept.
+	DownloadUrl *string `json:"download_url,omitempty"`
+
+	// ExpiresAt When retention deletes the file.
+	ExpiresAt      Timestamp        `json:"expires_at"`
+	FailureCode    *string          `json:"failure_code,omitempty"`
+	FailureMessage *string          `json:"failure_message,omitempty"`
+	File           *IntegrationFile `json:"file,omitempty"`
+
+	// FileName The file's name once written (`shop.de.xlf`, `shop.json.zip`).
+	FileName string `json:"file_name"`
+
+	// FilesDeletedAt RFC 3339, UTC.
+	FilesDeletedAt *Timestamp `json:"files_deleted_at,omitempty"`
+
+	// FinishedAt RFC 3339, UTC.
+	FinishedAt *Timestamp `json:"finished_at,omitempty"`
+
+	// Format `xliff` XLIFF 2.1, `json` flat or nested `{key: message}`, `po`
+	// gettext (import only), `tmx` TMX 1.4b, `tbx` TBX-Basic.
+	Format IntegrationFormat `json:"format"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Kind What the job moves; follows from the format.
+	Kind IntegrationKind `json:"kind"`
+
+	// Options What is written; options a format doesn't take are refused
+	// (`invalid_options`).
+	Options ExportOptions `json:"options"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// StartedAt RFC 3339, UTC.
+	StartedAt *Timestamp          `json:"started_at,omitempty"`
+	State     IntegrationJobState `json:"state"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+
+	// Written Messages, units or concepts written.
+	Written int `json:"written"`
+}
+
+// ExportJobList defines model for ExportJobList.
+type ExportJobList struct {
+	Items         []ExportJob `json:"items"`
+	NextPageToken *string     `json:"next_page_token,omitempty"`
+}
+
+// ExportJobRequest defines model for ExportJobRequest.
+type ExportJobRequest struct {
+	// Format `xliff` XLIFF 2.1, `json` flat or nested `{key: message}`, `po`
+	// gettext (import only), `tmx` TMX 1.4b, `tbx` TBX-Basic.
+	Format IntegrationFormat `json:"format"`
+
+	// Options What is written; options a format doesn't take are refused
+	// (`invalid_options`).
+	Options *ExportOptions `json:"options,omitempty"`
+
+	// ProjectId Required for catalogs; without it TMX and TBX export the whole tenant's.
+	ProjectId *Id `json:"project_id,omitempty"`
+}
+
+// ExportOptions What is written; options a format doesn't take are refused
+// (`invalid_options`).
+type ExportOptions struct {
+	// Layout JSON: default flat.
+	Layout *ExportOptionsLayout `json:"layout,omitempty"`
+
+	// Locales Catalogs: one file per locale (XLIFF targets; JSON any locale,
+	// default the source). TMX: keep units with these targets.
+	Locales *[]Locale `json:"locales,omitempty"`
+
+	// Namespaces Catalogs: only these namespaces (default all).
+	Namespaces *[]string `json:"namespaces,omitempty"`
+
+	// SourceLocale TMX: keep units with this source locale.
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale *Locale `json:"source_locale,omitempty"`
+
+	// States Catalogs: translations in these review states (default approved).
+	States *[]ReviewState `json:"states,omitempty"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax *Syntax `json:"syntax,omitempty"`
+}
+
+// ExportOptionsLayout JSON: default flat.
+type ExportOptionsLayout string
+
 // FallbackGraph defines model for FallbackGraph.
 type FallbackGraph struct {
 	// Fallback A locale (or `*`) to its ordered fallback locales: `{"de-AT": ["de"], "*": ["en"]}`.
@@ -2067,6 +2338,195 @@ type FieldError struct {
 
 // Id An opaque identifier.
 type Id = string
+
+// ImportCounts defines model for ImportCounts.
+type ImportCounts struct {
+	Conflict  int `json:"conflict"`
+	Created   int `json:"created"`
+	Invalid   int `json:"invalid"`
+	Unchanged int `json:"unchanged"`
+	Updated   int `json:"updated"`
+}
+
+// ImportJob defines model for ImportJob.
+type ImportJob struct {
+	Attempts        int  `json:"attempts"`
+	CancelRequested bool `json:"cancel_requested"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// ExpiresAt When retention deletes the uploaded file (the job and its results stay).
+	ExpiresAt      Timestamp        `json:"expires_at"`
+	FailureCode    *string          `json:"failure_code,omitempty"`
+	FailureMessage *string          `json:"failure_message,omitempty"`
+	File           *IntegrationFile `json:"file,omitempty"`
+	FileName       string           `json:"file_name"`
+
+	// FilesDeletedAt RFC 3339, UTC.
+	FilesDeletedAt *Timestamp `json:"files_deleted_at,omitempty"`
+
+	// FinishedAt RFC 3339, UTC.
+	FinishedAt *Timestamp `json:"finished_at,omitempty"`
+
+	// Format `xliff` XLIFF 2.1, `json` flat or nested `{key: message}`, `po`
+	// gettext (import only), `tmx` TMX 1.4b, `tbx` TBX-Basic.
+	Format IntegrationFormat `json:"format"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Kind What the job moves; follows from the format.
+	Kind IntegrationKind `json:"kind"`
+	Mode ImportMode      `json:"mode"`
+
+	// Options How the file is read; options a format doesn't take are refused
+	// (`invalid_options`).
+	Options        ImportOptions `json:"options"`
+	ProcessedItems int           `json:"processed_items"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// ReusedJobId The earlier import of the same file and options whose result this job reuses.
+	ReusedJobId *Id `json:"reused_job_id,omitempty"`
+
+	// StartedAt RFC 3339, UTC.
+	StartedAt *Timestamp          `json:"started_at,omitempty"`
+	State     IntegrationJobState `json:"state"`
+	Summary   ImportSummary       `json:"summary"`
+
+	// TotalItems Entries, units or concepts in the file; 0 until known.
+	TotalItems int `json:"total_items"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+
+	// UploadUrl Where to `PUT` the file; present while the job is `awaiting_upload`.
+	UploadUrl *string `json:"upload_url,omitempty"`
+}
+
+// ImportJobList defines model for ImportJobList.
+type ImportJobList struct {
+	Items         []ImportJob `json:"items"`
+	NextPageToken *string     `json:"next_page_token,omitempty"`
+}
+
+// ImportJobRequest defines model for ImportJobRequest.
+type ImportJobRequest struct {
+	// FileName The file's name, for people.
+	FileName *string `json:"file_name,omitempty"`
+
+	// Format `xliff` XLIFF 2.1, `json` flat or nested `{key: message}`, `po`
+	// gettext (import only), `tmx` TMX 1.4b, `tbx` TBX-Basic.
+	Format IntegrationFormat `json:"format"`
+	Mode   *ImportMode       `json:"mode,omitempty"`
+
+	// Options How the file is read; options a format doesn't take are refused
+	// (`invalid_options`).
+	Options *ImportOptions `json:"options,omitempty"`
+
+	// ProjectId Required for catalog formats; without it TMX and TBX import tenant-wide.
+	ProjectId *Id `json:"project_id,omitempty"`
+}
+
+// ImportMode defines model for ImportMode.
+type ImportMode string
+
+// ImportOptions How the file is read; options a format doesn't take are refused
+// (`invalid_options`).
+type ImportOptions struct {
+	// Locale JSON: the file's locale (default the project's source
+	// locale, making it a source catalog). PO: the translations'
+	// locale (default the file's `Language` header).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// Namespace JSON and PO: every message's namespace (default `default`).
+	Namespace *string `json:"namespace,omitempty"`
+
+	// PluralVariable PO: the count variable of plurals (default `count`).
+	PluralVariable *string `json:"plural_variable,omitempty"`
+
+	// State The review state of translations the file doesn't state:
+	// JSON (default needs_review), PO entries without the fuzzy
+	// flag (default approved). Capped like the file's own states.
+	State *ReviewState `json:"state,omitempty"`
+
+	// Syntax JSON: the messages' syntax (default mf1). XLIFF (`mf1` only):
+	// read units from other tools that carry plain text as ICU
+	// MessageFormat instead of literally.
+	Syntax *Syntax `json:"syntax,omitempty"`
+}
+
+// ImportResult defines model for ImportResult.
+type ImportResult struct {
+	// Code Why a result is a conflict or invalid.
+	Code   *string `json:"code,omitempty"`
+	Column *int    `json:"column,omitempty"`
+	Detail *string `json:"detail,omitempty"`
+
+	// Key The message key, the TMX unit's `tuid` or the TBX concept's id.
+	Key  string           `json:"key"`
+	Kind ImportResultKind `json:"kind"`
+
+	// Line Where in the file (1-based).
+	Line *int `json:"line,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// Seq Position in the job's results (file order).
+	Seq    int                `json:"seq"`
+	Status ImportResultStatus `json:"status"`
+}
+
+// ImportResultKind defines model for ImportResultKind.
+type ImportResultKind string
+
+// ImportResultList defines model for ImportResultList.
+type ImportResultList struct {
+	Items         []ImportResult `json:"items"`
+	NextPageToken *string        `json:"next_page_token,omitempty"`
+}
+
+// ImportResultStatus defines model for ImportResultStatus.
+type ImportResultStatus string
+
+// ImportSummary defines model for ImportSummary.
+type ImportSummary struct {
+	// ByKind The same counts per kind of result (`message`, `translation`, `tm_unit`, `concept`).
+	ByKind    map[string]ImportCounts `json:"by_kind"`
+	Conflict  int                     `json:"conflict"`
+	Created   int                     `json:"created"`
+	Invalid   int                     `json:"invalid"`
+	Unchanged int                     `json:"unchanged"`
+	Updated   int                     `json:"updated"`
+}
+
+// IntegrationFile defines model for IntegrationFile.
+type IntegrationFile struct {
+	ContentType string `json:"content_type"`
+	Sha256      string `json:"sha256"`
+	Size        int64  `json:"size"`
+}
+
+// IntegrationFormat `xliff` XLIFF 2.1, `json` flat or nested `{key: message}`, `po`
+// gettext (import only), `tmx` TMX 1.4b, `tbx` TBX-Basic.
+type IntegrationFormat string
+
+// IntegrationJobState defines model for IntegrationJobState.
+type IntegrationJobState string
+
+// IntegrationKind What the job moves; follows from the format.
+type IntegrationKind string
 
 // ItemError defines model for ItemError.
 type ItemError struct {
@@ -3769,6 +4229,9 @@ type DeliveryKeyPath = Id
 // EnvironmentPath `development`, `preview`, `staging`, `production` or a custom name (not `a`).
 type EnvironmentPath = EnvironmentName
 
+// ExportJobPath An opaque identifier.
+type ExportJobPath = Id
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
 
@@ -3777,6 +4240,9 @@ type IfMatch = string
 
 // IfMatchOptional defines model for IfMatchOptional.
 type IfMatchOptional = string
+
+// ImportJobPath An opaque identifier.
+type ImportJobPath = Id
 
 // LocalePath A BCP 47 language tag. Stored and returned canonicalized
 // (`en_us` → `en-US`, `iw` → `he`).
@@ -3828,8 +4294,14 @@ type Conflict = Problem
 // Forbidden RFC 9457 problem details.
 type Forbidden = Problem
 
+// Gone RFC 9457 problem details.
+type Gone = Problem
+
 // NotFound RFC 9457 problem details.
 type NotFound = Problem
+
+// PayloadTooLarge RFC 9457 problem details.
+type PayloadTooLarge = Problem
 
 // PreconditionFailed RFC 9457 problem details.
 type PreconditionFailed = Problem
@@ -4008,6 +4480,50 @@ type GetEffectiveStyleGuideParams struct {
 	Project   *Id        `form:"project,omitempty" json:"project,omitempty"`
 	Locale    *Locale    `form:"locale,omitempty" json:"locale,omitempty"`
 	Namespace *Namespace `form:"namespace,omitempty" json:"namespace,omitempty"`
+}
+
+// ListExportJobsParams defines parameters for ListExportJobs.
+type ListExportJobsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Project A project `id`.
+	Project *Id                  `form:"project,omitempty" json:"project,omitempty"`
+	State   *IntegrationJobState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateExportJobParams defines parameters for CreateExportJob.
+type CreateExportJobParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListImportJobsParams defines parameters for ListImportJobs.
+type ListImportJobsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Project A project `id`.
+	Project *Id                  `form:"project,omitempty" json:"project,omitempty"`
+	State   *IntegrationJobState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateImportJobParams defines parameters for CreateImportJob.
+type CreateImportJobParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListImportResultsParams defines parameters for ListImportResults.
+type ListImportResultsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken          `form:"page_token,omitempty" json:"page_token,omitempty"`
+	Status    *ImportResultStatus `form:"status,omitempty" json:"status,omitempty"`
+	Kind      *ImportResultKind   `form:"kind,omitempty" json:"kind,omitempty"`
 }
 
 // ListMembersParams defines parameters for ListMembers.
@@ -4482,6 +4998,12 @@ type AcceptAISuggestionJSONRequestBody = AcceptAISuggestion
 
 // RejectAISuggestionJSONRequestBody defines body for RejectAISuggestion for application/json ContentType.
 type RejectAISuggestionJSONRequestBody = RejectAISuggestion
+
+// CreateExportJobJSONRequestBody defines body for CreateExportJob for application/json ContentType.
+type CreateExportJobJSONRequestBody = ExportJobRequest
+
+// CreateImportJobJSONRequestBody defines body for CreateImportJob for application/json ContentType.
+type CreateImportJobJSONRequestBody = ImportJobRequest
 
 // AddMemberJSONRequestBody defines body for AddMember for application/json ContentType.
 type AddMemberJSONRequestBody = AddMember
@@ -5405,6 +5927,261 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/effective-style-guide (the `GetEffectiveStyleGuide` operationId).
 	GetEffectiveStyleGuide(ctx context.Context, tenant TenantPath, params *GetEffectiveStyleGuideParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListExportJobs Export jobs
+	//
+	// Newest first. Needs `integration.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/export-jobs (the `ListExportJobs` operationId).
+	ListExportJobs(ctx context.Context, tenant TenantPath, params *ListExportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateExportJobWithBody Export a catalog, translation memory or termbase
+	//
+	// Queues the export; download its file when it has `succeeded`.
+	// Catalogs (`xliff`, `json`) belong to a project and write one
+	// file per locale in `options.locales` — several are zipped as
+	// `<locale>.<ext>` —, the project's active messages (in
+	// `options.namespaces`) with their translations in
+	// `options.states` (default `approved`). An XLIFF export without
+	// locales carries the source only; a JSON export defaults to the
+	// source locale and matches what `glossa pull` writes (sorted
+	// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
+	// mf2). `tmx` and `tbx` export a project's own memory or termbase,
+	// or without `project_id` everything the tenant holds; `tmx`
+	// narrows by `source_locale` and target `locales`. Needs
+	// `integration.read` and `catalog.read` with
+	// `translations.read` (catalogs) or `knowledge.read`. Problem
+	// codes: `invalid_format` (400; `po` is import only),
+	// `invalid_options`, `project_required` (400),
+	// `locale_not_found` (404).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/export-jobs (the `CreateExportJob` operationId).
+	CreateExportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateExportJob Export a catalog, translation memory or termbase
+	//
+	// Queues the export; download its file when it has `succeeded`.
+	// Catalogs (`xliff`, `json`) belong to a project and write one
+	// file per locale in `options.locales` — several are zipped as
+	// `<locale>.<ext>` —, the project's active messages (in
+	// `options.namespaces`) with their translations in
+	// `options.states` (default `approved`). An XLIFF export without
+	// locales carries the source only; a JSON export defaults to the
+	// source locale and matches what `glossa pull` writes (sorted
+	// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
+	// mf2). `tmx` and `tbx` export a project's own memory or termbase,
+	// or without `project_id` everything the tenant holds; `tmx`
+	// narrows by `source_locale` and target `locales`. Needs
+	// `integration.read` and `catalog.read` with
+	// `translations.read` (catalogs) or `knowledge.read`. Problem
+	// codes: `invalid_format` (400; `po` is import only),
+	// `invalid_options`, `project_required` (400),
+	// `locale_not_found` (404).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/export-jobs (the `CreateExportJob` operationId).
+	CreateExportJob(ctx context.Context, tenant TenantPath, params *CreateExportJobParams, body CreateExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetExportJob An export job
+	//
+	// A job ends `succeeded` (with `file` and `download_url`),
+	// `failed` (`failure_code`: `not_representable` — the format can't
+	// express the catalog with these options, such as MF2-only
+	// messages in an MF1 JSON file or an XLIFF file without messages
+	// —, `project_not_found`, `internal`) or `cancelled`. Needs
+	// `integration.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job} (the `GetExportJob` operationId).
+	GetExportJob(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelExportJob Cancel a queued export
+	//
+	// A queued export is cancelled at once; a running one finishes.
+	// The requester, or someone with `integration.manage`, may cancel.
+	// Problem code: `job_not_cancellable` (409: it has finished).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/export-jobs/{export_job}/cancellation (the `CancelExportJob` operationId).
+	CancelExportJob(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadExportFile Download a finished export
+	//
+	// The file, streamed from object storage, with its name in
+	// `Content-Disposition` (its media type is the job's
+	// `file.content_type`) and its SHA-256 as the `ETag`. Files are
+	// kept for the deployment's retention period
+	// (`GLOSSA_INTEGRATION_RETENTION`, 7 days by default). Needs
+	// `integration.read`. Problem codes: `export_not_ready` (409),
+	// `file_expired` (410), `storage_unavailable` (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job}/file (the `DownloadExportFile` operationId).
+	DownloadExportFile(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListImportJobs Import jobs
+	//
+	// Newest first. Needs `integration.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/import-jobs (the `ListImportJobs` operationId).
+	ListImportJobs(ctx context.Context, tenant TenantPath, params *ListImportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateImportJobWithBody Create an import job (then upload its file)
+	//
+	// Creates a job in `awaiting_upload`; `PUT` the file to its
+	// `upload_url` next (within 24 hours). Catalog formats (`xliff`,
+	// `json`, `po`) belong to a project; `tmx` and `tbx` import into
+	// a project, or tenant-wide without `project_id`.
+	//
+	// **Modes.** `merge` (default) creates what is missing and updates
+	// what changed, but never replaces an approved translation, a
+	// message's source that differs from the file's, or a concept that
+	// differs: those are `conflict` results (and a translation of a
+	// message whose source differs is one too — it was made for other
+	// text). `overwrite` makes the stored state the file's (needs
+	// `integration.manage`). `dry_run` runs every check of a merge and
+	// reports its results without changing anything.
+	//
+	// **Review states.** A file's states (XLIFF `final` → approved,
+	// `translated` → needs_review, `initial` → draft; PO fuzzy →
+	// needs_review; JSON: `options.state`, default needs_review) are
+	// kept only as far as the requester may decide them: an approval
+	// (or rejection) needs `translations.review` for the locale, or —
+	// approvals — a project that doesn't require review; otherwise
+	// the translation waits for review. Translations are written with
+	// provenance `import` and `origin_detail` `{job, file, format,
+	// requested_by}`.
+	//
+	// **Keys.** XLIFF units and JSON keys are message keys. gettext
+	// keys messages by text: a PO entry's key is
+	// `[<msgctxt slug>.]<msgid slug>_<hash>` — the text folded to
+	// lowercase ASCII words joined by `_` (at most 40 characters) and
+	// the first 8 hex digits of SHA-256 over msgctxt, U+0004 and msgid
+	// (`Add to cart` → `add_to_cart_…`), so the same entry always
+	// gets the same key.
+	//
+	// **Permissions.** Catalog formats need `integration.import`
+	// (translations of the locales in the requester's scope — a
+	// translator's) or `integration.manage` (also creating and
+	// revising messages; a JSON file in the source locale is a source
+	// catalog and needs it). TMX, TBX and `overwrite` need
+	// `integration.manage` (and `knowledge.write` for TMX and TBX).
+	// What the requester may do is recorded with the job and applied
+	// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
+	// `invalid_options`, `project_required` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/import-jobs (the `CreateImportJob` operationId).
+	CreateImportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateImportJob Create an import job (then upload its file)
+	//
+	// Creates a job in `awaiting_upload`; `PUT` the file to its
+	// `upload_url` next (within 24 hours). Catalog formats (`xliff`,
+	// `json`, `po`) belong to a project; `tmx` and `tbx` import into
+	// a project, or tenant-wide without `project_id`.
+	//
+	// **Modes.** `merge` (default) creates what is missing and updates
+	// what changed, but never replaces an approved translation, a
+	// message's source that differs from the file's, or a concept that
+	// differs: those are `conflict` results (and a translation of a
+	// message whose source differs is one too — it was made for other
+	// text). `overwrite` makes the stored state the file's (needs
+	// `integration.manage`). `dry_run` runs every check of a merge and
+	// reports its results without changing anything.
+	//
+	// **Review states.** A file's states (XLIFF `final` → approved,
+	// `translated` → needs_review, `initial` → draft; PO fuzzy →
+	// needs_review; JSON: `options.state`, default needs_review) are
+	// kept only as far as the requester may decide them: an approval
+	// (or rejection) needs `translations.review` for the locale, or —
+	// approvals — a project that doesn't require review; otherwise
+	// the translation waits for review. Translations are written with
+	// provenance `import` and `origin_detail` `{job, file, format,
+	// requested_by}`.
+	//
+	// **Keys.** XLIFF units and JSON keys are message keys. gettext
+	// keys messages by text: a PO entry's key is
+	// `[<msgctxt slug>.]<msgid slug>_<hash>` — the text folded to
+	// lowercase ASCII words joined by `_` (at most 40 characters) and
+	// the first 8 hex digits of SHA-256 over msgctxt, U+0004 and msgid
+	// (`Add to cart` → `add_to_cart_…`), so the same entry always
+	// gets the same key.
+	//
+	// **Permissions.** Catalog formats need `integration.import`
+	// (translations of the locales in the requester's scope — a
+	// translator's) or `integration.manage` (also creating and
+	// revising messages; a JSON file in the source locale is a source
+	// catalog and needs it). TMX, TBX and `overwrite` need
+	// `integration.manage` (and `knowledge.write` for TMX and TBX).
+	// What the requester may do is recorded with the job and applied
+	// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
+	// `invalid_options`, `project_required` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/import-jobs (the `CreateImportJob` operationId).
+	CreateImportJob(ctx context.Context, tenant TenantPath, params *CreateImportJobParams, body CreateImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetImportJob An import job with its progress and counts
+	//
+	// `processed_items` of `total_items` (entries, units or concepts
+	// of the file; 0 until known — a TMX file streams) and `summary`,
+	// the results so far by status and kind. A job ends `succeeded`,
+	// `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
+	// `file_too_large` — the problem's line and column are its last
+	// result —, `source_locale_mismatch`, `project_not_found`,
+	// `upload_expired`, `internal`) or `cancelled`. An import of a
+	// file this tenant already imported with the same options
+	// succeeds at once with that job's result (`reused_job_id`);
+	// dry runs are always run. Needs `integration.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/import-jobs/{import_job} (the `GetImportJob` operationId).
+	GetImportJob(ctx context.Context, tenant TenantPath, importJob ImportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelImportJob Cancel an import job
+	//
+	// A job waiting for its file or queued is cancelled at once; a
+	// running one stops after its current batch of 500
+	// (`cancel_requested`), and what it already applied stays
+	// applied. Cancelling a cancelled job changes nothing. The
+	// requester, or someone with `integration.manage`, may cancel.
+	// Problem code: `job_not_cancellable` (409: it has finished).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/import-jobs/{import_job}/cancellation (the `CancelImportJob` operationId).
+	CancelImportJob(ctx context.Context, tenant TenantPath, importJob ImportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadImportFileWithBody Upload an import job's file
+	//
+	// The raw file (any `Content-Type`; the job's `format` says how it
+	// is read), streamed to object storage — once, by the job's
+	// requester, while it is `awaiting_upload`. The job is `queued`,
+	// or `succeeded` at once when it reuses an earlier result. Problem
+	// codes: `empty_file`, `upload_interrupted` (400: the body broke
+	// off), `upload_not_expected` (409), `file_too_large` (413; the
+	// limit is the deployment's `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES`,
+	// 64 MiB by default), `storage_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/import-jobs/{import_job}/file (the `UploadImportFile` operationId).
+	UploadImportFileWithBody(ctx context.Context, tenant TenantPath, importJob ImportJobPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListImportResults An import job's per-item results
+	//
+	// In file order: each message, then its translations; TM units;
+	// concepts. `status` is `created`, `updated`, `unchanged`,
+	// `conflict` (stored data differs and the mode keeps it: `code`
+	// `approved_translation_conflict`, `source_differs`,
+	// `concept_differs`) or `invalid` (`code` says why:
+	// `forbidden`, `message_not_found`, `invalid_message_key`,
+	// `structural_qa_failed`, `invalid_file` with `line` and
+	// `column`, …). A dry run's results are what a merge would do.
+	// Needs `integration.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/import-jobs/{import_job}/results (the `ListImportResults` operationId).
+	ListImportResults(ctx context.Context, tenant TenantPath, importJob ImportJobPath, params *ListImportResultsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListMembers Members and open invitations
 	//
@@ -8229,6 +9006,391 @@ func (c *Client) RejectAISuggestion(ctx context.Context, tenant TenantPath, aiSu
 // Corresponds with GET /v1/tenants/{tenant}/effective-style-guide (the `GetEffectiveStyleGuide` operationId).
 func (c *Client) GetEffectiveStyleGuide(ctx context.Context, tenant TenantPath, params *GetEffectiveStyleGuideParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetEffectiveStyleGuideRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListExportJobs Export jobs
+//
+// Newest first. Needs `integration.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/export-jobs (the `ListExportJobs` operationId).
+func (c *Client) ListExportJobs(ctx context.Context, tenant TenantPath, params *ListExportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListExportJobsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateExportJobWithBody Export a catalog, translation memory or termbase
+//
+// Queues the export; download its file when it has `succeeded`.
+// Catalogs (`xliff`, `json`) belong to a project and write one
+// file per locale in `options.locales` — several are zipped as
+// `<locale>.<ext>` —, the project's active messages (in
+// `options.namespaces`) with their translations in
+// `options.states` (default `approved`). An XLIFF export without
+// locales carries the source only; a JSON export defaults to the
+// source locale and matches what `glossa pull` writes (sorted
+// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
+// mf2). `tmx` and `tbx` export a project's own memory or termbase,
+// or without `project_id` everything the tenant holds; `tmx`
+// narrows by `source_locale` and target `locales`. Needs
+// `integration.read` and `catalog.read` with
+// `translations.read` (catalogs) or `knowledge.read`. Problem
+// codes: `invalid_format` (400; `po` is import only),
+// `invalid_options`, `project_required` (400),
+// `locale_not_found` (404).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/export-jobs (the `CreateExportJob` operationId).
+func (c *Client) CreateExportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateExportJobRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateExportJob Export a catalog, translation memory or termbase
+//
+// Queues the export; download its file when it has `succeeded`.
+// Catalogs (`xliff`, `json`) belong to a project and write one
+// file per locale in `options.locales` — several are zipped as
+// `<locale>.<ext>` —, the project's active messages (in
+// `options.namespaces`) with their translations in
+// `options.states` (default `approved`). An XLIFF export without
+// locales carries the source only; a JSON export defaults to the
+// source locale and matches what `glossa pull` writes (sorted
+// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
+// mf2). `tmx` and `tbx` export a project's own memory or termbase,
+// or without `project_id` everything the tenant holds; `tmx`
+// narrows by `source_locale` and target `locales`. Needs
+// `integration.read` and `catalog.read` with
+// `translations.read` (catalogs) or `knowledge.read`. Problem
+// codes: `invalid_format` (400; `po` is import only),
+// `invalid_options`, `project_required` (400),
+// `locale_not_found` (404).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/export-jobs (the `CreateExportJob` operationId).
+func (c *Client) CreateExportJob(ctx context.Context, tenant TenantPath, params *CreateExportJobParams, body CreateExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateExportJobRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetExportJob An export job
+//
+// A job ends `succeeded` (with `file` and `download_url`),
+// `failed` (`failure_code`: `not_representable` — the format can't
+// express the catalog with these options, such as MF2-only
+// messages in an MF1 JSON file or an XLIFF file without messages
+// —, `project_not_found`, `internal`) or `cancelled`. Needs
+// `integration.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job} (the `GetExportJob` operationId).
+func (c *Client) GetExportJob(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetExportJobRequest(c.Server, tenant, exportJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CancelExportJob Cancel a queued export
+//
+// A queued export is cancelled at once; a running one finishes.
+// The requester, or someone with `integration.manage`, may cancel.
+// Problem code: `job_not_cancellable` (409: it has finished).
+//
+// Corresponds with POST /v1/tenants/{tenant}/export-jobs/{export_job}/cancellation (the `CancelExportJob` operationId).
+func (c *Client) CancelExportJob(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelExportJobRequest(c.Server, tenant, exportJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadExportFile Download a finished export
+//
+// The file, streamed from object storage, with its name in
+// `Content-Disposition` (its media type is the job's
+// `file.content_type`) and its SHA-256 as the `ETag`. Files are
+// kept for the deployment's retention period
+// (`GLOSSA_INTEGRATION_RETENTION`, 7 days by default). Needs
+// `integration.read`. Problem codes: `export_not_ready` (409),
+// `file_expired` (410), `storage_unavailable` (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job}/file (the `DownloadExportFile` operationId).
+func (c *Client) DownloadExportFile(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadExportFileRequest(c.Server, tenant, exportJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListImportJobs Import jobs
+//
+// Newest first. Needs `integration.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/import-jobs (the `ListImportJobs` operationId).
+func (c *Client) ListImportJobs(ctx context.Context, tenant TenantPath, params *ListImportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListImportJobsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateImportJobWithBody Create an import job (then upload its file)
+//
+// Creates a job in `awaiting_upload`; `PUT` the file to its
+// `upload_url` next (within 24 hours). Catalog formats (`xliff`,
+// `json`, `po`) belong to a project; `tmx` and `tbx` import into
+// a project, or tenant-wide without `project_id`.
+//
+// **Modes.** `merge` (default) creates what is missing and updates
+// what changed, but never replaces an approved translation, a
+// message's source that differs from the file's, or a concept that
+// differs: those are `conflict` results (and a translation of a
+// message whose source differs is one too — it was made for other
+// text). `overwrite` makes the stored state the file's (needs
+// `integration.manage`). `dry_run` runs every check of a merge and
+// reports its results without changing anything.
+//
+// **Review states.** A file's states (XLIFF `final` → approved,
+// `translated` → needs_review, `initial` → draft; PO fuzzy →
+// needs_review; JSON: `options.state`, default needs_review) are
+// kept only as far as the requester may decide them: an approval
+// (or rejection) needs `translations.review` for the locale, or —
+// approvals — a project that doesn't require review; otherwise
+// the translation waits for review. Translations are written with
+// provenance `import` and `origin_detail` `{job, file, format,
+// requested_by}`.
+//
+// **Keys.** XLIFF units and JSON keys are message keys. gettext
+// keys messages by text: a PO entry's key is
+// `[<msgctxt slug>.]<msgid slug>_<hash>` — the text folded to
+// lowercase ASCII words joined by `_` (at most 40 characters) and
+// the first 8 hex digits of SHA-256 over msgctxt, U+0004 and msgid
+// (`Add to cart` → `add_to_cart_…`), so the same entry always
+// gets the same key.
+//
+// **Permissions.** Catalog formats need `integration.import`
+// (translations of the locales in the requester's scope — a
+// translator's) or `integration.manage` (also creating and
+// revising messages; a JSON file in the source locale is a source
+// catalog and needs it). TMX, TBX and `overwrite` need
+// `integration.manage` (and `knowledge.write` for TMX and TBX).
+// What the requester may do is recorded with the job and applied
+// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
+// `invalid_options`, `project_required` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/import-jobs (the `CreateImportJob` operationId).
+func (c *Client) CreateImportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateImportJobRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateImportJob Create an import job (then upload its file)
+//
+// Creates a job in `awaiting_upload`; `PUT` the file to its
+// `upload_url` next (within 24 hours). Catalog formats (`xliff`,
+// `json`, `po`) belong to a project; `tmx` and `tbx` import into
+// a project, or tenant-wide without `project_id`.
+//
+// **Modes.** `merge` (default) creates what is missing and updates
+// what changed, but never replaces an approved translation, a
+// message's source that differs from the file's, or a concept that
+// differs: those are `conflict` results (and a translation of a
+// message whose source differs is one too — it was made for other
+// text). `overwrite` makes the stored state the file's (needs
+// `integration.manage`). `dry_run` runs every check of a merge and
+// reports its results without changing anything.
+//
+// **Review states.** A file's states (XLIFF `final` → approved,
+// `translated` → needs_review, `initial` → draft; PO fuzzy →
+// needs_review; JSON: `options.state`, default needs_review) are
+// kept only as far as the requester may decide them: an approval
+// (or rejection) needs `translations.review` for the locale, or —
+// approvals — a project that doesn't require review; otherwise
+// the translation waits for review. Translations are written with
+// provenance `import` and `origin_detail` `{job, file, format,
+// requested_by}`.
+//
+// **Keys.** XLIFF units and JSON keys are message keys. gettext
+// keys messages by text: a PO entry's key is
+// `[<msgctxt slug>.]<msgid slug>_<hash>` — the text folded to
+// lowercase ASCII words joined by `_` (at most 40 characters) and
+// the first 8 hex digits of SHA-256 over msgctxt, U+0004 and msgid
+// (`Add to cart` → `add_to_cart_…`), so the same entry always
+// gets the same key.
+//
+// **Permissions.** Catalog formats need `integration.import`
+// (translations of the locales in the requester's scope — a
+// translator's) or `integration.manage` (also creating and
+// revising messages; a JSON file in the source locale is a source
+// catalog and needs it). TMX, TBX and `overwrite` need
+// `integration.manage` (and `knowledge.write` for TMX and TBX).
+// What the requester may do is recorded with the job and applied
+// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
+// `invalid_options`, `project_required` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/import-jobs (the `CreateImportJob` operationId).
+func (c *Client) CreateImportJob(ctx context.Context, tenant TenantPath, params *CreateImportJobParams, body CreateImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateImportJobRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetImportJob An import job with its progress and counts
+//
+// `processed_items` of `total_items` (entries, units or concepts
+// of the file; 0 until known — a TMX file streams) and `summary`,
+// the results so far by status and kind. A job ends `succeeded`,
+// `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
+// `file_too_large` — the problem's line and column are its last
+// result —, `source_locale_mismatch`, `project_not_found`,
+// `upload_expired`, `internal`) or `cancelled`. An import of a
+// file this tenant already imported with the same options
+// succeeds at once with that job's result (`reused_job_id`);
+// dry runs are always run. Needs `integration.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/import-jobs/{import_job} (the `GetImportJob` operationId).
+func (c *Client) GetImportJob(ctx context.Context, tenant TenantPath, importJob ImportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetImportJobRequest(c.Server, tenant, importJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CancelImportJob Cancel an import job
+//
+// A job waiting for its file or queued is cancelled at once; a
+// running one stops after its current batch of 500
+// (`cancel_requested`), and what it already applied stays
+// applied. Cancelling a cancelled job changes nothing. The
+// requester, or someone with `integration.manage`, may cancel.
+// Problem code: `job_not_cancellable` (409: it has finished).
+//
+// Corresponds with POST /v1/tenants/{tenant}/import-jobs/{import_job}/cancellation (the `CancelImportJob` operationId).
+func (c *Client) CancelImportJob(ctx context.Context, tenant TenantPath, importJob ImportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelImportJobRequest(c.Server, tenant, importJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UploadImportFileWithBody Upload an import job's file
+//
+// The raw file (any `Content-Type`; the job's `format` says how it
+// is read), streamed to object storage — once, by the job's
+// requester, while it is `awaiting_upload`. The job is `queued`,
+// or `succeeded` at once when it reuses an earlier result. Problem
+// codes: `empty_file`, `upload_interrupted` (400: the body broke
+// off), `upload_not_expected` (409), `file_too_large` (413; the
+// limit is the deployment's `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES`,
+// 64 MiB by default), `storage_unavailable` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/import-jobs/{import_job}/file (the `UploadImportFile` operationId).
+func (c *Client) UploadImportFileWithBody(ctx context.Context, tenant TenantPath, importJob ImportJobPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadImportFileRequestWithBody(c.Server, tenant, importJob, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListImportResults An import job's per-item results
+//
+// In file order: each message, then its translations; TM units;
+// concepts. `status` is `created`, `updated`, `unchanged`,
+// `conflict` (stored data differs and the mode keeps it: `code`
+// `approved_translation_conflict`, `source_differs`,
+// `concept_differs`) or `invalid` (`code` says why:
+// `forbidden`, `message_not_found`, `invalid_message_key`,
+// `structural_qa_failed`, `invalid_file` with `line` and
+// `column`, …). A dry run's results are what a merge would do.
+// Needs `integration.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/import-jobs/{import_job}/results (the `ListImportResults` operationId).
+func (c *Client) ListImportResults(ctx context.Context, tenant TenantPath, importJob ImportJobPath, params *ListImportResultsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListImportResultsRequest(c.Server, tenant, importJob, params)
 	if err != nil {
 		return nil, err
 	}
@@ -13289,6 +14451,676 @@ func NewGetEffectiveStyleGuideRequest(server string, tenant TenantPath, params *
 		if params.Namespace != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "namespace", *params.Namespace, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListExportJobsRequest constructs an http.Request for the ListExportJobs method
+func NewListExportJobsRequest(server string, tenant TenantPath, params *ListExportJobsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/export-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateExportJobRequest calls the generic CreateExportJob builder with application/json body
+func NewCreateExportJobRequest(server string, tenant TenantPath, params *CreateExportJobParams, body CreateExportJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateExportJobRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateExportJobRequestWithBody constructs an http.Request for the CreateExportJob method, with any body, and a specified content type
+func NewCreateExportJobRequestWithBody(server string, tenant TenantPath, params *CreateExportJobParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/export-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetExportJobRequest constructs an http.Request for the GetExportJob method
+func NewGetExportJobRequest(server string, tenant TenantPath, exportJob ExportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "export_job", exportJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/export-jobs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCancelExportJobRequest constructs an http.Request for the CancelExportJob method
+func NewCancelExportJobRequest(server string, tenant TenantPath, exportJob ExportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "export_job", exportJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/export-jobs/%s/cancellation", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadExportFileRequest constructs an http.Request for the DownloadExportFile method
+func NewDownloadExportFileRequest(server string, tenant TenantPath, exportJob ExportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "export_job", exportJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/export-jobs/%s/file", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListImportJobsRequest constructs an http.Request for the ListImportJobs method
+func NewListImportJobsRequest(server string, tenant TenantPath, params *ListImportJobsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/import-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateImportJobRequest calls the generic CreateImportJob builder with application/json body
+func NewCreateImportJobRequest(server string, tenant TenantPath, params *CreateImportJobParams, body CreateImportJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateImportJobRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateImportJobRequestWithBody constructs an http.Request for the CreateImportJob method, with any body, and a specified content type
+func NewCreateImportJobRequestWithBody(server string, tenant TenantPath, params *CreateImportJobParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/import-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetImportJobRequest constructs an http.Request for the GetImportJob method
+func NewGetImportJobRequest(server string, tenant TenantPath, importJob ImportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "import_job", importJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/import-jobs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCancelImportJobRequest constructs an http.Request for the CancelImportJob method
+func NewCancelImportJobRequest(server string, tenant TenantPath, importJob ImportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "import_job", importJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/import-jobs/%s/cancellation", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUploadImportFileRequestWithBody constructs an http.Request for the UploadImportFile method, with any body, and a specified content type
+func NewUploadImportFileRequestWithBody(server string, tenant TenantPath, importJob ImportJobPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "import_job", importJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/import-jobs/%s/file", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListImportResultsRequest constructs an http.Request for the ListImportResults method
+func NewListImportResultsRequest(server string, tenant TenantPath, importJob ImportJobPath, params *ListImportResultsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "import_job", importJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/import-jobs/%s/results", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Kind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "kind", *params.Kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -19949,6 +21781,277 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/effective-style-guide (the `GetEffectiveStyleGuide` operationId).
 	GetEffectiveStyleGuideWithResponse(ctx context.Context, tenant TenantPath, params *GetEffectiveStyleGuideParams, reqEditors ...RequestEditorFn) (*GetEffectiveStyleGuideResponse, error)
 
+	// ListExportJobsWithResponse Export jobs
+	//
+	// Newest first. Needs `integration.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/export-jobs (the `ListExportJobs` operationId).
+	ListExportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListExportJobsParams, reqEditors ...RequestEditorFn) (*ListExportJobsResponse, error)
+
+	// CreateExportJobWithBodyWithResponse Export a catalog, translation memory or termbase
+	//
+	// Queues the export; download its file when it has `succeeded`.
+	// Catalogs (`xliff`, `json`) belong to a project and write one
+	// file per locale in `options.locales` — several are zipped as
+	// `<locale>.<ext>` —, the project's active messages (in
+	// `options.namespaces`) with their translations in
+	// `options.states` (default `approved`). An XLIFF export without
+	// locales carries the source only; a JSON export defaults to the
+	// source locale and matches what `glossa pull` writes (sorted
+	// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
+	// mf2). `tmx` and `tbx` export a project's own memory or termbase,
+	// or without `project_id` everything the tenant holds; `tmx`
+	// narrows by `source_locale` and target `locales`. Needs
+	// `integration.read` and `catalog.read` with
+	// `translations.read` (catalogs) or `knowledge.read`. Problem
+	// codes: `invalid_format` (400; `po` is import only),
+	// `invalid_options`, `project_required` (400),
+	// `locale_not_found` (404).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/export-jobs (the `CreateExportJob` operationId).
+	CreateExportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateExportJobResponse, error)
+
+	// CreateExportJobWithResponse Export a catalog, translation memory or termbase
+	//
+	// Queues the export; download its file when it has `succeeded`.
+	// Catalogs (`xliff`, `json`) belong to a project and write one
+	// file per locale in `options.locales` — several are zipped as
+	// `<locale>.<ext>` —, the project's active messages (in
+	// `options.namespaces`) with their translations in
+	// `options.states` (default `approved`). An XLIFF export without
+	// locales carries the source only; a JSON export defaults to the
+	// source locale and matches what `glossa pull` writes (sorted
+	// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
+	// mf2). `tmx` and `tbx` export a project's own memory or termbase,
+	// or without `project_id` everything the tenant holds; `tmx`
+	// narrows by `source_locale` and target `locales`. Needs
+	// `integration.read` and `catalog.read` with
+	// `translations.read` (catalogs) or `knowledge.read`. Problem
+	// codes: `invalid_format` (400; `po` is import only),
+	// `invalid_options`, `project_required` (400),
+	// `locale_not_found` (404).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/export-jobs (the `CreateExportJob` operationId).
+	CreateExportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateExportJobParams, body CreateExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateExportJobResponse, error)
+
+	// GetExportJobWithResponse An export job
+	//
+	// A job ends `succeeded` (with `file` and `download_url`),
+	// `failed` (`failure_code`: `not_representable` — the format can't
+	// express the catalog with these options, such as MF2-only
+	// messages in an MF1 JSON file or an XLIFF file without messages
+	// —, `project_not_found`, `internal`) or `cancelled`. Needs
+	// `integration.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job} (the `GetExportJob` operationId).
+	GetExportJobWithResponse(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*GetExportJobResponse, error)
+
+	// CancelExportJobWithResponse Cancel a queued export
+	//
+	// A queued export is cancelled at once; a running one finishes.
+	// The requester, or someone with `integration.manage`, may cancel.
+	// Problem code: `job_not_cancellable` (409: it has finished).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/export-jobs/{export_job}/cancellation (the `CancelExportJob` operationId).
+	CancelExportJobWithResponse(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*CancelExportJobResponse, error)
+
+	// DownloadExportFileWithResponse Download a finished export
+	//
+	// The file, streamed from object storage, with its name in
+	// `Content-Disposition` (its media type is the job's
+	// `file.content_type`) and its SHA-256 as the `ETag`. Files are
+	// kept for the deployment's retention period
+	// (`GLOSSA_INTEGRATION_RETENTION`, 7 days by default). Needs
+	// `integration.read`. Problem codes: `export_not_ready` (409),
+	// `file_expired` (410), `storage_unavailable` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job}/file (the `DownloadExportFile` operationId).
+	DownloadExportFileWithResponse(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*DownloadExportFileResponse, error)
+
+	// ListImportJobsWithResponse Import jobs
+	//
+	// Newest first. Needs `integration.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/import-jobs (the `ListImportJobs` operationId).
+	ListImportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListImportJobsParams, reqEditors ...RequestEditorFn) (*ListImportJobsResponse, error)
+
+	// CreateImportJobWithBodyWithResponse Create an import job (then upload its file)
+	//
+	// Creates a job in `awaiting_upload`; `PUT` the file to its
+	// `upload_url` next (within 24 hours). Catalog formats (`xliff`,
+	// `json`, `po`) belong to a project; `tmx` and `tbx` import into
+	// a project, or tenant-wide without `project_id`.
+	//
+	// **Modes.** `merge` (default) creates what is missing and updates
+	// what changed, but never replaces an approved translation, a
+	// message's source that differs from the file's, or a concept that
+	// differs: those are `conflict` results (and a translation of a
+	// message whose source differs is one too — it was made for other
+	// text). `overwrite` makes the stored state the file's (needs
+	// `integration.manage`). `dry_run` runs every check of a merge and
+	// reports its results without changing anything.
+	//
+	// **Review states.** A file's states (XLIFF `final` → approved,
+	// `translated` → needs_review, `initial` → draft; PO fuzzy →
+	// needs_review; JSON: `options.state`, default needs_review) are
+	// kept only as far as the requester may decide them: an approval
+	// (or rejection) needs `translations.review` for the locale, or —
+	// approvals — a project that doesn't require review; otherwise
+	// the translation waits for review. Translations are written with
+	// provenance `import` and `origin_detail` `{job, file, format,
+	// requested_by}`.
+	//
+	// **Keys.** XLIFF units and JSON keys are message keys. gettext
+	// keys messages by text: a PO entry's key is
+	// `[<msgctxt slug>.]<msgid slug>_<hash>` — the text folded to
+	// lowercase ASCII words joined by `_` (at most 40 characters) and
+	// the first 8 hex digits of SHA-256 over msgctxt, U+0004 and msgid
+	// (`Add to cart` → `add_to_cart_…`), so the same entry always
+	// gets the same key.
+	//
+	// **Permissions.** Catalog formats need `integration.import`
+	// (translations of the locales in the requester's scope — a
+	// translator's) or `integration.manage` (also creating and
+	// revising messages; a JSON file in the source locale is a source
+	// catalog and needs it). TMX, TBX and `overwrite` need
+	// `integration.manage` (and `knowledge.write` for TMX and TBX).
+	// What the requester may do is recorded with the job and applied
+	// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
+	// `invalid_options`, `project_required` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/import-jobs (the `CreateImportJob` operationId).
+	CreateImportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateImportJobResponse, error)
+
+	// CreateImportJobWithResponse Create an import job (then upload its file)
+	//
+	// Creates a job in `awaiting_upload`; `PUT` the file to its
+	// `upload_url` next (within 24 hours). Catalog formats (`xliff`,
+	// `json`, `po`) belong to a project; `tmx` and `tbx` import into
+	// a project, or tenant-wide without `project_id`.
+	//
+	// **Modes.** `merge` (default) creates what is missing and updates
+	// what changed, but never replaces an approved translation, a
+	// message's source that differs from the file's, or a concept that
+	// differs: those are `conflict` results (and a translation of a
+	// message whose source differs is one too — it was made for other
+	// text). `overwrite` makes the stored state the file's (needs
+	// `integration.manage`). `dry_run` runs every check of a merge and
+	// reports its results without changing anything.
+	//
+	// **Review states.** A file's states (XLIFF `final` → approved,
+	// `translated` → needs_review, `initial` → draft; PO fuzzy →
+	// needs_review; JSON: `options.state`, default needs_review) are
+	// kept only as far as the requester may decide them: an approval
+	// (or rejection) needs `translations.review` for the locale, or —
+	// approvals — a project that doesn't require review; otherwise
+	// the translation waits for review. Translations are written with
+	// provenance `import` and `origin_detail` `{job, file, format,
+	// requested_by}`.
+	//
+	// **Keys.** XLIFF units and JSON keys are message keys. gettext
+	// keys messages by text: a PO entry's key is
+	// `[<msgctxt slug>.]<msgid slug>_<hash>` — the text folded to
+	// lowercase ASCII words joined by `_` (at most 40 characters) and
+	// the first 8 hex digits of SHA-256 over msgctxt, U+0004 and msgid
+	// (`Add to cart` → `add_to_cart_…`), so the same entry always
+	// gets the same key.
+	//
+	// **Permissions.** Catalog formats need `integration.import`
+	// (translations of the locales in the requester's scope — a
+	// translator's) or `integration.manage` (also creating and
+	// revising messages; a JSON file in the source locale is a source
+	// catalog and needs it). TMX, TBX and `overwrite` need
+	// `integration.manage` (and `knowledge.write` for TMX and TBX).
+	// What the requester may do is recorded with the job and applied
+	// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
+	// `invalid_options`, `project_required` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/import-jobs (the `CreateImportJob` operationId).
+	CreateImportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateImportJobParams, body CreateImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateImportJobResponse, error)
+
+	// GetImportJobWithResponse An import job with its progress and counts
+	//
+	// `processed_items` of `total_items` (entries, units or concepts
+	// of the file; 0 until known — a TMX file streams) and `summary`,
+	// the results so far by status and kind. A job ends `succeeded`,
+	// `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
+	// `file_too_large` — the problem's line and column are its last
+	// result —, `source_locale_mismatch`, `project_not_found`,
+	// `upload_expired`, `internal`) or `cancelled`. An import of a
+	// file this tenant already imported with the same options
+	// succeeds at once with that job's result (`reused_job_id`);
+	// dry runs are always run. Needs `integration.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/import-jobs/{import_job} (the `GetImportJob` operationId).
+	GetImportJobWithResponse(ctx context.Context, tenant TenantPath, importJob ImportJobPath, reqEditors ...RequestEditorFn) (*GetImportJobResponse, error)
+
+	// CancelImportJobWithResponse Cancel an import job
+	//
+	// A job waiting for its file or queued is cancelled at once; a
+	// running one stops after its current batch of 500
+	// (`cancel_requested`), and what it already applied stays
+	// applied. Cancelling a cancelled job changes nothing. The
+	// requester, or someone with `integration.manage`, may cancel.
+	// Problem code: `job_not_cancellable` (409: it has finished).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/import-jobs/{import_job}/cancellation (the `CancelImportJob` operationId).
+	CancelImportJobWithResponse(ctx context.Context, tenant TenantPath, importJob ImportJobPath, reqEditors ...RequestEditorFn) (*CancelImportJobResponse, error)
+
+	// UploadImportFileWithBodyWithResponse Upload an import job's file
+	//
+	// The raw file (any `Content-Type`; the job's `format` says how it
+	// is read), streamed to object storage — once, by the job's
+	// requester, while it is `awaiting_upload`. The job is `queued`,
+	// or `succeeded` at once when it reuses an earlier result. Problem
+	// codes: `empty_file`, `upload_interrupted` (400: the body broke
+	// off), `upload_not_expected` (409), `file_too_large` (413; the
+	// limit is the deployment's `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES`,
+	// 64 MiB by default), `storage_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/import-jobs/{import_job}/file (the `UploadImportFile` operationId).
+	UploadImportFileWithBodyWithResponse(ctx context.Context, tenant TenantPath, importJob ImportJobPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadImportFileResponse, error)
+
+	// ListImportResultsWithResponse An import job's per-item results
+	//
+	// In file order: each message, then its translations; TM units;
+	// concepts. `status` is `created`, `updated`, `unchanged`,
+	// `conflict` (stored data differs and the mode keeps it: `code`
+	// `approved_translation_conflict`, `source_differs`,
+	// `concept_differs`) or `invalid` (`code` says why:
+	// `forbidden`, `message_not_found`, `invalid_message_key`,
+	// `structural_qa_failed`, `invalid_file` with `line` and
+	// `column`, …). A dry run's results are what a merge would do.
+	// Needs `integration.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/import-jobs/{import_job}/results (the `ListImportResults` operationId).
+	ListImportResultsWithResponse(ctx context.Context, tenant TenantPath, importJob ImportJobPath, params *ListImportResultsParams, reqEditors ...RequestEditorFn) (*ListImportResultsResponse, error)
+
 	// ListMembersWithResponse Members and open invitations
 	//
 	// Needs `members.read`.
@@ -24545,6 +26648,803 @@ func (r GetEffectiveStyleGuideResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetEffectiveStyleGuideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListExportJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ExportJobList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListExportJobsResponse) GetJSON200() *ExportJobList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListExportJobsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListExportJobsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListExportJobsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListExportJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListExportJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListExportJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListExportJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateExportJobResponse201Headers the declared response headers of an HTTP 201 response for CreateExportJob
+type CreateExportJobResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateExportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ExportJob
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateExportJobResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateExportJobResponse) GetJSON201() *ExportJob {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateExportJobResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateExportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateExportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateExportJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateExportJobResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateExportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateExportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateExportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateExportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetExportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ExportJob
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetExportJobResponse) GetJSON200() *ExportJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetExportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetExportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetExportJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetExportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetExportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetExportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetExportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CancelExportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ExportJob
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelExportJobResponse) GetJSON200() *ExportJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CancelExportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CancelExportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CancelExportJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CancelExportJobResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CancelExportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelExportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelExportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CancelExportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// DownloadExportFileResponse200Headers the declared response headers of an HTTP 200 response for DownloadExportFile
+type DownloadExportFileResponse200Headers struct {
+	ContentDisposition *string
+	ETag               *string
+}
+
+type DownloadExportFileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON410 the response for an HTTP 410 `application/problem+json` response
+	ApplicationproblemJSON410 *Gone
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *DownloadExportFileResponse200Headers
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DownloadExportFileResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DownloadExportFileResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DownloadExportFileResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r DownloadExportFileResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON410 returns the response for an HTTP 410 `application/problem+json` response
+func (r DownloadExportFileResponse) GetApplicationproblemJSON410() *Gone {
+	return r.ApplicationproblemJSON410
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r DownloadExportFileResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadExportFileResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadExportFileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadExportFileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadExportFileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListImportJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ImportJobList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListImportJobsResponse) GetJSON200() *ImportJobList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListImportJobsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListImportJobsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListImportJobsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListImportJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListImportJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListImportJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListImportJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateImportJobResponse201Headers the declared response headers of an HTTP 201 response for CreateImportJob
+type CreateImportJobResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateImportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ImportJob
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateImportJobResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateImportJobResponse) GetJSON201() *ImportJob {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateImportJobResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateImportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateImportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateImportJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateImportJobResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateImportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateImportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateImportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateImportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetImportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ImportJob
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetImportJobResponse) GetJSON200() *ImportJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetImportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetImportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetImportJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetImportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetImportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetImportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetImportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CancelImportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ImportJob
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelImportJobResponse) GetJSON200() *ImportJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CancelImportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CancelImportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CancelImportJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CancelImportJobResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CancelImportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelImportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelImportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CancelImportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UploadImportFileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ImportJob
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON413 the response for an HTTP 413 `application/problem+json` response
+	ApplicationproblemJSON413 *PayloadTooLarge
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UploadImportFileResponse) GetJSON200() *ImportJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r UploadImportFileResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r UploadImportFileResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r UploadImportFileResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r UploadImportFileResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r UploadImportFileResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON413 returns the response for an HTTP 413 `application/problem+json` response
+func (r UploadImportFileResponse) GetApplicationproblemJSON413() *PayloadTooLarge {
+	return r.ApplicationproblemJSON413
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r UploadImportFileResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r UploadImportFileResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadImportFileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadImportFileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UploadImportFileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListImportResultsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ImportResultList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListImportResultsResponse) GetJSON200() *ImportResultList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListImportResultsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListImportResultsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListImportResultsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListImportResultsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListImportResultsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListImportResultsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListImportResultsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListImportResultsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -32186,6 +35086,355 @@ func (c *ClientWithResponses) GetEffectiveStyleGuideWithResponse(ctx context.Con
 	return ParseGetEffectiveStyleGuideResponse(rsp)
 }
 
+// ListExportJobsWithResponse Export jobs
+//
+// Newest first. Needs `integration.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/export-jobs (the `ListExportJobs` operationId).
+func (c *ClientWithResponses) ListExportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListExportJobsParams, reqEditors ...RequestEditorFn) (*ListExportJobsResponse, error) {
+	rsp, err := c.ListExportJobs(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListExportJobsResponse(rsp)
+}
+
+// CreateExportJobWithBodyWithResponse Export a catalog, translation memory or termbase
+//
+// Queues the export; download its file when it has `succeeded`.
+// Catalogs (`xliff`, `json`) belong to a project and write one
+// file per locale in `options.locales` — several are zipped as
+// `<locale>.<ext>` —, the project's active messages (in
+// `options.namespaces`) with their translations in
+// `options.states` (default `approved`). An XLIFF export without
+// locales carries the source only; a JSON export defaults to the
+// source locale and matches what `glossa pull` writes (sorted
+// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
+// mf2). `tmx` and `tbx` export a project's own memory or termbase,
+// or without `project_id` everything the tenant holds; `tmx`
+// narrows by `source_locale` and target `locales`. Needs
+// `integration.read` and `catalog.read` with
+// `translations.read` (catalogs) or `knowledge.read`. Problem
+// codes: `invalid_format` (400; `po` is import only),
+// `invalid_options`, `project_required` (400),
+// `locale_not_found` (404).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/export-jobs (the `CreateExportJob` operationId).
+func (c *ClientWithResponses) CreateExportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateExportJobResponse, error) {
+	rsp, err := c.CreateExportJobWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateExportJobResponse(rsp)
+}
+
+// CreateExportJobWithResponse Export a catalog, translation memory or termbase
+//
+// Queues the export; download its file when it has `succeeded`.
+// Catalogs (`xliff`, `json`) belong to a project and write one
+// file per locale in `options.locales` — several are zipped as
+// `<locale>.<ext>` —, the project's active messages (in
+// `options.namespaces`) with their translations in
+// `options.states` (default `approved`). An XLIFF export without
+// locales carries the source only; a JSON export defaults to the
+// source locale and matches what `glossa pull` writes (sorted
+// keys, two-space indent; `layout` flat or nested; `syntax` mf1 or
+// mf2). `tmx` and `tbx` export a project's own memory or termbase,
+// or without `project_id` everything the tenant holds; `tmx`
+// narrows by `source_locale` and target `locales`. Needs
+// `integration.read` and `catalog.read` with
+// `translations.read` (catalogs) or `knowledge.read`. Problem
+// codes: `invalid_format` (400; `po` is import only),
+// `invalid_options`, `project_required` (400),
+// `locale_not_found` (404).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/export-jobs (the `CreateExportJob` operationId).
+func (c *ClientWithResponses) CreateExportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateExportJobParams, body CreateExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateExportJobResponse, error) {
+	rsp, err := c.CreateExportJob(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateExportJobResponse(rsp)
+}
+
+// GetExportJobWithResponse An export job
+//
+// A job ends `succeeded` (with `file` and `download_url`),
+// `failed` (`failure_code`: `not_representable` — the format can't
+// express the catalog with these options, such as MF2-only
+// messages in an MF1 JSON file or an XLIFF file without messages
+// —, `project_not_found`, `internal`) or `cancelled`. Needs
+// `integration.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job} (the `GetExportJob` operationId).
+func (c *ClientWithResponses) GetExportJobWithResponse(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*GetExportJobResponse, error) {
+	rsp, err := c.GetExportJob(ctx, tenant, exportJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetExportJobResponse(rsp)
+}
+
+// CancelExportJobWithResponse Cancel a queued export
+//
+// A queued export is cancelled at once; a running one finishes.
+// The requester, or someone with `integration.manage`, may cancel.
+// Problem code: `job_not_cancellable` (409: it has finished).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/export-jobs/{export_job}/cancellation (the `CancelExportJob` operationId).
+func (c *ClientWithResponses) CancelExportJobWithResponse(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*CancelExportJobResponse, error) {
+	rsp, err := c.CancelExportJob(ctx, tenant, exportJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelExportJobResponse(rsp)
+}
+
+// DownloadExportFileWithResponse Download a finished export
+//
+// The file, streamed from object storage, with its name in
+// `Content-Disposition` (its media type is the job's
+// `file.content_type`) and its SHA-256 as the `ETag`. Files are
+// kept for the deployment's retention period
+// (`GLOSSA_INTEGRATION_RETENTION`, 7 days by default). Needs
+// `integration.read`. Problem codes: `export_not_ready` (409),
+// `file_expired` (410), `storage_unavailable` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job}/file (the `DownloadExportFile` operationId).
+func (c *ClientWithResponses) DownloadExportFileWithResponse(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*DownloadExportFileResponse, error) {
+	rsp, err := c.DownloadExportFile(ctx, tenant, exportJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadExportFileResponse(rsp)
+}
+
+// ListImportJobsWithResponse Import jobs
+//
+// Newest first. Needs `integration.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/import-jobs (the `ListImportJobs` operationId).
+func (c *ClientWithResponses) ListImportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListImportJobsParams, reqEditors ...RequestEditorFn) (*ListImportJobsResponse, error) {
+	rsp, err := c.ListImportJobs(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListImportJobsResponse(rsp)
+}
+
+// CreateImportJobWithBodyWithResponse Create an import job (then upload its file)
+//
+// Creates a job in `awaiting_upload`; `PUT` the file to its
+// `upload_url` next (within 24 hours). Catalog formats (`xliff`,
+// `json`, `po`) belong to a project; `tmx` and `tbx` import into
+// a project, or tenant-wide without `project_id`.
+//
+// **Modes.** `merge` (default) creates what is missing and updates
+// what changed, but never replaces an approved translation, a
+// message's source that differs from the file's, or a concept that
+// differs: those are `conflict` results (and a translation of a
+// message whose source differs is one too — it was made for other
+// text). `overwrite` makes the stored state the file's (needs
+// `integration.manage`). `dry_run` runs every check of a merge and
+// reports its results without changing anything.
+//
+// **Review states.** A file's states (XLIFF `final` → approved,
+// `translated` → needs_review, `initial` → draft; PO fuzzy →
+// needs_review; JSON: `options.state`, default needs_review) are
+// kept only as far as the requester may decide them: an approval
+// (or rejection) needs `translations.review` for the locale, or —
+// approvals — a project that doesn't require review; otherwise
+// the translation waits for review. Translations are written with
+// provenance `import` and `origin_detail` `{job, file, format,
+// requested_by}`.
+//
+// **Keys.** XLIFF units and JSON keys are message keys. gettext
+// keys messages by text: a PO entry's key is
+// `[<msgctxt slug>.]<msgid slug>_<hash>` — the text folded to
+// lowercase ASCII words joined by `_` (at most 40 characters) and
+// the first 8 hex digits of SHA-256 over msgctxt, U+0004 and msgid
+// (`Add to cart` → `add_to_cart_…`), so the same entry always
+// gets the same key.
+//
+// **Permissions.** Catalog formats need `integration.import`
+// (translations of the locales in the requester's scope — a
+// translator's) or `integration.manage` (also creating and
+// revising messages; a JSON file in the source locale is a source
+// catalog and needs it). TMX, TBX and `overwrite` need
+// `integration.manage` (and `knowledge.write` for TMX and TBX).
+// What the requester may do is recorded with the job and applied
+// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
+// `invalid_options`, `project_required` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/import-jobs (the `CreateImportJob` operationId).
+func (c *ClientWithResponses) CreateImportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateImportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateImportJobResponse, error) {
+	rsp, err := c.CreateImportJobWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateImportJobResponse(rsp)
+}
+
+// CreateImportJobWithResponse Create an import job (then upload its file)
+//
+// Creates a job in `awaiting_upload`; `PUT` the file to its
+// `upload_url` next (within 24 hours). Catalog formats (`xliff`,
+// `json`, `po`) belong to a project; `tmx` and `tbx` import into
+// a project, or tenant-wide without `project_id`.
+//
+// **Modes.** `merge` (default) creates what is missing and updates
+// what changed, but never replaces an approved translation, a
+// message's source that differs from the file's, or a concept that
+// differs: those are `conflict` results (and a translation of a
+// message whose source differs is one too — it was made for other
+// text). `overwrite` makes the stored state the file's (needs
+// `integration.manage`). `dry_run` runs every check of a merge and
+// reports its results without changing anything.
+//
+// **Review states.** A file's states (XLIFF `final` → approved,
+// `translated` → needs_review, `initial` → draft; PO fuzzy →
+// needs_review; JSON: `options.state`, default needs_review) are
+// kept only as far as the requester may decide them: an approval
+// (or rejection) needs `translations.review` for the locale, or —
+// approvals — a project that doesn't require review; otherwise
+// the translation waits for review. Translations are written with
+// provenance `import` and `origin_detail` `{job, file, format,
+// requested_by}`.
+//
+// **Keys.** XLIFF units and JSON keys are message keys. gettext
+// keys messages by text: a PO entry's key is
+// `[<msgctxt slug>.]<msgid slug>_<hash>` — the text folded to
+// lowercase ASCII words joined by `_` (at most 40 characters) and
+// the first 8 hex digits of SHA-256 over msgctxt, U+0004 and msgid
+// (`Add to cart` → `add_to_cart_…`), so the same entry always
+// gets the same key.
+//
+// **Permissions.** Catalog formats need `integration.import`
+// (translations of the locales in the requester's scope — a
+// translator's) or `integration.manage` (also creating and
+// revising messages; a JSON file in the source locale is a source
+// catalog and needs it). TMX, TBX and `overwrite` need
+// `integration.manage` (and `knowledge.write` for TMX and TBX).
+// What the requester may do is recorded with the job and applied
+// when it runs. Problem codes: `invalid_format`, `invalid_mode`,
+// `invalid_options`, `project_required` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/import-jobs (the `CreateImportJob` operationId).
+func (c *ClientWithResponses) CreateImportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateImportJobParams, body CreateImportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateImportJobResponse, error) {
+	rsp, err := c.CreateImportJob(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateImportJobResponse(rsp)
+}
+
+// GetImportJobWithResponse An import job with its progress and counts
+//
+// `processed_items` of `total_items` (entries, units or concepts
+// of the file; 0 until known — a TMX file streams) and `summary`,
+// the results so far by status and kind. A job ends `succeeded`,
+// `failed` (`failure_code`: `invalid_file`, `unsupported_file`,
+// `file_too_large` — the problem's line and column are its last
+// result —, `source_locale_mismatch`, `project_not_found`,
+// `upload_expired`, `internal`) or `cancelled`. An import of a
+// file this tenant already imported with the same options
+// succeeds at once with that job's result (`reused_job_id`);
+// dry runs are always run. Needs `integration.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/import-jobs/{import_job} (the `GetImportJob` operationId).
+func (c *ClientWithResponses) GetImportJobWithResponse(ctx context.Context, tenant TenantPath, importJob ImportJobPath, reqEditors ...RequestEditorFn) (*GetImportJobResponse, error) {
+	rsp, err := c.GetImportJob(ctx, tenant, importJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetImportJobResponse(rsp)
+}
+
+// CancelImportJobWithResponse Cancel an import job
+//
+// A job waiting for its file or queued is cancelled at once; a
+// running one stops after its current batch of 500
+// (`cancel_requested`), and what it already applied stays
+// applied. Cancelling a cancelled job changes nothing. The
+// requester, or someone with `integration.manage`, may cancel.
+// Problem code: `job_not_cancellable` (409: it has finished).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/import-jobs/{import_job}/cancellation (the `CancelImportJob` operationId).
+func (c *ClientWithResponses) CancelImportJobWithResponse(ctx context.Context, tenant TenantPath, importJob ImportJobPath, reqEditors ...RequestEditorFn) (*CancelImportJobResponse, error) {
+	rsp, err := c.CancelImportJob(ctx, tenant, importJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelImportJobResponse(rsp)
+}
+
+// UploadImportFileWithBodyWithResponse Upload an import job's file
+//
+// The raw file (any `Content-Type`; the job's `format` says how it
+// is read), streamed to object storage — once, by the job's
+// requester, while it is `awaiting_upload`. The job is `queued`,
+// or `succeeded` at once when it reuses an earlier result. Problem
+// codes: `empty_file`, `upload_interrupted` (400: the body broke
+// off), `upload_not_expected` (409), `file_too_large` (413; the
+// limit is the deployment's `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES`,
+// 64 MiB by default), `storage_unavailable` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/import-jobs/{import_job}/file (the `UploadImportFile` operationId).
+func (c *ClientWithResponses) UploadImportFileWithBodyWithResponse(ctx context.Context, tenant TenantPath, importJob ImportJobPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadImportFileResponse, error) {
+	rsp, err := c.UploadImportFileWithBody(ctx, tenant, importJob, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadImportFileResponse(rsp)
+}
+
+// ListImportResultsWithResponse An import job's per-item results
+//
+// In file order: each message, then its translations; TM units;
+// concepts. `status` is `created`, `updated`, `unchanged`,
+// `conflict` (stored data differs and the mode keeps it: `code`
+// `approved_translation_conflict`, `source_differs`,
+// `concept_differs`) or `invalid` (`code` says why:
+// `forbidden`, `message_not_found`, `invalid_message_key`,
+// `structural_qa_failed`, `invalid_file` with `line` and
+// `column`, …). A dry run's results are what a merge would do.
+// Needs `integration.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/import-jobs/{import_job}/results (the `ListImportResults` operationId).
+func (c *ClientWithResponses) ListImportResultsWithResponse(ctx context.Context, tenant TenantPath, importJob ImportJobPath, params *ListImportResultsParams, reqEditors ...RequestEditorFn) (*ListImportResultsResponse, error) {
+	rsp, err := c.ListImportResults(ctx, tenant, importJob, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListImportResultsResponse(rsp)
+}
+
 // ListMembersWithResponse Members and open invitations
 //
 // Needs `members.read`.
@@ -36949,6 +40198,674 @@ func ParseGetEffectiveStyleGuideResponse(rsp *http.Response) (*GetEffectiveStyle
 			return nil, err
 		}
 		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListExportJobsResponse parses an HTTP response from a ListExportJobsWithResponse call
+func ParseListExportJobsResponse(rsp *http.Response) (*ListExportJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListExportJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ExportJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateExportJobResponse parses an HTTP response from a CreateExportJobWithResponse call
+func ParseCreateExportJobResponse(rsp *http.Response) (*CreateExportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateExportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ExportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateExportJobResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetExportJobResponse parses an HTTP response from a GetExportJobWithResponse call
+func ParseGetExportJobResponse(rsp *http.Response) (*GetExportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetExportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ExportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelExportJobResponse parses an HTTP response from a CancelExportJobWithResponse call
+func ParseCancelExportJobResponse(rsp *http.Response) (*CancelExportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelExportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ExportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadExportFileResponse parses an HTTP response from a DownloadExportFileWithResponse call
+func ParseDownloadExportFileResponse(rsp *http.Response) (*DownloadExportFileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadExportFileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 410:
+		var dest Gone
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON410 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers DownloadExportFileResponse200Headers
+		if values := rsp.Header.Values("Content-Disposition"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Content-Disposition", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ContentDisposition = &value
+		}
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListImportJobsResponse parses an HTTP response from a ListImportJobsWithResponse call
+func ParseListImportJobsResponse(rsp *http.Response) (*ListImportJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListImportJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ImportJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateImportJobResponse parses an HTTP response from a CreateImportJobWithResponse call
+func ParseCreateImportJobResponse(rsp *http.Response) (*CreateImportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateImportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ImportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateImportJobResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetImportJobResponse parses an HTTP response from a GetImportJobWithResponse call
+func ParseGetImportJobResponse(rsp *http.Response) (*GetImportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetImportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ImportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelImportJobResponse parses an HTTP response from a CancelImportJobWithResponse call
+func ParseCancelImportJobResponse(rsp *http.Response) (*CancelImportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelImportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ImportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadImportFileResponse parses an HTTP response from a UploadImportFileWithResponse call
+func ParseUploadImportFileResponse(rsp *http.Response) (*UploadImportFileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadImportFileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ImportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest PayloadTooLarge
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListImportResultsResponse parses an HTTP response from a ListImportResultsWithResponse call
+func ParseListImportResultsResponse(rsp *http.Response) (*ListImportResultsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListImportResultsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ImportResultList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
 
 	}
 

@@ -186,11 +186,16 @@ func (s *Service) UploadImport(ctx context.Context, id uuid.UUID, body io.Reader
 	}
 	key := fileKey(tenantOf(ctx), id, "upload-"+uuid.Must(uuid.NewV7()).String())
 	h := sha256.New()
-	n, err := s.objects.PutStream(ctx, key, io.TeeReader(&uploadLimit{r: body, left: s.cfg.MaxUploadBytes}, h), "application/octet-stream")
+	in := &trackingReader{r: &uploadLimit{r: body, left: s.cfg.MaxUploadBytes}}
+	n, err := s.objects.PutStream(ctx, key, io.TeeReader(in, h), "application/octet-stream")
 	var tooLarge *http.MaxBytesError
 	switch {
 	case errors.Is(err, errUploadTooLarge) || errors.As(err, &tooLarge):
 		return domain.Job{}, ErrUploadTooLarge
+	case err != nil && in.err != nil:
+		return domain.Job{}, fmt.Errorf("%w: %v", ErrUploadInterrupted, in.err)
+	case err != nil && ctx.Err() == nil:
+		return domain.Job{}, fmt.Errorf("%w: %v", ErrStorage, err)
 	case err != nil:
 		return domain.Job{}, err
 	case n == 0:
@@ -469,8 +474,11 @@ func (s *Service) OpenExport(ctx context.Context, id uuid.UUID) (io.ReadCloser, 
 		return nil, j, domain.ErrFileExpired
 	}
 	rc, err := s.objects.Open(ctx, j.File.Key)
-	if errors.Is(err, objectstore.ErrNotFound) {
+	switch {
+	case errors.Is(err, objectstore.ErrNotFound):
 		return nil, j, domain.ErrFileExpired
+	case err != nil:
+		return nil, j, fmt.Errorf("%w: %v", ErrStorage, err)
 	}
-	return rc, j, err
+	return rc, j, nil
 }
