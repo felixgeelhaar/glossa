@@ -1,5 +1,11 @@
 # @felixgeelhaar/glossa-elements
 
+## 0.3.0
+
+### Minor Changes
+
+- [#31](https://github.com/felixgeelhaar/glossa/pull/31) [`00d812b`](https://github.com/felixgeelhaar/glossa/commit/00d812b5f2f0bc6b105cdae10ddc52fb5a540cff) Thanks [@felixgeelhaar](https://github.com/felixgeelhaar)! - `<glossa-text>`, `<glossa-rich>`, `<glossa-plural>` and `<glossa-select>` accept `message="…"` as well as `key="…"`. Vue reserves `key` for its own reconciliation and never renders it as a DOM attribute, so inside `.vue` templates `<glossa-text key="…">` reached the element without a message ID and always showed its slot fallback, whatever the locale. Use `message` in Vue templates; `key` keeps working everywhere else, and `message` wins when both are set.
+
 ## 0.1.3
 
 ### Patch Changes
