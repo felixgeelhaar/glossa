@@ -51,6 +51,40 @@ jobs:
         # testcontainers needs Docker, which the GitHub runner has.
         run: go test -tags=integration -timeout=300s ./internal/infra/sqlcadapter/...
 
+  platform:
+    name: Platform (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Go modules of the rewrite (RFC 0002). Keep in sync with
+        # PLATFORM_MODULES in the Makefile.
+        module: [messageformat, platform]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      - name: gofmt
+        run: |
+          diff=$(gofmt -l .)
+          if [ -n "$diff" ]; then
+            echo "::error::gofmt: files need formatting"
+            echo "$diff"
+            exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - name: go test (unit)
+        run: go test -race ./...
+      - name: go test (integration)
+        # Postgres and object storage via testcontainers; the runner has Docker.
+        run: go test -tags=integration -timeout=300s ./...
+
   packages:
     name: JS workspaces
     runs-on: ubuntu-latest
@@ -72,6 +106,8 @@ jobs:
           pnpm --filter @felixgeelhaar/glossa-ui build
           pnpm --filter @felixgeelhaar/glossa-elements build
           pnpm --filter @felixgeelhaar/glossa-cli build
+      - name: build rewrite packages (topological)
+        run: pnpm -r --filter "./messageformat/js" --filter "./runtimes/js/*" build
       - name: lint (tsc --noEmit)
         run: pnpm -r lint
       - name: test
