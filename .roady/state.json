@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 95,
+  "version": 97,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -392,16 +392,22 @@
       "elapsed_minutes": 58
     },
     "task-m2-knowledge-ai": {
-      "status": "pending",
-      "path": "",
-      "elapsed_minutes": 0
-    },
-    "task-m2-surfaces": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-09-19T18:08:21.93944+02:00",
+      "started_at": "2026-09-19T19:56:41.180936+02:00",
       "elapsed_minutes": 0
+    },
+    "task-m2-surfaces": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "d4a3ef7 (Studio M2, Studio import/export, Studio sync, CLI M2, CLI import/export)"
+      ],
+      "started_at": "2026-09-19T18:08:21.93944+02:00",
+      "completed_at": "2026-09-19T19:56:39.569117+02:00",
+      "elapsed_minutes": 108
     },
     "task-m3-context": {
       "status": "pending",
@@ -512,5 +518,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T18:08:21.93944+02:00"
+  "updated_at": "2026-09-19T19:56:41.180936+02:00"
 }
