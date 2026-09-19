@@ -33,6 +33,7 @@ type fakeServer struct {
 	translations   map[string]map[string]*fakeTranslation // locale → key
 	rel            *fakeReleases
 	kn             *fakeKnowledge
+	io             *fakeInterchange
 	requests       []string
 }
 
@@ -53,7 +54,7 @@ type fakeTranslation struct {
 
 func newFakeServer(t *testing.T) *fakeServer {
 	f := &fakeServer{t: t, reviewRequired: true, sourceLocale: "en", locales: []string{"en"},
-		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge()}
+		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange()}
 	mux := http.NewServeMux()
 	p := "/v1/tenants/ten_1/projects/prj_1"
 	mux.HandleFunc("GET /v1/tenants", f.tenants)
@@ -71,6 +72,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 	mux.HandleFunc("GET "+p+"/translation-stats", f.translationStats)
 	f.routeReleases(mux, p)
 	f.routeKnowledge(mux)
+	f.routeInterchange(mux)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path+" "+r.Header.Get("Idempotency-Key"))

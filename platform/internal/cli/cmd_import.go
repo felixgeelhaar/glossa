@@ -41,20 +41,62 @@ type importFlags struct {
 	dryRun                     bool
 }
 
+const importUsage = `import --format xliff|json|po|tmx|tbx <file> [--apply | --overwrite] [options]
+       glossa import --from v0 --v0-url URL --v0-project SLUG [--v0-key-env GLOSSA_V0_KEY] [--locales de,en] [--dry-run]
+
+An interchange file (--format) goes through the server's import jobs. Without --apply or
+--overwrite it is a dry run: every check of a merge, nothing written. Options per format:
+  xliff  --syntax mf1 (read other tools' plain units as ICU)
+  json   --locale L (default the source: a source catalog) --namespace N --syntax mf1|mf2 --state S
+  po     --locale L (default its Language header) --namespace N --state S --plural-variable V
+  tmx    --scope project|tenant
+  tbx    --scope project|tenant
+Exit codes: 0 ok, 1 conflicts or invalid items, 2 usage, 3 refused, 4 the job failed.
+
+--from v0 imports a Glossa v0.3 project through its API (flags --v0-*, --locales, --dry-run).`
+
 func runImport(ctx context.Context, inv *invocation, args []string) error {
-	fs := inv.flags("import --from v0 --v0-url URL --v0-project SLUG [--v0-key-env GLOSSA_V0_KEY] [--locales de,en] [--dry-run]")
+	fs := inv.flags(importUsage)
 	var f importFlags
 	fs.StringVar(&f.from, "from", "", "the system to import from: v0 (Glossa v0.3)")
-	fs.StringVar(&f.url, "v0-url", "", "the v0.3 API, e.g. https://glossa.example.com/api/v1")
-	fs.StringVar(&f.project, "v0-project", "", "the v0.3 project slug (default: glossa.yaml's project)")
-	fs.StringVar(&f.keyEnv, "v0-key-env", "GLOSSA_V0_KEY", "environment variable holding the v0.3 project API key")
-	fs.StringVar(&f.locales, "locales", "", "only these locales' translations (comma-separated)")
-	fs.BoolVar(&f.dryRun, "dry-run", false, "read v0.3 and report the plan without writing")
-	if _, err := inv.parse(fs, args); err != nil {
+	fs.StringVar(&f.url, "v0-url", "", "--from v0: the v0.3 API, e.g. https://glossa.example.com/api/v1")
+	fs.StringVar(&f.project, "v0-project", "", "--from v0: the v0.3 project slug (default: glossa.yaml's project)")
+	fs.StringVar(&f.keyEnv, "v0-key-env", "GLOSSA_V0_KEY", "--from v0: environment variable holding the v0.3 project API key")
+	fs.StringVar(&f.locales, "locales", "", "--from v0: only these locales' translations (comma-separated)")
+	fs.BoolVar(&f.dryRun, "dry-run", false, "report what the import would do without writing (--format: the default)")
+	var ff fileImportFlags
+	ff.register(fs)
+	pos, err := inv.parse(fs, args)
+	if err != nil {
 		return err
 	}
-	if f.from != "v0" {
+	switch {
+	case f.from != "" && ff.format != "":
+		return usageError(inv.name, "--from and --format exclude each other: --format imports a file, --from v0 a Glossa v0.3 project")
+	case ff.format != "":
+		for _, name := range []string{"v0-url", "v0-project", "v0-key-env", "locales"} {
+			if isSet(fs, name) {
+				return usageError(inv.name, "--%s belongs to --from v0", name)
+			}
+		}
+		ff.dryRun = f.dryRun
+		in, err := parseFileImport(inv, fs, ff, pos)
+		if err != nil {
+			return err
+		}
+		return inv.importFile(ctx, in)
+	case f.from == "":
+		return usageError(inv.name, "import needs --format <xliff|json|po|tmx|tbx> <file>, or --from v0")
+	case f.from != "v0":
 		return usageError(inv.name, "--from must be v0 (Glossa v0.3); got %q", f.from)
+	}
+	for _, name := range fileImportFlagNames {
+		if isSet(fs, name) {
+			return usageError(inv.name, "--%s belongs to --format imports, not --from v0", name)
+		}
+	}
+	if err := noMore(inv, pos); err != nil {
+		return err
 	}
 	if f.url == "" {
 		return usageError(inv.name, "--v0-url is required (the v0.3 API, e.g. https://glossa.example.com/api/v1)")

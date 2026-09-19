@@ -97,5 +97,5 @@ func TestTMUnitsListsAndRetires(t *testing.T) {
 	w.run("tm", "units", "--state", "gone").want(t, ExitUsage)
 	w.run("tm", "units", "extra").want(t, ExitUsage)
 	w.run("tm").want(t, ExitUsage)
-	w.run("tm", "export").want(t, ExitUsage)
+	w.run("tm", "merge").want(t, ExitUsage)
 }

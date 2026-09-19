@@ -102,8 +102,39 @@ Actions:
                   the project's units (derived from approved translations)
   units --retire <id>
                   take a unit out of matching (it stays listed as history)
+  export [--locale L]... [--source-locale L] [--scope project|tenant] [-o PATH]
+                  the units as TMX 1.4b (glossa export --format tmx)
+  import <file.tmx> [--apply] [--scope project|tenant]
+                  TMX units into the memory; a dry run without --apply (glossa import --format tmx)
 
 Lookups see tenant-wide units and the project's; --all-projects widens them to the tenant.`
+
+const tmExportUsage = `tm export [--locale L]... [--source-locale L] [--scope project|tenant] [-o PATH] [--no-wait]
+
+The translation memory as TMX 1.4b: the project's units (--scope tenant: every unit of the
+tenant), those with --locale targets and a --source-locale when given. Same as
+` + "`glossa export --format tmx`" + `; exit codes: 0 ok, 3 refused or a corrupted download, 4 the job failed.`
+
+const tmImportUsage = `tm import <file.tmx> [--apply] [--scope project|tenant] [--no-wait] [--all-results]
+
+TMX units into the translation memory, as the project's units (--scope tenant: tenant-wide).
+Without --apply it is a dry run. A unit whose text the scope already has is unchanged: TM
+imports only add. Same as ` + "`glossa import --format tmx`" + `; needs integration.manage (a write token).`
+
+// tmTransfer runs `tm export` and `tm import`; ok is false for the
+// other actions.
+func tmTransfer(ctx context.Context, inv *invocation, args []string) (bool, error) {
+	if len(args) == 0 {
+		return false, nil
+	}
+	switch args[0] {
+	case "export":
+		return true, runExportAs(ctx, inv, args[1:], tmExportUsage, "tmx")
+	case "import":
+		return true, runFileImport(ctx, inv, args[1:], tmImportUsage, "tmx")
+	}
+	return false, nil
+}
 
 type tmArgs struct {
 	action, text, from, to, syntax, side, state, localePair, retire string
@@ -158,6 +189,9 @@ func parseTMArgs(inv *invocation, args []string) (tmArgs, error) {
 }
 
 func runTM(ctx context.Context, inv *invocation, args []string) error {
+	if ok, err := tmTransfer(ctx, inv, args); ok {
+		return err
+	}
 	a, err := parseTMArgs(inv, args)
 	if err != nil {
 		return err

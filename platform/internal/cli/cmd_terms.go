@@ -95,7 +95,23 @@ Actions:
                   mark a term deprecated (translations get a warning) or forbidden (an error);
                   with --concept the term is added when the concept lacks it
   check [--locale L]... [--states approved,needs_review,draft] [--fail-on error|warning]
-                  terminology QA over the project's translations; exits 1 on errors`
+                  terminology QA over the project's translations; exits 1 on errors
+  export [--scope project|tenant] [-o PATH]
+                  the termbase as TBX-Basic (glossa export --format tbx)
+  import <file.tbx> [--apply | --overwrite] [--scope project|tenant]
+                  TBX concepts into the termbase; a dry run without --apply (glossa import --format tbx)`
+
+const termsExportUsage = `terms export [--scope project|tenant] [-o PATH] [--no-wait]
+
+The termbase as TBX-Basic: the project's concepts (--scope tenant: every concept of the
+tenant). Same as ` + "`glossa export --format tbx`" + `; exit codes: 0 ok, 3 refused or a corrupted download, 4 the job failed.`
+
+const termsImportUsage = `terms import <file.tbx> [--apply | --overwrite] [--scope project|tenant] [--no-wait] [--all-results]
+
+TBX concepts into the termbase, as the project's concepts (--scope tenant: tenant-wide).
+Without --apply it is a dry run. A concept whose stored content differs is a conflict
+(concept_differs; exit 1) unless --overwrite. Same as ` + "`glossa import --format tbx`" + `;
+needs integration.manage (a write token).`
 
 type termsArgs struct {
 	action, ref, locale, query, domain, definition, note, partOfSpeech, concept, states, failOn string
@@ -169,6 +185,14 @@ func parseTermsArgs(inv *invocation, args []string) (termsArgs, error) {
 }
 
 func runTerms(ctx context.Context, inv *invocation, args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "export":
+			return runExportAs(ctx, inv, args[1:], termsExportUsage, "tbx")
+		case "import":
+			return runFileImport(ctx, inv, args[1:], termsImportUsage, "tbx")
+		}
+	}
 	a, err := parseTermsArgs(inv, args)
 	if err != nil {
 		return err
