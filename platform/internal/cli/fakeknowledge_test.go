@@ -66,8 +66,13 @@ type fakeKnowledge struct {
 	suggestions []*fakeSuggestion
 	// failKeys are keys whose jobs fail (invalid_output).
 	failKeys map[string]bool
-	// termChecks counts terminology-check requests.
+	// termChecks counts terminology-check requests, termPages
+	// terminology-findings pages, previews fill previews.
 	termChecks int
+	termPages  int
+	previews   int
+	// fillBodies are the fill requests, in order.
+	fillBodies []fakeFillBody
 }
 
 func newFakeKnowledge() *fakeKnowledge {
@@ -92,6 +97,7 @@ func (f *fakeServer) routeKnowledge(mux *http.ServeMux) {
 	mux.HandleFunc("GET "+t+"/term-concepts/{id}", f.getConcept)
 	mux.HandleFunc("PUT "+t+"/term-concepts/{id}", f.replaceConcept)
 	mux.HandleFunc("POST "+t+"/terminology-checks", f.checkTerminology)
+	mux.HandleFunc("GET "+p+"/terminology-findings", f.terminologyFindings)
 	mux.HandleFunc("GET "+t+"/effective-style-guide", f.effectiveStyle)
 	mux.HandleFunc("GET "+t+"/style-guides", f.listGuides)
 	mux.HandleFunc("POST "+t+"/style-guides", f.createGuide)
@@ -102,6 +108,7 @@ func (f *fakeServer) routeKnowledge(mux *http.ServeMux) {
 	mux.HandleFunc("GET "+t+"/ai-providers", f.aiProviders)
 	mux.HandleFunc("GET "+p+"/ai-settings", f.projectAISettings)
 	mux.HandleFunc("POST "+p+"/ai-fills", f.createFill)
+	mux.HandleFunc("POST "+p+"/ai-fill-previews", f.previewFill)
 	mux.HandleFunc("GET "+t+"/ai-fills/{id}", f.getFill)
 	mux.HandleFunc("GET "+t+"/ai-jobs", f.listJobs)
 	mux.HandleFunc("GET "+p+"/ai-review-queue", f.reviewQueue)
@@ -164,6 +171,7 @@ func (f *fakeServer) tmLookup(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case u.src == q.Source:
 			matches = append(matches, map[string]any{"score": 100, "kind": "exact", "target": u.tgt, "target_model": map[string]any{},
+				"target_text": u.tgt, "target_syntax": orDefault(q.Syntax, "mf1"), "target_syntax_fallback": false,
 				"variables_adapted": false, "unit": unitJSON(u)})
 		case strings.Contains(strings.ToLower(u.src), strings.ToLower(q.Source)):
 			matches = append(matches, map[string]any{"score": 75, "kind": "fuzzy", "target": u.tgt, "target_model": map[string]any{},
@@ -402,6 +410,69 @@ func (f *fakeServer) checkTerminology(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.kn.termChecks++
+	writeJSONResp(w, 200, map[string]any{"findings": f.termFindings(q.Source, q.SourceLocale, q.Target, q.TargetLocale),
+		"source_text": q.Source, "target_text": q.Target})
+}
+
+// terminologyFindings checks the project's translations in the locales
+// a page (page_size translations, default 100) at a time, by key and
+// locale; the page token is the index to go on from.
+func (f *fakeServer) terminologyFindings(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.kn.termPages++
+	states := q["state"]
+	if len(states) == 0 {
+		states = []string{"draft", "needs_review", "approved"}
+	}
+	type pair struct{ key, locale string }
+	var pairs []pair
+	keys := make([]string, 0, len(f.messages))
+	for k := range f.messages {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	locales := slices.Clone(q["locale"])
+	sort.Strings(locales)
+	for _, k := range keys {
+		if f.messages[k].state != "active" {
+			continue
+		}
+		for _, l := range locales {
+			if t := f.translations[l][k]; t != nil && slices.Contains(states, t.state) {
+				pairs = append(pairs, pair{k, l})
+			}
+		}
+	}
+	size, from := 100, 0
+	fmt.Sscan(q.Get("page_size"), &size)
+	fmt.Sscan(q.Get("page_token"), &from)
+	to := min(from+size, len(pairs))
+	checked := map[string]int{}
+	for _, l := range q["locale"] {
+		checked[l] = 0
+	}
+	items := []map[string]any{}
+	for _, pr := range pairs[from:to] {
+		checked[pr.locale]++
+		src, tgt := f.messages[pr.key].content.Text, f.translations[pr.locale][pr.key].content.Text
+		if fs := f.termFindings(src, f.sourceLocale, tgt, pr.locale); len(fs) > 0 {
+			items = append(items, map[string]any{"message_id": "msg_" + pr.key, "message_key": pr.key, "namespace": "default",
+				"locale": pr.locale, "state": f.translations[pr.locale][pr.key].state, "source_text": src, "target_text": tgt, "findings": fs})
+		}
+	}
+	page := map[string]any{"items": items, "checked": checked}
+	if to < len(pairs) {
+		page["next_page_token"] = fmt.Sprint(to)
+	}
+	writeJSONResp(w, 200, page)
+}
+
+// termFindings is the fake's word-based terminology QA of one
+// translation.
+func (f *fakeServer) termFindings(source, sourceLocale, target, targetLocale string) []map[string]any {
+	q := struct{ Source, Target, SourceLocale, TargetLocale string }{source, target, sourceLocale, targetLocale}
 	findings := []map[string]any{}
 	for _, c := range f.kn.concepts {
 		var suggestions []string
@@ -436,7 +507,7 @@ func (f *fakeServer) checkTerminology(w http.ResponseWriter, r *http.Request) {
 				"message": "the translation uses none of the concept's terms"})
 		}
 	}
-	writeJSONResp(w, 200, map[string]any{"findings": findings, "source_text": q.Source, "target_text": q.Target})
+	return findings
 }
 
 // ── style guides ────────────────────────────────────────────────────
@@ -631,32 +702,40 @@ func (f *fakeServer) projectAISettings(w http.ResponseWriter, _ *http.Request) {
 
 // ── AI fills, jobs and suggestions ──────────────────────────────────
 
-// createFill queues a job per message missing (or, with keys, missing
-// or outdated) in each locale, skipping sensitive namespaces.
-func (f *fakeServer) createFill(w http.ResponseWriter, r *http.Request) {
-	var b struct {
-		Locales         []string  `json:"locales"`
-		Keys            *[]string `json:"keys"`
-		KeyPrefix       *string   `json:"key_prefix"`
-		IncludeOutdated bool      `json:"include_outdated"`
+type fakeFillBody struct {
+	Locales         []string  `json:"locales"`
+	Keys            *[]string `json:"keys"`
+	KeyPrefix       *string   `json:"key_prefix"`
+	IncludeOutdated bool      `json:"include_outdated"`
+	Select          string    `json:"select"`
+}
+
+// selection is a fill's messages per locale, in key order: those whose
+// translation is in the selected state (missing by default; listed keys
+// missing or outdated), sensitive namespaces counted apart. ok is false
+// (a 404 was written) for a locale the project lacks.
+func (f *fakeServer) selection(w http.ResponseWriter, b fakeFillBody) (keys map[string][]string, sensitive map[string]int, ok bool) {
+	sel := b.Select
+	switch {
+	case sel != "":
+	case b.IncludeOutdated || b.Keys != nil:
+		sel = "missing_or_outdated"
+	default:
+		sel = "missing"
 	}
-	decodeBody(r, &b)
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	id := f.kn.nextID()
-	skipped := map[string]int{}
-	created := 0
+	keys, sensitive = map[string][]string{}, map[string]int{}
 	for _, l := range b.Locales {
 		if !f.hasLocale(l) {
 			problemResp(w, 404, "locale_not_found", "no locale "+l)
-			return
+			return nil, nil, false
 		}
-		keys := make([]string, 0, len(f.messages))
+		all := make([]string, 0, len(f.messages))
 		for k := range f.messages {
-			keys = append(keys, k)
+			all = append(all, k)
 		}
-		sort.Strings(keys)
-		for _, k := range keys {
+		sort.Strings(all)
+		keys[l] = []string{}
+		for _, k := range all {
 			m := f.messages[k]
 			t := f.translations[l][k]
 			outdated := t != nil && t.sourceRevision < m.revision
@@ -664,21 +743,100 @@ func (f *fakeServer) createFill(w http.ResponseWriter, r *http.Request) {
 			case b.Keys != nil && !slices.Contains(*b.Keys, k),
 				b.KeyPrefix != nil && !strings.HasPrefix(k, *b.KeyPrefix),
 				t != nil && !outdated,
-				outdated && b.Keys == nil && !b.IncludeOutdated:
+				t == nil && sel == "outdated",
+				outdated && sel == "missing":
 				continue
 			}
 			if slices.Contains(f.kn.nsTags["default"], "sensitive") {
-				skipped["sensitive"]++
+				sensitive[l]++
 				continue
 			}
+			keys[l] = append(keys[l], k)
+		}
+	}
+	return keys, sensitive, true
+}
+
+// createFill queues a job per selected message in each locale,
+// skipping sensitive namespaces.
+func (f *fakeServer) createFill(w http.ResponseWriter, r *http.Request) {
+	var b fakeFillBody
+	decodeBody(r, &b)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.kn.fillBodies = append(f.kn.fillBodies, b)
+	keys, sensitive, ok := f.selection(w, b)
+	if !ok {
+		return
+	}
+	id := f.kn.nextID()
+	skipped := map[string]int{}
+	created := 0
+	for _, l := range b.Locales {
+		skipped["sensitive"] += sensitive[l]
+		for _, k := range keys[l] {
 			j := &fakeJob{id: f.kn.nextID(), fill: id, key: k, locale: l, state: "queued"}
 			f.kn.jobs = append(f.kn.jobs, j)
 			f.kn.fills[id] = append(f.kn.fills[id], j)
 			created++
 		}
 	}
+	if skipped["sensitive"] == 0 {
+		delete(skipped, "sensitive")
+	}
 	w.Header().Set("Location", "/v1/tenants/ten_1/ai-fills/"+id)
 	writeJSONResp(w, 201, f.fillJSON(id, b.Locales, created, skipped))
+}
+
+// previewFill answers what createFill would do, queueing nothing: an
+// exact TM unit covers a message; the rest is refused (consent,
+// provider, budget) or costs 1000 µ$ (at most 50000).
+func (f *fakeServer) previewFill(w http.ResponseWriter, r *http.Request) {
+	var b fakeFillBody
+	decodeBody(r, &b)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.kn.previews++
+	keys, sensitive, ok := f.selection(w, b)
+	if !ok {
+		return
+	}
+	sel := "missing"
+	if b.Select != "" {
+		sel = b.Select
+	}
+	var estimated, most int64
+	locales := []map[string]any{}
+	for _, l := range b.Locales {
+		refused := map[string]int{}
+		if sensitive[l] > 0 {
+			refused["sensitive"] = sensitive[l]
+		}
+		tm, provider := 0, 0
+		var le, lm int64
+		for _, k := range keys[l] {
+			switch {
+			case slices.ContainsFunc(f.kn.units, func(u *fakeUnit) bool {
+				return !u.retired && u.tgtLocale == l && u.src == f.messages[k].content.Text
+			}):
+				tm++
+			case !f.kn.consent:
+				refused["provider_consent"]++
+			case len(f.kn.providers) == 0:
+				refused["no_route"]++
+			case f.kn.budget == 0:
+				refused["budget_exceeded"]++
+			default:
+				provider++
+				le, lm = le+1000, lm+50000
+			}
+		}
+		estimated, most = estimated+le, most+lm
+		locales = append(locales, map[string]any{"locale": l, "keys": keys[l], "existing": 0, "tm_exact": tm, "provider": provider,
+			"refused": refused, "skipped": map[string]int{}, "cost": map[string]any{"estimated_micro_usd": le, "max_micro_usd": lm, "unpriced": false}})
+	}
+	writeJSONResp(w, 200, map[string]any{"project_id": "prj_1", "select": sel, "locales": locales, "warnings": f.warnings(),
+		"cost": map[string]any{"estimated_micro_usd": estimated, "max_micro_usd": most, "unpriced": false}})
 }
 
 func (f *fakeServer) warnings() []string {

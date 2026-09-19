@@ -10,16 +10,20 @@ import (
 // Intelligence types the CLI reads (RFC 0003 §3), re-exported so
 // commands don't import the generated package.
 type (
-	AISettings        = apiclient.AISettings
-	AIBudget          = apiclient.AIBudget
-	AIProvider        = apiclient.AIProvider
-	AIProjectSettings = apiclient.AIProjectSettings
-	AIFill            = apiclient.AIFill
-	CreateAIFill      = apiclient.CreateAIFill
-	AIJob             = apiclient.AIJob
-	AISuggestion      = apiclient.AISuggestion
-	AIProviderSpend   = apiclient.AIProviderSpend
-	AIReviewPolicy    = apiclient.AIReviewPolicy
+	AISettings          = apiclient.AISettings
+	AIBudget            = apiclient.AIBudget
+	AIProvider          = apiclient.AIProvider
+	AIProjectSettings   = apiclient.AIProjectSettings
+	AIFill              = apiclient.AIFill
+	AIFillPreview       = apiclient.AIFillPreview
+	AIFillPreviewLocale = apiclient.AIFillPreviewLocale
+	AICostEstimate      = apiclient.AICostEstimate
+	AIFillSelect        = apiclient.AIFillSelect
+	CreateAIFill        = apiclient.CreateAIFill
+	AIJob               = apiclient.AIJob
+	AISuggestion        = apiclient.AISuggestion
+	AIProviderSpend     = apiclient.AIProviderSpend
+	AIReviewPolicy      = apiclient.AIReviewPolicy
 )
 
 // AISettings reads the tenant's AI settings: consent, budget cap and
@@ -71,6 +75,16 @@ func (c *Client) CreateAIFill(ctx context.Context, s Scope, body CreateAIFill, i
 		return AIFill{}, err
 	}
 	return *r.JSON201, nil
+}
+
+// PreviewAIFill answers what a fill would do, per locale, without
+// queueing anything. It writes nothing, so it is retried like a read.
+func (c *Client) PreviewAIFill(ctx context.Context, s Scope, body CreateAIFill) (AIFillPreview, error) {
+	r, err := c.api.PreviewAIFillWithResponse(idempotent(ctx), s.Tenant, s.Project, body)
+	if err := check(r, err, http.MethodPost, c.path("/v1/tenants/%s/projects/%s/ai-fill-previews", s.Tenant, s.Project)); err != nil {
+		return AIFillPreview{}, err
+	}
+	return *r.JSON200, nil
 }
 
 // AIFill reads a fill and its jobs' states.

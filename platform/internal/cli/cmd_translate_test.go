@@ -33,6 +33,18 @@ func TestTranslateDryRunReportsPlanAndRefusals(t *testing.T) {
 	if srv.countRequests("POST /v1/tenants/ten_1/projects/prj_1/ai-fills") != 0 {
 		t.Fatal("the dry run queued a fill")
 	}
+	// The server's preview decides it: one request, no message listing,
+	// no settings, budget or provider reads of its own.
+	for _, route := range []string{"GET /v1/tenants/ten_1/projects/prj_1/messages", "GET /v1/tenants/ten_1/ai-settings",
+		"GET /v1/tenants/ten_1/ai-budget", "GET /v1/tenants/ten_1/ai-providers"} {
+		if n := srv.countRequests(route); n != 0 {
+			t.Errorf("the dry run sent %d × %s", n, route)
+		}
+	}
+	if srv.countRequests("POST /v1/tenants/ten_1/projects/prj_1/ai-fill-previews") != 1 || out.Plan[0].Refused["provider_consent"] != 1 ||
+		out.Plan[0].Provider != 0 || out.Cost == nil || out.Cost.Estimated != 0 {
+		t.Errorf("preview = %+v", out)
+	}
 	h := w.run("translate", "--locale", "ja", "--dry-run")
 	for _, want := range []string{"Dry run: 1 AI job would be queued", "ja  1 message", "checkout.pay", "provider consent", "fix:"} {
 		if !strings.Contains(h.stdout, want) {
@@ -49,6 +61,28 @@ func TestTranslateDryRunReportsPlanAndRefusals(t *testing.T) {
 	if len(out.Refusals) != 0 || out.Skipped["sensitive"] != 1 || out.Plan[0].Queue != 0 {
 		t.Errorf("sensitive dry run = %+v", out)
 	}
+	srv.mu.Lock()
+	srv.kn.nsTags = map[string][]string{}
+	srv.mu.Unlock()
+	w.json(&out, "translate", "--locale", "ja", "--dry-run").want(t, ExitOK)
+	if out.Plan[0].Provider != 1 || out.Cost.Estimated != 1000 || out.Cost.Max != 50000 {
+		t.Errorf("priced dry run = %+v", out)
+	}
+	if h := w.run("translate", "--locale", "ja", "--dry-run"); !strings.Contains(h.stdout, "1 by a provider") ||
+		!strings.Contains(h.stdout, "estimated cost $0.0010 (at most $0.0500)") {
+		t.Errorf("human priced dry run:\n%s", h.stdout)
+	}
+	srv.mu.Lock()
+	srv.kn.budget = 0
+	srv.mu.Unlock()
+	w.json(&out, "translate", "--locale", "ja", "--dry-run").want(t, ExitCheckFailed)
+	if refusalCodes(out.Refusals) != "no_budget" || out.Plan[0].Refused["budget_exceeded"] != 1 {
+		t.Errorf("no budget dry run = %+v", out)
+	}
+	srv.mu.Lock()
+	srv.kn.budget = 5_000_000
+	srv.kn.nsTags["default"] = []string{"sensitive"}
+	srv.mu.Unlock()
 
 	// --outdated plans the outdated translations instead.
 	w.write("locales/en.json", strings.Replace(sourceEN, `"Checkout"`, `"Check out"`, 1))
@@ -85,8 +119,33 @@ func TestTranslateQueuesAndWaits(t *testing.T) {
 	var out translateJSON
 	w.json(&out, "translate", "--locale", "ja").want(t, ExitOK)
 	if out.DryRun || len(out.Fills) != 1 || out.Fills[0].JobsCreated != 1 || out.Fills[0].JobStates["queued"] != 1 || out.Wait != nil ||
-		len(out.Refusals) != 0 {
+		len(out.Refusals) != 0 || out.Cost != nil {
 		t.Fatalf("fill = %+v", out)
+	}
+
+	// --outdated fills by state in one request: no message listing, no
+	// key lists.
+	w.write("locales/en.json", strings.Replace(sourceEN, `"Checkout"`, `"Check out"`, 1))
+	w.run("push").want(t, ExitOK)
+	w.json(&out, "translate", "--locale", "ja", "--locale", "de", "--outdated").want(t, ExitOK)
+	if len(out.Fills) != 1 || out.Fills[0].JobsCreated != 2 || out.Fills[0].Keys != 0 {
+		t.Errorf("outdated fill = %+v", out)
+	}
+	srv.mu.Lock()
+	bodies := srv.kn.fillBodies
+	srv.mu.Unlock()
+	if last := bodies[len(bodies)-1]; last.Select != "outdated" || last.Keys != nil || strings.Join(last.Locales, ",") != "ja,de" {
+		t.Errorf("outdated fill request = %+v", last)
+	}
+	if n := srv.countRequests("GET /v1/tenants/ten_1/projects/prj_1/messages"); n != 0 {
+		t.Errorf("translate listed messages %d times", n)
+	}
+	w.json(&out, "translate", "--locale", "ja", "--missing", "--outdated").want(t, ExitOK)
+	srv.mu.Lock()
+	last := srv.kn.fillBodies[len(srv.kn.fillBodies)-1]
+	srv.mu.Unlock()
+	if last.Select != "missing_or_outdated" {
+		t.Errorf("missing+outdated select = %q", last.Select)
 	}
 
 	// --wait polls until every job is final; a failed job exits 4.

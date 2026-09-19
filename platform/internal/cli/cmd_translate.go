@@ -20,11 +20,28 @@ type translateFilterJSON struct {
 	Outdated  bool   `json:"outdated"`
 }
 
-// translatePlanJSON is what a dry run would queue in one locale.
+// translatePlanJSON is what a dry run would queue in one locale, as the
+// server's fill preview decides it.
 type translatePlanJSON struct {
 	Locale string   `json:"locale"`
 	Queue  int      `json:"queue"`
 	Keys   []string `json:"keys"`
+	// Existing jobs would be reused; TMExact messages reuse an exact
+	// translation-memory match; Provider messages would call a provider.
+	Existing int `json:"existing"`
+	TMExact  int `json:"tm_exact"`
+	Provider int `json:"provider"`
+	// Refused counts the messages that would not reach a provider, by
+	// reason: sensitive, provider_consent, no_route, budget_exceeded.
+	Refused map[string]int `json:"refused"`
+	Cost    costJSON       `json:"cost"`
+}
+
+// costJSON prices a dry run's provider calls (micro-USD).
+type costJSON struct {
+	Estimated int64 `json:"estimated_micro_usd"`
+	Max       int64 `json:"max_micro_usd"`
+	Unpriced  bool  `json:"unpriced"`
 }
 
 // refusalJSON is a reason jobs will do little: consent off, no budget,
@@ -69,7 +86,9 @@ type translateJSON struct {
 	Plan     []translatePlanJSON `json:"plan"`
 	Skipped  map[string]int      `json:"skipped"`
 	Refusals []refusalJSON       `json:"refusals"`
-	Fills    []fillJSON          `json:"fills"`
+	// Cost is the dry run's total (absent without --dry-run).
+	Cost  *costJSON  `json:"cost,omitempty"`
+	Fills []fillJSON `json:"fills"`
 	// Wait is null without --wait.
 	Wait *waitJSON `json:"wait"`
 }
@@ -202,62 +221,63 @@ func refusals(codes []string) []refusalJSON {
 	return out
 }
 
-// preflight reads why jobs would do little, as the fill would warn.
-func (inv *invocation) preflight(ctx context.Context, p *project) ([]string, error) {
-	settings, err := p.client.AISettings(ctx, p.scope.Tenant)
-	if err != nil {
-		return nil, inv.m2Error(err, "can't read the AI settings")
-	}
-	budget, err := p.client.AIBudget(ctx, p.scope.Tenant)
-	if err != nil {
-		return nil, inv.m2Error(err, "can't read the AI budget")
-	}
-	providers, err := p.client.AIProviders(ctx, p.scope.Tenant)
-	if err != nil {
-		return nil, inv.m2Error(err, "can't list the AI providers")
-	}
-	var codes []string
-	if !settings.ProviderConsent {
-		codes = append(codes, "provider_consent_off")
-	}
+// fillBody is the fill (or preview) request: the locales and filters,
+// and which translations to fill by their state.
+func fillBody(a translateArgs, locales []string) remote.CreateAIFill {
+	sel := remote.AIFillSelect("missing")
 	switch {
-	case settings.MonthlyBudgetMicroUsd == 0:
-		codes = append(codes, "no_budget")
-	case budget.RemainingMicroUsd <= 0:
-		codes = append(codes, "budget_exhausted")
+	case a.missing && a.outdated:
+		sel = "missing_or_outdated"
+	case a.outdated:
+		sel = "outdated"
 	}
-	if !slices.ContainsFunc(providers, func(pr remote.AIProvider) bool { return pr.Enabled }) {
-		codes = append(codes, "no_provider")
-	}
-	return codes, nil
+	return remote.CreateAIFill{Locales: locales, Namespace: optionalStr(a.namespace), KeyPrefix: optionalStr(a.keyPrefix), Select: &sel}
 }
 
-func (inv *invocation) translateDryRun(ctx context.Context, p *project, a translateArgs, out translateJSON) error {
-	ps, err := p.client.ProjectAISettings(ctx, p.scope)
-	if err != nil {
-		return inv.m2Error(err, "can't read the project's AI settings")
-	}
-	for _, l := range out.Locales {
-		msgs, err := inv.fillCandidates(ctx, p, a, l)
-		if err != nil {
-			return err
+// previewRefusals are the fill's warnings, plus budget_exhausted when
+// the preview refuses calls for the budget although one is set.
+func previewRefusals(pv remote.AIFillPreview) []string {
+	codes := slices.Clone(pv.Warnings)
+	exhausted := slices.ContainsFunc(pv.Locales, func(l remote.AIFillPreviewLocale) bool { return l.Refused["budget_exceeded"] > 0 })
+	if exhausted && !slices.Contains(codes, "no_budget") {
+		at := 0
+		if len(codes) > 0 && codes[0] == "provider_consent_off" {
+			at = 1
 		}
-		plan := translatePlanJSON{Locale: l, Keys: []string{}}
-		for _, m := range msgs {
-			if slices.Contains(ps.NamespaceTags[m.Namespace], "sensitive") {
-				out.Skipped["sensitive"]++
+		codes = slices.Insert(codes, at, "budget_exhausted")
+	}
+	return codes
+}
+
+func toCostJSON(c remote.AICostEstimate) costJSON {
+	return costJSON{Estimated: c.EstimatedMicroUsd, Max: c.MaxMicroUsd, Unpriced: c.Unpriced}
+}
+
+// translateDryRun asks the server what the fill would do: its preview
+// decides every message as its job would, and queues nothing.
+func (inv *invocation) translateDryRun(ctx context.Context, p *project, a translateArgs, out translateJSON) error {
+	pv, err := p.client.PreviewAIFill(ctx, p.scope, fillBody(a, out.Locales))
+	if err != nil {
+		return inv.m2Error(err, "can't preview the AI fill")
+	}
+	for _, l := range pv.Locales {
+		plan := translatePlanJSON{Locale: l.Locale, Queue: len(l.Keys), Keys: nonNilList(l.Keys), Existing: l.Existing,
+			TMExact: l.TmExact, Provider: l.Provider, Refused: map[string]int{}, Cost: toCostJSON(l.Cost)}
+		for reason, n := range l.Refused {
+			if reason == "sensitive" {
+				out.Skipped["sensitive"] += n
 				continue
 			}
-			plan.Keys = append(plan.Keys, m.Key)
+			plan.Refused[reason] = n
 		}
-		plan.Queue = len(plan.Keys)
+		for reason, n := range l.Skipped {
+			out.Skipped[reason] += n
+		}
 		out.Plan = append(out.Plan, plan)
 	}
-	codes, err := inv.preflight(ctx, p)
-	if err != nil {
-		return err
-	}
-	out.Refusals = refusals(codes)
+	cost := toCostJSON(pv.Cost)
+	out.Cost = &cost
+	out.Refusals = refusals(previewRefusals(pv))
 	if err := inv.emit(out, func(pr *printer) { printTranslatePlan(pr, out) }); err != nil {
 		return err
 	}
@@ -267,33 +287,6 @@ func (inv *invocation) translateDryRun(ctx context.Context, p *project, a transl
 	return nil
 }
 
-// fillCandidates are the messages a fill covers in locale, by key.
-func (inv *invocation) fillCandidates(ctx context.Context, p *project, a translateArgs, locale string) ([]remote.Message, error) {
-	var filters []remote.MessageFilter
-	if a.missing {
-		filters = append(filters, remote.MessageFilter{State: "active", Namespace: a.namespace, KeyPrefix: a.keyPrefix, MissingIn: locale})
-	}
-	if a.outdated {
-		filters = append(filters, remote.MessageFilter{State: "active", Namespace: a.namespace, KeyPrefix: a.keyPrefix, OutdatedIn: locale})
-	}
-	seen := map[string]bool{}
-	var out []remote.Message
-	for _, f := range filters {
-		msgs, err := p.client.Messages(ctx, p.scope, f)
-		if err != nil {
-			return nil, inv.apiError(err, "can't list messages")
-		}
-		for _, m := range msgs {
-			if !seen[m.Key] {
-				seen[m.Key] = true
-				out = append(out, m)
-			}
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
-	return out, nil
-}
-
 func printTranslatePlan(pr *printer, out translateJSON) {
 	total := 0
 	for _, pl := range out.Plan {
@@ -301,7 +294,7 @@ func printTranslatePlan(pr *printer, out translateJSON) {
 	}
 	pr.line("Dry run: %s would be queued %s", plural(total, "AI job", "AI jobs"), pr.dim("(nothing was queued)"))
 	for _, pl := range out.Plan {
-		pr.line("  %s  %s", pl.Locale, plural(pl.Queue, "message", "messages"))
+		pr.line("  %s  %s%s", pl.Locale, plural(pl.Queue, "message", "messages"), planDetail(pl))
 		for i, k := range pl.Keys {
 			if i == maxFindingsPerGroup {
 				pr.line("    %s", pr.dim(fmt.Sprintf("… and %d more (--json lists all)", len(pl.Keys)-i)))
@@ -313,7 +306,41 @@ func printTranslatePlan(pr *printer, out translateJSON) {
 	if n := out.Skipped["sensitive"]; n > 0 {
 		pr.line("  %s", pr.dim(fmt.Sprintf("%s skipped: sensitive namespaces are never sent to a provider", plural(n, "message", "messages"))))
 	}
+	if c := out.Cost; c != nil && (c.Max > 0 || c.Unpriced) {
+		line := fmt.Sprintf("  estimated cost $%.4f (at most $%.4f)", float64(c.Estimated)/1e6, float64(c.Max)/1e6)
+		if c.Unpriced {
+			line += "; a model has no price and counts as $0"
+		}
+		pr.line("%s", pr.dim(line))
+	}
 	printRefusals(pr, out.Refusals)
+}
+
+// planDetail says how a locale's jobs would run: reused, from
+// translation memory, by a provider, or refused.
+func planDetail(pl translatePlanJSON) string {
+	var parts []string
+	if pl.Existing > 0 {
+		parts = append(parts, fmt.Sprintf("%d already queued or done", pl.Existing))
+	}
+	if pl.TMExact > 0 {
+		parts = append(parts, fmt.Sprintf("%d from translation memory", pl.TMExact))
+	}
+	if pl.Provider > 0 {
+		parts = append(parts, fmt.Sprintf("%d by a provider", pl.Provider))
+	}
+	reasons := make([]string, 0, len(pl.Refused))
+	for r := range pl.Refused {
+		reasons = append(reasons, r)
+	}
+	sort.Strings(reasons)
+	for _, r := range reasons {
+		parts = append(parts, fmt.Sprintf("%d refused (%s)", pl.Refused[r], r))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return ": " + strings.Join(parts, ", ")
 }
 
 func printRefusals(pr *printer, rs []refusalJSON) {
@@ -338,61 +365,18 @@ func toFillJSON(f remote.AIFill) fillJSON {
 	return out
 }
 
-// fillRequests are the fills to create: one for missing (and outdated)
-// messages across the locales; for outdated only, one per locale and 500
-// outdated keys, since listed keys are filled when missing or outdated.
-func (inv *invocation) fillRequests(ctx context.Context, p *project, a translateArgs, locales []string) ([]remote.CreateAIFill, error) {
-	if a.missing {
-		body := remote.CreateAIFill{Locales: locales, Namespace: optionalStr(a.namespace), KeyPrefix: optionalStr(a.keyPrefix)}
-		if a.outdated {
-			body.IncludeOutdated = &a.outdated
-		}
-		return []remote.CreateAIFill{body}, nil
-	}
-	var out []remote.CreateAIFill
-	for _, l := range locales {
-		msgs, err := inv.fillCandidates(ctx, p, a, l)
-		if err != nil {
-			return nil, err
-		}
-		for start := 0; start < len(msgs); start += remote.MaxBatch {
-			keys := make([]string, 0, remote.MaxBatch)
-			for _, m := range msgs[start:min(start+remote.MaxBatch, len(msgs))] {
-				keys = append(keys, m.Key)
-			}
-			out = append(out, remote.CreateAIFill{Locales: []string{l}, Keys: &keys})
-		}
-	}
-	return out, nil
-}
-
 func (inv *invocation) translateFill(ctx context.Context, p *project, a translateArgs, out translateJSON) error {
-	bodies, err := inv.fillRequests(ctx, p, a, out.Locales)
-	if err != nil {
-		return err
-	}
 	key := orDefault(a.idempotencyKey, newIdempotencyKey())
-	var warnings []string
-	for i, body := range bodies {
-		k := key
-		if i > 0 {
-			k = fmt.Sprintf("%s-%d", key, i)
-		}
-		f, err := p.client.CreateAIFill(ctx, p.scope, body, k)
-		if err != nil {
-			return inv.m2Error(err, "can't request the AI fill")
-		}
-		fj := toFillJSON(f)
-		out.Fills = append(out.Fills, fj)
-		for reason, n := range fj.Skipped {
-			out.Skipped[reason] += n
-		}
-		for _, w := range fj.Warnings {
-			if !contains(warnings, w) {
-				warnings = append(warnings, w)
-			}
-		}
+	f, err := p.client.CreateAIFill(ctx, p.scope, fillBody(a, out.Locales), key)
+	if err != nil {
+		return inv.m2Error(err, "can't request the AI fill")
 	}
+	fj := toFillJSON(f)
+	out.Fills = append(out.Fills, fj)
+	for reason, n := range fj.Skipped {
+		out.Skipped[reason] += n
+	}
+	warnings := fj.Warnings
 	out.Refusals = refusals(warnings)
 	if !a.wait {
 		return inv.emit(out, func(pr *printer) { printFills(pr, out) })
