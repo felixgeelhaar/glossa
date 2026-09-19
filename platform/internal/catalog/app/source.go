@@ -37,6 +37,24 @@ func (s *Service) MessagesByKeys(ctx context.Context, project domain.ProjectID, 
 	return out, err
 }
 
+// MessageByID returns a message by its immutable ID — how Intelligence
+// finds the message an event or job names, whatever its key is now.
+func (s *Service) MessageByID(ctx context.Context, project domain.ProjectID, id domain.MessageID) (domain.Message, error) {
+	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+		return domain.Message{}, err
+	}
+	var m domain.Message
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		if _, err := st.Project(ctx, project); err != nil {
+			return err
+		}
+		var err error
+		m, err = st.MessageByID(ctx, project, id)
+		return err
+	})
+	return m, err
+}
+
 // SourceRevisionOf returns revision n of a message's source.
 func (s *Service) SourceRevisionOf(ctx context.Context, project domain.ProjectID, id domain.MessageID, n int) (domain.SourceRevision, error) {
 	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
