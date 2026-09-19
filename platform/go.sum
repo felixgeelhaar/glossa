@@ -251,8 +251,8 @@ github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcY
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
-go.klarlabs.de/bolt v1.6.0 h1:FB8gflopgFF7pMLb/EgRls/Bbs7MBz/SFrLRmZ0Lipw=
-go.klarlabs.de/bolt v1.6.0/go.mod h1:WJ3u0hX3YTSfMxWemJbjCn/42tQL9qsocYy71Sq0rgY=
+go.klarlabs.de/bolt v1.7.0 h1:BwYaNBXpyAk6YCaSPmlN4UHDZHQVGMeuWWo9TZxOoCg=
+go.klarlabs.de/bolt v1.7.0/go.mod h1:KAA1eX8qgHP6R3sKAGizm4hbR3F0lrqCKHtAuvCsmpQ=
 go.klarlabs.de/fortify v1.10.0 h1:uJYHoAgjYg2fzTCxDAY9rSZ5UbKh70ENsXYcjDmbPWE=
 go.klarlabs.de/fortify v1.10.0/go.mod h1:NMnP89eeGi4Sk7jxNFSbwbDRFUOg0t7U9I+d/Nmz7Qc=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=

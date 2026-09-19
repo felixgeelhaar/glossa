@@ -64,6 +64,14 @@ func TestLoggerAddsCorrelationFields(t *testing.T) {
 			t.Errorf("%s = %v, want %v (line %v)", k, got[k], v, got)
 		}
 	}
+	// bolt writes the trace fields itself since v1.7.0; the kernel must
+	// not add them a second time (duplicate JSON keys confuse log shippers).
+	raw := buf.String()
+	for _, key := range []string{`"trace_id"`, `"span_id"`} {
+		if n := strings.Count(raw, key); n != 1 {
+			t.Errorf("%s appears %d times, want 1: %s", key, n, raw)
+		}
+	}
 }
 
 func TestLoggerWithoutContextFields(t *testing.T) {
