@@ -25,7 +25,7 @@ commands:
   # Non-mutating format gate. CI's "Go API" job fails the build on `gofmt -l`;
   # mirror exactly. `make fmt` / `pnpm -r format` MUTATE (gofmt -w / prettier
   # --write) so they are unsuitable as a verify-only check.
-  formatcheck: bash -c 'cd apps/api && out=$(gofmt -l .) && test -z "$out" || { echo "$out"; exit 1; }'
+  formatcheck: bash -c 'out=$(gofmt -l apps/api messageformat platform) && test -z "$out" || { echo "$out"; exit 1; }'
   # `make packages` = `pnpm -r --filter "./packages/*" build` (topological order).
   build: make packages
   # `make lint` = go vet + pnpm -r lint (tsc --noEmit). Named 'typecheck' (not
