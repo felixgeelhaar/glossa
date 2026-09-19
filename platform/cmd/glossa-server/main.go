@@ -143,12 +143,17 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger) (*app, e
 		pool.Close()
 		return nil, err
 	}
+	bounded, err := newContexts(pool, events)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
 	server := httpserver.New(cfg.HTTP, httpserver.Deps{
 		Logger:         logger,
 		TracerProvider: tp,
 		Registry:       registry,
 		Readiness:      []httpserver.Check{{Name: "postgres", Probe: pool.Ping}},
-		Routes:         apiRoutes(identity),
+		Routes:         apiRoutes(identity, bounded),
 	})
 	return &app{cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, shutdownTP: shutdownTP}, nil
 }

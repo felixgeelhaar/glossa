@@ -48,6 +48,8 @@ func startServer(t *testing.T) *server {
 			"GLOSSA_AUTH_SECRET":     testAuthSecret,
 			"GLOSSA_MAIL_DRIVER":     "log",
 			"GLOSSA_STUDIO_URL":      "https://studio.test",
+			// Deliver domain events promptly (Localization follows Catalog).
+			"GLOSSA_OUTBOX_POLL_INTERVAL": "50ms",
 		}), logs)
 	}()
 	t.Cleanup(func() {

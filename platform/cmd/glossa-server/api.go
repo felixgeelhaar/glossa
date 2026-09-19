@@ -11,6 +11,7 @@ import (
 	"github.com/klarlabs-studio/auth-go/aesgcm"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
+	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/mail"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/passkey"
@@ -18,21 +19,34 @@ import (
 	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	localizationapi "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/httpapi"
 )
 
 // apiServer is the /v1 strict server: every bounded context's handler
 // type is embedded here, and together they implement the generated
-// apiv1.StrictServerInterface. Identity is the first.
+// apiv1.StrictServerInterface.
 type apiServer struct {
 	*httpapi.API
+	*catalogAPI
+	*localizationAPI
 }
+
+// Each context names its handler type API; the aliases give the
+// embedded fields distinct names.
+type (
+	catalogAPI      = catalogapi.API
+	localizationAPI = localizationapi.API
+)
+
+var _ apiv1.StrictServerInterface = apiServer{}
 
 // apiRoutes mounts the generated /v1 router. Identity's Guard enforces
 // each operation's security requirement for every context, and its
 // error hooks render every failure as problem details.
-func apiRoutes(identity *httpapi.API) func(*http.ServeMux) {
+func apiRoutes(identity *httpapi.API, c contexts) func(*http.ServeMux) {
+	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI}
 	return func(mux *http.ServeMux) {
-		strict := apiv1.NewStrictHandlerWithOptions(apiServer{identity}, nil, apiv1.StrictHTTPServerOptions{
+		strict := apiv1.NewStrictHandlerWithOptions(server, nil, apiv1.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  identity.RequestError,
 			ResponseErrorHandlerFunc: identity.ResponseError,
 		})

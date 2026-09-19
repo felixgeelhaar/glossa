@@ -80,6 +80,26 @@ tags:
     description: People in an organization, their roles and locales.
   - name: tokens
     description: Tenant API tokens for the CLI, CI and agents.
+  - name: projects
+    description: |
+      A product's localizable surface: its source locale, applications,
+      messages and locales (Catalog).
+  - name: applications
+    description: Runtime surfaces of a project — web, api, ios, android, other.
+  - name: messages
+    description: |
+      Messages, the core domain object (Catalog): a stable key, source
+      content as a canonical MessageFormat 2 model (authored in ICU MF1 or
+      MF2), derived arguments and markup, and an append-only log of source
+      revisions. Changing the text never changes the key.
+  - name: locales
+    description: A project's locales and fallback graph (Localization).
+  - name: translations
+    description: |
+      A message's text per locale (Localization), with an append-only
+      revision log carrying provenance, structural QA on every write, and
+      a review state. `outdated` is derived: the translation was made
+      against an older source revision than the message's current one.
 
 paths:
   # ── auth ────────────────────────────────────────────────────────────
@@ -731,6 +751,1000 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  # ── projects ────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: Projects of the tenant
+      description: Needs `catalog.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of projects.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a project
+      description: |
+        The source locale is fixed at creation. Needs `catalog.write`.
+        Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
+        `invalid_locale`, `invalid_syntax` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateProject" }
+      responses:
+        "201":
+          description: The project.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/projects/{project}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: A project
+      description: Needs `catalog.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The project.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Rename a project or change its settings
+      description: |
+        Members omitted from the body keep their value; the source locale
+        can't change. Needs `catalog.write`. Problem codes: `slug_taken`
+        (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProject" }
+      responses:
+        "200":
+          description: The updated project.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project and everything in it
+      description: |
+        Deletes its applications, messages, source history, locales and
+        translations. Needs `tenant.manage`. `If-Match` is optional; when
+        sent it must match.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  # ── applications ────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/applications:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listApplications
+      tags: [applications]
+      summary: Applications of a project
+      description: Needs `catalog.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of applications.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicationList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: createApplication
+      tags: [applications]
+      summary: Add an application to a project
+      description: |
+        Needs `catalog.write`. Problem codes: `slug_taken` (409),
+        `invalid_platform` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateApplication" }
+      responses:
+        "201":
+          description: The application.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/projects/{project}/applications/{application}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ApplicationPath"
+    get:
+      operationId: getApplication
+      tags: [applications]
+      summary: An application
+      description: Needs `catalog.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The application.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateApplication
+      tags: [applications]
+      summary: Change an application
+      description: "Needs `catalog.write`. Problem codes: `slug_taken` (409)."
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateApplication" }
+      responses:
+        "200":
+          description: The updated application.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+    delete:
+      operationId: deleteApplication
+      tags: [applications]
+      summary: Remove an application
+      description: Needs `catalog.write`. `If-Match` is optional; when sent it must match.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  # ── messages ────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/messages:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listMessages
+      tags: [messages]
+      summary: Messages of a project, by key
+      description: |
+        Filters combine. `missing_in` and `outdated_in` (at most one) ask
+        Localization which messages have no translation in a locale, or
+        one made against an older source revision; they also need
+        `translations.read` and see a new message once its event has been
+        processed (usually within a second). Needs `catalog.read`.
+        Problem codes: `coverage_filter_conflict` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - name: namespace
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Namespace" }
+        - name: state
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/MessageState" }
+        - name: key_prefix
+          in: query
+          required: false
+          description: Keys starting with this, e.g. `checkout.`.
+          schema: { type: string, maxLength: 200 }
+        - name: missing_in
+          in: query
+          required: false
+          description: Only messages without a translation in this locale.
+          schema: { $ref: "#/components/schemas/Locale" }
+        - name: outdated_in
+          in: query
+          required: false
+          description: Only messages whose translation in this locale is outdated.
+          schema: { $ref: "#/components/schemas/Locale" }
+      responses:
+        "200":
+          description: A page of messages.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: createMessage
+      tags: [messages]
+      summary: Create a message
+      description: |
+        The source is parsed (ICU MF1 unless `syntax` or the project's
+        default says MF2) into the canonical MF2 model; revision 1 starts
+        the message's source log. Needs `catalog.write`. Problem codes:
+        `key_taken` (409), `invalid_message` (400, the MessageFormat
+        error code in `detail`), `invalid_message_key`,
+        `invalid_namespace`, `invalid_details`, `invalid_syntax`,
+        `message_too_long` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateMessage" }
+      responses:
+        "201":
+          description: The message.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/projects/{project}/message-upserts:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    post:
+      operationId: upsertMessages
+      tags: [messages]
+      summary: Create or revise messages in bulk (CLI push)
+      description: |
+        Up to 500 messages by key, in one transaction. Idempotent: a
+        message whose source parses to the stored model is `unchanged`,
+        so pushing the same catalog twice changes nothing. An obsolete
+        message pushed again is reactivated. Items fail on their own
+        (`results[].error.code`: `invalid_message_key`,
+        `invalid_message`, `invalid_namespace`, `invalid_details`,
+        `invalid_syntax`, `message_too_long`, `duplicate_key`,
+        `source_revision_conflict` when `base_revision` is stale) without
+        failing the batch. Needs `catalog.write`. Problem codes:
+        `too_many_items` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MessageUpsert" }
+      responses:
+        "200":
+          description: One result per item, in request order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageUpsertResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+    get:
+      operationId: getMessage
+      tags: [messages]
+      summary: A message
+      description: Needs `catalog.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The message.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateMessage
+      tags: [messages]
+      summary: Change a message's namespace, description or length limit
+      description: |
+        Not a source revision. `max_length: 0` removes the limit. Needs
+        `catalog.write`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateMessage" }
+      responses:
+        "200":
+          description: The updated message.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/source:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+    put:
+      operationId: reviseMessageSource
+      tags: [messages]
+      summary: Revise a message's source text
+      description: |
+        Appends a source revision and publishes
+        `catalog.message.source_revised`, which makes existing
+        translations outdated. Text that parses to the current model is
+        no revision (the message comes back unchanged). The key and ID
+        never change. Needs `catalog.write`. Problem codes:
+        `invalid_message` (400), `message_obsolete` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviseSource" }
+      responses:
+        "200":
+          description: The message.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/obsoletion:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+    post:
+      operationId: obsoleteMessage
+      tags: [messages]
+      summary: Retire a message
+      description: |
+        The message keeps its history and translations but is no longer
+        released. Pushing its key again reactivates it. Idempotent. Needs
+        `catalog.write`. `If-Match` is optional; when sent it must match.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      responses:
+        "200":
+          description: The obsolete message.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/renames:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+    post:
+      operationId: renameMessage
+      tags: [messages]
+      summary: Give a message a new key
+      description: |
+        The explicit way to change a message's identity as runtimes see
+        it: the ID, source log and translations stay with the message.
+        `Location` points at the new key. Needs `catalog.write`. `If-Match`
+        is optional; when sent it must match. Problem codes: `key_taken`
+        (409), `invalid_message_key` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RenameMessage" }
+      responses:
+        "200":
+          description: The renamed message.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/source-revisions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+    get:
+      operationId: listSourceRevisions
+      tags: [messages]
+      summary: A message's source log, newest first
+      description: Needs `catalog.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of source revisions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SourceRevisionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── locales ─────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/locales:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listLocales
+      tags: [locales]
+      summary: A project's locales, the source locale included
+      description: Needs `translations.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of locales, by code.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LocaleList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: addLocale
+      tags: [locales]
+      summary: Add a locale to a project
+      description: |
+        The code is canonicalized (`de_de` → `de-DE`); extensions and
+        private use are refused. Adding an existing locale returns it
+        with `200`. Needs `catalog.write`. Problem codes: `invalid_locale`
+        (400).
+      x-glossa-idempotency: A locale's identity is its canonical code within the project, so repeating the request returns the same locale.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddLocale" }
+      responses:
+        "200":
+          description: The locale already existed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectLocale" }
+        "201":
+          description: The locale.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectLocale" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/locales/{locale}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/LocalePath"
+    get:
+      operationId: getLocale
+      tags: [locales]
+      summary: A locale of a project
+      description: "Needs `translations.read`. Problem codes: `locale_not_found` (404)."
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The locale.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectLocale" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: removeLocale
+      tags: [locales]
+      summary: Remove a locale from a project
+      description: |
+        Its translations and their history are kept and come back if the
+        locale is added again. Needs `catalog.write`. Problem codes:
+        `source_locale` (409), `locale_in_fallback` (409, remove it from
+        the fallback graph first), `locale_not_found` (404).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/projects/{project}/fallback-graph:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: getFallbackGraph
+      tags: [locales]
+      summary: A project's fallback graph
+      description: |
+        Exactly the `fallback` member releases publish
+        (runtimes/SPEC.md §1.1). Empty until set. Needs
+        `translations.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The fallback graph.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FallbackGraph" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      operationId: putFallbackGraph
+      tags: [locales]
+      summary: Replace a project's fallback graph
+      description: |
+        Keys are project locales or `*` (every locale without its own
+        entry); chains name project locales, in order. Cycles are
+        refused. The first write takes no `If-Match`; later ones need the
+        current `ETag` (`428` without it). Needs `catalog.write`. Problem
+        codes (400): `fallback_unknown_locale`, `fallback_self_reference`,
+        `fallback_duplicate`, `fallback_cycle`, `fallback_invalid_locale`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PutFallbackGraph" }
+      responses:
+        "200":
+          description: The fallback graph.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FallbackGraph" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+
+  # ── translations ────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+    get:
+      operationId: listMessageTranslations
+      tags: [translations]
+      summary: A message's translations, by locale
+      description: Needs `translations.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of translations.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TranslationList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+      - $ref: "#/components/parameters/LocalePath"
+    get:
+      operationId: getTranslation
+      tags: [translations]
+      summary: A message's translation in a locale
+      description: Needs `translations.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The translation.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Translation" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      operationId: putTranslation
+      tags: [translations]
+      summary: Write a message's translation in a locale
+      description: |
+        Parses the text for the locale, checks it structurally against
+        the source revision it was made from (`source_revision`, default
+        the current one) and appends a revision with provenance
+        (`origin`, default `human`, and `origin_detail`). Error findings
+        reject the write with `422 structural_qa_failed` and the
+        `findings`; warnings are stored and returned. New text gets the
+        project's review policy (`needs_review` when review is required,
+        else `approved`) unless `state` asks otherwise; approving needs
+        `translations.review` for the locale. Unchanged text is no new
+        revision. Creating takes no `If-Match`; changing needs the
+        current `ETag` (`428` without it). Needs `translations.write` for
+        the locale. Problem codes: `locale_not_found` (404),
+        `source_locale` (409), `invalid_message`, `invalid_state`,
+        `invalid_origin`, `invalid_origin_detail`,
+        `invalid_source_revision`, `write_cannot_reject` (400),
+        `review_forbidden` (403), `translation_conflict` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PutTranslation" }
+      responses:
+        "200":
+          description: The revised (or unchanged) translation.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Translation" }
+        "201":
+          description: The new translation.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Translation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "422": { $ref: "#/components/responses/StructuralQAFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+      - $ref: "#/components/parameters/LocalePath"
+    get:
+      operationId: listTranslationRevisions
+      tags: [translations]
+      summary: A translation's history with provenance, newest first
+      description: Needs `translations.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of revisions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TranslationRevisionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/reviews:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+      - $ref: "#/components/parameters/LocalePath"
+    post:
+      operationId: reviewTranslation
+      tags: [translations]
+      summary: Record a review decision
+      description: |
+        Moves the translation to `state` and appends a `review` revision
+        naming the reviewer; the text and its provenance stay. Approving
+        and rejecting need `translations.review` for the locale, other
+        states `translations.write`. Problem codes: `review_forbidden`
+        (403), `invalid_transition` (409), `invalid_state` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewTranslation" }
+      responses:
+        "200":
+          description: The reviewed translation.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Translation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+
+  /v1/tenants/{tenant}/projects/{project}/translation-imports:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    post:
+      operationId: importTranslations
+      tags: [translations]
+      summary: Import translations in bulk
+      description: |
+        Up to 500 translations by message key and locale, written with
+        provenance `import` (put the job and source system in
+        `origin_detail`) in one transaction. Re-importing unchanged text
+        is `unchanged`. Items fail on their own (`results[].error.code`:
+        `message_not_found`, `locale_not_found`, `invalid_locale`,
+        `forbidden` for a locale outside the caller's scope,
+        `source_locale`, `structural_qa_failed` with `findings`,
+        `invalid_message`, `review_forbidden`, `duplicate_item`, …)
+        without failing the batch. Needs `translations.write` per
+        locale. Problem codes: `too_many_items` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TranslationImport" }
+      responses:
+        "200":
+          description: One result per item, in request order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TranslationImportResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     session:
@@ -774,6 +1788,30 @@ components:
       required: true
       description: An API token `id` (never its secret).
       schema: { $ref: "#/components/schemas/Id" }
+    ProjectPath:
+      name: project
+      in: path
+      required: true
+      description: A project `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    ApplicationPath:
+      name: application
+      in: path
+      required: true
+      description: An application `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    MessagePath:
+      name: message
+      in: path
+      required: true
+      description: A message `key` (`checkout.pay`). Keys are URL-safe as they are.
+      schema: { $ref: "#/components/schemas/MessageKey" }
+    LocalePath:
+      name: locale
+      in: path
+      required: true
+      description: A locale code; canonicalized before use.
+      schema: { $ref: "#/components/schemas/Locale" }
     PageSize:
       name: page_size
       in: query
@@ -882,6 +1920,13 @@ components:
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
+    StructuralQAFailed:
+      description: |
+        `structural_qa_failed`: the translation is structurally
+        incompatible with its source (`findings`, errors first).
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/QAProblem" }
 
   schemas:
     Id:
@@ -1167,3 +2212,449 @@ components:
         secret:
           type: string
           description: "The token value (`glossa_api_…`). Shown only in the first response."
+
+    # ── catalog ────────────────────────────────────────────────────────
+    Slug:
+      type: string
+      pattern: "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+    Syntax:
+      type: string
+      enum: [mf1, mf2]
+      description: "Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2."
+    ProjectSettings:
+      type: object
+      required: [default_syntax, review_required]
+      properties:
+        default_syntax: { $ref: "#/components/schemas/Syntax" }
+        review_required:
+          type: boolean
+          description: |
+            New translations wait for review (`needs_review`) unless a
+            reviewer approves them as they write. When false, new text is
+            `approved` on write.
+    Project:
+      type: object
+      required: [id, slug, name, source_locale, settings, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        slug: { $ref: "#/components/schemas/Slug" }
+        name: { type: string }
+        source_locale: { $ref: "#/components/schemas/Locale" }
+        settings: { $ref: "#/components/schemas/ProjectSettings" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    ProjectList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Project" }
+        next_page_token: { type: string }
+    CreateProject:
+      type: object
+      required: [slug, name, source_locale]
+      properties:
+        slug: { $ref: "#/components/schemas/Slug" }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        source_locale: { $ref: "#/components/schemas/Locale" }
+        settings: { $ref: "#/components/schemas/ProjectSettings" }
+    UpdateProject:
+      type: object
+      properties:
+        slug: { $ref: "#/components/schemas/Slug" }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        settings: { $ref: "#/components/schemas/ProjectSettings" }
+
+    Platform:
+      type: string
+      enum: [web, api, ios, android, other]
+    Application:
+      type: object
+      required: [id, slug, name, platform, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        slug: { $ref: "#/components/schemas/Slug" }
+        name: { type: string }
+        platform: { $ref: "#/components/schemas/Platform" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    ApplicationList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Application" }
+        next_page_token: { type: string }
+    CreateApplication:
+      type: object
+      required: [slug, name, platform]
+      properties:
+        slug: { $ref: "#/components/schemas/Slug" }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        platform: { $ref: "#/components/schemas/Platform" }
+    UpdateApplication:
+      type: object
+      properties:
+        slug: { $ref: "#/components/schemas/Slug" }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        platform: { $ref: "#/components/schemas/Platform" }
+
+    MessageKey:
+      type: string
+      description: A dotted path of `[a-z0-9_-]` segments, unique in the project.
+      pattern: "^[a-z0-9_-]+(\\.[a-z0-9_-]+)*$"
+      minLength: 1
+      maxLength: 200
+      examples: [checkout.payment.submit]
+    Namespace:
+      type: string
+      description: Groups messages into separately loadable bundles. Default `default`.
+      pattern: "^[a-z0-9][a-z0-9_-]{0,63}$"
+    MessageState:
+      type: string
+      enum: [active, obsolete]
+    MF2Message:
+      type: object
+      additionalProperties: true
+      description: |
+        A message in the Unicode MessageFormat 2 data model, exactly as
+        messageformat/testdata/unicode/data-model/message.schema.json
+        defines it — the canonical form releases ship.
+    Argument:
+      type: object
+      required: [name, type]
+      properties:
+        name: { type: string }
+        type:
+          type: string
+          enum: [string, number, integer, percent, currency, date, time, datetime, unit, select]
+        function: { type: string, description: "The annotating function, if any." }
+        selector:
+          type: object
+          required: [kind, keys]
+          properties:
+            kind: { type: string, enum: [plural, ordinal, exact, string] }
+            keys:
+              type: array
+              description: Literal variant keys; the catch-all `*` always exists.
+              items: { type: string }
+    MarkupElement:
+      type: object
+      required: [name, kind]
+      properties:
+        name: { type: string }
+        kind: { type: string, enum: [open, standalone, close] }
+    MessageContent:
+      type: object
+      required: [text, syntax, model, arguments, markup]
+      properties:
+        text: { type: string, description: What the author wrote. }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+        model: { $ref: "#/components/schemas/MF2Message" }
+        arguments:
+          type: array
+          description: Derived from the model on every change.
+          items: { $ref: "#/components/schemas/Argument" }
+        markup:
+          type: array
+          items: { $ref: "#/components/schemas/MarkupElement" }
+    Message:
+      type: object
+      required: [id, key, namespace, description, state, source, source_revision, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        key: { $ref: "#/components/schemas/MessageKey" }
+        namespace: { $ref: "#/components/schemas/Namespace" }
+        description: { type: string }
+        max_length: { type: integer, minimum: 1, description: Rendered length limit that translation QA checks. }
+        state: { $ref: "#/components/schemas/MessageState" }
+        source: { $ref: "#/components/schemas/MessageContent" }
+        source_revision: { type: integer, minimum: 1, description: The current source revision. }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    MessageList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Message" }
+        next_page_token: { type: string }
+    CreateMessage:
+      type: object
+      required: [key, text]
+      properties:
+        key: { $ref: "#/components/schemas/MessageKey" }
+        text: { type: string, maxLength: 20000 }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+        namespace: { $ref: "#/components/schemas/Namespace" }
+        description: { type: string, maxLength: 2000 }
+        max_length: { type: integer, minimum: 1, maximum: 100000 }
+    UpdateMessage:
+      type: object
+      properties:
+        namespace: { $ref: "#/components/schemas/Namespace" }
+        description: { type: string, maxLength: 2000 }
+        max_length: { type: integer, minimum: 0, maximum: 100000, description: "`0` removes the limit." }
+    ReviseSource:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, maxLength: 20000 }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+    RenameMessage:
+      type: object
+      required: [key]
+      properties:
+        key: { $ref: "#/components/schemas/MessageKey" }
+    SourceRevision:
+      type: object
+      required: [revision, text, syntax, model, author, created_at]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        text: { type: string }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+        model: { $ref: "#/components/schemas/MF2Message" }
+        author: { type: string, description: "`person:<id>` or `token:<id>`." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    SourceRevisionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SourceRevision" }
+        next_page_token: { type: string }
+    ItemError:
+      type: object
+      required: [code, detail]
+      properties:
+        code: { type: string, pattern: "^[a-z][a-z0-9_]*$", description: Stable machine code. }
+        detail: { type: string }
+        findings:
+          type: array
+          items: { $ref: "#/components/schemas/QAFinding" }
+    MessageUpsertItem:
+      type: object
+      required: [key, text]
+      properties:
+        key: { type: string, maxLength: 256 }
+        text: { type: string, maxLength: 20000 }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+        namespace: { type: string, maxLength: 64, description: "Omitted: keep (new messages: `default`)." }
+        description: { type: string, maxLength: 2000, description: "Omitted: keep." }
+        max_length: { type: integer, minimum: 1, maximum: 100000, description: "Omitted: keep." }
+        base_revision:
+          type: integer
+          minimum: 0
+          description: |
+            The source revision the client last saw (0: the message must
+            not exist yet). A stale one fails the item with
+            `source_revision_conflict` instead of overwriting.
+    MessageUpsert:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: "#/components/schemas/MessageUpsertItem" }
+    MessageUpsertItemResult:
+      type: object
+      required: [key, status]
+      properties:
+        key: { type: string }
+        status: { type: string, enum: [created, revised, updated, unchanged, failed] }
+        message: { $ref: "#/components/schemas/Message" }
+        error: { $ref: "#/components/schemas/ItemError" }
+    MessageUpsertResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/MessageUpsertItemResult" }
+
+    # ── localization ───────────────────────────────────────────────────
+    Direction:
+      type: string
+      enum: [ltr, rtl]
+      description: Derived from the locale's (likely) script.
+    ProjectLocale:
+      type: object
+      required: [code, direction, is_source, created_at]
+      properties:
+        code: { $ref: "#/components/schemas/Locale" }
+        direction: { $ref: "#/components/schemas/Direction" }
+        is_source: { type: boolean }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    LocaleList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ProjectLocale" }
+        next_page_token: { type: string }
+    AddLocale:
+      type: object
+      required: [code]
+      properties:
+        code: { $ref: "#/components/schemas/Locale" }
+    FallbackGraph:
+      type: object
+      required: [fallback]
+      properties:
+        fallback:
+          type: object
+          description: 'A locale (or `*`) to its ordered fallback locales: `{"de-AT": ["de"], "*": ["en"]}`.'
+          additionalProperties:
+            type: array
+            items: { $ref: "#/components/schemas/Locale" }
+    PutFallbackGraph:
+      type: object
+      required: [fallback]
+      properties:
+        fallback:
+          type: object
+          maxProperties: 500
+          additionalProperties:
+            type: array
+            maxItems: 50
+            items: { $ref: "#/components/schemas/Locale" }
+    ReviewState:
+      type: string
+      enum: [draft, needs_review, approved, rejected]
+    Origin:
+      type: string
+      enum: [human, ai, translation_memory, machine_translation, import, adaptation]
+    QAFinding:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code: { type: string, description: "Stable finding code, e.g. `missing-argument`, `max-length-exceeded`." }
+        severity: { type: string, enum: [error, warning] }
+        subject: { type: string, description: The argument or markup element concerned. }
+        detail: { type: string }
+        message: { type: string, description: For humans; wording may change. }
+    QAProblem:
+      allOf:
+        - $ref: "#/components/schemas/Problem"
+        - type: object
+          properties:
+            findings:
+              type: array
+              items: { $ref: "#/components/schemas/QAFinding" }
+    Translation:
+      type: object
+      required: [id, message_id, locale, text, syntax, model, state, origin, author, source_revision,
+                 current_source_revision, outdated, warnings, revision, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        message_id: { $ref: "#/components/schemas/Id" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        text: { type: string }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+        model: { $ref: "#/components/schemas/MF2Message" }
+        state: { $ref: "#/components/schemas/ReviewState" }
+        origin: { $ref: "#/components/schemas/Origin" }
+        author: { type: string, description: Who wrote the current text. }
+        source_revision: { type: integer, description: The source revision the text was made against. }
+        current_source_revision: { type: integer, description: "The message's current source revision as Localization knows it." }
+        outdated: { type: boolean, description: "`source_revision < current_source_revision`." }
+        warnings:
+          type: array
+          items: { $ref: "#/components/schemas/QAFinding" }
+        revision: { type: integer, minimum: 1 }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    TranslationList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Translation" }
+        next_page_token: { type: string }
+    PutTranslation:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, maxLength: 20000 }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+        state: { $ref: "#/components/schemas/ReviewState" }
+        origin: { $ref: "#/components/schemas/Origin" }
+        origin_detail:
+          type: object
+          additionalProperties: true
+          description: Provenance specifics — model, prompt version, TM match, source job…
+        source_revision: { type: integer, minimum: 1 }
+    ReviewTranslation:
+      type: object
+      required: [state]
+      properties:
+        state: { $ref: "#/components/schemas/ReviewState" }
+    TranslationRevision:
+      type: object
+      required: [revision, kind, text, syntax, state, origin, origin_detail, author, source_revision, findings, created_at]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        kind: { type: string, enum: [content, review] }
+        text: { type: string }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+        state: { $ref: "#/components/schemas/ReviewState" }
+        origin: { $ref: "#/components/schemas/Origin" }
+        origin_detail: { type: object, additionalProperties: true }
+        author: { type: string }
+        source_revision: { type: integer }
+        findings:
+          type: array
+          items: { $ref: "#/components/schemas/QAFinding" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    TranslationRevisionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TranslationRevision" }
+        next_page_token: { type: string }
+    TranslationImportItem:
+      type: object
+      required: [key, locale, text]
+      properties:
+        key: { type: string, maxLength: 256 }
+        locale: { type: string, maxLength: 64 }
+        text: { type: string, maxLength: 20000 }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+        state: { $ref: "#/components/schemas/ReviewState" }
+        origin_detail: { type: object, additionalProperties: true }
+        source_revision: { type: integer, minimum: 1 }
+    TranslationImport:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: "#/components/schemas/TranslationImportItem" }
+    TranslationImportItemResult:
+      type: object
+      required: [key, locale]
+      properties:
+        key: { type: string }
+        locale: { type: string }
+        status: { type: string, enum: [created, revised, reviewed, unchanged] }
+        translation: { $ref: "#/components/schemas/Translation" }
+        error: { $ref: "#/components/schemas/ItemError" }
+    TranslationImportResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/TranslationImportItemResult" }
