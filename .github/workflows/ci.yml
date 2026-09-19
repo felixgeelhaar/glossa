@@ -85,6 +85,18 @@ jobs:
         # Postgres and object storage via testcontainers; the runner has Docker.
         run: go test -tags=integration -timeout=300s ./...
 
+  contracts:
+    name: Runtime contract fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+      - run: pip install jsonschema==4.26.0 cryptography==46.0.3
+      - name: fixtures match their generator (runtimes/SPEC.md §7)
+        run: python3 runtimes/testdata/gen/generate.py --check
+
   packages:
     name: JS workspaces
     runs-on: ubuntu-latest
