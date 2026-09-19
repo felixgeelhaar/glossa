@@ -107,6 +107,11 @@ func handleCreateUser(repo user.Repository) gin.HandlerFunc {
 			ginerr.Send(c, errs.UnprocessableFromErr(err))
 			return
 		}
+		scopes, err := canonicalLocales(body.Locales)
+		if err != nil {
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
+			return
+		}
 		hash, err := authapp.HashPassword(body.Password)
 		if err != nil {
 			ginerr.Send(c, errs.UnprocessableFromErr(err))
@@ -118,7 +123,7 @@ func handleCreateUser(repo user.Repository) gin.HandlerFunc {
 			Email:        email,
 			PasswordHash: hash,
 			Role:         role,
-			Locales:      body.Locales,
+			Locales:      scopes,
 		})
 		if err != nil {
 			ginerr.Send(c, errs.InternalFromErr(err))
@@ -148,11 +153,16 @@ func handleUpdateUserLocales(repo user.Repository) gin.HandlerFunc {
 			ginerr.Send(c, errs.BadRequestFromErr(err))
 			return
 		}
-		if err := repo.UpdateLocales(c.Request.Context(), id, body.Locales); err != nil {
+		scopes, err := canonicalLocales(body.Locales)
+		if err != nil {
+			ginerr.Send(c, errs.UnprocessableFromErr(err))
+			return
+		}
+		if err := repo.UpdateLocales(c.Request.Context(), id, scopes); err != nil {
 			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"id": id.String(), "locales": body.Locales})
+		c.JSON(http.StatusOK, gin.H{"id": id.String(), "locales": scopes})
 	}
 }
 
