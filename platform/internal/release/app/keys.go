@@ -94,6 +94,37 @@ func (s *Service) ListDeliveryKeys(ctx context.Context, project uuid.UUID, page 
 	return items, next, nil
 }
 
+// ChangeDeliveryKeyScope replaces what a key reads at the edge and
+// writes its index object again, so the edge follows within its key
+// cache TTL. The key itself never changes: widening a production key to
+// a branch environment is a decision, not a new key.
+func (s *Service) ChangeDeliveryKeyScope(ctx context.Context, project, id uuid.UUID, scope delivery.Scope) (domain.DeliveryKey, error) {
+	by, err := s.checkProject(ctx, project, authz.ReleasesPublish)
+	if err != nil {
+		return domain.DeliveryKey{}, err
+	}
+	var k domain.DeliveryKey
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		k, err = st.DeliveryKey(ctx, project, id, true)
+		if err != nil {
+			return err
+		}
+		changed, err := k.ChangeScope(scope.Environments, scope.Branches)
+		if err != nil || !changed {
+			return err
+		}
+		if err := st.SetDeliveryKeyScope(ctx, k); err != nil {
+			return err
+		}
+		return st.Publish(ctx, keyEvent(domain.EventDeliveryKeyScopeChanged, k, by))
+	})
+	if err != nil {
+		return domain.DeliveryKey{}, err
+	}
+	s.syncKeyNow(ctx, project, id)
+	return k, nil
+}
+
 // RevokeDeliveryKey deactivates a key and removes its index object: the
 // edge answers 404 for it once its key cache expires (seconds). The key
 // stays listed as revoked.

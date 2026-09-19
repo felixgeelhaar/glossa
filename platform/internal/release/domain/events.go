@@ -24,7 +24,10 @@ const (
 	EventPublishRequested = "release.environment.publish_requested"
 
 	EventDeliveryKeyCreated = "release.delivery_key.created"
-	EventDeliveryKeyRevoked = "release.delivery_key.revoked"
+	// EventDeliveryKeyScopeChanged: what the key reads changed
+	// (RFC 0004 §4.3); its index object is written again.
+	EventDeliveryKeyScopeChanged = "release.delivery_key.scope_changed"
+	EventDeliveryKeyRevoked      = "release.delivery_key.revoked"
 )
 
 // Published is the payload of release.published.

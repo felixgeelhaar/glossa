@@ -137,6 +137,14 @@ LIMIT sqlc.arg(max_rows);
 -- name: ActiveDeliveryKeys :many
 SELECT * FROM release_delivery_keys WHERE project_id = sqlc.arg(project_id) AND revoked_at IS NULL ORDER BY id;
 
+-- name: SetDeliveryKeyScope :execrows
+-- Replaces what an active key reads (RFC 0004 §4.3). index_version
+-- drops to 1 (before scopes), so the key index task rewrites the object
+-- if the write that follows the change doesn't reach storage.
+UPDATE release_delivery_keys
+SET environments = sqlc.arg(environments)::text[], branches = sqlc.arg(branches), index_version = 1
+WHERE project_id = sqlc.arg(project_id) AND id = sqlc.arg(id) AND revoked_at IS NULL;
+
 -- name: RevokeDeliveryKey :execrows
 UPDATE release_delivery_keys
 SET revoked_at = sqlc.arg(revoked_at), revoked_by = sqlc.arg(revoked_by)

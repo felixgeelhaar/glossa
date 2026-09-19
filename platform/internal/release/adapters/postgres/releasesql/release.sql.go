@@ -827,6 +827,35 @@ func (q *Queries) ServedInEnvironment(ctx context.Context, arg ServedInEnvironme
 	return exists, err
 }
 
+const setDeliveryKeyScope = `-- name: SetDeliveryKeyScope :execrows
+UPDATE release_delivery_keys
+SET environments = $1::text[], branches = $2, index_version = 1
+WHERE project_id = $3 AND id = $4 AND revoked_at IS NULL
+`
+
+type SetDeliveryKeyScopeParams struct {
+	Environments []string
+	Branches     bool
+	ProjectID    uuid.UUID
+	ID           uuid.UUID
+}
+
+// Replaces what an active key reads (RFC 0004 §4.3). index_version
+// drops to 1 (before scopes), so the key index task rewrites the object
+// if the write that follows the change doesn't reach storage.
+func (q *Queries) SetDeliveryKeyScope(ctx context.Context, arg SetDeliveryKeyScopeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setDeliveryKeyScope,
+		arg.Environments,
+		arg.Branches,
+		arg.ProjectID,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateEnvironment = `-- name: UpdateEnvironment :execrows
 UPDATE release_environments
 SET policy = $1, current_release_id = $2, version = $3,

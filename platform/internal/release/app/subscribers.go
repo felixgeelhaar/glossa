@@ -12,9 +12,23 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
-// Catalog's event, as Release reads it (its own payload type: an
-// anti-corruption layer over the published JSON).
-const catalogProjectDeleted = "catalog.project.deleted"
+// The other contexts' events, as Release reads them (its own payload
+// types: an anti-corruption layer over the published JSON).
+const (
+	catalogProjectDeleted = "catalog.project.deleted"
+
+	catalogBranchOpened   = "catalog.branch.opened"
+	catalogBranchPushed   = "catalog.branch.pushed"
+	catalogBranchReopened = "catalog.branch.reopened"
+	catalogBranchClosed   = "catalog.branch.closed"
+	catalogBranchMerged   = "catalog.branch.merged"
+
+	localizationTranslationRevised = "localization.translation.revised"
+)
+
+// subscriberBranchEnvironments keeps branch environments in step with
+// their branches; its name is stored with every event it takes.
+const subscriberBranchEnvironments = "release.branch_environments"
 
 // Subscribe registers Release's subscribers. Their names are stored with
 // each event; never rename them.
@@ -26,14 +40,31 @@ const catalogProjectDeleted = "catalog.project.deleted"
 //   - release.retire_project stops serving a deleted project: its keys
 //     are revoked and its environments and served manifests removed.
 //     Releases stay: they are immutable history.
+//   - release.branch_environments follows the branch lifecycle
+//     (RFC 0004 §4.2): an opened or reopened branch gets its
+//     environment, a push and a translation revised on one of its
+//     messages ask for a (debounced) publish, and a closed or merged
+//     branch's environment is destroyed.
 func (s *Service) Subscribe(r *outbox.Registry) error {
 	for _, typ := range []string{domain.EventPublished, domain.EventPromoted, domain.EventRolledBack, domain.EventEnvironmentDestroyed} {
 		if err := r.Subscribe(typ, "release.sync_manifest", outbox.HandlerFunc(s.handlePointerMoved)); err != nil {
 			return err
 		}
 	}
-	for _, typ := range []string{domain.EventDeliveryKeyCreated, domain.EventDeliveryKeyRevoked} {
+	for _, typ := range []string{domain.EventDeliveryKeyCreated, domain.EventDeliveryKeyScopeChanged, domain.EventDeliveryKeyRevoked} {
 		if err := r.Subscribe(typ, "release.sync_delivery_key", outbox.HandlerFunc(s.handleKeyChanged)); err != nil {
+			return err
+		}
+	}
+	for typ, h := range map[string]outbox.HandlerFunc{
+		catalogBranchOpened:            s.handleBranchLive,
+		catalogBranchPushed:            s.handleBranchLive,
+		catalogBranchReopened:          s.handleBranchLive,
+		catalogBranchClosed:            s.handleBranchGone,
+		catalogBranchMerged:            s.handleBranchGone,
+		localizationTranslationRevised: s.handleTranslationRevised,
+	} {
+		if err := r.Subscribe(typ, subscriberBranchEnvironments, h); err != nil {
 			return err
 		}
 	}

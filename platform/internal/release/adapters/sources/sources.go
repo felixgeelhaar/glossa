@@ -94,6 +94,21 @@ func (p *Port) Snapshot(ctx context.Context, project uuid.UUID, states []string)
 	return snap, nil
 }
 
+// BranchesProposing implements app.Source: the names of the open
+// branches whose overlay holds the message (a new key of theirs, or a
+// source change they propose). Their previews show its translations.
+func (p *Port) BranchesProposing(ctx context.Context, project, message uuid.UUID) ([]string, error) {
+	names, err := p.catalog.OpenBranchesProposing(ctx, catalogdomain.ProjectID(project), catalogdomain.MessageID(message))
+	if err != nil {
+		return nil, notFound(err)
+	}
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = string(n)
+	}
+	return out, nil
+}
+
 // BranchOverlay implements app.Source: the branch's new keys whose
 // messages are still proposed (a key merged since is live and in the
 // snapshot already), with the source this branch pushed, and its source

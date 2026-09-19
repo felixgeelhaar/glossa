@@ -49,6 +49,10 @@ type Source interface {
 	// proposed messages and its source proposals (RFC 0004 §4.1). A
 	// branch the catalog doesn't know yet proposes nothing.
 	BranchOverlay(ctx context.Context, project uuid.UUID, branch string) (domain.Overlay, error)
+	// BranchesProposing names the project's open branches that propose
+	// message: the branch previews a change to it shows, and so the
+	// ones to publish again when its translations change.
+	BranchesProposing(ctx context.Context, project, message uuid.UUID) ([]string, error)
 }
 
 // EnvironmentRef names an environment of a tenant's project.
@@ -130,6 +134,8 @@ type Store interface {
 	DeliveryKey(ctx context.Context, project, id uuid.UUID, lock bool) (domain.DeliveryKey, error)
 	DeliveryKeys(ctx context.Context, project, after uuid.UUID, limit int) ([]domain.DeliveryKey, error)
 	ActiveDeliveryKeys(ctx context.Context, project uuid.UUID) ([]domain.DeliveryKey, error)
+	// SetDeliveryKeyScope saves what an active key reads.
+	SetDeliveryKeyScope(ctx context.Context, k domain.DeliveryKey) error
 	RevokeDeliveryKey(ctx context.Context, k domain.DeliveryKey) error
 	// MarkKeyIndexed records the format the key's index object was last
 	// written in.

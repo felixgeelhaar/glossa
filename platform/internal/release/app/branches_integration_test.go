@@ -24,14 +24,26 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
-// pushBranch pushes items (key → source) from branch.
+// pushBranch pushes items (key → source) from branch, without a pull
+// request: its environment is br-<hash>.
 func (h *harness) pushBranch(t *testing.T, project uuid.UUID, branch string, items map[string]string) {
+	t.Helper()
+	h.pushBranchPR(t, project, branch, 0, items)
+}
+
+// pushBranchPR pushes from a branch with a pull request number, the way
+// CI does (glossa push --branch --pr): its environment is pr-<pr>.
+func (h *harness) pushBranchPR(t *testing.T, project uuid.UUID, branch string, pr int, items map[string]string) {
 	t.Helper()
 	var push []catalogapp.UpsertItem
 	for k, v := range items {
 		push = append(push, catalogapp.UpsertItem{Key: k, Text: v})
 	}
-	if _, err := h.catalog.PushBranch(h.owner(), catalogdomain.ProjectID(project), catalogapp.BranchPush{Branch: branch, Items: push}); err != nil {
+	in := catalogapp.BranchPush{Branch: branch, Items: push}
+	if pr > 0 {
+		in.PushInfo = catalogdomain.PushInfo{PR: &pr}
+	}
+	if _, err := h.catalog.PushBranch(h.owner(), catalogdomain.ProjectID(project), in); err != nil {
 		t.Fatal(err)
 	}
 	h.drain(t)
@@ -45,13 +57,15 @@ func TestBranchEnvironmentServesItsOverlayOnly(t *testing.T) {
 	h := newHarness(t)
 	p := h.project(t, []string{"de"}, shop)
 	h.translate(t, p, "checkout.pay", "de", "{amount, number} bezahlen", "approved")
-	h.pushBranch(t, p, "feature/tip", map[string]string{"checkout.pay": "Pay securely {amount, number}", "checkout.tip": "Add a tip"})
+	h.pushBranchPR(t, p, "feature/tip", 42, map[string]string{"checkout.pay": "Pay securely {amount, number}", "checkout.tip": "Add a tip"})
 	h.pushBranch(t, p, "feature/other", map[string]string{"checkout.other": "Another branch", "home.title": "Hello"})
 	h.translate(t, p, "checkout.tip", "de", "Trinkgeld geben", "draft")
 
+	// The push's event opened the environment; opening it again returns
+	// that one (created is false).
 	ctx := h.as("developer")
 	env, created, err := h.svc.OpenBranchEnvironment(ctx, p, "feature/tip", 42)
-	if err != nil || !created || env.Name != "pr-42" || env.Kind != domain.KindBranch || env.Branch != "feature/tip" ||
+	if err != nil || created || env.Name != "pr-42" || env.Kind != domain.KindBranch || env.Branch != "feature/tip" ||
 		!env.Policy.Equal(domain.BranchPolicy()) {
 		t.Fatalf("open: %+v, %v", env, err)
 	}
@@ -165,7 +179,7 @@ func TestTooManyBranches(t *testing.T) {
 func TestDestroyBranchEnvironment(t *testing.T) {
 	h := newHarness(t)
 	p := h.project(t, nil, shop)
-	h.pushBranch(t, p, "feature/tip", map[string]string{"checkout.tip": "Add a tip"})
+	h.pushBranchPR(t, p, "feature/tip", 42, map[string]string{"checkout.tip": "Add a tip"})
 	ctx := h.as("developer")
 	if _, _, err := h.svc.OpenBranchEnvironment(ctx, p, "feature/tip", 42); err != nil {
 		t.Fatal(err)
@@ -219,7 +233,7 @@ func TestDestroyBranchEnvironment(t *testing.T) {
 func TestBranchPublishIsDebounced(t *testing.T) {
 	h := newHarness(t)
 	p := h.project(t, nil, shop)
-	h.pushBranch(t, p, "feature/tip", map[string]string{"checkout.tip": "Add a tip"})
+	h.pushBranchPR(t, p, "feature/tip", 42, map[string]string{"checkout.tip": "Add a tip"})
 	ctx := h.as("developer")
 	if _, _, err := h.svc.OpenBranchEnvironment(ctx, p, "feature/tip", 42); err != nil {
 		t.Fatal(err)
@@ -263,7 +277,9 @@ func TestBranchPublishIsDebounced(t *testing.T) {
 	if _, ok := texts["en"]["checkout.tip"]; !ok {
 		t.Errorf("served %v", texts["en"])
 	}
-	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type = 'release.environment.publish_requested'"); n != 2 {
+	// Two from the push (the branch opened, then pushed) and the two
+	// this test made.
+	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type = 'release.environment.publish_requested'"); n != 4 {
 		t.Errorf("%d publish_requested events", n)
 	}
 }
@@ -306,7 +322,7 @@ func TestPublishDueIsIdempotent(t *testing.T) {
 func TestBranchEnvironmentsAtTheEdge(t *testing.T) {
 	h := newHarness(t)
 	p := h.project(t, nil, shop)
-	h.pushBranch(t, p, "feature/tip", map[string]string{"checkout.tip": "Add a tip"})
+	h.pushBranchPR(t, p, "feature/tip", 42, map[string]string{"checkout.tip": "Add a tip"})
 	ctx := h.as("developer")
 	if _, _, err := h.svc.OpenBranchEnvironment(ctx, p, "feature/tip", 42); err != nil {
 		t.Fatal(err)

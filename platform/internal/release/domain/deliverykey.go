@@ -48,6 +48,23 @@ func NewDeliveryKey(project uuid.UUID, name string, scope delivery.Scope, by str
 	}, nil
 }
 
+// ChangeScope replaces what the key reads; false if it is unchanged. A
+// revoked key reads nothing and takes no scope.
+func (k *DeliveryKey) ChangeScope(environments []string, branches bool) (bool, error) {
+	if !k.Active() {
+		return false, ErrKeyRevoked
+	}
+	scope, err := delivery.NewScope(environments, branches)
+	if err != nil {
+		return false, err
+	}
+	if k.Scope.Equal(scope) {
+		return false, nil
+	}
+	k.Scope = scope
+	return true, nil
+}
+
 // Active reports whether the key still resolves at the edge.
 func (k DeliveryKey) Active() bool { return k.RevokedAt == nil }
 

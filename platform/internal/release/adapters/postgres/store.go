@@ -367,6 +367,23 @@ func (s *store) ActiveDeliveryKeys(ctx context.Context, project uuid.UUID) ([]do
 	return out, nil
 }
 
+func (s *store) SetDeliveryKeyScope(ctx context.Context, k domain.DeliveryKey) error {
+	envs := k.Scope.Environments
+	if envs == nil {
+		envs = []string{}
+	}
+	n, err := s.q.SetDeliveryKeyScope(ctx, releasesql.SetDeliveryKeyScopeParams{
+		Environments: envs, Branches: k.Scope.Branches, ProjectID: k.ProjectID, ID: k.ID,
+	})
+	if err != nil {
+		return storeError(err)
+	}
+	if n == 0 {
+		return app.ErrNotFound
+	}
+	return nil
+}
+
 func (s *store) RevokeDeliveryKey(ctx context.Context, k domain.DeliveryKey) error {
 	if k.RevokedAt == nil {
 		return fmt.Errorf("release: key %s is not revoked", k.ID)
