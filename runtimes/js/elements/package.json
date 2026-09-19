@@ -19,6 +19,10 @@
     "./ssr": {
       "types": "./dist/ssr.d.ts",
       "import": "./dist/ssr.js"
+    },
+    "./parts": {
+      "types": "./dist/parts.d.ts",
+      "import": "./dist/parts.js"
     }
   },
   "files": [

@@ -15,9 +15,6 @@ import type { Runtime } from "@glossa/runtime";
 
 import { escapeHtml, parseVars, partsToTree, resolveParts, treeToHtml } from "./parts.js";
 
-export { escapeHtml, partsToTree, resolveParts, treeToHtml } from "./parts.js";
-export type { TreeNode } from "./parts.js";
-
 export interface PrerenderOptions {
   /** Extra attributes for every element whose content was replaced (e.g. `data-allow-mismatch`). */
   attributes?: Record<string, string>;
