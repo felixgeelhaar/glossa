@@ -1,6 +1,6 @@
 # RFC 0001 — Platform foundation (Phase 1)
 
-**Status:** Accepted — 2026-09-19
+**Status:** Superseded in part by [RFC 0002](./0002-platform-architecture.md) — 2026-09-19. Glossa is rewritten rather than evolved (D1 and §4–§5 no longer apply). D2–D10 carry over as design intent, restated in RFC 0002.
 **Intent sections:** §7–10, §13–15, §22, §30–39, §44, §59–60, §62
 **Supersedes:** the parts of [`docs/design.md`](../design.md) that the "Conflicts" table below names
 

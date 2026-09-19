@@ -64,3 +64,39 @@ RFC 0001 D10. Termbase aggregate (concept, definition, per-locale preferred and 
 Intent §47. MCP server exposing messages (list, create, inspect), check, locales (add), releases (publish, promote, rollback) and terminology lookups, returning structured, explainable results.
 
 ---
+
+## M0 Foundations
+
+RFC 0002 §13. Repo layout (platform/, messageformat/, runtimes/, studio/, site/). glossa-server kernel: config, bolt + OpenTelemetry + Prometheus, HTTP server with health probes, Postgres with FORCE RLS and the RLS isolation suite, transactional outbox, tenancy (individual/organization) and auth-go identity. MessageFormat kernel: official MFWG conformance suite vendored; Go engine (messageformat-go behind a port) with MF1→MF2 conversion and argument extraction; TS engine (messageformat v4) plus a tiny runtime interpreter; both green on the suite. OpenAPI 3.1 skeleton. CI for the new tree. Exit: conformance and RLS suites green.
+
+---
+
+## M1 Core loop
+
+RFC 0002 §13. Catalog, Localization and Release contexts; glossa-edge serving signed, content-addressed artifacts from object storage; JS runtime core + web components (v0.3-compatible glossa-text) + Vue + Astro; Go runtime with html/template and text helpers; Go CLI (init push pull extract generate check release, --json); Studio v0 (editor, locales, releases); v0.3 importer. Exit: Brotwerk serves production strings from a Glossa release on web and in its Go emails.
+
+---
+
+## M2 Knowledge + AI
+
+RFC 0002 §13. Translation memory, termbase, style guides; translation agent (agent-go/axi-go) with structural gate, provenance, decisionkit confidence and review routing; evals as code; Studio translator workspace (keyboard-first, TM/terms panes, review queue); XLIFF 2/JSON import. Exit: Armada's es/fr/ja gaps closed through review by exception; KraftSport and Pet Medical web off v0.3.
+
+---
+
+## M3 Context
+
+RFC 0002 §13. Bundler plugin (unplugin) usages and chunking, in-product editor overlay, preview environments per branch, scout screenshot capture, GitHub integration with PR checks, React runtime. Exit: translators see where every message appears; Nexa's tax PDF and Lexora's export render through the Go runtime.
+
+---
+
+## M4 Quality
+
+RFC 0002 §13. Layered QA (structural, terminology, linguistic, visual, runtime), CI policies, visual QA via scout, quality dashboards, complete MCP interface, Flutter runtime. Exit: glossa check gates CI in every dogfood product.
+
+---
+
+## M5 Operations
+
+RFC 0002 §13. Workflow engine on statekit, assignments, vendors, audit export, advanced release policies (staged rollout policies, approvals). Exit: all Klarlabs products migrated; v0.3 retired.
+
+---

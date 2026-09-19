@@ -2,7 +2,7 @@
 
 > **For product teams who want every new language to be configuration, not an engineering project, Glossa is open-source localization infrastructure: one typed message model for web and backend, AI translation grounded in your terminology and translation memory, and immutable releases delivered to every runtime.** Unlike file-centric translation tools, Glossa treats translations as versioned product data you own: self-hosted, with your own LLM keys.
 
-**Build once. Speak everywhere.** Where Glossa is going and why: [`docs/product-intent.md`](./docs/product-intent.md). How it gets there: [RFC 0001 — Platform foundation](./docs/rfcs/0001-platform-foundation.md). The feature list below describes what ships today (v0.3).
+**Build once. Speak everywhere.** Where Glossa is going and why: [`docs/product-intent.md`](./docs/product-intent.md). How it gets there: [RFC 0002 — Platform architecture](./docs/rfcs/0002-platform-architecture.md), a rewrite. The feature list below describes what ships today (v0.3).
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
@@ -175,22 +175,16 @@ pnpm build
 
 ## Roadmap
 
-Phase 1 of the [product intent](./docs/product-intent.md) proves the loop **code → message → translation → release → runtime**. Order and decisions: [RFC 0001](./docs/rfcs/0001-platform-foundation.md).
+Glossa is being **rewritten** as the platform the [product intent](./docs/product-intent.md) describes, and the Klarlabs products are the first users. Architecture, milestones and adoption waves: [RFC 0002](./docs/rfcs/0002-platform-architecture.md). v0.3 (this README's feature list, `apps/` and `packages/`) keeps serving its current consumers until they've moved, and only receives security and data-loss fixes.
 
-| Status | Item |
-|---|---|
-| ✅ shipped | Multi-tenant API + Postgres RLS, admin SPA, design system |
-| ✅ shipped | AI translation fan-out (OpenAI / Anthropic / Gemini / compatible) |
-| ✅ shipped | SSE live updates, audit log, TS SDK, web components, CLI (`init/scan/pull/push`) |
-| 🚧 phase 1 | BCP 47 locale identity with script, region and direction |
-| 🚧 phase 1 | Go MessageFormat kernel + TS parity (number, date, time, ordinal) |
-| 🚧 phase 1 | Message model v2: source revisions, arguments, provenance, history |
-| 🚧 phase 1 | Structural QA + `glossa check` for CI |
-| 🚧 phase 1 | Immutable releases, environments, delivery plane |
-| 🚧 phase 1 | TS runtime v2 (fallback graph, `explain`), typed messages compiler, Go runtime SDK |
-| 🚧 phase 1 | Termbase + translation memory feeding AI translation |
-| 🚧 phase 1 | MCP agent interface |
-| 🔭 phase 2+ | Context capture, live preview, in-product editing, source copy linting, visual QA, workflows |
+| Milestone | Delivers | Done when |
+|---|---|---|
+| M0 Foundations | Server kernel, forced RLS, `auth-go`, MessageFormat 2 kernel (Go + TS) with conformance suite | Conformance + RLS suites green |
+| M1 Core loop | Messages → translations → immutable releases → edge → JS / web components / Vue / Astro / Go runtimes, CLI, Studio v0 | Brotwerk runs on it, web and email |
+| M2 Knowledge + AI | TM, termbase, style guides, translation agent with provenance and confidence, translator workspace | Armada's missing locales filled by review by exception |
+| M3 Context | Usages, in-product editing, preview environments, screenshots, GitHub checks, React | Translators see where every message appears |
+| M4 Quality | Layered QA, CI policies, visual QA, Flutter | `glossa check` gates CI in every product |
+| M5 Operations | Workflows, assignments, vendors, audit export | All products migrated, v0.3 retired |
 
 ---
 
