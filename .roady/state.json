@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 73,
+  "version": 74,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -283,11 +283,15 @@
       "elapsed_minutes": 0
     },
     "task-m1-go-runtime": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "runtimes/go (package glossa): T/For/Localizer/Explain, resolver chain + net/http middleware, template FuncMaps, persisted last-good + embedded bundles, Ed25519/JCS + SHA-256, fortify retry/breaker; 18/18 scenarios + 5/5 loading sequences, 95.6% coverage"
+      ],
       "started_at": "2026-09-19T11:38:10.80484+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T12:00:26.280696+02:00",
+      "elapsed_minutes": 22
     },
     "task-m1-js-runtime": {
       "status": "in_progress",
@@ -420,5 +424,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T11:38:12.843278+02:00"
+  "updated_at": "2026-09-19T12:00:26.280696+02:00"
 }
