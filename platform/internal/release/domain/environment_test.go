@@ -3,6 +3,7 @@ package domain_test
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,6 +58,42 @@ func TestPolicyCovers(t *testing.T) {
 		if got := tc.target.Covers(tc.rel); got != tc.want {
 			t.Errorf("%s: Covers = %v", tc.name, got)
 		}
+	}
+}
+
+// The default environments make one path to production work: publish
+// to staging, promote to production. Development and preview ship work
+// in progress, which production refuses.
+func TestDefaultPromotionPath(t *testing.T) {
+	prod := domain.DefaultPolicy(domain.Production)
+	if !prod.Covers(domain.DefaultPolicy(domain.Staging)) {
+		t.Error("a staging release can't be promoted to production")
+	}
+	for _, env := range []string{domain.Development, domain.Preview} {
+		if prod.Covers(domain.DefaultPolicy(env)) {
+			t.Errorf("a %s release (drafts) can be promoted to production", env)
+		}
+		if !domain.DefaultPolicy(env).Covers(prod) {
+			t.Errorf("a production release can't be promoted to %s", env)
+		}
+	}
+}
+
+func TestIneligibleExplainsThePolicyMismatch(t *testing.T) {
+	err := domain.Ineligible(domain.Production, domain.DefaultPolicy(domain.Production), 3, domain.Development, domain.DefaultPolicy(domain.Development))
+	if !errors.Is(err, domain.ErrIneligible) {
+		t.Fatalf("%v is not ErrIneligible", err)
+	}
+	msg := err.Error()
+	for _, want := range []string{"v3", "development", "production", "draft, needs_review", "approved", "staging"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("%q lacks %q", msg, want)
+		}
+	}
+	strict := domain.Policy{States: []string{"approved"}}
+	msg = domain.Ineligible("qa", strict, 5, domain.Staging, domain.DefaultPolicy(domain.Staging)).Error()
+	if !strings.Contains(msg, "outdated") {
+		t.Errorf("%q doesn't say outdated text is the difference", msg)
 	}
 }
 

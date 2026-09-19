@@ -34,7 +34,7 @@ func (s *Service) Promote(ctx context.Context, project uuid.UUID, name string, r
 			return domain.Release{}, err
 		}
 		if !env.Policy.Covers(rel.Policy) {
-			return domain.Release{}, domain.ErrIneligible
+			return domain.Release{}, domain.Ineligible(env.Name, env.Policy, rel.Version, rel.Environment, rel.Policy)
 		}
 		return rel, nil
 	}, domain.ActionPromote, domain.EventPromoted, by)

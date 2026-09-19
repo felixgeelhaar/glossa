@@ -185,6 +185,32 @@ func TestBuildRefusesWhatArtifactsCantCarry(t *testing.T) {
 	}
 }
 
+// Every problem is reported, not only the first: a dry run lists what
+// to fix in one pass.
+func TestBuildReportsEveryProblem(t *testing.T) {
+	s := shop(t)
+	s.Messages[0].Namespace = strings.Repeat("n", 64)
+	s.Messages[2].Model = json.RawMessage(`"x"`)
+	_, err := domain.Build(s, domain.DefaultPolicy("preview"))
+	var nr *domain.NotReleasableError
+	if !errors.As(err, &nr) || !errors.Is(err, domain.ErrNotReleasable) {
+		t.Fatalf("err = %v", err)
+	}
+	var keys []string
+	for _, p := range nr.Problems {
+		keys = append(keys, p.Key)
+		if p.Detail == "" {
+			t.Errorf("problem without detail: %+v", p)
+		}
+	}
+	if !slices.Equal(keys, []string{"cart.items", "home.title"}) {
+		t.Errorf("problems %+v", nr.Problems)
+	}
+	if !strings.Contains(err.Error(), "cart.items") || !strings.Contains(err.Error(), "home.title") {
+		t.Errorf("message %q doesn't name every problem", err)
+	}
+}
+
 func signer(t *testing.T, ids ...string) (*domain.Signer, []ed25519.PublicKey) {
 	t.Helper()
 	var keys []domain.SigningKey

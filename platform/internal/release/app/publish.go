@@ -49,11 +49,7 @@ func (s *Service) Publish(ctx context.Context, project uuid.UUID, in PublishInpu
 		}
 		return domain.Release{}, false, err
 	}
-	snap, err := s.source.Snapshot(ctx, project, env.Policy.States)
-	if err != nil {
-		return domain.Release{}, false, err
-	}
-	built, err := domain.Build(snap, env.Policy)
+	built, err := s.build(ctx, project, env.Policy)
 	if err != nil {
 		return domain.Release{}, false, err
 	}
@@ -106,25 +102,46 @@ func (s *Service) replay(first domain.Release, in PublishInput) (domain.Release,
 	return first, true, nil
 }
 
+// build is the one build of a release, shared by Publish and
+// PreviewPublish: the project's releasable source and the translations
+// policy makes eligible, turned into artifacts. It reads; it stores
+// nothing.
+func (s *Service) build(ctx context.Context, project uuid.UUID, policy domain.Policy) (domain.Built, error) {
+	snap, err := s.source.Snapshot(ctx, project, policy.States)
+	if err != nil {
+		return domain.Built{}, err
+	}
+	return domain.Build(snap, policy)
+}
+
+// missing returns the artifacts storage doesn't have yet.
+func (s *Service) missing(ctx context.Context, project uuid.UUID, artifacts []domain.Artifact) ([]domain.Artifact, error) {
+	var out []domain.Artifact
+	for _, a := range artifacts {
+		ok, err := s.objects.Exists(ctx, delivery.ArtifactPath(project.String(), a.Ref.SHA256))
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrStorage, err)
+		}
+		if !ok {
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
 // upload stores the artifacts storage doesn't have yet and returns how
 // many it wrote.
 func (s *Service) upload(ctx context.Context, project uuid.UUID, artifacts []domain.Artifact) (int, error) {
-	written := 0
-	for _, a := range artifacts {
-		key := delivery.ArtifactPath(project.String(), a.Ref.SHA256)
-		ok, err := s.objects.Exists(ctx, key)
-		if err != nil {
-			return written, fmt.Errorf("%w: %v", ErrStorage, err)
-		}
-		if ok {
-			continue
-		}
-		if err := s.objects.Put(ctx, key, a.Body, "application/json"); err != nil {
-			return written, fmt.Errorf("%w: %v", ErrStorage, err)
-		}
-		written++
+	missing, err := s.missing(ctx, project, artifacts)
+	if err != nil {
+		return 0, err
 	}
-	return written, nil
+	for i, a := range missing {
+		if err := s.objects.Put(ctx, delivery.ArtifactPath(project.String(), a.Ref.SHA256), a.Body, "application/json"); err != nil {
+			return i, fmt.Errorf("%w: %v", ErrStorage, err)
+		}
+	}
+	return len(missing), nil
 }
 
 // record commits the release and the pointer move in one transaction.

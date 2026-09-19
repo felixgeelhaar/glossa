@@ -135,13 +135,17 @@ type Built struct {
 // bytes are the RFC 8785 canonical JSON of
 // {"schema","locale","namespace","messages"}, where each message is its
 // MF2 data model (runtimes/SPEC.md §1.2).
+//
+// A snapshot artifacts can't carry fails with a *NotReleasableError
+// listing every problem found, not only the first.
 func Build(s Snapshot, p Policy) (Built, error) {
-	locales, err := orderLocales(s)
-	if err != nil {
+	var ps problems
+	locales := orderLocales(s, &ps)
+	if err := ps.err(); err != nil {
 		return Built{}, err
 	}
-	byLocale, stats, err := groupMessages(s, locales, p)
-	if err != nil {
+	byLocale, stats := groupMessages(s, locales, p, &ps)
+	if err := ps.err(); err != nil {
 		return Built{}, err
 	}
 	b := Built{
@@ -170,17 +174,18 @@ func Build(s Snapshot, p Policy) (Built, error) {
 }
 
 // orderLocales lists the source locale first, then the rest by code.
-func orderLocales(s Snapshot) ([]Locale, error) {
+func orderLocales(s Snapshot, ps *problems) []Locale {
 	var source *Locale
 	seen := map[string]bool{}
 	var rest []Locale
 	for _, l := range s.Locales {
 		if seen[l.Code] {
-			return nil, fmt.Errorf("%w: locale %s is listed twice", ErrNotReleasable, l.Code)
+			ps.add("", l.Code, "locale %s is listed twice", l.Code)
+			continue
 		}
 		seen[l.Code] = true
 		if l.Direction != "ltr" && l.Direction != "rtl" {
-			return nil, fmt.Errorf("%w: locale %s has direction %q", ErrNotReleasable, l.Code, l.Direction)
+			ps.add("", l.Code, "locale %s has direction %q", l.Code, l.Direction)
 		}
 		if l.Code == s.SourceLocale {
 			source = &l
@@ -189,10 +194,11 @@ func orderLocales(s Snapshot) ([]Locale, error) {
 		rest = append(rest, l)
 	}
 	if source == nil {
-		return nil, fmt.Errorf("%w: the source locale %q is not among the locales", ErrNotReleasable, s.SourceLocale)
+		ps.add("", s.SourceLocale, "the source locale %q is not among the locales", s.SourceLocale)
+		return nil
 	}
 	slices.SortFunc(rest, func(a, b Locale) int { return compareStrings(a.Code, b.Code) })
-	return append([]Locale{*source}, rest...), nil
+	return append([]Locale{*source}, rest...)
 }
 
 func compareStrings(a, b string) int {
@@ -206,7 +212,8 @@ func compareStrings(a, b string) int {
 }
 
 // groupMessages sorts messages into locale → namespace → key → model.
-func groupMessages(s Snapshot, locales []Locale, p Policy) (map[string]map[string]map[string]json.RawMessage, Stats, error) {
+// A message artifacts can't carry is a problem and left out.
+func groupMessages(s Snapshot, locales []Locale, p Policy, ps *problems) (map[string]map[string]map[string]json.RawMessage, Stats) {
 	out := map[string]map[string]map[string]json.RawMessage{}
 	stats := Stats{Locales: map[string]LocaleStats{}}
 	for _, l := range locales {
@@ -214,12 +221,16 @@ func groupMessages(s Snapshot, locales []Locale, p Policy) (map[string]map[strin
 	}
 	keys := map[string]bool{}
 	for _, m := range s.Messages {
-		if err := checkMessage(m, keys); err != nil {
-			return nil, Stats{}, err
+		if !checkMessage(m, keys, ps) {
+			continue
 		}
 		for _, l := range locales {
 			model, outdated, ok := pick(s, l.Code, m, p)
 			if !ok {
+				continue
+			}
+			if !isObject(model) {
+				ps.add(m.Key, l.Code, "the model of %s in %s is not a JSON object", m.Key, l.Code)
 				continue
 			}
 			ns := out[l.Code][m.Namespace]
@@ -242,7 +253,7 @@ func groupMessages(s Snapshot, locales []Locale, p Policy) (map[string]map[strin
 			stats.Locales[l.Code] = LocaleStats{}
 		}
 	}
-	return out, stats, nil
+	return out, stats
 }
 
 // pick returns the model locale ships for m, if any.
@@ -257,18 +268,22 @@ func pick(s Snapshot, locale string, m SourceMessage, p Policy) (json.RawMessage
 	return t.Model, t.Outdated, true
 }
 
-func checkMessage(m SourceMessage, keys map[string]bool) error {
+// checkMessage reports whether m's key and namespace fit an artifact.
+func checkMessage(m SourceMessage, keys map[string]bool, ps *problems) bool {
 	if !messageIDPattern.MatchString(m.Key) {
-		return fmt.Errorf("%w: message key %q", ErrNotReleasable, m.Key)
+		ps.add(m.Key, "", "message key %q is not a valid message ID", m.Key)
+		return false
 	}
 	if keys[m.Key] {
-		return fmt.Errorf("%w: message key %q appears twice", ErrNotReleasable, m.Key)
+		ps.add(m.Key, "", "message key %q appears twice", m.Key)
+		return false
 	}
 	keys[m.Key] = true
 	if !namespacePattern.MatchString(m.Namespace) {
-		return fmt.Errorf("%w: namespace %q of %s is longer than the 63 characters artifacts allow", ErrNotReleasable, m.Namespace, m.Key)
+		ps.add(m.Key, "", "namespace %q of %s is longer than the 63 characters artifacts allow", m.Namespace, m.Key)
+		return false
 	}
-	return nil
+	return true
 }
 
 type artifactDoc struct {
@@ -279,11 +294,6 @@ type artifactDoc struct {
 }
 
 func encodeArtifact(locale, namespace string, messages map[string]json.RawMessage) ([]byte, error) {
-	for key, model := range messages {
-		if !isObject(model) {
-			return nil, fmt.Errorf("%w: the model of %s in %s is not a JSON object", ErrNotReleasable, key, locale)
-		}
-	}
 	b, err := jcs.Marshal(artifactDoc{Schema: ArtifactSchema, Locale: locale, Namespace: namespace, Messages: messages})
 	if err != nil {
 		return nil, fmt.Errorf("%w: artifact %s/%s: %v", ErrNotReleasable, locale, namespace, err)

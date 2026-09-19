@@ -321,6 +321,21 @@ func (e QAFindingSeverity) Valid() bool {
 	}
 }
 
+// Defines values for ReleaseProblemCode.
+const (
+	NotReleasable ReleaseProblemCode = "not_releasable"
+)
+
+// Valid indicates whether the value is a known member of the ReleaseProblemCode enum.
+func (e ReleaseProblemCode) Valid() bool {
+	switch e {
+	case NotReleasable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReviewState.
 const (
 	ReviewStateApproved    ReviewState = "approved"
@@ -1404,6 +1419,54 @@ type ReleaseLocaleCounts struct {
 
 // ReleaseManifest A `glossa.manifest/v1` manifest (runtimes/testdata/schemas/manifest.schema.json), as served.
 type ReleaseManifest map[string]interface{}
+
+// ReleasePreview defines model for ReleasePreview.
+type ReleasePreview struct {
+	// BaseReleaseId The release the environment serves now, which `changes` compare with; absent when it serves none (everything is added).
+	BaseReleaseId *Id `json:"base_release_id,omitempty"`
+
+	// Changes Per locale, compared with `base_release_id`. Present when releasable.
+	Changes *[]LocaleDiff `json:"changes,omitempty"`
+
+	// Counts What the release would ship; `new_artifacts` is what publishing would upload. Present when releasable.
+	Counts *ReleaseCounts `json:"counts,omitempty"`
+
+	// Environment `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	Environment EnvironmentName  `json:"environment"`
+	Locales     *[]ReleaseLocale `json:"locales,omitempty"`
+
+	// ManifestDigest The release's manifest digest; equal to the served release's when nothing would change. Present when releasable.
+	ManifestDigest *string `json:"manifest_digest,omitempty"`
+
+	// Policy The environment's policy, which the build used.
+	Policy   EnvironmentPolicy `json:"policy"`
+	Problems []ReleaseProblem  `json:"problems"`
+
+	// Releasable `false` when `problems` lists why publishing would fail.
+	Releasable bool `json:"releasable"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale *Locale `json:"source_locale,omitempty"`
+}
+
+// ReleaseProblem One reason the catalog can't be released.
+type ReleaseProblem struct {
+	Code   ReleaseProblemCode `json:"code"`
+	Detail string             `json:"detail"`
+
+	// Key The message key, when one message is the cause.
+	Key *string `json:"key,omitempty"`
+
+	// Locale The locale, when one locale or translation is the cause.
+	Locale *string `json:"locale,omitempty"`
+}
+
+// ReleaseProblemCode defines model for ReleaseProblem.Code.
+type ReleaseProblemCode string
 
 // RenameMessage defines model for RenameMessage.
 type RenameMessage struct {
@@ -3018,11 +3081,15 @@ type ClientInterface interface {
 	// PromoteReleaseWithBody Point the environment at an existing release
 	//
 	// Moves the pointer; nothing is rebuilt. The environment's policy
-	// must cover the policy the release was built under, so a preview
-	// release with drafts can't reach production. Promoting the
-	// release already served changes nothing, so a retry is safe.
-	// Needs `releases.publish`. Problem codes: `release_not_found`
-	// (404), `release_ineligible` (409), `storage_unavailable` (503).
+	// must cover the policy the release was built under, so a
+	// development or preview release (which ships drafts) can't reach
+	// production; the default path is to publish to `staging` (approved
+	// text, like production) and promote that release to `production`.
+	// `release_ineligible`'s detail names both policies and what
+	// differs. Promoting the release already served changes nothing,
+	// so a retry is safe. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `release_ineligible` (409),
+	// `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -3032,16 +3099,39 @@ type ClientInterface interface {
 	// PromoteRelease Point the environment at an existing release
 	//
 	// Moves the pointer; nothing is rebuilt. The environment's policy
-	// must cover the policy the release was built under, so a preview
-	// release with drafts can't reach production. Promoting the
-	// release already served changes nothing, so a retry is safe.
-	// Needs `releases.publish`. Problem codes: `release_not_found`
-	// (404), `release_ineligible` (409), `storage_unavailable` (503).
+	// must cover the policy the release was built under, so a
+	// development or preview release (which ships drafts) can't reach
+	// production; the default path is to publish to `staging` (approved
+	// text, like production) and promote that release to `production`.
+	// `release_ineligible`'s detail names both policies and what
+	// differs. Promoting the release already served changes nothing,
+	// so a retry is safe. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `release_ineligible` (409),
+	// `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
 	PromoteRelease(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body PromoteReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewRelease What publishing to the environment would ship now (dry run)
+	//
+	// Runs the build `publishRelease` runs, under the environment's
+	// policy, and stores nothing: no release, no artifacts, no
+	// deployment, no events (a default environment the project hasn't
+	// used yet is shown as it will be created). Returns per-locale
+	// message counts, the per-locale message IDs added, changed and
+	// removed compared with the release the environment serves now,
+	// and `new_artifacts`, what the publish would upload. A catalog
+	// that can't be released is a `200` with `releasable: false` and
+	// every `not_releasable` problem found (publishing would fail with
+	// `422 not_releasable`). The answer is only as current as the
+	// request: a translation saved in between changes what a publish
+	// ships. Needs `releases.read`. Problem codes:
+	// `storage_unavailable` (503).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/release-previews (the `PreviewRelease` operationId).
+	PreviewRelease(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RollbackEnvironmentWithBody Point the environment back at a release it served before
 	//
@@ -4980,11 +5070,15 @@ func (c *Client) ListDeployments(ctx context.Context, tenant TenantPath, project
 // PromoteReleaseWithBody Point the environment at an existing release
 //
 // Moves the pointer; nothing is rebuilt. The environment's policy
-// must cover the policy the release was built under, so a preview
-// release with drafts can't reach production. Promoting the
-// release already served changes nothing, so a retry is safe.
-// Needs `releases.publish`. Problem codes: `release_not_found`
-// (404), `release_ineligible` (409), `storage_unavailable` (503).
+// must cover the policy the release was built under, so a
+// development or preview release (which ships drafts) can't reach
+// production; the default path is to publish to `staging` (approved
+// text, like production) and promote that release to `production`.
+// `release_ineligible`'s detail names both policies and what
+// differs. Promoting the release already served changes nothing,
+// so a retry is safe. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `release_ineligible` (409),
+// `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type.
 //
@@ -5004,17 +5098,50 @@ func (c *Client) PromoteReleaseWithBody(ctx context.Context, tenant TenantPath, 
 // PromoteRelease Point the environment at an existing release
 //
 // Moves the pointer; nothing is rebuilt. The environment's policy
-// must cover the policy the release was built under, so a preview
-// release with drafts can't reach production. Promoting the
-// release already served changes nothing, so a retry is safe.
-// Needs `releases.publish`. Problem codes: `release_not_found`
-// (404), `release_ineligible` (409), `storage_unavailable` (503).
+// must cover the policy the release was built under, so a
+// development or preview release (which ships drafts) can't reach
+// production; the default path is to publish to `staging` (approved
+// text, like production) and promote that release to `production`.
+// `release_ineligible`'s detail names both policies and what
+// differs. Promoting the release already served changes nothing,
+// so a retry is safe. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `release_ineligible` (409),
+// `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
 func (c *Client) PromoteRelease(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body PromoteReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPromoteReleaseRequest(c.Server, tenant, project, environment, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewRelease What publishing to the environment would ship now (dry run)
+//
+// Runs the build `publishRelease` runs, under the environment's
+// policy, and stores nothing: no release, no artifacts, no
+// deployment, no events (a default environment the project hasn't
+// used yet is shown as it will be created). Returns per-locale
+// message counts, the per-locale message IDs added, changed and
+// removed compared with the release the environment serves now,
+// and `new_artifacts`, what the publish would upload. A catalog
+// that can't be released is a `200` with `releasable: false` and
+// every `not_releasable` problem found (publishing would fail with
+// `422 not_releasable`). The answer is only as current as the
+// request: a translation saved in between changes what a publish
+// ships. Needs `releases.read`. Problem codes:
+// `storage_unavailable` (503).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/release-previews (the `PreviewRelease` operationId).
+func (c *Client) PreviewRelease(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewReleaseRequest(c.Server, tenant, project, environment)
 	if err != nil {
 		return nil, err
 	}
@@ -8525,6 +8652,54 @@ func NewPromoteReleaseRequestWithBody(server string, tenant TenantPath, project 
 	return req, nil
 }
 
+// NewPreviewReleaseRequest constructs an http.Request for the PreviewRelease method
+func NewPreviewReleaseRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s/release-previews", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewRollbackEnvironmentRequest calls the generic RollbackEnvironment builder with application/json body
 func NewRollbackEnvironmentRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body RollbackEnvironmentJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -11687,11 +11862,15 @@ type ClientWithResponsesInterface interface {
 	// PromoteReleaseWithBodyWithResponse Point the environment at an existing release
 	//
 	// Moves the pointer; nothing is rebuilt. The environment's policy
-	// must cover the policy the release was built under, so a preview
-	// release with drafts can't reach production. Promoting the
-	// release already served changes nothing, so a retry is safe.
-	// Needs `releases.publish`. Problem codes: `release_not_found`
-	// (404), `release_ineligible` (409), `storage_unavailable` (503).
+	// must cover the policy the release was built under, so a
+	// development or preview release (which ships drafts) can't reach
+	// production; the default path is to publish to `staging` (approved
+	// text, like production) and promote that release to `production`.
+	// `release_ineligible`'s detail names both policies and what
+	// differs. Promoting the release already served changes nothing,
+	// so a retry is safe. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `release_ineligible` (409),
+	// `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11701,16 +11880,41 @@ type ClientWithResponsesInterface interface {
 	// PromoteReleaseWithResponse Point the environment at an existing release
 	//
 	// Moves the pointer; nothing is rebuilt. The environment's policy
-	// must cover the policy the release was built under, so a preview
-	// release with drafts can't reach production. Promoting the
-	// release already served changes nothing, so a retry is safe.
-	// Needs `releases.publish`. Problem codes: `release_not_found`
-	// (404), `release_ineligible` (409), `storage_unavailable` (503).
+	// must cover the policy the release was built under, so a
+	// development or preview release (which ships drafts) can't reach
+	// production; the default path is to publish to `staging` (approved
+	// text, like production) and promote that release to `production`.
+	// `release_ineligible`'s detail names both policies and what
+	// differs. Promoting the release already served changes nothing,
+	// so a retry is safe. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `release_ineligible` (409),
+	// `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
 	PromoteReleaseWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body PromoteReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*PromoteReleaseResponse, error)
+
+	// PreviewReleaseWithResponse What publishing to the environment would ship now (dry run)
+	//
+	// Runs the build `publishRelease` runs, under the environment's
+	// policy, and stores nothing: no release, no artifacts, no
+	// deployment, no events (a default environment the project hasn't
+	// used yet is shown as it will be created). Returns per-locale
+	// message counts, the per-locale message IDs added, changed and
+	// removed compared with the release the environment serves now,
+	// and `new_artifacts`, what the publish would upload. A catalog
+	// that can't be released is a `200` with `releasable: false` and
+	// every `not_releasable` problem found (publishing would fail with
+	// `422 not_releasable`). The answer is only as current as the
+	// request: a translation saved in between changes what a publish
+	// ships. Needs `releases.read`. Problem codes:
+	// `storage_unavailable` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/release-previews (the `PreviewRelease` operationId).
+	PreviewReleaseWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, reqEditors ...RequestEditorFn) (*PreviewReleaseResponse, error)
 
 	// RollbackEnvironmentWithBodyWithResponse Point the environment back at a release it served before
 	//
@@ -15474,6 +15678,75 @@ func (r PromoteReleaseResponse) ContentType() string {
 	return ""
 }
 
+type PreviewReleaseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReleasePreview
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewReleaseResponse) GetJSON200() *ReleasePreview {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PreviewReleaseResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PreviewReleaseResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r PreviewReleaseResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r PreviewReleaseResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewReleaseResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewReleaseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewReleaseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewReleaseResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // RollbackEnvironmentResponse200Headers the declared response headers of an HTTP 200 response for RollbackEnvironment
 type RollbackEnvironmentResponse200Headers struct {
 	ETag *string
@@ -19229,11 +19502,15 @@ func (c *ClientWithResponses) ListDeploymentsWithResponse(ctx context.Context, t
 // PromoteReleaseWithBodyWithResponse Point the environment at an existing release
 //
 // Moves the pointer; nothing is rebuilt. The environment's policy
-// must cover the policy the release was built under, so a preview
-// release with drafts can't reach production. Promoting the
-// release already served changes nothing, so a retry is safe.
-// Needs `releases.publish`. Problem codes: `release_not_found`
-// (404), `release_ineligible` (409), `storage_unavailable` (503).
+// must cover the policy the release was built under, so a
+// development or preview release (which ships drafts) can't reach
+// production; the default path is to publish to `staging` (approved
+// text, like production) and promote that release to `production`.
+// `release_ineligible`'s detail names both policies and what
+// differs. Promoting the release already served changes nothing,
+// so a retry is safe. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `release_ineligible` (409),
+// `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -19249,11 +19526,15 @@ func (c *ClientWithResponses) PromoteReleaseWithBodyWithResponse(ctx context.Con
 // PromoteReleaseWithResponse Point the environment at an existing release
 //
 // Moves the pointer; nothing is rebuilt. The environment's policy
-// must cover the policy the release was built under, so a preview
-// release with drafts can't reach production. Promoting the
-// release already served changes nothing, so a retry is safe.
-// Needs `releases.publish`. Problem codes: `release_not_found`
-// (404), `release_ineligible` (409), `storage_unavailable` (503).
+// must cover the policy the release was built under, so a
+// development or preview release (which ships drafts) can't reach
+// production; the default path is to publish to `staging` (approved
+// text, like production) and promote that release to `production`.
+// `release_ineligible`'s detail names both policies and what
+// differs. Promoting the release already served changes nothing,
+// so a retry is safe. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `release_ineligible` (409),
+// `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -19264,6 +19545,33 @@ func (c *ClientWithResponses) PromoteReleaseWithResponse(ctx context.Context, te
 		return nil, err
 	}
 	return ParsePromoteReleaseResponse(rsp)
+}
+
+// PreviewReleaseWithResponse What publishing to the environment would ship now (dry run)
+//
+// Runs the build `publishRelease` runs, under the environment's
+// policy, and stores nothing: no release, no artifacts, no
+// deployment, no events (a default environment the project hasn't
+// used yet is shown as it will be created). Returns per-locale
+// message counts, the per-locale message IDs added, changed and
+// removed compared with the release the environment serves now,
+// and `new_artifacts`, what the publish would upload. A catalog
+// that can't be released is a `200` with `releasable: false` and
+// every `not_releasable` problem found (publishing would fail with
+// `422 not_releasable`). The answer is only as current as the
+// request: a translation saved in between changes what a publish
+// ships. Needs `releases.read`. Problem codes:
+// `storage_unavailable` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/release-previews (the `PreviewRelease` operationId).
+func (c *ClientWithResponses) PreviewReleaseWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, reqEditors ...RequestEditorFn) (*PreviewReleaseResponse, error) {
+	rsp, err := c.PreviewRelease(ctx, tenant, project, environment, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewReleaseResponse(rsp)
 }
 
 // RollbackEnvironmentWithBodyWithResponse Point the environment back at a release it served before
@@ -22845,6 +23153,60 @@ func ParsePromoteReleaseResponse(rsp *http.Response) (*PromoteReleaseResponse, e
 			headers.ETag = &value
 		}
 		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParsePreviewReleaseResponse parses an HTTP response from a PreviewReleaseWithResponse call
+func ParsePreviewReleaseResponse(rsp *http.Response) (*PreviewReleaseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewReleaseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleasePreview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
 	}
 
 	return response, nil

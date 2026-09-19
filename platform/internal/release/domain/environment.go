@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -111,6 +112,57 @@ func (p Policy) Covers(other Policy) bool {
 	}
 	return p.IncludeOutdated || !other.IncludeOutdated
 }
+
+// IneligibleError is a promotion the target's policy refuses: the
+// release was built under a policy that ships text the target excludes.
+// It is ErrIneligible, and its text says what differs and how to get
+// the text there.
+type IneligibleError struct {
+	Environment string
+	Policy      Policy
+	// Version, From and FromPolicy describe the release: its version,
+	// the environment it was published to and the policy it was built
+	// under.
+	Version    int
+	From       string
+	FromPolicy Policy
+}
+
+// Ineligible explains why a release of version, published to from under
+// fromPolicy, can't be promoted to environment with policy p.
+func Ineligible(environment string, p Policy, version int, from string, fromPolicy Policy) error {
+	return &IneligibleError{Environment: environment, Policy: p, Version: version, From: from, FromPolicy: fromPolicy}
+}
+
+func (e *IneligibleError) Error() string {
+	var excess []string
+	for _, s := range e.FromPolicy.States {
+		if !slices.Contains(e.Policy.States, s) {
+			excess = append(excess, s)
+		}
+	}
+	var what []string
+	if len(excess) > 0 {
+		what = append(what, strings.Join(excess, ", ")+" text")
+	}
+	if e.FromPolicy.IncludeOutdated && !e.Policy.IncludeOutdated {
+		what = append(what, "outdated translations")
+	}
+	ships := strings.Join(e.Policy.States, ", ")
+	if !e.Policy.IncludeOutdated {
+		ships += ", outdated excluded"
+	}
+	msg := fmt.Sprintf("release: v%d can't be promoted to %s: it was published to %s, whose policy ships %s, and %s ships %s only. "+
+		"Publish to %s directly, or promote a release published under a policy %s covers",
+		e.Version, e.Environment, e.From, strings.Join(what, " and "), e.Environment, ships, e.Environment, e.Environment)
+	if e.Environment == Production {
+		msg += " (by default: publish to staging, then promote that release to production)"
+	}
+	return msg
+}
+
+// Unwrap makes the error ErrIneligible.
+func (e *IneligibleError) Unwrap() error { return ErrIneligible }
 
 // Equal reports whether p and o are the same policy.
 func (p Policy) Equal(o Policy) bool {

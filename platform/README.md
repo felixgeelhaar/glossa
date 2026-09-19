@@ -496,6 +496,17 @@ Each has an **eligibility policy** — the review states that ship
 `approved`; never `rejected`) and whether outdated translations do — and
 points at the release it serves.
 
+**The path to production** follows from those defaults: `development`
+and `preview` (and custom environments like `pr-42`) ship work in
+progress; `staging` ships what production would. So publish to
+`staging`, check it, and promote that release to `production`, which
+moves the pointer and rebuilds nothing. A development or preview release
+can never be promoted to production — it was built under a policy that
+lets drafts through — and the `release_ineligible` refusal says so,
+naming both policies, what differs (`draft, needs_review text`,
+`outdated translations`) and the way there (`IneligibleError`).
+Publishing to production directly works too.
+
 **Publish** reads Catalog's `ReleaseSource` and Localization's
 `ReleaseTranslations` (the policy's states), builds one artifact per
 locale and namespace (the source locale holds every active message, a
@@ -504,7 +515,24 @@ the artifacts storage doesn't have yet, then in one transaction records
 the **release** (version counting the project's releases without gaps,
 parent = what the environment served, policy snapshot, author, counts,
 manifest digest), points the environment at it and appends the
-deployment. **Promote** points an environment at an existing release
+deployment. A catalog artifacts can't carry (a 64-character
+namespace, a malformed model) fails with `422 not_releasable`, listing
+every problem found (`NotReleasableError`), not only the first.
+
+**Preview** (`POST …/environments/{env}/release-previews`, the CLI's
+`release publish --dry-run`, Studio's publish dialog) runs the same
+`build` Publish runs and stops before anything is stored: it returns the
+per-locale counts, the manifest digest, `new_artifacts` (what the
+publish would upload, from `Exists` checks), the per-locale message IDs
+added, changed and removed against the release the environment serves
+(the build's artifacts compared in memory, the served release's read
+from storage), and the `not_releasable` problems as data rather than an
+error. It writes no row, object or event — it doesn't even create the
+default environments — which `TestPreviewPublishWritesNothing` checks
+against the tables, the outbox and object storage. It needs only
+`releases.read`.
+
+**Promote** points an environment at an existing release
 whose policy it covers (a preview release with drafts can't reach
 production); **rollback** points back to the newest older release the
 environment served, or a named one from its history. Both only move the
@@ -558,7 +586,7 @@ Subscribers: `release.sync_manifest` and `release.sync_delivery_key`
 (revokes the project's keys, removes its environments and served
 manifests; releases stay as history).
 
-Permissions: reads need `releases.read`; publish, promote, rollback,
+Permissions: reads (and previews) need `releases.read`; publish, promote, rollback,
 environment and key changes `releases.publish` (developers, admins,
 owners, `publish` tokens).
 

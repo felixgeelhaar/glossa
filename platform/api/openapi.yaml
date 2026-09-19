@@ -105,8 +105,12 @@ tags:
     description: |
       Where a project's text is served (Release): `development`,
       `preview`, `staging`, `production` and custom ones, each with an
-      eligibility policy and the release it serves. Promote and roll
-      back move the pointer; nothing is rebuilt.
+      eligibility policy and the release it serves. By default
+      `development`, `preview` and custom environments ship everything
+      not rejected (work in progress); `staging` and `production` ship
+      approved text only, so the path to production is publish to
+      `staging`, then promote. Promote and roll back move the pointer;
+      nothing is rebuilt.
   - name: releases
     description: |
       Immutable, signed snapshots of a project's text: one
@@ -2087,11 +2091,15 @@ paths:
       summary: Point the environment at an existing release
       description: |
         Moves the pointer; nothing is rebuilt. The environment's policy
-        must cover the policy the release was built under, so a preview
-        release with drafts can't reach production. Promoting the
-        release already served changes nothing, so a retry is safe.
-        Needs `releases.publish`. Problem codes: `release_not_found`
-        (404), `release_ineligible` (409), `storage_unavailable` (503).
+        must cover the policy the release was built under, so a
+        development or preview release (which ships drafts) can't reach
+        production; the default path is to publish to `staging` (approved
+        text, like production) and promote that release to `production`.
+        `release_ineligible`'s detail names both policies and what
+        differs. Promoting the release already served changes nothing,
+        so a retry is safe. Needs `releases.publish`. Problem codes:
+        `release_not_found` (404), `release_ineligible` (409),
+        `storage_unavailable` (503).
       security:
         - session: []
           csrf: []
@@ -2114,6 +2122,44 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/release-previews:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+    post:
+      operationId: previewRelease
+      tags: [releases]
+      summary: What publishing to the environment would ship now (dry run)
+      description: |
+        Runs the build `publishRelease` runs, under the environment's
+        policy, and stores nothing: no release, no artifacts, no
+        deployment, no events (a default environment the project hasn't
+        used yet is shown as it will be created). Returns per-locale
+        message counts, the per-locale message IDs added, changed and
+        removed compared with the release the environment serves now,
+        and `new_artifacts`, what the publish would upload. A catalog
+        that can't be released is a `200` with `releasable: false` and
+        every `not_releasable` problem found (publishing would fail with
+        `422 not_releasable`). The answer is only as current as the
+        request: a translation saved in between changes what a publish
+        ships. Needs `releases.read`. Problem codes:
+        `storage_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The preview.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleasePreview" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks:
     parameters:
@@ -3689,6 +3735,45 @@ components:
         base_release_id: { $ref: "#/components/schemas/Id" }
         locales:
           type: array
+          items: { $ref: "#/components/schemas/LocaleDiff" }
+    ReleaseProblem:
+      type: object
+      required: [code, detail]
+      description: One reason the catalog can't be released.
+      properties:
+        code: { type: string, enum: [not_releasable] }
+        detail: { type: string }
+        key: { type: string, description: "The message key, when one message is the cause." }
+        locale: { type: string, description: "The locale, when one locale or translation is the cause." }
+    ReleasePreview:
+      type: object
+      required: [environment, policy, releasable, problems]
+      properties:
+        environment: { $ref: "#/components/schemas/EnvironmentName" }
+        policy:
+          $ref: "#/components/schemas/EnvironmentPolicy"
+          description: The environment's policy, which the build used.
+        base_release_id:
+          $ref: "#/components/schemas/Id"
+          description: The release the environment serves now, which `changes` compare with; absent when it serves none (everything is added).
+        releasable: { type: boolean, description: "`false` when `problems` lists why publishing would fail." }
+        problems:
+          type: array
+          items: { $ref: "#/components/schemas/ReleaseProblem" }
+        manifest_digest:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+          description: The release's manifest digest; equal to the served release's when nothing would change. Present when releasable.
+        source_locale: { $ref: "#/components/schemas/Locale" }
+        locales:
+          type: array
+          items: { $ref: "#/components/schemas/ReleaseLocale" }
+        counts:
+          $ref: "#/components/schemas/ReleaseCounts"
+          description: What the release would ship; `new_artifacts` is what publishing would upload. Present when releasable.
+        changes:
+          type: array
+          description: Per locale, compared with `base_release_id`. Present when releasable.
           items: { $ref: "#/components/schemas/LocaleDiff" }
     ReleaseManifest:
       type: object

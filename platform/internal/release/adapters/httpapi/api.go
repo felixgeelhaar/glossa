@@ -196,22 +196,38 @@ func (a *API) ListDeployments(ctx context.Context, req apiv1.ListDeploymentsRequ
 
 // ── releases ────────────────────────────────────────────────────────
 
-func toRelease(r domain.Release) apiv1.Release {
-	locales := make([]apiv1.ReleaseLocale, len(r.Content.Locales))
-	for i, l := range r.Content.Locales {
+func toLocales(c domain.Content) []apiv1.ReleaseLocale {
+	locales := make([]apiv1.ReleaseLocale, len(c.Locales))
+	for i, l := range c.Locales {
 		locales[i] = apiv1.ReleaseLocale{Code: l.Code, Direction: apiv1.Direction(l.Direction)}
 	}
+	return locales
+}
+
+func toCounts(st domain.Stats) apiv1.ReleaseCounts {
 	counts := apiv1.ReleaseCounts{
-		Messages: r.Stats.Messages, Artifacts: r.Stats.Artifacts, Bytes: int(r.Stats.Bytes),
-		NewArtifacts: r.Stats.NewArtifacts, Locales: map[string]apiv1.ReleaseLocaleCounts{},
+		Messages: st.Messages, Artifacts: st.Artifacts, Bytes: int(st.Bytes),
+		NewArtifacts: st.NewArtifacts, Locales: map[string]apiv1.ReleaseLocaleCounts{},
 	}
-	for code, s := range r.Stats.Locales {
+	for code, s := range st.Locales {
 		counts.Locales[code] = apiv1.ReleaseLocaleCounts{Messages: s.Messages, Outdated: s.Outdated}
 	}
+	return counts
+}
+
+func toLocaleDiffs(ds []domain.LocaleDiff) []apiv1.LocaleDiff {
+	out := make([]apiv1.LocaleDiff, len(ds))
+	for i, l := range ds {
+		out[i] = apiv1.LocaleDiff{Locale: l.Locale, Added: l.Added, Changed: l.Changed, Removed: l.Removed}
+	}
+	return out
+}
+
+func toRelease(r domain.Release) apiv1.Release {
 	out := apiv1.Release{
 		Id: r.ID.String(), Version: r.Version, ParentId: optionalID(r.Parent), Environment: r.Environment,
 		Policy: toPolicy(r.Policy), ManifestDigest: r.Digest, SourceLocale: r.Content.SourceLocale,
-		Locales: locales, Counts: counts, Author: r.Author, CreatedAt: r.CreatedAt,
+		Locales: toLocales(r.Content), Counts: toCounts(r.Stats), Author: r.Author, CreatedAt: r.CreatedAt,
 	}
 	if r.Note != "" {
 		out.Note = apiconv.Ptr(r.Note)
@@ -300,12 +316,40 @@ func (a *API) GetReleaseDiff(ctx context.Context, req apiv1.GetReleaseDiffReques
 	if err != nil {
 		return nil, mapError(err)
 	}
-	out := apiv1.GetReleaseDiff200JSONResponse{ReleaseId: d.Head.ID.String(), BaseReleaseId: optionalID(d.Base.ID),
-		Locales: make([]apiv1.LocaleDiff, len(d.Locales))}
-	for i, l := range d.Locales {
-		out.Locales[i] = apiv1.LocaleDiff{Locale: l.Locale, Added: l.Added, Changed: l.Changed, Removed: l.Removed}
+	return apiv1.GetReleaseDiff200JSONResponse{ReleaseId: d.Head.ID.String(), BaseReleaseId: optionalID(d.Base.ID),
+		Locales: toLocaleDiffs(d.Locales)}, nil
+}
+
+func (a *API) PreviewRelease(ctx context.Context, req apiv1.PreviewReleaseRequestObject) (apiv1.PreviewReleaseResponseObject, error) {
+	project, err := parseID(req.Project)
+	if err != nil {
+		return nil, err
 	}
+	pv, err := a.svc.PreviewPublish(ctx, project, req.Environment)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := apiv1.PreviewRelease200JSONResponse{
+		Environment: pv.Environment.Name, Policy: toPolicy(pv.Environment.Policy), BaseReleaseId: optionalID(pv.Base.ID),
+		Releasable: pv.Releasable(), Problems: make([]apiv1.ReleaseProblem, len(pv.Problems)),
+	}
+	for i, p := range pv.Problems {
+		out.Problems[i] = apiv1.ReleaseProblem{Code: apiv1.NotReleasable, Detail: p.Detail, Key: optional(p.Key), Locale: optional(p.Locale)}
+	}
+	if !pv.Releasable() {
+		return out, nil
+	}
+	counts, locales, changes := toCounts(pv.Built.Stats), toLocales(pv.Built.Content), toLocaleDiffs(pv.Changes)
+	out.ManifestDigest, out.SourceLocale = &pv.Digest, &pv.Built.Content.SourceLocale
+	out.Counts, out.Locales, out.Changes = &counts, &locales, &changes
 	return out, nil
+}
+
+func optional(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // rawJSON answers 200 with exact bytes. The generated responses would

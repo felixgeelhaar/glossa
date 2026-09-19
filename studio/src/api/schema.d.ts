@@ -1368,13 +1368,56 @@ export interface paths {
         /**
          * Point the environment at an existing release
          * @description Moves the pointer; nothing is rebuilt. The environment's policy
-         *     must cover the policy the release was built under, so a preview
-         *     release with drafts can't reach production. Promoting the
-         *     release already served changes nothing, so a retry is safe.
-         *     Needs `releases.publish`. Problem codes: `release_not_found`
-         *     (404), `release_ineligible` (409), `storage_unavailable` (503).
+         *     must cover the policy the release was built under, so a
+         *     development or preview release (which ships drafts) can't reach
+         *     production; the default path is to publish to `staging` (approved
+         *     text, like production) and promote that release to `production`.
+         *     `release_ineligible`'s detail names both policies and what
+         *     differs. Promoting the release already served changes nothing,
+         *     so a retry is safe. Needs `releases.publish`. Problem codes:
+         *     `release_not_found` (404), `release_ineligible` (409),
+         *     `storage_unavailable` (503).
          */
         post: operations["promoteRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/release-previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What publishing to the environment would ship now (dry run)
+         * @description Runs the build `publishRelease` runs, under the environment's
+         *     policy, and stores nothing: no release, no artifacts, no
+         *     deployment, no events (a default environment the project hasn't
+         *     used yet is shown as it will be created). Returns per-locale
+         *     message counts, the per-locale message IDs added, changed and
+         *     removed compared with the release the environment serves now,
+         *     and `new_artifacts`, what the publish would upload. A catalog
+         *     that can't be released is a `200` with `releasable: false` and
+         *     every `not_releasable` problem found (publishing would fail with
+         *     `422 not_releasable`). The answer is only as current as the
+         *     request: a translation saved in between changes what a publish
+         *     ships. Needs `releases.read`. Problem codes:
+         *     `storage_unavailable` (503).
+         */
+        post: operations["previewRelease"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2407,6 +2450,34 @@ export interface components {
             release_id: components["schemas"]["Id"];
             base_release_id?: components["schemas"]["Id"];
             locales: components["schemas"]["LocaleDiff"][];
+        };
+        /** @description One reason the catalog can't be released. */
+        ReleaseProblem: {
+            /** @enum {string} */
+            code: "not_releasable";
+            detail: string;
+            /** @description The message key, when one message is the cause. */
+            key?: string;
+            /** @description The locale, when one locale or translation is the cause. */
+            locale?: string;
+        };
+        ReleasePreview: {
+            environment: components["schemas"]["EnvironmentName"];
+            /** @description The environment's policy, which the build used. */
+            policy: components["schemas"]["EnvironmentPolicy"];
+            /** @description The release the environment serves now, which `changes` compare with; absent when it serves none (everything is added). */
+            base_release_id?: components["schemas"]["Id"];
+            /** @description `false` when `problems` lists why publishing would fail. */
+            releasable: boolean;
+            problems: components["schemas"]["ReleaseProblem"][];
+            /** @description The release's manifest digest; equal to the served release's when nothing would change. Present when releasable. */
+            manifest_digest?: string;
+            source_locale?: components["schemas"]["Locale"];
+            locales?: components["schemas"]["ReleaseLocale"][];
+            /** @description What the release would ship; `new_artifacts` is what publishing would upload. Present when releasable. */
+            counts?: components["schemas"]["ReleaseCounts"];
+            /** @description Per locale, compared with `base_release_id`. Present when releasable. */
+            changes?: components["schemas"]["LocaleDiff"][];
         };
         /** @description A `glossa.manifest/v1` manifest (runtimes/testdata/schemas/manifest.schema.json), as served. */
         ReleaseManifest: {
@@ -4815,6 +4886,37 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    previewRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The preview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasePreview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
     rollbackEnvironment: {
