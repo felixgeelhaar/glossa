@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 93,
+  "version": 95,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -370,11 +370,15 @@
       "elapsed_minutes": 53
     },
     "task-m2-intelligence-wiring": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "AI jobs/suggestions/review queue/providers/budgets/privacy (33 endpoints) + async import/export jobs (XLIFF/JSON/PO/TMX/TBX, merge never downgrades approved, dry-run, streaming to object storage, retention) — all Go unit+integration and TS checks green; chart settings added"
+      ],
       "started_at": "2026-09-19T16:16:08.988602+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T18:08:20.620673+02:00",
+      "elapsed_minutes": 112
     },
     "task-m2-knowledge": {
       "status": "done",
@@ -393,8 +397,10 @@
       "elapsed_minutes": 0
     },
     "task-m2-surfaces": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-09-19T18:08:21.93944+02:00",
       "elapsed_minutes": 0
     },
     "task-m3-context": {
@@ -506,5 +512,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T16:16:08.988602+02:00"
+  "updated_at": "2026-09-19T18:08:21.93944+02:00"
 }
