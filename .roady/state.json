@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 48,
+  "version": 49,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -25,11 +25,15 @@
       "elapsed_minutes": 19
     },
     "task-analytics": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "3cc418b — schema + repo + project_created emit + GET /admin/projects/:slug/metrics + GET /admin/metrics. Handler-level emits for translation_edited / consumer_request / ai_translation + admin Metrics tab deferred to follow-up."
+      ],
       "started_at": "2026-05-25T08:45:11.921574+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-25T08:52:32.616036+02:00",
+      "elapsed_minutes": 7
     },
     "task-audit-filter": {
       "status": "done",
@@ -262,5 +266,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-25T08:45:11.921574+02:00"
+  "updated_at": "2026-05-25T08:52:32.616036+02:00"
 }
