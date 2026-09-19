@@ -7,8 +7,9 @@
 import { computed, useTemplateRef } from "vue";
 import type { TermFinding, TermRecognition } from "../../api/knowledge-schemas";
 import type { AISuggestion } from "../../api/intelligence-schemas";
-import type { Message, ProjectLocale, Syntax } from "../../api/schemas";
+import type { Application, Message, ProjectLocale, Syntax } from "../../api/schemas";
 import { allows, allowsFor, type Grant } from "../../session/permissions";
+import WhereItAppears from "../context/WhereItAppears.vue";
 import Concordance from "./Concordance.vue";
 import StylePane from "./StylePane.vue";
 import SuggestionPanel from "./SuggestionPanel.vue";
@@ -29,11 +30,14 @@ const props = defineProps<{
   hasDraft: boolean;
   /** The syntax the translation is being written in. */
   targetSyntax: Syntax;
+  /** The project's applications, to name them in "Where it appears". */
+  applications?: Application[];
 }>();
 const emit = defineEmits<{ insert: [match: MatchText]; accepted: [suggestion: AISuggestion] }>();
 
 const canInsert = computed(() => allowsFor(props.grant, "translations.write", props.target.code));
 const canKnow = computed(() => allows(props.grant, "knowledge.read"));
+const canSeeContext = computed(() => allows(props.grant, "catalog.read"));
 const canAI = computed(() => allows(props.grant, "intelligence.read"));
 
 const tm = useTemplateRef<InstanceType<typeof TmMatches>>("tm");
@@ -56,6 +60,9 @@ defineExpose({
     <template v-if="canKnow">
       <TmMatches ref="tm" :tenant="tenant" :project-id="projectId" :message="message" :source="source" :target="target" :target-syntax="targetSyntax" :can-insert="canInsert" @insert="emit('insert', $event)" />
       <TermsPane :recognition="recognition" :error="recognitionError" :findings="findings" :check-state="checkState" :has-draft="hasDraft" :source="source" :target="target" />
+    </template>
+    <WhereItAppears v-if="canSeeContext" :tenant="tenant" :project-id="projectId" :message="message" :source="source" :target="target" :applications="applications" />
+    <template v-if="canKnow">
       <StylePane :tenant="tenant" :project-id="projectId" :locale="target.code" :namespace="message.namespace" />
       <Concordance :tenant="tenant" :project-id="projectId" :source="source" :target="target" />
     </template>
