@@ -1,6 +1,9 @@
 package glossa
 
-import "fmt"
+import (
+	"fmt"
+	"html/template"
+)
 
 // Template functions for html/template and text/template, for email, PDF
 // and CLI output. The maps have the untyped map[string]any type, so they
@@ -9,6 +12,7 @@ import "fmt"
 //	{{t "email.welcome.subject" "name" .Name}}   message with name/value pairs
 //	{{t "email.welcome.body" .Args}}             message with an Args map
 //	{{td "email.footer" "Thanks!" "name" .Name}} message with an inline default
+//	{{th "email.welcome.intro" "name" .Name}}    message as safe HTML (Localizer.HTML)
 //	<html lang="{{lang}}" dir="{{dir}}">         active locale and direction
 //
 // Parse templates once with TemplateFuncs, then bind a Localizer per
@@ -28,6 +32,9 @@ func (l *Localizer) FuncMap() map[string]any {
 		"td": func(id, defaultText string, args ...any) string {
 			return l.T(id, l.templateArgs(id, args), Default(defaultText))
 		},
+		"th": func(id string, args ...any) template.HTML {
+			return l.HTML(id, l.templateArgs(id, args))
+		},
 		"lang": l.Locale,
 		"dir":  func() string { return string(l.Direction()) },
 	}
@@ -40,6 +47,7 @@ func TemplateFuncs() map[string]any {
 	return map[string]any{
 		"t":    func(id string, _ ...any) string { return id },
 		"td":   func(_, defaultText string, _ ...any) string { return defaultText },
+		"th":   func(id string, _ ...any) template.HTML { return template.HTML(escapeText(id)) }, //nolint:gosec // escaped
 		"lang": func() string { return "" },
 		"dir":  func() string { return string(LTR) },
 	}

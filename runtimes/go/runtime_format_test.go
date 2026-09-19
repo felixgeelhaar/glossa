@@ -2,12 +2,14 @@ package glossa
 
 // messageformat/testdata/glossa/runtime-format.json through the runtime's
 // rendering path (runtimes/SPEC.md §5): each precompiled message is
-// shipped in a release artifact, resolved and formatted by Localizer.T.
+// shipped in a release artifact, resolved and formatted by Localizer.T,
+// and by Localizer.Parts where the case has expParts.
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +35,7 @@ type runtimeFormatCase struct {
 	Params        []formatParam   `json:"params"`
 	BidiIsolation string          `json:"bidiIsolation"`
 	Exp           string          `json:"exp"`
+	ExpParts      []any           `json:"expParts"`
 	ExpErrors     []struct {
 		Type string `json:"type"`
 	} `json:"expErrors"`
@@ -108,6 +111,10 @@ func checkRuntimeFormat(t *testing.T, tc runtimeFormatCase) bool {
 		t.Errorf("%s: got %q, want %q", tc.key(), got, tc.Exp)
 		ok = false
 	}
+	if tc.ExpParts != nil {
+		parts := c.For(tc.Locale).Parts("m", tc.args(t), BidiIsolation(tc.BidiIsolation != "none"))
+		ok = checkExpParts(t, tc.key(), parts, tc.ExpParts) && ok
+	}
 	errs := log.all()
 	if len(errs) != min(len(tc.ExpErrors), 1) {
 		t.Errorf("%s: reported %v, want the format errors %v", tc.key(), errs, tc.ExpErrors)
@@ -120,4 +127,54 @@ func checkRuntimeFormat(t *testing.T, tc runtimeFormatCase) bool {
 		}
 	}
 	return ok
+}
+
+// checkExpParts compares parts with the fixture's expParts the way the
+// MF2 suites do: every expected field must be present and equal, and
+// implementations may add fields.
+func checkExpParts(t *testing.T, name string, parts []Part, exp []any) bool {
+	t.Helper()
+	raw, err := json.Marshal(parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if !containsJSON(got, exp) {
+		want, _ := json.Marshal(exp)
+		t.Errorf("%s: Parts\n got %s\nwant %s", name, raw, want)
+		return false
+	}
+	return true
+}
+
+func containsJSON(got, want any) bool {
+	switch w := want.(type) {
+	case map[string]any:
+		g, ok := got.(map[string]any)
+		if !ok {
+			return false
+		}
+		for k, wv := range w {
+			if gv, ok := g[k]; !ok || !containsJSON(gv, wv) {
+				return false
+			}
+		}
+		return true
+	case []any:
+		g, ok := got.([]any)
+		if !ok || len(g) != len(w) {
+			return false
+		}
+		for i := range w {
+			if !containsJSON(g[i], w[i]) {
+				return false
+			}
+		}
+		return true
+	default:
+		return reflect.DeepEqual(got, want)
+	}
 }

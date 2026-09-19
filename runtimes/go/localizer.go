@@ -73,12 +73,23 @@ func (c *Client) Explain(ctx context.Context, id string) Explanation {
 
 // T renders message id with args.
 func (l *Localizer) T(id string, args Args, opts ...Option) string {
+	o := l.options(opts)
+	snap := l.c.state.Load()
+	res := snap.rel.resolve(id, l.requested)
+	return renderAs(l.c, snap, res, o,
+		func(msg messageformat.Message, locale string) (string, string, error) {
+			text, err := messageformat.Format(msg, locale, args, messageformat.WithBidiIsolation(o.bidi))
+			return text, text, err
+		},
+		func(text string) string { return text })
+}
+
+func (l *Localizer) options(opts []Option) callOptions {
 	o := callOptions{bidi: !l.c.cfg.DisableBidiIsolation}
 	for _, opt := range opts {
 		opt(&o)
 	}
-	snap := l.c.state.Load()
-	return l.c.render(snap, snap.rel.resolve(id, l.requested), args, o)
+	return o
 }
 
 // Explain reports how id resolves, without side effects (SPEC §6).
@@ -111,7 +122,14 @@ func (l *Localizer) Direction() Direction {
 	return rel.manifest.direction(l.Locale())
 }
 
-func (c *Client) render(snap *snapshot, res resolution, args Args, o callOptions) (out string) {
+// renderAs renders a resolved message with format, which returns the
+// output and its text. A missing message, a panic or an empty text render
+// inline(the inline default or the message ID) instead, and errors are
+// reported, the same way for strings, parts, HTML and runs.
+func renderAs[T any](c *Client, snap *snapshot, res resolution, o callOptions,
+	format func(msg messageformat.Message, locale string) (T, string, error),
+	inline func(text string) T,
+) (out T) {
 	fallback := res.id
 	if o.defaultText != "" {
 		fallback = o.defaultText
@@ -119,23 +137,23 @@ func (c *Client) render(snap *snapshot, res resolution, args Args, o callOptions
 	defer func() {
 		if r := recover(); r != nil {
 			c.reportRender(snap, res, ErrorFormat, fmt.Sprintf("formatting panicked: %v", r))
-			out = fallback
+			out = inline(fallback)
 		}
 	}()
 	if res.resolvedFrom == "" {
 		if snap.rel != nil {
 			c.reportRender(snap, res, ErrorMissingMessage, fmt.Sprintf("no locale in %v has the message", res.chain))
 		}
-		return fallback
+		return inline(fallback)
 	}
-	text, err := messageformat.Format(res.message, res.resolvedFrom, args, messageformat.WithBidiIsolation(o.bidi))
+	v, text, err := format(res.message, res.resolvedFrom)
 	if err != nil {
 		c.reportRender(snap, res, ErrorFormat, err.Error())
 	}
 	if text == "" {
-		return fallback
+		return inline(fallback)
 	}
-	return text
+	return v
 }
 
 func (c *Client) reportRender(snap *snapshot, res resolution, typ ErrorType, detail string) {
