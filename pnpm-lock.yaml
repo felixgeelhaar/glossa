@@ -204,6 +204,37 @@ importers:
         specifier: ^4.1.0
         version: 4.1.0(@types/node@22.19.19)(jsdom@25.0.1)(vite@6.4.3(@types/node@22.19.19)(jiti@2.7.0)(tsx@4.23.13))
 
+  runtimes/js/elements:
+    dependencies:
+      '@glossa/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@lit/context':
+        specifier: 1.1.6
+        version: 1.1.6
+      lit:
+        specifier: 3.3.3
+        version: 3.3.3
+    devDependencies:
+      '@size-limit/preset-small-lib':
+        specifier: 11.2.0
+        version: 11.2.0(size-limit@11.2.0)
+      '@types/node':
+        specifier: 22.19.19
+        version: 22.19.19
+      jsdom:
+        specifier: 25.0.1
+        version: 25.0.1
+      size-limit:
+        specifier: 11.2.0
+        version: 11.2.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.0
+        version: 4.1.0(@types/node@22.19.19)(jsdom@25.0.1)(vite@6.4.3(@types/node@22.19.19)(jiti@2.7.0)(tsx@4.23.13))
+
   runtimes/js/runtime:
     devDependencies:
       '@glossa/messageformat':
@@ -1520,10 +1551,6 @@ packages:
   tinyexec@1.2.4:
     resolution: {integrity: sha512-SHf/r48b7vOrjve9PxJo3MN5v5yuyjHvdUcrQffT3WXMUfnGmHDVbC4k3sHJaJTgZCwpUplIaAo5ANtMyp3YHg==}
     engines: {node: '>=18'}
-
-  tinyglobby@0.2.16:
-    resolution: {integrity: sha512-pn99VhoACYR8nFHhxqix+uvsbXineAasWm5ojXoN8xEwK5Kd3/TrhNn1wByuD52UxWRLy8pu+kRMniEi6Eq9Zg==}
-    engines: {node: '>=12.0.0'}
 
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
@@ -2868,7 +2895,7 @@ snapshots:
       lilconfig: 3.1.3
       nanospinner: 1.2.2
       picocolors: 1.1.1
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.17
 
   slash@3.0.0: {}
 
@@ -2898,11 +2925,6 @@ snapshots:
   tinybench@2.9.0: {}
 
   tinyexec@1.2.4: {}
-
-  tinyglobby@0.2.16:
-    dependencies:
-      fdir: 6.5.0(picomatch@4.0.4)
-      picomatch: 4.0.4
 
   tinyglobby@0.2.17:
     dependencies:
