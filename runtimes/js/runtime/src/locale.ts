@@ -39,7 +39,8 @@ export function lookupLocale(
   requested: readonly string[],
   available: readonly string[],
 ): string | undefined {
-  for (let tag of requested) for (; tag; tag = truncate(tag)) if (available.includes(tag)) return tag;
+  for (let tag of requested)
+    for (; tag; tag = truncate(tag)) if (available.includes(tag)) return tag;
   return undefined;
 }
 

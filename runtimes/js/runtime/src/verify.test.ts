@@ -5,13 +5,15 @@ import { checkManifest, jcs, sha256Hex, verifySignature } from "./verify.js";
 
 describe("jcs (RFC 8785)", () => {
   it("sorts keys by UTF-16 code units at every level and emits no whitespace", () => {
-    const value = { b: [1, { z: true, a: null }], a: "x", "€": 1, "\r": 2, "😀": 3 };
-    expect(jcs(value)).toBe('{"\\r":2,"a":"x","b":[1,{"a":null,"z":true}],"€":1,"😀":3}');
+    const value = { b: [1, { z: true, a: null }], a: "x", "\u20ac": 1, "\r": 2, "\ud83d\ude00": 3 };
+    expect(jcs(value)).toBe(
+      `{"\\r":2,"a":"x","b":[1,{"a":null,"z":true}],"\u20ac":1,"\ud83d\ude00":3}`,
+    );
   });
 
   it("serializes strings and numbers as ECMAScript does", () => {
-    expect(jcs({ s: " \"\\é", n: [1e21, 0.1, -0, 1.5e-7, 100] })).toBe(
-      '{"n":[1e+21,0.1,0,1.5e-7,100],"s":" \\u0007\\"\\\\é"}',
+    expect(jcs({ s: "\u2028\u0007\"\\\u00e9", n: [1e21, 0.1, -0, 1.5e-7, 100] })).toBe(
+      `{"n":[1e+21,0.1,0,1.5e-7,100],"s":"\u2028\\u0007\\"\\\\\u00e9"}`,
     );
   });
 });
@@ -79,7 +81,10 @@ describe("verifySignature (Ed25519 over JCS)", () => {
   });
 
   it("treats a malformed key or signature as invalid, never throwing", async () => {
-    const bad = { ...signed!, signatures: [{ keyId: "k_test", alg: "Ed25519" as const, sig: "!" }] };
+    const bad = {
+      ...signed!,
+      signatures: [{ keyId: "k_test", alg: "Ed25519" as const, sig: "!" }],
+    };
     expect(await verifySignature(bad, keys)).toBeDefined();
     expect(await verifySignature(signed!, [{ keyId: "k_test", key: "short" }])).toBeDefined();
   });
