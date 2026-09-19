@@ -63,17 +63,12 @@ func handleBulkImport(
 			ginerr.Send(c, errs.InternalFromErr(err))
 			return
 		}
-		var l locale.Locale
-		for _, candidate := range allLocales {
-			if candidate.Code.String() == localeCode {
-				l = candidate
-				break
-			}
-		}
-		if l.ID == uuid.Nil {
+		l, ok := findLocale(allLocales, localeCode)
+		if !ok {
 			ginerr.Send(c, errs.LocaleNotFound)
 			return
 		}
+		localeCode = l.Code.String()
 
 		// Ensure every key exists. UpsertKeys is idempotent.
 		inputs := make([]keyapp.UpsertInput, 0, len(body.Messages))
@@ -138,7 +133,7 @@ func handleBulkImport(
 				Value:   out.Value,
 				Status:  string(out.Status),
 			})
-			if fanOut != nil && localeCode == p.DefaultLocale {
+			if fanOut != nil && l.Code.Matches(p.DefaultLocale) {
 				fanOut.Trigger(aitranslatorapp.FanOutInput{
 					TenantID:       tenantID.(uuid.UUID),
 					ProjectID:      p.ID,

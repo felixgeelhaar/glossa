@@ -5,7 +5,7 @@
 import { LitElement, css, html } from "lit";
 
 import { format } from "@felixgeelhaar/glossa-format";
-import type { TranslationStatus } from "@felixgeelhaar/glossa-sdk";
+import { describeLocale, type Direction, type TranslationStatus } from "@felixgeelhaar/glossa-sdk";
 
 export class GlossaAdminKeyEdit extends LitElement {
   static override styles = css`
@@ -57,6 +57,16 @@ export class GlossaAdminKeyEdit extends LitElement {
     if (changed.has("keyName")) this.draftStatus = "needs_review";
   }
 
+  // Translators edit Arabic, Hebrew or Persian in their own direction;
+  // an LTR textarea scrambles punctuation and cursor movement.
+  private get direction(): Direction {
+    try {
+      return describeLocale(this.locale).direction;
+    } catch {
+      return "ltr";
+    }
+  }
+
   private renderPreview(): string {
     try {
       return format(this.draftValue, this.locale, { count: this.sampleCount, value: "female" });
@@ -82,12 +92,14 @@ export class GlossaAdminKeyEdit extends LitElement {
         <gl-input label="Key" .value=${this.keyName} readonly mono></gl-input>
         <gl-textarea
           label=${`Value (${this.locale})`}
+          lang=${this.locale}
+          dir=${this.direction}
           .value=${this.draftValue}
           @gl-input=${(e: CustomEvent<{ value: string }>) => {
             this.draftValue = e.detail.value;
           }}
         ></gl-textarea>
-        <div class="preview" aria-live="polite">
+        <div class="preview" aria-live="polite" lang=${this.locale} dir=${this.direction}>
           ${this.renderPreview()}
           <div class="preview-meta">preview · count=${this.sampleCount}</div>
         </div>

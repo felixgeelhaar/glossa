@@ -3,7 +3,7 @@
 // api/openapi.yaml. Kept in this file so the rest of the SDK
 // imports a single source of truth.
 
-export type TranslationStatus = "pending" | "needs_review" | "approved";
+export type TranslationStatus = "pending" | "ai_translated" | "needs_review" | "approved";
 
 /** GET /api/v1/projects/{slug}/locales/{locale}/messages response. */
 export interface Bundle {
@@ -11,6 +11,19 @@ export interface Bundle {
   locale: string;
   messages: Record<string, string>;
   statuses: Record<string, TranslationStatus>;
+}
+
+/** GET /api/v1/projects/{slug}/locales item. */
+export interface Locale {
+  id: string;
+  /** Canonical BCP 47 tag. */
+  code: string;
+  language: string;
+  script: string;
+  region: string;
+  direction: "ltr" | "rtl";
+  label: string;
+  enabled: boolean;
 }
 
 /** SSE `translation.updated` event payload. */

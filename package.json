@@ -2,7 +2,7 @@
   "name": "glossa",
   "private": true,
   "version": "0.0.0",
-  "description": "Cross-project translation management — REST API + Lit web components + own ICU subset",
+  "description": "Open-source localization infrastructure — build once, speak everywhere",
   "license": "MIT",
   "author": "Felix Geelhaar",
   "repository": {

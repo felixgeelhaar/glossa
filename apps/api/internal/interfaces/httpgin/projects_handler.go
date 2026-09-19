@@ -9,6 +9,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/apierr/ginerr"
 	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
+	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
 	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
 )
@@ -54,6 +55,7 @@ func handleCreateProject(uc *projectapp.CreateProject) gin.HandlerFunc {
 			switch {
 			case errors.Is(err, project.ErrInvalidSlug),
 				errors.Is(err, project.ErrInvalidName),
+				errors.Is(err, locale.ErrInvalidCode),
 				errors.Is(err, projectapp.ErrInvalidTenantID):
 				ginerr.Send(c, errs.UnprocessableFromErr(err))
 			default:
