@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 50,
+  "version": 52,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -220,9 +220,15 @@
       "elapsed_minutes": 0
     },
     "task-p1-locale-identity": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "BCP 47 parse/canonicalize (x/text BCP47), migration 0006 VARCHAR(35), language/script/region/direction on the wire, canonical matching for URL segments and translator scopes, SDK describeLocale + canonical cache keys, admin RTL editing. Go unit + Postgres integration + TS tests green."
+      ],
+      "started_at": "2026-09-19T08:31:38.688414+02:00",
+      "completed_at": "2026-09-19T08:38:51.974171+02:00",
+      "elapsed_minutes": 7
     },
     "task-p1-mcp": {
       "status": "pending",
@@ -321,5 +327,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-25T08:52:32.616036+02:00"
+  "updated_at": "2026-09-19T08:38:51.974172+02:00"
 }
