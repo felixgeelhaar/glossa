@@ -4,7 +4,7 @@ import { Ajv } from "ajv";
 import { describe, expect, it } from "vitest";
 import { buildTests, serialize } from "../scripts/runtime-format-cases.ts";
 import type { FixtureTest } from "../scripts/runtime-format-cases.ts";
-import { format, formatToParts, parseMF1, parseMF2 } from "./index.js";
+import { format, formatToParts, parseMF2 } from "./index.js";
 import { messageSchemaPath, testdataDir } from "./testing/index.js";
 
 const path = join(testdataDir, "glossa/runtime-format.json");
@@ -12,7 +12,7 @@ const committed = JSON.parse(readFileSync(path, "utf8")) as {
   generatedWith: { icu: string; cldr: string };
   tests: FixtureTest[];
 };
-const regenerated = buildTests({ parseMF1, parseMF2, format, formatToParts });
+const regenerated = buildTests({ parseMF2, format, formatToParts });
 const sameLocaleData =
   committed.generatedWith.icu === process.versions.icu &&
   committed.generatedWith.cldr === process.versions.cldr;

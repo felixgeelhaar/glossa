@@ -66,9 +66,6 @@ importers:
       '@messageformat/icu-messageformat-1':
         specifier: 0.12.0
         version: 0.12.0
-      '@messageformat/parser':
-        specifier: 5.1.1
-        version: 5.1.1
       messageformat:
         specifier: 4.0.0
         version: 4.0.0
