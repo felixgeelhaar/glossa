@@ -28,25 +28,25 @@ const LocalePlaceholder = "{locale}"
 
 // Config is glossa.yaml.
 type Config struct {
-	Version int `yaml:"version"`
+	Version int `yaml:"version" json:"version"`
 	// Server is the glossa-server base URL (no /v1).
-	Server string `yaml:"server"`
+	Server string `yaml:"server" json:"server"`
 	// Tenant is the tenant ID. Empty: the API token's own tenant.
-	Tenant string `yaml:"tenant,omitempty"`
+	Tenant string `yaml:"tenant,omitempty" json:"tenant,omitempty"`
 	// Project is the project's slug or ID.
-	Project string `yaml:"project"`
+	Project string `yaml:"project" json:"project"`
 	// SourceLocale is the project's source locale; offline commands need it.
-	SourceLocale string `yaml:"source_locale"`
+	SourceLocale string `yaml:"source_locale" json:"source_locale"`
 	// Syntax is the authoring syntax of local catalogs: mf1 (default) or mf2.
-	Syntax   string   `yaml:"syntax,omitempty"`
-	Catalogs Catalogs `yaml:"catalogs"`
-	Extract  Extract  `yaml:"extract,omitempty"`
-	Generate Generate `yaml:"generate,omitempty"`
-	Check    Check    `yaml:"check,omitempty"`
-	Pull     Pull     `yaml:"pull,omitempty"`
+	Syntax   string   `yaml:"syntax,omitempty" json:"syntax,omitempty"`
+	Catalogs Catalogs `yaml:"catalogs" json:"catalogs"`
+	Extract  Extract  `yaml:"extract,omitempty" json:"extract,omitempty"`
+	Generate Generate `yaml:"generate,omitempty" json:"generate,omitempty"`
+	Check    Check    `yaml:"check,omitempty" json:"check,omitempty"`
+	Pull     Pull     `yaml:"pull,omitempty" json:"pull,omitempty"`
 
 	// Path is the file this config was read from ("" for a new one).
-	Path string `yaml:"-"`
+	Path string `yaml:"-" json:"-"`
 }
 
 // Catalogs says where the local message catalogs are.
@@ -54,47 +54,47 @@ type Catalogs struct {
 	// Path is a file pattern with {locale}: locales/{locale}.json. The
 	// source locale's file is what `push` sends; the others hold
 	// translations (`pull` writes them, `check --offline` reads them).
-	Path string `yaml:"path"`
+	Path string `yaml:"path" json:"path"`
 	// Style is how `pull` writes catalogs: flat (default) or nested.
-	Style string `yaml:"style,omitempty"`
+	Style string `yaml:"style,omitempty" json:"style,omitempty"`
 }
 
 // Extract says which source files `extract` scans.
 type Extract struct {
-	Include []string `yaml:"include,omitempty"`
-	Exclude []string `yaml:"exclude,omitempty"`
+	Include []string `yaml:"include,omitempty" json:"include,omitempty"`
+	Exclude []string `yaml:"exclude,omitempty" json:"exclude,omitempty"`
 }
 
 // Generate says where `generate` writes typed accessors. Empty outputs
 // are skipped.
 type Generate struct {
 	// TypeScript is the typed module (messages.ts).
-	TypeScript string `yaml:"typescript,omitempty"`
+	TypeScript string `yaml:"typescript,omitempty" json:"typescript,omitempty"`
 	// Vue is the @glossa/vue registration module; needs TypeScript.
-	Vue string `yaml:"vue,omitempty"`
+	Vue string `yaml:"vue,omitempty" json:"vue,omitempty"`
 	// Go is the typed Go file.
-	Go string `yaml:"go,omitempty"`
+	Go string `yaml:"go,omitempty" json:"go,omitempty"`
 	// GoPackage is its package name (default: the directory's name).
-	GoPackage string `yaml:"go_package,omitempty"`
+	GoPackage string `yaml:"go_package,omitempty" json:"go_package,omitempty"`
 	// GoRuntime is the Go runtime's import path.
-	GoRuntime string `yaml:"go_runtime,omitempty"`
+	GoRuntime string `yaml:"go_runtime,omitempty" json:"go_runtime,omitempty"`
 }
 
 // Check is the default policy of `check`; flags override it.
 type Check struct {
 	// RequireComplete lists the locales that must be complete. Empty:
 	// every locale of the project.
-	RequireComplete []string `yaml:"require_complete,omitempty"`
+	RequireComplete []string `yaml:"require_complete,omitempty" json:"require_complete,omitempty"`
 	// FailOn is error (default) or warning.
-	FailOn string `yaml:"fail_on,omitempty"`
+	FailOn string `yaml:"fail_on,omitempty" json:"fail_on,omitempty"`
 }
 
 // Pull configures `pull`.
 type Pull struct {
 	// Path is where pulled catalogs go (default: catalogs.path).
-	Path string `yaml:"path,omitempty"`
+	Path string `yaml:"path,omitempty" json:"path,omitempty"`
 	// States are the review states pulled (default: approved).
-	States []string `yaml:"states,omitempty"`
+	States []string `yaml:"states,omitempty" json:"states,omitempty"`
 }
 
 // DefaultGoRuntime is the import path of the Go runtime.
