@@ -3,13 +3,157 @@
   "spec_id": "Glossa",
   "tasks": [
     {
-      "id": "task-icu-subset",
-      "title": "Implement ICU subset (@felixgeelhaar/glossa-format)",
-      "description": "Own ICU MessageFormat subset; variable interpolation, plural via Intl.PluralRules, select, nesting, apostrophe escaping.",
+      "id": "task-p1-mf-kernel",
+      "title": "P1.2 Go MessageFormat kernel + TS parity",
+      "description": "RFC 0001 D3: format/go module (Parse/Arguments/Validate/Format), TS number/date/time/selectordinal/markup, shared conformance fixtures.",
       "priority": "high",
       "estimate": "1w",
       "depends_on": null,
-      "feature_id": "icu-subset-(@felixgeelhaar/glossa-format)",
+      "feature_id": "p1-2-go-messageformat-kernel-ts-parity",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-p1-message-model",
+      "title": "P1.3 Message model v2",
+      "description": "RFC 0001 D2+D5: keys to messages, source_revision, arguments, provenance, translation_revisions.",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": [
+        "task-p1-locale-identity",
+        "task-p1-mf-kernel"
+      ],
+      "feature_id": "p1-3-message-model-v2",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-p1-check",
+      "title": "P1.4 Structural QA + glossa check",
+      "description": "RFC 0001 slice 4: check endpoint + CLI (human/--json, exit codes), AI output validation.",
+      "priority": "high",
+      "estimate": "4d",
+      "depends_on": [
+        "task-p1-mf-kernel",
+        "task-p1-message-model"
+      ],
+      "feature_id": "p1-4-structural-qa-glossa-check",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-p1-releases",
+      "title": "P1.5 Releases + environments",
+      "description": "RFC 0001 D6: immutable releases, environments, publish/promote/rollback, approved-only production.",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": [
+        "task-p1-message-model"
+      ],
+      "feature_id": "p1-5-releases-environments",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-p1-delivery",
+      "title": "P1.6 Delivery plane",
+      "description": "RFC 0001 D7: /delivery/v1 manifest + content-addressed bundles, ArtifactStore with Postgres then object-storage adapters.",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": [
+        "task-p1-releases"
+      ],
+      "feature_id": "p1-6-delivery-plane",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-p1-ts-runtime",
+      "title": "P1.7 TS runtime v2",
+      "description": "RFC 0001 D8: release consumption, persisted last-good, fallback graph, locale negotiation, explain(); elements on top.",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": [
+        "task-p1-releases",
+        "task-p1-delivery"
+      ],
+      "feature_id": "p1-7-ts-runtime-v2",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-p1-compiler",
+      "title": "P1.8 Typed messages compiler",
+      "description": "RFC 0001 D9: glossa compile, typed accessors, usage capture in scan.",
+      "priority": "medium",
+      "estimate": "1w",
+      "depends_on": [
+        "task-p1-message-model"
+      ],
+      "feature_id": "p1-8-typed-messages-compiler",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-p1-go-sdk",
+      "title": "P1.9 Go runtime SDK",
+      "description": "Intent §12: i18n.T(ctx, key, args) on format/go + delivery plane, same resolver/fallback/explain semantics.",
+      "priority": "medium",
+      "estimate": "1w",
+      "depends_on": [
+        "task-p1-mf-kernel",
+        "task-p1-delivery"
+      ],
+      "feature_id": "p1-9-go-runtime-sdk",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-p1-knowledge",
+      "title": "P1.10 Termbase + translation memory",
+      "description": "RFC 0001 D10: termbase aggregate, TM over approved revisions (exact + pg_trgm), knowledge-aware fan-out with provenance.",
+      "priority": "medium",
+      "estimate": "1w",
+      "depends_on": [
+        "task-p1-message-model"
+      ],
+      "feature_id": "p1-10-termbase-translation-memory",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-p1-mcp",
+      "title": "P1.11 MCP agent interface",
+      "description": "Intent §47: MCP tools for messages, check, locales, releases, terminology.",
+      "priority": "medium",
+      "estimate": "4d",
+      "depends_on": [
+        "task-p1-check",
+        "task-p1-releases",
+        "task-p1-knowledge"
+      ],
+      "feature_id": "p1-11-mcp-agent-interface",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-microcopy",
+      "title": "Microcopy + footer polish",
+      "description": "Lead empty-state body with the verb; revoke confirm names the consequence concretely; bulk-approve confirm shows count; add colophon (version + github + docs).",
+      "priority": "medium",
+      "estimate": "1d",
+      "depends_on": null,
+      "feature_id": "microcopy-+-footer-polish",
       "source": {}
     },
     {
@@ -32,6 +176,16 @@
         "task-go-api"
       ],
       "feature_id": "sse-live-update-channel",
+      "source": {}
+    },
+    {
+      "id": "task-validate-ai-key",
+      "title": "AI provider: validate key inline on save",
+      "description": "Optionally trigger a single Translate call before persisting the new provider row; return 422 + upstream error on failure. `?validate=true` query param toggles behaviour.",
+      "priority": "high",
+      "estimate": "1d",
+      "depends_on": null,
+      "feature_id": "ai-provider:-validate-key-inline-on-save",
       "source": {}
     },
     {
@@ -73,53 +227,25 @@
       "source": {}
     },
     {
-      "id": "task-admin",
-      "title": "Implement Admin UI (apps/admin)",
-      "description": "Lit + Vite translator interface.",
-      "priority": "medium",
-      "estimate": "2w",
-      "depends_on": [
-        "task-elements"
-      ],
-      "feature_id": "admin-ui-(apps/admin)",
-      "source": {}
-    },
-    {
-      "id": "task-deploy",
-      "title": "Deployment (k3s on edge-1)",
-      "description": "Distroless images + GHA + Postgres StatefulSet + cert-manager + backup CronJob.",
-      "priority": "medium",
-      "estimate": "1w",
-      "depends_on": [
-        "task-go-api",
-        "task-admin"
-      ],
-      "feature_id": "deployment-(k3s-on-edge-1)",
-      "source": {}
-    },
-    {
-      "id": "task-consumer-migration",
-      "title": "First consumer migration (Brotwerk)",
-      "description": "Wire \u003cglossa-provider\u003e + 5-10 strings; verify live updates.",
-      "priority": "medium",
-      "estimate": "1w",
-      "depends_on": [
-        "task-deploy",
-        "task-cli"
-      ],
-      "feature_id": "first-consumer-migration-(iri-or-brotwerk)",
-      "source": {}
-    },
-    {
-      "id": "task-ro-key-swap",
-      "title": "Swap brotwerk-prod to a read-only API key",
-      "description": "Issue 'brotwerk web' read-scope key via admin UI; replace GLOSSA_API_KEY in brotwerk apps/web/.env + CI build args; redeploy brotwerk; revoke the legacy write key. Validates the read-only path end-to-end and closes the embedded-write-key security gap.",
+      "id": "task-usability-test",
+      "title": "Run second-user usability test",
+      "description": "Watch one non-Felix human complete a 10-key German→English translation cold-start. Pre-write 5-question script; record screen+audio; transcribe to docs/usability-2026-Q2.md. Output: prioritized blocker list + go/no-go on next feature investment.",
       "priority": "high",
       "estimate": "1d",
       "depends_on": [
-        "task-consumer-migration"
+        "task-positioning"
       ],
-      "feature_id": "read-only-api-key-for-brotwerk-prod-(ecp-swap)",
+      "feature_id": "run-second-user-usability-test",
+      "source": {}
+    },
+    {
+      "id": "task-switcher-fix",
+      "title": "Project switcher polish",
+      "description": "Hide switcher when projects.length===1; show project name inline next to tenant identity. When N\u003e1, fix the first-paint timing so the trigger shows the active project name immediately.",
+      "priority": "high",
+      "estimate": "1d",
+      "depends_on": null,
+      "feature_id": "project-switcher-polish-(hide-when-n=1,-show-name-on-first-paint)",
       "source": {}
     },
     {
@@ -143,25 +269,35 @@
       "source": {}
     },
     {
-      "id": "task-usability-test",
-      "title": "Run second-user usability test",
-      "description": "Watch one non-Felix human complete a 10-key German→English translation cold-start. Pre-write 5-question script; record screen+audio; transcribe to docs/usability-2026-Q2.md. Output: prioritized blocker list + go/no-go on next feature investment.",
-      "priority": "high",
-      "estimate": "1d",
-      "depends_on": [
-        "task-positioning"
-      ],
-      "feature_id": "run-second-user-usability-test",
+      "id": "task-delight",
+      "title": "Three moments of delight",
+      "description": "First-approval celebration toast; AI fan-out row pulse; copy-key haptic. All behind a 'micro-interactions on/off' setting.",
+      "priority": "medium",
+      "estimate": "2d",
+      "depends_on": null,
+      "feature_id": "three-moments-of-delight-(walter)",
       "source": {}
     },
     {
-      "id": "task-switcher-fix",
-      "title": "Project switcher polish",
-      "description": "Hide switcher when projects.length===1; show project name inline next to tenant identity. When N\u003e1, fix the first-paint timing so the trigger shows the active project name immediately.",
+      "id": "task-icu-subset",
+      "title": "Implement ICU subset (@felixgeelhaar/glossa-format)",
+      "description": "Own ICU MessageFormat subset; variable interpolation, plural via Intl.PluralRules, select, nesting, apostrophe escaping.",
+      "priority": "high",
+      "estimate": "1w",
+      "depends_on": null,
+      "feature_id": "icu-subset-(@felixgeelhaar/glossa-format)",
+      "source": {}
+    },
+    {
+      "id": "task-ro-key-swap",
+      "title": "Swap brotwerk-prod to a read-only API key",
+      "description": "Issue 'brotwerk web' read-scope key via admin UI; replace GLOSSA_API_KEY in brotwerk apps/web/.env + CI build args; redeploy brotwerk; revoke the legacy write key. Validates the read-only path end-to-end and closes the embedded-write-key security gap.",
       "priority": "high",
       "estimate": "1d",
-      "depends_on": null,
-      "feature_id": "project-switcher-polish-(hide-when-n=1,-show-name-on-first-paint)",
+      "depends_on": [
+        "task-consumer-migration"
+      ],
+      "feature_id": "read-only-api-key-for-brotwerk-prod-(ecp-swap)",
       "source": {}
     },
     {
@@ -175,13 +311,25 @@
       "source": {}
     },
     {
-      "id": "task-validate-ai-key",
-      "title": "AI provider: validate key inline on save",
-      "description": "Optionally trigger a single Translate call before persisting the new provider row; return 422 + upstream error on failure. `?validate=true` query param toggles behaviour.",
-      "priority": "high",
+      "id": "task-cli-tabs",
+      "title": "CLI install snippet: package-manager tabs",
+      "description": "Replace hardcoded `pnpx` with tabs for npm / pnpm / bun / yarn so users on any of the four don't bounce. Uses gl-tabs primitive for keyboard nav.",
+      "priority": "medium",
       "estimate": "1d",
       "depends_on": null,
-      "feature_id": "ai-provider:-validate-key-inline-on-save",
+      "feature_id": "cli-install-snippet:-package-manager-tabs",
+      "source": {}
+    },
+    {
+      "id": "task-admin",
+      "title": "Implement Admin UI (apps/admin)",
+      "description": "Lit + Vite translator interface.",
+      "priority": "medium",
+      "estimate": "2w",
+      "depends_on": [
+        "task-elements"
+      ],
+      "feature_id": "admin-ui-(apps/admin)",
       "source": {}
     },
     {
@@ -195,43 +343,13 @@
       "source": {}
     },
     {
-      "id": "task-microcopy",
-      "title": "Microcopy + footer polish",
-      "description": "Lead empty-state body with the verb; revoke confirm names the consequence concretely; bulk-approve confirm shows count; add colophon (version + github + docs).",
+      "id": "task-invites",
+      "title": "Translator invite + first-login flow",
+      "description": "invites table; POST /admin/invites mints single-use 48h token; POST /auth/accept-invite consumes; link sharing is manual (no SMTP). Translator lands in /editor scoped to assigned locales.",
       "priority": "medium",
-      "estimate": "1d",
+      "estimate": "1w",
       "depends_on": null,
-      "feature_id": "microcopy-+-footer-polish",
-      "source": {}
-    },
-    {
-      "id": "task-cli-tabs",
-      "title": "CLI install snippet: package-manager tabs",
-      "description": "Replace hardcoded `pnpx` with tabs for npm / pnpm / bun / yarn so users on any of the four don't bounce. Uses gl-tabs primitive for keyboard nav.",
-      "priority": "medium",
-      "estimate": "1d",
-      "depends_on": null,
-      "feature_id": "cli-install-snippet:-package-manager-tabs",
-      "source": {}
-    },
-    {
-      "id": "task-hydration-ux",
-      "title": "SSR/hydration uncertainty UX in glossa-elements",
-      "description": "Differentiate fallback slot content from live-resolved content visually until the provider's first bundle resolves: italic / dotted underline / aria-busy + opacity 0.9. Triggered off provider's context version.",
-      "priority": "medium",
-      "estimate": "2d",
-      "depends_on": null,
-      "feature_id": "ssr/hydration-uncertainty-ux-in-glossa-elements",
-      "source": {}
-    },
-    {
-      "id": "task-keyboard",
-      "title": "Editor keyboard shortcuts (j/k/a/r)",
-      "description": "j/k navigate keys; Enter opens edit; Esc closes; a approves current; r marks needs_review; / focuses search; ? shows help dialog. Per-user preference toggle.",
-      "priority": "medium",
-      "estimate": "3d",
-      "depends_on": null,
-      "feature_id": "editor-keyboard-shortcuts-(j/k/a/r)",
+      "feature_id": "translator-invite-+-first-login-flow",
       "source": {}
     },
     {
@@ -255,27 +373,65 @@
       "source": {}
     },
     {
-      "id": "task-delight",
-      "title": "Three moments of delight",
-      "description": "First-approval celebration toast; AI fan-out row pulse; copy-key haptic. All behind a 'micro-interactions on/off' setting.",
+      "id": "task-deploy",
+      "title": "Deployment (k3s on edge-1)",
+      "description": "Distroless images + GHA + Postgres StatefulSet + cert-manager + backup CronJob.",
       "priority": "medium",
-      "estimate": "2d",
-      "depends_on": null,
-      "feature_id": "three-moments-of-delight-(walter)",
+      "estimate": "1w",
+      "depends_on": [
+        "task-go-api",
+        "task-admin"
+      ],
+      "feature_id": "deployment-(k3s-on-edge-1)",
       "source": {}
     },
     {
-      "id": "task-invites",
-      "title": "Translator invite + first-login flow",
-      "description": "invites table; POST /admin/invites mints single-use 48h token; POST /auth/accept-invite consumes; link sharing is manual (no SMTP). Translator lands in /editor scoped to assigned locales.",
+      "id": "task-p1-locale-identity",
+      "title": "P1.1 Locale identity (BCP 47)",
+      "description": "RFC 0001 D4: BCP 47 parse/canonicalize, VARCHAR(35), script/region/direction on the wire.",
+      "priority": "high",
+      "estimate": "2d",
+      "depends_on": null,
+      "feature_id": "p1-1-locale-identity-bcp-47",
+      "source": {
+        "doc": "docs/rfcs/0001-platform-foundation.md"
+      }
+    },
+    {
+      "id": "task-keyboard",
+      "title": "Editor keyboard shortcuts (j/k/a/r)",
+      "description": "j/k navigate keys; Enter opens edit; Esc closes; a approves current; r marks needs_review; / focuses search; ? shows help dialog. Per-user preference toggle.",
+      "priority": "medium",
+      "estimate": "3d",
+      "depends_on": null,
+      "feature_id": "editor-keyboard-shortcuts-(j/k/a/r)",
+      "source": {}
+    },
+    {
+      "id": "task-hydration-ux",
+      "title": "SSR/hydration uncertainty UX in glossa-elements",
+      "description": "Differentiate fallback slot content from live-resolved content visually until the provider's first bundle resolves: italic / dotted underline / aria-busy + opacity 0.9. Triggered off provider's context version.",
+      "priority": "medium",
+      "estimate": "2d",
+      "depends_on": null,
+      "feature_id": "ssr/hydration-uncertainty-ux-in-glossa-elements",
+      "source": {}
+    },
+    {
+      "id": "task-consumer-migration",
+      "title": "First consumer migration (Brotwerk)",
+      "description": "Wire \u003cglossa-provider\u003e + 5-10 strings; verify live updates.",
       "priority": "medium",
       "estimate": "1w",
-      "depends_on": null,
-      "feature_id": "translator-invite-+-first-login-flow",
+      "depends_on": [
+        "task-deploy",
+        "task-cli"
+      ],
+      "feature_id": "first-consumer-migration-(iri-or-brotwerk)",
       "source": {}
     }
   ],
   "approval_status": "approved",
   "created_at": "2026-05-23T21:48:37.083291+02:00",
-  "updated_at": "2026-05-25T08:00:22.502803+02:00"
+  "updated_at": "2026-09-19T08:30:38.497571+02:00"
 }
