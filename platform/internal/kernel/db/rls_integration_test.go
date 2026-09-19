@@ -45,6 +45,7 @@ var systemTables = map[string]string{
 	"identity_passkeys":            "a person's passkeys, checked at sign-in",
 	"identity_webauthn_ceremonies": "passkey challenges in flight, before the tenant is known",
 	"identity_login_attempts":      "brute-force counters per email, checked at sign-in",
+	"system_leases":                "which replica leads a periodic job, and when it last ran; a deployment's own bookkeeping, never a tenant's",
 }
 
 // systemPolicies are the only policies allowed to target a role other
@@ -69,6 +70,13 @@ var systemPolicies = map[string][]string{
 	// tenants (system scope context.retention; tenant_id and project_id
 	// only), then purges each in its tenant's scope.
 	"context_builds": {"context_builds_system_select"},
+	// The daily proposal sweep finds which tenants have a closed branch
+	// at all (system scope catalog.proposals; tenant_id and closed_at
+	// only), then sweeps each in its tenant's scope.
+	"catalog_branches": {"catalog_branches_system_select"},
+	// The purge scheduler's own lease: which replica leads a periodic
+	// job (system scope scheduler.lease). No tenant, no glossa_app grant.
+	"system_leases": {"system_leases_system"},
 	// Release's publisher finds due branch-environment publishes (system
 	// scope release.publisher), and its key index task the keys whose
 	// index object predates scopes (release.key_index): IDs, times and
