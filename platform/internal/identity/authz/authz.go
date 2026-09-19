@@ -52,6 +52,12 @@ const (
 	TranslationsReview = domain.PermTranslationsReview
 	ReleasesRead       = domain.PermReleasesRead
 	ReleasesPublish    = domain.PermReleasesPublish
+	// IntelligenceRead, IntelligenceManage and IntelligenceTranslate are
+	// the AI permissions (RFC 0003 §6); IntelligenceTranslate is
+	// locale-scoped.
+	IntelligenceRead      = domain.PermIntelligenceRead
+	IntelligenceManage    = domain.PermIntelligenceManage
+	IntelligenceTranslate = domain.PermIntelligenceTranslate
 )
 
 var (

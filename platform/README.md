@@ -354,7 +354,16 @@ CLDR descendants (`de` covers `de-AT`). **Token scopes** — `read`,
 review or owner changes, and a token never exceeds its creator.
 Every role and the `read` scope hold `knowledge.read`;
 `knowledge.write` (curating the termbase, style guides and TM) belongs
-to owners, admins, developers and `write` tokens.
+to owners, admins, developers and `write` tokens. The AI permissions:
+every role and the `read` scope hold `intelligence.read` (configuration
+without keys, jobs, suggestions, disclosures, metrics);
+`intelligence.manage` (providers, routing, prices, budget, consent,
+sensitive namespaces, auto-translate, review routing) belongs to owners,
+admins and `admin` tokens; `intelligence.translate` (request fills,
+cancel jobs, accept, edit or reject suggestions) is **locale-scoped**
+like `translations.write` and belongs to every role but none of the
+read-only ones — translators and reviewers within their locales — and
+to `write` tokens.
 
 **API tokens** look like `glossa_api_` + 43 base64url characters.
 Register `glossa_api_[A-Za-z0-9_-]{43}` with secret scanners. They're

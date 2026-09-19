@@ -33,6 +33,20 @@ describe("grantFor", () => {
     expect(allows(g, "catalog.write")).toBe(false);
   });
 
+  it("mirrors knowledge and AI permissions", () => {
+    const dev = grantFor({ roles: ["developer"], locales: [] });
+    expect(allows(dev, "knowledge.write")).toBe(true);
+    expect(allows(dev, "intelligence.manage")).toBe(false);
+    expect(allowsFor(dev, "intelligence.translate", "ja")).toBe(true);
+    expect(allows(grantFor({ roles: ["admin"], locales: [] }), "intelligence.manage")).toBe(true);
+    const tr = grantFor({ roles: ["translator"], locales: ["de"] });
+    expect(allows(tr, "knowledge.read")).toBe(true);
+    expect(allows(tr, "knowledge.write")).toBe(false);
+    expect(allows(tr, "intelligence.read")).toBe(true);
+    expect(allowsFor(tr, "intelligence.translate", "de-AT")).toBe(true);
+    expect(allowsFor(tr, "intelligence.translate", "fr")).toBe(false);
+  });
+
   it("doesn't let a locale scope narrow another role's permission", () => {
     const g = grantFor({ roles: ["developer", "translator"], locales: ["de"] });
     expect(allowsFor(g, "translations.write", "fr")).toBe(true);
