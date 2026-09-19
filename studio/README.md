@@ -243,6 +243,16 @@ are in `src/styles/studio.css`.
   queue — riskiest first, accept one with an edit from the keyboard, batch
   accept the recommended ones — and checks the metrics.
 
+  The import and export test (`e2e/import-export.spec.ts`) approves a
+  German translation through the API, then imports a small XLIFF file
+  through the wizard: the dry run reports the approved translation as a
+  conflict (“the approved one is kept”) and changes nothing; *Apply this
+  import* merges it — the new translation arrives with origin `import`,
+  the approval stays — and the history lists both jobs. Then it exports
+  JSON for `en` and `de`, downloads the zip and checks both files in it
+  (the harness sets `GLOSSA_INTEGRATION_POLL_INTERVAL=200ms`). Axe runs on
+  the list, the wizard, the results and the export dialog.
+
   **No real AI provider is ever called.** The harness starts
   `e2e/fake-provider.ts`, an OpenAI-compatible `/chat/completions`
   endpoint on loopback (`GLOSSA_E2E_PROVIDER_PORT`, 18318) that answers

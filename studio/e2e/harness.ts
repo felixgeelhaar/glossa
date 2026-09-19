@@ -94,6 +94,8 @@ export async function startStack(): Promise<() => Promise<void>> {
     // which a tenant may configure only where private endpoints are allowed.
     GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS: "true",
     GLOSSA_AI_POLL_INTERVAL: "200ms",
+    // Import and export jobs are picked up quickly, so the specs don't wait out the 1 s default.
+    GLOSSA_INTEGRATION_POLL_INTERVAL: "200ms",
   };
 
   const migrate = spawnSync(bin, ["-migrate=only"], { env, encoding: "utf8" });
