@@ -1,0 +1,150 @@
+package glossa
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/felixgeelhaar/glossa/messageformat"
+)
+
+// Rendering (runtimes/SPEC.md §4.3, §5): resolve through the fallback
+// chain, format with the locale the message was found in, and fall back
+// to the inline default or the message ID. Rendering never panics and
+// never returns an empty string.
+
+// Args are the arguments of a message, by name.
+type Args = map[string]any
+
+// Option adjusts one T or Explain call.
+type Option func(*callOptions)
+
+type callOptions struct {
+	defaultText string
+	bidi        bool
+}
+
+// Default sets the inline default: the text rendered when no loaded
+// locale has the message (SPEC §3, step 5). Without it, the message ID
+// is rendered, so a missing string is visible and never blank.
+func Default(text string) Option {
+	return func(o *callOptions) { o.defaultText = text }
+}
+
+// BidiIsolation turns MF2 bidi isolation of placeholders on or off for
+// one call. It is on by default, as the MF2 spec requires; turn it off for
+// plain-text output such as CLI lines or email subjects in left-to-right
+// scripts.
+func BidiIsolation(on bool) Option {
+	return func(o *callOptions) { o.bidi = on }
+}
+
+// Localizer renders messages for a fixed list of requested locales, for
+// example one recipient of a batch email job. It is cheap to create and
+// safe for concurrent use; it always renders from the client's current
+// release.
+type Localizer struct {
+	c         *Client
+	requested []string
+}
+
+// For returns a Localizer for locales in priority order. Tags are
+// canonicalized (`en_us` → `en-US`, `iw` → `he`); malformed ones are
+// ignored. With no usable tag the release's source locale is used.
+func (c *Client) For(locales ...string) *Localizer {
+	return &Localizer{c: c, requested: canonicalizeAll(locales)}
+}
+
+// Localizer returns a Localizer for the locales on ctx (see WithLocales
+// and Middleware).
+func (c *Client) Localizer(ctx context.Context) *Localizer {
+	return &Localizer{c: c, requested: LocalesFrom(ctx)}
+}
+
+// T renders message id for the locales on ctx.
+func (c *Client) T(ctx context.Context, id string, args Args, opts ...Option) string {
+	return c.Localizer(ctx).T(id, args, opts...)
+}
+
+// Explain reports how id resolves for the locales on ctx, without side
+// effects.
+func (c *Client) Explain(ctx context.Context, id string) Explanation {
+	return c.Localizer(ctx).Explain(id)
+}
+
+// T renders message id with args.
+func (l *Localizer) T(id string, args Args, opts ...Option) string {
+	o := callOptions{bidi: !l.c.cfg.DisableBidiIsolation}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	snap := l.c.state.Load()
+	return l.c.render(snap, snap.rel.resolve(id, l.requested), args, o)
+}
+
+// Explain reports how id resolves, without side effects (SPEC §6).
+func (l *Localizer) Explain(id string) Explanation {
+	snap := l.c.state.Load()
+	return snap.rel.resolve(id, l.requested).explain(snap)
+}
+
+// Locale returns the active locale: the requested locale the release
+// matched, else its source locale. With nothing loaded it is the first
+// requested locale, or "".
+func (l *Localizer) Locale() string {
+	rel := l.c.state.Load().rel
+	if rel == nil {
+		if len(l.requested) == 0 {
+			return ""
+		}
+		return l.requested[0]
+	}
+	return rel.manifest.negotiate(l.requested)
+}
+
+// Direction returns the text direction of the active locale, for the HTML
+// dir attribute.
+func (l *Localizer) Direction() Direction {
+	rel := l.c.state.Load().rel
+	if rel == nil {
+		return scriptDirection(l.Locale())
+	}
+	return rel.manifest.direction(l.Locale())
+}
+
+func (c *Client) render(snap *snapshot, res resolution, args Args, o callOptions) (out string) {
+	fallback := res.id
+	if o.defaultText != "" {
+		fallback = o.defaultText
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			c.reportRender(snap, res, ErrorFormat, fmt.Sprintf("formatting panicked: %v", r))
+			out = fallback
+		}
+	}()
+	if res.resolvedFrom == "" {
+		if snap.rel != nil {
+			c.reportRender(snap, res, ErrorMissingMessage, fmt.Sprintf("no locale in %v has the message", res.chain))
+		}
+		return fallback
+	}
+	text, err := messageformat.Format(res.message, res.resolvedFrom, args, messageformat.WithBidiIsolation(o.bidi))
+	if err != nil {
+		c.reportRender(snap, res, ErrorFormat, err.Error())
+	}
+	if text == "" {
+		return fallback
+	}
+	return text
+}
+
+func (c *Client) reportRender(snap *snapshot, res resolution, typ ErrorType, detail string) {
+	e := Error{Type: typ, Detail: detail, MessageID: res.id, Locale: res.resolvedFrom}
+	if e.Locale == "" {
+		e.Locale = res.locale
+	}
+	if snap.rel != nil {
+		e.ReleaseID = snap.rel.manifest.Release.ID
+	}
+	c.reporter.report(e)
+}
