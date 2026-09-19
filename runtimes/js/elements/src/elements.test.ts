@@ -3,7 +3,7 @@ import { createRuntime } from "@glossa/runtime";
 import type { RuntimeError, RuntimeOptions } from "@glossa/runtime";
 
 import "./index.js";
-import type { GlossaProvider } from "./glossa-provider.js";
+import { GlossaProvider } from "./glossa-provider.js";
 import { DELIVERY_KEY, EDGE, fakeEdge, match, msg, release, text } from "./testing/release.js";
 import type { TestRelease } from "./testing/release.js";
 
@@ -201,6 +201,26 @@ describe("<glossa-provider> + <glossa-text>", () => {
       { locale: "en", dir: "ltr", release: { id: "rel_1", version: 1 } },
       { locale: "ar", dir: "rtl", release: { id: "rel_1", version: 1 } },
     ]);
+  });
+
+  it("uses GlossaProvider.defaultRuntime when it has no edge, bundle or runtime", async () => {
+    const shared = createRuntime({ bundled: r1, locales: "en", storage: null });
+    const dispose = vi.spyOn(shared, "dispose");
+    GlossaProvider.defaultRuntime = () => shared;
+    try {
+      const p = await mount(
+        `<glossa-provider><glossa-text key="cart.checkout">…</glossa-text></glossa-provider>`,
+        () => {},
+      );
+      expect(p.runtime).toBe(shared);
+      expect(rendered(p.querySelector("glossa-text")!)).toBe("Checkout");
+      const own = await mount(`<glossa-provider ${edgeAttrs} locale="de"></glossa-provider>`);
+      expect(own.runtime).not.toBe(shared);
+      p.remove();
+      expect(dispose).not.toHaveBeenCalled();
+    } finally {
+      GlossaProvider.defaultRuntime = undefined;
+    }
   });
 
   it("uses a runtime it is given, and leaves it running when disconnected", async () => {
