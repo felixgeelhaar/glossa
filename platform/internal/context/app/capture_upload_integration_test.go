@@ -133,7 +133,7 @@ func (p *parts) Next() (string, io.Reader, error) {
 func withImages(t *testing.T, opts ...app.Option) (*harness, *objectstore.Memory) {
 	t.Helper()
 	objects := objectstore.NewMemory()
-	return newHarness(t, append(opts, app.WithImages(objects, imaging.New(t.TempDir(), 1)))...), objects
+	return newHarness(t, append(opts, app.WithImages(objects, imaging.New(t.TempDir(), 0)))...), objects
 }
 
 func (h *harness) uploadCaptures(t *testing.T, f fixture, manifest []byte, p *parts) app.CapturesIngested {
@@ -275,6 +275,14 @@ func TestIngestCapturesRefusals(t *testing.T) {
 	if _, err := h.svc.IngestCaptures(h.ci(), app.IngestCaptures{Project: f.project, Manifest: unknownApp, Images: partsOf(pay)}); !errors.Is(err, app.ErrApplicationNotFound) {
 		t.Errorf("unknown application: err = %v", err)
 	}
+	// Images are stored as they arrive; a refused upload removes the ones
+	// it wrote.
+	twoShots := manifestOf(t, "abcdef3", "main", capture{"/a", "de", pay, nil}, capture{"/b", "de", other, nil})
+	_, err := h.svc.IngestCaptures(h.ci(), app.IngestCaptures{Project: f.project, Manifest: twoShots,
+		Images: partsOf(pay).add(hexDigest(other), webp)})
+	if !errors.Is(err, domain.ErrInvalidImage) {
+		t.Errorf("second part broken: err = %v", err)
+	}
 	if n := count(t, "SELECT count(*) FROM context_builds"); n != 0 {
 		t.Errorf("builds after refusals = %d", n)
 	}
@@ -295,7 +303,7 @@ func objectCount(t *testing.T, objects *objectstore.Memory, h *harness, f fixtur
 	t.Helper()
 	n := 0
 	for _, img := range images {
-		normalized, err := imaging.New(t.TempDir(), 1).Normalize(context.Background(), bytes.NewReader(img), domain.Digest(hexDigest(img)))
+		normalized, err := imaging.New(t.TempDir(), 0).Normalize(context.Background(), bytes.NewReader(img), domain.Digest(hexDigest(img)))
 		if err != nil {
 			t.Fatal(err)
 		}

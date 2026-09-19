@@ -9,9 +9,10 @@
 // builds.
 //
 // A decoded 40-megapixel image takes up to 320 MB (16-bit RGBA), so
-// decoding is a bulkhead: at most concurrency images are decoded at
-// once per process; the rest wait. Nothing is held in memory beyond
-// the image being re-encoded.
+// decoding is a bulkhead: the decoded bytes of the images being
+// re-encoded at once stay within a budget per process (by default one
+// image of the largest kind, or many small ones); the rest wait. Nothing
+// is held in memory beyond the images being re-encoded.
 package imaging
 
 import (
@@ -22,33 +23,38 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"image/color"
 	"image/png"
 	"io"
 	"os"
+
+	"golang.org/x/sync/semaphore"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 )
 
-// DefaultConcurrency is how many images a process decodes at once.
-const DefaultConcurrency = 2
+// maxBytesPerPixel is what the widest decoded pixel takes (16-bit RGBA).
+const maxBytesPerPixel = 8
+
+// DefaultDecodeBudget bounds the decoded bytes a process holds at once:
+// one 40-megapixel image of 16-bit RGBA.
+const DefaultDecodeBudget = domain.MaxImagePixels * maxBytesPerPixel
 
 // Normalizer implements app.ImageNormalizer.
 type Normalizer struct {
-	dir   string
-	slots chan struct{}
+	dir    string
+	budget *semaphore.Weighted
 }
 
 var _ app.ImageNormalizer = (*Normalizer)(nil)
 
 // New returns a Normalizer that spools to dir (the system's temporary
-// directory when empty) and decodes at most concurrency images at once
-// (DefaultConcurrency when below 1).
-func New(dir string, concurrency int) *Normalizer {
-	if concurrency < 1 {
-		concurrency = DefaultConcurrency
-	}
-	return &Normalizer{dir: dir, slots: make(chan struct{}, concurrency)}
+// directory when empty) and decodes images while their decoded bytes
+// stay within budget (DefaultDecodeBudget when smaller than it: the
+// largest image must always fit).
+func New(dir string, budget int64) *Normalizer {
+	return &Normalizer{dir: dir, budget: semaphore.NewWeighted(max(budget, DefaultDecodeBudget))}
 }
 
 // Normalize implements app.ImageNormalizer.
@@ -61,10 +67,11 @@ func (n *Normalizer) Normalize(ctx context.Context, part io.Reader, want domain.
 		return nil, err
 	}
 	defer remove(upload)
-	if err := checkHeader(upload); err != nil {
+	weight, err := checkHeader(upload)
+	if err != nil {
 		return nil, err
 	}
-	return n.reencode(ctx, upload)
+	return n.reencode(ctx, upload, weight)
 }
 
 // spool copies the part to a temporary file, at most MaxImageBytes of
@@ -91,29 +98,46 @@ func (n *Normalizer) spool(part io.Reader, want domain.Digest) (*os.File, error)
 }
 
 // checkHeader reads the PNG header: a PNG of at most MaxImagePixels.
-func checkHeader(f *os.File) error {
+// It returns the bytes the decoded image will take.
+func checkHeader(f *os.File) (int64, error) {
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		return err
+		return 0, err
 	}
 	cfg, err := png.DecodeConfig(bufio.NewReader(f))
 	if err != nil {
-		return fmt.Errorf("%w: not a PNG: %v", domain.ErrInvalidImage, err)
+		return 0, fmt.Errorf("%w: not a PNG: %v", domain.ErrInvalidImage, err)
 	}
-	if int64(cfg.Width)*int64(cfg.Height) > domain.MaxImagePixels {
-		return fmt.Errorf("%w: %d×%d pixels is more than %d", domain.ErrImageTooLarge, cfg.Width, cfg.Height, domain.MaxImagePixels)
+	pixels := int64(cfg.Width) * int64(cfg.Height)
+	if pixels > domain.MaxImagePixels {
+		return 0, fmt.Errorf("%w: %d×%d pixels is more than %d", domain.ErrImageTooLarge, cfg.Width, cfg.Height, domain.MaxImagePixels)
 	}
-	return nil
+	return pixels * bytesPerPixel(cfg.ColorModel), nil
+}
+
+// bytesPerPixel is what image/png decodes a pixel of model into.
+func bytesPerPixel(model color.Model) int64 {
+	switch model {
+	case color.GrayModel:
+		return 1
+	case color.Gray16Model:
+		return 2
+	case color.RGBAModel, color.NRGBAModel:
+		return 4
+	}
+	if _, paletted := model.(color.Palette); paletted {
+		return 1
+	}
+	return maxBytesPerPixel
 }
 
 // reencode decodes the spooled upload and encodes its pixels again into
 // a new temporary file.
-func (n *Normalizer) reencode(ctx context.Context, upload *os.File) (app.NormalizedImage, error) {
-	select {
-	case n.slots <- struct{}{}:
-		defer func() { <-n.slots }()
-	case <-ctx.Done():
-		return nil, ctx.Err()
+func (n *Normalizer) reencode(ctx context.Context, upload *os.File, weight int64) (app.NormalizedImage, error) {
+	weight = max(weight, 1)
+	if err := n.budget.Acquire(ctx, weight); err != nil {
+		return nil, err
 	}
+	defer n.budget.Release(weight)
 	if _, err := upload.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}

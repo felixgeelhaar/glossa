@@ -164,7 +164,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	usageContext := contextapp.New(contextpg.NewTransactor(uow), contextcatalog.New(catalog),
 		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger),
 		contextapp.WithLimiter(ratelimit.New(contextUploadLimit())), contextapp.WithMetrics(contextmetrics.New(deps.registerer)),
-		contextapp.WithImages(deps.objects, imaging.New("", imaging.DefaultConcurrency)))
+		contextapp.WithImages(deps.objects, imaging.New("", imaging.DefaultDecodeBudget)))
 	if err := usageContext.Subscribe(events); err != nil {
 		return contexts{}, err
 	}

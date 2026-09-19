@@ -106,7 +106,7 @@ func normalize(t *testing.T, n *imaging.Normalizer, b []byte) ([]byte, domain.Im
 }
 
 func TestNormalizeReencodesWithoutMetadata(t *testing.T) {
-	n := imaging.New(t.TempDir(), 1)
+	n := imaging.New(t.TempDir(), 0)
 	src := picture(64, 40)
 	upload := withText(t, encode(t, src, png.BestSpeed), "customer: Jane Doe")
 	if _, err := png.Decode(bytes.NewReader(upload)); err != nil {
@@ -136,7 +136,7 @@ func TestNormalizeReencodesWithoutMetadata(t *testing.T) {
 }
 
 func TestNormalizeGivesTheSamePixelsTheSameDigest(t *testing.T) {
-	n := imaging.New(t.TempDir(), 2)
+	n := imaging.New(t.TempDir(), 0)
 	src := picture(50, 30)
 	_, fast, err := normalize(t, n, encode(t, src, png.BestSpeed))
 	if err != nil {
@@ -169,7 +169,7 @@ func TestNormalizeRefusals(t *testing.T) {
 		{"over 40 megapixels", header(8000, 5001), domain.ErrImageTooLarge},
 		{"over 10 MB", append(valid, bytes.Repeat([]byte{0}, domain.MaxImageBytes)...), domain.ErrImageTooLarge},
 	}
-	n := imaging.New(t.TempDir(), 1)
+	n := imaging.New(t.TempDir(), 0)
 	for _, tc := range cases {
 		t.Run(tc.why, func(t *testing.T) {
 			if _, _, err := normalize(t, n, tc.body); !errors.Is(err, tc.want) {
@@ -198,7 +198,7 @@ func (e errReader) Read([]byte) (int, error) { return 0, e.err }
 
 func TestNormalizeLeavesNothingBehind(t *testing.T) {
 	dir := t.TempDir()
-	n := imaging.New(dir, 1)
+	n := imaging.New(dir, 0)
 	valid := encode(t, picture(8, 8), png.DefaultCompression)
 	if _, _, err := normalize(t, n, valid); err != nil {
 		t.Fatal(err)
@@ -216,7 +216,7 @@ func TestNormalizeLeavesNothingBehind(t *testing.T) {
 }
 
 func TestNormalizeStopsWhenCancelled(t *testing.T) {
-	n := imaging.New(t.TempDir(), 1)
+	n := imaging.New(t.TempDir(), 0)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	valid := encode(t, picture(8, 8), png.DefaultCompression)

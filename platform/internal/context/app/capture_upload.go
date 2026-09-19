@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"slices"
 
 	"github.com/google/uuid"
@@ -87,27 +88,25 @@ func (s *Service) IngestCaptures(ctx context.Context, in IngestCaptures) (Captur
 		s.recordCaptures(ctx, first, 0, 0)
 		return first, err
 	}
-	images, err := s.receiveImages(ctx, up, in.Images)
-	defer closeImages(images)
-	if err != nil {
-		return CapturesIngested{}, err
+	rec, err := s.receiveImages(ctx, in.Project, up, in.Images)
+	var (
+		captures []domain.Capture
+		out      CapturesIngested
+	)
+	if err == nil {
+		var unknown []string
+		if captures, unknown, err = s.newCaptures(ctx, b, up, rec.images); err == nil {
+			out, err = s.insertCaptures(ctx, b, captures, unknown)
+		}
 	}
-	stored, deduplicated, bytes, err := s.storeImages(ctx, in.Project, images)
 	if err != nil {
-		return CapturesIngested{}, err
-	}
-	captures, unknown, err := s.newCaptures(ctx, b, up, images)
-	if err != nil {
-		return CapturesIngested{}, err
-	}
-	out, err := s.insertCaptures(ctx, b, captures, unknown)
-	if err != nil {
+		s.discardImages(ctx, rec.written)
 		return CapturesIngested{}, err
 	}
 	if !out.Replayed {
-		out.ImagesStored, out.ImagesDeduplicated = stored, deduplicated
+		out.ImagesStored, out.ImagesDeduplicated = rec.stored, rec.deduplicated
 	}
-	s.recordCaptures(ctx, out, regionCount(captures), bytes)
+	s.recordCaptures(ctx, out, regionCount(captures), rec.bytes)
 	return out, nil
 }
 
@@ -172,115 +171,118 @@ func replayCaptures(ctx context.Context, st Store, b domain.Build) (CapturesInge
 	return CapturesIngested{Build: first, Captures: n, UnknownKeys: unknown, Replayed: true}, err
 }
 
+// received is what an upload's image parts stored.
+type received struct {
+	// images maps each uploaded digest to its stored image.
+	images map[domain.Digest]domain.Image
+	// seen are the stored images' digests.
+	seen map[domain.Digest]bool
+	// written are the keys this upload wrote: removed again if the
+	// upload fails.
+	written []string
+	// stored counts the images written, deduplicated those whose pixels
+	// were stored already; bytes is what was written.
+	stored, deduplicated int
+	bytes                int64
+}
+
 // receiveImages reads every image part: each names an image of the
-// manifest, once, and is the PNG its entry describes. The result maps
-// the uploaded digest to the re-encoded image; the caller closes them,
-// on failure too.
-func (s *Service) receiveImages(ctx context.Context, up domain.CaptureUpload, parts ImageParts) (map[domain.Digest]NormalizedImage, error) {
+// manifest, once, and is the PNG its entry describes. Each is stored as
+// soon as it is re-encoded, so an upload holds one image on disk at a
+// time, however many it carries.
+func (s *Service) receiveImages(ctx context.Context, project uuid.UUID, up domain.CaptureUpload, parts ImageParts) (received, error) {
 	want := map[domain.Digest]domain.Image{}
 	for _, img := range up.Parts() {
 		want[img.Digest] = img
 	}
-	got := map[domain.Digest]NormalizedImage{}
+	rec := received{images: map[domain.Digest]domain.Image{}, seen: map[domain.Digest]bool{}}
 	for {
 		name, body, err := parts.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return got, err
+			return rec, err
 		}
 		d, err := domain.ParseDigest(name)
 		entry, referenced := want[d]
+		_, twice := rec.images[d]
 		switch {
 		case err != nil || !referenced:
-			return got, fmt.Errorf("%w: part %q is no image of the manifest", domain.ErrInvalidCaptures, name)
-		case got[d] != nil:
-			return got, fmt.Errorf("%w: image %s is uploaded twice", domain.ErrInvalidCaptures, d)
+			return rec, fmt.Errorf("%w: part %q is no image of the manifest", domain.ErrInvalidCaptures, name)
+		case twice:
+			return rec, fmt.Errorf("%w: image %s is uploaded twice", domain.ErrInvalidCaptures, d)
 		}
-		img, err := s.images.Normalize(ctx, body, d)
-		if err != nil {
-			return got, err
-		}
-		got[d] = img
-		if w, h := img.Image().Width, img.Image().Height; w != entry.Width || h != entry.Height {
-			return got, fmt.Errorf("%w: image %s is %d×%d pixels; the manifest says %d×%d", domain.ErrInvalidImage, d, w, h,
-				entry.Width, entry.Height)
+		if err := s.receiveImage(ctx, project, entry, body, &rec); err != nil {
+			return rec, err
 		}
 	}
 	for _, img := range up.Parts() {
-		if got[img.Digest] == nil {
-			return got, fmt.Errorf("%w: no part holds image %s", domain.ErrInvalidCaptures, img.Digest)
+		if _, ok := rec.images[img.Digest]; !ok {
+			return rec, fmt.Errorf("%w: no part holds image %s", domain.ErrInvalidCaptures, img.Digest)
 		}
 	}
-	return got, nil
+	return rec, nil
 }
 
-func closeImages(images map[domain.Digest]NormalizedImage) {
-	for _, img := range images {
-		_ = img.Close()
-	}
-}
-
-// storeImages writes the re-encoded images to object storage, content
-// addressed; an image whose pixels are stored already is not written
-// again. It returns how many were written and deduplicated, and the
-// bytes written.
-func (s *Service) storeImages(ctx context.Context, project uuid.UUID, images map[domain.Digest]NormalizedImage) (stored, deduplicated int, bytes int64, err error) {
-	t, _ := tenancy.FromContext(ctx)
-	done := map[domain.Digest]bool{}
-	for _, part := range sortedParts(images) {
-		img := images[part]
-		d := img.Image().Digest
-		key := domain.ImageKey(t, project, d)
-		exists := done[d]
-		if !exists {
-			if exists, err = s.objects.Exists(ctx, key); err != nil {
-				return 0, 0, 0, fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
-			}
-		}
-		done[d] = true
-		if exists {
-			deduplicated++
-			continue
-		}
-		n, err := s.putImage(ctx, key, img)
-		if err != nil {
-			return 0, 0, 0, err
-		}
-		stored++
-		bytes += n
-	}
-	return stored, deduplicated, bytes, nil
-}
-
-func (s *Service) putImage(ctx context.Context, key string, img NormalizedImage) (int64, error) {
-	r, err := img.Open()
+// receiveImage re-encodes one part and stores it content-addressed,
+// unless the project (or this upload) stored the same pixels already.
+func (s *Service) receiveImage(ctx context.Context, project uuid.UUID, entry domain.Image, body io.Reader, rec *received) error {
+	n, err := s.images.Normalize(ctx, body, entry.Digest)
 	if err != nil {
-		return 0, err
+		return err
+	}
+	defer func() { _ = n.Close() }()
+	img := n.Image()
+	if img.Width != entry.Width || img.Height != entry.Height {
+		return fmt.Errorf("%w: image %s is %d×%d pixels; the manifest says %d×%d", domain.ErrInvalidImage, entry.Digest,
+			img.Width, img.Height, entry.Width, entry.Height)
+	}
+	rec.images[entry.Digest] = img
+	stored := rec.seen[img.Digest]
+	rec.seen[img.Digest] = true
+	t, _ := tenancy.FromContext(ctx)
+	key := domain.ImageKey(t, project, img.Digest)
+	if !stored {
+		if stored, err = s.objects.Exists(ctx, key); err != nil {
+			return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
+		}
+	}
+	if stored {
+		rec.deduplicated++
+		return nil
+	}
+	r, err := n.Open()
+	if err != nil {
+		return err
 	}
 	defer func() { _ = r.Close() }()
-	n, err := s.objects.PutStream(ctx, key, r, "image/png")
+	size, err := s.objects.PutStream(ctx, key, r, "image/png")
 	if err != nil {
-		return 0, fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
+		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
 	}
-	return n, nil
+	rec.written = append(rec.written, key)
+	rec.stored++
+	rec.bytes += size
+	return nil
 }
 
-// sortedParts orders the parts by digest, so storing is deterministic.
-func sortedParts(images map[domain.Digest]NormalizedImage) []domain.Digest {
-	out := make([]domain.Digest, 0, len(images))
-	for d := range images {
-		out = append(out, d)
+// discardImages removes the images a failed upload wrote. Best effort:
+// what can't be removed stays unreferenced, and a retry of the same
+// pixels reuses it.
+func (s *Service) discardImages(ctx context.Context, keys []string) {
+	for _, key := range keys {
+		if err := s.objects.Delete(context.WithoutCancel(ctx), key); err != nil {
+			s.logger.WarnContext(ctx, "context: image of a failed upload not removed", slog.String("key", key),
+				slog.Any("error", err))
+		}
 	}
-	slices.Sort(out)
-	return out
 }
 
 // newCaptures builds the captures of b: each on its stored image, with
 // its region keys resolved to message IDs. It returns the keys the
 // catalog didn't know, in order.
-func (s *Service) newCaptures(ctx context.Context, b domain.Build, up domain.CaptureUpload, images map[domain.Digest]NormalizedImage) ([]domain.Capture, []string, error) {
+func (s *Service) newCaptures(ctx context.Context, b domain.Build, up domain.CaptureUpload, images map[domain.Digest]domain.Image) ([]domain.Capture, []string, error) {
 	ids, err := s.catalog.MessageIDs(ctx, b.ProjectID, up.Keys())
 	if err != nil {
 		return nil, nil, err
@@ -288,7 +290,7 @@ func (s *Service) newCaptures(ctx context.Context, b domain.Build, up domain.Cap
 	out := make([]domain.Capture, len(up.Captures))
 	unknown := map[string]bool{}
 	for i, in := range up.Captures {
-		in.Image = images[in.Image.Digest].Image()
+		in.Image = images[in.Image.Digest]
 		in.Regions = slices.Clone(in.Regions)
 		c, err := domain.NewCapture(b.ProjectID, b.ID, in, b.CreatedBy, b.CreatedAt)
 		if err != nil {

@@ -1156,19 +1156,22 @@ and every image needs a part. The `ImageNormalizer` port
 PNG of at most 40 megapixels from the header alone, and decodes and
 re-encodes the pixels with `image/png` — no chunk of the upload
 survives, and the same pixels always encode to the same bytes. Decoding
-is a bulkhead (2 images at once per process). The width and height must
-be the manifest's. The re-encoded image is stored in object storage
-(the `Objects` port, `objectstore.StreamStore`) at
+is a bulkhead: the decoded bytes in flight stay within one 40-megapixel
+16-bit image per process (320 MB; many small images at once). The
+width and height must be the manifest's. The re-encoded image is stored
+at once in object storage (the `Objects` port,
+`objectstore.StreamStore`) at
 `context/<tenant>/<project>/img/<sha256>.png` unless that key exists
-(dedupe across builds and within an upload); then one unit of work
+(dedupe across builds and within an upload), so an upload holds one
+image on disk at a time (the server's `/tmp` is a 256 MiB `emptyDir`);
+a refused or failed upload removes the images it wrote (best effort: a
+leftover is reused by the next upload of the same pixels). Then one unit of work
 stores a build of source `capture` (default branch from Catalog, as for
 usages) with its captures and regions, keys resolved at ingest (unknown
 ones kept with a null ID and listed), and publishes
 `context.build.ingested` and a `context.capture.ingested` per capture.
 It is idempotent by (application, commit, source, manifest digest): a
-repeat is a replay that reads no image. Images are stored before the
-rows, so a failed unit of work leaves at most unreferenced objects the
-next upload of the same pixels reuses. `CapturesOfKey` lists a message's
+repeat is a replay that reads no image. `CapturesOfKey` lists a message's
 current captures (views as for usages) with only its regions;
 `CaptureImage` reads an image through the service (`ErrCaptureNotFound`
 across projects and tenants, or when retention removed it).
