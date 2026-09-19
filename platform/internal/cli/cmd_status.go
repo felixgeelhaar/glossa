@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 )
 
@@ -42,11 +43,20 @@ func runStatus(ctx context.Context, inv *invocation, args []string) error {
 	if err != nil {
 		return err
 	}
-	s, label, err := inv.snapshot(ctx, cfg, *offline, snapshot.Options{})
-	if err != nil {
+	var (
+		out   statusJSON
+		label string
+	)
+	if *offline {
+		s, l, err := inv.snapshot(ctx, cfg, true, snapshot.Options{})
+		if err != nil {
+			return err
+		}
+		out, label = statusJSON{Origin: s.Origin, Messages: len(s.Messages), Locales: coverage(s)}, l
+	} else if out, label, err = inv.serverStatus(ctx, cfg); err != nil {
 		return err
 	}
-	out := statusJSON{Schema: "glossa.cli.status/v1", Origin: s.Origin, Messages: len(s.Messages), Locales: coverage(s)}
+	out.Schema = "glossa.cli.status/v1"
 	return inv.emit(out, func(p *printer) {
 		p.line("%s %s", p.bold(label), p.dim(plural(out.Messages, "message", "messages")))
 		rows := [][]string{{"LOCALE", "TRANSLATED", "APPROVED", "REVIEW", "DRAFT", "OUTDATED", "MISSING", "COVERAGE"}}
@@ -60,6 +70,37 @@ func runStatus(ctx context.Context, inv *invocation, args []string) error {
 		}
 		p.table(rows)
 	})
+}
+
+// serverStatus reads the project's per-locale stats: one request,
+// computed by the server, instead of every translation.
+func (inv *invocation) serverStatus(ctx context.Context, cfg *config.Config) (statusJSON, string, error) {
+	p, err := inv.connectWith(ctx, cfg)
+	if err != nil {
+		return statusJSON{}, "", err
+	}
+	st, err := p.client.TranslationStats(ctx, p.scope)
+	if err != nil {
+		return statusJSON{}, "", inv.apiError(err, "can't read the project's translation stats")
+	}
+	out := statusJSON{Origin: snapshot.FromServerOrigin, Messages: st.Messages, Locales: make([]localeStatus, 0, len(st.Locales))}
+	for _, l := range st.Locales {
+		ls := localeStatus{Code: l.Code, Direction: string(l.Direction), IsSource: l.IsSource, Translated: l.Translated,
+			Approved: l.States.Approved, NeedsReview: l.States.NeedsReview, Draft: l.States.Draft, Rejected: l.States.Rejected,
+			Outdated: l.Outdated, Missing: l.Missing, Coverage: 1}
+		if st.Messages > 0 {
+			ls.Coverage = float64(l.Translated) / float64(st.Messages)
+		}
+		out.Locales = append(out.Locales, ls)
+	}
+	sort.SliceStable(out.Locales, func(i, j int) bool {
+		a, b := out.Locales[i], out.Locales[j]
+		if a.IsSource != b.IsSource {
+			return a.IsSource
+		}
+		return a.Code < b.Code
+	})
+	return out, fmt.Sprintf("%s on %s", p.info.Slug, cfg.Server), nil
 }
 
 // coverage counts review states per locale. Coverage is the share of

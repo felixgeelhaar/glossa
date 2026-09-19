@@ -228,28 +228,35 @@ func importMessages(ctx context.Context, p *project, plan v0.Plan) ([]importItem
 }
 
 // existingTranslations reads the server's translations of keys as
-// locale → key → (canonical model, state).
+// locale → key → (canonical model, state), with the bulk listing.
 func existingTranslations(ctx context.Context, p *project, keys map[string]bool) (map[string]map[string][2]string, error) {
-	list := make([]string, 0, len(keys))
-	for k := range keys {
-		list = append(list, k)
+	locales, err := p.client.Locales(ctx, p.scope)
+	if err != nil {
+		return nil, err
 	}
-	all, err := p.client.AllTranslations(ctx, p.scope, list)
+	var targets []string
+	for _, l := range locales {
+		if !l.IsSource {
+			targets = append(targets, l.Code)
+		}
+	}
+	trs, err := p.client.ProjectTranslations(ctx, p.scope, targets, remote.TranslationFilter{})
 	if err != nil {
 		return nil, err
 	}
 	out := map[string]map[string][2]string{}
-	for key, trs := range all {
-		for _, t := range trs {
-			model, err := snapshot.DecodeModel(t.Model)
-			if err != nil {
-				continue
-			}
-			if out[t.Locale] == nil {
-				out[t.Locale] = map[string][2]string{}
-			}
-			out[t.Locale][key] = [2]string{snapshot.ModelJSON(model), string(t.State)}
+	for _, t := range trs {
+		if !keys[t.Key] {
+			continue
 		}
+		model, err := snapshot.DecodeModel(t.Model)
+		if err != nil {
+			continue
+		}
+		if out[t.Locale] == nil {
+			out[t.Locale] = map[string][2]string{}
+		}
+		out[t.Locale][t.Key] = [2]string{snapshot.ModelJSON(model), string(t.State)}
 	}
 	return out, nil
 }

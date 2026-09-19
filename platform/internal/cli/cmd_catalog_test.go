@@ -188,6 +188,28 @@ func TestStatusCountsCoverage(t *testing.T) {
 	}
 }
 
+// check, diff and pull read translations with the bulk listing (paged),
+// status reads the stats; none reads one message at a time.
+func TestReadsTranslationsInBulk(t *testing.T) {
+	srv, w := seeded(t)
+	const p = "GET /v1/tenants/ten_1/projects/prj_1"
+	before := srv.countRequests(p + "/translations ")
+	w.json(&statusJSON{}, "status").want(t, ExitOK)
+	if srv.countRequests(p+"/translation-stats ") != 1 || srv.countRequests(p+"/translations ") != before {
+		t.Errorf("status: %d stats reads, %d listings", srv.countRequests(p+"/translation-stats "), srv.countRequests(p+"/translations ")-before)
+	}
+	w.json(&checkJSON{}, "check").want(t, ExitCheckFailed)
+	w.json(&diffJSON{}, "diff").want(t, ExitOK)
+	w.json(&pullJSON{}, "pull").want(t, ExitOK)
+	// 5 translations across de and ja, 2 a page: 3 pages per command.
+	if n := srv.countRequests(p+"/translations ") - before; n != 9 {
+		t.Errorf("%d listing requests for check, diff and pull, want 9", n)
+	}
+	if n := srv.countRequests(p + "/messages/"); n != 0 {
+		t.Errorf("%d per-message reads", n)
+	}
+}
+
 func TestDiffComparesCanonicalModels(t *testing.T) {
 	_, w := seeded(t)
 	var out diffJSON

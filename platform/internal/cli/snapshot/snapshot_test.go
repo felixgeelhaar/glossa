@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,7 +78,7 @@ func (fakeReader) Messages(_ context.Context, _ remote.Scope, f remote.MessageFi
 	if f.State != "active" {
 		return nil, errors.New("want active messages only")
 	}
-	m := remote.Message{Key: "cart.items", Namespace: "default", SourceRevision: 2}
+	m := remote.Message{Id: "m1", Key: "cart.items", Namespace: "default", SourceRevision: 2}
 	m.Source.Text = "{count, plural, one {# item} other {# items}}"
 	m.Source.Syntax = "mf1"
 	model, _ := mf.ParseMF1(m.Source.Text, "en")
@@ -85,11 +86,20 @@ func (fakeReader) Messages(_ context.Context, _ remote.Scope, f remote.MessageFi
 	return []remote.Message{m}, nil
 }
 
-func (fakeReader) AllTranslations(_ context.Context, _ remote.Scope, keys []string) (map[string][]remote.Translation, error) {
+// ProjectTranslations answers like the bulk listing: Localization's
+// view of the keys (here, one that lags a rename) and a translation of
+// a message Catalog no longer lists.
+func (fakeReader) ProjectTranslations(_ context.Context, _ remote.Scope, locales []string, f remote.TranslationFilter) ([]remote.ProjectTranslation, error) {
+	if f.MessageState != "active" || len(f.States) != 0 || len(locales) != 1 || locales[0] != "de" {
+		return nil, fmt.Errorf("want every state of active messages in the target locales, got %v %+v", locales, f)
+	}
 	model, _ := mf.ParseMF1("{count, plural, one {# Artikel} other {# Artikel}}", "de")
 	detail := "one"
-	return map[string][]remote.Translation{keys[0]: {{Locale: "de", Text: "…", State: "approved", SourceRevision: 1,
-		Outdated: true, Model: toMap(model), Warnings: []remote.QAFinding{{Code: "max-length-exceeded", Severity: "warning", Message: "long", Detail: &detail}}}}}, nil
+	return []remote.ProjectTranslation{
+		{MessageId: "m1", Key: "cart.old_key", Locale: "de", Text: "…", State: "approved", SourceRevision: 1, Outdated: true,
+			Model: toMap(model), Warnings: []remote.QAFinding{{Code: "max-length-exceeded", Severity: "warning", Message: "long", Detail: &detail}}},
+		{MessageId: "m-gone", Key: "gone", Locale: "de", Text: "x", State: "approved", Model: toMap(model)},
+	}, nil
 }
 
 func (fakeReader) FallbackGraph(context.Context, remote.Scope) (map[string][]string, error) {
@@ -116,7 +126,10 @@ func TestFromServerDecodesModelsAndTranslations(t *testing.T) {
 		t.Errorf("message = %+v", m)
 	}
 	tr := s.Translations["de"]["cart.items"]
-	if tr.Model == nil || !tr.Outdated || tr.State != "approved" || len(tr.Warnings) != 1 || tr.Warnings[0].Detail != "one" {
+	if tr.Model == nil || !tr.Outdated || tr.State != "approved" || len(tr.Warnings) != 1 || tr.Warnings[0].Detail != "one" || tr.Key != "cart.items" {
 		t.Errorf("translation = %+v", tr)
+	}
+	if len(s.Translations["de"]) != 1 {
+		t.Errorf("translations of messages Catalog doesn't list: %+v", s.Translations["de"])
 	}
 }

@@ -66,6 +66,8 @@ func newFakeServer(t *testing.T) *fakeServer {
 	mux.HandleFunc("POST "+p+"/message-upserts", f.upsert)
 	mux.HandleFunc("GET "+p+"/messages/{key}/translations", f.listTranslations)
 	mux.HandleFunc("POST "+p+"/translation-imports", f.importTranslations)
+	mux.HandleFunc("GET "+p+"/translations", f.listProjectTranslations)
+	mux.HandleFunc("GET "+p+"/translation-stats", f.translationStats)
 	f.routeReleases(mux, p)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()

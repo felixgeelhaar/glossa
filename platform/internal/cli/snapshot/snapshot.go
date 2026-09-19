@@ -225,7 +225,7 @@ func direction(locale string) string {
 type Reader interface {
 	Locales(ctx context.Context, s remote.Scope) ([]remote.ProjectLocale, error)
 	Messages(ctx context.Context, s remote.Scope, f remote.MessageFilter) ([]remote.Message, error)
-	AllTranslations(ctx context.Context, s remote.Scope, keys []string) (map[string][]remote.Translation, error)
+	ProjectTranslations(ctx context.Context, s remote.Scope, locales []string, f remote.TranslationFilter) ([]remote.ProjectTranslation, error)
 	FallbackGraph(ctx context.Context, s remote.Scope) (map[string][]string, error)
 }
 
@@ -236,7 +236,10 @@ type Options struct {
 }
 
 // FromServer reads the project's active messages, locales and
-// translations.
+// translations. Translations come from the bulk listing (every target
+// locale, active messages, a page per request) and are joined to
+// Catalog's messages by message ID, so a key Localization hasn't caught
+// up with yet (a rename a moment ago) still lands on the right message.
 func FromServer(ctx context.Context, r Reader, scope remote.Scope, sourceLocale string, opts Options) (*Snapshot, error) {
 	locales, err := r.Locales(ctx, scope)
 	if err != nil {
@@ -254,10 +257,10 @@ func FromServer(ctx context.Context, r Reader, scope remote.Scope, sourceLocale 
 			s.Translations[l.Code] = map[string]Translation{}
 		}
 	}
-	keys := make([]string, 0, len(msgs))
+	byID := make(map[string]string, len(msgs))
 	for _, m := range msgs {
 		s.Messages = append(s.Messages, fromRemoteMessage(m))
-		keys = append(keys, m.Key)
+		byID[m.Id] = m.Key
 	}
 	sort.Slice(s.Messages, func(i, j int) bool { return s.Messages[i].Key < s.Messages[j].Key })
 	if s.Fallback, err = r.FallbackGraph(ctx, scope); err != nil {
@@ -266,15 +269,19 @@ func FromServer(ctx context.Context, r Reader, scope remote.Scope, sourceLocale 
 	if opts.SkipTranslations {
 		return s, nil
 	}
-	all, err := r.AllTranslations(ctx, scope, keys)
+	targets := make([]string, 0, len(s.Translations))
+	for _, l := range s.TargetLocales() {
+		targets = append(targets, l.Code)
+	}
+	trs, err := r.ProjectTranslations(ctx, scope, targets, remote.TranslationFilter{MessageState: "active"})
 	if err != nil {
 		return nil, err
 	}
-	for key, trs := range all {
-		for _, t := range trs {
-			if byKey, ok := s.Translations[t.Locale]; ok {
-				byKey[key] = fromRemoteTranslation(key, t)
-			}
+	for _, t := range trs {
+		key, ok := byID[t.MessageId]
+		byKey, known := s.Translations[t.Locale]
+		if ok && known {
+			byKey[key] = fromRemoteTranslation(key, t)
 		}
 	}
 	return s, nil
@@ -293,7 +300,7 @@ func fromRemoteMessage(m remote.Message) Message {
 	return out
 }
 
-func fromRemoteTranslation(key string, t remote.Translation) Translation {
+func fromRemoteTranslation(key string, t remote.ProjectTranslation) Translation {
 	out := Translation{Key: key, Locale: t.Locale, Text: t.Text, Syntax: string(t.Syntax), State: string(t.State),
 		Origin: string(t.Origin), SourceRevision: t.SourceRevision, Outdated: t.Outdated}
 	if model, err := DecodeModel(t.Model); err == nil {

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"sync"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
 )
@@ -19,6 +18,8 @@ type (
 	ProjectLocale         = apiclient.ProjectLocale
 	Message               = apiclient.Message
 	Translation           = apiclient.Translation
+	ProjectTranslation    = apiclient.ProjectTranslation
+	TranslationStats      = apiclient.TranslationStats
 	QAFinding             = apiclient.QAFinding
 	MessageUpsertItem     = apiclient.MessageUpsertItem
 	MessageUpsertResult   = apiclient.MessageUpsertItemResult
@@ -179,57 +180,67 @@ func (c *Client) Messages(ctx context.Context, s Scope, f MessageFilter) ([]Mess
 	})
 }
 
-// MessageTranslations lists one message's translations.
-func (c *Client) MessageTranslations(ctx context.Context, s Scope, key string) ([]Translation, error) {
+// MaxLocalesPerList is the most locales one translations listing takes.
+const MaxLocalesPerList = 20
+
+// TranslationFilter narrows ProjectTranslations.
+type TranslationFilter struct {
+	// MessageState is "active" or "obsolete"; empty lists both.
+	MessageState string
+	// States are review states; empty lists every state.
+	States []string
+}
+
+// ProjectTranslations lists the translations of the given locales
+// across the project's messages: one request per page and per 20
+// locales, ordered by key and locale within each group of locales. It
+// replaces reading one message at a time.
+func (c *Client) ProjectTranslations(ctx context.Context, s Scope, locales []string, f TranslationFilter) ([]ProjectTranslation, error) {
+	var out []ProjectTranslation
+	for start := 0; start < len(locales); start += MaxLocalesPerList {
+		chunk := locales[start:min(start+MaxLocalesPerList, len(locales))]
+		items, err := c.projectTranslations(ctx, s, chunk, f)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, items...)
+	}
+	return out, nil
+}
+
+func (c *Client) projectTranslations(ctx context.Context, s Scope, locales []string, f TranslationFilter) ([]ProjectTranslation, error) {
 	size := pageSize
-	return collect(func(tok *string) ([]Translation, *string, error) {
-		r, err := c.api.ListMessageTranslationsWithResponse(ctx, s.Tenant, s.Project, key,
-			&apiclient.ListMessageTranslationsParams{PageSize: &size, PageToken: tok})
-		if err := check(r, err, http.MethodGet,
-			c.path("/v1/tenants/%s/projects/%s/messages/%s/translations", s.Tenant, s.Project, key)); err != nil {
+	params := apiclient.ListProjectTranslationsParams{PageSize: &size, Locale: locales}
+	if f.MessageState != "" {
+		st := apiclient.MessageState(f.MessageState)
+		params.MessageState = &st
+	}
+	if len(f.States) > 0 {
+		states := make([]apiclient.ReviewState, len(f.States))
+		for i, st := range f.States {
+			states[i] = apiclient.ReviewState(st)
+		}
+		params.State = &states
+	}
+	return collect(func(tok *string) ([]ProjectTranslation, *string, error) {
+		p := params
+		p.PageToken = tok
+		r, err := c.api.ListProjectTranslationsWithResponse(ctx, s.Tenant, s.Project, &p)
+		if err := check(r, err, http.MethodGet, c.path("/v1/tenants/%s/projects/%s/translations", s.Tenant, s.Project)); err != nil {
 			return nil, nil, err
 		}
 		return r.JSON200.Items, r.JSON200.NextPageToken, nil
 	})
 }
 
-// AllTranslations reads the translations of every key, a few messages at
-// a time. The /v1 API has no project-wide translation list yet, so this
-// is one request per message (bounded concurrency).
-func (c *Client) AllTranslations(ctx context.Context, s Scope, keys []string) (map[string][]Translation, error) {
-	const workers = 8
-	out := make(map[string][]Translation, len(keys))
-	var (
-		mu       sync.Mutex
-		wg       sync.WaitGroup
-		firstErr error
-	)
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	next := make(chan string)
-	for range workers {
-		wg.Go(func() {
-			for key := range next {
-				trs, err := c.MessageTranslations(ctx, s, key)
-				mu.Lock()
-				if err != nil && firstErr == nil {
-					firstErr = err
-					cancel()
-				}
-				out[key] = trs
-				mu.Unlock()
-			}
-		})
+// TranslationStats summarizes every locale of the project in one
+// request: translated, missing, outdated and review states.
+func (c *Client) TranslationStats(ctx context.Context, s Scope) (TranslationStats, error) {
+	r, err := c.api.GetTranslationStatsWithResponse(ctx, s.Tenant, s.Project)
+	if err := check(r, err, http.MethodGet, c.path("/v1/tenants/%s/projects/%s/translation-stats", s.Tenant, s.Project)); err != nil {
+		return TranslationStats{}, err
 	}
-	for _, k := range keys {
-		select {
-		case next <- k:
-		case <-ctx.Done():
-		}
-	}
-	close(next)
-	wg.Wait()
-	return out, firstErr
+	return *r.JSON200, nil
 }
 
 // UpsertMessages creates or revises messages in batches of MaxBatch.
