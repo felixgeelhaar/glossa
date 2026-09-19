@@ -122,6 +122,20 @@ tags:
     description: |
       Publishable, project-scoped, revocable keys runtimes fetch
       releases from glossa-edge with.
+  - name: translation-memory
+    description: |
+      Knowledge: approved translations as reusable units, derived
+      through the outbox, with exact, in-context and fuzzy lookup and
+      concordance search. Retired units are kept as history.
+  - name: terminology
+    description: |
+      Knowledge: the termbase — concepts with terms per locale and
+      status — with term recognition and terminology QA.
+  - name: style-guides
+    description: |
+      Knowledge: structured, versioned style guides scoped to the
+      tenant, a project, a locale and a namespace, and the effective
+      style that applies to a message.
 
 paths:
   # ── meta ────────────────────────────────────────────────────────────
@@ -2563,6 +2577,602 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  # ── translation memory ──────────────────────────────────────────────
+  /v1/tenants/{tenant}/tm-lookups:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: lookupTranslationMemory
+      tags: [translation-memory]
+      summary: Find translation-memory matches for a message
+      description: |
+        Parses `source` (MF1 by default) and matches its normalized form —
+        placeholders by position, markup as tags — against active units
+        of the locale pair: exact matches (same text and placeholder
+        types) score 100, or 101 when the unit was approved for the same
+        `message_key` in the same `namespace` of `project_id`; fuzzy
+        matches (trigram similarity) score 50–99. Each target is renamed
+        to the query's variable names. By default a lookup sees
+        tenant-wide units and `project_id`'s; `all_projects` widens it to
+        the tenant. `count_hits` records the lookup in each returned
+        unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+        `invalid_query`, `invalid_locale`, `invalid_syntax`,
+        `invalid_message`, `message_too_long` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TMLookup" }
+      responses:
+        "200":
+          description: The matches, best first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TMLookupResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/tm-concordance:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: searchTranslationMemory
+      tags: [translation-memory]
+      summary: Find active units containing a phrase
+      description: |
+        Case-insensitive substring search over the normalized source (or
+        target) of active units, closest first — how a translator checks
+        how a phrase was translated before. Scope as for lookups. Needs
+        `knowledge.read`. Problem codes: `invalid_query`,
+        `invalid_locale` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: side, in: query, required: false, schema: { type: string, enum: [source, target], default: source } }
+        - { name: source_locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: target_locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: all_projects, in: query, required: false, schema: { type: boolean, default: false } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        "200":
+          description: Units containing the phrase.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TMConcordance" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/tm-units:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listTranslationMemoryUnits
+      tags: [translation-memory]
+      summary: Translation-memory units, active or retired
+      description: |
+        Units are derived from approved translations; retired ones are
+        their history. `translation` lists one translation's units.
+        Needs `knowledge.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: source_locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: target_locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: translation, in: query, required: false, description: A translation `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: state, in: query, required: false, schema: { type: string, enum: [active, retired, all], default: active } }
+      responses:
+        "200":
+          description: A page of units.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TMUnitList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/tm-units/{unit}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/TMUnitPath"
+    get:
+      operationId: getTranslationMemoryUnit
+      tags: [translation-memory]
+      summary: A translation-memory unit
+      description: Needs `knowledge.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The unit.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TMUnit" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: retireTranslationMemoryUnit
+      tags: [translation-memory]
+      summary: Retire a unit
+      description: |
+        Takes the unit out of matching (`retired_reason: deleted`); it
+        stays listed as history. Retiring a retired unit changes nothing.
+        A later approval of its translation derives a new unit. Needs
+        `knowledge.write`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Retired. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── terminology ─────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/term-concepts:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listTermConcepts
+      tags: [terminology]
+      summary: Termbase concepts
+      description: |
+        `project` lists the concepts that apply to it (its own and the
+        tenant-wide ones); `q` searches term texts (in `locale`, when
+        given) and definitions. Needs `knowledge.read`. Problem codes:
+        `invalid_query`, `invalid_locale` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: q, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: domain, in: query, required: false, schema: { type: string, maxLength: 100 } }
+      responses:
+        "200":
+          description: A page of concepts with their terms.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermConceptList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createTermConcept
+      tags: [terminology]
+      summary: Add a concept with its terms
+      description: |
+        Tenant-wide, or for one project (`project_id`). Needs
+        `knowledge.write`. Problem codes: `invalid_concept`,
+        `invalid_term`, `invalid_term_status`, `invalid_part_of_speech`,
+        `duplicate_term`, `invalid_locale`, `unknown_project` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTermConcept" }
+      responses:
+        "201":
+          description: The concept.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermConcept" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/term-concepts/{concept}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ConceptPath"
+    get:
+      operationId: getTermConcept
+      tags: [terminology]
+      summary: A concept with its terms
+      description: Needs `knowledge.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The concept.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermConcept" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      operationId: replaceTermConcept
+      tags: [terminology]
+      summary: Replace a concept and its terms
+      description: |
+        The body replaces the concept's content and its whole term list
+        (terms that stay keep their `id`); its scope never changes.
+        Unchanged content is no new version. Needs `knowledge.write`.
+        Problem codes as for creating.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReplaceTermConcept" }
+      responses:
+        "200":
+          description: The concept.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermConcept" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+    delete:
+      operationId: deleteTermConcept
+      tags: [terminology]
+      summary: Delete a concept
+      description: |
+        Its history stays readable, ending in a `deleted` revision.
+        `If-Match` is optional; when sent it must match. Needs
+        `knowledge.write`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/tenants/{tenant}/term-concepts/{concept}/revisions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ConceptPath"
+    get:
+      operationId: listTermConceptRevisions
+      tags: [terminology]
+      summary: A concept's history, newest first
+      description: Full snapshots, also after the concept was deleted. Needs `knowledge.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of revisions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermConceptRevisionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/term-recognitions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: recognizeTerms
+      tags: [terminology]
+      summary: Find termbase terms in a text
+      description: |
+        Word-based and locale-aware: case folded unless a term is
+        case-sensitive, short inflectional endings tolerated
+        (workspace → workspaces), scripts without spaces (Japanese,
+        Chinese, Thai) matched as substrings, overlaps resolved
+        leftmost-longest. With `syntax`, `text` is parsed as a message
+        and recognition runs over its visible text (placeholders become
+        U+FFFC), returned as `analyzed_text`; `start` and `end` are
+        Unicode code point offsets into it. `target_locale` adds each
+        concept's terms in that locale. Stores nothing. Needs
+        `knowledge.read`. Problem codes: `invalid_query`,
+        `invalid_locale`, `invalid_syntax`, `invalid_message` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TermRecognitionRequest" }
+      responses:
+        "200":
+          description: The terms found, in text order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermRecognition" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/terminology-checks:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: checkTerminology
+      tags: [terminology]
+      summary: Check a translation against the termbase
+      description: |
+        Terminology QA (intent §29.3): `term_missing` (warning) when a
+        concept recognized in the source has none of its preferred or
+        admitted target terms in the translation; `term_forbidden`
+        (error for forbidden, warning for deprecated terms) for every
+        forbidden or deprecated target term used. With `syntax`, both
+        texts are parsed as messages and checked as visible text. Spans
+        are code point offsets into `source_text` or `target_text`.
+        Deterministic; stores nothing. Needs `knowledge.read`. Problem
+        codes as for recognition.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TerminologyCheckRequest" }
+      responses:
+        "200":
+          description: The findings, source first, by position.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TerminologyCheck" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ── style guides ────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/style-guides:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listStyleGuides
+      tags: [style-guides]
+      summary: Style guides
+      description: |
+        Every guide, or only tenant-level ones (`tenant_only`), one
+        project's, or one locale's. Needs `knowledge.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: tenant_only, in: query, required: false, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: A page of guides.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StyleGuideList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createStyleGuide
+      tags: [style-guides]
+      summary: Add the style guide for a scope
+      description: |
+        A scope is any combination of `project_id`, `locale` (which
+        covers its descendants: `de` applies to `de-AT`) and `namespace`
+        (which needs a project); none is the tenant's guide. Each scope
+        has one guide. Needs `knowledge.write`. Problem codes:
+        `style_guide_exists` (409), `invalid_style_guide`,
+        `invalid_style_rule`, `namespace_needs_project`,
+        `invalid_locale`, `unknown_project` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateStyleGuide" }
+      responses:
+        "201":
+          description: The guide.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StyleGuide" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/style-guides/{style_guide}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/StyleGuidePath"
+    get:
+      operationId: getStyleGuide
+      tags: [style-guides]
+      summary: A style guide
+      description: Needs `knowledge.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The guide.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StyleGuide" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      operationId: replaceStyleGuide
+      tags: [style-guides]
+      summary: Replace a style guide's content
+      description: |
+        Replaces the name, fields and rules; the scope never changes.
+        Unchanged content is no new version. Needs `knowledge.write`.
+        Problem codes: `invalid_style_guide`, `invalid_style_rule` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReplaceStyleGuide" }
+      responses:
+        "200":
+          description: The guide.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StyleGuide" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+    delete:
+      operationId: deleteStyleGuide
+      tags: [style-guides]
+      summary: Delete a style guide
+      description: |
+        Its versions stay readable, ending in a `deleted` one. `If-Match`
+        is optional; when sent it must match. Needs `knowledge.write`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/tenants/{tenant}/style-guides/{style_guide}/versions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/StyleGuidePath"
+    get:
+      operationId: listStyleGuideVersions
+      tags: [style-guides]
+      summary: A style guide's versions, newest first
+      description: Full snapshots, also after the guide was deleted. Needs `knowledge.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of versions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StyleGuideVersionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/effective-style-guide:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: getEffectiveStyleGuide
+      tags: [style-guides]
+      summary: The style that applies to a project, locale and namespace
+      description: |
+        Every applicable guide merged field by field, the narrowest
+        winning: a namespace beats a locale, a deeper locale a shallower
+        one, a locale a project, a project the tenant. A narrower guide
+        replaces a broader rule with the same `id`, or switches it off
+        (`disabled`). `sources` names each guide version used, broadest
+        first. Without `project`, only tenant-level guides apply; without
+        `locale`, no locale guide does. Needs `knowledge.read`. Problem
+        codes: `invalid_locale` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: namespace, in: query, required: false, schema: { $ref: "#/components/schemas/Namespace" } }
+      responses:
+        "200":
+          description: The effective style.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EffectiveStyleGuide" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
 components:
   securitySchemes:
     session:
@@ -2653,6 +3263,24 @@ components:
       in: path
       required: true
       description: A delivery key `id` (not the key itself).
+      schema: { $ref: "#/components/schemas/Id" }
+    TMUnitPath:
+      name: unit
+      in: path
+      required: true
+      description: A translation-memory unit `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    ConceptPath:
+      name: concept
+      in: path
+      required: true
+      description: A termbase concept `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    StyleGuidePath:
+      name: style_guide
+      in: path
+      required: true
+      description: A style guide `id`.
       schema: { $ref: "#/components/schemas/Id" }
     PageSize:
       name: page_size
@@ -3884,3 +4512,405 @@ components:
       required: [name]
       properties:
         name: { type: string, minLength: 1, maxLength: 200, description: 'What uses it, e.g. "web" or "go-emails".' }
+
+    # ── knowledge: translation memory ─────────────────────────────────
+    TMUnit:
+      type: object
+      description: |
+        A translation-memory unit, derived from an approved translation.
+        `source` and `target` are canonical MF2; `source_normalized` is
+        what matching compares (placeholders by position, markup as
+        tags) and `signature` the placeholders' types by position.
+      required: [id, origin, source_locale, target_locale, source, target, target_model, source_normalized,
+                 signature, state, hit_count, created_by, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id", description: Absent for a tenant-wide unit. }
+        origin: { type: string, enum: [translation, import] }
+        translation_id: { $ref: "#/components/schemas/Id" }
+        translation_revision: { type: integer, minimum: 1, description: The translation revision the unit reflects. }
+        message_id: { $ref: "#/components/schemas/Id" }
+        message_key: { $ref: "#/components/schemas/MessageKey" }
+        namespace: { $ref: "#/components/schemas/Namespace" }
+        source_locale: { $ref: "#/components/schemas/Locale" }
+        target_locale: { $ref: "#/components/schemas/Locale" }
+        source: { type: string }
+        target: { type: string }
+        target_model: { $ref: "#/components/schemas/MF2Message" }
+        source_normalized: { type: string }
+        signature: { type: string, examples: ["1:number/plural,2:string"] }
+        state: { type: string, enum: [active, retired] }
+        hit_count: { type: integer, minimum: 0 }
+        last_hit_at: { $ref: "#/components/schemas/Timestamp" }
+        created_by: { type: string, description: Who wrote the text. }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        retired_at: { $ref: "#/components/schemas/Timestamp" }
+        retired_reason: { type: string, enum: [superseded, unapproved, overwritten, deleted] }
+        retired_by: { type: string }
+    TMUnitList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TMUnit" }
+        next_page_token: { type: string }
+    TMLookup:
+      type: object
+      required: [source, source_locale, target_locale]
+      properties:
+        source: { type: string, maxLength: 20000, description: The source message. }
+        syntax: { $ref: "#/components/schemas/Syntax" }
+        source_locale: { $ref: "#/components/schemas/Locale" }
+        target_locale: { $ref: "#/components/schemas/Locale" }
+        project_id: { $ref: "#/components/schemas/Id", description: The project the message belongs to. }
+        all_projects: { type: boolean, default: false, description: Also match other projects' units. }
+        message_key: { $ref: "#/components/schemas/MessageKey" }
+        namespace: { $ref: "#/components/schemas/Namespace" }
+        limit: { type: integer, minimum: 1, maximum: 50, default: 5 }
+        min_score: { type: integer, minimum: 50, maximum: 101, default: 50 }
+        count_hits: { type: boolean, default: false }
+    TMMatch:
+      type: object
+      required: [score, kind, target, target_model, variables_adapted, unit]
+      properties:
+        score: { type: integer, minimum: 50, maximum: 101 }
+        kind: { type: string, enum: [context, exact, fuzzy] }
+        target: { type: string, description: "The unit's target in MF2, its variables renamed to the query's by position." }
+        target_model: { $ref: "#/components/schemas/MF2Message" }
+        variables_adapted: { type: boolean, description: False when a target variable had no counterpart and kept its name. }
+        unit: { $ref: "#/components/schemas/TMUnit" }
+    TMLookupResult:
+      type: object
+      required: [source_normalized, matches]
+      properties:
+        source_normalized: { type: string }
+        matches:
+          type: array
+          items: { $ref: "#/components/schemas/TMMatch" }
+    TMConcordanceMatch:
+      type: object
+      required: [similarity, unit]
+      properties:
+        similarity: { type: number, minimum: 0, maximum: 1, description: Trigram word similarity of the phrase to the side searched. }
+        unit: { $ref: "#/components/schemas/TMUnit" }
+    TMConcordance:
+      type: object
+      required: [matches]
+      properties:
+        matches:
+          type: array
+          items: { $ref: "#/components/schemas/TMConcordanceMatch" }
+
+    # ── knowledge: terminology ────────────────────────────────────────
+    TermStatus:
+      type: string
+      enum: [preferred, admitted, deprecated, forbidden]
+    PartOfSpeech:
+      type: string
+      enum: [noun, verb, adjective, adverb, proper_noun, phrase, other]
+    Term:
+      type: object
+      required: [id, locale, text, status, case_sensitive]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        text: { type: string }
+        status: { $ref: "#/components/schemas/TermStatus" }
+        part_of_speech: { $ref: "#/components/schemas/PartOfSpeech" }
+        case_sensitive: { type: boolean }
+        note: { type: string }
+    TermInput:
+      type: object
+      required: [locale, text]
+      properties:
+        locale: { $ref: "#/components/schemas/Locale" }
+        text: { type: string, minLength: 1, maxLength: 200 }
+        status: { $ref: "#/components/schemas/TermStatus" }
+        part_of_speech: { $ref: "#/components/schemas/PartOfSpeech" }
+        case_sensitive: { type: boolean, default: false }
+        note: { type: string, maxLength: 4000 }
+    TermConcept:
+      type: object
+      description: A termbase concept (intent §19.2) with its terms per locale.
+      required: [id, definition, domain, note, product_ref, terms, version, created_by, created_at, updated_by, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id", description: Absent for a tenant-wide concept. }
+        definition: { type: string }
+        domain: { type: string }
+        note: { type: string }
+        product_ref: { type: string, description: A product concept this concept stands for (opaque). }
+        terms:
+          type: array
+          items: { $ref: "#/components/schemas/Term" }
+        version: { type: integer, minimum: 1 }
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_by: { type: string }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    TermConceptList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TermConcept" }
+        next_page_token: { type: string }
+    CreateTermConcept:
+      type: object
+      required: [terms]
+      properties:
+        project_id: { $ref: "#/components/schemas/Id", description: Scopes the concept to one project. }
+        definition: { type: string, maxLength: 4000 }
+        domain: { type: string, maxLength: 100 }
+        note: { type: string, maxLength: 4000 }
+        product_ref: { type: string, maxLength: 200 }
+        terms:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { $ref: "#/components/schemas/TermInput" }
+    ReplaceTermConcept:
+      type: object
+      required: [terms]
+      properties:
+        definition: { type: string, maxLength: 4000 }
+        domain: { type: string, maxLength: 100 }
+        note: { type: string, maxLength: 4000 }
+        product_ref: { type: string, maxLength: 200 }
+        terms:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { $ref: "#/components/schemas/TermInput" }
+    RevisionAction:
+      type: string
+      enum: [created, updated, deleted]
+    TermConceptRevision:
+      type: object
+      required: [version, action, author, created_at, concept]
+      properties:
+        version: { type: integer, minimum: 1 }
+        action: { $ref: "#/components/schemas/RevisionAction" }
+        author: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        concept: { $ref: "#/components/schemas/TermConcept" }
+    TermConceptRevisionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TermConceptRevision" }
+        next_page_token: { type: string }
+    TermRecognitionRequest:
+      type: object
+      required: [text, locale]
+      properties:
+        text: { type: string, maxLength: 20000 }
+        syntax: { $ref: "#/components/schemas/Syntax", description: "Parse `text` as a message in this syntax and recognize its visible text." }
+        locale: { $ref: "#/components/schemas/Locale" }
+        target_locale: { $ref: "#/components/schemas/Locale" }
+        project_id: { $ref: "#/components/schemas/Id", description: "Adds the project's concepts to the tenant-wide ones." }
+    TermHit:
+      type: object
+      required: [concept_id, definition, term, start, end, text]
+      properties:
+        concept_id: { $ref: "#/components/schemas/Id" }
+        definition: { type: string }
+        term: { $ref: "#/components/schemas/Term" }
+        start: { type: integer, minimum: 0, description: Code point offset into `analyzed_text`. }
+        end: { type: integer, minimum: 0, description: Exclusive. }
+        text: { type: string, description: "The words matched, as written." }
+        targets:
+          type: array
+          description: "The concept's terms in `target_locale`, allowed ones first."
+          items: { $ref: "#/components/schemas/Term" }
+    TermRecognition:
+      type: object
+      required: [analyzed_text, hits]
+      properties:
+        analyzed_text: { type: string }
+        hits:
+          type: array
+          items: { $ref: "#/components/schemas/TermHit" }
+    TerminologyCheckRequest:
+      type: object
+      required: [source, source_locale, target, target_locale]
+      properties:
+        source: { type: string, maxLength: 20000 }
+        source_locale: { $ref: "#/components/schemas/Locale" }
+        target: { type: string, maxLength: 20000 }
+        target_locale: { $ref: "#/components/schemas/Locale" }
+        syntax: { $ref: "#/components/schemas/Syntax", description: Parse both texts as messages in this syntax. }
+        project_id: { $ref: "#/components/schemas/Id" }
+    TermFinding:
+      type: object
+      required: [code, severity, concept_id, term_id, side, start, end, text, suggestions, message]
+      properties:
+        code: { type: string, enum: [term_missing, term_forbidden] }
+        severity: { type: string, enum: [error, warning] }
+        concept_id: { $ref: "#/components/schemas/Id" }
+        term_id: { $ref: "#/components/schemas/Id" }
+        side: { type: string, enum: [source, target] }
+        start: { type: integer, minimum: 0, description: "Code point offset into `source_text` or `target_text`." }
+        end: { type: integer, minimum: 0 }
+        text: { type: string }
+        suggestions:
+          type: array
+          description: The concept's allowed target terms, preferred first.
+          items: { type: string }
+        message: { type: string, description: For humans; wording may change. }
+    TerminologyCheck:
+      type: object
+      required: [source_text, target_text, findings]
+      properties:
+        source_text: { type: string }
+        target_text: { type: string }
+        findings:
+          type: array
+          items: { $ref: "#/components/schemas/TermFinding" }
+
+    # ── knowledge: style guides ───────────────────────────────────────
+    StyleFormality:
+      type: object
+      properties:
+        register: { type: string, enum: [formal, informal, neutral] }
+        pronoun: { type: string, maxLength: 4000, examples: [Sie, du, vous] }
+    StylePunctuation:
+      type: object
+      properties:
+        quotes: { type: string, maxLength: 4000, examples: ["„“"] }
+        nested_quotes: { type: string, maxLength: 4000 }
+        dash: { type: string, enum: [hyphen, en, em] }
+        space_before_unit: { type: boolean }
+        space_before_punctuation: { type: boolean }
+        serial_comma: { type: boolean }
+        ellipsis: { type: string, maxLength: 4000 }
+    StyleNumbers:
+      type: object
+      properties:
+        decimal_separator: { type: string, maxLength: 4000 }
+        grouping_separator: { type: string, maxLength: 4000 }
+        notes: { type: string, maxLength: 4000 }
+    StyleDates:
+      type: object
+      properties:
+        format: { type: string, maxLength: 4000, description: A CLDR date pattern. }
+        notes: { type: string, maxLength: 4000 }
+    StyleFields:
+      type: object
+      description: Structured style. Every leaf is optional; unset inherits from a broader guide.
+      properties:
+        formality: { $ref: "#/components/schemas/StyleFormality" }
+        tone:
+          type: array
+          maxItems: 20
+          description: Tone tags; a narrower guide's list replaces a broader one's.
+          items: { type: string, minLength: 1, maxLength: 50 }
+        punctuation: { $ref: "#/components/schemas/StylePunctuation" }
+        numbers: { $ref: "#/components/schemas/StyleNumbers" }
+        dates: { $ref: "#/components/schemas/StyleDates" }
+    StyleRule:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{0,63}$", description: Identity across scopes. }
+        title: { type: string, maxLength: 200, description: Required unless `disabled`. }
+        rationale: { type: string, maxLength: 4000 }
+        good:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 4000 }
+        bad:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 4000 }
+        disabled: { type: boolean, description: Switches off a broader guide's rule with this id. }
+    StyleGuide:
+      type: object
+      required: [id, name, fields, rules, version, created_by, created_at, updated_by, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        namespace: { $ref: "#/components/schemas/Namespace" }
+        name: { type: string }
+        fields: { $ref: "#/components/schemas/StyleFields" }
+        rules:
+          type: array
+          items: { $ref: "#/components/schemas/StyleRule" }
+        version: { type: integer, minimum: 1 }
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_by: { type: string }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    StyleGuideList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/StyleGuide" }
+        next_page_token: { type: string }
+    CreateStyleGuide:
+      type: object
+      properties:
+        project_id: { $ref: "#/components/schemas/Id" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        namespace: { $ref: "#/components/schemas/Namespace" }
+        name: { type: string, maxLength: 200 }
+        fields: { $ref: "#/components/schemas/StyleFields" }
+        rules:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/StyleRule" }
+    ReplaceStyleGuide:
+      type: object
+      properties:
+        name: { type: string, maxLength: 200 }
+        fields: { $ref: "#/components/schemas/StyleFields" }
+        rules:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/StyleRule" }
+    StyleGuideVersion:
+      type: object
+      required: [version, action, author, created_at, style_guide]
+      properties:
+        version: { type: integer, minimum: 1 }
+        action: { $ref: "#/components/schemas/RevisionAction" }
+        author: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        style_guide: { $ref: "#/components/schemas/StyleGuide" }
+    StyleGuideVersionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/StyleGuideVersion" }
+        next_page_token: { type: string }
+    StyleGuideSource:
+      type: object
+      required: [style_guide_id, version]
+      properties:
+        style_guide_id: { $ref: "#/components/schemas/Id" }
+        version: { type: integer, minimum: 1 }
+        project_id: { $ref: "#/components/schemas/Id" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        namespace: { $ref: "#/components/schemas/Namespace" }
+    EffectiveStyleGuide:
+      type: object
+      required: [fields, rules, sources]
+      properties:
+        fields: { $ref: "#/components/schemas/StyleFields" }
+        rules:
+          type: array
+          items: { $ref: "#/components/schemas/StyleRule" }
+        sources:
+          type: array
+          description: The guide versions merged, broadest first.
+          items: { $ref: "#/components/schemas/StyleGuideSource" }

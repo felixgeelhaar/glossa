@@ -269,28 +269,61 @@ func (e MetaSignInMethods) Valid() bool {
 
 // Defines values for Origin.
 const (
-	Adaptation         Origin = "adaptation"
-	Ai                 Origin = "ai"
-	Human              Origin = "human"
-	Import             Origin = "import"
-	MachineTranslation Origin = "machine_translation"
-	TranslationMemory  Origin = "translation_memory"
+	OriginAdaptation         Origin = "adaptation"
+	OriginAi                 Origin = "ai"
+	OriginHuman              Origin = "human"
+	OriginImport             Origin = "import"
+	OriginMachineTranslation Origin = "machine_translation"
+	OriginTranslationMemory  Origin = "translation_memory"
 )
 
 // Valid indicates whether the value is a known member of the Origin enum.
 func (e Origin) Valid() bool {
 	switch e {
-	case Adaptation:
+	case OriginAdaptation:
 		return true
-	case Ai:
+	case OriginAi:
 		return true
-	case Human:
+	case OriginHuman:
 		return true
-	case Import:
+	case OriginImport:
 		return true
-	case MachineTranslation:
+	case OriginMachineTranslation:
 		return true
-	case TranslationMemory:
+	case OriginTranslationMemory:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PartOfSpeech.
+const (
+	PartOfSpeechAdjective  PartOfSpeech = "adjective"
+	PartOfSpeechAdverb     PartOfSpeech = "adverb"
+	PartOfSpeechNoun       PartOfSpeech = "noun"
+	PartOfSpeechOther      PartOfSpeech = "other"
+	PartOfSpeechPhrase     PartOfSpeech = "phrase"
+	PartOfSpeechProperNoun PartOfSpeech = "proper_noun"
+	PartOfSpeechVerb       PartOfSpeech = "verb"
+)
+
+// Valid indicates whether the value is a known member of the PartOfSpeech enum.
+func (e PartOfSpeech) Valid() bool {
+	switch e {
+	case PartOfSpeechAdjective:
+		return true
+	case PartOfSpeechAdverb:
+		return true
+	case PartOfSpeechNoun:
+		return true
+	case PartOfSpeechOther:
+		return true
+	case PartOfSpeechPhrase:
+		return true
+	case PartOfSpeechProperNoun:
+		return true
+	case PartOfSpeechVerb:
 		return true
 	default:
 		return false
@@ -299,25 +332,25 @@ func (e Origin) Valid() bool {
 
 // Defines values for Platform.
 const (
-	Android Platform = "android"
-	Api     Platform = "api"
-	Ios     Platform = "ios"
-	Other   Platform = "other"
-	Web     Platform = "web"
+	PlatformAndroid Platform = "android"
+	PlatformApi     Platform = "api"
+	PlatformIos     Platform = "ios"
+	PlatformOther   Platform = "other"
+	PlatformWeb     Platform = "web"
 )
 
 // Valid indicates whether the value is a known member of the Platform enum.
 func (e Platform) Valid() bool {
 	switch e {
-	case Android:
+	case PlatformAndroid:
 		return true
-	case Api:
+	case PlatformApi:
 		return true
-	case Ios:
+	case PlatformIos:
 		return true
-	case Other:
+	case PlatformOther:
 		return true
-	case Web:
+	case PlatformWeb:
 		return true
 	default:
 		return false
@@ -326,16 +359,16 @@ func (e Platform) Valid() bool {
 
 // Defines values for QAFindingSeverity.
 const (
-	Error   QAFindingSeverity = "error"
-	Warning QAFindingSeverity = "warning"
+	QAFindingSeverityError   QAFindingSeverity = "error"
+	QAFindingSeverityWarning QAFindingSeverity = "warning"
 )
 
 // Valid indicates whether the value is a known member of the QAFindingSeverity enum.
 func (e QAFindingSeverity) Valid() bool {
 	switch e {
-	case Error:
+	case QAFindingSeverityError:
 		return true
-	case Warning:
+	case QAFindingSeverityWarning:
 		return true
 	default:
 		return false
@@ -375,6 +408,27 @@ func (e ReviewState) Valid() bool {
 	case ReviewStateNeedsReview:
 		return true
 	case ReviewStateRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RevisionAction.
+const (
+	RevisionActionCreated RevisionAction = "created"
+	RevisionActionDeleted RevisionAction = "deleted"
+	RevisionActionUpdated RevisionAction = "updated"
+)
+
+// Valid indicates whether the value is a known member of the RevisionAction enum.
+func (e RevisionAction) Valid() bool {
+	switch e {
+	case RevisionActionCreated:
+		return true
+	case RevisionActionDeleted:
+		return true
+	case RevisionActionUpdated:
 		return true
 	default:
 		return false
@@ -447,6 +501,48 @@ func (e SigningKeyAlgorithm) Valid() bool {
 	}
 }
 
+// Defines values for StyleFormalityRegister.
+const (
+	Formal   StyleFormalityRegister = "formal"
+	Informal StyleFormalityRegister = "informal"
+	Neutral  StyleFormalityRegister = "neutral"
+)
+
+// Valid indicates whether the value is a known member of the StyleFormalityRegister enum.
+func (e StyleFormalityRegister) Valid() bool {
+	switch e {
+	case Formal:
+		return true
+	case Informal:
+		return true
+	case Neutral:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StylePunctuationDash.
+const (
+	Em     StylePunctuationDash = "em"
+	En     StylePunctuationDash = "en"
+	Hyphen StylePunctuationDash = "hyphen"
+)
+
+// Valid indicates whether the value is a known member of the StylePunctuationDash enum.
+func (e StylePunctuationDash) Valid() bool {
+	switch e {
+	case Em:
+		return true
+	case En:
+		return true
+	case Hyphen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Syntax.
 const (
 	Mf1 Syntax = "mf1"
@@ -465,6 +561,87 @@ func (e Syntax) Valid() bool {
 	}
 }
 
+// Defines values for TMMatchKind.
+const (
+	TMMatchKindContext TMMatchKind = "context"
+	TMMatchKindExact   TMMatchKind = "exact"
+	TMMatchKindFuzzy   TMMatchKind = "fuzzy"
+)
+
+// Valid indicates whether the value is a known member of the TMMatchKind enum.
+func (e TMMatchKind) Valid() bool {
+	switch e {
+	case TMMatchKindContext:
+		return true
+	case TMMatchKindExact:
+		return true
+	case TMMatchKindFuzzy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TMUnitOrigin.
+const (
+	TMUnitOriginImport      TMUnitOrigin = "import"
+	TMUnitOriginTranslation TMUnitOrigin = "translation"
+)
+
+// Valid indicates whether the value is a known member of the TMUnitOrigin enum.
+func (e TMUnitOrigin) Valid() bool {
+	switch e {
+	case TMUnitOriginImport:
+		return true
+	case TMUnitOriginTranslation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TMUnitRetiredReason.
+const (
+	TMUnitRetiredReasonDeleted     TMUnitRetiredReason = "deleted"
+	TMUnitRetiredReasonOverwritten TMUnitRetiredReason = "overwritten"
+	TMUnitRetiredReasonSuperseded  TMUnitRetiredReason = "superseded"
+	TMUnitRetiredReasonUnapproved  TMUnitRetiredReason = "unapproved"
+)
+
+// Valid indicates whether the value is a known member of the TMUnitRetiredReason enum.
+func (e TMUnitRetiredReason) Valid() bool {
+	switch e {
+	case TMUnitRetiredReasonDeleted:
+		return true
+	case TMUnitRetiredReasonOverwritten:
+		return true
+	case TMUnitRetiredReasonSuperseded:
+		return true
+	case TMUnitRetiredReasonUnapproved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TMUnitState.
+const (
+	TMUnitStateActive  TMUnitState = "active"
+	TMUnitStateRetired TMUnitState = "retired"
+)
+
+// Valid indicates whether the value is a known member of the TMUnitState enum.
+func (e TMUnitState) Valid() bool {
+	switch e {
+	case TMUnitStateActive:
+		return true
+	case TMUnitStateRetired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TenantKind.
 const (
 	Individual   TenantKind = "individual"
@@ -477,6 +654,84 @@ func (e TenantKind) Valid() bool {
 	case Individual:
 		return true
 	case Organization:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TermFindingCode.
+const (
+	TermForbidden TermFindingCode = "term_forbidden"
+	TermMissing   TermFindingCode = "term_missing"
+)
+
+// Valid indicates whether the value is a known member of the TermFindingCode enum.
+func (e TermFindingCode) Valid() bool {
+	switch e {
+	case TermForbidden:
+		return true
+	case TermMissing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TermFindingSeverity.
+const (
+	TermFindingSeverityError   TermFindingSeverity = "error"
+	TermFindingSeverityWarning TermFindingSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the TermFindingSeverity enum.
+func (e TermFindingSeverity) Valid() bool {
+	switch e {
+	case TermFindingSeverityError:
+		return true
+	case TermFindingSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TermFindingSide.
+const (
+	TermFindingSideSource TermFindingSide = "source"
+	TermFindingSideTarget TermFindingSide = "target"
+)
+
+// Valid indicates whether the value is a known member of the TermFindingSide enum.
+func (e TermFindingSide) Valid() bool {
+	switch e {
+	case TermFindingSideSource:
+		return true
+	case TermFindingSideTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TermStatus.
+const (
+	TermStatusAdmitted   TermStatus = "admitted"
+	TermStatusDeprecated TermStatus = "deprecated"
+	TermStatusForbidden  TermStatus = "forbidden"
+	TermStatusPreferred  TermStatus = "preferred"
+)
+
+// Valid indicates whether the value is a known member of the TermStatus enum.
+func (e TermStatus) Valid() bool {
+	switch e {
+	case TermStatusAdmitted:
+		return true
+	case TermStatusDeprecated:
+		return true
+	case TermStatusForbidden:
+		return true
+	case TermStatusPreferred:
 		return true
 	default:
 		return false
@@ -519,6 +774,45 @@ func (e TranslationRevisionKind) Valid() bool {
 	case Content:
 		return true
 	case Review:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchTranslationMemoryParamsSide.
+const (
+	SearchTranslationMemoryParamsSideSource SearchTranslationMemoryParamsSide = "source"
+	SearchTranslationMemoryParamsSideTarget SearchTranslationMemoryParamsSide = "target"
+)
+
+// Valid indicates whether the value is a known member of the SearchTranslationMemoryParamsSide enum.
+func (e SearchTranslationMemoryParamsSide) Valid() bool {
+	switch e {
+	case SearchTranslationMemoryParamsSideSource:
+		return true
+	case SearchTranslationMemoryParamsSideTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListTranslationMemoryUnitsParamsState.
+const (
+	ListTranslationMemoryUnitsParamsStateActive  ListTranslationMemoryUnitsParamsState = "active"
+	ListTranslationMemoryUnitsParamsStateAll     ListTranslationMemoryUnitsParamsState = "all"
+	ListTranslationMemoryUnitsParamsStateRetired ListTranslationMemoryUnitsParamsState = "retired"
+)
+
+// Valid indicates whether the value is a known member of the ListTranslationMemoryUnitsParamsState enum.
+func (e ListTranslationMemoryUnitsParamsState) Valid() bool {
+	switch e {
+	case ListTranslationMemoryUnitsParamsStateActive:
+		return true
+	case ListTranslationMemoryUnitsParamsStateAll:
+		return true
+	case ListTranslationMemoryUnitsParamsStateRetired:
 		return true
 	default:
 		return false
@@ -639,10 +933,43 @@ type CreateProject struct {
 	SourceLocale Locale `json:"source_locale"`
 }
 
+// CreateStyleGuide defines model for CreateStyleGuide.
+type CreateStyleGuide struct {
+	// Fields Structured style. Every leaf is optional; unset inherits from a broader guide.
+	Fields *StyleFields `json:"fields,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+	Name   *string `json:"name,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id          `json:"project_id,omitempty"`
+	Rules     *[]StyleRule `json:"rules,omitempty"`
+}
+
 // CreateTenant defines model for CreateTenant.
 type CreateTenant struct {
 	Name string `json:"name"`
 	Slug string `json:"slug"`
+}
+
+// CreateTermConcept defines model for CreateTermConcept.
+type CreateTermConcept struct {
+	Definition *string `json:"definition,omitempty"`
+	Domain     *string `json:"domain,omitempty"`
+	Note       *string `json:"note,omitempty"`
+	ProductRef *string `json:"product_ref,omitempty"`
+
+	// ProjectId Scopes the concept to one project.
+	ProjectId *Id         `json:"project_id,omitempty"`
+	Terms     []TermInput `json:"terms"`
 }
 
 // CreateToken defines model for CreateToken.
@@ -716,6 +1043,16 @@ type DeploymentList struct {
 
 // Direction Derived from the locale's (likely) script.
 type Direction string
+
+// EffectiveStyleGuide defines model for EffectiveStyleGuide.
+type EffectiveStyleGuide struct {
+	// Fields Structured style. Every leaf is optional; unset inherits from a broader guide.
+	Fields StyleFields `json:"fields"`
+	Rules  []StyleRule `json:"rules"`
+
+	// Sources The guide versions merged, broadest first.
+	Sources []StyleGuideSource `json:"sources"`
+}
 
 // Email defines model for Email.
 type Email = openapi_types.Email
@@ -1094,6 +1431,9 @@ type Namespace = string
 
 // Origin defines model for Origin.
 type Origin string
+
+// PartOfSpeech defines model for PartOfSpeech.
+type PartOfSpeech string
 
 // Passkey defines model for Passkey.
 type Passkey struct {
@@ -1521,6 +1861,23 @@ type RenameMessage struct {
 	Key MessageKey `json:"key"`
 }
 
+// ReplaceStyleGuide defines model for ReplaceStyleGuide.
+type ReplaceStyleGuide struct {
+	// Fields Structured style. Every leaf is optional; unset inherits from a broader guide.
+	Fields *StyleFields `json:"fields,omitempty"`
+	Name   *string      `json:"name,omitempty"`
+	Rules  *[]StyleRule `json:"rules,omitempty"`
+}
+
+// ReplaceTermConcept defines model for ReplaceTermConcept.
+type ReplaceTermConcept struct {
+	Definition *string     `json:"definition,omitempty"`
+	Domain     *string     `json:"domain,omitempty"`
+	Note       *string     `json:"note,omitempty"`
+	ProductRef *string     `json:"product_ref,omitempty"`
+	Terms      []TermInput `json:"terms"`
+}
+
 // ReviewState defines model for ReviewState.
 type ReviewState string
 
@@ -1543,6 +1900,9 @@ type ReviseSource struct {
 	Syntax *Syntax `json:"syntax,omitempty"`
 	Text   string  `json:"text"`
 }
+
+// RevisionAction defines model for RevisionAction.
+type RevisionAction string
 
 // Role `owner` everything; `admin` everything except owner changes;
 // `developer` catalog, translations, releases, tokens;
@@ -1621,8 +1981,329 @@ type SourceRevisionList struct {
 	NextPageToken *string          `json:"next_page_token,omitempty"`
 }
 
+// StyleDates defines model for StyleDates.
+type StyleDates struct {
+	// Format A CLDR date pattern.
+	Format *string `json:"format,omitempty"`
+	Notes  *string `json:"notes,omitempty"`
+}
+
+// StyleFields Structured style. Every leaf is optional; unset inherits from a broader guide.
+type StyleFields struct {
+	Dates       *StyleDates       `json:"dates,omitempty"`
+	Formality   *StyleFormality   `json:"formality,omitempty"`
+	Numbers     *StyleNumbers     `json:"numbers,omitempty"`
+	Punctuation *StylePunctuation `json:"punctuation,omitempty"`
+
+	// Tone Tone tags; a narrower guide's list replaces a broader one's.
+	Tone *[]string `json:"tone,omitempty"`
+}
+
+// StyleFormality defines model for StyleFormality.
+type StyleFormality struct {
+	// Pronoun Examples: Sie, du, vous
+	Pronoun  *string                 `json:"pronoun,omitempty"`
+	Register *StyleFormalityRegister `json:"register,omitempty"`
+}
+
+// StyleFormalityRegister defines model for StyleFormality.Register.
+type StyleFormalityRegister string
+
+// StyleGuide defines model for StyleGuide.
+type StyleGuide struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// Fields Structured style. Every leaf is optional; unset inherits from a broader guide.
+	Fields StyleFields `json:"fields"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+	Name   string  `json:"name"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id         `json:"project_id,omitempty"`
+	Rules     []StyleRule `json:"rules"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+	UpdatedBy string    `json:"updated_by"`
+	Version   int       `json:"version"`
+}
+
+// StyleGuideList defines model for StyleGuideList.
+type StyleGuideList struct {
+	Items         []StyleGuide `json:"items"`
+	NextPageToken *string      `json:"next_page_token,omitempty"`
+}
+
+// StyleGuideSource defines model for StyleGuideSource.
+type StyleGuideSource struct {
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// StyleGuideId An opaque identifier.
+	StyleGuideId Id  `json:"style_guide_id"`
+	Version      int `json:"version"`
+}
+
+// StyleGuideVersion defines model for StyleGuideVersion.
+type StyleGuideVersion struct {
+	Action RevisionAction `json:"action"`
+	Author string         `json:"author"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt  Timestamp  `json:"created_at"`
+	StyleGuide StyleGuide `json:"style_guide"`
+	Version    int        `json:"version"`
+}
+
+// StyleGuideVersionList defines model for StyleGuideVersionList.
+type StyleGuideVersionList struct {
+	Items         []StyleGuideVersion `json:"items"`
+	NextPageToken *string             `json:"next_page_token,omitempty"`
+}
+
+// StyleNumbers defines model for StyleNumbers.
+type StyleNumbers struct {
+	DecimalSeparator  *string `json:"decimal_separator,omitempty"`
+	GroupingSeparator *string `json:"grouping_separator,omitempty"`
+	Notes             *string `json:"notes,omitempty"`
+}
+
+// StylePunctuation defines model for StylePunctuation.
+type StylePunctuation struct {
+	Dash         *StylePunctuationDash `json:"dash,omitempty"`
+	Ellipsis     *string               `json:"ellipsis,omitempty"`
+	NestedQuotes *string               `json:"nested_quotes,omitempty"`
+
+	// Quotes Examples: „“
+	Quotes                 *string `json:"quotes,omitempty"`
+	SerialComma            *bool   `json:"serial_comma,omitempty"`
+	SpaceBeforePunctuation *bool   `json:"space_before_punctuation,omitempty"`
+	SpaceBeforeUnit        *bool   `json:"space_before_unit,omitempty"`
+}
+
+// StylePunctuationDash defines model for StylePunctuation.Dash.
+type StylePunctuationDash string
+
+// StyleRule defines model for StyleRule.
+type StyleRule struct {
+	Bad *[]string `json:"bad,omitempty"`
+
+	// Disabled Switches off a broader guide's rule with this id.
+	Disabled *bool     `json:"disabled,omitempty"`
+	Good     *[]string `json:"good,omitempty"`
+
+	// Id Identity across scopes.
+	Id        string  `json:"id"`
+	Rationale *string `json:"rationale,omitempty"`
+
+	// Title Required unless `disabled`.
+	Title *string `json:"title,omitempty"`
+}
+
 // Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
 type Syntax string
+
+// TMConcordance defines model for TMConcordance.
+type TMConcordance struct {
+	Matches []TMConcordanceMatch `json:"matches"`
+}
+
+// TMConcordanceMatch defines model for TMConcordanceMatch.
+type TMConcordanceMatch struct {
+	// Similarity Trigram word similarity of the phrase to the side searched.
+	Similarity float32 `json:"similarity"`
+
+	// Unit A translation-memory unit, derived from an approved translation.
+	// `source` and `target` are canonical MF2; `source_normalized` is
+	// what matching compares (placeholders by position, markup as
+	// tags) and `signature` the placeholders' types by position.
+	Unit TMUnit `json:"unit"`
+}
+
+// TMLookup defines model for TMLookup.
+type TMLookup struct {
+	// AllProjects Also match other projects' units.
+	AllProjects *bool `json:"all_projects,omitempty"`
+	CountHits   *bool `json:"count_hits,omitempty"`
+	Limit       *int  `json:"limit,omitempty"`
+
+	// MessageKey A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	MessageKey *MessageKey `json:"message_key,omitempty"`
+	MinScore   *int        `json:"min_score,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// ProjectId The project the message belongs to.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// Source The source message.
+	Source string `json:"source"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale Locale `json:"source_locale"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax *Syntax `json:"syntax,omitempty"`
+
+	// TargetLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	TargetLocale Locale `json:"target_locale"`
+}
+
+// TMLookupResult defines model for TMLookupResult.
+type TMLookupResult struct {
+	Matches          []TMMatch `json:"matches"`
+	SourceNormalized string    `json:"source_normalized"`
+}
+
+// TMMatch defines model for TMMatch.
+type TMMatch struct {
+	Kind  TMMatchKind `json:"kind"`
+	Score int         `json:"score"`
+
+	// Target The unit's target in MF2, its variables renamed to the query's by position.
+	Target string `json:"target"`
+
+	// TargetModel A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	TargetModel MF2Message `json:"target_model"`
+
+	// Unit A translation-memory unit, derived from an approved translation.
+	// `source` and `target` are canonical MF2; `source_normalized` is
+	// what matching compares (placeholders by position, markup as
+	// tags) and `signature` the placeholders' types by position.
+	Unit TMUnit `json:"unit"`
+
+	// VariablesAdapted False when a target variable had no counterpart and kept its name.
+	VariablesAdapted bool `json:"variables_adapted"`
+}
+
+// TMMatchKind defines model for TMMatch.Kind.
+type TMMatchKind string
+
+// TMUnit A translation-memory unit, derived from an approved translation.
+// `source` and `target` are canonical MF2; `source_normalized` is
+// what matching compares (placeholders by position, markup as
+// tags) and `signature` the placeholders' types by position.
+type TMUnit struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CreatedBy Who wrote the text.
+	CreatedBy string `json:"created_by"`
+	HitCount  int    `json:"hit_count"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// LastHitAt RFC 3339, UTC.
+	LastHitAt *Timestamp `json:"last_hit_at,omitempty"`
+
+	// MessageId An opaque identifier.
+	MessageId *Id `json:"message_id,omitempty"`
+
+	// MessageKey A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	MessageKey *MessageKey `json:"message_key,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace   `json:"namespace,omitempty"`
+	Origin    TMUnitOrigin `json:"origin"`
+
+	// ProjectId Absent for a tenant-wide unit.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// RetiredAt RFC 3339, UTC.
+	RetiredAt     *Timestamp           `json:"retired_at,omitempty"`
+	RetiredBy     *string              `json:"retired_by,omitempty"`
+	RetiredReason *TMUnitRetiredReason `json:"retired_reason,omitempty"`
+
+	// Signature Examples: 1:number/plural,2:string
+	Signature string `json:"signature"`
+	Source    string `json:"source"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale     Locale      `json:"source_locale"`
+	SourceNormalized string      `json:"source_normalized"`
+	State            TMUnitState `json:"state"`
+	Target           string      `json:"target"`
+
+	// TargetLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	TargetLocale Locale `json:"target_locale"`
+
+	// TargetModel A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	TargetModel MF2Message `json:"target_model"`
+
+	// TranslationId An opaque identifier.
+	TranslationId *Id `json:"translation_id,omitempty"`
+
+	// TranslationRevision The translation revision the unit reflects.
+	TranslationRevision *int `json:"translation_revision,omitempty"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// TMUnitOrigin defines model for TMUnit.Origin.
+type TMUnitOrigin string
+
+// TMUnitRetiredReason defines model for TMUnit.RetiredReason.
+type TMUnitRetiredReason string
+
+// TMUnitState defines model for TMUnit.State.
+type TMUnitState string
+
+// TMUnitList defines model for TMUnitList.
+type TMUnitList struct {
+	Items         []TMUnit `json:"items"`
+	NextPageToken *string  `json:"next_page_token,omitempty"`
+}
 
 // Tenant defines model for Tenant.
 type Tenant struct {
@@ -1643,6 +2324,209 @@ type TenantKind string
 type TenantList struct {
 	Items         []Tenant `json:"items"`
 	NextPageToken *string  `json:"next_page_token,omitempty"`
+}
+
+// Term defines model for Term.
+type Term struct {
+	CaseSensitive bool `json:"case_sensitive"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale       Locale        `json:"locale"`
+	Note         *string       `json:"note,omitempty"`
+	PartOfSpeech *PartOfSpeech `json:"part_of_speech,omitempty"`
+	Status       TermStatus    `json:"status"`
+	Text         string        `json:"text"`
+}
+
+// TermConcept A termbase concept (intent §19.2) with its terms per locale.
+type TermConcept struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt  Timestamp `json:"created_at"`
+	CreatedBy  string    `json:"created_by"`
+	Definition string    `json:"definition"`
+	Domain     string    `json:"domain"`
+
+	// Id An opaque identifier.
+	Id   Id     `json:"id"`
+	Note string `json:"note"`
+
+	// ProductRef A product concept this concept stands for (opaque).
+	ProductRef string `json:"product_ref"`
+
+	// ProjectId Absent for a tenant-wide concept.
+	ProjectId *Id    `json:"project_id,omitempty"`
+	Terms     []Term `json:"terms"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+	UpdatedBy string    `json:"updated_by"`
+	Version   int       `json:"version"`
+}
+
+// TermConceptList defines model for TermConceptList.
+type TermConceptList struct {
+	Items         []TermConcept `json:"items"`
+	NextPageToken *string       `json:"next_page_token,omitempty"`
+}
+
+// TermConceptRevision defines model for TermConceptRevision.
+type TermConceptRevision struct {
+	Action RevisionAction `json:"action"`
+	Author string         `json:"author"`
+
+	// Concept A termbase concept (intent §19.2) with its terms per locale.
+	Concept TermConcept `json:"concept"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	Version   int       `json:"version"`
+}
+
+// TermConceptRevisionList defines model for TermConceptRevisionList.
+type TermConceptRevisionList struct {
+	Items         []TermConceptRevision `json:"items"`
+	NextPageToken *string               `json:"next_page_token,omitempty"`
+}
+
+// TermFinding defines model for TermFinding.
+type TermFinding struct {
+	Code TermFindingCode `json:"code"`
+
+	// ConceptId An opaque identifier.
+	ConceptId Id  `json:"concept_id"`
+	End       int `json:"end"`
+
+	// Message For humans; wording may change.
+	Message  string              `json:"message"`
+	Severity TermFindingSeverity `json:"severity"`
+	Side     TermFindingSide     `json:"side"`
+
+	// Start Code point offset into `source_text` or `target_text`.
+	Start int `json:"start"`
+
+	// Suggestions The concept's allowed target terms, preferred first.
+	Suggestions []string `json:"suggestions"`
+
+	// TermId An opaque identifier.
+	TermId Id     `json:"term_id"`
+	Text   string `json:"text"`
+}
+
+// TermFindingCode defines model for TermFinding.Code.
+type TermFindingCode string
+
+// TermFindingSeverity defines model for TermFinding.Severity.
+type TermFindingSeverity string
+
+// TermFindingSide defines model for TermFinding.Side.
+type TermFindingSide string
+
+// TermHit defines model for TermHit.
+type TermHit struct {
+	// ConceptId An opaque identifier.
+	ConceptId  Id     `json:"concept_id"`
+	Definition string `json:"definition"`
+
+	// End Exclusive.
+	End int `json:"end"`
+
+	// Start Code point offset into `analyzed_text`.
+	Start int `json:"start"`
+
+	// Targets The concept's terms in `target_locale`, allowed ones first.
+	Targets *[]Term `json:"targets,omitempty"`
+	Term    Term    `json:"term"`
+
+	// Text The words matched, as written.
+	Text string `json:"text"`
+}
+
+// TermInput defines model for TermInput.
+type TermInput struct {
+	CaseSensitive *bool `json:"case_sensitive,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale       Locale        `json:"locale"`
+	Note         *string       `json:"note,omitempty"`
+	PartOfSpeech *PartOfSpeech `json:"part_of_speech,omitempty"`
+	Status       *TermStatus   `json:"status,omitempty"`
+	Text         string        `json:"text"`
+}
+
+// TermRecognition defines model for TermRecognition.
+type TermRecognition struct {
+	AnalyzedText string    `json:"analyzed_text"`
+	Hits         []TermHit `json:"hits"`
+}
+
+// TermRecognitionRequest defines model for TermRecognitionRequest.
+type TermRecognitionRequest struct {
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// ProjectId Adds the project's concepts to the tenant-wide ones.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// Syntax Parse `text` as a message in this syntax and recognize its visible text.
+	Syntax *Syntax `json:"syntax,omitempty"`
+
+	// TargetLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	TargetLocale *Locale `json:"target_locale,omitempty"`
+	Text         string  `json:"text"`
+}
+
+// TermStatus defines model for TermStatus.
+type TermStatus string
+
+// TerminologyCheck defines model for TerminologyCheck.
+type TerminologyCheck struct {
+	Findings   []TermFinding `json:"findings"`
+	SourceText string        `json:"source_text"`
+	TargetText string        `json:"target_text"`
+}
+
+// TerminologyCheckRequest defines model for TerminologyCheckRequest.
+type TerminologyCheckRequest struct {
+	// ProjectId An opaque identifier.
+	ProjectId *Id    `json:"project_id,omitempty"`
+	Source    string `json:"source"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale Locale `json:"source_locale"`
+
+	// Syntax Parse both texts as messages in this syntax.
+	Syntax *Syntax `json:"syntax,omitempty"`
+	Target string  `json:"target"`
+
+	// TargetLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	TargetLocale Locale `json:"target_locale"`
 }
 
 // Timestamp RFC 3339, UTC.
@@ -1873,6 +2757,9 @@ type ApplicationPath = Id
 // CeremonyCookie defines model for CeremonyCookie.
 type CeremonyCookie = string
 
+// ConceptPath An opaque identifier.
+type ConceptPath = Id
+
 // DeliveryKeyPath An opaque identifier.
 type DeliveryKeyPath = Id
 
@@ -1916,6 +2803,12 @@ type ProjectPath = Id
 
 // ReleasePath An opaque identifier.
 type ReleasePath = Id
+
+// StyleGuidePath An opaque identifier.
+type StyleGuidePath = Id
+
+// TMUnitPath An opaque identifier.
+type TMUnitPath = Id
 
 // TenantPath An opaque identifier.
 type TenantPath = Id
@@ -1990,6 +2883,14 @@ type ListTenantsParams struct {
 // CreateTenantParams defines parameters for CreateTenant.
 type CreateTenantParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// GetEffectiveStyleGuideParams defines parameters for GetEffectiveStyleGuide.
+type GetEffectiveStyleGuideParams struct {
+	// Project A project `id`.
+	Project   *Id        `form:"project,omitempty" json:"project,omitempty"`
+	Locale    *Locale    `form:"locale,omitempty" json:"locale,omitempty"`
+	Namespace *Namespace `form:"namespace,omitempty" json:"namespace,omitempty"`
 }
 
 // ListMembersParams defines parameters for ListMembers.
@@ -2248,6 +3149,119 @@ type ListProjectTranslationsParams struct {
 	MessageState *MessageState `form:"message_state,omitempty" json:"message_state,omitempty"`
 }
 
+// ListStyleGuidesParams defines parameters for ListStyleGuides.
+type ListStyleGuidesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Project A project `id`.
+	Project    *Id     `form:"project,omitempty" json:"project,omitempty"`
+	Locale     *Locale `form:"locale,omitempty" json:"locale,omitempty"`
+	TenantOnly *bool   `form:"tenant_only,omitempty" json:"tenant_only,omitempty"`
+}
+
+// CreateStyleGuideParams defines parameters for CreateStyleGuide.
+type CreateStyleGuideParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// DeleteStyleGuideParams defines parameters for DeleteStyleGuide.
+type DeleteStyleGuideParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ReplaceStyleGuideParams defines parameters for ReplaceStyleGuide.
+type ReplaceStyleGuideParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListStyleGuideVersionsParams defines parameters for ListStyleGuideVersions.
+type ListStyleGuideVersionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// ListTermConceptsParams defines parameters for ListTermConcepts.
+type ListTermConceptsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+	Q         *string    `form:"q,omitempty" json:"q,omitempty"`
+	Locale    *Locale    `form:"locale,omitempty" json:"locale,omitempty"`
+
+	// Project A project `id`.
+	Project *Id     `form:"project,omitempty" json:"project,omitempty"`
+	Domain  *string `form:"domain,omitempty" json:"domain,omitempty"`
+}
+
+// CreateTermConceptParams defines parameters for CreateTermConcept.
+type CreateTermConceptParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// DeleteTermConceptParams defines parameters for DeleteTermConcept.
+type DeleteTermConceptParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ReplaceTermConceptParams defines parameters for ReplaceTermConcept.
+type ReplaceTermConceptParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListTermConceptRevisionsParams defines parameters for ListTermConceptRevisions.
+type ListTermConceptRevisionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// SearchTranslationMemoryParams defines parameters for SearchTranslationMemory.
+type SearchTranslationMemoryParams struct {
+	Q            string                             `form:"q" json:"q"`
+	Side         *SearchTranslationMemoryParamsSide `form:"side,omitempty" json:"side,omitempty"`
+	SourceLocale *Locale                            `form:"source_locale,omitempty" json:"source_locale,omitempty"`
+	TargetLocale *Locale                            `form:"target_locale,omitempty" json:"target_locale,omitempty"`
+
+	// Project A project `id`.
+	Project     *Id   `form:"project,omitempty" json:"project,omitempty"`
+	AllProjects *bool `form:"all_projects,omitempty" json:"all_projects,omitempty"`
+	Limit       *int  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// SearchTranslationMemoryParamsSide defines parameters for SearchTranslationMemory.
+type SearchTranslationMemoryParamsSide string
+
+// ListTranslationMemoryUnitsParams defines parameters for ListTranslationMemoryUnits.
+type ListTranslationMemoryUnitsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken    *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+	SourceLocale *Locale    `form:"source_locale,omitempty" json:"source_locale,omitempty"`
+	TargetLocale *Locale    `form:"target_locale,omitempty" json:"target_locale,omitempty"`
+
+	// Project A project `id`.
+	Project *Id `form:"project,omitempty" json:"project,omitempty"`
+
+	// Translation A translation `id`.
+	Translation *Id                                    `form:"translation,omitempty" json:"translation,omitempty"`
+	State       *ListTranslationMemoryUnitsParamsState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ListTranslationMemoryUnitsParamsState defines parameters for ListTranslationMemoryUnits.
+type ListTranslationMemoryUnitsParamsState string
+
 // ListTokensParams defines parameters for ListTokens.
 type ListTokensParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -2365,6 +3379,27 @@ type PublishReleaseJSONRequestBody = PublishRelease
 
 // ImportTranslationsJSONRequestBody defines body for ImportTranslations for application/json ContentType.
 type ImportTranslationsJSONRequestBody = TranslationImport
+
+// CreateStyleGuideJSONRequestBody defines body for CreateStyleGuide for application/json ContentType.
+type CreateStyleGuideJSONRequestBody = CreateStyleGuide
+
+// ReplaceStyleGuideJSONRequestBody defines body for ReplaceStyleGuide for application/json ContentType.
+type ReplaceStyleGuideJSONRequestBody = ReplaceStyleGuide
+
+// CreateTermConceptJSONRequestBody defines body for CreateTermConcept for application/json ContentType.
+type CreateTermConceptJSONRequestBody = CreateTermConcept
+
+// ReplaceTermConceptJSONRequestBody defines body for ReplaceTermConcept for application/json ContentType.
+type ReplaceTermConceptJSONRequestBody = ReplaceTermConcept
+
+// RecognizeTermsJSONRequestBody defines body for RecognizeTerms for application/json ContentType.
+type RecognizeTermsJSONRequestBody = TermRecognitionRequest
+
+// CheckTerminologyJSONRequestBody defines body for CheckTerminology for application/json ContentType.
+type CheckTerminologyJSONRequestBody = TerminologyCheckRequest
+
+// LookupTranslationMemoryJSONRequestBody defines body for LookupTranslationMemory for application/json ContentType.
+type LookupTranslationMemoryJSONRequestBody = TMLookup
 
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateToken
@@ -2835,6 +3870,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant} (the `GetTenant` operationId).
 	GetTenant(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetEffectiveStyleGuide The style that applies to a project, locale and namespace
+	//
+	// Every applicable guide merged field by field, the narrowest
+	// winning: a namespace beats a locale, a deeper locale a shallower
+	// one, a locale a project, a project the tenant. A narrower guide
+	// replaces a broader rule with the same `id`, or switches it off
+	// (`disabled`). `sources` names each guide version used, broadest
+	// first. Without `project`, only tenant-level guides apply; without
+	// `locale`, no locale guide does. Needs `knowledge.read`. Problem
+	// codes: `invalid_locale` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/effective-style-guide (the `GetEffectiveStyleGuide` operationId).
+	GetEffectiveStyleGuide(ctx context.Context, tenant TenantPath, params *GetEffectiveStyleGuideParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListMembers Members and open invitations
 	//
@@ -3740,6 +4789,318 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
 	ListProjectTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListStyleGuides Style guides
+	//
+	// Every guide, or only tenant-level ones (`tenant_only`), one
+	// project's, or one locale's. Needs `knowledge.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/style-guides (the `ListStyleGuides` operationId).
+	ListStyleGuides(ctx context.Context, tenant TenantPath, params *ListStyleGuidesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateStyleGuideWithBody Add the style guide for a scope
+	//
+	// A scope is any combination of `project_id`, `locale` (which
+	// covers its descendants: `de` applies to `de-AT`) and `namespace`
+	// (which needs a project); none is the tenant's guide. Each scope
+	// has one guide. Needs `knowledge.write`. Problem codes:
+	// `style_guide_exists` (409), `invalid_style_guide`,
+	// `invalid_style_rule`, `namespace_needs_project`,
+	// `invalid_locale`, `unknown_project` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/style-guides (the `CreateStyleGuide` operationId).
+	CreateStyleGuideWithBody(ctx context.Context, tenant TenantPath, params *CreateStyleGuideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateStyleGuide Add the style guide for a scope
+	//
+	// A scope is any combination of `project_id`, `locale` (which
+	// covers its descendants: `de` applies to `de-AT`) and `namespace`
+	// (which needs a project); none is the tenant's guide. Each scope
+	// has one guide. Needs `knowledge.write`. Problem codes:
+	// `style_guide_exists` (409), `invalid_style_guide`,
+	// `invalid_style_rule`, `namespace_needs_project`,
+	// `invalid_locale`, `unknown_project` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/style-guides (the `CreateStyleGuide` operationId).
+	CreateStyleGuide(ctx context.Context, tenant TenantPath, params *CreateStyleGuideParams, body CreateStyleGuideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteStyleGuide Delete a style guide
+	//
+	// Its versions stay readable, ending in a `deleted` one. `If-Match`
+	// is optional; when sent it must match. Needs `knowledge.write`.
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/style-guides/{style_guide} (the `DeleteStyleGuide` operationId).
+	DeleteStyleGuide(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *DeleteStyleGuideParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetStyleGuide A style guide
+	//
+	// Needs `knowledge.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/style-guides/{style_guide} (the `GetStyleGuide` operationId).
+	GetStyleGuide(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceStyleGuideWithBody Replace a style guide's content
+	//
+	// Replaces the name, fields and rules; the scope never changes.
+	// Unchanged content is no new version. Needs `knowledge.write`.
+	// Problem codes: `invalid_style_guide`, `invalid_style_rule` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/style-guides/{style_guide} (the `ReplaceStyleGuide` operationId).
+	ReplaceStyleGuideWithBody(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ReplaceStyleGuideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceStyleGuide Replace a style guide's content
+	//
+	// Replaces the name, fields and rules; the scope never changes.
+	// Unchanged content is no new version. Needs `knowledge.write`.
+	// Problem codes: `invalid_style_guide`, `invalid_style_rule` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/style-guides/{style_guide} (the `ReplaceStyleGuide` operationId).
+	ReplaceStyleGuide(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ReplaceStyleGuideParams, body ReplaceStyleGuideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListStyleGuideVersions A style guide's versions, newest first
+	//
+	// Full snapshots, also after the guide was deleted. Needs `knowledge.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/style-guides/{style_guide}/versions (the `ListStyleGuideVersions` operationId).
+	ListStyleGuideVersions(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ListStyleGuideVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTermConcepts Termbase concepts
+	//
+	// `project` lists the concepts that apply to it (its own and the
+	// tenant-wide ones); `q` searches term texts (in `locale`, when
+	// given) and definitions. Needs `knowledge.read`. Problem codes:
+	// `invalid_query`, `invalid_locale` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/term-concepts (the `ListTermConcepts` operationId).
+	ListTermConcepts(ctx context.Context, tenant TenantPath, params *ListTermConceptsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTermConceptWithBody Add a concept with its terms
+	//
+	// Tenant-wide, or for one project (`project_id`). Needs
+	// `knowledge.write`. Problem codes: `invalid_concept`,
+	// `invalid_term`, `invalid_term_status`, `invalid_part_of_speech`,
+	// `duplicate_term`, `invalid_locale`, `unknown_project` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/term-concepts (the `CreateTermConcept` operationId).
+	CreateTermConceptWithBody(ctx context.Context, tenant TenantPath, params *CreateTermConceptParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTermConcept Add a concept with its terms
+	//
+	// Tenant-wide, or for one project (`project_id`). Needs
+	// `knowledge.write`. Problem codes: `invalid_concept`,
+	// `invalid_term`, `invalid_term_status`, `invalid_part_of_speech`,
+	// `duplicate_term`, `invalid_locale`, `unknown_project` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/term-concepts (the `CreateTermConcept` operationId).
+	CreateTermConcept(ctx context.Context, tenant TenantPath, params *CreateTermConceptParams, body CreateTermConceptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteTermConcept Delete a concept
+	//
+	// Its history stays readable, ending in a `deleted` revision.
+	// `If-Match` is optional; when sent it must match. Needs
+	// `knowledge.write`.
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/term-concepts/{concept} (the `DeleteTermConcept` operationId).
+	DeleteTermConcept(ctx context.Context, tenant TenantPath, concept ConceptPath, params *DeleteTermConceptParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTermConcept A concept with its terms
+	//
+	// Needs `knowledge.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/term-concepts/{concept} (the `GetTermConcept` operationId).
+	GetTermConcept(ctx context.Context, tenant TenantPath, concept ConceptPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceTermConceptWithBody Replace a concept and its terms
+	//
+	// The body replaces the concept's content and its whole term list
+	// (terms that stay keep their `id`); its scope never changes.
+	// Unchanged content is no new version. Needs `knowledge.write`.
+	// Problem codes as for creating.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/term-concepts/{concept} (the `ReplaceTermConcept` operationId).
+	ReplaceTermConceptWithBody(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ReplaceTermConceptParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceTermConcept Replace a concept and its terms
+	//
+	// The body replaces the concept's content and its whole term list
+	// (terms that stay keep their `id`); its scope never changes.
+	// Unchanged content is no new version. Needs `knowledge.write`.
+	// Problem codes as for creating.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/term-concepts/{concept} (the `ReplaceTermConcept` operationId).
+	ReplaceTermConcept(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ReplaceTermConceptParams, body ReplaceTermConceptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTermConceptRevisions A concept's history, newest first
+	//
+	// Full snapshots, also after the concept was deleted. Needs `knowledge.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/term-concepts/{concept}/revisions (the `ListTermConceptRevisions` operationId).
+	ListTermConceptRevisions(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ListTermConceptRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RecognizeTermsWithBody Find termbase terms in a text
+	//
+	// Word-based and locale-aware: case folded unless a term is
+	// case-sensitive, short inflectional endings tolerated
+	// (workspace → workspaces), scripts without spaces (Japanese,
+	// Chinese, Thai) matched as substrings, overlaps resolved
+	// leftmost-longest. With `syntax`, `text` is parsed as a message
+	// and recognition runs over its visible text (placeholders become
+	// U+FFFC), returned as `analyzed_text`; `start` and `end` are
+	// Unicode code point offsets into it. `target_locale` adds each
+	// concept's terms in that locale. Stores nothing. Needs
+	// `knowledge.read`. Problem codes: `invalid_query`,
+	// `invalid_locale`, `invalid_syntax`, `invalid_message` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/term-recognitions (the `RecognizeTerms` operationId).
+	RecognizeTermsWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RecognizeTerms Find termbase terms in a text
+	//
+	// Word-based and locale-aware: case folded unless a term is
+	// case-sensitive, short inflectional endings tolerated
+	// (workspace → workspaces), scripts without spaces (Japanese,
+	// Chinese, Thai) matched as substrings, overlaps resolved
+	// leftmost-longest. With `syntax`, `text` is parsed as a message
+	// and recognition runs over its visible text (placeholders become
+	// U+FFFC), returned as `analyzed_text`; `start` and `end` are
+	// Unicode code point offsets into it. `target_locale` adds each
+	// concept's terms in that locale. Stores nothing. Needs
+	// `knowledge.read`. Problem codes: `invalid_query`,
+	// `invalid_locale`, `invalid_syntax`, `invalid_message` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/term-recognitions (the `RecognizeTerms` operationId).
+	RecognizeTerms(ctx context.Context, tenant TenantPath, body RecognizeTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CheckTerminologyWithBody Check a translation against the termbase
+	//
+	// Terminology QA (intent §29.3): `term_missing` (warning) when a
+	// concept recognized in the source has none of its preferred or
+	// admitted target terms in the translation; `term_forbidden`
+	// (error for forbidden, warning for deprecated terms) for every
+	// forbidden or deprecated target term used. With `syntax`, both
+	// texts are parsed as messages and checked as visible text. Spans
+	// are code point offsets into `source_text` or `target_text`.
+	// Deterministic; stores nothing. Needs `knowledge.read`. Problem
+	// codes as for recognition.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/terminology-checks (the `CheckTerminology` operationId).
+	CheckTerminologyWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CheckTerminology Check a translation against the termbase
+	//
+	// Terminology QA (intent §29.3): `term_missing` (warning) when a
+	// concept recognized in the source has none of its preferred or
+	// admitted target terms in the translation; `term_forbidden`
+	// (error for forbidden, warning for deprecated terms) for every
+	// forbidden or deprecated target term used. With `syntax`, both
+	// texts are parsed as messages and checked as visible text. Spans
+	// are code point offsets into `source_text` or `target_text`.
+	// Deterministic; stores nothing. Needs `knowledge.read`. Problem
+	// codes as for recognition.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/terminology-checks (the `CheckTerminology` operationId).
+	CheckTerminology(ctx context.Context, tenant TenantPath, body CheckTerminologyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SearchTranslationMemory Find active units containing a phrase
+	//
+	// Case-insensitive substring search over the normalized source (or
+	// target) of active units, closest first — how a translator checks
+	// how a phrase was translated before. Scope as for lookups. Needs
+	// `knowledge.read`. Problem codes: `invalid_query`,
+	// `invalid_locale` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/tm-concordance (the `SearchTranslationMemory` operationId).
+	SearchTranslationMemory(ctx context.Context, tenant TenantPath, params *SearchTranslationMemoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupTranslationMemoryWithBody Find translation-memory matches for a message
+	//
+	// Parses `source` (MF1 by default) and matches its normalized form —
+	// placeholders by position, markup as tags — against active units
+	// of the locale pair: exact matches (same text and placeholder
+	// types) score 100, or 101 when the unit was approved for the same
+	// `message_key` in the same `namespace` of `project_id`; fuzzy
+	// matches (trigram similarity) score 50–99. Each target is renamed
+	// to the query's variable names. By default a lookup sees
+	// tenant-wide units and `project_id`'s; `all_projects` widens it to
+	// the tenant. `count_hits` records the lookup in each returned
+	// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+	// `invalid_query`, `invalid_locale`, `invalid_syntax`,
+	// `invalid_message`, `message_too_long` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-lookups (the `LookupTranslationMemory` operationId).
+	LookupTranslationMemoryWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupTranslationMemory Find translation-memory matches for a message
+	//
+	// Parses `source` (MF1 by default) and matches its normalized form —
+	// placeholders by position, markup as tags — against active units
+	// of the locale pair: exact matches (same text and placeholder
+	// types) score 100, or 101 when the unit was approved for the same
+	// `message_key` in the same `namespace` of `project_id`; fuzzy
+	// matches (trigram similarity) score 50–99. Each target is renamed
+	// to the query's variable names. By default a lookup sees
+	// tenant-wide units and `project_id`'s; `all_projects` widens it to
+	// the tenant. `count_hits` records the lookup in each returned
+	// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+	// `invalid_query`, `invalid_locale`, `invalid_syntax`,
+	// `invalid_message`, `message_too_long` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-lookups (the `LookupTranslationMemory` operationId).
+	LookupTranslationMemory(ctx context.Context, tenant TenantPath, body LookupTranslationMemoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTranslationMemoryUnits Translation-memory units, active or retired
+	//
+	// Units are derived from approved translations; retired ones are
+	// their history. `translation` lists one translation's units.
+	// Needs `knowledge.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/tm-units (the `ListTranslationMemoryUnits` operationId).
+	ListTranslationMemoryUnits(ctx context.Context, tenant TenantPath, params *ListTranslationMemoryUnitsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RetireTranslationMemoryUnit Retire a unit
+	//
+	// Takes the unit out of matching (`retired_reason: deleted`); it
+	// stays listed as history. Retiring a retired unit changes nothing.
+	// A later approval of its translation derives a new unit. Needs
+	// `knowledge.write`.
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/tm-units/{unit} (the `RetireTranslationMemoryUnit` operationId).
+	RetireTranslationMemoryUnit(ctx context.Context, tenant TenantPath, unit TMUnitPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTranslationMemoryUnit A translation-memory unit
+	//
+	// Needs `knowledge.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/tm-units/{unit} (the `GetTranslationMemoryUnit` operationId).
+	GetTranslationMemoryUnit(ctx context.Context, tenant TenantPath, unit TMUnitPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListTokens API tokens, including revoked ones
 	//
 	// Needs `tokens.read`.
@@ -4528,6 +5889,30 @@ func (c *Client) CreateTenant(ctx context.Context, params *CreateTenantParams, b
 // Corresponds with GET /v1/tenants/{tenant} (the `GetTenant` operationId).
 func (c *Client) GetTenant(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetTenantRequest(c.Server, tenant)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetEffectiveStyleGuide The style that applies to a project, locale and namespace
+//
+// Every applicable guide merged field by field, the narrowest
+// winning: a namespace beats a locale, a deeper locale a shallower
+// one, a locale a project, a project the tenant. A narrower guide
+// replaces a broader rule with the same `id`, or switches it off
+// (`disabled`). `sources` names each guide version used, broadest
+// first. Without `project`, only tenant-level guides apply; without
+// `locale`, no locale guide does. Needs `knowledge.read`. Problem
+// codes: `invalid_locale` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/effective-style-guide (the `GetEffectiveStyleGuide` operationId).
+func (c *Client) GetEffectiveStyleGuide(ctx context.Context, tenant TenantPath, params *GetEffectiveStyleGuideParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEffectiveStyleGuideRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
 	}
@@ -6222,6 +7607,578 @@ func (c *Client) ListProjectTranslations(ctx context.Context, tenant TenantPath,
 	return c.Client.Do(req)
 }
 
+// ListStyleGuides Style guides
+//
+// Every guide, or only tenant-level ones (`tenant_only`), one
+// project's, or one locale's. Needs `knowledge.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/style-guides (the `ListStyleGuides` operationId).
+func (c *Client) ListStyleGuides(ctx context.Context, tenant TenantPath, params *ListStyleGuidesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListStyleGuidesRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateStyleGuideWithBody Add the style guide for a scope
+//
+// A scope is any combination of `project_id`, `locale` (which
+// covers its descendants: `de` applies to `de-AT`) and `namespace`
+// (which needs a project); none is the tenant's guide. Each scope
+// has one guide. Needs `knowledge.write`. Problem codes:
+// `style_guide_exists` (409), `invalid_style_guide`,
+// `invalid_style_rule`, `namespace_needs_project`,
+// `invalid_locale`, `unknown_project` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/style-guides (the `CreateStyleGuide` operationId).
+func (c *Client) CreateStyleGuideWithBody(ctx context.Context, tenant TenantPath, params *CreateStyleGuideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateStyleGuideRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateStyleGuide Add the style guide for a scope
+//
+// A scope is any combination of `project_id`, `locale` (which
+// covers its descendants: `de` applies to `de-AT`) and `namespace`
+// (which needs a project); none is the tenant's guide. Each scope
+// has one guide. Needs `knowledge.write`. Problem codes:
+// `style_guide_exists` (409), `invalid_style_guide`,
+// `invalid_style_rule`, `namespace_needs_project`,
+// `invalid_locale`, `unknown_project` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/style-guides (the `CreateStyleGuide` operationId).
+func (c *Client) CreateStyleGuide(ctx context.Context, tenant TenantPath, params *CreateStyleGuideParams, body CreateStyleGuideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateStyleGuideRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteStyleGuide Delete a style guide
+//
+// Its versions stay readable, ending in a `deleted` one. `If-Match`
+// is optional; when sent it must match. Needs `knowledge.write`.
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/style-guides/{style_guide} (the `DeleteStyleGuide` operationId).
+func (c *Client) DeleteStyleGuide(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *DeleteStyleGuideParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteStyleGuideRequest(c.Server, tenant, styleGuide, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetStyleGuide A style guide
+//
+// Needs `knowledge.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/style-guides/{style_guide} (the `GetStyleGuide` operationId).
+func (c *Client) GetStyleGuide(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetStyleGuideRequest(c.Server, tenant, styleGuide)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplaceStyleGuideWithBody Replace a style guide's content
+//
+// Replaces the name, fields and rules; the scope never changes.
+// Unchanged content is no new version. Needs `knowledge.write`.
+// Problem codes: `invalid_style_guide`, `invalid_style_rule` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/style-guides/{style_guide} (the `ReplaceStyleGuide` operationId).
+func (c *Client) ReplaceStyleGuideWithBody(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ReplaceStyleGuideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceStyleGuideRequestWithBody(c.Server, tenant, styleGuide, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplaceStyleGuide Replace a style guide's content
+//
+// Replaces the name, fields and rules; the scope never changes.
+// Unchanged content is no new version. Needs `knowledge.write`.
+// Problem codes: `invalid_style_guide`, `invalid_style_rule` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/style-guides/{style_guide} (the `ReplaceStyleGuide` operationId).
+func (c *Client) ReplaceStyleGuide(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ReplaceStyleGuideParams, body ReplaceStyleGuideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceStyleGuideRequest(c.Server, tenant, styleGuide, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListStyleGuideVersions A style guide's versions, newest first
+//
+// Full snapshots, also after the guide was deleted. Needs `knowledge.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/style-guides/{style_guide}/versions (the `ListStyleGuideVersions` operationId).
+func (c *Client) ListStyleGuideVersions(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ListStyleGuideVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListStyleGuideVersionsRequest(c.Server, tenant, styleGuide, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListTermConcepts Termbase concepts
+//
+// `project` lists the concepts that apply to it (its own and the
+// tenant-wide ones); `q` searches term texts (in `locale`, when
+// given) and definitions. Needs `knowledge.read`. Problem codes:
+// `invalid_query`, `invalid_locale` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/term-concepts (the `ListTermConcepts` operationId).
+func (c *Client) ListTermConcepts(ctx context.Context, tenant TenantPath, params *ListTermConceptsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTermConceptsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTermConceptWithBody Add a concept with its terms
+//
+// Tenant-wide, or for one project (`project_id`). Needs
+// `knowledge.write`. Problem codes: `invalid_concept`,
+// `invalid_term`, `invalid_term_status`, `invalid_part_of_speech`,
+// `duplicate_term`, `invalid_locale`, `unknown_project` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/term-concepts (the `CreateTermConcept` operationId).
+func (c *Client) CreateTermConceptWithBody(ctx context.Context, tenant TenantPath, params *CreateTermConceptParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTermConceptRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTermConcept Add a concept with its terms
+//
+// Tenant-wide, or for one project (`project_id`). Needs
+// `knowledge.write`. Problem codes: `invalid_concept`,
+// `invalid_term`, `invalid_term_status`, `invalid_part_of_speech`,
+// `duplicate_term`, `invalid_locale`, `unknown_project` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/term-concepts (the `CreateTermConcept` operationId).
+func (c *Client) CreateTermConcept(ctx context.Context, tenant TenantPath, params *CreateTermConceptParams, body CreateTermConceptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTermConceptRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteTermConcept Delete a concept
+//
+// Its history stays readable, ending in a `deleted` revision.
+// `If-Match` is optional; when sent it must match. Needs
+// `knowledge.write`.
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/term-concepts/{concept} (the `DeleteTermConcept` operationId).
+func (c *Client) DeleteTermConcept(ctx context.Context, tenant TenantPath, concept ConceptPath, params *DeleteTermConceptParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteTermConceptRequest(c.Server, tenant, concept, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetTermConcept A concept with its terms
+//
+// Needs `knowledge.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/term-concepts/{concept} (the `GetTermConcept` operationId).
+func (c *Client) GetTermConcept(ctx context.Context, tenant TenantPath, concept ConceptPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTermConceptRequest(c.Server, tenant, concept)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplaceTermConceptWithBody Replace a concept and its terms
+//
+// The body replaces the concept's content and its whole term list
+// (terms that stay keep their `id`); its scope never changes.
+// Unchanged content is no new version. Needs `knowledge.write`.
+// Problem codes as for creating.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/term-concepts/{concept} (the `ReplaceTermConcept` operationId).
+func (c *Client) ReplaceTermConceptWithBody(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ReplaceTermConceptParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceTermConceptRequestWithBody(c.Server, tenant, concept, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplaceTermConcept Replace a concept and its terms
+//
+// The body replaces the concept's content and its whole term list
+// (terms that stay keep their `id`); its scope never changes.
+// Unchanged content is no new version. Needs `knowledge.write`.
+// Problem codes as for creating.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/tenants/{tenant}/term-concepts/{concept} (the `ReplaceTermConcept` operationId).
+func (c *Client) ReplaceTermConcept(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ReplaceTermConceptParams, body ReplaceTermConceptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceTermConceptRequest(c.Server, tenant, concept, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListTermConceptRevisions A concept's history, newest first
+//
+// Full snapshots, also after the concept was deleted. Needs `knowledge.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/term-concepts/{concept}/revisions (the `ListTermConceptRevisions` operationId).
+func (c *Client) ListTermConceptRevisions(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ListTermConceptRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTermConceptRevisionsRequest(c.Server, tenant, concept, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RecognizeTermsWithBody Find termbase terms in a text
+//
+// Word-based and locale-aware: case folded unless a term is
+// case-sensitive, short inflectional endings tolerated
+// (workspace → workspaces), scripts without spaces (Japanese,
+// Chinese, Thai) matched as substrings, overlaps resolved
+// leftmost-longest. With `syntax`, `text` is parsed as a message
+// and recognition runs over its visible text (placeholders become
+// U+FFFC), returned as `analyzed_text`; `start` and `end` are
+// Unicode code point offsets into it. `target_locale` adds each
+// concept's terms in that locale. Stores nothing. Needs
+// `knowledge.read`. Problem codes: `invalid_query`,
+// `invalid_locale`, `invalid_syntax`, `invalid_message` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/term-recognitions (the `RecognizeTerms` operationId).
+func (c *Client) RecognizeTermsWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecognizeTermsRequestWithBody(c.Server, tenant, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RecognizeTerms Find termbase terms in a text
+//
+// Word-based and locale-aware: case folded unless a term is
+// case-sensitive, short inflectional endings tolerated
+// (workspace → workspaces), scripts without spaces (Japanese,
+// Chinese, Thai) matched as substrings, overlaps resolved
+// leftmost-longest. With `syntax`, `text` is parsed as a message
+// and recognition runs over its visible text (placeholders become
+// U+FFFC), returned as `analyzed_text`; `start` and `end` are
+// Unicode code point offsets into it. `target_locale` adds each
+// concept's terms in that locale. Stores nothing. Needs
+// `knowledge.read`. Problem codes: `invalid_query`,
+// `invalid_locale`, `invalid_syntax`, `invalid_message` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/term-recognitions (the `RecognizeTerms` operationId).
+func (c *Client) RecognizeTerms(ctx context.Context, tenant TenantPath, body RecognizeTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecognizeTermsRequest(c.Server, tenant, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CheckTerminologyWithBody Check a translation against the termbase
+//
+// Terminology QA (intent §29.3): `term_missing` (warning) when a
+// concept recognized in the source has none of its preferred or
+// admitted target terms in the translation; `term_forbidden`
+// (error for forbidden, warning for deprecated terms) for every
+// forbidden or deprecated target term used. With `syntax`, both
+// texts are parsed as messages and checked as visible text. Spans
+// are code point offsets into `source_text` or `target_text`.
+// Deterministic; stores nothing. Needs `knowledge.read`. Problem
+// codes as for recognition.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/terminology-checks (the `CheckTerminology` operationId).
+func (c *Client) CheckTerminologyWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCheckTerminologyRequestWithBody(c.Server, tenant, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CheckTerminology Check a translation against the termbase
+//
+// Terminology QA (intent §29.3): `term_missing` (warning) when a
+// concept recognized in the source has none of its preferred or
+// admitted target terms in the translation; `term_forbidden`
+// (error for forbidden, warning for deprecated terms) for every
+// forbidden or deprecated target term used. With `syntax`, both
+// texts are parsed as messages and checked as visible text. Spans
+// are code point offsets into `source_text` or `target_text`.
+// Deterministic; stores nothing. Needs `knowledge.read`. Problem
+// codes as for recognition.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/terminology-checks (the `CheckTerminology` operationId).
+func (c *Client) CheckTerminology(ctx context.Context, tenant TenantPath, body CheckTerminologyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCheckTerminologyRequest(c.Server, tenant, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SearchTranslationMemory Find active units containing a phrase
+//
+// Case-insensitive substring search over the normalized source (or
+// target) of active units, closest first — how a translator checks
+// how a phrase was translated before. Scope as for lookups. Needs
+// `knowledge.read`. Problem codes: `invalid_query`,
+// `invalid_locale` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/tm-concordance (the `SearchTranslationMemory` operationId).
+func (c *Client) SearchTranslationMemory(ctx context.Context, tenant TenantPath, params *SearchTranslationMemoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchTranslationMemoryRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupTranslationMemoryWithBody Find translation-memory matches for a message
+//
+// Parses `source` (MF1 by default) and matches its normalized form —
+// placeholders by position, markup as tags — against active units
+// of the locale pair: exact matches (same text and placeholder
+// types) score 100, or 101 when the unit was approved for the same
+// `message_key` in the same `namespace` of `project_id`; fuzzy
+// matches (trigram similarity) score 50–99. Each target is renamed
+// to the query's variable names. By default a lookup sees
+// tenant-wide units and `project_id`'s; `all_projects` widens it to
+// the tenant. `count_hits` records the lookup in each returned
+// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+// `invalid_query`, `invalid_locale`, `invalid_syntax`,
+// `invalid_message`, `message_too_long` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-lookups (the `LookupTranslationMemory` operationId).
+func (c *Client) LookupTranslationMemoryWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupTranslationMemoryRequestWithBody(c.Server, tenant, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupTranslationMemory Find translation-memory matches for a message
+//
+// Parses `source` (MF1 by default) and matches its normalized form —
+// placeholders by position, markup as tags — against active units
+// of the locale pair: exact matches (same text and placeholder
+// types) score 100, or 101 when the unit was approved for the same
+// `message_key` in the same `namespace` of `project_id`; fuzzy
+// matches (trigram similarity) score 50–99. Each target is renamed
+// to the query's variable names. By default a lookup sees
+// tenant-wide units and `project_id`'s; `all_projects` widens it to
+// the tenant. `count_hits` records the lookup in each returned
+// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+// `invalid_query`, `invalid_locale`, `invalid_syntax`,
+// `invalid_message`, `message_too_long` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-lookups (the `LookupTranslationMemory` operationId).
+func (c *Client) LookupTranslationMemory(ctx context.Context, tenant TenantPath, body LookupTranslationMemoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupTranslationMemoryRequest(c.Server, tenant, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListTranslationMemoryUnits Translation-memory units, active or retired
+//
+// Units are derived from approved translations; retired ones are
+// their history. `translation` lists one translation's units.
+// Needs `knowledge.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/tm-units (the `ListTranslationMemoryUnits` operationId).
+func (c *Client) ListTranslationMemoryUnits(ctx context.Context, tenant TenantPath, params *ListTranslationMemoryUnitsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTranslationMemoryUnitsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RetireTranslationMemoryUnit Retire a unit
+//
+// Takes the unit out of matching (`retired_reason: deleted`); it
+// stays listed as history. Retiring a retired unit changes nothing.
+// A later approval of its translation derives a new unit. Needs
+// `knowledge.write`.
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/tm-units/{unit} (the `RetireTranslationMemoryUnit` operationId).
+func (c *Client) RetireTranslationMemoryUnit(ctx context.Context, tenant TenantPath, unit TMUnitPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRetireTranslationMemoryUnitRequest(c.Server, tenant, unit)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetTranslationMemoryUnit A translation-memory unit
+//
+// Needs `knowledge.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/tm-units/{unit} (the `GetTranslationMemoryUnit` operationId).
+func (c *Client) GetTranslationMemoryUnit(ctx context.Context, tenant TenantPath, unit TMUnitPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTranslationMemoryUnitRequest(c.Server, tenant, unit)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListTokens API tokens, including revoked ones
 //
 // Needs `tokens.read`.
@@ -7237,6 +9194,91 @@ func NewGetTenantRequest(server string, tenant TenantPath) (*http.Request, error
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetEffectiveStyleGuideRequest constructs an http.Request for the GetEffectiveStyleGuide method
+func NewGetEffectiveStyleGuideRequest(server string, tenant TenantPath, params *GetEffectiveStyleGuideParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/effective-style-guide", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Namespace != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "namespace", *params.Namespace, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -11000,6 +13042,1333 @@ func NewListProjectTranslationsRequest(server string, tenant TenantPath, project
 	return req, nil
 }
 
+// NewListStyleGuidesRequest constructs an http.Request for the ListStyleGuides method
+func NewListStyleGuidesRequest(server string, tenant TenantPath, params *ListStyleGuidesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/style-guides", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TenantOnly != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tenant_only", *params.TenantOnly, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateStyleGuideRequest calls the generic CreateStyleGuide builder with application/json body
+func NewCreateStyleGuideRequest(server string, tenant TenantPath, params *CreateStyleGuideParams, body CreateStyleGuideJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateStyleGuideRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateStyleGuideRequestWithBody constructs an http.Request for the CreateStyleGuide method, with any body, and a specified content type
+func NewCreateStyleGuideRequestWithBody(server string, tenant TenantPath, params *CreateStyleGuideParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/style-guides", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteStyleGuideRequest constructs an http.Request for the DeleteStyleGuide method
+func NewDeleteStyleGuideRequest(server string, tenant TenantPath, styleGuide StyleGuidePath, params *DeleteStyleGuideParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "style_guide", styleGuide, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/style-guides/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetStyleGuideRequest constructs an http.Request for the GetStyleGuide method
+func NewGetStyleGuideRequest(server string, tenant TenantPath, styleGuide StyleGuidePath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "style_guide", styleGuide, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/style-guides/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewReplaceStyleGuideRequest calls the generic ReplaceStyleGuide builder with application/json body
+func NewReplaceStyleGuideRequest(server string, tenant TenantPath, styleGuide StyleGuidePath, params *ReplaceStyleGuideParams, body ReplaceStyleGuideJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplaceStyleGuideRequestWithBody(server, tenant, styleGuide, params, "application/json", bodyReader)
+}
+
+// NewReplaceStyleGuideRequestWithBody constructs an http.Request for the ReplaceStyleGuide method, with any body, and a specified content type
+func NewReplaceStyleGuideRequestWithBody(server string, tenant TenantPath, styleGuide StyleGuidePath, params *ReplaceStyleGuideParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "style_guide", styleGuide, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/style-guides/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListStyleGuideVersionsRequest constructs an http.Request for the ListStyleGuideVersions method
+func NewListStyleGuideVersionsRequest(server string, tenant TenantPath, styleGuide StyleGuidePath, params *ListStyleGuideVersionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "style_guide", styleGuide, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/style-guides/%s/versions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListTermConceptsRequest constructs an http.Request for the ListTermConcepts method
+func NewListTermConceptsRequest(server string, tenant TenantPath, params *ListTermConceptsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/term-concepts", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Q != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Domain != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "domain", *params.Domain, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateTermConceptRequest calls the generic CreateTermConcept builder with application/json body
+func NewCreateTermConceptRequest(server string, tenant TenantPath, params *CreateTermConceptParams, body CreateTermConceptJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTermConceptRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateTermConceptRequestWithBody constructs an http.Request for the CreateTermConcept method, with any body, and a specified content type
+func NewCreateTermConceptRequestWithBody(server string, tenant TenantPath, params *CreateTermConceptParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/term-concepts", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteTermConceptRequest constructs an http.Request for the DeleteTermConcept method
+func NewDeleteTermConceptRequest(server string, tenant TenantPath, concept ConceptPath, params *DeleteTermConceptParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "concept", concept, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/term-concepts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetTermConceptRequest constructs an http.Request for the GetTermConcept method
+func NewGetTermConceptRequest(server string, tenant TenantPath, concept ConceptPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "concept", concept, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/term-concepts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewReplaceTermConceptRequest calls the generic ReplaceTermConcept builder with application/json body
+func NewReplaceTermConceptRequest(server string, tenant TenantPath, concept ConceptPath, params *ReplaceTermConceptParams, body ReplaceTermConceptJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplaceTermConceptRequestWithBody(server, tenant, concept, params, "application/json", bodyReader)
+}
+
+// NewReplaceTermConceptRequestWithBody constructs an http.Request for the ReplaceTermConcept method, with any body, and a specified content type
+func NewReplaceTermConceptRequestWithBody(server string, tenant TenantPath, concept ConceptPath, params *ReplaceTermConceptParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "concept", concept, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/term-concepts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListTermConceptRevisionsRequest constructs an http.Request for the ListTermConceptRevisions method
+func NewListTermConceptRevisionsRequest(server string, tenant TenantPath, concept ConceptPath, params *ListTermConceptRevisionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "concept", concept, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/term-concepts/%s/revisions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRecognizeTermsRequest calls the generic RecognizeTerms builder with application/json body
+func NewRecognizeTermsRequest(server string, tenant TenantPath, body RecognizeTermsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRecognizeTermsRequestWithBody(server, tenant, "application/json", bodyReader)
+}
+
+// NewRecognizeTermsRequestWithBody constructs an http.Request for the RecognizeTerms method, with any body, and a specified content type
+func NewRecognizeTermsRequestWithBody(server string, tenant TenantPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/term-recognitions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCheckTerminologyRequest calls the generic CheckTerminology builder with application/json body
+func NewCheckTerminologyRequest(server string, tenant TenantPath, body CheckTerminologyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCheckTerminologyRequestWithBody(server, tenant, "application/json", bodyReader)
+}
+
+// NewCheckTerminologyRequestWithBody constructs an http.Request for the CheckTerminology method, with any body, and a specified content type
+func NewCheckTerminologyRequestWithBody(server string, tenant TenantPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/terminology-checks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSearchTranslationMemoryRequest constructs an http.Request for the SearchTranslationMemory method
+func NewSearchTranslationMemoryRequest(server string, tenant TenantPath, params *SearchTranslationMemoryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/tm-concordance", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Side != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "side", *params.Side, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.SourceLocale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source_locale", *params.SourceLocale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetLocale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_locale", *params.TargetLocale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.AllProjects != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "all_projects", *params.AllProjects, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewLookupTranslationMemoryRequest calls the generic LookupTranslationMemory builder with application/json body
+func NewLookupTranslationMemoryRequest(server string, tenant TenantPath, body LookupTranslationMemoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLookupTranslationMemoryRequestWithBody(server, tenant, "application/json", bodyReader)
+}
+
+// NewLookupTranslationMemoryRequestWithBody constructs an http.Request for the LookupTranslationMemory method, with any body, and a specified content type
+func NewLookupTranslationMemoryRequestWithBody(server string, tenant TenantPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/tm-lookups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListTranslationMemoryUnitsRequest constructs an http.Request for the ListTranslationMemoryUnits method
+func NewListTranslationMemoryUnitsRequest(server string, tenant TenantPath, params *ListTranslationMemoryUnitsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/tm-units", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.SourceLocale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source_locale", *params.SourceLocale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetLocale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_locale", *params.TargetLocale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Translation != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "translation", *params.Translation, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRetireTranslationMemoryUnitRequest constructs an http.Request for the RetireTranslationMemoryUnit method
+func NewRetireTranslationMemoryUnitRequest(server string, tenant TenantPath, unit TMUnitPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "unit", unit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/tm-units/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetTranslationMemoryUnitRequest constructs an http.Request for the GetTranslationMemoryUnit method
+func NewGetTranslationMemoryUnitRequest(server string, tenant TenantPath, unit TMUnitPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "unit", unit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/tm-units/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListTokensRequest constructs an http.Request for the ListTokens method
 func NewListTokensRequest(server string, tenant TenantPath, params *ListTokensParams) (*http.Request, error) {
 	var err error
@@ -11673,6 +15042,22 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant} (the `GetTenant` operationId).
 	GetTenantWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*GetTenantResponse, error)
+
+	// GetEffectiveStyleGuideWithResponse The style that applies to a project, locale and namespace
+	//
+	// Every applicable guide merged field by field, the narrowest
+	// winning: a namespace beats a locale, a deeper locale a shallower
+	// one, a locale a project, a project the tenant. A narrower guide
+	// replaces a broader rule with the same `id`, or switches it off
+	// (`disabled`). `sources` names each guide version used, broadest
+	// first. Without `project`, only tenant-level guides apply; without
+	// `locale`, no locale guide does. Needs `knowledge.read`. Problem
+	// codes: `invalid_locale` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/effective-style-guide (the `GetEffectiveStyleGuide` operationId).
+	GetEffectiveStyleGuideWithResponse(ctx context.Context, tenant TenantPath, params *GetEffectiveStyleGuideParams, reqEditors ...RequestEditorFn) (*GetEffectiveStyleGuideResponse, error)
 
 	// ListMembersWithResponse Members and open invitations
 	//
@@ -12645,6 +16030,342 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
 	ListProjectTranslationsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*ListProjectTranslationsResponse, error)
+
+	// ListStyleGuidesWithResponse Style guides
+	//
+	// Every guide, or only tenant-level ones (`tenant_only`), one
+	// project's, or one locale's. Needs `knowledge.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/style-guides (the `ListStyleGuides` operationId).
+	ListStyleGuidesWithResponse(ctx context.Context, tenant TenantPath, params *ListStyleGuidesParams, reqEditors ...RequestEditorFn) (*ListStyleGuidesResponse, error)
+
+	// CreateStyleGuideWithBodyWithResponse Add the style guide for a scope
+	//
+	// A scope is any combination of `project_id`, `locale` (which
+	// covers its descendants: `de` applies to `de-AT`) and `namespace`
+	// (which needs a project); none is the tenant's guide. Each scope
+	// has one guide. Needs `knowledge.write`. Problem codes:
+	// `style_guide_exists` (409), `invalid_style_guide`,
+	// `invalid_style_rule`, `namespace_needs_project`,
+	// `invalid_locale`, `unknown_project` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/style-guides (the `CreateStyleGuide` operationId).
+	CreateStyleGuideWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateStyleGuideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateStyleGuideResponse, error)
+
+	// CreateStyleGuideWithResponse Add the style guide for a scope
+	//
+	// A scope is any combination of `project_id`, `locale` (which
+	// covers its descendants: `de` applies to `de-AT`) and `namespace`
+	// (which needs a project); none is the tenant's guide. Each scope
+	// has one guide. Needs `knowledge.write`. Problem codes:
+	// `style_guide_exists` (409), `invalid_style_guide`,
+	// `invalid_style_rule`, `namespace_needs_project`,
+	// `invalid_locale`, `unknown_project` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/style-guides (the `CreateStyleGuide` operationId).
+	CreateStyleGuideWithResponse(ctx context.Context, tenant TenantPath, params *CreateStyleGuideParams, body CreateStyleGuideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateStyleGuideResponse, error)
+
+	// DeleteStyleGuideWithResponse Delete a style guide
+	//
+	// Its versions stay readable, ending in a `deleted` one. `If-Match`
+	// is optional; when sent it must match. Needs `knowledge.write`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/style-guides/{style_guide} (the `DeleteStyleGuide` operationId).
+	DeleteStyleGuideWithResponse(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *DeleteStyleGuideParams, reqEditors ...RequestEditorFn) (*DeleteStyleGuideResponse, error)
+
+	// GetStyleGuideWithResponse A style guide
+	//
+	// Needs `knowledge.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/style-guides/{style_guide} (the `GetStyleGuide` operationId).
+	GetStyleGuideWithResponse(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, reqEditors ...RequestEditorFn) (*GetStyleGuideResponse, error)
+
+	// ReplaceStyleGuideWithBodyWithResponse Replace a style guide's content
+	//
+	// Replaces the name, fields and rules; the scope never changes.
+	// Unchanged content is no new version. Needs `knowledge.write`.
+	// Problem codes: `invalid_style_guide`, `invalid_style_rule` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/style-guides/{style_guide} (the `ReplaceStyleGuide` operationId).
+	ReplaceStyleGuideWithBodyWithResponse(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ReplaceStyleGuideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceStyleGuideResponse, error)
+
+	// ReplaceStyleGuideWithResponse Replace a style guide's content
+	//
+	// Replaces the name, fields and rules; the scope never changes.
+	// Unchanged content is no new version. Needs `knowledge.write`.
+	// Problem codes: `invalid_style_guide`, `invalid_style_rule` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/style-guides/{style_guide} (the `ReplaceStyleGuide` operationId).
+	ReplaceStyleGuideWithResponse(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ReplaceStyleGuideParams, body ReplaceStyleGuideJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceStyleGuideResponse, error)
+
+	// ListStyleGuideVersionsWithResponse A style guide's versions, newest first
+	//
+	// Full snapshots, also after the guide was deleted. Needs `knowledge.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/style-guides/{style_guide}/versions (the `ListStyleGuideVersions` operationId).
+	ListStyleGuideVersionsWithResponse(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ListStyleGuideVersionsParams, reqEditors ...RequestEditorFn) (*ListStyleGuideVersionsResponse, error)
+
+	// ListTermConceptsWithResponse Termbase concepts
+	//
+	// `project` lists the concepts that apply to it (its own and the
+	// tenant-wide ones); `q` searches term texts (in `locale`, when
+	// given) and definitions. Needs `knowledge.read`. Problem codes:
+	// `invalid_query`, `invalid_locale` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/term-concepts (the `ListTermConcepts` operationId).
+	ListTermConceptsWithResponse(ctx context.Context, tenant TenantPath, params *ListTermConceptsParams, reqEditors ...RequestEditorFn) (*ListTermConceptsResponse, error)
+
+	// CreateTermConceptWithBodyWithResponse Add a concept with its terms
+	//
+	// Tenant-wide, or for one project (`project_id`). Needs
+	// `knowledge.write`. Problem codes: `invalid_concept`,
+	// `invalid_term`, `invalid_term_status`, `invalid_part_of_speech`,
+	// `duplicate_term`, `invalid_locale`, `unknown_project` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/term-concepts (the `CreateTermConcept` operationId).
+	CreateTermConceptWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermConceptParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTermConceptResponse, error)
+
+	// CreateTermConceptWithResponse Add a concept with its terms
+	//
+	// Tenant-wide, or for one project (`project_id`). Needs
+	// `knowledge.write`. Problem codes: `invalid_concept`,
+	// `invalid_term`, `invalid_term_status`, `invalid_part_of_speech`,
+	// `duplicate_term`, `invalid_locale`, `unknown_project` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/term-concepts (the `CreateTermConcept` operationId).
+	CreateTermConceptWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermConceptParams, body CreateTermConceptJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTermConceptResponse, error)
+
+	// DeleteTermConceptWithResponse Delete a concept
+	//
+	// Its history stays readable, ending in a `deleted` revision.
+	// `If-Match` is optional; when sent it must match. Needs
+	// `knowledge.write`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/term-concepts/{concept} (the `DeleteTermConcept` operationId).
+	DeleteTermConceptWithResponse(ctx context.Context, tenant TenantPath, concept ConceptPath, params *DeleteTermConceptParams, reqEditors ...RequestEditorFn) (*DeleteTermConceptResponse, error)
+
+	// GetTermConceptWithResponse A concept with its terms
+	//
+	// Needs `knowledge.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/term-concepts/{concept} (the `GetTermConcept` operationId).
+	GetTermConceptWithResponse(ctx context.Context, tenant TenantPath, concept ConceptPath, reqEditors ...RequestEditorFn) (*GetTermConceptResponse, error)
+
+	// ReplaceTermConceptWithBodyWithResponse Replace a concept and its terms
+	//
+	// The body replaces the concept's content and its whole term list
+	// (terms that stay keep their `id`); its scope never changes.
+	// Unchanged content is no new version. Needs `knowledge.write`.
+	// Problem codes as for creating.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/term-concepts/{concept} (the `ReplaceTermConcept` operationId).
+	ReplaceTermConceptWithBodyWithResponse(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ReplaceTermConceptParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceTermConceptResponse, error)
+
+	// ReplaceTermConceptWithResponse Replace a concept and its terms
+	//
+	// The body replaces the concept's content and its whole term list
+	// (terms that stay keep their `id`); its scope never changes.
+	// Unchanged content is no new version. Needs `knowledge.write`.
+	// Problem codes as for creating.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/term-concepts/{concept} (the `ReplaceTermConcept` operationId).
+	ReplaceTermConceptWithResponse(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ReplaceTermConceptParams, body ReplaceTermConceptJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceTermConceptResponse, error)
+
+	// ListTermConceptRevisionsWithResponse A concept's history, newest first
+	//
+	// Full snapshots, also after the concept was deleted. Needs `knowledge.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/term-concepts/{concept}/revisions (the `ListTermConceptRevisions` operationId).
+	ListTermConceptRevisionsWithResponse(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ListTermConceptRevisionsParams, reqEditors ...RequestEditorFn) (*ListTermConceptRevisionsResponse, error)
+
+	// RecognizeTermsWithBodyWithResponse Find termbase terms in a text
+	//
+	// Word-based and locale-aware: case folded unless a term is
+	// case-sensitive, short inflectional endings tolerated
+	// (workspace → workspaces), scripts without spaces (Japanese,
+	// Chinese, Thai) matched as substrings, overlaps resolved
+	// leftmost-longest. With `syntax`, `text` is parsed as a message
+	// and recognition runs over its visible text (placeholders become
+	// U+FFFC), returned as `analyzed_text`; `start` and `end` are
+	// Unicode code point offsets into it. `target_locale` adds each
+	// concept's terms in that locale. Stores nothing. Needs
+	// `knowledge.read`. Problem codes: `invalid_query`,
+	// `invalid_locale`, `invalid_syntax`, `invalid_message` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/term-recognitions (the `RecognizeTerms` operationId).
+	RecognizeTermsWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecognizeTermsResponse, error)
+
+	// RecognizeTermsWithResponse Find termbase terms in a text
+	//
+	// Word-based and locale-aware: case folded unless a term is
+	// case-sensitive, short inflectional endings tolerated
+	// (workspace → workspaces), scripts without spaces (Japanese,
+	// Chinese, Thai) matched as substrings, overlaps resolved
+	// leftmost-longest. With `syntax`, `text` is parsed as a message
+	// and recognition runs over its visible text (placeholders become
+	// U+FFFC), returned as `analyzed_text`; `start` and `end` are
+	// Unicode code point offsets into it. `target_locale` adds each
+	// concept's terms in that locale. Stores nothing. Needs
+	// `knowledge.read`. Problem codes: `invalid_query`,
+	// `invalid_locale`, `invalid_syntax`, `invalid_message` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/term-recognitions (the `RecognizeTerms` operationId).
+	RecognizeTermsWithResponse(ctx context.Context, tenant TenantPath, body RecognizeTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*RecognizeTermsResponse, error)
+
+	// CheckTerminologyWithBodyWithResponse Check a translation against the termbase
+	//
+	// Terminology QA (intent §29.3): `term_missing` (warning) when a
+	// concept recognized in the source has none of its preferred or
+	// admitted target terms in the translation; `term_forbidden`
+	// (error for forbidden, warning for deprecated terms) for every
+	// forbidden or deprecated target term used. With `syntax`, both
+	// texts are parsed as messages and checked as visible text. Spans
+	// are code point offsets into `source_text` or `target_text`.
+	// Deterministic; stores nothing. Needs `knowledge.read`. Problem
+	// codes as for recognition.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/terminology-checks (the `CheckTerminology` operationId).
+	CheckTerminologyWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CheckTerminologyResponse, error)
+
+	// CheckTerminologyWithResponse Check a translation against the termbase
+	//
+	// Terminology QA (intent §29.3): `term_missing` (warning) when a
+	// concept recognized in the source has none of its preferred or
+	// admitted target terms in the translation; `term_forbidden`
+	// (error for forbidden, warning for deprecated terms) for every
+	// forbidden or deprecated target term used. With `syntax`, both
+	// texts are parsed as messages and checked as visible text. Spans
+	// are code point offsets into `source_text` or `target_text`.
+	// Deterministic; stores nothing. Needs `knowledge.read`. Problem
+	// codes as for recognition.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/terminology-checks (the `CheckTerminology` operationId).
+	CheckTerminologyWithResponse(ctx context.Context, tenant TenantPath, body CheckTerminologyJSONRequestBody, reqEditors ...RequestEditorFn) (*CheckTerminologyResponse, error)
+
+	// SearchTranslationMemoryWithResponse Find active units containing a phrase
+	//
+	// Case-insensitive substring search over the normalized source (or
+	// target) of active units, closest first — how a translator checks
+	// how a phrase was translated before. Scope as for lookups. Needs
+	// `knowledge.read`. Problem codes: `invalid_query`,
+	// `invalid_locale` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/tm-concordance (the `SearchTranslationMemory` operationId).
+	SearchTranslationMemoryWithResponse(ctx context.Context, tenant TenantPath, params *SearchTranslationMemoryParams, reqEditors ...RequestEditorFn) (*SearchTranslationMemoryResponse, error)
+
+	// LookupTranslationMemoryWithBodyWithResponse Find translation-memory matches for a message
+	//
+	// Parses `source` (MF1 by default) and matches its normalized form —
+	// placeholders by position, markup as tags — against active units
+	// of the locale pair: exact matches (same text and placeholder
+	// types) score 100, or 101 when the unit was approved for the same
+	// `message_key` in the same `namespace` of `project_id`; fuzzy
+	// matches (trigram similarity) score 50–99. Each target is renamed
+	// to the query's variable names. By default a lookup sees
+	// tenant-wide units and `project_id`'s; `all_projects` widens it to
+	// the tenant. `count_hits` records the lookup in each returned
+	// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+	// `invalid_query`, `invalid_locale`, `invalid_syntax`,
+	// `invalid_message`, `message_too_long` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-lookups (the `LookupTranslationMemory` operationId).
+	LookupTranslationMemoryWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupTranslationMemoryResponse, error)
+
+	// LookupTranslationMemoryWithResponse Find translation-memory matches for a message
+	//
+	// Parses `source` (MF1 by default) and matches its normalized form —
+	// placeholders by position, markup as tags — against active units
+	// of the locale pair: exact matches (same text and placeholder
+	// types) score 100, or 101 when the unit was approved for the same
+	// `message_key` in the same `namespace` of `project_id`; fuzzy
+	// matches (trigram similarity) score 50–99. Each target is renamed
+	// to the query's variable names. By default a lookup sees
+	// tenant-wide units and `project_id`'s; `all_projects` widens it to
+	// the tenant. `count_hits` records the lookup in each returned
+	// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+	// `invalid_query`, `invalid_locale`, `invalid_syntax`,
+	// `invalid_message`, `message_too_long` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/tm-lookups (the `LookupTranslationMemory` operationId).
+	LookupTranslationMemoryWithResponse(ctx context.Context, tenant TenantPath, body LookupTranslationMemoryJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupTranslationMemoryResponse, error)
+
+	// ListTranslationMemoryUnitsWithResponse Translation-memory units, active or retired
+	//
+	// Units are derived from approved translations; retired ones are
+	// their history. `translation` lists one translation's units.
+	// Needs `knowledge.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/tm-units (the `ListTranslationMemoryUnits` operationId).
+	ListTranslationMemoryUnitsWithResponse(ctx context.Context, tenant TenantPath, params *ListTranslationMemoryUnitsParams, reqEditors ...RequestEditorFn) (*ListTranslationMemoryUnitsResponse, error)
+
+	// RetireTranslationMemoryUnitWithResponse Retire a unit
+	//
+	// Takes the unit out of matching (`retired_reason: deleted`); it
+	// stays listed as history. Retiring a retired unit changes nothing.
+	// A later approval of its translation derives a new unit. Needs
+	// `knowledge.write`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/tm-units/{unit} (the `RetireTranslationMemoryUnit` operationId).
+	RetireTranslationMemoryUnitWithResponse(ctx context.Context, tenant TenantPath, unit TMUnitPath, reqEditors ...RequestEditorFn) (*RetireTranslationMemoryUnitResponse, error)
+
+	// GetTranslationMemoryUnitWithResponse A translation-memory unit
+	//
+	// Needs `knowledge.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/tm-units/{unit} (the `GetTranslationMemoryUnit` operationId).
+	GetTranslationMemoryUnitWithResponse(ctx context.Context, tenant TenantPath, unit TMUnitPath, reqEditors ...RequestEditorFn) (*GetTranslationMemoryUnitResponse, error)
 
 	// ListTokensWithResponse API tokens, including revoked ones
 	//
@@ -14062,6 +17783,68 @@ func (r GetTenantResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetTenantResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetEffectiveStyleGuideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *EffectiveStyleGuide
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetEffectiveStyleGuideResponse) GetJSON200() *EffectiveStyleGuide {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r GetEffectiveStyleGuideResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetEffectiveStyleGuideResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetEffectiveStyleGuideResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetEffectiveStyleGuideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEffectiveStyleGuideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEffectiveStyleGuideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetEffectiveStyleGuideResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -18330,6 +22113,1314 @@ func (r ListProjectTranslationsResponse) ContentType() string {
 	return ""
 }
 
+type ListStyleGuidesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StyleGuideList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListStyleGuidesResponse) GetJSON200() *StyleGuideList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListStyleGuidesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListStyleGuidesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListStyleGuidesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListStyleGuidesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListStyleGuidesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListStyleGuidesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListStyleGuidesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateStyleGuideResponse201Headers the declared response headers of an HTTP 201 response for CreateStyleGuide
+type CreateStyleGuideResponse201Headers struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateStyleGuideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *StyleGuide
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateStyleGuideResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateStyleGuideResponse) GetJSON201() *StyleGuide {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateStyleGuideResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateStyleGuideResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateStyleGuideResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateStyleGuideResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateStyleGuideResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateStyleGuideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateStyleGuideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateStyleGuideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateStyleGuideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteStyleGuideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeleteStyleGuideResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeleteStyleGuideResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeleteStyleGuideResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r DeleteStyleGuideResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteStyleGuideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteStyleGuideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteStyleGuideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteStyleGuideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetStyleGuideResponse200Headers the declared response headers of an HTTP 200 response for GetStyleGuide
+type GetStyleGuideResponse200Headers struct {
+	ETag *string
+}
+
+type GetStyleGuideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StyleGuide
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetStyleGuideResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetStyleGuideResponse) GetJSON200() *StyleGuide {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetStyleGuideResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetStyleGuideResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetStyleGuideResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetStyleGuideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetStyleGuideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetStyleGuideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetStyleGuideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// ReplaceStyleGuideResponse200Headers the declared response headers of an HTTP 200 response for ReplaceStyleGuide
+type ReplaceStyleGuideResponse200Headers struct {
+	ETag *string
+}
+
+type ReplaceStyleGuideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StyleGuide
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *ReplaceStyleGuideResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReplaceStyleGuideResponse) GetJSON200() *StyleGuide {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ReplaceStyleGuideResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ReplaceStyleGuideResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ReplaceStyleGuideResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ReplaceStyleGuideResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r ReplaceStyleGuideResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r ReplaceStyleGuideResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r ReplaceStyleGuideResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetBody returns the raw response body bytes
+func (r ReplaceStyleGuideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReplaceStyleGuideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReplaceStyleGuideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReplaceStyleGuideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListStyleGuideVersionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StyleGuideVersionList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListStyleGuideVersionsResponse) GetJSON200() *StyleGuideVersionList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListStyleGuideVersionsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListStyleGuideVersionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListStyleGuideVersionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListStyleGuideVersionsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListStyleGuideVersionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListStyleGuideVersionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListStyleGuideVersionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListStyleGuideVersionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListTermConceptsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TermConceptList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListTermConceptsResponse) GetJSON200() *TermConceptList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListTermConceptsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListTermConceptsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListTermConceptsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListTermConceptsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTermConceptsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTermConceptsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListTermConceptsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateTermConceptResponse201Headers the declared response headers of an HTTP 201 response for CreateTermConcept
+type CreateTermConceptResponse201Headers struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateTermConceptResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *TermConcept
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateTermConceptResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateTermConceptResponse) GetJSON201() *TermConcept {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateTermConceptResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateTermConceptResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateTermConceptResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateTermConceptResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateTermConceptResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTermConceptResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTermConceptResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateTermConceptResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteTermConceptResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeleteTermConceptResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeleteTermConceptResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeleteTermConceptResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r DeleteTermConceptResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteTermConceptResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteTermConceptResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteTermConceptResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteTermConceptResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetTermConceptResponse200Headers the declared response headers of an HTTP 200 response for GetTermConcept
+type GetTermConceptResponse200Headers struct {
+	ETag *string
+}
+
+type GetTermConceptResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TermConcept
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetTermConceptResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetTermConceptResponse) GetJSON200() *TermConcept {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetTermConceptResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetTermConceptResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetTermConceptResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetTermConceptResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTermConceptResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTermConceptResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetTermConceptResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// ReplaceTermConceptResponse200Headers the declared response headers of an HTTP 200 response for ReplaceTermConcept
+type ReplaceTermConceptResponse200Headers struct {
+	ETag *string
+}
+
+type ReplaceTermConceptResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TermConcept
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *ReplaceTermConceptResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReplaceTermConceptResponse) GetJSON200() *TermConcept {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ReplaceTermConceptResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ReplaceTermConceptResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ReplaceTermConceptResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ReplaceTermConceptResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r ReplaceTermConceptResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r ReplaceTermConceptResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r ReplaceTermConceptResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetBody returns the raw response body bytes
+func (r ReplaceTermConceptResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReplaceTermConceptResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReplaceTermConceptResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReplaceTermConceptResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListTermConceptRevisionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TermConceptRevisionList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListTermConceptRevisionsResponse) GetJSON200() *TermConceptRevisionList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListTermConceptRevisionsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListTermConceptRevisionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListTermConceptRevisionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListTermConceptRevisionsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListTermConceptRevisionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTermConceptRevisionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTermConceptRevisionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListTermConceptRevisionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RecognizeTermsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TermRecognition
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RecognizeTermsResponse) GetJSON200() *TermRecognition {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r RecognizeTermsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RecognizeTermsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RecognizeTermsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r RecognizeTermsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RecognizeTermsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RecognizeTermsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RecognizeTermsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CheckTerminologyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TerminologyCheck
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CheckTerminologyResponse) GetJSON200() *TerminologyCheck {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CheckTerminologyResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CheckTerminologyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CheckTerminologyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r CheckTerminologyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CheckTerminologyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CheckTerminologyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CheckTerminologyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SearchTranslationMemoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TMConcordance
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SearchTranslationMemoryResponse) GetJSON200() *TMConcordance {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r SearchTranslationMemoryResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r SearchTranslationMemoryResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r SearchTranslationMemoryResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r SearchTranslationMemoryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SearchTranslationMemoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SearchTranslationMemoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SearchTranslationMemoryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LookupTranslationMemoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TMLookupResult
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LookupTranslationMemoryResponse) GetJSON200() *TMLookupResult {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r LookupTranslationMemoryResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r LookupTranslationMemoryResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r LookupTranslationMemoryResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r LookupTranslationMemoryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LookupTranslationMemoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LookupTranslationMemoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LookupTranslationMemoryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListTranslationMemoryUnitsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TMUnitList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListTranslationMemoryUnitsResponse) GetJSON200() *TMUnitList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListTranslationMemoryUnitsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListTranslationMemoryUnitsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListTranslationMemoryUnitsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListTranslationMemoryUnitsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTranslationMemoryUnitsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTranslationMemoryUnitsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListTranslationMemoryUnitsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RetireTranslationMemoryUnitResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RetireTranslationMemoryUnitResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RetireTranslationMemoryUnitResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RetireTranslationMemoryUnitResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r RetireTranslationMemoryUnitResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RetireTranslationMemoryUnitResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RetireTranslationMemoryUnitResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RetireTranslationMemoryUnitResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetTranslationMemoryUnitResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TMUnit
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetTranslationMemoryUnitResponse) GetJSON200() *TMUnit {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetTranslationMemoryUnitResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetTranslationMemoryUnitResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetTranslationMemoryUnitResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetTranslationMemoryUnitResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTranslationMemoryUnitResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTranslationMemoryUnitResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetTranslationMemoryUnitResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListTokensResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -19220,6 +24311,28 @@ func (c *ClientWithResponses) GetTenantWithResponse(ctx context.Context, tenant 
 		return nil, err
 	}
 	return ParseGetTenantResponse(rsp)
+}
+
+// GetEffectiveStyleGuideWithResponse The style that applies to a project, locale and namespace
+//
+// Every applicable guide merged field by field, the narrowest
+// winning: a namespace beats a locale, a deeper locale a shallower
+// one, a locale a project, a project the tenant. A narrower guide
+// replaces a broader rule with the same `id`, or switches it off
+// (`disabled`). `sources` names each guide version used, broadest
+// first. Without `project`, only tenant-level guides apply; without
+// `locale`, no locale guide does. Needs `knowledge.read`. Problem
+// codes: `invalid_locale` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/effective-style-guide (the `GetEffectiveStyleGuide` operationId).
+func (c *ClientWithResponses) GetEffectiveStyleGuideWithResponse(ctx context.Context, tenant TenantPath, params *GetEffectiveStyleGuideParams, reqEditors ...RequestEditorFn) (*GetEffectiveStyleGuideResponse, error) {
+	rsp, err := c.GetEffectiveStyleGuide(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEffectiveStyleGuideResponse(rsp)
 }
 
 // ListMembersWithResponse Members and open invitations
@@ -20662,6 +25775,498 @@ func (c *ClientWithResponses) ListProjectTranslationsWithResponse(ctx context.Co
 	return ParseListProjectTranslationsResponse(rsp)
 }
 
+// ListStyleGuidesWithResponse Style guides
+//
+// Every guide, or only tenant-level ones (`tenant_only`), one
+// project's, or one locale's. Needs `knowledge.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/style-guides (the `ListStyleGuides` operationId).
+func (c *ClientWithResponses) ListStyleGuidesWithResponse(ctx context.Context, tenant TenantPath, params *ListStyleGuidesParams, reqEditors ...RequestEditorFn) (*ListStyleGuidesResponse, error) {
+	rsp, err := c.ListStyleGuides(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListStyleGuidesResponse(rsp)
+}
+
+// CreateStyleGuideWithBodyWithResponse Add the style guide for a scope
+//
+// A scope is any combination of `project_id`, `locale` (which
+// covers its descendants: `de` applies to `de-AT`) and `namespace`
+// (which needs a project); none is the tenant's guide. Each scope
+// has one guide. Needs `knowledge.write`. Problem codes:
+// `style_guide_exists` (409), `invalid_style_guide`,
+// `invalid_style_rule`, `namespace_needs_project`,
+// `invalid_locale`, `unknown_project` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/style-guides (the `CreateStyleGuide` operationId).
+func (c *ClientWithResponses) CreateStyleGuideWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateStyleGuideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateStyleGuideResponse, error) {
+	rsp, err := c.CreateStyleGuideWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateStyleGuideResponse(rsp)
+}
+
+// CreateStyleGuideWithResponse Add the style guide for a scope
+//
+// A scope is any combination of `project_id`, `locale` (which
+// covers its descendants: `de` applies to `de-AT`) and `namespace`
+// (which needs a project); none is the tenant's guide. Each scope
+// has one guide. Needs `knowledge.write`. Problem codes:
+// `style_guide_exists` (409), `invalid_style_guide`,
+// `invalid_style_rule`, `namespace_needs_project`,
+// `invalid_locale`, `unknown_project` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/style-guides (the `CreateStyleGuide` operationId).
+func (c *ClientWithResponses) CreateStyleGuideWithResponse(ctx context.Context, tenant TenantPath, params *CreateStyleGuideParams, body CreateStyleGuideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateStyleGuideResponse, error) {
+	rsp, err := c.CreateStyleGuide(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateStyleGuideResponse(rsp)
+}
+
+// DeleteStyleGuideWithResponse Delete a style guide
+//
+// Its versions stay readable, ending in a `deleted` one. `If-Match`
+// is optional; when sent it must match. Needs `knowledge.write`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/style-guides/{style_guide} (the `DeleteStyleGuide` operationId).
+func (c *ClientWithResponses) DeleteStyleGuideWithResponse(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *DeleteStyleGuideParams, reqEditors ...RequestEditorFn) (*DeleteStyleGuideResponse, error) {
+	rsp, err := c.DeleteStyleGuide(ctx, tenant, styleGuide, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteStyleGuideResponse(rsp)
+}
+
+// GetStyleGuideWithResponse A style guide
+//
+// Needs `knowledge.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/style-guides/{style_guide} (the `GetStyleGuide` operationId).
+func (c *ClientWithResponses) GetStyleGuideWithResponse(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, reqEditors ...RequestEditorFn) (*GetStyleGuideResponse, error) {
+	rsp, err := c.GetStyleGuide(ctx, tenant, styleGuide, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetStyleGuideResponse(rsp)
+}
+
+// ReplaceStyleGuideWithBodyWithResponse Replace a style guide's content
+//
+// Replaces the name, fields and rules; the scope never changes.
+// Unchanged content is no new version. Needs `knowledge.write`.
+// Problem codes: `invalid_style_guide`, `invalid_style_rule` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/style-guides/{style_guide} (the `ReplaceStyleGuide` operationId).
+func (c *ClientWithResponses) ReplaceStyleGuideWithBodyWithResponse(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ReplaceStyleGuideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceStyleGuideResponse, error) {
+	rsp, err := c.ReplaceStyleGuideWithBody(ctx, tenant, styleGuide, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceStyleGuideResponse(rsp)
+}
+
+// ReplaceStyleGuideWithResponse Replace a style guide's content
+//
+// Replaces the name, fields and rules; the scope never changes.
+// Unchanged content is no new version. Needs `knowledge.write`.
+// Problem codes: `invalid_style_guide`, `invalid_style_rule` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/style-guides/{style_guide} (the `ReplaceStyleGuide` operationId).
+func (c *ClientWithResponses) ReplaceStyleGuideWithResponse(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ReplaceStyleGuideParams, body ReplaceStyleGuideJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceStyleGuideResponse, error) {
+	rsp, err := c.ReplaceStyleGuide(ctx, tenant, styleGuide, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceStyleGuideResponse(rsp)
+}
+
+// ListStyleGuideVersionsWithResponse A style guide's versions, newest first
+//
+// Full snapshots, also after the guide was deleted. Needs `knowledge.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/style-guides/{style_guide}/versions (the `ListStyleGuideVersions` operationId).
+func (c *ClientWithResponses) ListStyleGuideVersionsWithResponse(ctx context.Context, tenant TenantPath, styleGuide StyleGuidePath, params *ListStyleGuideVersionsParams, reqEditors ...RequestEditorFn) (*ListStyleGuideVersionsResponse, error) {
+	rsp, err := c.ListStyleGuideVersions(ctx, tenant, styleGuide, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListStyleGuideVersionsResponse(rsp)
+}
+
+// ListTermConceptsWithResponse Termbase concepts
+//
+// `project` lists the concepts that apply to it (its own and the
+// tenant-wide ones); `q` searches term texts (in `locale`, when
+// given) and definitions. Needs `knowledge.read`. Problem codes:
+// `invalid_query`, `invalid_locale` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/term-concepts (the `ListTermConcepts` operationId).
+func (c *ClientWithResponses) ListTermConceptsWithResponse(ctx context.Context, tenant TenantPath, params *ListTermConceptsParams, reqEditors ...RequestEditorFn) (*ListTermConceptsResponse, error) {
+	rsp, err := c.ListTermConcepts(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTermConceptsResponse(rsp)
+}
+
+// CreateTermConceptWithBodyWithResponse Add a concept with its terms
+//
+// Tenant-wide, or for one project (`project_id`). Needs
+// `knowledge.write`. Problem codes: `invalid_concept`,
+// `invalid_term`, `invalid_term_status`, `invalid_part_of_speech`,
+// `duplicate_term`, `invalid_locale`, `unknown_project` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/term-concepts (the `CreateTermConcept` operationId).
+func (c *ClientWithResponses) CreateTermConceptWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermConceptParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTermConceptResponse, error) {
+	rsp, err := c.CreateTermConceptWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTermConceptResponse(rsp)
+}
+
+// CreateTermConceptWithResponse Add a concept with its terms
+//
+// Tenant-wide, or for one project (`project_id`). Needs
+// `knowledge.write`. Problem codes: `invalid_concept`,
+// `invalid_term`, `invalid_term_status`, `invalid_part_of_speech`,
+// `duplicate_term`, `invalid_locale`, `unknown_project` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/term-concepts (the `CreateTermConcept` operationId).
+func (c *ClientWithResponses) CreateTermConceptWithResponse(ctx context.Context, tenant TenantPath, params *CreateTermConceptParams, body CreateTermConceptJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTermConceptResponse, error) {
+	rsp, err := c.CreateTermConcept(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTermConceptResponse(rsp)
+}
+
+// DeleteTermConceptWithResponse Delete a concept
+//
+// Its history stays readable, ending in a `deleted` revision.
+// `If-Match` is optional; when sent it must match. Needs
+// `knowledge.write`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/term-concepts/{concept} (the `DeleteTermConcept` operationId).
+func (c *ClientWithResponses) DeleteTermConceptWithResponse(ctx context.Context, tenant TenantPath, concept ConceptPath, params *DeleteTermConceptParams, reqEditors ...RequestEditorFn) (*DeleteTermConceptResponse, error) {
+	rsp, err := c.DeleteTermConcept(ctx, tenant, concept, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteTermConceptResponse(rsp)
+}
+
+// GetTermConceptWithResponse A concept with its terms
+//
+// Needs `knowledge.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/term-concepts/{concept} (the `GetTermConcept` operationId).
+func (c *ClientWithResponses) GetTermConceptWithResponse(ctx context.Context, tenant TenantPath, concept ConceptPath, reqEditors ...RequestEditorFn) (*GetTermConceptResponse, error) {
+	rsp, err := c.GetTermConcept(ctx, tenant, concept, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTermConceptResponse(rsp)
+}
+
+// ReplaceTermConceptWithBodyWithResponse Replace a concept and its terms
+//
+// The body replaces the concept's content and its whole term list
+// (terms that stay keep their `id`); its scope never changes.
+// Unchanged content is no new version. Needs `knowledge.write`.
+// Problem codes as for creating.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/term-concepts/{concept} (the `ReplaceTermConcept` operationId).
+func (c *ClientWithResponses) ReplaceTermConceptWithBodyWithResponse(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ReplaceTermConceptParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceTermConceptResponse, error) {
+	rsp, err := c.ReplaceTermConceptWithBody(ctx, tenant, concept, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceTermConceptResponse(rsp)
+}
+
+// ReplaceTermConceptWithResponse Replace a concept and its terms
+//
+// The body replaces the concept's content and its whole term list
+// (terms that stay keep their `id`); its scope never changes.
+// Unchanged content is no new version. Needs `knowledge.write`.
+// Problem codes as for creating.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/term-concepts/{concept} (the `ReplaceTermConcept` operationId).
+func (c *ClientWithResponses) ReplaceTermConceptWithResponse(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ReplaceTermConceptParams, body ReplaceTermConceptJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceTermConceptResponse, error) {
+	rsp, err := c.ReplaceTermConcept(ctx, tenant, concept, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceTermConceptResponse(rsp)
+}
+
+// ListTermConceptRevisionsWithResponse A concept's history, newest first
+//
+// Full snapshots, also after the concept was deleted. Needs `knowledge.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/term-concepts/{concept}/revisions (the `ListTermConceptRevisions` operationId).
+func (c *ClientWithResponses) ListTermConceptRevisionsWithResponse(ctx context.Context, tenant TenantPath, concept ConceptPath, params *ListTermConceptRevisionsParams, reqEditors ...RequestEditorFn) (*ListTermConceptRevisionsResponse, error) {
+	rsp, err := c.ListTermConceptRevisions(ctx, tenant, concept, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTermConceptRevisionsResponse(rsp)
+}
+
+// RecognizeTermsWithBodyWithResponse Find termbase terms in a text
+//
+// Word-based and locale-aware: case folded unless a term is
+// case-sensitive, short inflectional endings tolerated
+// (workspace → workspaces), scripts without spaces (Japanese,
+// Chinese, Thai) matched as substrings, overlaps resolved
+// leftmost-longest. With `syntax`, `text` is parsed as a message
+// and recognition runs over its visible text (placeholders become
+// U+FFFC), returned as `analyzed_text`; `start` and `end` are
+// Unicode code point offsets into it. `target_locale` adds each
+// concept's terms in that locale. Stores nothing. Needs
+// `knowledge.read`. Problem codes: `invalid_query`,
+// `invalid_locale`, `invalid_syntax`, `invalid_message` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/term-recognitions (the `RecognizeTerms` operationId).
+func (c *ClientWithResponses) RecognizeTermsWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecognizeTermsResponse, error) {
+	rsp, err := c.RecognizeTermsWithBody(ctx, tenant, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecognizeTermsResponse(rsp)
+}
+
+// RecognizeTermsWithResponse Find termbase terms in a text
+//
+// Word-based and locale-aware: case folded unless a term is
+// case-sensitive, short inflectional endings tolerated
+// (workspace → workspaces), scripts without spaces (Japanese,
+// Chinese, Thai) matched as substrings, overlaps resolved
+// leftmost-longest. With `syntax`, `text` is parsed as a message
+// and recognition runs over its visible text (placeholders become
+// U+FFFC), returned as `analyzed_text`; `start` and `end` are
+// Unicode code point offsets into it. `target_locale` adds each
+// concept's terms in that locale. Stores nothing. Needs
+// `knowledge.read`. Problem codes: `invalid_query`,
+// `invalid_locale`, `invalid_syntax`, `invalid_message` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/term-recognitions (the `RecognizeTerms` operationId).
+func (c *ClientWithResponses) RecognizeTermsWithResponse(ctx context.Context, tenant TenantPath, body RecognizeTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*RecognizeTermsResponse, error) {
+	rsp, err := c.RecognizeTerms(ctx, tenant, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecognizeTermsResponse(rsp)
+}
+
+// CheckTerminologyWithBodyWithResponse Check a translation against the termbase
+//
+// Terminology QA (intent §29.3): `term_missing` (warning) when a
+// concept recognized in the source has none of its preferred or
+// admitted target terms in the translation; `term_forbidden`
+// (error for forbidden, warning for deprecated terms) for every
+// forbidden or deprecated target term used. With `syntax`, both
+// texts are parsed as messages and checked as visible text. Spans
+// are code point offsets into `source_text` or `target_text`.
+// Deterministic; stores nothing. Needs `knowledge.read`. Problem
+// codes as for recognition.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/terminology-checks (the `CheckTerminology` operationId).
+func (c *ClientWithResponses) CheckTerminologyWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CheckTerminologyResponse, error) {
+	rsp, err := c.CheckTerminologyWithBody(ctx, tenant, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCheckTerminologyResponse(rsp)
+}
+
+// CheckTerminologyWithResponse Check a translation against the termbase
+//
+// Terminology QA (intent §29.3): `term_missing` (warning) when a
+// concept recognized in the source has none of its preferred or
+// admitted target terms in the translation; `term_forbidden`
+// (error for forbidden, warning for deprecated terms) for every
+// forbidden or deprecated target term used. With `syntax`, both
+// texts are parsed as messages and checked as visible text. Spans
+// are code point offsets into `source_text` or `target_text`.
+// Deterministic; stores nothing. Needs `knowledge.read`. Problem
+// codes as for recognition.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/terminology-checks (the `CheckTerminology` operationId).
+func (c *ClientWithResponses) CheckTerminologyWithResponse(ctx context.Context, tenant TenantPath, body CheckTerminologyJSONRequestBody, reqEditors ...RequestEditorFn) (*CheckTerminologyResponse, error) {
+	rsp, err := c.CheckTerminology(ctx, tenant, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCheckTerminologyResponse(rsp)
+}
+
+// SearchTranslationMemoryWithResponse Find active units containing a phrase
+//
+// Case-insensitive substring search over the normalized source (or
+// target) of active units, closest first — how a translator checks
+// how a phrase was translated before. Scope as for lookups. Needs
+// `knowledge.read`. Problem codes: `invalid_query`,
+// `invalid_locale` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/tm-concordance (the `SearchTranslationMemory` operationId).
+func (c *ClientWithResponses) SearchTranslationMemoryWithResponse(ctx context.Context, tenant TenantPath, params *SearchTranslationMemoryParams, reqEditors ...RequestEditorFn) (*SearchTranslationMemoryResponse, error) {
+	rsp, err := c.SearchTranslationMemory(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchTranslationMemoryResponse(rsp)
+}
+
+// LookupTranslationMemoryWithBodyWithResponse Find translation-memory matches for a message
+//
+// Parses `source` (MF1 by default) and matches its normalized form —
+// placeholders by position, markup as tags — against active units
+// of the locale pair: exact matches (same text and placeholder
+// types) score 100, or 101 when the unit was approved for the same
+// `message_key` in the same `namespace` of `project_id`; fuzzy
+// matches (trigram similarity) score 50–99. Each target is renamed
+// to the query's variable names. By default a lookup sees
+// tenant-wide units and `project_id`'s; `all_projects` widens it to
+// the tenant. `count_hits` records the lookup in each returned
+// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+// `invalid_query`, `invalid_locale`, `invalid_syntax`,
+// `invalid_message`, `message_too_long` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-lookups (the `LookupTranslationMemory` operationId).
+func (c *ClientWithResponses) LookupTranslationMemoryWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupTranslationMemoryResponse, error) {
+	rsp, err := c.LookupTranslationMemoryWithBody(ctx, tenant, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupTranslationMemoryResponse(rsp)
+}
+
+// LookupTranslationMemoryWithResponse Find translation-memory matches for a message
+//
+// Parses `source` (MF1 by default) and matches its normalized form —
+// placeholders by position, markup as tags — against active units
+// of the locale pair: exact matches (same text and placeholder
+// types) score 100, or 101 when the unit was approved for the same
+// `message_key` in the same `namespace` of `project_id`; fuzzy
+// matches (trigram similarity) score 50–99. Each target is renamed
+// to the query's variable names. By default a lookup sees
+// tenant-wide units and `project_id`'s; `all_projects` widens it to
+// the tenant. `count_hits` records the lookup in each returned
+// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+// `invalid_query`, `invalid_locale`, `invalid_syntax`,
+// `invalid_message`, `message_too_long` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/tm-lookups (the `LookupTranslationMemory` operationId).
+func (c *ClientWithResponses) LookupTranslationMemoryWithResponse(ctx context.Context, tenant TenantPath, body LookupTranslationMemoryJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupTranslationMemoryResponse, error) {
+	rsp, err := c.LookupTranslationMemory(ctx, tenant, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupTranslationMemoryResponse(rsp)
+}
+
+// ListTranslationMemoryUnitsWithResponse Translation-memory units, active or retired
+//
+// Units are derived from approved translations; retired ones are
+// their history. `translation` lists one translation's units.
+// Needs `knowledge.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/tm-units (the `ListTranslationMemoryUnits` operationId).
+func (c *ClientWithResponses) ListTranslationMemoryUnitsWithResponse(ctx context.Context, tenant TenantPath, params *ListTranslationMemoryUnitsParams, reqEditors ...RequestEditorFn) (*ListTranslationMemoryUnitsResponse, error) {
+	rsp, err := c.ListTranslationMemoryUnits(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTranslationMemoryUnitsResponse(rsp)
+}
+
+// RetireTranslationMemoryUnitWithResponse Retire a unit
+//
+// Takes the unit out of matching (`retired_reason: deleted`); it
+// stays listed as history. Retiring a retired unit changes nothing.
+// A later approval of its translation derives a new unit. Needs
+// `knowledge.write`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/tm-units/{unit} (the `RetireTranslationMemoryUnit` operationId).
+func (c *ClientWithResponses) RetireTranslationMemoryUnitWithResponse(ctx context.Context, tenant TenantPath, unit TMUnitPath, reqEditors ...RequestEditorFn) (*RetireTranslationMemoryUnitResponse, error) {
+	rsp, err := c.RetireTranslationMemoryUnit(ctx, tenant, unit, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRetireTranslationMemoryUnitResponse(rsp)
+}
+
+// GetTranslationMemoryUnitWithResponse A translation-memory unit
+//
+// Needs `knowledge.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/tm-units/{unit} (the `GetTranslationMemoryUnit` operationId).
+func (c *ClientWithResponses) GetTranslationMemoryUnitWithResponse(ctx context.Context, tenant TenantPath, unit TMUnitPath, reqEditors ...RequestEditorFn) (*GetTranslationMemoryUnitResponse, error) {
+	rsp, err := c.GetTranslationMemoryUnit(ctx, tenant, unit, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTranslationMemoryUnitResponse(rsp)
+}
+
 // ListTokensWithResponse API tokens, including revoked ones
 //
 // Needs `tokens.read`.
@@ -21829,6 +27434,53 @@ func ParseGetTenantResponse(rsp *http.Response) (*GetTenantResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetEffectiveStyleGuideResponse parses an HTTP response from a GetEffectiveStyleGuideWithResponse call
+func ParseGetEffectiveStyleGuideResponse(rsp *http.Response) (*GetEffectiveStyleGuideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEffectiveStyleGuideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EffectiveStyleGuide
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthenticated
@@ -25508,6 +31160,1098 @@ func ParseListProjectTranslationsResponse(rsp *http.Response) (*ListProjectTrans
 			return nil, err
 		}
 		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListStyleGuidesResponse parses an HTTP response from a ListStyleGuidesWithResponse call
+func ParseListStyleGuidesResponse(rsp *http.Response) (*ListStyleGuidesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListStyleGuidesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StyleGuideList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateStyleGuideResponse parses an HTTP response from a CreateStyleGuideWithResponse call
+func ParseCreateStyleGuideResponse(rsp *http.Response) (*CreateStyleGuideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateStyleGuideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest StyleGuide
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateStyleGuideResponse201Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeleteStyleGuideResponse parses an HTTP response from a DeleteStyleGuideWithResponse call
+func ParseDeleteStyleGuideResponse(rsp *http.Response) (*DeleteStyleGuideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteStyleGuideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetStyleGuideResponse parses an HTTP response from a GetStyleGuideWithResponse call
+func ParseGetStyleGuideResponse(rsp *http.Response) (*GetStyleGuideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetStyleGuideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StyleGuide
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetStyleGuideResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseReplaceStyleGuideResponse parses an HTTP response from a ReplaceStyleGuideWithResponse call
+func ParseReplaceStyleGuideResponse(rsp *http.Response) (*ReplaceStyleGuideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReplaceStyleGuideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StyleGuide
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers ReplaceStyleGuideResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListStyleGuideVersionsResponse parses an HTTP response from a ListStyleGuideVersionsWithResponse call
+func ParseListStyleGuideVersionsResponse(rsp *http.Response) (*ListStyleGuideVersionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListStyleGuideVersionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StyleGuideVersionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListTermConceptsResponse parses an HTTP response from a ListTermConceptsWithResponse call
+func ParseListTermConceptsResponse(rsp *http.Response) (*ListTermConceptsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTermConceptsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TermConceptList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTermConceptResponse parses an HTTP response from a CreateTermConceptWithResponse call
+func ParseCreateTermConceptResponse(rsp *http.Response) (*CreateTermConceptResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTermConceptResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest TermConcept
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateTermConceptResponse201Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeleteTermConceptResponse parses an HTTP response from a DeleteTermConceptWithResponse call
+func ParseDeleteTermConceptResponse(rsp *http.Response) (*DeleteTermConceptResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteTermConceptResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTermConceptResponse parses an HTTP response from a GetTermConceptWithResponse call
+func ParseGetTermConceptResponse(rsp *http.Response) (*GetTermConceptResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTermConceptResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TermConcept
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetTermConceptResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseReplaceTermConceptResponse parses an HTTP response from a ReplaceTermConceptWithResponse call
+func ParseReplaceTermConceptResponse(rsp *http.Response) (*ReplaceTermConceptResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReplaceTermConceptResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TermConcept
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers ReplaceTermConceptResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListTermConceptRevisionsResponse parses an HTTP response from a ListTermConceptRevisionsWithResponse call
+func ParseListTermConceptRevisionsResponse(rsp *http.Response) (*ListTermConceptRevisionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTermConceptRevisionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TermConceptRevisionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRecognizeTermsResponse parses an HTTP response from a RecognizeTermsWithResponse call
+func ParseRecognizeTermsResponse(rsp *http.Response) (*RecognizeTermsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RecognizeTermsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TermRecognition
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCheckTerminologyResponse parses an HTTP response from a CheckTerminologyWithResponse call
+func ParseCheckTerminologyResponse(rsp *http.Response) (*CheckTerminologyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CheckTerminologyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TerminologyCheck
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSearchTranslationMemoryResponse parses an HTTP response from a SearchTranslationMemoryWithResponse call
+func ParseSearchTranslationMemoryResponse(rsp *http.Response) (*SearchTranslationMemoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SearchTranslationMemoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TMConcordance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLookupTranslationMemoryResponse parses an HTTP response from a LookupTranslationMemoryWithResponse call
+func ParseLookupTranslationMemoryResponse(rsp *http.Response) (*LookupTranslationMemoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LookupTranslationMemoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TMLookupResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListTranslationMemoryUnitsResponse parses an HTTP response from a ListTranslationMemoryUnitsWithResponse call
+func ParseListTranslationMemoryUnitsResponse(rsp *http.Response) (*ListTranslationMemoryUnitsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTranslationMemoryUnitsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TMUnitList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRetireTranslationMemoryUnitResponse parses an HTTP response from a RetireTranslationMemoryUnitWithResponse call
+func ParseRetireTranslationMemoryUnitResponse(rsp *http.Response) (*RetireTranslationMemoryUnitResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RetireTranslationMemoryUnitResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTranslationMemoryUnitResponse parses an HTTP response from a GetTranslationMemoryUnitWithResponse call
+func ParseGetTranslationMemoryUnitResponse(rsp *http.Response) (*GetTranslationMemoryUnitResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTranslationMemoryUnitResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TMUnit
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthenticated

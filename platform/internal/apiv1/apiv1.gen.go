@@ -275,28 +275,61 @@ func (e MetaSignInMethods) Valid() bool {
 
 // Defines values for Origin.
 const (
-	Adaptation         Origin = "adaptation"
-	Ai                 Origin = "ai"
-	Human              Origin = "human"
-	Import             Origin = "import"
-	MachineTranslation Origin = "machine_translation"
-	TranslationMemory  Origin = "translation_memory"
+	OriginAdaptation         Origin = "adaptation"
+	OriginAi                 Origin = "ai"
+	OriginHuman              Origin = "human"
+	OriginImport             Origin = "import"
+	OriginMachineTranslation Origin = "machine_translation"
+	OriginTranslationMemory  Origin = "translation_memory"
 )
 
 // Valid indicates whether the value is a known member of the Origin enum.
 func (e Origin) Valid() bool {
 	switch e {
-	case Adaptation:
+	case OriginAdaptation:
 		return true
-	case Ai:
+	case OriginAi:
 		return true
-	case Human:
+	case OriginHuman:
 		return true
-	case Import:
+	case OriginImport:
 		return true
-	case MachineTranslation:
+	case OriginMachineTranslation:
 		return true
-	case TranslationMemory:
+	case OriginTranslationMemory:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PartOfSpeech.
+const (
+	PartOfSpeechAdjective  PartOfSpeech = "adjective"
+	PartOfSpeechAdverb     PartOfSpeech = "adverb"
+	PartOfSpeechNoun       PartOfSpeech = "noun"
+	PartOfSpeechOther      PartOfSpeech = "other"
+	PartOfSpeechPhrase     PartOfSpeech = "phrase"
+	PartOfSpeechProperNoun PartOfSpeech = "proper_noun"
+	PartOfSpeechVerb       PartOfSpeech = "verb"
+)
+
+// Valid indicates whether the value is a known member of the PartOfSpeech enum.
+func (e PartOfSpeech) Valid() bool {
+	switch e {
+	case PartOfSpeechAdjective:
+		return true
+	case PartOfSpeechAdverb:
+		return true
+	case PartOfSpeechNoun:
+		return true
+	case PartOfSpeechOther:
+		return true
+	case PartOfSpeechPhrase:
+		return true
+	case PartOfSpeechProperNoun:
+		return true
+	case PartOfSpeechVerb:
 		return true
 	default:
 		return false
@@ -305,25 +338,25 @@ func (e Origin) Valid() bool {
 
 // Defines values for Platform.
 const (
-	Android Platform = "android"
-	Api     Platform = "api"
-	Ios     Platform = "ios"
-	Other   Platform = "other"
-	Web     Platform = "web"
+	PlatformAndroid Platform = "android"
+	PlatformApi     Platform = "api"
+	PlatformIos     Platform = "ios"
+	PlatformOther   Platform = "other"
+	PlatformWeb     Platform = "web"
 )
 
 // Valid indicates whether the value is a known member of the Platform enum.
 func (e Platform) Valid() bool {
 	switch e {
-	case Android:
+	case PlatformAndroid:
 		return true
-	case Api:
+	case PlatformApi:
 		return true
-	case Ios:
+	case PlatformIos:
 		return true
-	case Other:
+	case PlatformOther:
 		return true
-	case Web:
+	case PlatformWeb:
 		return true
 	default:
 		return false
@@ -332,16 +365,16 @@ func (e Platform) Valid() bool {
 
 // Defines values for QAFindingSeverity.
 const (
-	Error   QAFindingSeverity = "error"
-	Warning QAFindingSeverity = "warning"
+	QAFindingSeverityError   QAFindingSeverity = "error"
+	QAFindingSeverityWarning QAFindingSeverity = "warning"
 )
 
 // Valid indicates whether the value is a known member of the QAFindingSeverity enum.
 func (e QAFindingSeverity) Valid() bool {
 	switch e {
-	case Error:
+	case QAFindingSeverityError:
 		return true
-	case Warning:
+	case QAFindingSeverityWarning:
 		return true
 	default:
 		return false
@@ -381,6 +414,27 @@ func (e ReviewState) Valid() bool {
 	case ReviewStateNeedsReview:
 		return true
 	case ReviewStateRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RevisionAction.
+const (
+	RevisionActionCreated RevisionAction = "created"
+	RevisionActionDeleted RevisionAction = "deleted"
+	RevisionActionUpdated RevisionAction = "updated"
+)
+
+// Valid indicates whether the value is a known member of the RevisionAction enum.
+func (e RevisionAction) Valid() bool {
+	switch e {
+	case RevisionActionCreated:
+		return true
+	case RevisionActionDeleted:
+		return true
+	case RevisionActionUpdated:
 		return true
 	default:
 		return false
@@ -453,6 +507,48 @@ func (e SigningKeyAlgorithm) Valid() bool {
 	}
 }
 
+// Defines values for StyleFormalityRegister.
+const (
+	Formal   StyleFormalityRegister = "formal"
+	Informal StyleFormalityRegister = "informal"
+	Neutral  StyleFormalityRegister = "neutral"
+)
+
+// Valid indicates whether the value is a known member of the StyleFormalityRegister enum.
+func (e StyleFormalityRegister) Valid() bool {
+	switch e {
+	case Formal:
+		return true
+	case Informal:
+		return true
+	case Neutral:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StylePunctuationDash.
+const (
+	Em     StylePunctuationDash = "em"
+	En     StylePunctuationDash = "en"
+	Hyphen StylePunctuationDash = "hyphen"
+)
+
+// Valid indicates whether the value is a known member of the StylePunctuationDash enum.
+func (e StylePunctuationDash) Valid() bool {
+	switch e {
+	case Em:
+		return true
+	case En:
+		return true
+	case Hyphen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Syntax.
 const (
 	Mf1 Syntax = "mf1"
@@ -471,6 +567,87 @@ func (e Syntax) Valid() bool {
 	}
 }
 
+// Defines values for TMMatchKind.
+const (
+	TMMatchKindContext TMMatchKind = "context"
+	TMMatchKindExact   TMMatchKind = "exact"
+	TMMatchKindFuzzy   TMMatchKind = "fuzzy"
+)
+
+// Valid indicates whether the value is a known member of the TMMatchKind enum.
+func (e TMMatchKind) Valid() bool {
+	switch e {
+	case TMMatchKindContext:
+		return true
+	case TMMatchKindExact:
+		return true
+	case TMMatchKindFuzzy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TMUnitOrigin.
+const (
+	TMUnitOriginImport      TMUnitOrigin = "import"
+	TMUnitOriginTranslation TMUnitOrigin = "translation"
+)
+
+// Valid indicates whether the value is a known member of the TMUnitOrigin enum.
+func (e TMUnitOrigin) Valid() bool {
+	switch e {
+	case TMUnitOriginImport:
+		return true
+	case TMUnitOriginTranslation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TMUnitRetiredReason.
+const (
+	TMUnitRetiredReasonDeleted     TMUnitRetiredReason = "deleted"
+	TMUnitRetiredReasonOverwritten TMUnitRetiredReason = "overwritten"
+	TMUnitRetiredReasonSuperseded  TMUnitRetiredReason = "superseded"
+	TMUnitRetiredReasonUnapproved  TMUnitRetiredReason = "unapproved"
+)
+
+// Valid indicates whether the value is a known member of the TMUnitRetiredReason enum.
+func (e TMUnitRetiredReason) Valid() bool {
+	switch e {
+	case TMUnitRetiredReasonDeleted:
+		return true
+	case TMUnitRetiredReasonOverwritten:
+		return true
+	case TMUnitRetiredReasonSuperseded:
+		return true
+	case TMUnitRetiredReasonUnapproved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TMUnitState.
+const (
+	TMUnitStateActive  TMUnitState = "active"
+	TMUnitStateRetired TMUnitState = "retired"
+)
+
+// Valid indicates whether the value is a known member of the TMUnitState enum.
+func (e TMUnitState) Valid() bool {
+	switch e {
+	case TMUnitStateActive:
+		return true
+	case TMUnitStateRetired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TenantKind.
 const (
 	Individual   TenantKind = "individual"
@@ -483,6 +660,84 @@ func (e TenantKind) Valid() bool {
 	case Individual:
 		return true
 	case Organization:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TermFindingCode.
+const (
+	TermForbidden TermFindingCode = "term_forbidden"
+	TermMissing   TermFindingCode = "term_missing"
+)
+
+// Valid indicates whether the value is a known member of the TermFindingCode enum.
+func (e TermFindingCode) Valid() bool {
+	switch e {
+	case TermForbidden:
+		return true
+	case TermMissing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TermFindingSeverity.
+const (
+	TermFindingSeverityError   TermFindingSeverity = "error"
+	TermFindingSeverityWarning TermFindingSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the TermFindingSeverity enum.
+func (e TermFindingSeverity) Valid() bool {
+	switch e {
+	case TermFindingSeverityError:
+		return true
+	case TermFindingSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TermFindingSide.
+const (
+	TermFindingSideSource TermFindingSide = "source"
+	TermFindingSideTarget TermFindingSide = "target"
+)
+
+// Valid indicates whether the value is a known member of the TermFindingSide enum.
+func (e TermFindingSide) Valid() bool {
+	switch e {
+	case TermFindingSideSource:
+		return true
+	case TermFindingSideTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TermStatus.
+const (
+	TermStatusAdmitted   TermStatus = "admitted"
+	TermStatusDeprecated TermStatus = "deprecated"
+	TermStatusForbidden  TermStatus = "forbidden"
+	TermStatusPreferred  TermStatus = "preferred"
+)
+
+// Valid indicates whether the value is a known member of the TermStatus enum.
+func (e TermStatus) Valid() bool {
+	switch e {
+	case TermStatusAdmitted:
+		return true
+	case TermStatusDeprecated:
+		return true
+	case TermStatusForbidden:
+		return true
+	case TermStatusPreferred:
 		return true
 	default:
 		return false
@@ -525,6 +780,45 @@ func (e TranslationRevisionKind) Valid() bool {
 	case Content:
 		return true
 	case Review:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchTranslationMemoryParamsSide.
+const (
+	SearchTranslationMemoryParamsSideSource SearchTranslationMemoryParamsSide = "source"
+	SearchTranslationMemoryParamsSideTarget SearchTranslationMemoryParamsSide = "target"
+)
+
+// Valid indicates whether the value is a known member of the SearchTranslationMemoryParamsSide enum.
+func (e SearchTranslationMemoryParamsSide) Valid() bool {
+	switch e {
+	case SearchTranslationMemoryParamsSideSource:
+		return true
+	case SearchTranslationMemoryParamsSideTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListTranslationMemoryUnitsParamsState.
+const (
+	ListTranslationMemoryUnitsParamsStateActive  ListTranslationMemoryUnitsParamsState = "active"
+	ListTranslationMemoryUnitsParamsStateAll     ListTranslationMemoryUnitsParamsState = "all"
+	ListTranslationMemoryUnitsParamsStateRetired ListTranslationMemoryUnitsParamsState = "retired"
+)
+
+// Valid indicates whether the value is a known member of the ListTranslationMemoryUnitsParamsState enum.
+func (e ListTranslationMemoryUnitsParamsState) Valid() bool {
+	switch e {
+	case ListTranslationMemoryUnitsParamsStateActive:
+		return true
+	case ListTranslationMemoryUnitsParamsStateAll:
+		return true
+	case ListTranslationMemoryUnitsParamsStateRetired:
 		return true
 	default:
 		return false
@@ -645,10 +939,43 @@ type CreateProject struct {
 	SourceLocale Locale `json:"source_locale"`
 }
 
+// CreateStyleGuide defines model for CreateStyleGuide.
+type CreateStyleGuide struct {
+	// Fields Structured style. Every leaf is optional; unset inherits from a broader guide.
+	Fields *StyleFields `json:"fields,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+	Name   *string `json:"name,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id          `json:"project_id,omitempty"`
+	Rules     *[]StyleRule `json:"rules,omitempty"`
+}
+
 // CreateTenant defines model for CreateTenant.
 type CreateTenant struct {
 	Name string `json:"name"`
 	Slug string `json:"slug"`
+}
+
+// CreateTermConcept defines model for CreateTermConcept.
+type CreateTermConcept struct {
+	Definition *string `json:"definition,omitempty"`
+	Domain     *string `json:"domain,omitempty"`
+	Note       *string `json:"note,omitempty"`
+	ProductRef *string `json:"product_ref,omitempty"`
+
+	// ProjectId Scopes the concept to one project.
+	ProjectId *Id         `json:"project_id,omitempty"`
+	Terms     []TermInput `json:"terms"`
 }
 
 // CreateToken defines model for CreateToken.
@@ -722,6 +1049,16 @@ type DeploymentList struct {
 
 // Direction Derived from the locale's (likely) script.
 type Direction string
+
+// EffectiveStyleGuide defines model for EffectiveStyleGuide.
+type EffectiveStyleGuide struct {
+	// Fields Structured style. Every leaf is optional; unset inherits from a broader guide.
+	Fields StyleFields `json:"fields"`
+	Rules  []StyleRule `json:"rules"`
+
+	// Sources The guide versions merged, broadest first.
+	Sources []StyleGuideSource `json:"sources"`
+}
 
 // Email defines model for Email.
 type Email = openapi_types.Email
@@ -1100,6 +1437,9 @@ type Namespace = string
 
 // Origin defines model for Origin.
 type Origin string
+
+// PartOfSpeech defines model for PartOfSpeech.
+type PartOfSpeech string
 
 // Passkey defines model for Passkey.
 type Passkey struct {
@@ -1527,6 +1867,23 @@ type RenameMessage struct {
 	Key MessageKey `json:"key"`
 }
 
+// ReplaceStyleGuide defines model for ReplaceStyleGuide.
+type ReplaceStyleGuide struct {
+	// Fields Structured style. Every leaf is optional; unset inherits from a broader guide.
+	Fields *StyleFields `json:"fields,omitempty"`
+	Name   *string      `json:"name,omitempty"`
+	Rules  *[]StyleRule `json:"rules,omitempty"`
+}
+
+// ReplaceTermConcept defines model for ReplaceTermConcept.
+type ReplaceTermConcept struct {
+	Definition *string     `json:"definition,omitempty"`
+	Domain     *string     `json:"domain,omitempty"`
+	Note       *string     `json:"note,omitempty"`
+	ProductRef *string     `json:"product_ref,omitempty"`
+	Terms      []TermInput `json:"terms"`
+}
+
 // ReviewState defines model for ReviewState.
 type ReviewState string
 
@@ -1549,6 +1906,9 @@ type ReviseSource struct {
 	Syntax *Syntax `json:"syntax,omitempty"`
 	Text   string  `json:"text"`
 }
+
+// RevisionAction defines model for RevisionAction.
+type RevisionAction string
 
 // Role `owner` everything; `admin` everything except owner changes;
 // `developer` catalog, translations, releases, tokens;
@@ -1627,8 +1987,329 @@ type SourceRevisionList struct {
 	NextPageToken *string          `json:"next_page_token,omitempty"`
 }
 
+// StyleDates defines model for StyleDates.
+type StyleDates struct {
+	// Format A CLDR date pattern.
+	Format *string `json:"format,omitempty"`
+	Notes  *string `json:"notes,omitempty"`
+}
+
+// StyleFields Structured style. Every leaf is optional; unset inherits from a broader guide.
+type StyleFields struct {
+	Dates       *StyleDates       `json:"dates,omitempty"`
+	Formality   *StyleFormality   `json:"formality,omitempty"`
+	Numbers     *StyleNumbers     `json:"numbers,omitempty"`
+	Punctuation *StylePunctuation `json:"punctuation,omitempty"`
+
+	// Tone Tone tags; a narrower guide's list replaces a broader one's.
+	Tone *[]string `json:"tone,omitempty"`
+}
+
+// StyleFormality defines model for StyleFormality.
+type StyleFormality struct {
+	// Pronoun Examples: Sie, du, vous
+	Pronoun  *string                 `json:"pronoun,omitempty"`
+	Register *StyleFormalityRegister `json:"register,omitempty"`
+}
+
+// StyleFormalityRegister defines model for StyleFormality.Register.
+type StyleFormalityRegister string
+
+// StyleGuide defines model for StyleGuide.
+type StyleGuide struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// Fields Structured style. Every leaf is optional; unset inherits from a broader guide.
+	Fields StyleFields `json:"fields"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+	Name   string  `json:"name"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id         `json:"project_id,omitempty"`
+	Rules     []StyleRule `json:"rules"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+	UpdatedBy string    `json:"updated_by"`
+	Version   int       `json:"version"`
+}
+
+// StyleGuideList defines model for StyleGuideList.
+type StyleGuideList struct {
+	Items         []StyleGuide `json:"items"`
+	NextPageToken *string      `json:"next_page_token,omitempty"`
+}
+
+// StyleGuideSource defines model for StyleGuideSource.
+type StyleGuideSource struct {
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// StyleGuideId An opaque identifier.
+	StyleGuideId Id  `json:"style_guide_id"`
+	Version      int `json:"version"`
+}
+
+// StyleGuideVersion defines model for StyleGuideVersion.
+type StyleGuideVersion struct {
+	Action RevisionAction `json:"action"`
+	Author string         `json:"author"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt  Timestamp  `json:"created_at"`
+	StyleGuide StyleGuide `json:"style_guide"`
+	Version    int        `json:"version"`
+}
+
+// StyleGuideVersionList defines model for StyleGuideVersionList.
+type StyleGuideVersionList struct {
+	Items         []StyleGuideVersion `json:"items"`
+	NextPageToken *string             `json:"next_page_token,omitempty"`
+}
+
+// StyleNumbers defines model for StyleNumbers.
+type StyleNumbers struct {
+	DecimalSeparator  *string `json:"decimal_separator,omitempty"`
+	GroupingSeparator *string `json:"grouping_separator,omitempty"`
+	Notes             *string `json:"notes,omitempty"`
+}
+
+// StylePunctuation defines model for StylePunctuation.
+type StylePunctuation struct {
+	Dash         *StylePunctuationDash `json:"dash,omitempty"`
+	Ellipsis     *string               `json:"ellipsis,omitempty"`
+	NestedQuotes *string               `json:"nested_quotes,omitempty"`
+
+	// Quotes Examples: „“
+	Quotes                 *string `json:"quotes,omitempty"`
+	SerialComma            *bool   `json:"serial_comma,omitempty"`
+	SpaceBeforePunctuation *bool   `json:"space_before_punctuation,omitempty"`
+	SpaceBeforeUnit        *bool   `json:"space_before_unit,omitempty"`
+}
+
+// StylePunctuationDash defines model for StylePunctuation.Dash.
+type StylePunctuationDash string
+
+// StyleRule defines model for StyleRule.
+type StyleRule struct {
+	Bad *[]string `json:"bad,omitempty"`
+
+	// Disabled Switches off a broader guide's rule with this id.
+	Disabled *bool     `json:"disabled,omitempty"`
+	Good     *[]string `json:"good,omitempty"`
+
+	// Id Identity across scopes.
+	Id        string  `json:"id"`
+	Rationale *string `json:"rationale,omitempty"`
+
+	// Title Required unless `disabled`.
+	Title *string `json:"title,omitempty"`
+}
+
 // Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
 type Syntax string
+
+// TMConcordance defines model for TMConcordance.
+type TMConcordance struct {
+	Matches []TMConcordanceMatch `json:"matches"`
+}
+
+// TMConcordanceMatch defines model for TMConcordanceMatch.
+type TMConcordanceMatch struct {
+	// Similarity Trigram word similarity of the phrase to the side searched.
+	Similarity float32 `json:"similarity"`
+
+	// Unit A translation-memory unit, derived from an approved translation.
+	// `source` and `target` are canonical MF2; `source_normalized` is
+	// what matching compares (placeholders by position, markup as
+	// tags) and `signature` the placeholders' types by position.
+	Unit TMUnit `json:"unit"`
+}
+
+// TMLookup defines model for TMLookup.
+type TMLookup struct {
+	// AllProjects Also match other projects' units.
+	AllProjects *bool `json:"all_projects,omitempty"`
+	CountHits   *bool `json:"count_hits,omitempty"`
+	Limit       *int  `json:"limit,omitempty"`
+
+	// MessageKey A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	MessageKey *MessageKey `json:"message_key,omitempty"`
+	MinScore   *int        `json:"min_score,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// ProjectId The project the message belongs to.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// Source The source message.
+	Source string `json:"source"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale Locale `json:"source_locale"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax *Syntax `json:"syntax,omitempty"`
+
+	// TargetLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	TargetLocale Locale `json:"target_locale"`
+}
+
+// TMLookupResult defines model for TMLookupResult.
+type TMLookupResult struct {
+	Matches          []TMMatch `json:"matches"`
+	SourceNormalized string    `json:"source_normalized"`
+}
+
+// TMMatch defines model for TMMatch.
+type TMMatch struct {
+	Kind  TMMatchKind `json:"kind"`
+	Score int         `json:"score"`
+
+	// Target The unit's target in MF2, its variables renamed to the query's by position.
+	Target string `json:"target"`
+
+	// TargetModel A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	TargetModel MF2Message `json:"target_model"`
+
+	// Unit A translation-memory unit, derived from an approved translation.
+	// `source` and `target` are canonical MF2; `source_normalized` is
+	// what matching compares (placeholders by position, markup as
+	// tags) and `signature` the placeholders' types by position.
+	Unit TMUnit `json:"unit"`
+
+	// VariablesAdapted False when a target variable had no counterpart and kept its name.
+	VariablesAdapted bool `json:"variables_adapted"`
+}
+
+// TMMatchKind defines model for TMMatch.Kind.
+type TMMatchKind string
+
+// TMUnit A translation-memory unit, derived from an approved translation.
+// `source` and `target` are canonical MF2; `source_normalized` is
+// what matching compares (placeholders by position, markup as
+// tags) and `signature` the placeholders' types by position.
+type TMUnit struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CreatedBy Who wrote the text.
+	CreatedBy string `json:"created_by"`
+	HitCount  int    `json:"hit_count"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// LastHitAt RFC 3339, UTC.
+	LastHitAt *Timestamp `json:"last_hit_at,omitempty"`
+
+	// MessageId An opaque identifier.
+	MessageId *Id `json:"message_id,omitempty"`
+
+	// MessageKey A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	MessageKey *MessageKey `json:"message_key,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace   `json:"namespace,omitempty"`
+	Origin    TMUnitOrigin `json:"origin"`
+
+	// ProjectId Absent for a tenant-wide unit.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// RetiredAt RFC 3339, UTC.
+	RetiredAt     *Timestamp           `json:"retired_at,omitempty"`
+	RetiredBy     *string              `json:"retired_by,omitempty"`
+	RetiredReason *TMUnitRetiredReason `json:"retired_reason,omitempty"`
+
+	// Signature Examples: 1:number/plural,2:string
+	Signature string `json:"signature"`
+	Source    string `json:"source"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale     Locale      `json:"source_locale"`
+	SourceNormalized string      `json:"source_normalized"`
+	State            TMUnitState `json:"state"`
+	Target           string      `json:"target"`
+
+	// TargetLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	TargetLocale Locale `json:"target_locale"`
+
+	// TargetModel A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	TargetModel MF2Message `json:"target_model"`
+
+	// TranslationId An opaque identifier.
+	TranslationId *Id `json:"translation_id,omitempty"`
+
+	// TranslationRevision The translation revision the unit reflects.
+	TranslationRevision *int `json:"translation_revision,omitempty"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// TMUnitOrigin defines model for TMUnit.Origin.
+type TMUnitOrigin string
+
+// TMUnitRetiredReason defines model for TMUnit.RetiredReason.
+type TMUnitRetiredReason string
+
+// TMUnitState defines model for TMUnit.State.
+type TMUnitState string
+
+// TMUnitList defines model for TMUnitList.
+type TMUnitList struct {
+	Items         []TMUnit `json:"items"`
+	NextPageToken *string  `json:"next_page_token,omitempty"`
+}
 
 // Tenant defines model for Tenant.
 type Tenant struct {
@@ -1649,6 +2330,209 @@ type TenantKind string
 type TenantList struct {
 	Items         []Tenant `json:"items"`
 	NextPageToken *string  `json:"next_page_token,omitempty"`
+}
+
+// Term defines model for Term.
+type Term struct {
+	CaseSensitive bool `json:"case_sensitive"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale       Locale        `json:"locale"`
+	Note         *string       `json:"note,omitempty"`
+	PartOfSpeech *PartOfSpeech `json:"part_of_speech,omitempty"`
+	Status       TermStatus    `json:"status"`
+	Text         string        `json:"text"`
+}
+
+// TermConcept A termbase concept (intent §19.2) with its terms per locale.
+type TermConcept struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt  Timestamp `json:"created_at"`
+	CreatedBy  string    `json:"created_by"`
+	Definition string    `json:"definition"`
+	Domain     string    `json:"domain"`
+
+	// Id An opaque identifier.
+	Id   Id     `json:"id"`
+	Note string `json:"note"`
+
+	// ProductRef A product concept this concept stands for (opaque).
+	ProductRef string `json:"product_ref"`
+
+	// ProjectId Absent for a tenant-wide concept.
+	ProjectId *Id    `json:"project_id,omitempty"`
+	Terms     []Term `json:"terms"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+	UpdatedBy string    `json:"updated_by"`
+	Version   int       `json:"version"`
+}
+
+// TermConceptList defines model for TermConceptList.
+type TermConceptList struct {
+	Items         []TermConcept `json:"items"`
+	NextPageToken *string       `json:"next_page_token,omitempty"`
+}
+
+// TermConceptRevision defines model for TermConceptRevision.
+type TermConceptRevision struct {
+	Action RevisionAction `json:"action"`
+	Author string         `json:"author"`
+
+	// Concept A termbase concept (intent §19.2) with its terms per locale.
+	Concept TermConcept `json:"concept"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	Version   int       `json:"version"`
+}
+
+// TermConceptRevisionList defines model for TermConceptRevisionList.
+type TermConceptRevisionList struct {
+	Items         []TermConceptRevision `json:"items"`
+	NextPageToken *string               `json:"next_page_token,omitempty"`
+}
+
+// TermFinding defines model for TermFinding.
+type TermFinding struct {
+	Code TermFindingCode `json:"code"`
+
+	// ConceptId An opaque identifier.
+	ConceptId Id  `json:"concept_id"`
+	End       int `json:"end"`
+
+	// Message For humans; wording may change.
+	Message  string              `json:"message"`
+	Severity TermFindingSeverity `json:"severity"`
+	Side     TermFindingSide     `json:"side"`
+
+	// Start Code point offset into `source_text` or `target_text`.
+	Start int `json:"start"`
+
+	// Suggestions The concept's allowed target terms, preferred first.
+	Suggestions []string `json:"suggestions"`
+
+	// TermId An opaque identifier.
+	TermId Id     `json:"term_id"`
+	Text   string `json:"text"`
+}
+
+// TermFindingCode defines model for TermFinding.Code.
+type TermFindingCode string
+
+// TermFindingSeverity defines model for TermFinding.Severity.
+type TermFindingSeverity string
+
+// TermFindingSide defines model for TermFinding.Side.
+type TermFindingSide string
+
+// TermHit defines model for TermHit.
+type TermHit struct {
+	// ConceptId An opaque identifier.
+	ConceptId  Id     `json:"concept_id"`
+	Definition string `json:"definition"`
+
+	// End Exclusive.
+	End int `json:"end"`
+
+	// Start Code point offset into `analyzed_text`.
+	Start int `json:"start"`
+
+	// Targets The concept's terms in `target_locale`, allowed ones first.
+	Targets *[]Term `json:"targets,omitempty"`
+	Term    Term    `json:"term"`
+
+	// Text The words matched, as written.
+	Text string `json:"text"`
+}
+
+// TermInput defines model for TermInput.
+type TermInput struct {
+	CaseSensitive *bool `json:"case_sensitive,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale       Locale        `json:"locale"`
+	Note         *string       `json:"note,omitempty"`
+	PartOfSpeech *PartOfSpeech `json:"part_of_speech,omitempty"`
+	Status       *TermStatus   `json:"status,omitempty"`
+	Text         string        `json:"text"`
+}
+
+// TermRecognition defines model for TermRecognition.
+type TermRecognition struct {
+	AnalyzedText string    `json:"analyzed_text"`
+	Hits         []TermHit `json:"hits"`
+}
+
+// TermRecognitionRequest defines model for TermRecognitionRequest.
+type TermRecognitionRequest struct {
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// ProjectId Adds the project's concepts to the tenant-wide ones.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// Syntax Parse `text` as a message in this syntax and recognize its visible text.
+	Syntax *Syntax `json:"syntax,omitempty"`
+
+	// TargetLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	TargetLocale *Locale `json:"target_locale,omitempty"`
+	Text         string  `json:"text"`
+}
+
+// TermStatus defines model for TermStatus.
+type TermStatus string
+
+// TerminologyCheck defines model for TerminologyCheck.
+type TerminologyCheck struct {
+	Findings   []TermFinding `json:"findings"`
+	SourceText string        `json:"source_text"`
+	TargetText string        `json:"target_text"`
+}
+
+// TerminologyCheckRequest defines model for TerminologyCheckRequest.
+type TerminologyCheckRequest struct {
+	// ProjectId An opaque identifier.
+	ProjectId *Id    `json:"project_id,omitempty"`
+	Source    string `json:"source"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale Locale `json:"source_locale"`
+
+	// Syntax Parse both texts as messages in this syntax.
+	Syntax *Syntax `json:"syntax,omitempty"`
+	Target string  `json:"target"`
+
+	// TargetLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	TargetLocale Locale `json:"target_locale"`
 }
 
 // Timestamp RFC 3339, UTC.
@@ -1879,6 +2763,9 @@ type ApplicationPath = Id
 // CeremonyCookie defines model for CeremonyCookie.
 type CeremonyCookie = string
 
+// ConceptPath An opaque identifier.
+type ConceptPath = Id
+
 // DeliveryKeyPath An opaque identifier.
 type DeliveryKeyPath = Id
 
@@ -1922,6 +2809,12 @@ type ProjectPath = Id
 
 // ReleasePath An opaque identifier.
 type ReleasePath = Id
+
+// StyleGuidePath An opaque identifier.
+type StyleGuidePath = Id
+
+// TMUnitPath An opaque identifier.
+type TMUnitPath = Id
 
 // TenantPath An opaque identifier.
 type TenantPath = Id
@@ -1996,6 +2889,14 @@ type ListTenantsParams struct {
 // CreateTenantParams defines parameters for CreateTenant.
 type CreateTenantParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// GetEffectiveStyleGuideParams defines parameters for GetEffectiveStyleGuide.
+type GetEffectiveStyleGuideParams struct {
+	// Project A project `id`.
+	Project   *Id        `form:"project,omitempty" json:"project,omitempty"`
+	Locale    *Locale    `form:"locale,omitempty" json:"locale,omitempty"`
+	Namespace *Namespace `form:"namespace,omitempty" json:"namespace,omitempty"`
 }
 
 // ListMembersParams defines parameters for ListMembers.
@@ -2254,6 +3155,119 @@ type ListProjectTranslationsParams struct {
 	MessageState *MessageState `form:"message_state,omitempty" json:"message_state,omitempty"`
 }
 
+// ListStyleGuidesParams defines parameters for ListStyleGuides.
+type ListStyleGuidesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Project A project `id`.
+	Project    *Id     `form:"project,omitempty" json:"project,omitempty"`
+	Locale     *Locale `form:"locale,omitempty" json:"locale,omitempty"`
+	TenantOnly *bool   `form:"tenant_only,omitempty" json:"tenant_only,omitempty"`
+}
+
+// CreateStyleGuideParams defines parameters for CreateStyleGuide.
+type CreateStyleGuideParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// DeleteStyleGuideParams defines parameters for DeleteStyleGuide.
+type DeleteStyleGuideParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ReplaceStyleGuideParams defines parameters for ReplaceStyleGuide.
+type ReplaceStyleGuideParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListStyleGuideVersionsParams defines parameters for ListStyleGuideVersions.
+type ListStyleGuideVersionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// ListTermConceptsParams defines parameters for ListTermConcepts.
+type ListTermConceptsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+	Q         *string    `form:"q,omitempty" json:"q,omitempty"`
+	Locale    *Locale    `form:"locale,omitempty" json:"locale,omitempty"`
+
+	// Project A project `id`.
+	Project *Id     `form:"project,omitempty" json:"project,omitempty"`
+	Domain  *string `form:"domain,omitempty" json:"domain,omitempty"`
+}
+
+// CreateTermConceptParams defines parameters for CreateTermConcept.
+type CreateTermConceptParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// DeleteTermConceptParams defines parameters for DeleteTermConcept.
+type DeleteTermConceptParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ReplaceTermConceptParams defines parameters for ReplaceTermConcept.
+type ReplaceTermConceptParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListTermConceptRevisionsParams defines parameters for ListTermConceptRevisions.
+type ListTermConceptRevisionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// SearchTranslationMemoryParams defines parameters for SearchTranslationMemory.
+type SearchTranslationMemoryParams struct {
+	Q            string                             `form:"q" json:"q"`
+	Side         *SearchTranslationMemoryParamsSide `form:"side,omitempty" json:"side,omitempty"`
+	SourceLocale *Locale                            `form:"source_locale,omitempty" json:"source_locale,omitempty"`
+	TargetLocale *Locale                            `form:"target_locale,omitempty" json:"target_locale,omitempty"`
+
+	// Project A project `id`.
+	Project     *Id   `form:"project,omitempty" json:"project,omitempty"`
+	AllProjects *bool `form:"all_projects,omitempty" json:"all_projects,omitempty"`
+	Limit       *int  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// SearchTranslationMemoryParamsSide defines parameters for SearchTranslationMemory.
+type SearchTranslationMemoryParamsSide string
+
+// ListTranslationMemoryUnitsParams defines parameters for ListTranslationMemoryUnits.
+type ListTranslationMemoryUnitsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken    *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+	SourceLocale *Locale    `form:"source_locale,omitempty" json:"source_locale,omitempty"`
+	TargetLocale *Locale    `form:"target_locale,omitempty" json:"target_locale,omitempty"`
+
+	// Project A project `id`.
+	Project *Id `form:"project,omitempty" json:"project,omitempty"`
+
+	// Translation A translation `id`.
+	Translation *Id                                    `form:"translation,omitempty" json:"translation,omitempty"`
+	State       *ListTranslationMemoryUnitsParamsState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ListTranslationMemoryUnitsParamsState defines parameters for ListTranslationMemoryUnits.
+type ListTranslationMemoryUnitsParamsState string
+
 // ListTokensParams defines parameters for ListTokens.
 type ListTokensParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -2372,6 +3386,27 @@ type PublishReleaseJSONRequestBody = PublishRelease
 // ImportTranslationsJSONRequestBody defines body for ImportTranslations for application/json ContentType.
 type ImportTranslationsJSONRequestBody = TranslationImport
 
+// CreateStyleGuideJSONRequestBody defines body for CreateStyleGuide for application/json ContentType.
+type CreateStyleGuideJSONRequestBody = CreateStyleGuide
+
+// ReplaceStyleGuideJSONRequestBody defines body for ReplaceStyleGuide for application/json ContentType.
+type ReplaceStyleGuideJSONRequestBody = ReplaceStyleGuide
+
+// CreateTermConceptJSONRequestBody defines body for CreateTermConcept for application/json ContentType.
+type CreateTermConceptJSONRequestBody = CreateTermConcept
+
+// ReplaceTermConceptJSONRequestBody defines body for ReplaceTermConcept for application/json ContentType.
+type ReplaceTermConceptJSONRequestBody = ReplaceTermConcept
+
+// RecognizeTermsJSONRequestBody defines body for RecognizeTerms for application/json ContentType.
+type RecognizeTermsJSONRequestBody = TermRecognitionRequest
+
+// CheckTerminologyJSONRequestBody defines body for CheckTerminology for application/json ContentType.
+type CheckTerminologyJSONRequestBody = TerminologyCheckRequest
+
+// LookupTranslationMemoryJSONRequestBody defines body for LookupTranslationMemory for application/json ContentType.
+type LookupTranslationMemoryJSONRequestBody = TMLookup
+
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateToken
 
@@ -2446,6 +3481,9 @@ type ServerInterface interface {
 	// GetTenant A tenant
 	// (GET /v1/tenants/{tenant})
 	GetTenant(w http.ResponseWriter, r *http.Request, tenant TenantPath)
+	// GetEffectiveStyleGuide The style that applies to a project, locale and namespace
+	// (GET /v1/tenants/{tenant}/effective-style-guide)
+	GetEffectiveStyleGuide(w http.ResponseWriter, r *http.Request, tenant TenantPath, params GetEffectiveStyleGuideParams)
 	// ListMembers Members and open invitations
 	// (GET /v1/tenants/{tenant}/members)
 	ListMembers(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListMembersParams)
@@ -2614,6 +3652,63 @@ type ServerInterface interface {
 	// ListProjectTranslations A project's translations in one or more locales, by key
 	// (GET /v1/tenants/{tenant}/projects/{project}/translations)
 	ListProjectTranslations(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListProjectTranslationsParams)
+	// ListStyleGuides Style guides
+	// (GET /v1/tenants/{tenant}/style-guides)
+	ListStyleGuides(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListStyleGuidesParams)
+	// CreateStyleGuide Add the style guide for a scope
+	// (POST /v1/tenants/{tenant}/style-guides)
+	CreateStyleGuide(w http.ResponseWriter, r *http.Request, tenant TenantPath, params CreateStyleGuideParams)
+	// DeleteStyleGuide Delete a style guide
+	// (DELETE /v1/tenants/{tenant}/style-guides/{style_guide})
+	DeleteStyleGuide(w http.ResponseWriter, r *http.Request, tenant TenantPath, styleGuide StyleGuidePath, params DeleteStyleGuideParams)
+	// GetStyleGuide A style guide
+	// (GET /v1/tenants/{tenant}/style-guides/{style_guide})
+	GetStyleGuide(w http.ResponseWriter, r *http.Request, tenant TenantPath, styleGuide StyleGuidePath)
+	// ReplaceStyleGuide Replace a style guide's content
+	// (PUT /v1/tenants/{tenant}/style-guides/{style_guide})
+	ReplaceStyleGuide(w http.ResponseWriter, r *http.Request, tenant TenantPath, styleGuide StyleGuidePath, params ReplaceStyleGuideParams)
+	// ListStyleGuideVersions A style guide's versions, newest first
+	// (GET /v1/tenants/{tenant}/style-guides/{style_guide}/versions)
+	ListStyleGuideVersions(w http.ResponseWriter, r *http.Request, tenant TenantPath, styleGuide StyleGuidePath, params ListStyleGuideVersionsParams)
+	// ListTermConcepts Termbase concepts
+	// (GET /v1/tenants/{tenant}/term-concepts)
+	ListTermConcepts(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListTermConceptsParams)
+	// CreateTermConcept Add a concept with its terms
+	// (POST /v1/tenants/{tenant}/term-concepts)
+	CreateTermConcept(w http.ResponseWriter, r *http.Request, tenant TenantPath, params CreateTermConceptParams)
+	// DeleteTermConcept Delete a concept
+	// (DELETE /v1/tenants/{tenant}/term-concepts/{concept})
+	DeleteTermConcept(w http.ResponseWriter, r *http.Request, tenant TenantPath, concept ConceptPath, params DeleteTermConceptParams)
+	// GetTermConcept A concept with its terms
+	// (GET /v1/tenants/{tenant}/term-concepts/{concept})
+	GetTermConcept(w http.ResponseWriter, r *http.Request, tenant TenantPath, concept ConceptPath)
+	// ReplaceTermConcept Replace a concept and its terms
+	// (PUT /v1/tenants/{tenant}/term-concepts/{concept})
+	ReplaceTermConcept(w http.ResponseWriter, r *http.Request, tenant TenantPath, concept ConceptPath, params ReplaceTermConceptParams)
+	// ListTermConceptRevisions A concept's history, newest first
+	// (GET /v1/tenants/{tenant}/term-concepts/{concept}/revisions)
+	ListTermConceptRevisions(w http.ResponseWriter, r *http.Request, tenant TenantPath, concept ConceptPath, params ListTermConceptRevisionsParams)
+	// RecognizeTerms Find termbase terms in a text
+	// (POST /v1/tenants/{tenant}/term-recognitions)
+	RecognizeTerms(w http.ResponseWriter, r *http.Request, tenant TenantPath)
+	// CheckTerminology Check a translation against the termbase
+	// (POST /v1/tenants/{tenant}/terminology-checks)
+	CheckTerminology(w http.ResponseWriter, r *http.Request, tenant TenantPath)
+	// SearchTranslationMemory Find active units containing a phrase
+	// (GET /v1/tenants/{tenant}/tm-concordance)
+	SearchTranslationMemory(w http.ResponseWriter, r *http.Request, tenant TenantPath, params SearchTranslationMemoryParams)
+	// LookupTranslationMemory Find translation-memory matches for a message
+	// (POST /v1/tenants/{tenant}/tm-lookups)
+	LookupTranslationMemory(w http.ResponseWriter, r *http.Request, tenant TenantPath)
+	// ListTranslationMemoryUnits Translation-memory units, active or retired
+	// (GET /v1/tenants/{tenant}/tm-units)
+	ListTranslationMemoryUnits(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListTranslationMemoryUnitsParams)
+	// RetireTranslationMemoryUnit Retire a unit
+	// (DELETE /v1/tenants/{tenant}/tm-units/{unit})
+	RetireTranslationMemoryUnit(w http.ResponseWriter, r *http.Request, tenant TenantPath, unit TMUnitPath)
+	// GetTranslationMemoryUnit A translation-memory unit
+	// (GET /v1/tenants/{tenant}/tm-units/{unit})
+	GetTranslationMemoryUnit(w http.ResponseWriter, r *http.Request, tenant TenantPath, unit TMUnitPath)
 	// ListTokens API tokens, including revoked ones
 	// (GET /v1/tenants/{tenant}/tokens)
 	ListTokens(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListTokensParams)
@@ -3107,6 +4202,74 @@ func (siw *ServerInterfaceWrapper) GetTenant(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetTenant(w, r, tenant)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEffectiveStyleGuide operation middleware
+func (siw *ServerInterfaceWrapper) GetEffectiveStyleGuide(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetEffectiveStyleGuideParams
+
+	// ------------- Optional query parameter "project" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project", r.URL.Query(), &params.Project, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "namespace" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "namespace", r.URL.Query(), &params.Namespace, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "namespace"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespace", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEffectiveStyleGuide(w, r, tenant, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6388,6 +7551,1137 @@ func (siw *ServerInterfaceWrapper) ListProjectTranslations(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// ListStyleGuides operation middleware
+func (siw *ServerInterfaceWrapper) ListStyleGuides(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListStyleGuidesParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "project" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project", r.URL.Query(), &params.Project, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "tenant_only" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tenant_only", r.URL.Query(), &params.TenantOnly, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "tenant_only"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_only", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStyleGuides(w, r, tenant, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateStyleGuide operation middleware
+func (siw *ServerInterfaceWrapper) CreateStyleGuide(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateStyleGuideParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateStyleGuide(w, r, tenant, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteStyleGuide operation middleware
+func (siw *ServerInterfaceWrapper) DeleteStyleGuide(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "style_guide" -------------
+	var styleGuide StyleGuidePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "style_guide", r.PathValue("style_guide"), &styleGuide, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "style_guide", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteStyleGuideParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatchOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteStyleGuide(w, r, tenant, styleGuide, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetStyleGuide operation middleware
+func (siw *ServerInterfaceWrapper) GetStyleGuide(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "style_guide" -------------
+	var styleGuide StyleGuidePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "style_guide", r.PathValue("style_guide"), &styleGuide, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "style_guide", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStyleGuide(w, r, tenant, styleGuide)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReplaceStyleGuide operation middleware
+func (siw *ServerInterfaceWrapper) ReplaceStyleGuide(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "style_guide" -------------
+	var styleGuide StyleGuidePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "style_guide", r.PathValue("style_guide"), &styleGuide, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "style_guide", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReplaceStyleGuideParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReplaceStyleGuide(w, r, tenant, styleGuide, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListStyleGuideVersions operation middleware
+func (siw *ServerInterfaceWrapper) ListStyleGuideVersions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "style_guide" -------------
+	var styleGuide StyleGuidePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "style_guide", r.PathValue("style_guide"), &styleGuide, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "style_guide", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListStyleGuideVersionsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStyleGuideVersions(w, r, tenant, styleGuide, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTermConcepts operation middleware
+func (siw *ServerInterfaceWrapper) ListTermConcepts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTermConceptsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "project" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project", r.URL.Query(), &params.Project, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "domain" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "domain", r.URL.Query(), &params.Domain, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "domain"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "domain", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTermConcepts(w, r, tenant, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTermConcept operation middleware
+func (siw *ServerInterfaceWrapper) CreateTermConcept(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateTermConceptParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTermConcept(w, r, tenant, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteTermConcept operation middleware
+func (siw *ServerInterfaceWrapper) DeleteTermConcept(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "concept" -------------
+	var concept ConceptPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "concept", r.PathValue("concept"), &concept, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "concept", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteTermConceptParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatchOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteTermConcept(w, r, tenant, concept, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTermConcept operation middleware
+func (siw *ServerInterfaceWrapper) GetTermConcept(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "concept" -------------
+	var concept ConceptPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "concept", r.PathValue("concept"), &concept, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "concept", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTermConcept(w, r, tenant, concept)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReplaceTermConcept operation middleware
+func (siw *ServerInterfaceWrapper) ReplaceTermConcept(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "concept" -------------
+	var concept ConceptPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "concept", r.PathValue("concept"), &concept, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "concept", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReplaceTermConceptParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReplaceTermConcept(w, r, tenant, concept, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTermConceptRevisions operation middleware
+func (siw *ServerInterfaceWrapper) ListTermConceptRevisions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "concept" -------------
+	var concept ConceptPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "concept", r.PathValue("concept"), &concept, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "concept", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTermConceptRevisionsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTermConceptRevisions(w, r, tenant, concept, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RecognizeTerms operation middleware
+func (siw *ServerInterfaceWrapper) RecognizeTerms(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RecognizeTerms(w, r, tenant)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CheckTerminology operation middleware
+func (siw *ServerInterfaceWrapper) CheckTerminology(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CheckTerminology(w, r, tenant)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SearchTranslationMemory operation middleware
+func (siw *ServerInterfaceWrapper) SearchTranslationMemory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchTranslationMemoryParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "side" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "side", r.URL.Query(), &params.Side, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "side"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "side", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "source_locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source_locale", r.URL.Query(), &params.SourceLocale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source_locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source_locale", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "target_locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_locale", r.URL.Query(), &params.TargetLocale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_locale", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "project" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project", r.URL.Query(), &params.Project, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "all_projects" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "all_projects", r.URL.Query(), &params.AllProjects, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "all_projects"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "all_projects", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchTranslationMemory(w, r, tenant, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LookupTranslationMemory operation middleware
+func (siw *ServerInterfaceWrapper) LookupTranslationMemory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LookupTranslationMemory(w, r, tenant)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTranslationMemoryUnits operation middleware
+func (siw *ServerInterfaceWrapper) ListTranslationMemoryUnits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTranslationMemoryUnitsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "source_locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source_locale", r.URL.Query(), &params.SourceLocale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source_locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source_locale", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "target_locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_locale", r.URL.Query(), &params.TargetLocale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_locale", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "project" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project", r.URL.Query(), &params.Project, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "translation" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "translation", r.URL.Query(), &params.Translation, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "translation"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "translation", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTranslationMemoryUnits(w, r, tenant, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetireTranslationMemoryUnit operation middleware
+func (siw *ServerInterfaceWrapper) RetireTranslationMemoryUnit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "unit" -------------
+	var unit TMUnitPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "unit", r.PathValue("unit"), &unit, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unit", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetireTranslationMemoryUnit(w, r, tenant, unit)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTranslationMemoryUnit operation middleware
+func (siw *ServerInterfaceWrapper) GetTranslationMemoryUnit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "unit" -------------
+	var unit TMUnitPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "unit", r.PathValue("unit"), &unit, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unit", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTranslationMemoryUnit(w, r, tenant, unit)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListTokens operation middleware
 func (siw *ServerInterfaceWrapper) ListTokens(w http.ResponseWriter, r *http.Request) {
 
@@ -6766,6 +9060,26 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/delivery-keys", wrapper.ListDeliveryKeys)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/delivery-keys", wrapper.CreateDeliveryKey)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}", wrapper.RevokeDeliveryKey)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/tm-lookups", wrapper.LookupTranslationMemory)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/tm-concordance", wrapper.SearchTranslationMemory)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/tm-units", wrapper.ListTranslationMemoryUnits)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/tenants/{tenant}/tm-units/{unit}", wrapper.RetireTranslationMemoryUnit)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/tm-units/{unit}", wrapper.GetTranslationMemoryUnit)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/term-concepts", wrapper.ListTermConcepts)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/term-concepts", wrapper.CreateTermConcept)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/tenants/{tenant}/term-concepts/{concept}", wrapper.DeleteTermConcept)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/term-concepts/{concept}", wrapper.GetTermConcept)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/tenants/{tenant}/term-concepts/{concept}", wrapper.ReplaceTermConcept)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/term-concepts/{concept}/revisions", wrapper.ListTermConceptRevisions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/term-recognitions", wrapper.RecognizeTerms)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/terminology-checks", wrapper.CheckTerminology)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/style-guides", wrapper.ListStyleGuides)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/style-guides", wrapper.CreateStyleGuide)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/tenants/{tenant}/style-guides/{style_guide}", wrapper.DeleteStyleGuide)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/style-guides/{style_guide}", wrapper.GetStyleGuide)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/tenants/{tenant}/style-guides/{style_guide}", wrapper.ReplaceStyleGuide)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/style-guides/{style_guide}/versions", wrapper.ListStyleGuideVersions)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/effective-style-guide", wrapper.GetEffectiveStyleGuide)
 
 	return m
 }
@@ -8290,6 +10604,77 @@ type GetTenant403ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetTenant403ApplicationProblemPlusJSONResponse) VisitGetTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEffectiveStyleGuideRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Params GetEffectiveStyleGuideParams
+}
+
+type GetEffectiveStyleGuideResponseObject interface {
+	VisitGetEffectiveStyleGuideResponse(w http.ResponseWriter) error
+}
+
+type GetEffectiveStyleGuide200JSONResponse EffectiveStyleGuide
+
+func (response GetEffectiveStyleGuide200JSONResponse) VisitGetEffectiveStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEffectiveStyleGuide400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response GetEffectiveStyleGuide400ApplicationProblemPlusJSONResponse) VisitGetEffectiveStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEffectiveStyleGuide401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetEffectiveStyleGuide401ApplicationProblemPlusJSONResponse) VisitGetEffectiveStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEffectiveStyleGuide403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetEffectiveStyleGuide403ApplicationProblemPlusJSONResponse) VisitGetEffectiveStyleGuideResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -14062,6 +16447,1663 @@ func (response ListProjectTranslations404ApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type ListStyleGuidesRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Params ListStyleGuidesParams
+}
+
+type ListStyleGuidesResponseObject interface {
+	VisitListStyleGuidesResponse(w http.ResponseWriter) error
+}
+
+type ListStyleGuides200JSONResponse StyleGuideList
+
+func (response ListStyleGuides200JSONResponse) VisitListStyleGuidesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStyleGuides400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListStyleGuides400ApplicationProblemPlusJSONResponse) VisitListStyleGuidesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStyleGuides401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListStyleGuides401ApplicationProblemPlusJSONResponse) VisitListStyleGuidesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStyleGuides403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListStyleGuides403ApplicationProblemPlusJSONResponse) VisitListStyleGuidesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateStyleGuideRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Params CreateStyleGuideParams
+	Body   *CreateStyleGuideJSONRequestBody
+}
+
+type CreateStyleGuideResponseObject interface {
+	VisitCreateStyleGuideResponse(w http.ResponseWriter) error
+}
+
+type CreateStyleGuide201ResponseHeaders struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateStyleGuide201JSONResponse struct {
+	Body    StyleGuide
+	Headers CreateStyleGuide201ResponseHeaders
+}
+
+func (response CreateStyleGuide201JSONResponse) VisitCreateStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	if response.Headers.IdempotentReplayed != nil {
+		w.Header().Set("Idempotent-Replayed", fmt.Sprint(*response.Headers.IdempotentReplayed))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateStyleGuide400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CreateStyleGuide400ApplicationProblemPlusJSONResponse) VisitCreateStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateStyleGuide401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateStyleGuide401ApplicationProblemPlusJSONResponse) VisitCreateStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateStyleGuide403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CreateStyleGuide403ApplicationProblemPlusJSONResponse) VisitCreateStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateStyleGuide409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CreateStyleGuide409ApplicationProblemPlusJSONResponse) VisitCreateStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateStyleGuide422ApplicationProblemPlusJSONResponse struct {
+	UnprocessableEntityApplicationProblemPlusJSONResponse
+}
+
+func (response CreateStyleGuide422ApplicationProblemPlusJSONResponse) VisitCreateStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteStyleGuideRequestObject struct {
+	Tenant     TenantPath     `json:"tenant"`
+	StyleGuide StyleGuidePath `json:"style_guide"`
+	Params     DeleteStyleGuideParams
+}
+
+type DeleteStyleGuideResponseObject interface {
+	VisitDeleteStyleGuideResponse(w http.ResponseWriter) error
+}
+
+type DeleteStyleGuide204Response struct {
+}
+
+func (response DeleteStyleGuide204Response) VisitDeleteStyleGuideResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteStyleGuide401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteStyleGuide401ApplicationProblemPlusJSONResponse) VisitDeleteStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteStyleGuide403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteStyleGuide403ApplicationProblemPlusJSONResponse) VisitDeleteStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteStyleGuide404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteStyleGuide404ApplicationProblemPlusJSONResponse) VisitDeleteStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteStyleGuide412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteStyleGuide412ApplicationProblemPlusJSONResponse) VisitDeleteStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetStyleGuideRequestObject struct {
+	Tenant     TenantPath     `json:"tenant"`
+	StyleGuide StyleGuidePath `json:"style_guide"`
+}
+
+type GetStyleGuideResponseObject interface {
+	VisitGetStyleGuideResponse(w http.ResponseWriter) error
+}
+
+type GetStyleGuide200ResponseHeaders struct {
+	ETag *string
+}
+
+type GetStyleGuide200JSONResponse struct {
+	Body    StyleGuide
+	Headers GetStyleGuide200ResponseHeaders
+}
+
+func (response GetStyleGuide200JSONResponse) VisitGetStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetStyleGuide401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetStyleGuide401ApplicationProblemPlusJSONResponse) VisitGetStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetStyleGuide403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetStyleGuide403ApplicationProblemPlusJSONResponse) VisitGetStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetStyleGuide404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetStyleGuide404ApplicationProblemPlusJSONResponse) VisitGetStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceStyleGuideRequestObject struct {
+	Tenant     TenantPath     `json:"tenant"`
+	StyleGuide StyleGuidePath `json:"style_guide"`
+	Params     ReplaceStyleGuideParams
+	Body       *ReplaceStyleGuideJSONRequestBody
+}
+
+type ReplaceStyleGuideResponseObject interface {
+	VisitReplaceStyleGuideResponse(w http.ResponseWriter) error
+}
+
+type ReplaceStyleGuide200ResponseHeaders struct {
+	ETag *string
+}
+
+type ReplaceStyleGuide200JSONResponse struct {
+	Body    StyleGuide
+	Headers ReplaceStyleGuide200ResponseHeaders
+}
+
+func (response ReplaceStyleGuide200JSONResponse) VisitReplaceStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceStyleGuide400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceStyleGuide400ApplicationProblemPlusJSONResponse) VisitReplaceStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceStyleGuide401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceStyleGuide401ApplicationProblemPlusJSONResponse) VisitReplaceStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceStyleGuide403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceStyleGuide403ApplicationProblemPlusJSONResponse) VisitReplaceStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceStyleGuide404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceStyleGuide404ApplicationProblemPlusJSONResponse) VisitReplaceStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceStyleGuide409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceStyleGuide409ApplicationProblemPlusJSONResponse) VisitReplaceStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceStyleGuide412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceStyleGuide412ApplicationProblemPlusJSONResponse) VisitReplaceStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceStyleGuide428ApplicationProblemPlusJSONResponse struct {
+	PreconditionRequiredApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceStyleGuide428ApplicationProblemPlusJSONResponse) VisitReplaceStyleGuideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStyleGuideVersionsRequestObject struct {
+	Tenant     TenantPath     `json:"tenant"`
+	StyleGuide StyleGuidePath `json:"style_guide"`
+	Params     ListStyleGuideVersionsParams
+}
+
+type ListStyleGuideVersionsResponseObject interface {
+	VisitListStyleGuideVersionsResponse(w http.ResponseWriter) error
+}
+
+type ListStyleGuideVersions200JSONResponse StyleGuideVersionList
+
+func (response ListStyleGuideVersions200JSONResponse) VisitListStyleGuideVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStyleGuideVersions400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListStyleGuideVersions400ApplicationProblemPlusJSONResponse) VisitListStyleGuideVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStyleGuideVersions401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListStyleGuideVersions401ApplicationProblemPlusJSONResponse) VisitListStyleGuideVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStyleGuideVersions403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListStyleGuideVersions403ApplicationProblemPlusJSONResponse) VisitListStyleGuideVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStyleGuideVersions404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListStyleGuideVersions404ApplicationProblemPlusJSONResponse) VisitListStyleGuideVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTermConceptsRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Params ListTermConceptsParams
+}
+
+type ListTermConceptsResponseObject interface {
+	VisitListTermConceptsResponse(w http.ResponseWriter) error
+}
+
+type ListTermConcepts200JSONResponse TermConceptList
+
+func (response ListTermConcepts200JSONResponse) VisitListTermConceptsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTermConcepts400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListTermConcepts400ApplicationProblemPlusJSONResponse) VisitListTermConceptsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTermConcepts401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListTermConcepts401ApplicationProblemPlusJSONResponse) VisitListTermConceptsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTermConcepts403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListTermConcepts403ApplicationProblemPlusJSONResponse) VisitListTermConceptsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTermConceptRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Params CreateTermConceptParams
+	Body   *CreateTermConceptJSONRequestBody
+}
+
+type CreateTermConceptResponseObject interface {
+	VisitCreateTermConceptResponse(w http.ResponseWriter) error
+}
+
+type CreateTermConcept201ResponseHeaders struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateTermConcept201JSONResponse struct {
+	Body    TermConcept
+	Headers CreateTermConcept201ResponseHeaders
+}
+
+func (response CreateTermConcept201JSONResponse) VisitCreateTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	if response.Headers.IdempotentReplayed != nil {
+		w.Header().Set("Idempotent-Replayed", fmt.Sprint(*response.Headers.IdempotentReplayed))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTermConcept400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CreateTermConcept400ApplicationProblemPlusJSONResponse) VisitCreateTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTermConcept401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateTermConcept401ApplicationProblemPlusJSONResponse) VisitCreateTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTermConcept403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CreateTermConcept403ApplicationProblemPlusJSONResponse) VisitCreateTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTermConcept422ApplicationProblemPlusJSONResponse struct {
+	UnprocessableEntityApplicationProblemPlusJSONResponse
+}
+
+func (response CreateTermConcept422ApplicationProblemPlusJSONResponse) VisitCreateTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteTermConceptRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Concept ConceptPath `json:"concept"`
+	Params  DeleteTermConceptParams
+}
+
+type DeleteTermConceptResponseObject interface {
+	VisitDeleteTermConceptResponse(w http.ResponseWriter) error
+}
+
+type DeleteTermConcept204Response struct {
+}
+
+func (response DeleteTermConcept204Response) VisitDeleteTermConceptResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteTermConcept401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteTermConcept401ApplicationProblemPlusJSONResponse) VisitDeleteTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteTermConcept403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteTermConcept403ApplicationProblemPlusJSONResponse) VisitDeleteTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteTermConcept404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteTermConcept404ApplicationProblemPlusJSONResponse) VisitDeleteTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteTermConcept412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteTermConcept412ApplicationProblemPlusJSONResponse) VisitDeleteTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTermConceptRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Concept ConceptPath `json:"concept"`
+}
+
+type GetTermConceptResponseObject interface {
+	VisitGetTermConceptResponse(w http.ResponseWriter) error
+}
+
+type GetTermConcept200ResponseHeaders struct {
+	ETag *string
+}
+
+type GetTermConcept200JSONResponse struct {
+	Body    TermConcept
+	Headers GetTermConcept200ResponseHeaders
+}
+
+func (response GetTermConcept200JSONResponse) VisitGetTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTermConcept401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetTermConcept401ApplicationProblemPlusJSONResponse) VisitGetTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTermConcept403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetTermConcept403ApplicationProblemPlusJSONResponse) VisitGetTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTermConcept404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetTermConcept404ApplicationProblemPlusJSONResponse) VisitGetTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceTermConceptRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Concept ConceptPath `json:"concept"`
+	Params  ReplaceTermConceptParams
+	Body    *ReplaceTermConceptJSONRequestBody
+}
+
+type ReplaceTermConceptResponseObject interface {
+	VisitReplaceTermConceptResponse(w http.ResponseWriter) error
+}
+
+type ReplaceTermConcept200ResponseHeaders struct {
+	ETag *string
+}
+
+type ReplaceTermConcept200JSONResponse struct {
+	Body    TermConcept
+	Headers ReplaceTermConcept200ResponseHeaders
+}
+
+func (response ReplaceTermConcept200JSONResponse) VisitReplaceTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceTermConcept400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceTermConcept400ApplicationProblemPlusJSONResponse) VisitReplaceTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceTermConcept401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceTermConcept401ApplicationProblemPlusJSONResponse) VisitReplaceTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceTermConcept403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceTermConcept403ApplicationProblemPlusJSONResponse) VisitReplaceTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceTermConcept404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceTermConcept404ApplicationProblemPlusJSONResponse) VisitReplaceTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceTermConcept409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceTermConcept409ApplicationProblemPlusJSONResponse) VisitReplaceTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceTermConcept412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceTermConcept412ApplicationProblemPlusJSONResponse) VisitReplaceTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceTermConcept428ApplicationProblemPlusJSONResponse struct {
+	PreconditionRequiredApplicationProblemPlusJSONResponse
+}
+
+func (response ReplaceTermConcept428ApplicationProblemPlusJSONResponse) VisitReplaceTermConceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTermConceptRevisionsRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Concept ConceptPath `json:"concept"`
+	Params  ListTermConceptRevisionsParams
+}
+
+type ListTermConceptRevisionsResponseObject interface {
+	VisitListTermConceptRevisionsResponse(w http.ResponseWriter) error
+}
+
+type ListTermConceptRevisions200JSONResponse TermConceptRevisionList
+
+func (response ListTermConceptRevisions200JSONResponse) VisitListTermConceptRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTermConceptRevisions400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListTermConceptRevisions400ApplicationProblemPlusJSONResponse) VisitListTermConceptRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTermConceptRevisions401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListTermConceptRevisions401ApplicationProblemPlusJSONResponse) VisitListTermConceptRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTermConceptRevisions403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListTermConceptRevisions403ApplicationProblemPlusJSONResponse) VisitListTermConceptRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTermConceptRevisions404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListTermConceptRevisions404ApplicationProblemPlusJSONResponse) VisitListTermConceptRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecognizeTermsRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Body   *RecognizeTermsJSONRequestBody
+}
+
+type RecognizeTermsResponseObject interface {
+	VisitRecognizeTermsResponse(w http.ResponseWriter) error
+}
+
+type RecognizeTerms200JSONResponse TermRecognition
+
+func (response RecognizeTerms200JSONResponse) VisitRecognizeTermsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecognizeTerms400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response RecognizeTerms400ApplicationProblemPlusJSONResponse) VisitRecognizeTermsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecognizeTerms401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response RecognizeTerms401ApplicationProblemPlusJSONResponse) VisitRecognizeTermsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecognizeTerms403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response RecognizeTerms403ApplicationProblemPlusJSONResponse) VisitRecognizeTermsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckTerminologyRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Body   *CheckTerminologyJSONRequestBody
+}
+
+type CheckTerminologyResponseObject interface {
+	VisitCheckTerminologyResponse(w http.ResponseWriter) error
+}
+
+type CheckTerminology200JSONResponse TerminologyCheck
+
+func (response CheckTerminology200JSONResponse) VisitCheckTerminologyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckTerminology400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CheckTerminology400ApplicationProblemPlusJSONResponse) VisitCheckTerminologyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckTerminology401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response CheckTerminology401ApplicationProblemPlusJSONResponse) VisitCheckTerminologyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckTerminology403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CheckTerminology403ApplicationProblemPlusJSONResponse) VisitCheckTerminologyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchTranslationMemoryRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Params SearchTranslationMemoryParams
+}
+
+type SearchTranslationMemoryResponseObject interface {
+	VisitSearchTranslationMemoryResponse(w http.ResponseWriter) error
+}
+
+type SearchTranslationMemory200JSONResponse TMConcordance
+
+func (response SearchTranslationMemory200JSONResponse) VisitSearchTranslationMemoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchTranslationMemory400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response SearchTranslationMemory400ApplicationProblemPlusJSONResponse) VisitSearchTranslationMemoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchTranslationMemory401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response SearchTranslationMemory401ApplicationProblemPlusJSONResponse) VisitSearchTranslationMemoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchTranslationMemory403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response SearchTranslationMemory403ApplicationProblemPlusJSONResponse) VisitSearchTranslationMemoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupTranslationMemoryRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Body   *LookupTranslationMemoryJSONRequestBody
+}
+
+type LookupTranslationMemoryResponseObject interface {
+	VisitLookupTranslationMemoryResponse(w http.ResponseWriter) error
+}
+
+type LookupTranslationMemory200JSONResponse TMLookupResult
+
+func (response LookupTranslationMemory200JSONResponse) VisitLookupTranslationMemoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupTranslationMemory400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response LookupTranslationMemory400ApplicationProblemPlusJSONResponse) VisitLookupTranslationMemoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupTranslationMemory401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response LookupTranslationMemory401ApplicationProblemPlusJSONResponse) VisitLookupTranslationMemoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupTranslationMemory403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response LookupTranslationMemory403ApplicationProblemPlusJSONResponse) VisitLookupTranslationMemoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTranslationMemoryUnitsRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Params ListTranslationMemoryUnitsParams
+}
+
+type ListTranslationMemoryUnitsResponseObject interface {
+	VisitListTranslationMemoryUnitsResponse(w http.ResponseWriter) error
+}
+
+type ListTranslationMemoryUnits200JSONResponse TMUnitList
+
+func (response ListTranslationMemoryUnits200JSONResponse) VisitListTranslationMemoryUnitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTranslationMemoryUnits400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListTranslationMemoryUnits400ApplicationProblemPlusJSONResponse) VisitListTranslationMemoryUnitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTranslationMemoryUnits401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListTranslationMemoryUnits401ApplicationProblemPlusJSONResponse) VisitListTranslationMemoryUnitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTranslationMemoryUnits403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListTranslationMemoryUnits403ApplicationProblemPlusJSONResponse) VisitListTranslationMemoryUnitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetireTranslationMemoryUnitRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Unit   TMUnitPath `json:"unit"`
+}
+
+type RetireTranslationMemoryUnitResponseObject interface {
+	VisitRetireTranslationMemoryUnitResponse(w http.ResponseWriter) error
+}
+
+type RetireTranslationMemoryUnit204Response struct {
+}
+
+func (response RetireTranslationMemoryUnit204Response) VisitRetireTranslationMemoryUnitResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RetireTranslationMemoryUnit401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response RetireTranslationMemoryUnit401ApplicationProblemPlusJSONResponse) VisitRetireTranslationMemoryUnitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetireTranslationMemoryUnit403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response RetireTranslationMemoryUnit403ApplicationProblemPlusJSONResponse) VisitRetireTranslationMemoryUnitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetireTranslationMemoryUnit404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RetireTranslationMemoryUnit404ApplicationProblemPlusJSONResponse) VisitRetireTranslationMemoryUnitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTranslationMemoryUnitRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Unit   TMUnitPath `json:"unit"`
+}
+
+type GetTranslationMemoryUnitResponseObject interface {
+	VisitGetTranslationMemoryUnitResponse(w http.ResponseWriter) error
+}
+
+type GetTranslationMemoryUnit200JSONResponse TMUnit
+
+func (response GetTranslationMemoryUnit200JSONResponse) VisitGetTranslationMemoryUnitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTranslationMemoryUnit401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetTranslationMemoryUnit401ApplicationProblemPlusJSONResponse) VisitGetTranslationMemoryUnitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTranslationMemoryUnit403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetTranslationMemoryUnit403ApplicationProblemPlusJSONResponse) VisitGetTranslationMemoryUnitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTranslationMemoryUnit404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetTranslationMemoryUnit404ApplicationProblemPlusJSONResponse) VisitGetTranslationMemoryUnitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListTokensRequestObject struct {
 	Tenant TenantPath `json:"tenant"`
 	Params ListTokensParams
@@ -14458,6 +18500,9 @@ type StrictServerInterface interface {
 	// GetTenant A tenant
 	// (GET /v1/tenants/{tenant})
 	GetTenant(ctx context.Context, request GetTenantRequestObject) (GetTenantResponseObject, error)
+	// GetEffectiveStyleGuide The style that applies to a project, locale and namespace
+	// (GET /v1/tenants/{tenant}/effective-style-guide)
+	GetEffectiveStyleGuide(ctx context.Context, request GetEffectiveStyleGuideRequestObject) (GetEffectiveStyleGuideResponseObject, error)
 	// ListMembers Members and open invitations
 	// (GET /v1/tenants/{tenant}/members)
 	ListMembers(ctx context.Context, request ListMembersRequestObject) (ListMembersResponseObject, error)
@@ -14626,6 +18671,63 @@ type StrictServerInterface interface {
 	// ListProjectTranslations A project's translations in one or more locales, by key
 	// (GET /v1/tenants/{tenant}/projects/{project}/translations)
 	ListProjectTranslations(ctx context.Context, request ListProjectTranslationsRequestObject) (ListProjectTranslationsResponseObject, error)
+	// ListStyleGuides Style guides
+	// (GET /v1/tenants/{tenant}/style-guides)
+	ListStyleGuides(ctx context.Context, request ListStyleGuidesRequestObject) (ListStyleGuidesResponseObject, error)
+	// CreateStyleGuide Add the style guide for a scope
+	// (POST /v1/tenants/{tenant}/style-guides)
+	CreateStyleGuide(ctx context.Context, request CreateStyleGuideRequestObject) (CreateStyleGuideResponseObject, error)
+	// DeleteStyleGuide Delete a style guide
+	// (DELETE /v1/tenants/{tenant}/style-guides/{style_guide})
+	DeleteStyleGuide(ctx context.Context, request DeleteStyleGuideRequestObject) (DeleteStyleGuideResponseObject, error)
+	// GetStyleGuide A style guide
+	// (GET /v1/tenants/{tenant}/style-guides/{style_guide})
+	GetStyleGuide(ctx context.Context, request GetStyleGuideRequestObject) (GetStyleGuideResponseObject, error)
+	// ReplaceStyleGuide Replace a style guide's content
+	// (PUT /v1/tenants/{tenant}/style-guides/{style_guide})
+	ReplaceStyleGuide(ctx context.Context, request ReplaceStyleGuideRequestObject) (ReplaceStyleGuideResponseObject, error)
+	// ListStyleGuideVersions A style guide's versions, newest first
+	// (GET /v1/tenants/{tenant}/style-guides/{style_guide}/versions)
+	ListStyleGuideVersions(ctx context.Context, request ListStyleGuideVersionsRequestObject) (ListStyleGuideVersionsResponseObject, error)
+	// ListTermConcepts Termbase concepts
+	// (GET /v1/tenants/{tenant}/term-concepts)
+	ListTermConcepts(ctx context.Context, request ListTermConceptsRequestObject) (ListTermConceptsResponseObject, error)
+	// CreateTermConcept Add a concept with its terms
+	// (POST /v1/tenants/{tenant}/term-concepts)
+	CreateTermConcept(ctx context.Context, request CreateTermConceptRequestObject) (CreateTermConceptResponseObject, error)
+	// DeleteTermConcept Delete a concept
+	// (DELETE /v1/tenants/{tenant}/term-concepts/{concept})
+	DeleteTermConcept(ctx context.Context, request DeleteTermConceptRequestObject) (DeleteTermConceptResponseObject, error)
+	// GetTermConcept A concept with its terms
+	// (GET /v1/tenants/{tenant}/term-concepts/{concept})
+	GetTermConcept(ctx context.Context, request GetTermConceptRequestObject) (GetTermConceptResponseObject, error)
+	// ReplaceTermConcept Replace a concept and its terms
+	// (PUT /v1/tenants/{tenant}/term-concepts/{concept})
+	ReplaceTermConcept(ctx context.Context, request ReplaceTermConceptRequestObject) (ReplaceTermConceptResponseObject, error)
+	// ListTermConceptRevisions A concept's history, newest first
+	// (GET /v1/tenants/{tenant}/term-concepts/{concept}/revisions)
+	ListTermConceptRevisions(ctx context.Context, request ListTermConceptRevisionsRequestObject) (ListTermConceptRevisionsResponseObject, error)
+	// RecognizeTerms Find termbase terms in a text
+	// (POST /v1/tenants/{tenant}/term-recognitions)
+	RecognizeTerms(ctx context.Context, request RecognizeTermsRequestObject) (RecognizeTermsResponseObject, error)
+	// CheckTerminology Check a translation against the termbase
+	// (POST /v1/tenants/{tenant}/terminology-checks)
+	CheckTerminology(ctx context.Context, request CheckTerminologyRequestObject) (CheckTerminologyResponseObject, error)
+	// SearchTranslationMemory Find active units containing a phrase
+	// (GET /v1/tenants/{tenant}/tm-concordance)
+	SearchTranslationMemory(ctx context.Context, request SearchTranslationMemoryRequestObject) (SearchTranslationMemoryResponseObject, error)
+	// LookupTranslationMemory Find translation-memory matches for a message
+	// (POST /v1/tenants/{tenant}/tm-lookups)
+	LookupTranslationMemory(ctx context.Context, request LookupTranslationMemoryRequestObject) (LookupTranslationMemoryResponseObject, error)
+	// ListTranslationMemoryUnits Translation-memory units, active or retired
+	// (GET /v1/tenants/{tenant}/tm-units)
+	ListTranslationMemoryUnits(ctx context.Context, request ListTranslationMemoryUnitsRequestObject) (ListTranslationMemoryUnitsResponseObject, error)
+	// RetireTranslationMemoryUnit Retire a unit
+	// (DELETE /v1/tenants/{tenant}/tm-units/{unit})
+	RetireTranslationMemoryUnit(ctx context.Context, request RetireTranslationMemoryUnitRequestObject) (RetireTranslationMemoryUnitResponseObject, error)
+	// GetTranslationMemoryUnit A translation-memory unit
+	// (GET /v1/tenants/{tenant}/tm-units/{unit})
+	GetTranslationMemoryUnit(ctx context.Context, request GetTranslationMemoryUnitRequestObject) (GetTranslationMemoryUnitResponseObject, error)
 	// ListTokens API tokens, including revoked ones
 	// (GET /v1/tenants/{tenant}/tokens)
 	ListTokens(ctx context.Context, request ListTokensRequestObject) (ListTokensResponseObject, error)
@@ -15329,6 +19431,33 @@ func (sh *strictHandler) GetTenant(w http.ResponseWriter, r *http.Request, tenan
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetTenantResponseObject); ok {
 		if err := validResponse.VisitGetTenantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetEffectiveStyleGuide operation middleware
+func (sh *strictHandler) GetEffectiveStyleGuide(w http.ResponseWriter, r *http.Request, tenant TenantPath, params GetEffectiveStyleGuideParams) {
+	var request GetEffectiveStyleGuideRequestObject
+
+	request.Tenant = tenant
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetEffectiveStyleGuide(ctx, request.(GetEffectiveStyleGuideRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetEffectiveStyleGuide")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetEffectiveStyleGuideResponseObject); ok {
+		if err := validResponse.VisitGetEffectiveStyleGuideResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -17065,6 +21194,571 @@ func (sh *strictHandler) ListProjectTranslations(w http.ResponseWriter, r *http.
 	}
 }
 
+// ListStyleGuides operation middleware
+func (sh *strictHandler) ListStyleGuides(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListStyleGuidesParams) {
+	var request ListStyleGuidesRequestObject
+
+	request.Tenant = tenant
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListStyleGuides(ctx, request.(ListStyleGuidesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListStyleGuides")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListStyleGuidesResponseObject); ok {
+		if err := validResponse.VisitListStyleGuidesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateStyleGuide operation middleware
+func (sh *strictHandler) CreateStyleGuide(w http.ResponseWriter, r *http.Request, tenant TenantPath, params CreateStyleGuideParams) {
+	var request CreateStyleGuideRequestObject
+
+	request.Tenant = tenant
+	request.Params = params
+
+	var body CreateStyleGuideJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateStyleGuide(ctx, request.(CreateStyleGuideRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateStyleGuide")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateStyleGuideResponseObject); ok {
+		if err := validResponse.VisitCreateStyleGuideResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteStyleGuide operation middleware
+func (sh *strictHandler) DeleteStyleGuide(w http.ResponseWriter, r *http.Request, tenant TenantPath, styleGuide StyleGuidePath, params DeleteStyleGuideParams) {
+	var request DeleteStyleGuideRequestObject
+
+	request.Tenant = tenant
+	request.StyleGuide = styleGuide
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteStyleGuide(ctx, request.(DeleteStyleGuideRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteStyleGuide")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteStyleGuideResponseObject); ok {
+		if err := validResponse.VisitDeleteStyleGuideResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetStyleGuide operation middleware
+func (sh *strictHandler) GetStyleGuide(w http.ResponseWriter, r *http.Request, tenant TenantPath, styleGuide StyleGuidePath) {
+	var request GetStyleGuideRequestObject
+
+	request.Tenant = tenant
+	request.StyleGuide = styleGuide
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetStyleGuide(ctx, request.(GetStyleGuideRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetStyleGuide")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetStyleGuideResponseObject); ok {
+		if err := validResponse.VisitGetStyleGuideResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReplaceStyleGuide operation middleware
+func (sh *strictHandler) ReplaceStyleGuide(w http.ResponseWriter, r *http.Request, tenant TenantPath, styleGuide StyleGuidePath, params ReplaceStyleGuideParams) {
+	var request ReplaceStyleGuideRequestObject
+
+	request.Tenant = tenant
+	request.StyleGuide = styleGuide
+	request.Params = params
+
+	var body ReplaceStyleGuideJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReplaceStyleGuide(ctx, request.(ReplaceStyleGuideRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReplaceStyleGuide")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReplaceStyleGuideResponseObject); ok {
+		if err := validResponse.VisitReplaceStyleGuideResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListStyleGuideVersions operation middleware
+func (sh *strictHandler) ListStyleGuideVersions(w http.ResponseWriter, r *http.Request, tenant TenantPath, styleGuide StyleGuidePath, params ListStyleGuideVersionsParams) {
+	var request ListStyleGuideVersionsRequestObject
+
+	request.Tenant = tenant
+	request.StyleGuide = styleGuide
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListStyleGuideVersions(ctx, request.(ListStyleGuideVersionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListStyleGuideVersions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListStyleGuideVersionsResponseObject); ok {
+		if err := validResponse.VisitListStyleGuideVersionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTermConcepts operation middleware
+func (sh *strictHandler) ListTermConcepts(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListTermConceptsParams) {
+	var request ListTermConceptsRequestObject
+
+	request.Tenant = tenant
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTermConcepts(ctx, request.(ListTermConceptsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTermConcepts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTermConceptsResponseObject); ok {
+		if err := validResponse.VisitListTermConceptsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateTermConcept operation middleware
+func (sh *strictHandler) CreateTermConcept(w http.ResponseWriter, r *http.Request, tenant TenantPath, params CreateTermConceptParams) {
+	var request CreateTermConceptRequestObject
+
+	request.Tenant = tenant
+	request.Params = params
+
+	var body CreateTermConceptJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateTermConcept(ctx, request.(CreateTermConceptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateTermConcept")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateTermConceptResponseObject); ok {
+		if err := validResponse.VisitCreateTermConceptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteTermConcept operation middleware
+func (sh *strictHandler) DeleteTermConcept(w http.ResponseWriter, r *http.Request, tenant TenantPath, concept ConceptPath, params DeleteTermConceptParams) {
+	var request DeleteTermConceptRequestObject
+
+	request.Tenant = tenant
+	request.Concept = concept
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteTermConcept(ctx, request.(DeleteTermConceptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteTermConcept")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteTermConceptResponseObject); ok {
+		if err := validResponse.VisitDeleteTermConceptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTermConcept operation middleware
+func (sh *strictHandler) GetTermConcept(w http.ResponseWriter, r *http.Request, tenant TenantPath, concept ConceptPath) {
+	var request GetTermConceptRequestObject
+
+	request.Tenant = tenant
+	request.Concept = concept
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTermConcept(ctx, request.(GetTermConceptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTermConcept")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTermConceptResponseObject); ok {
+		if err := validResponse.VisitGetTermConceptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReplaceTermConcept operation middleware
+func (sh *strictHandler) ReplaceTermConcept(w http.ResponseWriter, r *http.Request, tenant TenantPath, concept ConceptPath, params ReplaceTermConceptParams) {
+	var request ReplaceTermConceptRequestObject
+
+	request.Tenant = tenant
+	request.Concept = concept
+	request.Params = params
+
+	var body ReplaceTermConceptJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReplaceTermConcept(ctx, request.(ReplaceTermConceptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReplaceTermConcept")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReplaceTermConceptResponseObject); ok {
+		if err := validResponse.VisitReplaceTermConceptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTermConceptRevisions operation middleware
+func (sh *strictHandler) ListTermConceptRevisions(w http.ResponseWriter, r *http.Request, tenant TenantPath, concept ConceptPath, params ListTermConceptRevisionsParams) {
+	var request ListTermConceptRevisionsRequestObject
+
+	request.Tenant = tenant
+	request.Concept = concept
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTermConceptRevisions(ctx, request.(ListTermConceptRevisionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTermConceptRevisions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTermConceptRevisionsResponseObject); ok {
+		if err := validResponse.VisitListTermConceptRevisionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RecognizeTerms operation middleware
+func (sh *strictHandler) RecognizeTerms(w http.ResponseWriter, r *http.Request, tenant TenantPath) {
+	var request RecognizeTermsRequestObject
+
+	request.Tenant = tenant
+
+	var body RecognizeTermsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RecognizeTerms(ctx, request.(RecognizeTermsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RecognizeTerms")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RecognizeTermsResponseObject); ok {
+		if err := validResponse.VisitRecognizeTermsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CheckTerminology operation middleware
+func (sh *strictHandler) CheckTerminology(w http.ResponseWriter, r *http.Request, tenant TenantPath) {
+	var request CheckTerminologyRequestObject
+
+	request.Tenant = tenant
+
+	var body CheckTerminologyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CheckTerminology(ctx, request.(CheckTerminologyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CheckTerminology")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CheckTerminologyResponseObject); ok {
+		if err := validResponse.VisitCheckTerminologyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SearchTranslationMemory operation middleware
+func (sh *strictHandler) SearchTranslationMemory(w http.ResponseWriter, r *http.Request, tenant TenantPath, params SearchTranslationMemoryParams) {
+	var request SearchTranslationMemoryRequestObject
+
+	request.Tenant = tenant
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchTranslationMemory(ctx, request.(SearchTranslationMemoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchTranslationMemory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SearchTranslationMemoryResponseObject); ok {
+		if err := validResponse.VisitSearchTranslationMemoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LookupTranslationMemory operation middleware
+func (sh *strictHandler) LookupTranslationMemory(w http.ResponseWriter, r *http.Request, tenant TenantPath) {
+	var request LookupTranslationMemoryRequestObject
+
+	request.Tenant = tenant
+
+	var body LookupTranslationMemoryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LookupTranslationMemory(ctx, request.(LookupTranslationMemoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LookupTranslationMemory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LookupTranslationMemoryResponseObject); ok {
+		if err := validResponse.VisitLookupTranslationMemoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTranslationMemoryUnits operation middleware
+func (sh *strictHandler) ListTranslationMemoryUnits(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListTranslationMemoryUnitsParams) {
+	var request ListTranslationMemoryUnitsRequestObject
+
+	request.Tenant = tenant
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTranslationMemoryUnits(ctx, request.(ListTranslationMemoryUnitsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTranslationMemoryUnits")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTranslationMemoryUnitsResponseObject); ok {
+		if err := validResponse.VisitListTranslationMemoryUnitsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetireTranslationMemoryUnit operation middleware
+func (sh *strictHandler) RetireTranslationMemoryUnit(w http.ResponseWriter, r *http.Request, tenant TenantPath, unit TMUnitPath) {
+	var request RetireTranslationMemoryUnitRequestObject
+
+	request.Tenant = tenant
+	request.Unit = unit
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetireTranslationMemoryUnit(ctx, request.(RetireTranslationMemoryUnitRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetireTranslationMemoryUnit")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetireTranslationMemoryUnitResponseObject); ok {
+		if err := validResponse.VisitRetireTranslationMemoryUnitResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTranslationMemoryUnit operation middleware
+func (sh *strictHandler) GetTranslationMemoryUnit(w http.ResponseWriter, r *http.Request, tenant TenantPath, unit TMUnitPath) {
+	var request GetTranslationMemoryUnitRequestObject
+
+	request.Tenant = tenant
+	request.Unit = unit
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTranslationMemoryUnit(ctx, request.(GetTranslationMemoryUnitRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTranslationMemoryUnit")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTranslationMemoryUnitResponseObject); ok {
+		if err := validResponse.VisitGetTranslationMemoryUnitResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListTokens operation middleware
 func (sh *strictHandler) ListTokens(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListTokensParams) {
 	var request ListTokensRequestObject
@@ -17185,353 +21879,444 @@ func (sh *strictHandler) GetToken(w http.ResponseWriter, r *http.Request, tenant
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"6qd8ev/p/xsA",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

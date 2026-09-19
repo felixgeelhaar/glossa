@@ -19,6 +19,7 @@ import (
 	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	knowledgeapi "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/httpapi"
 	localizationapi "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/httpapi"
 	previewapi "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/httpapi"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
@@ -32,6 +33,7 @@ type apiServer struct {
 	*catalogAPI
 	*localizationAPI
 	*releaseAPI
+	*knowledgeAPI
 	*previewAPI
 	*metaAPI
 }
@@ -42,6 +44,7 @@ type (
 	catalogAPI      = catalogapi.API
 	localizationAPI = localizationapi.API
 	releaseAPI      = releaseapi.API
+	knowledgeAPI    = knowledgeapi.API
 	previewAPI      = previewapi.API
 )
 
@@ -52,7 +55,8 @@ var _ apiv1.StrictServerInterface = apiServer{}
 // error hooks render every failure as problem details.
 func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts) func(*http.ServeMux) {
 	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
-		previewAPI: c.previewAPI, metaAPI: meta}
+		knowledgeAPI: c.knowledgeAPI,
+		previewAPI:   c.previewAPI, metaAPI: meta}
 	return func(mux *http.ServeMux) {
 		strict := apiv1.NewStrictHandlerWithOptions(server, nil, apiv1.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  identity.RequestError,

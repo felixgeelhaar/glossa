@@ -17,6 +17,10 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/configured"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	knowledgeapi "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/httpapi"
+	knowledgepg "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/postgres"
+	knowledgesources "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/sources"
+	knowledgeapp "github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
 	catalogport "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/catalog"
 	localizationapi "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/httpapi"
 	localizationpg "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/postgres"
@@ -35,12 +39,13 @@ import (
 // contexts are the bounded contexts besides Identity, wired to each
 // other only through their application ports: Localization reads the
 // catalog through catalogport, Catalog asks Localization for
-// translation coverage through coverage, and Release reads both through
-// sources.
+// translation coverage through coverage, and Release and Knowledge read
+// both through their sources adapters.
 type contexts struct {
 	catalogAPI      *catalogapi.API
 	localizationAPI *localizationapi.API
 	releaseAPI      *releaseapi.API
+	knowledgeAPI    *knowledgeapi.API
 	// previewAPI is the stateless message preview (no database).
 	previewAPI *previewapi.API
 }
@@ -75,6 +80,11 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err := localization.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
+	knowledge := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(localization),
+		knowledgesources.NewProjects(catalog), knowledgeapp.WithLogger(deps.logger))
+	if err := knowledge.Subscribe(events); err != nil {
+		return contexts{}, err
+	}
 	release := releaseapp.New(releasepg.NewTransactor(uow), sources.New(catalog, localization), deps.objects, deps.signer,
 		releaseapp.WithLogger(deps.logger))
 	if err := release.Subscribe(events); err != nil {
@@ -82,7 +92,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	return contexts{
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
-		releaseAPI: releaseapi.New(release),
+		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge),
 		previewAPI: previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),
 	}, nil
 }

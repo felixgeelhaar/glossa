@@ -1759,6 +1759,409 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/tm-lookups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find translation-memory matches for a message
+         * @description Parses `source` (MF1 by default) and matches its normalized form —
+         *     placeholders by position, markup as tags — against active units
+         *     of the locale pair: exact matches (same text and placeholder
+         *     types) score 100, or 101 when the unit was approved for the same
+         *     `message_key` in the same `namespace` of `project_id`; fuzzy
+         *     matches (trigram similarity) score 50–99. Each target is renamed
+         *     to the query's variable names. By default a lookup sees
+         *     tenant-wide units and `project_id`'s; `all_projects` widens it to
+         *     the tenant. `count_hits` records the lookup in each returned
+         *     unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+         *     `invalid_query`, `invalid_locale`, `invalid_syntax`,
+         *     `invalid_message`, `message_too_long` (400).
+         */
+        post: operations["lookupTranslationMemory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/tm-concordance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Find active units containing a phrase
+         * @description Case-insensitive substring search over the normalized source (or
+         *     target) of active units, closest first — how a translator checks
+         *     how a phrase was translated before. Scope as for lookups. Needs
+         *     `knowledge.read`. Problem codes: `invalid_query`,
+         *     `invalid_locale` (400).
+         */
+        get: operations["searchTranslationMemory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/tm-units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Translation-memory units, active or retired
+         * @description Units are derived from approved translations; retired ones are
+         *     their history. `translation` lists one translation's units.
+         *     Needs `knowledge.read`.
+         */
+        get: operations["listTranslationMemoryUnits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/tm-units/{unit}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A translation-memory unit `id`. */
+                unit: components["parameters"]["TMUnitPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A translation-memory unit
+         * @description Needs `knowledge.read`.
+         */
+        get: operations["getTranslationMemoryUnit"];
+        put?: never;
+        post?: never;
+        /**
+         * Retire a unit
+         * @description Takes the unit out of matching (`retired_reason: deleted`); it
+         *     stays listed as history. Retiring a retired unit changes nothing.
+         *     A later approval of its translation derives a new unit. Needs
+         *     `knowledge.write`.
+         */
+        delete: operations["retireTranslationMemoryUnit"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/term-concepts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Termbase concepts
+         * @description `project` lists the concepts that apply to it (its own and the
+         *     tenant-wide ones); `q` searches term texts (in `locale`, when
+         *     given) and definitions. Needs `knowledge.read`. Problem codes:
+         *     `invalid_query`, `invalid_locale` (400).
+         */
+        get: operations["listTermConcepts"];
+        put?: never;
+        /**
+         * Add a concept with its terms
+         * @description Tenant-wide, or for one project (`project_id`). Needs
+         *     `knowledge.write`. Problem codes: `invalid_concept`,
+         *     `invalid_term`, `invalid_term_status`, `invalid_part_of_speech`,
+         *     `duplicate_term`, `invalid_locale`, `unknown_project` (400).
+         */
+        post: operations["createTermConcept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/term-concepts/{concept}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A termbase concept `id`. */
+                concept: components["parameters"]["ConceptPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A concept with its terms
+         * @description Needs `knowledge.read`.
+         */
+        get: operations["getTermConcept"];
+        /**
+         * Replace a concept and its terms
+         * @description The body replaces the concept's content and its whole term list
+         *     (terms that stay keep their `id`); its scope never changes.
+         *     Unchanged content is no new version. Needs `knowledge.write`.
+         *     Problem codes as for creating.
+         */
+        put: operations["replaceTermConcept"];
+        post?: never;
+        /**
+         * Delete a concept
+         * @description Its history stays readable, ending in a `deleted` revision.
+         *     `If-Match` is optional; when sent it must match. Needs
+         *     `knowledge.write`.
+         */
+        delete: operations["deleteTermConcept"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/term-concepts/{concept}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A termbase concept `id`. */
+                concept: components["parameters"]["ConceptPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A concept's history, newest first
+         * @description Full snapshots, also after the concept was deleted. Needs `knowledge.read`.
+         */
+        get: operations["listTermConceptRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/term-recognitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find termbase terms in a text
+         * @description Word-based and locale-aware: case folded unless a term is
+         *     case-sensitive, short inflectional endings tolerated
+         *     (workspace → workspaces), scripts without spaces (Japanese,
+         *     Chinese, Thai) matched as substrings, overlaps resolved
+         *     leftmost-longest. With `syntax`, `text` is parsed as a message
+         *     and recognition runs over its visible text (placeholders become
+         *     U+FFFC), returned as `analyzed_text`; `start` and `end` are
+         *     Unicode code point offsets into it. `target_locale` adds each
+         *     concept's terms in that locale. Stores nothing. Needs
+         *     `knowledge.read`. Problem codes: `invalid_query`,
+         *     `invalid_locale`, `invalid_syntax`, `invalid_message` (400).
+         */
+        post: operations["recognizeTerms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/terminology-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a translation against the termbase
+         * @description Terminology QA (intent §29.3): `term_missing` (warning) when a
+         *     concept recognized in the source has none of its preferred or
+         *     admitted target terms in the translation; `term_forbidden`
+         *     (error for forbidden, warning for deprecated terms) for every
+         *     forbidden or deprecated target term used. With `syntax`, both
+         *     texts are parsed as messages and checked as visible text. Spans
+         *     are code point offsets into `source_text` or `target_text`.
+         *     Deterministic; stores nothing. Needs `knowledge.read`. Problem
+         *     codes as for recognition.
+         */
+        post: operations["checkTerminology"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/style-guides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Style guides
+         * @description Every guide, or only tenant-level ones (`tenant_only`), one
+         *     project's, or one locale's. Needs `knowledge.read`.
+         */
+        get: operations["listStyleGuides"];
+        put?: never;
+        /**
+         * Add the style guide for a scope
+         * @description A scope is any combination of `project_id`, `locale` (which
+         *     covers its descendants: `de` applies to `de-AT`) and `namespace`
+         *     (which needs a project); none is the tenant's guide. Each scope
+         *     has one guide. Needs `knowledge.write`. Problem codes:
+         *     `style_guide_exists` (409), `invalid_style_guide`,
+         *     `invalid_style_rule`, `namespace_needs_project`,
+         *     `invalid_locale`, `unknown_project` (400).
+         */
+        post: operations["createStyleGuide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/style-guides/{style_guide}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A style guide `id`. */
+                style_guide: components["parameters"]["StyleGuidePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A style guide
+         * @description Needs `knowledge.read`.
+         */
+        get: operations["getStyleGuide"];
+        /**
+         * Replace a style guide's content
+         * @description Replaces the name, fields and rules; the scope never changes.
+         *     Unchanged content is no new version. Needs `knowledge.write`.
+         *     Problem codes: `invalid_style_guide`, `invalid_style_rule` (400).
+         */
+        put: operations["replaceStyleGuide"];
+        post?: never;
+        /**
+         * Delete a style guide
+         * @description Its versions stay readable, ending in a `deleted` one. `If-Match`
+         *     is optional; when sent it must match. Needs `knowledge.write`.
+         */
+        delete: operations["deleteStyleGuide"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/style-guides/{style_guide}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A style guide `id`. */
+                style_guide: components["parameters"]["StyleGuidePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A style guide's versions, newest first
+         * @description Full snapshots, also after the guide was deleted. Needs `knowledge.read`.
+         */
+        get: operations["listStyleGuideVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/effective-style-guide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The style that applies to a project, locale and namespace
+         * @description Every applicable guide merged field by field, the narrowest
+         *     winning: a namespace beats a locale, a deeper locale a shallower
+         *     one, a locale a project, a project the tenant. A narrower guide
+         *     replaces a broader rule with the same `id`, or switches it off
+         *     (`disabled`). `sources` names each guide version used, broadest
+         *     first. Without `project`, only tenant-level guides apply; without
+         *     `locale`, no locale guide does. Needs `knowledge.read`. Problem
+         *     codes: `invalid_locale` (400).
+         */
+        get: operations["getEffectiveStyleGuide"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2571,6 +2974,330 @@ export interface components {
             /** @description What uses it, e.g. "web" or "go-emails". */
             name: string;
         };
+        /**
+         * @description A translation-memory unit, derived from an approved translation.
+         *     `source` and `target` are canonical MF2; `source_normalized` is
+         *     what matching compares (placeholders by position, markup as
+         *     tags) and `signature` the placeholders' types by position.
+         */
+        TMUnit: {
+            id: components["schemas"]["Id"];
+            /** @description Absent for a tenant-wide unit. */
+            project_id?: components["schemas"]["Id"];
+            /** @enum {string} */
+            origin: "translation" | "import";
+            translation_id?: components["schemas"]["Id"];
+            /** @description The translation revision the unit reflects. */
+            translation_revision?: number;
+            message_id?: components["schemas"]["Id"];
+            message_key?: components["schemas"]["MessageKey"];
+            namespace?: components["schemas"]["Namespace"];
+            source_locale: components["schemas"]["Locale"];
+            target_locale: components["schemas"]["Locale"];
+            source: string;
+            target: string;
+            target_model: components["schemas"]["MF2Message"];
+            source_normalized: string;
+            /** @example 1:number/plural,2:string */
+            signature: string;
+            /** @enum {string} */
+            state: "active" | "retired";
+            hit_count: number;
+            last_hit_at?: components["schemas"]["Timestamp"];
+            /** @description Who wrote the text. */
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            retired_at?: components["schemas"]["Timestamp"];
+            /** @enum {string} */
+            retired_reason?: "superseded" | "unapproved" | "overwritten" | "deleted";
+            retired_by?: string;
+        };
+        TMUnitList: {
+            items: components["schemas"]["TMUnit"][];
+            next_page_token?: string;
+        };
+        TMLookup: {
+            /** @description The source message. */
+            source: string;
+            syntax?: components["schemas"]["Syntax"];
+            source_locale: components["schemas"]["Locale"];
+            target_locale: components["schemas"]["Locale"];
+            /** @description The project the message belongs to. */
+            project_id?: components["schemas"]["Id"];
+            /**
+             * @description Also match other projects' units.
+             * @default false
+             */
+            all_projects: boolean;
+            message_key?: components["schemas"]["MessageKey"];
+            namespace?: components["schemas"]["Namespace"];
+            /** @default 5 */
+            limit: number;
+            /** @default 50 */
+            min_score: number;
+            /** @default false */
+            count_hits: boolean;
+        };
+        TMMatch: {
+            score: number;
+            /** @enum {string} */
+            kind: "context" | "exact" | "fuzzy";
+            /** @description The unit's target in MF2, its variables renamed to the query's by position. */
+            target: string;
+            target_model: components["schemas"]["MF2Message"];
+            /** @description False when a target variable had no counterpart and kept its name. */
+            variables_adapted: boolean;
+            unit: components["schemas"]["TMUnit"];
+        };
+        TMLookupResult: {
+            source_normalized: string;
+            matches: components["schemas"]["TMMatch"][];
+        };
+        TMConcordanceMatch: {
+            /** @description Trigram word similarity of the phrase to the side searched. */
+            similarity: number;
+            unit: components["schemas"]["TMUnit"];
+        };
+        TMConcordance: {
+            matches: components["schemas"]["TMConcordanceMatch"][];
+        };
+        /** @enum {string} */
+        TermStatus: "preferred" | "admitted" | "deprecated" | "forbidden";
+        /** @enum {string} */
+        PartOfSpeech: "noun" | "verb" | "adjective" | "adverb" | "proper_noun" | "phrase" | "other";
+        Term: {
+            id: components["schemas"]["Id"];
+            locale: components["schemas"]["Locale"];
+            text: string;
+            status: components["schemas"]["TermStatus"];
+            part_of_speech?: components["schemas"]["PartOfSpeech"];
+            case_sensitive: boolean;
+            note?: string;
+        };
+        TermInput: {
+            locale: components["schemas"]["Locale"];
+            text: string;
+            status?: components["schemas"]["TermStatus"];
+            part_of_speech?: components["schemas"]["PartOfSpeech"];
+            /** @default false */
+            case_sensitive: boolean;
+            note?: string;
+        };
+        /** @description A termbase concept (intent §19.2) with its terms per locale. */
+        TermConcept: {
+            id: components["schemas"]["Id"];
+            /** @description Absent for a tenant-wide concept. */
+            project_id?: components["schemas"]["Id"];
+            definition: string;
+            domain: string;
+            note: string;
+            /** @description A product concept this concept stands for (opaque). */
+            product_ref: string;
+            terms: components["schemas"]["Term"][];
+            version: number;
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            updated_by: string;
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        TermConceptList: {
+            items: components["schemas"]["TermConcept"][];
+            next_page_token?: string;
+        };
+        CreateTermConcept: {
+            /** @description Scopes the concept to one project. */
+            project_id?: components["schemas"]["Id"];
+            definition?: string;
+            domain?: string;
+            note?: string;
+            product_ref?: string;
+            terms: components["schemas"]["TermInput"][];
+        };
+        ReplaceTermConcept: {
+            definition?: string;
+            domain?: string;
+            note?: string;
+            product_ref?: string;
+            terms: components["schemas"]["TermInput"][];
+        };
+        /** @enum {string} */
+        RevisionAction: "created" | "updated" | "deleted";
+        TermConceptRevision: {
+            version: number;
+            action: components["schemas"]["RevisionAction"];
+            author: string;
+            created_at: components["schemas"]["Timestamp"];
+            concept: components["schemas"]["TermConcept"];
+        };
+        TermConceptRevisionList: {
+            items: components["schemas"]["TermConceptRevision"][];
+            next_page_token?: string;
+        };
+        TermRecognitionRequest: {
+            text: string;
+            /** @description Parse `text` as a message in this syntax and recognize its visible text. */
+            syntax?: components["schemas"]["Syntax"];
+            locale: components["schemas"]["Locale"];
+            target_locale?: components["schemas"]["Locale"];
+            /** @description Adds the project's concepts to the tenant-wide ones. */
+            project_id?: components["schemas"]["Id"];
+        };
+        TermHit: {
+            concept_id: components["schemas"]["Id"];
+            definition: string;
+            term: components["schemas"]["Term"];
+            /** @description Code point offset into `analyzed_text`. */
+            start: number;
+            /** @description Exclusive. */
+            end: number;
+            /** @description The words matched, as written. */
+            text: string;
+            /** @description The concept's terms in `target_locale`, allowed ones first. */
+            targets?: components["schemas"]["Term"][];
+        };
+        TermRecognition: {
+            analyzed_text: string;
+            hits: components["schemas"]["TermHit"][];
+        };
+        TerminologyCheckRequest: {
+            source: string;
+            source_locale: components["schemas"]["Locale"];
+            target: string;
+            target_locale: components["schemas"]["Locale"];
+            /** @description Parse both texts as messages in this syntax. */
+            syntax?: components["schemas"]["Syntax"];
+            project_id?: components["schemas"]["Id"];
+        };
+        TermFinding: {
+            /** @enum {string} */
+            code: "term_missing" | "term_forbidden";
+            /** @enum {string} */
+            severity: "error" | "warning";
+            concept_id: components["schemas"]["Id"];
+            term_id: components["schemas"]["Id"];
+            /** @enum {string} */
+            side: "source" | "target";
+            /** @description Code point offset into `source_text` or `target_text`. */
+            start: number;
+            end: number;
+            text: string;
+            /** @description The concept's allowed target terms, preferred first. */
+            suggestions: string[];
+            /** @description For humans; wording may change. */
+            message: string;
+        };
+        TerminologyCheck: {
+            source_text: string;
+            target_text: string;
+            findings: components["schemas"]["TermFinding"][];
+        };
+        StyleFormality: {
+            /** @enum {string} */
+            register?: "formal" | "informal" | "neutral";
+            /**
+             * @example Sie
+             * @example du
+             * @example vous
+             */
+            pronoun?: string;
+        };
+        StylePunctuation: {
+            /** @example „“ */
+            quotes?: string;
+            nested_quotes?: string;
+            /** @enum {string} */
+            dash?: "hyphen" | "en" | "em";
+            space_before_unit?: boolean;
+            space_before_punctuation?: boolean;
+            serial_comma?: boolean;
+            ellipsis?: string;
+        };
+        StyleNumbers: {
+            decimal_separator?: string;
+            grouping_separator?: string;
+            notes?: string;
+        };
+        StyleDates: {
+            /** @description A CLDR date pattern. */
+            format?: string;
+            notes?: string;
+        };
+        /** @description Structured style. Every leaf is optional; unset inherits from a broader guide. */
+        StyleFields: {
+            formality?: components["schemas"]["StyleFormality"];
+            /** @description Tone tags; a narrower guide's list replaces a broader one's. */
+            tone?: string[];
+            punctuation?: components["schemas"]["StylePunctuation"];
+            numbers?: components["schemas"]["StyleNumbers"];
+            dates?: components["schemas"]["StyleDates"];
+        };
+        StyleRule: {
+            /** @description Identity across scopes. */
+            id: string;
+            /** @description Required unless `disabled`. */
+            title?: string;
+            rationale?: string;
+            good?: string[];
+            bad?: string[];
+            /** @description Switches off a broader guide's rule with this id. */
+            disabled?: boolean;
+        };
+        StyleGuide: {
+            id: components["schemas"]["Id"];
+            project_id?: components["schemas"]["Id"];
+            locale?: components["schemas"]["Locale"];
+            namespace?: components["schemas"]["Namespace"];
+            name: string;
+            fields: components["schemas"]["StyleFields"];
+            rules: components["schemas"]["StyleRule"][];
+            version: number;
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            updated_by: string;
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        StyleGuideList: {
+            items: components["schemas"]["StyleGuide"][];
+            next_page_token?: string;
+        };
+        CreateStyleGuide: {
+            project_id?: components["schemas"]["Id"];
+            locale?: components["schemas"]["Locale"];
+            namespace?: components["schemas"]["Namespace"];
+            name?: string;
+            fields?: components["schemas"]["StyleFields"];
+            rules?: components["schemas"]["StyleRule"][];
+        };
+        ReplaceStyleGuide: {
+            name?: string;
+            fields?: components["schemas"]["StyleFields"];
+            rules?: components["schemas"]["StyleRule"][];
+        };
+        StyleGuideVersion: {
+            version: number;
+            action: components["schemas"]["RevisionAction"];
+            author: string;
+            created_at: components["schemas"]["Timestamp"];
+            style_guide: components["schemas"]["StyleGuide"];
+        };
+        StyleGuideVersionList: {
+            items: components["schemas"]["StyleGuideVersion"][];
+            next_page_token?: string;
+        };
+        StyleGuideSource: {
+            style_guide_id: components["schemas"]["Id"];
+            version: number;
+            project_id?: components["schemas"]["Id"];
+            locale?: components["schemas"]["Locale"];
+            namespace?: components["schemas"]["Namespace"];
+        };
+        EffectiveStyleGuide: {
+            fields: components["schemas"]["StyleFields"];
+            rules: components["schemas"]["StyleRule"][];
+            /** @description The guide versions merged, broadest first. */
+            sources: components["schemas"]["StyleGuideSource"][];
+        };
     };
     responses: {
         /** @description Signed in. The session cookie is set. */
@@ -2709,6 +3436,12 @@ export interface components {
         PasskeyPath: string;
         /** @description A delivery key `id` (not the key itself). */
         DeliveryKeyPath: components["schemas"]["Id"];
+        /** @description A translation-memory unit `id`. */
+        TMUnitPath: components["schemas"]["Id"];
+        /** @description A termbase concept `id`. */
+        ConceptPath: components["schemas"]["Id"];
+        /** @description A style guide `id`. */
+        StyleGuidePath: components["schemas"]["Id"];
         PageSize: number;
         /** @description The `next_page_token` of the previous page. */
         PageToken: string;
@@ -5397,6 +6130,659 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    lookupTranslationMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TMLookup"];
+            };
+        };
+        responses: {
+            /** @description The matches, best first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TMLookupResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    searchTranslationMemory: {
+        parameters: {
+            query: {
+                q: string;
+                side?: "source" | "target";
+                source_locale?: components["schemas"]["Locale"];
+                target_locale?: components["schemas"]["Locale"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                all_projects?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Units containing the phrase. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TMConcordance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listTranslationMemoryUnits: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                source_locale?: components["schemas"]["Locale"];
+                target_locale?: components["schemas"]["Locale"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                /** @description A translation `id`. */
+                translation?: components["schemas"]["Id"];
+                state?: "active" | "retired" | "all";
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of units. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TMUnitList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getTranslationMemoryUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A translation-memory unit `id`. */
+                unit: components["parameters"]["TMUnitPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The unit. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TMUnit"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    retireTranslationMemoryUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A translation-memory unit `id`. */
+                unit: components["parameters"]["TMUnitPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retired. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listTermConcepts: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                q?: string;
+                locale?: components["schemas"]["Locale"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                domain?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of concepts with their terms. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermConceptList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createTermConcept: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTermConcept"];
+            };
+        };
+        responses: {
+            /** @description The concept. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermConcept"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getTermConcept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A termbase concept `id`. */
+                concept: components["parameters"]["ConceptPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The concept. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermConcept"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    replaceTermConcept: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A termbase concept `id`. */
+                concept: components["parameters"]["ConceptPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceTermConcept"];
+            };
+        };
+        responses: {
+            /** @description The concept. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermConcept"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    deleteTermConcept: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A termbase concept `id`. */
+                concept: components["parameters"]["ConceptPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    listTermConceptRevisions: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A termbase concept `id`. */
+                concept: components["parameters"]["ConceptPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of revisions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermConceptRevisionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recognizeTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermRecognitionRequest"];
+            };
+        };
+        responses: {
+            /** @description The terms found, in text order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermRecognition"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    checkTerminology: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminologyCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description The findings, source first, by position. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminologyCheck"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listStyleGuides: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                locale?: components["schemas"]["Locale"];
+                tenant_only?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of guides. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleGuideList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createStyleGuide: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStyleGuide"];
+            };
+        };
+        responses: {
+            /** @description The guide. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleGuide"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getStyleGuide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A style guide `id`. */
+                style_guide: components["parameters"]["StyleGuidePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The guide. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleGuide"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    replaceStyleGuide: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A style guide `id`. */
+                style_guide: components["parameters"]["StyleGuidePath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceStyleGuide"];
+            };
+        };
+        responses: {
+            /** @description The guide. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleGuide"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    deleteStyleGuide: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A style guide `id`. */
+                style_guide: components["parameters"]["StyleGuidePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    listStyleGuideVersions: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A style guide `id`. */
+                style_guide: components["parameters"]["StyleGuidePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of versions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleGuideVersionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getEffectiveStyleGuide: {
+        parameters: {
+            query?: {
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                locale?: components["schemas"]["Locale"];
+                namespace?: components["schemas"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The effective style. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectiveStyleGuide"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }
