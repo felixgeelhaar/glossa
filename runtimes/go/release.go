@@ -61,13 +61,14 @@ type assembly struct {
 	prev    *release
 }
 
-// assemble builds a release from manifest bytes.
-func (c *Client) assemble(ctx context.Context, raw []byte, etag string, sources []blobSource, prev *release) (*release, error) {
-	m, err := c.verifiedManifest(raw)
+// assemble builds a release from manifest bytes loaded from origin
+// (network, persisted or bundled).
+func (c *Client) assemble(ctx context.Context, raw []byte, etag string, origin Source, prev *release) (*release, error) {
+	m, err := c.verifiedManifest(raw, origin)
 	if err != nil {
 		return nil, err
 	}
-	a := &assembly{c: c, sources: sources, prev: prev, rel: &release{
+	a := &assembly{c: c, sources: c.sourcesFor(origin), prev: prev, rel: &release{
 		manifest: m, raw: raw, etag: etag, catalogs: map[string]catalog{}, bySHA: map[string]catalog{},
 	}}
 	for _, locale := range neededLocales(m, c.cfg.Locales) {
@@ -78,7 +79,10 @@ func (c *Client) assemble(ctx context.Context, raw []byte, etag string, sources 
 	return a.rel, nil
 }
 
-func (c *Client) verifiedManifest(raw []byte) (*manifest, error) {
+// verifiedManifest parses and checks a manifest. Bundled catalogs ship
+// with the application and are trusted like its code; signatures guard
+// what comes from the network and the cache directory.
+func (c *Client) verifiedManifest(raw []byte, origin Source) (*manifest, error) {
 	m, err := parseManifest(raw)
 	if err != nil {
 		return nil, err
@@ -87,10 +91,27 @@ func (c *Client) verifiedManifest(raw []byte) (*manifest, error) {
 		err := fmt.Errorf("%w: manifest is for environment %q, not %q", errSchema, m.Environment, c.cfg.Environment)
 		return nil, &loadError{releaseID: m.Release.ID, err: err}
 	}
+	if origin == SourceBundled {
+		return m, nil
+	}
 	if err := verifySignatures(raw, m, c.cfg.PublicKeys); err != nil {
 		return nil, &loadError{releaseID: m.Release.ID, err: err}
 	}
 	return m, nil
+}
+
+// sourcesFor lists where a release loaded from origin finds its
+// artifacts, cheapest first: the cache directory and the bundled
+// catalogs, then the edge for network releases.
+func (c *Client) sourcesFor(origin Source) []blobSource {
+	sources := []blobSource{storeSource(c.store)}
+	if c.cfg.Bundled != nil {
+		sources = append(sources, fsSource(c.cfg.Bundled))
+	}
+	if origin == SourceNetwork {
+		sources = append(sources, edgeSource(c.edge))
+	}
+	return sources
 }
 
 // neededLocales are the locales whose artifacts a client loads: every

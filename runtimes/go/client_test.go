@@ -69,6 +69,15 @@ func TestBundledArtifactsAreTrusted(t *testing.T) {
 	}
 }
 
+func TestBundledManifestIsTrustedWithoutSignature(t *testing.T) {
+	pub, _ := testKey(3)
+	rel := buildRelease(t, "rel_b", 1, map[string]map[string]string{"en": {"v": "one"}})
+	c := newTestClient(t, Config{Bundled: rel.fs(), PublicKeys: []PublicKey{{KeyID: "k", Key: pub}}})
+	if got := c.For("en").T("v", nil); got != "one" {
+		t.Fatalf("T = %q; bundled catalogs ship like code, signatures guard the network", got)
+	}
+}
+
 func TestUnreadableMessageDegradesToFallback(t *testing.T) {
 	broken := json.RawMessage(`{"type":"message","declarations":[],"pattern":[{"type":"nonsense"}]}`)
 	rel := buildReleaseModels(t, "rel_1", 1, map[string]map[string]any{
