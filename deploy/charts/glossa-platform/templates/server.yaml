@@ -107,6 +107,12 @@ spec:
               value: {{ $v.purge.jitter | quote }}
             - name: GLOSSA_PURGE_BATCH_SIZE
               value: {{ $v.purge.batchSize | quote }}
+            - name: GLOSSA_BRANCH_WORKERS_ENABLED
+              value: {{ $v.branches.workersEnabled | quote }}
+            - name: GLOSSA_BRANCH_PUBLISH_INTERVAL
+              value: {{ $v.branches.publishInterval | quote }}
+            - name: GLOSSA_BRANCH_SWEEP_INTERVAL
+              value: {{ $v.branches.sweepInterval | quote }}
             - name: GLOSSA_STUDIO_URL
               value: {{ include "gp.studioUrl" . | quote }}
             # Surfaced to clients by GET /v1/meta (Studio's runtime snippets).

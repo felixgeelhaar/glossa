@@ -93,6 +93,14 @@ server:
     jitter: 0.2
     # -- GLOSSA_PURGE_BATCH_SIZE: object-store deletes issued at a time.
     batchSize: 100
+  branches:
+    # -- GLOSSA_BRANCH_WORKERS_ENABLED: publish branch preview environments when their
+    # debounced request is due, and sweep the proposals of branches closed 14 days ago.
+    workersEnabled: true
+    # -- GLOSSA_BRANCH_PUBLISH_INTERVAL: how often due publishes are looked for.
+    publishInterval: 5s
+    # -- GLOSSA_BRANCH_SWEEP_INTERVAL: how often expired proposals are swept.
+    sweepInterval: 1h
   webauthn:
     # -- GLOSSA_WEBAUTHN_RP_ID (registrable domain). Default: hosts.studio.
     rpId: ""

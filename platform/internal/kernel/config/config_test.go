@@ -253,6 +253,35 @@ func TestPurgeConfig(t *testing.T) {
 	}
 }
 
+func TestBranchesConfig(t *testing.T) {
+	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
+	cfg, err := config.Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := cfg.Branches
+	if !b.WorkersEnabled || b.PublishInterval != 5*time.Second || b.SweepInterval != time.Hour {
+		t.Errorf("defaults = %+v", b)
+	}
+	over := map[string]string{
+		"GLOSSA_BRANCH_WORKERS_ENABLED": "false", "GLOSSA_BRANCH_PUBLISH_INTERVAL": "2s",
+		"GLOSSA_BRANCH_SWEEP_INTERVAL": "10m",
+	}
+	for k, v := range base {
+		over[k] = v
+	}
+	if cfg, err = config.Load(env(over)); err != nil {
+		t.Fatal(err)
+	}
+	if b = cfg.Branches; b.WorkersEnabled || b.PublishInterval != 2*time.Second || b.SweepInterval != 10*time.Minute {
+		t.Errorf("overrides = %+v", b)
+	}
+	over["GLOSSA_BRANCH_PUBLISH_INTERVAL"] = "nope"
+	if _, err := config.Load(env(over)); err == nil || !strings.Contains(err.Error(), "GLOSSA_BRANCH_PUBLISH_INTERVAL") {
+		t.Errorf("invalid interval: %v", err)
+	}
+}
+
 func TestIntelligenceConfig(t *testing.T) {
 	cfg, err := config.Load(env(map[string]string{
 		"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret,

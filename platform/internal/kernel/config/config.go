@@ -104,6 +104,7 @@ type Config struct {
 	Intelligence         Intelligence
 	Integration          Integration
 	Purge                Purge
+	Branches             Branches
 }
 
 // Purge configures the daily retention job (RFC 0004 §2.3): Context's
@@ -128,6 +129,19 @@ type Purge struct {
 	// BatchSize bounds the object-store deletes one purge issues at a
 	// time, so freeing a large backlog of images doesn't flood MinIO.
 	BatchSize int
+}
+
+// Branches configures the background work branch previews need
+// (RFC 0004 §4): the publisher that publishes a branch environment once
+// its debounced request is due, and the sweep that obsoletes the
+// proposed messages of branches closed long enough ago.
+type Branches struct {
+	// WorkersEnabled runs both in this process.
+	WorkersEnabled bool
+	// PublishInterval is how often the publisher looks for due requests.
+	PublishInterval time.Duration
+	// SweepInterval is how often the proposal sweep runs.
+	SweepInterval time.Duration
 }
 
 // Integration configures the import and export jobs (RFC 0003 §5–§6):
@@ -309,6 +323,11 @@ func Load(lookup LookupFunc) (Config, error) {
 		PollInterval: r.duration("GLOSSA_PURGE_POLL_INTERVAL", 5*time.Minute),
 		Jitter:       r.ratio("GLOSSA_PURGE_JITTER", 0.2),
 		BatchSize:    r.intRange("GLOSSA_PURGE_BATCH_SIZE", 100, 1, 10000),
+	}
+	cfg.Branches = Branches{
+		WorkersEnabled:  r.boolean("GLOSSA_BRANCH_WORKERS_ENABLED", true),
+		PublishInterval: r.duration("GLOSSA_BRANCH_PUBLISH_INTERVAL", 5*time.Second),
+		SweepInterval:   r.duration("GLOSSA_BRANCH_SWEEP_INTERVAL", time.Hour),
 	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {

@@ -665,6 +665,9 @@ the value until it is set.
 | `server.purge.pollInterval` | `5m` | `GLOSSA_PURGE_POLL_INTERVAL`: how often a pod asks whether a job is due. |
 | `server.purge.jitter` | `0.2` | `GLOSSA_PURGE_JITTER`: fraction of the poll interval each poll is spread by (0–1), so replicas don't ask in lockstep. |
 | `server.purge.batchSize` | `100` | `GLOSSA_PURGE_BATCH_SIZE`: object-store deletes issued at a time while freeing unreferenced images. |
+| `server.branches.workersEnabled` | `true` | `GLOSSA_BRANCH_WORKERS_ENABLED`: publish a branch's preview environment when its debounced request is due, and sweep the proposals of branches closed 14 days ago. Both are idempotent, so every replica may run them. |
+| `server.branches.publishInterval` | `5s` | `GLOSSA_BRANCH_PUBLISH_INTERVAL`: how often due branch publishes are looked for (the debounce itself is 30 s). |
+| `server.branches.sweepInterval` | `1h` | `GLOSSA_BRANCH_SWEEP_INTERVAL`: how often expired proposals are swept. |
 | `server.webauthn.rpId` | `hosts.studio` | `GLOSSA_WEBAUTHN_RP_ID`; changing it later invalidates enrolled passkeys. |
 | `server.webauthn.rpName` | `Glossa` | `GLOSSA_WEBAUTHN_RP_NAME` |
 | `server.webauthn.origins` | `[https://<hosts.studio>]` | `GLOSSA_WEBAUTHN_ORIGINS` |

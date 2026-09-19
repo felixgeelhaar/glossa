@@ -96,6 +96,12 @@ type contexts struct {
 	// builds, captures and images, and Catalog's proposal sweep. The
 	// scheduler leases each so only one replica runs it.
 	purgeJobs []scheduler.Job
+	// branchPublisher publishes branch environments whose debounced
+	// request is due; proposalSweeper obsoletes the proposed messages of
+	// branches closed long enough ago (RFC 0004 §4). Both are nil when
+	// GLOSSA_BRANCH_WORKERS_ENABLED is off.
+	branchPublisher *releaseapp.Publisher
+	proposalSweeper *catalogapp.ProposalSweeper
 }
 
 // newPurgeJobs builds the daily retention jobs over the two contexts that
@@ -150,6 +156,7 @@ type contextDeps struct {
 	ai          config.Intelligence
 	integration config.Integration
 	purge       config.Purge
+	branches    config.Branches
 }
 
 // buildContexts opens object storage and the signer, then the contexts.
@@ -171,7 +178,7 @@ func buildContexts(
 	}
 	return newContexts(pool, events, contextDeps{
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
-		integration: cfg.Integration, purge: cfg.Purge, tracer: tp,
+		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, tracer: tp,
 	})
 }
 
@@ -226,6 +233,10 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	scanner := releasepg.NewScanner(uow)
 	c.keyIndexes = func(ctx context.Context) (int, error) { return release.RewriteKeyIndexes(ctx, scanner) }
 	c.purgeJobs = newPurgeJobs(usageContext, catalog, deps.logger)
+	if deps.branches.WorkersEnabled {
+		c.branchPublisher = releaseapp.NewPublisher(release, scanner, deps.branches.PublishInterval)
+		c.proposalSweeper = catalogapp.NewProposalSweeper(catalog, catalogpg.NewScanner(uow), deps.branches.SweepInterval, deps.logger)
+	}
 	if deps.ai.WorkersEnabled {
 		c.aiWorker = intelligenceapp.NewWorker(intelligence, intelligencepg.NewClaimer(uow), intelligenceapp.WorkerConfig{
 			Workers: deps.ai.Workers, PollInterval: deps.ai.PollInterval, Lease: deps.ai.Lease, JobTimeout: deps.ai.JobTimeout,
