@@ -136,10 +136,20 @@ func (e *Env) enableAppLogin(ctx context.Context) error {
 	return nil
 }
 
-// Reset deletes all rows so tests can share one container. TRUNCATE is
-// not subject to RLS, and the owner may truncate its own tables.
+// Reset deletes all rows of every table except golang-migrate's, so
+// tests can share one container and every bounded context's tables are
+// covered without registering them here. TRUNCATE is not subject to RLS.
 func (e *Env) Reset(ctx context.Context) error {
-	_, err := e.Super.Exec(ctx, "TRUNCATE tenants, outbox_events CASCADE")
+	var tables string
+	err := e.Super.QueryRow(ctx, `
+		SELECT coalesce(string_agg(format('%I', c.relname), ', '), '')
+		FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+		WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+		  AND c.relname <> 'schema_migrations'`).Scan(&tables)
+	if err != nil || tables == "" {
+		return err
+	}
+	_, err = e.Super.Exec(ctx, "TRUNCATE "+tables+" CASCADE")
 	return err
 }
 

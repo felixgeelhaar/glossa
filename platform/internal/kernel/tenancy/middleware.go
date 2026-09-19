@@ -1,6 +1,7 @@
 package tenancy
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -20,11 +21,18 @@ var (
 //
 // Implementations MUST derive the tenant from server-side state — a
 // session looked up by its cookie, a token looked up by its hash — and
-// never from client-supplied headers, query parameters or bodies.
-// Return [ErrUnauthenticated] or [ErrForbidden] (wrapped is fine) for the
-// two client errors; any other error is treated as a server fault.
+// never from client-supplied headers, query parameters or bodies. A
+// tenant named in the URL path (/v1/tenants/{tenant}/…) is a request,
+// not a fact: the resolver must check it against the principal's
+// memberships or the token's tenant before returning it.
+//
+// The returned context is derived from r.Context() and carries whatever
+// else the resolver established (Identity puts the principal and its
+// grant there); the middleware adds the tenant to it. A nil context means
+// r.Context(). Return [ErrUnauthenticated] or [ErrForbidden] (wrapped is
+// fine) for the two client errors; any other error is a server fault.
 type Resolver interface {
-	ResolveTenant(r *http.Request) (ID, error)
+	ResolveTenant(r *http.Request) (context.Context, ID, error)
 }
 
 // Middleware scopes each request to the tenant its [Resolver] returns,
@@ -33,7 +41,7 @@ type Resolver interface {
 func Middleware(res Resolver, logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id, err := res.ResolveTenant(r)
+			ctx, id, err := res.ResolveTenant(r)
 			if err == nil && id.IsZero() {
 				err = errors.New("tenancy: resolver returned no tenant and no error")
 			}
@@ -41,7 +49,10 @@ func Middleware(res Resolver, logger *slog.Logger) func(http.Handler) http.Handl
 				writeResolveError(w, r, logger, err)
 				return
 			}
-			next.ServeHTTP(w, r.WithContext(ContextWithTenant(r.Context(), id)))
+			if ctx == nil {
+				ctx = r.Context()
+			}
+			next.ServeHTTP(w, r.WithContext(ContextWithTenant(ctx, id)))
 		})
 	}
 }
