@@ -31,6 +31,15 @@ func appKey(t testing.TB) *rsa.PrivateKey {
 	return testKey
 }
 
+func newKey(t testing.TB) *rsa.PrivateKey {
+	t.Helper()
+	k, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return k
+}
+
 func env(m map[string]string) func(string) (string, bool) {
 	return func(k string) (string, bool) { v, ok := m[k]; return v, ok }
 }
