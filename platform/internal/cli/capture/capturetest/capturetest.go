@@ -14,6 +14,8 @@ import (
 	"sync"
 	"testing"
 
+	browse "go.klarlabs.de/scout"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
 )
 
@@ -81,4 +83,18 @@ func SkipWithoutChrome(t testing.TB, err error) {
 	if errors.As(err, &be) && os.Getenv("CI") != "true" {
 		t.Skipf("no Chrome here: %v", err)
 	}
+}
+
+// RequireChrome skips the test when Chrome can't start, except in CI
+// (CI=true), where it fails.
+func RequireChrome(t testing.TB) {
+	t.Helper()
+	e := browse.New(browse.WithHeadless(true))
+	err := e.Launch()
+	if err == nil {
+		_ = e.Close()
+		return
+	}
+	SkipWithoutChrome(t, &capture.BrowserError{Err: err})
+	t.Fatalf("can't start Chrome: %v", err)
 }

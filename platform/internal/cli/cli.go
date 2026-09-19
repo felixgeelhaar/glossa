@@ -74,6 +74,7 @@ func commands() []command {
 		{"pull", "Write translations to local catalogs", runPull},
 		{"extract", "Find message usages in source code", runExtract},
 		{"context", "Upload a usages document (from @glossa/unplugin or extract)", runContext},
+		{"capture", "Screenshot the app's pages with where each message renders", runCaptureCmd},
 		{"generate", "Generate typed message accessors (TypeScript, Vue, React, Go)", runGenerate},
 		{"check", "Check the project: structure, arguments, completeness", runCheck},
 		{"status", "Show translation coverage per locale", runStatus},

@@ -128,37 +128,51 @@ func scanProject(cfg *config.Config) (extractReport, error) {
 // tool: flags first, then the environment and glossa.yaml, then CI and
 // git.
 func (inv *invocation) usagesHeader(ctx context.Context, cfg *config.Config, f *extractFlags, doc extract.Document) (extract.Document, error) {
-	doc.Application = firstOf(f.application, inv.env.getenv("GLOSSA_APPLICATION"), cfg.Extract.Application)
-	if doc.Application == "" {
-		return doc, &Error{Exit: ExitUsage, Code: "application_required", What: "which application do these usages belong to?",
-			Why: "a usages document is one build of one application",
-			Fix: "pass --application <slug>, or set extract.application in glossa.yaml"}
+	app := firstOf(f.application, inv.env.getenv("GLOSSA_APPLICATION"), cfg.Extract.Application)
+	h, err := inv.buildHeader(ctx, cfg, "usages", app, "extract.application", f.commit, f.branch)
+	if err != nil {
+		return doc, err
 	}
-	if !config.ValidApplication(doc.Application) {
-		return doc, usageError(inv.name, "--application %q is not an application slug (lowercase letters, digits and -, e.g. web)", doc.Application)
+	doc.Application, doc.Commit, doc.Branch, doc.Tool = h.Application, h.Commit, h.Branch, h.Tool
+	return doc, nil
+}
+
+// buildHeader is a build's identity (application, commit, branch, tool)
+// for an upload of what (usages, captures): application as the caller
+// resolved it (appField names its glossa.yaml field), commit and branch
+// from the flags, then CI and git.
+func (inv *invocation) buildHeader(ctx context.Context, cfg *config.Config, what, application, appField, commit, branch string) (extract.Header, error) {
+	h := extract.Header{Application: application}
+	if h.Application == "" {
+		return h, &Error{Exit: ExitUsage, Code: "application_required", What: "which application do these " + what + " belong to?",
+			Why: "a " + what + " document is one build of one application",
+			Fix: "pass --application <slug>, or set " + appField + " in glossa.yaml"}
+	}
+	if !config.ValidApplication(h.Application) {
+		return h, usageError(inv.name, "--application %q is not an application slug (lowercase letters, digits and -, e.g. web)", h.Application)
 	}
 	detected := buildRef{}
-	if f.commit == "" || f.branch == "" {
+	if commit == "" || branch == "" {
 		detected = detectBuild(ctx, inv.env.getenv, cfg.Dir())
 	}
-	doc.Commit = strings.ToLower(firstOf(f.commit, detected.Commit))
-	doc.Branch = strings.TrimPrefix(firstOf(f.branch, detected.Branch), "refs/heads/")
+	h.Commit = strings.ToLower(firstOf(commit, detected.Commit))
+	h.Branch = strings.TrimPrefix(firstOf(branch, detected.Branch), "refs/heads/")
 	switch {
-	case doc.Commit == "":
-		return doc, &Error{Exit: ExitUsage, Code: "commit_unknown", What: "which commit are these usages from?",
+	case h.Commit == "":
+		return h, &Error{Exit: ExitUsage, Code: "commit_unknown", What: "which commit are these " + what + " from?",
 			Why: "no CI commit variable is set and git can't read HEAD here",
 			Fix: "run inside the git checkout, or pass --commit <sha> (GLOSSA_COMMIT)"}
-	case !commitPattern.MatchString(doc.Commit):
-		return doc, usageError(inv.name, "--commit %q is not a full commit ID (40 or 64 hex digits)", doc.Commit)
-	case doc.Branch == "":
-		return doc, &Error{Exit: ExitUsage, Code: "branch_unknown", What: "which branch are these usages from?",
+	case !commitPattern.MatchString(h.Commit):
+		return h, usageError(inv.name, "--commit %q is not a full commit ID (40 or 64 hex digits)", h.Commit)
+	case h.Branch == "":
+		return h, &Error{Exit: ExitUsage, Code: "branch_unknown", What: "which branch are these " + what + " from?",
 			Why: "no CI branch variable is set and HEAD is detached",
 			Fix: "pass --branch <name> (GLOSSA_BRANCH)"}
-	case !validBranch(doc.Branch):
-		return doc, usageError(inv.name, "--branch %q is not a branch name", doc.Branch)
+	case !validBranch(h.Branch):
+		return h, usageError(inv.name, "--branch %q is not a branch name", h.Branch)
 	}
-	doc.Tool = extract.Tool{Name: "glossa", Version: semver(inv.env.Version)}
-	return doc, nil
+	h.Tool = extract.Tool{Name: "glossa", Version: semver(inv.env.Version)}
+	return h, nil
 }
 
 var semverPattern = regexp.MustCompile(`^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)

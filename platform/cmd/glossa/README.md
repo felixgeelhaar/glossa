@@ -48,7 +48,30 @@ check:
   fail_on: error                 # or warning
 pull:
   states: [approved]             # default
+capture:                         # glossa capture: screenshots with message regions
+  base_url: http://localhost:4173  # a preview with fixture data; --base-url overrides
+  application: web               # default: extract.application
+  output: .glossa/captures       # without --upload (default)
+  locales: [de, ja]              # default: the source locale
+  locale: { query: lang }        # how a page picks the locale: query or cookie,
+                                 # or put {locale} in every route's url
+  viewports:                     # default: 1280×800 and 390×844
+    - { width: 1280, height: 800 }
+    - { width: 390, height: 844, device_scale_factor: 2, mobile: true }
+  routes:
+    - route: /                   # the pattern usages name; url defaults to it
+    - route: /checkout/[step]
+      url: /checkout/payment     # relative to base_url, or absolute
+      playbook: .glossa/playbooks/open-card.json  # scout playbook, replayed after load
+  cookies:                       # fixture login, set on base_url
+    - { name: session, value: "${FIXTURE_SESSION}" }
+  headers:                       # sent only to base_url's origin
+    X-Fixture-User: "${FIXTURE_USER}"
 ```
+
+Cookie and header values reference environment variables as `${NAME}`;
+they're never printed, and an unset one is an error that names only the
+variable.
 
 Catalogs are JSON objects of message ID to text, flat
 (`{"checkout.pay": "…"}`) or nested (`{"checkout": {"pay": "…"}}`).
@@ -75,6 +98,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `pull` | Writes translations to the catalogs, sorted and deterministic. `--states approved,needs_review\|all`, `--locales`. `--release <id\|v<N>\|latest> [--environment env] [--out dir]` writes a release bundle instead (see *Release*). |
 | `extract` | Finds message usages and prints them as a `glossa.usages/v1` document (RFC 0004 §2.2; contract and fixtures: `runtimes/testdata/usages/`). Go is parsed with `go/parser`: `.T(…)` calls (`Client.T(ctx, "…")`, `l.T("…")`, `For(…).T("…")`) and the generated accessors, with the enclosing `pkg.Func` / `pkg.(*Type).Method` as component; files starting with `// Code generated … DO NOT EDIT.` are skipped. Go templates (`extract.templates`) are parsed with `text/template/parse`: `{{t}}`, `{{td}}`, `{{th}}`. Web files are scanned lexically: `t("…")`/`$t("…")`, `<glossa-text\|rich\|plural\|select key\|message>`, `<GlossaText id>`, `<T id>`, typed accessors; Vue and Astro files are their own component, Astro pages carry their route. Only literal keys count. Reports keys missing from the catalog and catalog messages nothing uses; `--strict` exits 1 on unknown keys. `--upload` sends the document to the project's context builds as an `extract` build (what `context push` does). The document's application is `--application`, `GLOSSA_APPLICATION` or `extract.application`; its commit and branch are `--commit`/`--branch`, `GLOSSA_COMMIT`/`GLOSSA_BRANCH`, GitHub Actions (a pull request's head, not its merge commit) or GitLab CI, else git. |
 | `context push <file>` | Uploads a `glossa.usages/v1` document — `@glossa/unplugin`'s `.glossa/usages.json`, or a saved `extract --json` — to the project's context builds (`POST …/context-builds`, RFC 0004 §2). `--source plugin\|extract\|runtime\|capture` names the collector; by default `extract` when the document's tool is `glossa`, else `plugin`. Prints the build and how many usages name keys the catalog doesn't know; the same document again is "Already uploaded" (the server answers with the first build). Whether a build is of the default branch is the project's `default_branch` setting, not the uploader's say. A document the server refuses (`invalid_usages`, `too_many_usages`, `unknown_application`, `invalid_source`, `payload_too_large`) exits 2. |
+| `capture` | Screenshots the pages of the capture plan (`capture:` in glossa.yaml) in headless Chrome, with `scout`, at every viewport and locale, and records where each message renders (RFC 0004 §3.1–§3.2): one `glossa.captures/v1` document (schema: `runtimes/testdata/schemas/captures.v1.schema.json`) with a full-page PNG per (route, viewport, locale), in a fixed order (route, URL, locale, the plan's viewport order). Before the page's scripts run it injects `@glossa/capture`'s agent, which hooks every `@glossa/runtime` on the page; after load (and the route's playbook) it waits until the DOM is quiet. It refuses a page whose runtime reports a `production` manifest (`production_page`), has no active release (`environment_unknown`), has no runtime (`no_runtime`) or doesn't render the requested locale (`locale_mismatch`), and blacks out `data-glossa-redact` elements before the screenshot (their regions are `visible: false`). Without `--upload` the manifest (`captures.json`) and the images (`<sha256>.png`) go to `capture.output` or `--out`; with `--upload` they're posted to the Captures API. The coverage report lists the messages with a current usage of the application (the branch's view) but no visible region; it reads the Context API, so `--no-coverage` is needed offline. Application, commit and branch are found like `extract`'s (`capture.application` first). A page that fails to load, a refusal, or no Chrome (`no_browser`) exits 2. |
 | `generate` | Typed accessors from the catalog's argument metadata. `--check` writes nothing and exits 1 when the files are stale; `--from-server` uses the server's messages. |
 | `check` | Structural QA: invalid messages, translation/source compatibility (`messageformat.CheckCompat`), missing and outdated translations. `--offline` checks local catalogs. `--require-complete=de,en\|none`, `--fail-on=error\|warning`. |
 | `status` | Coverage per locale: translated, approved, needs review, draft, outdated, missing. One request: the server's `translation-stats`. `--offline` counts the local catalogs. |
@@ -147,6 +171,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.pull/v1` | `{states, locales: [{locale, path, messages, skipped: {state: n}, outdated, changed}], release?: {dir, release_id, version, environment, locales, artifacts, bytes, removed}}` |
 | `glossa.usages/v1` | `extract --json` (with or without `--upload`): `{application, commit, branch, tool: {name, version}, usages: [{key, file, line, column, component?, route?, kind}]}`, sorted by key, file, line, column; kind is `t`, `component`, `element`, `accessor` or `template` (the schema: `runtimes/testdata/schemas/usages.v1.schema.json`) |
 | `glossa.cli.context.push/v1` | `{file, source, replayed, build: {id, application_id, commit, branch, on_default_branch, source, tool: {name, version}, digest, usages, unknown_keys, created_by, created_at}}` (the API's `ContextBuild`) |
+| `glossa.cli.capture/v1` | `{application, commit, branch, captures: [{route, url, locale, viewport: {width, height, deviceScaleFactor?}, image: {sha256, width, height}, renders, regions, visible, redacted, truncated}], output?: {dir, manifest, images}, upload?: {build, captures, images_stored, images_deduplicated, unknown_keys, replayed}, coverage: {messages, captured, not_captured: [{key, usages, file, line, routes?}]} \| null}` (`capture`; the regions themselves are in the manifest) |
 | `glossa.cli.generate/v1` | `{source, messages, check, files: [{path, kind, changed}], warnings: [{key, reason}]}` |
 | `glossa.cli.check/v1` | `{policy: {require_complete (null = all), fail_on}, origin, messages, invalid_messages, locales: [{code, is_source, required, messages, translated, missing, outdated, errors, warnings, complete}], findings: [{check, code, severity, locale?, key?, subject?, detail?, message, where?}], errors, warnings, passed}` |
 | `glossa.cli.status/v1` | `{origin, messages, locales: [{code, direction, is_source, translated, approved, needs_review, draft, rejected, outdated, missing, coverage}]}` |
@@ -551,6 +576,16 @@ Terminology check failed: 1 error, 0 warnings.
   uploads per tenant (10 a minute, bursts of 60; 429 is retried).
   `context push` reads only the document's header before sending it; the
   server validates the rest by the schema.
+- `capture` needs Chrome or Chromium on the machine (scout looks for
+  `google-chrome`, `chromium` and the usual app paths; GitHub's Ubuntu
+  runners have it). It lays pages out with overlay scrollbars, so an
+  image is as wide as its viewport; a page taller than 16 384 device
+  pixels or 40 megapixels is cut there (`truncated`), and its regions
+  below the cut are `visible: false`. A PNG over 10 MB fails the capture.
+  Pages are captured one at a time, each on a fresh tab. A playbook's own
+  starting URL is ignored: it starts on the route's page. Upload:
+  `POST …/captures`, multipart, the `manifest` part first, then one
+  `image/png` part per distinct image named by its SHA-256.
 - Windows stores tokens in the file store.
 - `translate --dry-run`'s `tm_exact` counts exact translation-memory
   matches; the job still validates one before reusing it (structure,
