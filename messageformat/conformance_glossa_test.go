@@ -220,6 +220,60 @@ func TestGlossaArguments(t *testing.T) {
 	}
 }
 
+type compatFixture struct {
+	Tests []struct {
+		Description      string          `json:"description"`
+		Locale           string          `json:"locale"`
+		Source           *string         `json:"source"`
+		SourceMF1        *string         `json:"sourceMF1"`
+		SourceLocale     string          `json:"sourceLocale"`
+		Translation      *string         `json:"translation"`
+		TranslationMF1   *string         `json:"translationMF1"`
+		TranslationModel json.RawMessage `json:"translationModel"`
+		Findings         json.RawMessage `json:"findings"`
+	} `json:"tests"`
+}
+
+func TestGlossaCompat(t *testing.T) {
+	fixture := loadJSON[compatFixture](t, "testdata/glossa/compat.json")
+	for _, tc := range fixture.Tests {
+		t.Run(tc.Description, func(t *testing.T) {
+			source := fixtureMessage(t, tc.Source, tc.SourceMF1, tc.SourceLocale)
+			var translation Message
+			if tc.TranslationModel != nil {
+				if err := json.Unmarshal(tc.TranslationModel, &translation); err != nil {
+					t.Fatalf("decode translationModel: %v", err)
+				}
+			} else {
+				translation = fixtureMessage(t, tc.Translation, tc.TranslationMF1, tc.Locale)
+			}
+			findings := CheckCompat(source, translation, tc.Locale)
+			for _, f := range findings {
+				if f.Message == "" {
+					t.Errorf("finding %s has no human message", f.Code)
+				}
+			}
+			assertJSON(t, "CheckCompat", withoutMessages(findings), tc.Findings)
+		})
+	}
+}
+
+// withoutMessages drops the human text, whose wording is not specified.
+func withoutMessages(findings []Finding) []map[string]string {
+	out := make([]map[string]string, len(findings))
+	for i, f := range findings {
+		m := map[string]string{"code": string(f.Code), "severity": string(f.Severity)}
+		if f.Subject != "" {
+			m["subject"] = f.Subject
+		}
+		if f.Detail != "" {
+			m["detail"] = f.Detail
+		}
+		out[i] = m
+	}
+	return out
+}
+
 // fixtureMessage parses a fixture message given as MF2 or as MF1 source.
 func fixtureMessage(t *testing.T, mf2Src, mf1Src *string, locale string) Message {
 	t.Helper()
