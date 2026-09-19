@@ -7,12 +7,14 @@
  */
 import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
-import { messages as messagesApi, translations as translationsApi, type MessageFilters } from "../../api/endpoints";
-import type { LocaleStats, Message, Syntax, Translation } from "../../api/schemas";
+import { applications as applicationsApi, messages as messagesApi, translations as translationsApi, type MessageFilters } from "../../api/endpoints";
+import type { Application, LocaleStats, Message, Syntax, Translation } from "../../api/schemas";
 import AssistPanel from "../../components/assist/AssistPanel.vue";
 import FillDialog from "../../components/assist/FillDialog.vue";
 import type { MatchText } from "../../components/assist/TmMatches.vue";
 import { useTerminology } from "../../components/assist/useTerminology";
+import ContextFilters from "../../components/context/ContextFilters.vue";
+import { isContextFiltered, useContextFilter, type ContextFilterState } from "../../components/context/useContextFilter";
 import ErrorAlert from "../../components/ErrorAlert.vue";
 import MessageList from "../../components/MessageList.vue";
 import TranslationEditor from "../../components/TranslationEditor.vue";
@@ -48,7 +50,21 @@ const target = computed(() => locales.value.find((l) => l.code === localeCode.va
 const source = computed(() => locales.value.find((l) => l.is_source));
 const namespace = computed(() => q("ns"));
 const coverage = computed<CoverageFilter>(() => (["missing", "outdated"].includes(q("show")) ? (q("show") as CoverageFilter) : "all"));
-const state = computed(() => (q("state") === "obsolete" ? "obsolete" : q("state") === "all" ? "all" : "active"));
+const state = computed(() => (["obsolete", "proposed"].includes(q("state")) ? (q("state") as "obsolete" | "proposed") : q("state") === "all" ? "all" : "active"));
+/**
+ * Where a message appears (RFC 0004 §3.4). The branch filter rides on
+ * the `proposed` state until the branch switcher arrives; `ctx` carries
+ * the coverage filters.
+ */
+const contextFilter = computed<ContextFilterState>(() => ({
+  route: q("route"),
+  component: q("component"),
+  file: q("file"),
+  only: q("ctx") === "unused" ? "unused" : q("ctx") === "uncaptured" ? "uncaptured" : "",
+}));
+function setContextFilter(f: ContextFilterState): void {
+  setQuery({ route: f.route || undefined, component: f.component || undefined, file: f.file || undefined, ctx: f.only || undefined });
+}
 const search = ref(q("q"));
 watch(search, (v) => setQuery({ q: v || undefined }));
 
@@ -143,6 +159,20 @@ watch(
   { immediate: true },
 );
 watch([localeCode, projectId], () => void loadStatus(), { immediate: true });
+// The applications name themselves in "Where it appears"; their IDs do until they load.
+const apps = shallowRef<Application[]>([]);
+watch(
+  projectId,
+  async (id) => {
+    if (!id) return;
+    try {
+      apps.value = await applicationsApi.list({ tenant: tenant.value, project: id });
+    } catch {
+      apps.value = [];
+    }
+  },
+  { immediate: true },
+);
 watch(loaded, (list) => {
   const merged = namespacesOf(list, seenNamespaces.value);
   if (merged.length !== seenNamespaces.value.length) seenNamespaces.value = merged;
@@ -152,7 +182,12 @@ onBeforeUnmount(() => {
   statusController?.abort();
 });
 
-const visible = computed(() => loaded.value.filter((m) => matches(m, search.value)));
+const context = useContextFilter({ tenant, projectId, filter: contextFilter });
+/** A context filter is on, but which messages it allows isn't known yet. */
+const contextPending = computed(() => isContextFiltered(contextFilter.value) && context.allowed.value === undefined);
+const visible = computed(() =>
+  contextPending.value ? [] : loaded.value.filter((m) => matches(m, search.value) && (!context.allowed.value || context.allowed.value.has(m.id))),
+);
 const rows = computed<MessageRow[]>(() =>
   visible.value.map((m) => ({ id: m.id, key: m.key, text: m.source.text, namespace: m.namespace, status: statusOf(m.id, localeCoverage.value) })),
 );
@@ -302,11 +337,23 @@ function onSearchKey(e: KeyboardEvent): void {
             <label for="ws-state">{{ s.state }}</label>
             <select id="ws-state" :value="state" @change="setQuery({ state: ($event.target as HTMLSelectElement).value === 'active' ? undefined : ($event.target as HTMLSelectElement).value })">
               <option value="active">{{ s.stateActive }}</option>
+              <option value="proposed">{{ s.stateProposedFilter }}</option>
               <option value="obsolete">{{ s.stateObsolete }}</option>
               <option value="all">{{ s.stateAll }}</option>
             </select>
           </div>
         </div>
+        <ContextFilters
+          :filter="contextFilter"
+          :index="context.index.value"
+          :loading="context.loadingIndex.value"
+          :index-error="context.indexError.value"
+          :error="context.error.value"
+          :probe="context.probe.value"
+          :matched="contextPending ? undefined : visible.length"
+          @update:filter="setContextFilter"
+          @open="context.loadIndex()"
+        />
         <p class="count" role="status">{{ s.count(visible.length, loaded.length, done) }}</p>
         <p v-if="localeStats" class="count" data-testid="locale-stats">
           {{ s.localeStats(localeStats.code, localeStats.translated, localeStats.translated + localeStats.missing, localeStats.outdated, localeStats.states.needs_review) }}
@@ -328,6 +375,7 @@ function onSearchKey(e: KeyboardEvent): void {
         :source-dir="source?.direction ?? 'auto'"
         @select="select"
       />
+      <p v-else-if="contextPending" class="empty muted">{{ strings.app.loading }}</p>
       <p v-else-if="done" class="empty muted">{{ loaded.length ? s.empty : s.noMessages }}</p>
       <p v-else class="empty muted">{{ strings.app.loading }}</p>
     </aside>
@@ -367,6 +415,7 @@ function onSearchKey(e: KeyboardEvent): void {
           :check-state="terminology.checkState.value"
           :has-draft="draft.text.trim() !== ''"
           :target-syntax="draft.syntax"
+          :applications="apps"
           @insert="insert"
           @accepted="onAccepted"
         />
