@@ -9,6 +9,18 @@ Glossa platform {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }
 Migrations ran as the Job {{ include "gp.componentName" (dict "root" $ "component" "migrate") }} before the server started.
 {{- end }}
 
+{{- if .Values.minio.enabled }}
+
+Object storage: the in-namespace MinIO {{ include "gp.minio.service" . }} (bucket "{{ .Values.objectStorage.bucket }}").
+{{- if .Values.minio.bootstrap.enabled }}
+The Job {{ include "gp.componentName" (dict "root" $ "component" "minio-bootstrap") }} created the bucket and the server's and edge's users.
+Verify the edge's credentials are read-only:
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+{{- end }}
+MinIO console (not exposed):
+  kubectl -n {{ .Release.Namespace }} port-forward statefulset/{{ include "gp.componentName" (dict "root" $ "component" "minio") }} 9001
+{{- end }}
+
 Check:
   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
   kubectl -n {{ .Release.Namespace }} get certificates
@@ -24,8 +36,9 @@ variables are set, so glossa-server's own default applies. No email is
 delivered; a server whose default driver is still "log" writes sign-in
 links to its log, so keep that log restricted.
 {{- end }}
-{{- if and .Values.networkPolicy.enabled (or (not .Values.networkPolicy.egress.postgres.to) (not .Values.networkPolicy.egress.objectStorage.to)) }}
+{{- $np := .Values.networkPolicy }}
+{{- if and $np.enabled (or (not $np.egress.postgres.to) (and (not .Values.minio.enabled) (not $np.egress.objectStorage.to))) }}
 
-NOTE: networkPolicy.egress.postgres.to / objectStorage.to is empty, so those
+NOTE: networkPolicy.egress.postgres.to{{ if not .Values.minio.enabled }} / objectStorage.to{{ end }} is empty, so those
 ports are open to any destination. Pin them to the provider's addresses.
 {{- end }}
