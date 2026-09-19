@@ -7,6 +7,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
 )
 
@@ -25,6 +26,52 @@ func (s *Service) MessagesWithCoverage(ctx context.Context, project uuid.UUID, f
 		return err
 	})
 	return ids, err
+}
+
+// TranslationWithSource is a translation together with what it was
+// translated from: the message's key and namespace (Localization's
+// projection; "" while it hasn't seen the message), the project's
+// source locale and the source revision the text was made against.
+type TranslationWithSource struct {
+	TranslationView
+	Key          string
+	Namespace    string
+	SourceLocale bcp47.Tag
+	Source       mfcontent.Content
+}
+
+// TranslationWithSource reads a translation of project by ID with its
+// source — the read Knowledge derives translation memory from when a
+// translation is revised or reviewed. It needs translations.read (and,
+// through Catalog's port, catalog.read).
+func (s *Service) TranslationWithSource(ctx context.Context, project uuid.UUID, id domain.TranslationID) (TranslationWithSource, error) {
+	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+		return TranslationWithSource{}, err
+	}
+	var out TranslationWithSource
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		row, key, ns, err := st.TranslationByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		if row.ProjectID != project {
+			return ErrNotFound
+		}
+		out = TranslationWithSource{TranslationView: view(row), Key: key, Namespace: ns}
+		return nil
+	})
+	if err != nil {
+		return TranslationWithSource{}, err
+	}
+	p, err := s.catalog.Project(ctx, project)
+	if err != nil {
+		return TranslationWithSource{}, err
+	}
+	out.SourceLocale = p.SourceLocale
+	if out.Source, err = s.catalog.SourceAt(ctx, project, out.MessageID, out.SourceRevision); err != nil {
+		return TranslationWithSource{}, err
+	}
+	return out, nil
 }
 
 // LocaleInfo is a locale as a release manifest lists it.

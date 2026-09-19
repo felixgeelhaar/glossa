@@ -125,6 +125,9 @@ type Store interface {
 	MessagesWithCoverage(ctx context.Context, project uuid.UUID, f CoverageFilter) ([]uuid.UUID, error)
 
 	Translation(ctx context.Context, message uuid.UUID, locale bcp47.Tag) (TranslationRow, error)
+	// TranslationByID returns a translation with its message's key and
+	// namespace from the projection ("" while unknown).
+	TranslationByID(ctx context.Context, id domain.TranslationID) (row TranslationRow, key, namespace string, err error)
 	LockTranslation(ctx context.Context, message uuid.UUID, locale bcp47.Tag) (domain.Translation, bool, error)
 	InsertTranslation(ctx context.Context, t domain.Translation) error
 	// UpdateTranslation saves t if the stored revision is expected.

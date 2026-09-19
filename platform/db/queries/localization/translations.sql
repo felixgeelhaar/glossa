@@ -76,6 +76,15 @@ FROM localization_translations t
 LEFT JOIN localization_messages m ON m.message_id = t.message_id
 WHERE t.message_id = sqlc.arg(message_id) AND t.locale = sqlc.arg(locale);
 
+-- name: GetTranslationByID :one
+-- With the message's key and namespace from the projection ('' while
+-- Localization hasn't seen the message).
+SELECT t.*, coalesce(m.source_revision, 0)::integer AS current_source_revision,
+       coalesce(m.key, '')::text AS key, coalesce(m.namespace, '')::text AS namespace
+FROM localization_translations t
+LEFT JOIN localization_messages m ON m.message_id = t.message_id
+WHERE t.id = sqlc.arg(id);
+
 -- name: LockTranslation :one
 SELECT * FROM localization_translations
 WHERE message_id = sqlc.arg(message_id) AND locale = sqlc.arg(locale)

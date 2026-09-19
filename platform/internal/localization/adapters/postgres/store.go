@@ -292,6 +292,20 @@ func (s *store) Translation(ctx context.Context, message uuid.UUID, loc bcp47.Ta
 	}, r.CurrentSourceRevision)
 }
 
+func (s *store) TranslationByID(ctx context.Context, id domain.TranslationID) (app.TranslationRow, string, string, error) {
+	r, err := s.q.GetTranslationByID(ctx, id.UUID())
+	if err != nil {
+		return app.TranslationRow{}, "", "", storeError(err)
+	}
+	tr, err := row(localizationsql.LocalizationTranslation{
+		ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, MessageID: r.MessageID, Locale: r.Locale,
+		Syntax: r.Syntax, Text: r.Text, Model: r.Model, State: r.State, Origin: r.Origin, Author: r.Author,
+		SourceRevision: r.SourceRevision, Warnings: r.Warnings, Revision: r.Revision,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+	}, r.CurrentSourceRevision)
+	return tr, r.Key, r.Namespace, err
+}
+
 func (s *store) LockTranslation(ctx context.Context, message uuid.UUID, loc bcp47.Tag) (domain.Translation, bool, error) {
 	r, err := s.q.LockTranslation(ctx, localizationsql.LockTranslationParams{MessageID: message, Locale: loc.String()})
 	if errors.Is(err, pgx.ErrNoRows) {

@@ -91,6 +91,65 @@ func (q *Queries) GetTranslation(ctx context.Context, arg GetTranslationParams) 
 	return i, err
 }
 
+const getTranslationByID = `-- name: GetTranslationByID :one
+SELECT t.id, t.tenant_id, t.project_id, t.message_id, t.locale, t.syntax, t.text, t.model, t.state, t.origin, t.author, t.source_revision, t.warnings, t.revision, t.created_at, t.updated_at, coalesce(m.source_revision, 0)::integer AS current_source_revision,
+       coalesce(m.key, '')::text AS key, coalesce(m.namespace, '')::text AS namespace
+FROM localization_translations t
+LEFT JOIN localization_messages m ON m.message_id = t.message_id
+WHERE t.id = $1
+`
+
+type GetTranslationByIDRow struct {
+	ID                    uuid.UUID
+	TenantID              uuid.UUID
+	ProjectID             uuid.UUID
+	MessageID             uuid.UUID
+	Locale                string
+	Syntax                string
+	Text                  string
+	Model                 json.RawMessage
+	State                 string
+	Origin                string
+	Author                string
+	SourceRevision        int32
+	Warnings              json.RawMessage
+	Revision              int32
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	CurrentSourceRevision int32
+	Key                   string
+	Namespace             string
+}
+
+// With the message's key and namespace from the projection (” while
+// Localization hasn't seen the message).
+func (q *Queries) GetTranslationByID(ctx context.Context, id uuid.UUID) (GetTranslationByIDRow, error) {
+	row := q.db.QueryRow(ctx, getTranslationByID, id)
+	var i GetTranslationByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.ProjectID,
+		&i.MessageID,
+		&i.Locale,
+		&i.Syntax,
+		&i.Text,
+		&i.Model,
+		&i.State,
+		&i.Origin,
+		&i.Author,
+		&i.SourceRevision,
+		&i.Warnings,
+		&i.Revision,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CurrentSourceRevision,
+		&i.Key,
+		&i.Namespace,
+	)
+	return i, err
+}
+
 const insertTranslation = `-- name: InsertTranslation :exec
 
 INSERT INTO localization_translations (id, tenant_id, project_id, message_id, locale, syntax, text, model,
