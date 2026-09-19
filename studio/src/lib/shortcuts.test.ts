@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { keyLabel, matchShortcut, SHORTCUTS, type ShortcutId } from "./shortcuts";
+import { ariaKeys, keyLabel, matchNumber, matchShortcut, SHORTCUTS, type ShortcutId } from "./shortcuts";
 
 const all = new Set(SHORTCUTS.map((s) => s.id));
 
@@ -59,6 +59,48 @@ describe("matchShortcut", () => {
     expect(matchShortcut(key({ key: "j" }), new Set(["help"]))).toBeUndefined();
     expect(matchShortcut(key({ key: "j", isComposing: true }), all)).toBeUndefined();
     expect(matchShortcut(key({ key: "j", ctrlKey: true }), all)).toBeUndefined();
+  });
+});
+
+describe("knowledge and AI chords", () => {
+  const workspace = new Set<ShortcutId>(["next", "prev", "save", "saveApprove", "insertMatch", "editSuggestion", "acceptSuggestion"]);
+  const queue = new Set<ShortcutId>(["queueNext", "queuePrev", "queueAccept", "queueEdit", "queueReject", "queueAcceptEdit", "queueCancelEdit"]);
+  /** A chord as browsers report it: AltGr is its own modifier (happy-dom folds it into Alt). */
+  const chord = (init: KeyboardEventInit, target?: HTMLElement, altGr = false) => {
+    const e = key(init, target);
+    Object.defineProperty(e, "getModifierState", { value: (k: string) => (k === "AltGraph" ? altGr : false) });
+    return e;
+  };
+
+  it("inserts TM matches by physical digit, also while typing", () => {
+    const area = document.createElement("textarea");
+    // On macOS ⌥ changes e.key ("¡"); the chord goes by e.code.
+    const e = chord({ key: "¡", code: "Digit1", metaKey: true, altKey: true }, area);
+    expect(matchShortcut(e, workspace)?.id).toBe("insertMatch");
+    expect(matchNumber(e)).toBe(1);
+    expect(matchShortcut(chord({ key: "9", code: "Digit9", ctrlKey: true, altKey: true }), workspace)?.id).toBe("insertMatch");
+    expect(matchShortcut(chord({ key: "0", code: "Digit0", ctrlKey: true, altKey: true }), workspace)?.id).toBe("editSuggestion");
+    expect(matchShortcut(chord({ key: "Enter", ctrlKey: true, altKey: true }), workspace)?.id).toBe("acceptSuggestion");
+    expect(matchShortcut(chord({ key: "Enter", ctrlKey: true }), workspace)?.id).toBe("save");
+  });
+
+  it("never fires for AltGr, which types characters on many layouts", () => {
+    expect(matchShortcut(chord({ key: "{", code: "Digit7", ctrlKey: true, altKey: true }, undefined, true), workspace)).toBeUndefined();
+  });
+
+  it("triages the review queue with single keys, but not while editing", () => {
+    for (const [k, id] of [["a", "queueAccept"], ["e", "queueEdit"], ["r", "queueReject"], ["j", "queueNext"], ["k", "queuePrev"]] as const) {
+      expect(matchShortcut(key({ key: k }), queue)?.id).toBe(id);
+    }
+    const area = document.createElement("textarea");
+    expect(matchShortcut(key({ key: "a" }, area), queue)).toBeUndefined();
+    expect(matchShortcut(key({ key: "Enter", metaKey: true }, area), queue)?.id).toBe("queueAcceptEdit");
+    expect(matchShortcut(key({ key: "Escape" }, area), queue)?.id).toBe("queueCancelEdit");
+  });
+
+  it("names chords for aria-keyshortcuts", () => {
+    expect(ariaKeys(["Mod", "Alt", "1"], true)).toBe("Meta+Alt+1");
+    expect(ariaKeys(["Mod", "Enter"], false)).toBe("Control+Enter");
   });
 });
 

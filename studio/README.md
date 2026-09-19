@@ -44,12 +44,25 @@ from `src/lib/shortcuts.ts`, and a unit test keeps this table in step.
 | `Esc` | Leave the editor, back to the message list | Translation editor |
 | `⌘ Enter` / `Ctrl Enter` | Save the translation | Translation editor |
 | `⌘ ⇧ Enter` / `Ctrl Shift Enter` | Save and approve | Translation editor |
+| `⌘ ⌥ 1–9` / `Ctrl Alt 1–9` | Insert translation-memory match 1–9 | Translation editor |
+| `⌘ ⌥ 0` / `Ctrl Alt 0` | Edit the AI suggestion, then accept it | Translation editor |
+| `⌘ ⌥ Enter` / `Ctrl Alt Enter` | Accept the AI suggestion as it is | Translation editor |
+| `j` | Next suggestion | Review queue |
+| `k` | Previous suggestion | Review queue |
+| `a` | Accept the suggestion | Review queue |
+| `e` | Edit the suggestion before accepting it | Review queue |
+| `r` | Reject the suggestion | Review queue |
+| `⌘ Enter` / `Ctrl Enter` | Accept your edit | Review queue |
+| `Esc` | Cancel the edit | Review queue |
 | `p` | Publish a release | Releases |
 
 The message list is a WAI-ARIA listbox, so `↑`, `↓`, `Home`, `End`,
 `PageUp` and `PageDown` work in it too. Single-key shortcuts never fire
 while you type in a field, and `Enter` still activates a focused link or
-button.
+button. The `⌘ ⌥` / `Ctrl Alt` chords match the physical digit key, so
+they work on any layout, and never fire for AltGr (which types `{`, `@`
+and friends on many Windows layouts); a chord for a TM match that isn't
+there passes through untouched.
 
 ## The translator workspace
 

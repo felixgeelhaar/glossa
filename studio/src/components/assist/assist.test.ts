@@ -1,0 +1,236 @@
+import { flushPromises, mount } from "@vue/test-utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, h, ref } from "vue";
+import { createMemoryHistory, createRouter } from "vue-router";
+import { INTELLIGENCE } from "../../api/intelligence";
+import { KNOWLEDGE } from "../../api/knowledge";
+import type { Message } from "../../api/schemas";
+import { grantFor } from "../../session/permissions";
+import { createFakeIntelligence, suggestion, type FakeIntelligence } from "../../test/fake-intelligence";
+import { createFakeKnowledge, type FakeKnowledge } from "../../test/fake-knowledge";
+import { locale } from "../../test/project";
+import FillDialog from "./FillDialog.vue";
+import SuggestionPanel from "./SuggestionPanel.vue";
+import TmMatches from "./TmMatches.vue";
+import { TERM_CHECK_DELAY_MS, useTerminology } from "./useTerminology";
+
+const NOW = "2026-09-19T08:00:00Z";
+const message: Message = {
+  id: "m1",
+  key: "workspace.create",
+  namespace: "default",
+  description: "",
+  state: "active",
+  source: { text: "Create a new workspace", syntax: "mf1", model: { type: "message" }, arguments: [], markup: [] },
+  source_revision: 1,
+  created_at: NOW,
+  updated_at: NOW,
+};
+const de = locale("de");
+const en = locale("en", true);
+
+let wrappers: Array<{ unmount(): void }> = [];
+afterEach(() => {
+  for (const w of wrappers) w.unmount();
+  wrappers = [];
+});
+
+function withPorts<T extends object>(component: Parameters<typeof mount>[0], props: T, ports: { k?: FakeKnowledge; i?: FakeIntelligence }) {
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: "/t/:tenant/p/:project/review", name: "review", component: { template: "<div />" } }] });
+  const w = mount(component, {
+    props,
+    attachTo: document.body,
+    global: { plugins: [router], provide: { [KNOWLEDGE as symbol]: ports.k ?? createFakeKnowledge(), [INTELLIGENCE as symbol]: ports.i ?? createFakeIntelligence() } },
+  });
+  wrappers.push(w);
+  return w;
+}
+const button = (w: ReturnType<typeof mount>, name: string) => {
+  const b = w.findAll("button").find((x) => x.text().startsWith(name));
+  if (!b) throw new Error(`no button ${name}`);
+  return b;
+};
+
+describe("SuggestionPanel", () => {
+  const panel = (i: FakeIntelligence, roles: Array<"owner" | "translator"> = ["owner"], locales: string[] = []) =>
+    withPorts(SuggestionPanel, { tenant: "t", projectId: "p", message, target: de, grant: grantFor({ roles, locales }) }, { i });
+
+  it("shows confidence as a band and a number, and why", async () => {
+    const i = createFakeIntelligence();
+    i.state.suggestions.push(suggestion({ risk_tags: ["legal"], action_note: "Auto-approve is off for production." }));
+    const w = panel(i);
+    await flushPromises();
+    expect(w.get("[data-testid=confidence-band]").text()).toBe("Medium confidence");
+    expect(w.get("[data-testid=confidence-score]").text()).toBe("score 0.62");
+    expect(w.text()).not.toMatch(/62\s?%/);
+    expect(w.text()).toContain("isn't a promise that the text is right");
+    expect(w.get("[data-testid=suggestion-action]").text()).toBe("Review required");
+    expect(w.text()).toContain("Legal text");
+    expect(w.text()).toContain("Auto-approve is off for production.");
+    const why = w.get("[data-testid=why]");
+    const rows = why.findAll("tbody tr").map((r) => r.text());
+    // By impact: origin (−0.20), then the TM match (+0.10), then the self-assessment.
+    expect(rows[0]).toContain("Origin");
+    expect(rows[0]).toContain("−0.20");
+    expect(rows[1]).toContain("Translation-memory match");
+    expect(rows[1]).toContain("+0.10");
+    const prov = w.get("[data-testid=provenance]").text();
+    expect(prov).toContain("anthropic / claude-sonnet-5");
+    expect(prov).toContain("translate/v1");
+    expect(prov).toContain("g1@2");
+    expect(prov).toContain("$0.0021");
+  });
+
+  it("accepts as is, and tells the workspace", async () => {
+    const i = createFakeIntelligence();
+    i.state.suggestions.push(suggestion());
+    const w = panel(i);
+    await flushPromises();
+    await button(w, "Accept").trigger("click");
+    await flushPromises();
+    expect(i.calls).toContainEqual(["accept", "s1", undefined]);
+    expect(w.get("[data-testid=ai-status]").text()).toBe("Accepted: it's now the translation.");
+    expect(w.get("[data-testid=suggestion-status]").text()).toBe("Accepted");
+    expect(w.emitted("accepted")).toHaveLength(1);
+  });
+
+  it("edits then accepts, sending the edited MF2 with Mod+Enter", async () => {
+    const i = createFakeIntelligence();
+    i.state.suggestions.push(suggestion());
+    const w = panel(i);
+    await flushPromises();
+    await button(w, "Edit").trigger("click");
+    await flushPromises();
+    const edit = w.get("[data-testid=suggestion-edit]");
+    expect(document.activeElement).toBe(edit.element);
+    expect((edit.element as HTMLTextAreaElement).value).toBe("Hallo, {$name}!");
+    await edit.setValue("Servus, {$name}!");
+    await edit.trigger("keydown", { key: "Enter", ctrlKey: true });
+    await flushPromises();
+    expect(i.calls).toContainEqual(["accept", "s1", { text: "Servus, {$name}!", syntax: "mf2" }]);
+    expect(w.text()).toContain("Your edit is accepted as the translation.");
+  });
+
+  it("rejects with an optional reason", async () => {
+    const i = createFakeIntelligence();
+    i.state.suggestions.push(suggestion());
+    const w = panel(i);
+    await flushPromises();
+    await button(w, "Reject…").trigger("click");
+    await w.get("#ai-reason").setValue("Wrong register");
+    await w.get("form").trigger("submit");
+    await flushPromises();
+    expect(i.calls).toContainEqual(["reject", "s1", "Wrong register"]);
+    expect(w.get("[data-testid=suggestion-status]").text()).toBe("Rejected");
+    expect(w.emitted("accepted")).toBeUndefined();
+  });
+
+  it("keeps decisions to members who may translate the locale", async () => {
+    const i = createFakeIntelligence();
+    i.state.suggestions.push(suggestion());
+    const w = panel(i, ["translator"], ["fr"]);
+    await flushPromises();
+    expect(w.findAll("button").map((b) => b.text())).not.toContain("Accept");
+    expect(w.text()).toContain("Accepting and rejecting de suggestions needs permission to translate de.");
+  });
+
+  it("says when there is no suggestion yet", async () => {
+    const w = panel(createFakeIntelligence());
+    await flushPromises();
+    expect(w.text()).toContain("No AI suggestion for this message yet.");
+  });
+});
+
+describe("TmMatches", () => {
+  it("shows the score, how the remembered source differs, and inserts the target", async () => {
+    const k = createFakeKnowledge();
+    k.remember("Create a workspace", "Einen Arbeitsbereich erstellen", { message_key: "workspace.old" });
+    const w = withPorts(TmMatches, { tenant: "t", projectId: "p", message, source: en, target: de, canInsert: true }, { k });
+    await flushPromises();
+    expect(k.calls[0]).toEqual(["lookupTM", expect.objectContaining({ source: "Create a new workspace", syntax: "mf1", count_hits: false, project_id: "p" })]);
+    const m = w.get("[data-testid=tm-match]");
+    expect(Number(m.get("[data-testid=tm-score]").text())).toBeGreaterThan(50);
+    expect(m.text()).toContain("Fuzzy match");
+    expect(m.text()).toContain("From workspace.old");
+    expect(m.find("ins").text()).toBe("new");
+    await button(w, "Insert").trigger("click");
+    expect(w.emitted("insert")).toEqual([["Einen Arbeitsbereich erstellen"]]);
+    expect((w.vm as unknown as { matchTarget: (n: number) => string | undefined }).matchTarget(1)).toBe("Einen Arbeitsbereich erstellen");
+    expect((w.vm as unknown as { matchTarget: (n: number) => string | undefined }).matchTarget(2)).toBeUndefined();
+  });
+});
+
+describe("useTerminology", () => {
+  it("recognizes the source's terms and checks the draft, debounced, the latest winning", async () => {
+    vi.useFakeTimers();
+    const k = createFakeKnowledge();
+    await k.createConcept("t", { terms: [{ locale: "en", text: "workspace", case_sensitive: false }, { locale: "de", text: "Arbeitsbereich", case_sensitive: false }, { locale: "de", text: "Workspace", status: "forbidden", case_sensitive: true }] }, "k");
+    const draft = ref<{ text: string; syntax: "mf1" | "mf2" }>({ text: "", syntax: "mf1" });
+    let api: ReturnType<typeof useTerminology> | undefined;
+    const Host = defineComponent({
+      setup() {
+        api = useTerminology({ tenant: ref("t"), projectId: ref("p"), message: ref(message), sourceLocale: ref("en"), targetLocale: ref("de"), draft });
+        return () => h("div");
+      },
+    });
+    withPorts(Host, {}, { k });
+    await vi.runAllTimersAsync();
+    expect(api!.recognition.value?.hits.map((x) => x.text)).toEqual(["workspace"]);
+    expect(api!.recognition.value?.hits[0]!.targets?.map((t) => t.text)).toEqual(["Arbeitsbereich", "Workspace"]);
+
+    draft.value = { text: "Einen neuen W", syntax: "mf1" };
+    await vi.advanceTimersByTimeAsync(50);
+    draft.value = { text: "Einen neuen Workspace erstellen", syntax: "mf1" };
+    await vi.advanceTimersByTimeAsync(TERM_CHECK_DELAY_MS + 10);
+    const checks = k.calls.filter((c) => c[0] === "checkTerminology");
+    expect(checks).toHaveLength(1);
+    expect(checks[0]![1]).toMatchObject({ target: "Einen neuen Workspace erstellen", syntax: "mf1", project_id: "p" });
+    expect(api!.findings.value.map((f) => f.code)).toEqual(["term_missing", "term_forbidden"]);
+
+    // An MF2 draft (a TM match) against an MF1 source is checked as plain text.
+    draft.value = { text: "Einen neuen Arbeitsbereich erstellen", syntax: "mf2" };
+    await vi.advanceTimersByTimeAsync(TERM_CHECK_DELAY_MS + 10);
+    expect(k.calls.filter((c) => c[0] === "checkTerminology").at(-1)![1]).not.toHaveProperty("syntax");
+    expect(api!.findings.value).toEqual([]);
+    vi.useRealTimers();
+  });
+});
+
+describe("FillDialog", () => {
+  const dialog = (i: FakeIntelligence, keys?: string[]) =>
+    withPorts(FillDialog, { open: true, tenant: "t", projectId: "p", locale: "de", namespace: "checkout", outdated: false, keys }, { i });
+
+  it("queues a fill for the filter, follows its jobs and reports when they settle", async () => {
+    const i = createFakeIntelligence();
+    i.pending = [suggestion({ id: "a", message_key: "a" }), suggestion({ id: "b", message_key: "b" })];
+    const w = dialog(i, ["a", "b"]);
+    await flushPromises();
+    expect(w.text()).toContain("Of the 2 messages your search shows in checkout, each one missing in de gets an AI suggestion.");
+    await button(w, "Fill with AI").trigger("click");
+    await flushPromises();
+    expect(i.calls.find((c) => c[0] === "createFill")![1]).toEqual({ locales: ["de"], namespace: "checkout", keys: ["a", "b"], include_outdated: false });
+    expect(w.get("[data-testid=fill-status]").text()).toBe("0 of 2 done…");
+    // One job gets a suggestion, the other's provider fails.
+    i.pending = [i.pending[0]!];
+    i.settle();
+    await new Promise((r) => setTimeout(r, 1100));
+    await flushPromises();
+    expect(w.get("[data-testid=fill-status]").text()).toBe("Done: 1 suggested, 0 skipped, 1 failed.");
+    expect(w.text()).toContain("1 × the provider failed");
+    expect(w.emitted("settled")).toHaveLength(1);
+    expect(w.findAll("a").map((a) => a.text())).toContain("Open the review queue");
+  });
+
+  it("says up front when jobs will do little", async () => {
+    const i = createFakeIntelligence();
+    i.warnings = ["provider_consent_off", "no_budget"];
+    const w = dialog(i);
+    await flushPromises();
+    await button(w, "Fill with AI").trigger("click");
+    await flushPromises();
+    const warnings = w.get("[data-testid=fill-warnings]").text();
+    expect(warnings).toContain("only exact translation-memory matches are reused");
+    expect(warnings).toContain("The monthly AI budget is 0");
+    expect(w.get("[data-testid=fill-status]").text()).toBe("Nothing to fill: every message in scope has a translation.");
+  });
+});

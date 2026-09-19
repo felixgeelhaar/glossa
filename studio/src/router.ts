@@ -27,6 +27,7 @@ export const routes: RouteRecordRaw[] = [
         children: [
           { path: "", name: "project", redirect: (to) => ({ name: "translate", params: to.params }) },
           { path: "translate", name: "translate", component: () => import("./views/project/WorkspaceView.vue"), meta: { title: "Translate" } },
+          { path: "review", name: "review", component: () => import("./views/project/ReviewQueueView.vue"), meta: { title: "Review queue" } },
           { path: "locales", name: "locales", component: () => import("./views/project/LocalesView.vue"), meta: { title: "Locales" } },
           { path: "settings", name: "settings", component: () => import("./views/project/SettingsView.vue"), meta: { title: "Settings" } },
           { path: "releases", name: "releases", component: () => import("./views/project/ReleasesView.vue"), meta: { title: "Releases" } },

@@ -5,7 +5,26 @@
  */
 import { onBeforeUnmount, onMounted } from "vue";
 
-export type ShortcutId = "help" | "search" | "next" | "prev" | "edit" | "leave" | "save" | "saveApprove" | "publish";
+export type ShortcutId =
+  | "help"
+  | "search"
+  | "next"
+  | "prev"
+  | "edit"
+  | "leave"
+  | "save"
+  | "saveApprove"
+  | "insertMatch"
+  | "editSuggestion"
+  | "acceptSuggestion"
+  | "queueNext"
+  | "queuePrev"
+  | "queueAccept"
+  | "queueEdit"
+  | "queueReject"
+  | "queueAcceptEdit"
+  | "queueCancelEdit"
+  | "publish";
 
 export interface Shortcut {
   id: ShortcutId;
@@ -13,7 +32,7 @@ export interface Shortcut {
   keys: string[];
   description: string;
   /** Where it applies. */
-  context: "Everywhere" | "Translator workspace" | "Translation editor" | "Releases";
+  context: "Everywhere" | "Translator workspace" | "Translation editor" | "Review queue" | "Releases";
   /** Fires while focus is in a text field (only chords with a modifier or Escape do). */
   inText: boolean;
   match: (e: KeyboardEvent) => boolean;
@@ -21,6 +40,15 @@ export interface Shortcut {
 
 const mod = (e: KeyboardEvent) => e.metaKey || e.ctrlKey;
 const plain = (e: KeyboardEvent) => !e.metaKey && !e.ctrlKey && !e.altKey;
+/** Mod+Alt, but not AltGr (which Windows reports as Ctrl+Alt and which types `{`, `@`, … on many layouts). */
+const modAlt = (e: KeyboardEvent) => mod(e) && e.altKey && !e.shiftKey && !e.getModifierState?.("AltGraph");
+const letter = (e: KeyboardEvent, k: string) => e.key === k && plain(e) && !e.shiftKey;
+
+/** Which translation-memory match (1–9) a Mod+Alt+digit chord inserts; by physical key, so any layout works. */
+export function matchNumber(e: KeyboardEvent): number | undefined {
+  const m = /^Digit([1-9])$/.exec(e.code);
+  return m ? Number(m[1]) : undefined;
+}
 
 export const SHORTCUTS: readonly Shortcut[] = [
   {
@@ -57,6 +85,46 @@ export const SHORTCUTS: readonly Shortcut[] = [
     inText: true, match: (e) => e.key === "Enter" && mod(e) && e.shiftKey && !e.altKey,
   },
   {
+    id: "insertMatch", keys: ["Mod", "Alt", "1–9"], description: "Insert translation-memory match 1–9", context: "Translation editor",
+    inText: true, match: (e) => modAlt(e) && matchNumber(e) !== undefined,
+  },
+  {
+    id: "editSuggestion", keys: ["Mod", "Alt", "0"], description: "Edit the AI suggestion, then accept it", context: "Translation editor",
+    inText: true, match: (e) => modAlt(e) && e.code === "Digit0",
+  },
+  {
+    id: "acceptSuggestion", keys: ["Mod", "Alt", "Enter"], description: "Accept the AI suggestion as it is", context: "Translation editor",
+    inText: true, match: (e) => e.key === "Enter" && modAlt(e),
+  },
+  {
+    id: "queueNext", keys: ["j"], description: "Next suggestion", context: "Review queue", inText: false,
+    match: (e) => letter(e, "j"),
+  },
+  {
+    id: "queuePrev", keys: ["k"], description: "Previous suggestion", context: "Review queue", inText: false,
+    match: (e) => letter(e, "k"),
+  },
+  {
+    id: "queueAccept", keys: ["a"], description: "Accept the suggestion", context: "Review queue", inText: false,
+    match: (e) => letter(e, "a"),
+  },
+  {
+    id: "queueEdit", keys: ["e"], description: "Edit the suggestion before accepting it", context: "Review queue", inText: false,
+    match: (e) => letter(e, "e"),
+  },
+  {
+    id: "queueReject", keys: ["r"], description: "Reject the suggestion", context: "Review queue", inText: false,
+    match: (e) => letter(e, "r"),
+  },
+  {
+    id: "queueAcceptEdit", keys: ["Mod", "Enter"], description: "Accept your edit", context: "Review queue", inText: true,
+    match: (e) => e.key === "Enter" && mod(e) && !e.shiftKey && !e.altKey,
+  },
+  {
+    id: "queueCancelEdit", keys: ["Esc"], description: "Cancel the edit", context: "Review queue", inText: true,
+    match: (e) => e.key === "Escape" && plain(e),
+  },
+  {
     id: "publish", keys: ["p"], description: "Publish a release", context: "Releases", inText: false,
     match: (e) => e.key === "p" && plain(e) && !e.shiftKey,
   },
@@ -68,8 +136,14 @@ export const isApple = (): boolean => /Mac|iPhone|iPad/.test(globalThis.navigato
 export function keyLabel(key: string, apple = isApple()): string {
   if (key === "Mod") return apple ? "⌘" : "Ctrl";
   if (key === "Shift") return apple ? "⇧" : "Shift";
+  if (key === "Alt") return apple ? "⌥" : "Alt";
   if (key === "Enter") return apple ? "↵ Return" : "Enter";
   return key;
+}
+
+/** Key caps as `aria-keyshortcuts` wants them ("Meta+Alt+1", "Control+Enter"). */
+export function ariaKeys(keys: readonly string[], apple = isApple()): string {
+  return keys.map((k) => (k === "Mod" ? (apple ? "Meta" : "Control") : k === "Esc" ? "Escape" : k)).join("+");
 }
 
 /** Is focus somewhere that takes text? */

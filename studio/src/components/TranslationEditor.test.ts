@@ -241,4 +241,47 @@ describe("TranslationEditor", () => {
     expect(w.find("ins").text()).toBe("Hello,");
     w.unmount();
   });
+
+  it("highlights recognized terms in the source and lists terminology findings on the draft", async () => {
+    api.get.mockResolvedValue(null);
+    const term = { id: "t1", locale: "en", text: "Hello", status: "preferred" as const, case_sensitive: false };
+    const w = mount(TranslationEditor, {
+      props: {
+        tenant: "t",
+        project,
+        message,
+        locale: de,
+        source: en,
+        grant: grantFor({ roles: ["owner"], locales: [] }),
+        termHits: { analyzed_text: "Hello, ￼!", hits: [{ concept_id: "c1", definition: "A greeting", term, start: 0, end: 5, text: "Hello" }] },
+        termFindings: [
+          { code: "term_forbidden" as const, severity: "error" as const, concept_id: "c1", term_id: "t2", side: "target" as const, start: 0, end: 4, text: "Moin", suggestions: ["Hallo"], message: "x" },
+        ],
+      },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    const mark = w.get("[data-testid=term-highlight]");
+    expect(mark.text()).toBe("Hello");
+    expect(mark.attributes("title")).toBe("A greeting");
+    expect(w.get("[data-testid=source-text]").text()).toBe("Hello, {name}!");
+    const findings = w.get("[data-testid=term-findings]");
+    expect(findings.text()).toContain("“Moin” is a term to avoid here.");
+    expect(findings.text()).toContain("Use: Hallo");
+    expect(w.get("textarea").attributes("aria-describedby")).toContain("term-findings");
+    w.unmount();
+  });
+
+  it("takes a TM match or suggestion as MF2 and reports the draft as it changes", async () => {
+    api.get.mockResolvedValue({ value: translation(), etag: '"e1"' });
+    const w = mountEditor();
+    await flushPromises();
+    (w.vm as unknown as { setDraft: (t: string, s: "mf2") => void }).setDraft("Hallo {$name}!", "mf2");
+    await flushPromises();
+    expect((w.get("textarea").element as HTMLTextAreaElement).value).toBe("Hallo {$name}!");
+    expect((w.get("#target-syntax").element as HTMLSelectElement).value).toBe("mf2");
+    expect(document.activeElement).toBe(w.get("textarea").element);
+    expect(w.emitted("draft")!.at(-1)).toEqual([{ text: "Hallo {$name}!", syntax: "mf2" }]);
+    w.unmount();
+  });
 });

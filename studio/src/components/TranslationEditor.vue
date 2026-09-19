@@ -5,6 +5,7 @@
  * server, review actions and the revision history.
  */
 import type { Message as MF2 } from "@glossa/messageformat";
+import type { TermFinding, TermRecognition } from "../api/knowledge-schemas";
 import { computed, onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } from "vue";
 import { messages as messagesApi, preview as previewApi, translations } from "../api/endpoints";
 import { ApiError, isApiError } from "../api/errors";
@@ -22,6 +23,7 @@ import type {
 } from "../api/schemas";
 import { loadFormatter, MF1_PREVIEW_DELAY_MS, MF1_PREVIEW_RETRY_MS, parseMF2 } from "../lib/preview";
 import { reviewActions, stateTone } from "../lib/review";
+import { highlight } from "../lib/terms";
 import { keyLabel } from "../lib/shortcuts";
 import { allowsFor, type Grant } from "../session/permissions";
 import { problemText, strings } from "../strings";
@@ -29,6 +31,7 @@ import HistoryList from "./HistoryList.vue";
 import PreviewPanel from "./PreviewPanel.vue";
 import QaFindings from "./QaFindings.vue";
 import SourceDiff from "./SourceDiff.vue";
+import TermFindings from "./knowledge/TermFindings.vue";
 
 const props = defineProps<{
   tenant: string;
@@ -38,8 +41,12 @@ const props = defineProps<{
   source: ProjectLocale;
   grant: Grant;
   selfId?: string | undefined;
+  /** Termbase terms recognized in the source, highlighted inline. */
+  termHits?: TermRecognition | undefined;
+  /** Live terminology findings on the draft (from the workspace's debounced check). */
+  termFindings?: TermFinding[] | undefined;
 }>();
-const emit = defineEmits<{ changed: [translation: Translation] }>();
+const emit = defineEmits<{ changed: [translation: Translation]; draft: [draft: { text: string; syntax: Syntax }] }>();
 const s = strings.workspace;
 
 const path = computed(() => ({ tenant: props.tenant, project: props.project.id, message: props.message.key, locale: props.locale.code }));
@@ -64,6 +71,15 @@ const showDiff = ref(false);
 const area = useTemplateRef<HTMLTextAreaElement>("area");
 
 const dirty = computed(() => draft.value !== (translation.value?.text ?? ""));
+watch([draft, syntax], ([text, syn]) => emit("draft", { text, syntax: syn }), { immediate: true });
+
+/** The source with recognized terms marked. */
+const sourceSegments = computed(() =>
+  props.termHits?.hits.length
+    ? highlight(props.message.source.text, props.termHits.analyzed_text, props.termHits.hits)
+    : [{ text: props.message.source.text }],
+);
+const targetTermFindings = computed(() => (props.termFindings ?? []).filter((f) => f.side === "target" || f.code === "term_missing"));
 
 let loadSeq = 0;
 async function load(): Promise<void> {
@@ -274,7 +290,13 @@ const previewNotice = computed(() => {
 
 const actions = computed(() => reviewActions(translation.value?.state, canWrite.value, canReview.value));
 const errorIds = computed(() =>
-  [findings.value.length ? "qa-errors" : "", parseError.value ? "parse-error" : "", liveErrors.value.length ? "preview-errors" : "", "target-hint"]
+  [
+    findings.value.length ? "qa-errors" : "",
+    parseError.value ? "parse-error" : "",
+    liveErrors.value.length ? "preview-errors" : "",
+    targetTermFindings.value.length ? "term-findings" : "",
+    "target-hint",
+  ]
     .filter(Boolean)
     .join(" "),
 );
@@ -300,7 +322,20 @@ function focusEditor(): void {
 function blurEditor(): void {
   area.value?.blur();
 }
-defineExpose({ save, focusEditor, blurEditor, isEditing: () => document.activeElement === area.value });
+/** Replace the draft (a TM match or an AI suggestion, both MF2) and put focus in the editor. */
+function setDraft(text: string, as: Syntax): void {
+  if (!canWrite.value) return;
+  tab.value = "editor";
+  syntax.value = as;
+  draft.value = text;
+  area.value?.focus();
+}
+/** Reload after the translation changed elsewhere (an accepted suggestion). */
+async function reload(): Promise<void> {
+  await load();
+  if (translation.value) emit("changed", translation.value);
+}
+defineExpose({ save, focusEditor, blurEditor, setDraft, reload, isEditing: () => document.activeElement === area.value });
 </script>
 
 <template>
@@ -326,7 +361,7 @@ defineExpose({ save, focusEditor, blurEditor, isEditing: () => document.activeEl
 
       <section class="stack-sm" aria-labelledby="source-h">
         <h3 id="source-h">{{ s.source }} <span class="muted mono">{{ source.code }}</span></h3>
-        <p class="source-text" :lang="source.code" :dir="source.direction">{{ message.source.text }}</p>
+        <p class="source-text" :lang="source.code" :dir="source.direction" data-testid="source-text"><template v-for="(seg, i) in sourceSegments" :key="i"><mark v-if="seg.hit" class="term" :class="`term-${seg.hit.term.status}`" :title="seg.hit.definition || undefined" data-testid="term-highlight">{{ seg.text }}</mark><template v-else>{{ seg.text }}</template></template></p>
         <ul class="chips" :aria-label="s.arguments">
           <li v-for="a in message.source.arguments" :key="a.name" class="chip">
             <code>${{ a.name }}</code>
@@ -406,6 +441,7 @@ defineExpose({ save, focusEditor, blurEditor, isEditing: () => document.activeEl
             <li v-for="(e, i) in liveErrors" :key="i"><code>{{ e.code }}</code> {{ e.message }}</li>
           </ul>
         </div>
+        <TermFindings v-if="targetTermFindings.length" id="term-findings" :findings="targetTermFindings" />
         <QaFindings v-if="translation?.warnings.length && !dirty" id="qa-warnings" :title="s.qaWarnings" :findings="translation.warnings" tone="warn" />
 
         <div class="row actions">
@@ -530,6 +566,13 @@ defineExpose({ save, focusEditor, blurEditor, isEditing: () => document.activeEl
 }
 .canonical summary {
   cursor: pointer;
+}
+.term {
+  background: var(--kl-accent-dim);
+  color: inherit;
+  border-block-end: 2px solid var(--kl-accent);
+  border-radius: 2px;
+  padding-inline: 1px;
 }
 .target-text {
   inline-size: 100%;

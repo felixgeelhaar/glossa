@@ -8,14 +8,18 @@
 import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { messages as messagesApi, translations as translationsApi, type MessageFilters } from "../../api/endpoints";
-import type { LocaleStats, Message, Translation } from "../../api/schemas";
+import type { LocaleStats, Message, Syntax, Translation } from "../../api/schemas";
+import AssistPanel from "../../components/assist/AssistPanel.vue";
+import FillDialog from "../../components/assist/FillDialog.vue";
+import { useTerminology } from "../../components/assist/useTerminology";
 import ErrorAlert from "../../components/ErrorAlert.vue";
 import MessageList from "../../components/MessageList.vue";
 import TranslationEditor from "../../components/TranslationEditor.vue";
 import { localeName } from "../../lib/bcp47";
 import { getPref, setPref } from "../../lib/prefs";
-import { useShortcuts } from "../../lib/shortcuts";
+import { matchNumber, useShortcuts } from "../../lib/shortcuts";
 import { coverageOf, matches, namespacesOf, statusOf, type Coverage, type CoverageFilter, type MessageRow } from "../../lib/workspace";
+import { allowsFor } from "../../session/permissions";
 import { useSession } from "../../session/session";
 import { strings } from "../../strings";
 import { useProject } from "./context";
@@ -184,6 +188,33 @@ function onChanged(t: Translation): void {
     .catch(() => undefined);
 }
 
+// ── knowledge & AI ──────────────────────────────────────────────────
+const draft = ref<{ text: string; syntax: Syntax }>({ text: "", syntax: "mf1" });
+const terminology = useTerminology({
+  tenant,
+  projectId,
+  message: selected,
+  sourceLocale: computed(() => source.value?.code),
+  targetLocale: localeCode,
+  draft,
+});
+const assist = useTemplateRef<InstanceType<typeof AssistPanel>>("assist");
+const canFill = computed(() => !!localeCode.value && allowsFor(grant.value, "intelligence.translate", localeCode.value));
+const fillOpen = ref(false);
+/** A search narrows the fill to the keys it shows (the server takes at most 500). */
+const fillKeys = computed(() => (search.value.trim() ? visible.value.slice(0, 500).map((m) => m.key) : undefined));
+
+function insert(text: string): void {
+  editor.value?.setDraft(text, "mf2");
+}
+function onAccepted(): void {
+  void editor.value?.reload();
+}
+function onFillSettled(): void {
+  void loadStatus();
+  assist.value?.refresh();
+}
+
 // ── keyboard ────────────────────────────────────────────────────────
 const list = useTemplateRef<InstanceType<typeof MessageList>>("list");
 const editor = useTemplateRef<InstanceType<typeof TranslationEditor>>("editor");
@@ -207,6 +238,13 @@ useShortcuts({
   },
   save: () => void editor.value?.save(false),
   saveApprove: () => void editor.value?.save(true),
+  insertMatch: (e) => {
+    const text = assist.value?.matchTarget(matchNumber(e) ?? 0);
+    if (text === undefined) return false;
+    insert(text);
+  },
+  editSuggestion: () => void assist.value?.editSuggestion(),
+  acceptSuggestion: () => void assist.value?.acceptSuggestion(),
 });
 
 function onSearchKey(e: KeyboardEvent): void {
@@ -272,6 +310,10 @@ function onSearchKey(e: KeyboardEvent): void {
         <p v-if="localeStats" class="count" data-testid="locale-stats">
           {{ s.localeStats(localeStats.code, localeStats.translated, localeStats.translated + localeStats.missing, localeStats.outdated, localeStats.states.needs_review) }}
         </p>
+        <div v-if="canFill" class="row">
+          <button type="button" class="btn btn-sm" @click="fillOpen = true">{{ strings.fill.button }}</button>
+          <RouterLink class="hint" :to="{ name: 'review', params: { tenant, project: projectId }, query: localeCode ? { locale: localeCode } : {} }">{{ strings.fill.queueLink }}</RouterLink>
+        </div>
       </div>
       <ErrorAlert :error="loadError" />
       <MessageList
@@ -289,22 +331,57 @@ function onSearchKey(e: KeyboardEvent): void {
       <p v-else class="empty muted">{{ strings.app.loading }}</p>
     </aside>
 
-    <section class="main" :aria-label="s.target">
-      <TranslationEditor
-        v-if="selected && target && source && project"
-        ref="editor"
-        :key="`${selected.key}:${target.code}`"
-        :tenant="tenant"
-        :project="project"
-        :message="selected"
-        :locale="target"
-        :source="source"
-        :grant="grant"
-        :self-id="person?.id"
-        @changed="onChanged"
-      />
-      <p v-else class="page muted">{{ s.selectMessage }}</p>
-    </section>
+    <div class="work">
+      <section class="main" :aria-label="s.target">
+        <TranslationEditor
+          v-if="selected && target && source && project"
+          ref="editor"
+          :key="`${selected.key}:${target.code}`"
+          :tenant="tenant"
+          :project="project"
+          :message="selected"
+          :locale="target"
+          :source="source"
+          :grant="grant"
+          :self-id="person?.id"
+          :term-hits="terminology.recognition.value"
+          :term-findings="terminology.findings.value"
+          @changed="onChanged"
+          @draft="draft = $event"
+        />
+        <p v-else class="page muted">{{ s.selectMessage }}</p>
+      </section>
+      <aside v-if="selected && target && source" class="assist-col" :aria-label="strings.assist.label">
+        <AssistPanel
+          ref="assist"
+          :tenant="tenant"
+          :project-id="projectId"
+          :message="selected"
+          :source="source"
+          :target="target"
+          :grant="grant"
+          :recognition="terminology.recognition.value"
+          :recognition-error="terminology.recognitionError.value"
+          :findings="terminology.findings.value"
+          :check-state="terminology.checkState.value"
+          :has-draft="draft.text.trim() !== ''"
+          @insert="insert"
+          @accepted="onAccepted"
+        />
+      </aside>
+    </div>
+    <FillDialog
+      v-if="localeCode"
+      :open="fillOpen"
+      :tenant="tenant"
+      :project-id="projectId"
+      :locale="localeCode"
+      :namespace="namespace || undefined"
+      :outdated="coverage === 'outdated'"
+      :keys="fillKeys"
+      @close="fillOpen = false"
+      @settled="onFillSettled"
+    />
   </div>
 </template>
 
@@ -353,9 +430,37 @@ function onSearchKey(e: KeyboardEvent): void {
 .empty {
   padding: var(--kl-space-4);
 }
+.work {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  grid-template-rows: minmax(0, 1fr);
+  min-block-size: 0;
+  min-inline-size: 0;
+}
 .main {
   overflow-y: auto;
   min-block-size: 0;
+}
+.assist-col {
+  overflow-y: auto;
+  min-block-size: 0;
+  border-inline-start: 1px solid var(--kl-border);
+  background: var(--kl-surface-raised);
+}
+@media (max-width: 80rem) {
+  /* Narrower: the knowledge panes follow the editor in one scrolling column. */
+  .work {
+    display: block;
+    overflow-y: auto;
+  }
+  .main {
+    overflow-y: visible;
+  }
+  .assist-col {
+    overflow-y: visible;
+    border-inline-start: none;
+    border-block-start: 1px solid var(--kl-border);
+  }
 }
 @media (max-width: 60rem) {
   .workspace {
