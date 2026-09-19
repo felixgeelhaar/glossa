@@ -176,11 +176,11 @@ INSERT INTO intelligence_jobs (
 ) VALUES (
     $1, app_current_tenant(), $2, $3, $4,
     $5, $6, $7, $8,
-    $9, $10, 'queued', 0, $11, $12,
-    $13, $12, $12
+    $9, $10, 'queued', 0, $11, now(),
+    $12, $13, $13
 )
 ON CONFLICT (tenant_id, message_id, locale, source_revision, knowledge_fingerprint) DO UPDATE
-SET state = 'queued', attempts = 0, available_at = excluded.available_at, failure_code = NULL,
+SET state = 'queued', attempts = 0, available_at = now(), failure_code = NULL,
     last_error = NULL, claim_token = NULL, fill_id = excluded.fill_id, trigger = excluded.trigger,
     finished_at = NULL, updated_at = excluded.updated_at
 WHERE $14::boolean AND intelligence_jobs.state IN ('failed', 'dead', 'cancelled')
@@ -199,8 +199,8 @@ type EnqueueJobParams struct {
 	Trigger              string
 	FillID               uuid.NullUUID
 	MaxAttempts          int32
-	CreatedAt            time.Time
 	CreatedBy            string
+	CreatedAt            time.Time
 	Requeue              bool
 }
 
@@ -222,8 +222,8 @@ func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (uuid.UU
 		arg.Trigger,
 		arg.FillID,
 		arg.MaxAttempts,
-		arg.CreatedAt,
 		arg.CreatedBy,
+		arg.CreatedAt,
 		arg.Requeue,
 	)
 	var id uuid.UUID
@@ -620,23 +620,23 @@ func (q *Queries) QueueDepth(ctx context.Context) ([]QueueDepthRow, error) {
 
 const retryJob = `-- name: RetryJob :exec
 UPDATE intelligence_jobs
-SET state = 'queued', available_at = $1, failure_code = $2,
+SET state = 'queued', available_at = now() + make_interval(secs => $1::float8), failure_code = $2,
     last_error = $3, audit = $4, claim_token = NULL, updated_at = $5
 WHERE id = $6
 `
 
 type RetryJobParams struct {
-	AvailableAt time.Time
-	FailureCode pgtype.Text
-	LastError   pgtype.Text
-	Audit       []byte
-	Now         time.Time
-	ID          uuid.UUID
+	DelaySeconds float64
+	FailureCode  pgtype.Text
+	LastError    pgtype.Text
+	Audit        []byte
+	Now          time.Time
+	ID           uuid.UUID
 }
 
 func (q *Queries) RetryJob(ctx context.Context, arg RetryJobParams) error {
 	_, err := q.db.Exec(ctx, retryJob,
-		arg.AvailableAt,
+		arg.DelaySeconds,
 		arg.FailureCode,
 		arg.LastError,
 		arg.Audit,

@@ -30,11 +30,11 @@ INSERT INTO intelligence_jobs (
 ) VALUES (
     sqlc.arg(id), app_current_tenant(), sqlc.arg(project_id), sqlc.arg(message_id), sqlc.arg(message_key),
     sqlc.arg(namespace), sqlc.arg(locale), sqlc.arg(source_revision), sqlc.arg(knowledge_fingerprint),
-    sqlc.arg(trigger), sqlc.narg(fill_id), 'queued', 0, sqlc.arg(max_attempts), sqlc.arg(created_at),
+    sqlc.arg(trigger), sqlc.narg(fill_id), 'queued', 0, sqlc.arg(max_attempts), now(),
     sqlc.arg(created_by), sqlc.arg(created_at), sqlc.arg(created_at)
 )
 ON CONFLICT (tenant_id, message_id, locale, source_revision, knowledge_fingerprint) DO UPDATE
-SET state = 'queued', attempts = 0, available_at = excluded.available_at, failure_code = NULL,
+SET state = 'queued', attempts = 0, available_at = now(), failure_code = NULL,
     last_error = NULL, claim_token = NULL, fill_id = excluded.fill_id, trigger = excluded.trigger,
     finished_at = NULL, updated_at = excluded.updated_at
 WHERE sqlc.arg(requeue)::boolean AND intelligence_jobs.state IN ('failed', 'dead', 'cancelled')
@@ -87,7 +87,7 @@ WHERE id = sqlc.arg(id);
 
 -- name: RetryJob :exec
 UPDATE intelligence_jobs
-SET state = 'queued', available_at = sqlc.arg(available_at), failure_code = sqlc.narg(failure_code),
+SET state = 'queued', available_at = now() + make_interval(secs => sqlc.arg(delay_seconds)::float8), failure_code = sqlc.narg(failure_code),
     last_error = sqlc.narg(last_error), audit = sqlc.narg(audit), claim_token = NULL, updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id);
 

@@ -506,8 +506,10 @@ func (s *store) FinishJob(ctx context.Context, o app.JobOutcome) error {
 }
 
 func (s *store) RetryJob(ctx context.Context, id uuid.UUID, at time.Time, o app.JobOutcome) error {
+	// The delay runs on the database's clock, which claims compare with.
 	return s.q.RetryJob(ctx, intelligencesql.RetryJobParams{
-		AvailableAt: at, FailureCode: text(o.FailureCode), LastError: text(o.LastError), Audit: o.Audit, Now: o.At, ID: id,
+		DelaySeconds: max(at.Sub(o.At).Seconds(), 0), FailureCode: text(o.FailureCode), LastError: text(o.LastError),
+		Audit: o.Audit, Now: o.At, ID: id,
 	})
 }
 
