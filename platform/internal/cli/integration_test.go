@@ -251,11 +251,12 @@ func (r runner) run(want cli.ExitCode, out any, args ...string) string {
 // push and import changes nothing. Then the release half, on MinIO:
 // publish → pull --release → the Go runtime loads the bundle offline →
 // promote → rollback → delivery keys. Then M2's knowledge and AI loop
-// (knowledgeLoop).
+// (knowledgeLoop), and import/export jobs (interchangeLoop).
 func TestCLIAgainstGlossaServer(t *testing.T) {
 	vars := objectStorage(t)
 	vars["GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS"] = "true" // the fake provider listens on loopback
 	vars["GLOSSA_AI_POLL_INTERVAL"] = "100ms"
+	vars["GLOSSA_INTEGRATION_POLL_INTERVAL"] = "100ms"
 	s := startServer(t, vars)
 	cookie, csrf := s.signIn("ada@example.com")
 	var org struct{ ID string }
@@ -393,6 +394,7 @@ func TestCLIAgainstGlossaServer(t *testing.T) {
 
 	releaseLoop(t, r)
 	knowledgeLoop(t, r, s, session{cookie: cookie, csrf: csrf}, base, project.ID)
+	interchangeLoop(t, r)
 }
 
 // objectStorage starts MinIO with a bucket and returns glossa-server's
