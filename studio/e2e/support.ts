@@ -59,5 +59,8 @@ export async function api(page: Page) {
     get: async (path: string) => check(await page.request.get(path)),
     post: async (path: string, data: unknown, extra: Record<string, string> = {}) => check(await page.request.post(path, { headers: { ...headers, ...extra }, data })),
     put: async (path: string, data: unknown) => check(await page.request.put(path, { headers, data })),
+    /** A multipart upload, as CI sends captures: the manifest part first, then one part per image. */
+    postMultipart: async (path: string, multipart: Record<string, string | { name: string; mimeType: string; buffer: Buffer }>) =>
+      check(await page.request.post(path, { headers, multipart })),
   };
 }

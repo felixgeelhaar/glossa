@@ -91,7 +91,14 @@ there passes through untouched.
   Rows show *Missing* / *Outdated* for the target locale, from one bulk
   listing of its translations (`GET …/translations?locale=…`, by message
   ID); the coverage filter and a summary line show the locale's counts
-  from `GET …/translation-stats`.
+  from `GET …/translation-stats`. *Where it appears* adds filters by
+  route, component and file (the project's current builds offer the
+  choices), and by `unused` and `not captured`; *New on a branch* is the
+  `proposed` state until the branch switcher lands. Every filter lives in
+  the URL. Route, component and file are resolved by the server
+  (`GET …/usages`) and `unused` by `GET …/unused-messages`; `not
+  captured` has no endpoint yet, so Studio asks per message with a usage,
+  at most 500 of them, and says how far it looked.
 - **Editor**: the developers' context, the source with argument chips from
   its derived metadata (type, selector kind and keys) and markup, the
   canonical MF2 on request, and the target editor with `lang`/`dir` of the
@@ -116,6 +123,21 @@ there passes through untouched.
 - **Review**: approve, reject and request review, offered only when the
   member's roles and locale scope allow it (mirrored from Identity's role
   matrix; the server decides). `⌘⇧Enter` saves and approves in one step.
+- **Where it appears** (RFC 0004 §3.4): a pane beside translation memory
+  and terms. The usages of the message grouped application → route →
+  component, each with `file:line` — plain text until a Git connection
+  makes them `blob/<commit>/<file>#L<line>` links (RFC 0004 §6) — and the
+  screenshots that show it, cropped around the message with its
+  surroundings dimmed, a select between the locales a screen was captured
+  in (the target's leads), and a full-page lightbox on the native
+  `<dialog>`. Regions are CSS-pixel boxes on the full-page image, so the
+  crop is placed in percentages and scales with the pane. Images come
+  from the API on Studio's own origin (`…/captures/{capture}/image`), so
+  the session cookie travels with them, they cache for a year, and no
+  `blob:` URL is needed — the CSP allows none. Three empty states say
+  different things: *no usage data yet* (nothing was uploaded; it names
+  `glossa extract --upload`, the bundler plugin and `glossa capture
+  --upload`), *unused* and *not captured*.
 - **History**: every revision with kind, state, origin, `origin_detail`,
   author and the source revision it was made against.
 
@@ -234,7 +256,10 @@ are in `src/styles/studio.css`.
   `src/test/fake-intelligence.ts` (term recognition and terminology QA in
   miniature, write-only provider keys, version-0 settings, fills that
   settle into given suggestions, a risk-ordered queue, decided suggestions
-  that can't be decided twice).
+  that can't be decided twice). "Where it appears" and the context
+  filters run on `src/test/fake-context.ts` (a message's usages and
+  captures from the current builds, unused messages, coverage counts),
+  with the crop geometry checked on its own in `src/lib/context.test.ts`.
 - **The overlay Studio serves** (`build/overlay.test.ts`): a real `vite build`
   with the delivery plugin writes `/overlay/v1/overlay.js` and an
   `overlay.json` whose `integrity` is the hash of exactly those bytes.
@@ -288,6 +313,16 @@ are in `src/styles/studio.css`.
   screen (results with `tu[1]` and its line) and exports and downloads
   the whole memory. Axe runs on the list, the wizard, the results, the
   export dialog and the workspace screen.
+
+  The context test (`e2e/context.spec.ts`) uploads a usages document and
+  then a capture upload — a real multipart body with PNGs generated in
+  the test (`e2e/png.ts`), which the server validates, re-encodes and
+  stores — for a seeded project, and reads them back in the workspace:
+  the usages grouped by application, route and component, the cropped
+  screenshot with the message outlined, the locale toggle, the full-page
+  lightbox (closed with Escape), *unused* and *not captured*, and the
+  message-list filters. Axe runs on the pane, the lightbox and the
+  filters, light and dark.
 
   **No real AI provider is ever called.** The harness starts
   `e2e/fake-provider.ts`, an OpenAI-compatible `/chat/completions`

@@ -183,6 +183,10 @@ onBeforeUnmount(() => {
 });
 
 const context = useContextFilter({ tenant, projectId, filter: contextFilter });
+/** Whether anything narrows the list: an empty list then means "nothing matches", not "no messages". */
+const narrowed = computed(
+  () => !!search.value.trim() || !!namespace.value || coverage.value !== "all" || state.value !== "active" || isContextFiltered(contextFilter.value),
+);
 /** A context filter is on, but which messages it allows isn't known yet. */
 const contextPending = computed(() => isContextFiltered(contextFilter.value) && context.allowed.value === undefined);
 const visible = computed(() =>
@@ -376,7 +380,7 @@ function onSearchKey(e: KeyboardEvent): void {
         @select="select"
       />
       <p v-else-if="contextPending" class="empty muted">{{ strings.app.loading }}</p>
-      <p v-else-if="done" class="empty muted">{{ loaded.length ? s.empty : s.noMessages }}</p>
+      <p v-else-if="done" class="empty muted">{{ loaded.length || narrowed ? s.empty : s.noMessages }}</p>
       <p v-else class="empty muted">{{ strings.app.loading }}</p>
     </aside>
 
