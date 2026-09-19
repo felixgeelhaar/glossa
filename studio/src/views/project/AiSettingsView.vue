@@ -75,10 +75,19 @@ async function change(run: () => Promise<void>, done: string, reload: () => Prom
   }
 }
 
+/**
+ * Every write carries the ETag it was based on — `"0"` for settings nobody
+ * saved yet, which the server takes as "only while still unsaved". A
+ * change before its settings have loaded (no ETag yet) is refused here.
+ */
+const etagOf = (v: Versioned<unknown> | undefined): string => {
+  if (!v?.etag) throw new Error(s.notLoaded);
+  return v.etag;
+};
 const updateSettings = (body: SettingsUpdate, done: string) =>
   change(
     async () => {
-      settings.value = await port.updateSettings(tenant.value, body, settings.value?.etag);
+      settings.value = await port.updateSettings(tenant.value, body, etagOf(settings.value));
       budget.value = await port.budget(tenant.value);
     },
     done,
@@ -89,7 +98,7 @@ const saveBudget = (u: { monthly_budget_micro_usd: number; max_concurrent_jobs: 
 const savePrices = (overrides: Record<string, AIPrice>) =>
   change(
     async () => {
-      prices.value = await port.putPrices(tenant.value, overrides, prices.value?.etag);
+      prices.value = await port.putPrices(tenant.value, overrides, etagOf(prices.value));
       // Prices and settings share a version.
       settings.value = await port.settings(tenant.value);
     },
@@ -99,7 +108,7 @@ const savePrices = (overrides: Record<string, AIPrice>) =>
 const saveProject = (body: ProjectSettingsUpdate) =>
   change(
     async () => {
-      project.value = await port.updateProjectSettings(p(), body, project.value?.etag);
+      project.value = await port.updateProjectSettings(p(), body, etagOf(project.value));
     },
     s.projectSaved,
     loadProject,

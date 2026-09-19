@@ -1,10 +1,13 @@
 /**
  * An in-memory IntelligencePort for component tests, with Intelligence's
  * rules in miniature: keys are write-only (only `api_key_set` comes
- * back), settings start at version 0 with consent off, a fill queues a
- * job per message listed in `pending` and settles them on `settle()`
- * into the suggestions given, the review queue is pending suggestions by
- * score then risk tags, and a decided suggestion can't be decided again.
+ * back), settings and routing policies start at version 0 (ETag "0",
+ * which writes them only while still unsaved) with consent off, a
+ * project's routing policy answers its own ETag while it inherits the
+ * tenant's, a fill queues a job per message listed in `pending` and
+ * settles them on `settle()` into the suggestions given, the review queue
+ * is pending suggestions by score then risk tags, and a decided suggestion
+ * can't be decided again.
  * Test-only: nothing in the app imports it.
  */
 import { ApiError, type Versioned } from "../api/errors";
@@ -79,8 +82,9 @@ export function createFakeIntelligence(): FakeIntelligence {
   const id = (p: string) => `${p}_${++seq}`;
   const calls: Array<[string, ...unknown[]]> = [];
   const tag = (v: number) => `"${v}"`;
-  const need = (etag: string | undefined, v: number) => {
-    if (etag !== undefined && etag !== tag(v)) throw new ApiError(412, "precondition_failed", "stale");
+  /** Every write names the version it's based on; singletons answer "0" while unsaved. */
+  const need = (etag: string, v: number) => {
+    if (etag !== tag(v)) throw new ApiError(412, "precondition_failed", "stale");
   };
   const state: FakeIntelligence["state"] = {
     providers: [],
@@ -96,6 +100,8 @@ export function createFakeIntelligence(): FakeIntelligence {
     source: "default",
     version: 0,
   };
+  /** The project's own policy, when it has one. */
+  let projectRouting: AIRoutingPolicyView | undefined;
   let fills: AIFill[] = [];
   const suggestionOf = (sid: string) => {
     const s = state.suggestions.find((x) => x.id === sid);
@@ -179,7 +185,7 @@ export function createFakeIntelligence(): FakeIntelligence {
     },
     async updateSettings(_t, body, etag) {
       calls.push(["updateSettings", body, etag]);
-      if (state.settings.version > 0) need(etag, state.settings.version);
+      need(etag, state.settings.version);
       const consentChanged = body.provider_consent !== undefined && body.provider_consent !== state.settings.provider_consent;
       state.settings = {
         ...state.settings,
@@ -195,8 +201,11 @@ export function createFakeIntelligence(): FakeIntelligence {
         etag: tag(state.settings.version),
       };
     },
-    async putPrices(_t, overrides) {
-      calls.push(["putPrices", overrides]);
+    async putPrices(_t, overrides, etag) {
+      calls.push(["putPrices", overrides, etag]);
+      // Prices and settings share a version.
+      need(etag, state.settings.version);
+      state.settings = { ...state.settings, version: state.settings.version + 1 };
       return { value: { defaults: {}, overrides, effective: overrides, version: state.settings.version }, etag: tag(state.settings.version) };
     },
     async budget() {
@@ -217,27 +226,31 @@ export function createFakeIntelligence(): FakeIntelligence {
     async routing() {
       return { value: structuredClone(routing), etag: tag(routing.version) };
     },
-    async putRouting(_t, policy) {
-      calls.push(["putRouting", policy]);
+    async putRouting(_t, policy, etag) {
+      calls.push(["putRouting", policy, etag]);
+      need(etag, routing.version);
       routing = { policy, source: "tenant", version: routing.version + 1 };
       return { value: structuredClone(routing), etag: tag(routing.version) };
     },
     async projectRouting() {
-      return { value: structuredClone(routing), etag: tag(routing.version) };
+      return { value: structuredClone(projectRouting ?? routing), etag: tag(projectRouting?.version ?? 0) };
     },
-    async putProjectRouting(_p, policy) {
-      calls.push(["putProjectRouting", policy]);
-      routing = { policy, source: "project", version: routing.version + 1 };
-      return { value: structuredClone(routing), etag: tag(routing.version) };
+    async putProjectRouting(_p, policy, etag) {
+      calls.push(["putProjectRouting", policy, etag]);
+      need(etag, projectRouting?.version ?? 0);
+      projectRouting = { policy, source: "project", version: (projectRouting?.version ?? 0) + 1 };
+      return { value: structuredClone(projectRouting), etag: tag(projectRouting.version) };
     },
     async deleteProjectRouting() {
       calls.push(["deleteProjectRouting"]);
+      projectRouting = undefined;
     },
     async projectSettings() {
       return { value: structuredClone(state.project), etag: tag(state.project.version) };
     },
     async updateProjectSettings(_p, body, etag) {
       calls.push(["updateProjectSettings", body, etag]);
+      need(etag, state.project.version);
       if (body.review?.auto_approve && !body.review.auto_approve_environments?.length) throw new ApiError(422, "auto_approve_ineligible", "no environments");
       state.project = { ...state.project, ...body, version: state.project.version + 1 } as AIProjectSettings;
       return { value: structuredClone(state.project), etag: tag(state.project.version) };

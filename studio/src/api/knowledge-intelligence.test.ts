@@ -48,13 +48,33 @@ describe("apiKnowledge", () => {
 });
 
 describe("apiIntelligence", () => {
-  it("writes settings never saved (ETag \"0\") without If-Match, and saved ones with it", async () => {
+  it("writes settings with the ETag they were read with, \"0\" while never saved", async () => {
     const fetch = mockFetch(json(200, { ...settings, version: 1 }, { ETag: '"1"' }), json(200, { ...settings, version: 2 }, { ETag: '"2"' }));
     const first = await apiIntelligence.updateSettings("t", { provider_consent: true }, '"0"');
-    expect(fetch.mock.calls[0]![0].headers.get("If-Match")).toBeNull();
-    await apiIntelligence.updateSettings("t", { monthly_budget_micro_usd: 5_000_000 }, first.etag);
+    expect(fetch.mock.calls[0]![0].headers.get("If-Match")).toBe('"0"');
+    await apiIntelligence.updateSettings("t", { monthly_budget_micro_usd: 5_000_000 }, first.etag!);
     expect(fetch.mock.calls[1]![0].headers.get("If-Match")).toBe('"1"');
     expect(await fetch.mock.calls[1]![0].json()).toEqual({ monthly_budget_micro_usd: 5_000_000 });
+  });
+
+  it("sends If-Match \"0\" on every never-saved singleton and surfaces the lost race as 412", async () => {
+    const view = { policy: { rules: [] }, source: "project", version: 1 };
+    const project = { namespace_tags: {}, auto_translate_locales: [], review: { auto_approve: false, auto_approve_min: 0.92, recommend_min: 0.75 }, version: 1 };
+    const lost = json(412, { type: "about:blank", title: "Precondition failed", status: 412, code: "precondition_failed" });
+    const fetch = mockFetch(
+      json(200, { defaults: {}, overrides: {}, effective: {}, version: 1 }, { ETag: '"1"' }),
+      json(200, { ...view, source: "tenant" }, { ETag: '"1"' }),
+      json(200, view, { ETag: '"1"' }),
+      json(200, project, { ETag: '"1"' }),
+      lost,
+    );
+    const p = { tenant: "t", project: "p" };
+    await apiIntelligence.putPrices("t", {}, '"0"');
+    await apiIntelligence.putRouting("t", { rules: [] }, '"0"');
+    await apiIntelligence.putProjectRouting(p, { rules: [] }, '"0"');
+    await apiIntelligence.updateProjectSettings(p, { auto_translate_locales: [] }, '"0"');
+    await expect(apiIntelligence.updateProjectSettings(p, { auto_translate_locales: [] }, '"0"')).rejects.toMatchObject({ status: 412, code: "precondition_failed" });
+    expect(fetch.mock.calls.map((c) => c[0].headers.get("If-Match"))).toEqual(['"0"', '"0"', '"0"', '"0"', '"0"']);
   });
 
   it("accepts an edit as MF2 text, and a plain accept with an empty body", async () => {

@@ -880,6 +880,7 @@ export const strings = {
     formality: "Formality",
     editRatio: "Edit ratio",
     changedElsewhere: "Someone else changed these settings meanwhile. They're reloaded; make your change again.",
+    notLoaded: "These settings haven't loaded yet. Reload the page and try again.",
     percent: (x: number) => `${Math.round(x * 100)}%`,
   },
   integration: {

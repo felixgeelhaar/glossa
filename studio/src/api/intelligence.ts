@@ -58,23 +58,31 @@ export interface IntelligencePort {
   updateProvider(tenant: string, id: string, body: ProviderUpdate, etag: string): Promise<I.AIProvider>;
   deleteProvider(tenant: string, id: string): Promise<void>;
 
+  /**
+   * Settings, prices and routing policies exist with defaults before anyone
+   * saves them, with the ETag `"0"`: writing with it creates them only while
+   * nobody has (else 412, like any stale ETag).
+   */
   settings(tenant: string): Promise<Versioned<I.AISettings>>;
-  updateSettings(tenant: string, body: SettingsUpdate, etag: string | undefined): Promise<Versioned<I.AISettings>>;
+  updateSettings(tenant: string, body: SettingsUpdate, etag: string): Promise<Versioned<I.AISettings>>;
   prices(tenant: string): Promise<Versioned<I.AIPrices>>;
-  putPrices(tenant: string, overrides: PriceOverrides, etag: string | undefined): Promise<Versioned<I.AIPrices>>;
+  putPrices(tenant: string, overrides: PriceOverrides, etag: string): Promise<Versioned<I.AIPrices>>;
   budget(tenant: string): Promise<I.AIBudget>;
   /** Every priced call since `since` (default: this month), newest first. */
   spend(tenant: string, since?: string): Promise<I.AISpendEntry[]>;
 
   /** The tenant's policy in effect (or the default). */
   routing(tenant: string): Promise<Versioned<I.AIRoutingPolicyView>>;
-  putRouting(tenant: string, policy: I.AIRoutingPolicy, etag: string | undefined): Promise<Versioned<I.AIRoutingPolicyView>>;
-  /** The policy in effect for a project: its own, else the tenant's, else the default. */
+  putRouting(tenant: string, policy: I.AIRoutingPolicy, etag: string): Promise<Versioned<I.AIRoutingPolicyView>>;
+  /**
+   * The policy in effect for a project: its own, else the tenant's, else
+   * the default. The ETag is the project's own policy's (`"0"` while it has none).
+   */
   projectRouting(p: ProjectRef): Promise<Versioned<I.AIRoutingPolicyView>>;
-  putProjectRouting(p: ProjectRef, policy: I.AIRoutingPolicy, etag: string | undefined): Promise<Versioned<I.AIRoutingPolicyView>>;
+  putProjectRouting(p: ProjectRef, policy: I.AIRoutingPolicy, etag: string): Promise<Versioned<I.AIRoutingPolicyView>>;
   deleteProjectRouting(p: ProjectRef): Promise<void>;
   projectSettings(p: ProjectRef): Promise<Versioned<I.AIProjectSettings>>;
-  updateProjectSettings(p: ProjectRef, body: ProjectSettingsUpdate, etag: string | undefined): Promise<Versioned<I.AIProjectSettings>>;
+  updateProjectSettings(p: ProjectRef, body: ProjectSettingsUpdate, etag: string): Promise<Versioned<I.AIProjectSettings>>;
 
   createFill(p: ProjectRef, body: FillInput, idempotencyKey: string): Promise<I.AIFill>;
   fill(tenant: string, id: string): Promise<I.AIFill>;
@@ -99,12 +107,8 @@ export interface IntelligencePort {
 
 const value = async <T>(p: Promise<Versioned<T>>): Promise<T> => (await p).value;
 const PAGE = 100;
-/**
- * `If-Match` when there's a version to match. Settings not saved yet
- * come with the ETag `"0"`, which the server issues but doesn't accept
- * back (it parses only versions ≥ 1), so those writes go unconditional.
- */
-const ifMatch = (etag: string | undefined) => (etag && !/^(W\/)?"0"$/.test(etag) ? { "If-Match": etag } : {});
+/** `If-Match` on a decision when the caller has the suggestion's ETag. */
+const ifMatch = (etag: string | undefined) => (etag ? { "If-Match": etag } : {});
 const toPage = <T>(p: { items: T[]; next_page_token?: string | undefined }): Page<T> => ({ items: p.items, next: p.next_page_token });
 
 export const apiIntelligence: IntelligencePort = {
@@ -128,10 +132,10 @@ export const apiIntelligence: IntelligencePort = {
 
   settings: (tenant) => read(client.GET("/v1/tenants/{tenant}/ai-settings", { params: { path: { tenant } } }), I.AISettings),
   updateSettings: (tenant, body, etag) =>
-    read(client.PUT("/v1/tenants/{tenant}/ai-settings", { params: { path: { tenant }, header: ifMatch(etag) }, body }), I.AISettings),
+    read(client.PUT("/v1/tenants/{tenant}/ai-settings", { params: { path: { tenant }, header: { "If-Match": etag } }, body }), I.AISettings),
   prices: (tenant) => read(client.GET("/v1/tenants/{tenant}/ai-prices", { params: { path: { tenant } } }), I.AIPrices),
   putPrices: (tenant, overrides, etag) =>
-    read(client.PUT("/v1/tenants/{tenant}/ai-prices", { params: { path: { tenant }, header: ifMatch(etag) }, body: { overrides } }), I.AIPrices),
+    read(client.PUT("/v1/tenants/{tenant}/ai-prices", { params: { path: { tenant }, header: { "If-Match": etag } }, body: { overrides } }), I.AIPrices),
   budget: (tenant) => value(read(client.GET("/v1/tenants/{tenant}/ai-budget", { params: { path: { tenant } } }), I.AIBudget)),
   spend: (tenant, since) =>
     all((page_token) =>
@@ -145,18 +149,18 @@ export const apiIntelligence: IntelligencePort = {
 
   routing: (tenant) => read(client.GET("/v1/tenants/{tenant}/ai-routing-policy", { params: { path: { tenant } } }), I.AIRoutingPolicyView),
   putRouting: (tenant, policy, etag) =>
-    read(client.PUT("/v1/tenants/{tenant}/ai-routing-policy", { params: { path: { tenant }, header: ifMatch(etag) }, body: policy }), I.AIRoutingPolicyView),
+    read(client.PUT("/v1/tenants/{tenant}/ai-routing-policy", { params: { path: { tenant }, header: { "If-Match": etag } }, body: policy }), I.AIRoutingPolicyView),
   projectRouting: (p) =>
     read(client.GET("/v1/tenants/{tenant}/projects/{project}/ai-routing-policy", { params: { path: p } }), I.AIRoutingPolicyView),
   putProjectRouting: (p, policy, etag) =>
     read(
-      client.PUT("/v1/tenants/{tenant}/projects/{project}/ai-routing-policy", { params: { path: p, header: ifMatch(etag) }, body: policy }),
+      client.PUT("/v1/tenants/{tenant}/projects/{project}/ai-routing-policy", { params: { path: p, header: { "If-Match": etag } }, body: policy }),
       I.AIRoutingPolicyView,
     ),
   deleteProjectRouting: (p) => done(client.DELETE("/v1/tenants/{tenant}/projects/{project}/ai-routing-policy", { params: { path: p } })),
   projectSettings: (p) => read(client.GET("/v1/tenants/{tenant}/projects/{project}/ai-settings", { params: { path: p } }), I.AIProjectSettings),
   updateProjectSettings: (p, body, etag) =>
-    read(client.PUT("/v1/tenants/{tenant}/projects/{project}/ai-settings", { params: { path: p, header: ifMatch(etag) }, body }), I.AIProjectSettings),
+    read(client.PUT("/v1/tenants/{tenant}/projects/{project}/ai-settings", { params: { path: p, header: { "If-Match": etag } }, body }), I.AIProjectSettings),
 
   createFill: (p, body, key) =>
     value(read(client.POST("/v1/tenants/{tenant}/projects/{project}/ai-fills", { params: { path: p, header: { "Idempotency-Key": key } }, body }), I.AIFill)),

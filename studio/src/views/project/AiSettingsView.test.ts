@@ -32,13 +32,44 @@ describe("AiSettingsView", () => {
     expect(i.calls.some((c) => c[0] === "updateSettings")).toBe(false);
     await button(w.get("dialog[open]"), "Allow").trigger("click");
     await flushPromises();
-    // Never saved: version 0, so no If-Match.
+    // Never saved: If-Match "0" creates them only while still unsaved.
     expect(i.calls.find((c) => c[0] === "updateSettings")).toEqual(["updateSettings", { provider_consent: true }, '"0"']);
     expect(consent.get("[data-testid=consent-state]").text()).toBe("Sending text to AI providers is allowed.");
     expect(consent.text()).toContain("Changed by you");
     await button(consent, "Stop sending text").trigger("click");
     await flushPromises();
     expect(i.calls.filter((c) => c[0] === "updateSettings").at(-1)).toEqual(["updateSettings", { provider_consent: false }, '"1"']);
+  });
+
+  it("loses a first save to someone else's with 412, reloads and says so", async () => {
+    const i = createFakeIntelligence();
+    const w = await screen(i);
+    // Someone saves the budget while this screen still shows the defaults.
+    await i.updateSettings("t", { monthly_budget_micro_usd: 1_000_000 }, '"0"');
+    await w.get("#ai-budget").setValue("12.50");
+    await button(w, "Save budget").trigger("click");
+    await flushPromises();
+    expect(i.calls.filter((c) => c[0] === "updateSettings").at(-1)).toEqual(["updateSettings", { monthly_budget_micro_usd: 12_500_000, max_concurrent_jobs: 4 }, '"0"']);
+    expect(w.text()).toContain("Someone else changed these settings meanwhile.");
+    expect(i.state.settings.monthly_budget_micro_usd).toBe(1_000_000);
+    // Reloaded: the next save is based on their version.
+    await w.get("#ai-budget").setValue("12.50");
+    await button(w, "Save budget").trigger("click");
+    await flushPromises();
+    expect(i.calls.filter((c) => c[0] === "updateSettings").at(-1)![2]).toBe('"1"');
+    expect(status(w)).toBe("Budget saved.");
+  });
+
+  it("creates the project's own routing policy with If-Match \"0\" while it inherits", async () => {
+    const i = createFakeIntelligence();
+    const w = await screen(i);
+    const card = w.get("[data-testid=routing]");
+    await card.get("form").trigger("submit");
+    await flushPromises();
+    expect(i.calls.find((c) => c[0] === "putProjectRouting")![2]).toBe('"0"');
+    await card.get("form").trigger("submit");
+    await flushPromises();
+    expect(i.calls.filter((c) => c[0] === "putProjectRouting").at(-1)![2]).toBe('"1"');
   });
 
   it("adds a provider with a write-only key and never shows it", async () => {

@@ -74,11 +74,14 @@ function policyOf(): AIRoutingPolicy {
 }
 
 async function save(): Promise<void> {
+  // The ETag of the scope's own policy: "0" while it has none (the project
+  // inherits, or the tenant uses the default), so of two first saves one wins.
+  const etag = view.value?.etag;
+  if (etag === undefined) return;
   busy.value = true;
   error.value = null;
   status.value = "";
   try {
-    const etag = view.value?.value.source === scope.value ? view.value.etag : undefined;
     if (scope.value === "project") await port.putProjectRouting(p(), policyOf(), etag);
     else await port.putRouting(props.tenant, policyOf(), etag);
     status.value = s.routingSaved;
@@ -184,7 +187,7 @@ const newRoute = () => ({ provider: providerNames.value[0] ?? "anthropic", model
         <button type="button" class="btn btn-sm" @click="rules.push({ task: 'translate', locales: '', routes: [newRoute()] })">{{ s.addRule }}</button>
         <span class="spacer" />
         <button v-if="scope === 'project' && effective?.source === 'project'" type="button" class="btn" :disabled="busy" @click="resetProject">{{ s.resetProject }}</button>
-        <button type="submit" class="btn btn-primary" :disabled="busy">{{ s.saveRouting }}</button>
+        <button type="submit" class="btn btn-primary" :disabled="busy || !view">{{ s.saveRouting }}</button>
       </div>
       <p class="muted" role="status">{{ status }}</p>
     </form>
