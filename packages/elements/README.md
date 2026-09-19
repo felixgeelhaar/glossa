@@ -6,6 +6,9 @@ Framework-agnostic Lit web components for [Glossa](https://github.com/felixgeelh
 pnpm add @felixgeelhaar/glossa-elements
 ```
 
+
+> **Vue templates:** use `message="…"` instead of `key="…"`. Vue reserves `key` and never renders it as an attribute, so a `key` written in a `.vue` template never reaches the element and only the fallback slot shows. Both attributes work everywhere else; `message` wins when both are set.
+
 ## Usage
 
 ```html

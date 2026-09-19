@@ -317,3 +317,47 @@ describe("<glossa-selector>", () => {
     expect(selector.shadowRoot!.querySelector("select")).toBeNull();
   });
 });
+
+// Vue reserves `key` for its own reconciliation and never renders it as a
+// DOM attribute, so `<glossa-text key="…">` inside a .vue template reaches
+// the element without a key and only ever shows its slot. `message` is
+// the same thing under a name frameworks leave alone.
+describe("message attribute (for Vue templates, where `key` is reserved)", () => {
+  const cases: Array<[string, string, string]> = [
+    ["glossa-text", `<glossa-text message="cart.checkout">Approve</glossa-text>`, "Zur Kasse"],
+    [
+      "glossa-rich",
+      `<glossa-rich message="athlete.greeting" vars='{"name":"Sophia"}'>Hi</glossa-rich>`,
+      "Hallo, Sophia!",
+    ],
+    [
+      "glossa-plural",
+      `<glossa-plural message="athlete.session_count" count="3">no sessions</glossa-plural>`,
+      "3 Einheiten",
+    ],
+    ["glossa-select", `<glossa-select message="user.gender" value="male">they</glossa-select>`, "Er"],
+  ];
+  it.each(cases)("<%s message> renders the translation", async (tag, markup, expected) => {
+    const provider = await mountProvider(
+      `<glossa-provider project="demo" locale="de" api-url="https://glossa.test" api-key="glossa_x">
+         ${markup}
+       </glossa-provider>`,
+      makeFetch({ de }),
+    );
+    await provider.updateComplete;
+    await flush();
+    expect(renderedText(provider.querySelector(tag)!)).toBe(expected);
+  });
+
+  it("message wins when both are present", async () => {
+    const provider = await mountProvider(
+      `<glossa-provider project="demo" locale="de" api-url="https://glossa.test" api-key="glossa_x">
+         <glossa-text key="no.such.key" message="cart.checkout">Approve</glossa-text>
+       </glossa-provider>`,
+      makeFetch({ de }),
+    );
+    await provider.updateComplete;
+    await flush();
+    expect(renderedText(provider.querySelector("glossa-text")!)).toBe("Zur Kasse");
+  });
+});

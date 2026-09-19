@@ -34,9 +34,18 @@ export class GlossaText extends LitElement {
 
   static override properties = {
     key: { type: String },
+    // Same as `key`. Vue reserves `key` and never renders it as an
+    // attribute, so use `message` inside .vue templates.
+    message: { type: String },
   };
 
   public key = "";
+  public message = "";
+
+  /** The message ID: `message` when set, else `key`. */
+  private get messageId(): string {
+    return this.message || this.key;
+  }
 
   private ctx = new ContextConsumer<typeof glossaContext, this>(this, {
     context: glossaContext,
@@ -67,8 +76,8 @@ export class GlossaText extends LitElement {
 
   private lookup(ctx: GlossaContextValue | undefined): string | undefined {
     if (!ctx) return undefined;
-    if (!this.key) return undefined;
-    return ctx.get(this.key);
+    if (!this.messageId) return undefined;
+    return ctx.get(this.messageId);
   }
 }
 
