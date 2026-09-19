@@ -28,6 +28,8 @@ describe("DeliveryKeys", () => {
     await flushPromises();
     const created = port.state.keys[0]!;
     expect(port.calls.find((c) => c[0] === "createDeliveryKey")?.[2]).toBe("web");
+    // A new key reads production only until someone says otherwise.
+    expect(created.scope).toEqual({ environments: ["production"], branches: false });
 
     const d = w.get("dialog[open]");
     expect(d.get("h2").text()).toBe("Delivery key “web”");
@@ -66,7 +68,7 @@ describe("DeliveryKeys", () => {
 
   it("revokes only after a confirmation that says what happens", async () => {
     const port = createFakeReleases();
-    await port.createDeliveryKey({ tenant: "t", project: "p" }, "web", "i1");
+    await port.createDeliveryKey({ tenant: "t", project: "p" }, "web", undefined, "i1");
     w = await mountProjectScreen(DeliveryKeys, { port, path: "/t/t/p/p/settings" });
     await w.findAll("button").find((b) => b.text() === "Revoke web")!.trigger("click");
     await flushPromises();
@@ -82,9 +84,53 @@ describe("DeliveryKeys", () => {
     expect(w.findAll("button").some((b) => b.text().startsWith("Revoke"))).toBe(false);
   });
 
+  it("creates a preview key and changes what a key reads", async () => {
+    const port = createFakeReleases();
+    await port.createDeliveryKey({ tenant: "t", project: "p" }, "web", undefined, "i1");
+    w = await mountProjectScreen(DeliveryKeys, { port, path: "/t/t/p/p/settings" });
+    expect(w.get("[data-testid=key-scope]").text()).toBe("production");
+
+    // A preview key: branch previews, and no production.
+    await w.get("#dk-name").setValue("previews");
+    const boxes = w.get("[data-testid=new-key-scope]").findAll("input[type=checkbox]");
+    await boxes.find((b) => (b.element as HTMLInputElement).value === "production")!.setValue(false);
+    await boxes.find((b) => (b.element as HTMLInputElement).value === "preview")!.setValue(true);
+    await w.get("[data-testid=new-key-preview]").setValue(true);
+    await w.get("form").trigger("submit");
+    await flushPromises();
+    expect(port.state.keys[1]!.scope).toEqual({ environments: ["preview"], branches: true });
+    await w.findAll("button").find((b) => b.text() === "Done")!.trigger("click");
+    await flushPromises();
+    expect(w.findAll("[data-testid=key-scope]")[1]!.text()).toBe("preview + branch previews");
+
+    // Changing a key's scope keeps the key itself.
+    const key = port.state.keys[0]!.key;
+    await w.findAll("button").find((b) => b.text() === "Change scope web")!.trigger("click");
+    await flushPromises();
+    const d = w.get("dialog[open]");
+    expect(d.get("h2").text()).toBe("What “web” reads");
+    await d.get("[data-testid=scope-edit-preview]").setValue(true);
+    await d.findAll("button").find((b) => b.text() === "Save")!.trigger("click");
+    await flushPromises();
+    expect(port.state.keys[0]!.key).toBe(key);
+    expect(port.state.keys[0]!.scope).toEqual({ environments: ["production"], branches: true });
+    expect(w.get("[role=status]").text()).toBe("web now reads production + branch previews.");
+  });
+
+  it("refuses a key that reads nothing", async () => {
+    const port = createFakeReleases();
+    w = await mountProjectScreen(DeliveryKeys, { port, path: "/t/t/p/p/settings" });
+    await w.get("#dk-name").setValue("nothing");
+    const boxes = w.get("[data-testid=new-key-scope]").findAll("input[type=checkbox]");
+    await boxes.find((b) => (b.element as HTMLInputElement).value === "production")!.setValue(false);
+    await flushPromises();
+    expect(w.text()).toContain("Choose at least one environment, or branch previews.");
+    expect((w.get("button[type=submit]").element as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("lists keys without create or revoke for members who can't publish", async () => {
     const port = createFakeReleases();
-    await port.createDeliveryKey({ tenant: "t", project: "p" }, "web", "i1");
+    await port.createDeliveryKey({ tenant: "t", project: "p" }, "web", undefined, "i1");
     w = await mountProjectScreen(DeliveryKeys, { port, roles: ["translator"], path: "/t/t/p/p/settings" });
     expect(w.get("[data-testid=delivery-keys]").text()).toContain("web");
     expect(w.find("#dk-name").exists()).toBe(false);

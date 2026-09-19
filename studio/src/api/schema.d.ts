@@ -1764,6 +1764,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A delivery key `id` (not the key itself). */
+                delivery_key: components["parameters"]["DeliveryKeyPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change what a delivery key may read
+         * @description Replaces the key's scope: the `environments` it reads and
+         *     whether it reads branch previews. The key itself never changes,
+         *     so a bundle that ships it keeps working; the edge follows within
+         *     its key cache TTL (30 s by default) plus any CDN max-age. A
+         *     revoked key takes no scope. Needs `releases.publish`. Problem
+         *     codes: `invalid_key_scope` (400), `key_revoked` (409).
+         */
+        put: operations["setDeliveryKeyScope"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}": {
         parameters: {
             query?: never;
@@ -3744,6 +3776,265 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Branches of a project, by name
+         * @description `state` lists only `open`, `merged` or `closed` branches. `name`
+         *     is the way to find a branch whose `id` you don't have (an
+         *     unknown name is an empty page, not a 404). Needs `catalog.read`.
+         *     Problem codes: `invalid_branch_state` (400).
+         */
+        get: operations["listBranches"];
+        put?: never;
+        /**
+         * Open a branch, or record what CI knows about it
+         * @description Addressed by `name`, because a branch that doesn't exist yet has
+         *     no `id`: the first call creates it (`201`), later ones record its
+         *     head commit, its pull request number and its preview URL
+         *     (`200`). It proposes nothing — `pushBranchMessages` does that —
+         *     and a closed branch reopens. Opening a branch opens its preview
+         *     environment (`pr-<number>`, or `br-<hash>` without a pull
+         *     request). Needs `catalog.write`. Problem codes: `invalid_branch`,
+         *     `invalid_push`, `invalid_preview_url` (400), `branch_merged`
+         *     (409).
+         */
+        post: operations["upsertBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/branch-pushes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push a branch's messages (CI, glossa push --branch)
+         * @description The branch's catalog, up to 10000 messages in one transaction —
+         *     a whole catalog, not a batch, so `complete` can be trusted. The
+         *     branch is created by its first push, and a closed one reopens.
+         *
+         *     Nothing live changes: a key the project doesn't have becomes a
+         *     `proposed` message the branch owns, changed source for a live
+         *     key becomes a *source proposal*, and a key whose live source
+         *     already says this is `unchanged`. Two open branches proposing
+         *     the same new key with different source are a `key_conflict` for
+         *     both. With `complete`, the keys the branch proposed before and
+         *     no longer has are withdrawn, and the project's live keys the
+         *     push lacks are reported in `removed` — reported only: a branch
+         *     never obsoletes anything.
+         *
+         *     The answer is the branch's status report, the same one
+         *     `getBranch` returns, plus one result per item in request order.
+         *     Items fail on their own (`items[].error.code`, as for
+         *     `upsertMessages`) without failing the push. Needs
+         *     `catalog.write`. Problem codes: `too_many_branch_items`,
+         *     `invalid_branch`, `invalid_push` (400), `branch_merged` (409).
+         */
+        post: operations["pushBranchMessages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/branches/{branch}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /**
+                 * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+                 *     doesn't survive every proxy, so URLs never carry the name; find
+                 *     the `id` with `listBranches?name=…`.
+                 */
+                branch: components["parameters"]["BranchPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A branch's status report
+         * @description What the branch proposes as its last push left it: its new keys,
+         *     its source proposals, the live keys its last complete push
+         *     lacked (`removed`), the key conflicts it shares with other open
+         *     branches, and how many current translations per locale merging
+         *     it will make outdated. This is what the PR check reports. Needs
+         *     `catalog.read` (`outdated` also needs `translations.read`).
+         */
+        get: operations["getBranch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/branches/{branch}/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /**
+                 * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+                 *     doesn't survive every proxy, so URLs never carry the name; find
+                 *     the `id` with `listBranches?name=…`.
+                 */
+                branch: components["parameters"]["BranchPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What a branch proposes, key by key
+         * @description By key: the source the branch pushed for it, the message it
+         *     names, and for a source change the revision it was proposed
+         *     against. Needs `catalog.read`.
+         */
+        get: operations["listBranchProposals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/branches/{branch}/closure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /**
+                 * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+                 *     doesn't survive every proxy, so URLs never carry the name; find
+                 *     the `id` with `listBranches?name=…`.
+                 */
+                branch: components["parameters"]["BranchPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a branch (its pull request was closed unmerged)
+         * @description Its preview environment is destroyed, so the edge answers 404
+         *     for it, and its proposed messages stay proposed for 14 days
+         *     before they become obsolete — reopening the branch, or pushing
+         *     their keys again, brings them back with their translations and
+         *     history. Idempotent: closing a closed branch changes nothing.
+         *     Needs `catalog.write`. Problem codes: `branch_merged` (409).
+         */
+        post: operations["closeBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/branches/{branch}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /**
+                 * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+                 *     doesn't survive every proxy, so URLs never carry the name; find
+                 *     the `id` with `listBranches?name=…`.
+                 */
+                branch: components["parameters"]["BranchPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a branch merged
+         * @description Bookkeeping and cleanup, not activation: the **default branch's
+         *     push** makes proposed messages active and proposals source
+         *     revisions, so nothing depends on this call arriving. It destroys
+         *     the branch's preview environment and starts the 14-day clock on
+         *     whatever the default branch didn't bring in. A merged branch
+         *     takes no more pushes. Idempotent. Needs `catalog.write`.
+         */
+        post: operations["mergeBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/branches/{branch}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /**
+                 * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+                 *     doesn't survive every proxy, so URLs never carry the name; find
+                 *     the `id` with `listBranches?name=…`.
+                 */
+                branch: components["parameters"]["BranchPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record where CI deployed the branch's preview
+         * @description `glossa preview register --url`. The URL is shown in Studio and
+         *     in the pull request comment; it is where the in-product editor
+         *     runs. An empty `url` clears it. Needs `catalog.write`. Problem
+         *     codes: `invalid_preview_url` (400).
+         */
+        put: operations["setBranchPreview"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4233,6 +4524,135 @@ export interface components {
             results: components["schemas"]["MessageUpsertItemResult"][];
         };
         /**
+         * @description A Git branch name, unique per project (`feature/checkout-copy`).
+         *     It may hold `/`, so URLs address a branch by its `id`, never by
+         *     its name; `listBranches?name=…` finds the `id`.
+         */
+        BranchName: string;
+        /**
+         * @description `open` while the branch is being worked on: it has a preview
+         *     environment, and its proposals live. `merged` and `closed` end
+         *     it — the environment is destroyed, and what the default branch
+         *     never brought in becomes obsolete 14 days later.
+         * @enum {string}
+         */
+        BranchState: "open" | "merged" | "closed";
+        Branch: {
+            id: components["schemas"]["Id"];
+            name: components["schemas"]["BranchName"];
+            state: components["schemas"]["BranchState"];
+            /** @description The pull request the branch has, when it has one. */
+            pr_number?: number;
+            /** @description The commit last pushed. */
+            head_commit?: string;
+            /** @description Where CI deployed the branch's preview. */
+            preview_url?: string;
+            /** @description When the branch was closed or merged; absent while it is open. */
+            closed_at?: components["schemas"]["Timestamp"];
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        BranchList: {
+            items: components["schemas"]["Branch"][];
+            next_page_token?: string;
+        };
+        UpsertBranch: {
+            name: components["schemas"]["BranchName"];
+            /** @description Omitted: keep. */
+            pr_number?: number;
+            /** @description Omitted: keep. */
+            head_commit?: string;
+            /** @description Omitted: keep; "" clears it. */
+            preview_url?: string;
+        };
+        BranchPreview: {
+            /** @description An absolute http(s) URL; "" clears it. */
+            url: string;
+        };
+        BranchPush: {
+            branch: components["schemas"]["BranchName"];
+            /** @description Omitted: keep. */
+            pr_number?: number;
+            /** @description Omitted: keep. */
+            head_commit?: string;
+            /**
+             * @description The items are the branch's whole catalog: keys it proposed
+             *     before and no longer has are withdrawn, and the project's
+             *     live keys it lacks are reported in `removed`. A partial push
+             *     only adds.
+             * @default false
+             */
+            complete: boolean;
+            /** @description `base_revision` is ignored: a branch never overwrites anyone's edit. */
+            items: components["schemas"]["MessageUpsertItem"][];
+        };
+        BranchItemResult: {
+            key: string;
+            /**
+             * @description `new_key`: the branch proposes the key's message.
+             *     `source_proposal`: it proposes new source for a live
+             *     message. `unchanged`: the live source already says this.
+             *     `key_conflict`: another open branch proposes the same new
+             *     key with different source.
+             * @enum {string}
+             */
+            status: "new_key" | "source_proposal" | "unchanged" | "key_conflict" | "failed";
+            message?: components["schemas"]["Message"];
+            error?: components["schemas"]["ItemError"];
+        };
+        KeyConflict: {
+            key: components["schemas"]["MessageKey"];
+            /** @description The other open branches proposing this key with different source. */
+            branches: components["schemas"]["BranchName"][];
+        };
+        /** @description What a branch proposes, and what merging it would do. */
+        BranchStatus: {
+            branch: components["schemas"]["Branch"];
+            /** @description Keys the project doesn't have; their messages are `proposed`. */
+            new_keys: components["schemas"]["MessageKey"][];
+            /** @description Live keys whose source the branch changes. */
+            source_proposals: components["schemas"]["MessageKey"][];
+            /** @description Live keys the last complete push lacked. Reported only; nothing is obsoleted. */
+            removed: components["schemas"]["MessageKey"][];
+            conflicts: components["schemas"]["KeyConflict"][];
+            /**
+             * @description Per locale, how many current translations the branch's
+             *     source proposals will make outdated when it merges. Empty
+             *     without `translations.read`.
+             */
+            outdated: {
+                [key: string]: number;
+            };
+        };
+        BranchPushResult: components["schemas"]["BranchStatus"] & {
+            /** @description One result per pushed item, in request order. */
+            items: components["schemas"]["BranchItemResult"][];
+        };
+        /** @description What one branch proposes for one key. */
+        Proposal: {
+            key: components["schemas"]["MessageKey"];
+            /**
+             * @description `new_key`: the branch owns the key's `proposed` message
+             *     (shared with every other branch proposing the same source
+             *     for it). `source_change`: the message is live and the branch
+             *     proposes new source for it, against `base_revision`.
+             * @enum {string}
+             */
+            kind: "new_key" | "source_change";
+            message_id: components["schemas"]["Id"];
+            source: components["schemas"]["MessageContent"];
+            /** @description For a source change, the revision it was proposed against. */
+            base_revision?: number;
+            /** @description `person:<id>`, `token:<id>` or `system:<name>`. */
+            author?: string;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        ProposalList: {
+            items: components["schemas"]["Proposal"][];
+            next_page_token?: string;
+        };
+        /**
          * @description Derived from the locale's (likely) script.
          * @enum {string}
          */
@@ -4410,12 +4830,32 @@ export interface components {
         };
         Environment: {
             name: components["schemas"]["EnvironmentName"];
+            kind: components["schemas"]["EnvironmentKind"];
+            /** @description The branch a `branch` environment previews; absent for a standard one. */
+            branch?: components["schemas"]["BranchName"];
             policy: components["schemas"]["EnvironmentPolicy"];
             current_release_id?: components["schemas"]["Id"];
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
         };
-        /** @description `development`, `preview`, `staging`, `production` or a custom name (not `a`). */
+        /**
+         * @description `standard` serves the main catalog (the default environments and
+         *     custom ones). `branch` is one open branch's preview: the main
+         *     catalog plus that branch's overlay, under a fixed policy
+         *     (everything not rejected, outdated included), published again
+         *     when the branch changes. Its releases can't be promoted
+         *     (`branch_release_not_promotable`), because they hold text that
+         *     exists only on the branch, and a project has at most 50 of them
+         *     (`too_many_branches`). Opening, publishing and destroying one
+         *     follows its branch; nothing creates one by hand.
+         * @enum {string}
+         */
+        EnvironmentKind: "standard" | "branch";
+        /**
+         * @description `development`, `preview`, `staging`, `production` or a custom
+         *     name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+         *     branch environments.
+         */
         EnvironmentName: string;
         EnvironmentList: {
             items: components["schemas"]["Environment"][];
@@ -4566,10 +5006,28 @@ export interface components {
             name: string;
             /** @description Publishable by design; shown on every read. */
             key: string;
+            scope: components["schemas"]["DeliveryKeyScope"];
             /** @description `person:<id>` or `token:<id>`. */
             created_by: string;
             created_at: components["schemas"]["Timestamp"];
             revoked_at?: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description What the key reads at the edge: the environments on its
+         *     allowlist and, with `branches`, every branch preview. Anything
+         *     outside it answers 404, exactly like an unknown key. Branch
+         *     previews hold unreleased copy, so a key that ships in a
+         *     production bundle must not reach them.
+         */
+        DeliveryKeyScope: {
+            /**
+             * @description Environments by name — never a branch environment
+             *     (`pr-<n>`, `br-<hash>`): those are reached through
+             *     `branches`. Empty only when `branches` is true.
+             */
+            environments: components["schemas"]["EnvironmentName"][];
+            /** @description A preview key, for preview deployments only; it reads every branch environment. */
+            branches: boolean;
         };
         DeliveryKeyList: {
             items: components["schemas"]["DeliveryKey"][];
@@ -4578,6 +5036,8 @@ export interface components {
         CreateDeliveryKey: {
             /** @description What uses it, e.g. "web" or "go-emails". */
             name: string;
+            /** @description Omitted: `production` only. Change it later with `setDeliveryKeyScope`. */
+            scope?: components["schemas"]["DeliveryKeyScope"];
         };
         /**
          * @description A translation-memory unit, derived from an approved translation.
@@ -6084,6 +6544,12 @@ export interface components {
         MessagePath: components["schemas"]["MessageKey"];
         /** @description A locale code; canonicalized before use. */
         LocalePath: components["schemas"]["Locale"];
+        /**
+         * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+         *     doesn't survive every proxy, so URLs never carry the name; find
+         *     the `id` with `listBranches?name=…`.
+         */
+        BranchPath: components["schemas"]["Id"];
         /** @description An environment `name`. */
         EnvironmentPath: components["schemas"]["EnvironmentName"];
         /** @description A release `id`. */
@@ -8812,6 +9278,42 @@ export interface operations {
             422: components["responses"]["UnprocessableEntity"];
         };
     };
+    setDeliveryKeyScope: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A delivery key `id` (not the key itself). */
+                delivery_key: components["parameters"]["DeliveryKeyPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliveryKeyScope"];
+            };
+        };
+        responses: {
+            /** @description The key with its new scope. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryKey"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     revokeDeliveryKey: {
         parameters: {
             query?: never;
@@ -11535,6 +12037,303 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listBranches: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                state?: components["schemas"]["BranchState"];
+                /** @description Only the branch with this exact name. */
+                name?: components["schemas"]["BranchName"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of branches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    upsertBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertBranch"];
+            };
+        };
+        responses: {
+            /** @description The branch as it now stands. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Branch"];
+                };
+            };
+            /** @description The branch was created. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Branch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    pushBranchMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchPush"];
+            };
+        };
+        responses: {
+            /** @description The branch's status report, with a result per item. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchPushResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /**
+                 * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+                 *     doesn't survive every proxy, so URLs never carry the name; find
+                 *     the `id` with `listBranches?name=…`.
+                 */
+                branch: components["parameters"]["BranchPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The branch and its status report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchStatus"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listBranchProposals: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /**
+                 * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+                 *     doesn't survive every proxy, so URLs never carry the name; find
+                 *     the `id` with `listBranches?name=…`.
+                 */
+                branch: components["parameters"]["BranchPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of proposals. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    closeBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /**
+                 * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+                 *     doesn't survive every proxy, so URLs never carry the name; find
+                 *     the `id` with `listBranches?name=…`.
+                 */
+                branch: components["parameters"]["BranchPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The closed branch. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Branch"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    mergeBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /**
+                 * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+                 *     doesn't survive every proxy, so URLs never carry the name; find
+                 *     the `id` with `listBranches?name=…`.
+                 */
+                branch: components["parameters"]["BranchPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The merged branch. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Branch"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    setBranchPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /**
+                 * @description A branch `id`. Branch names may hold `/`, and an encoded slash
+                 *     doesn't survive every proxy, so URLs never carry the name; find
+                 *     the `id` with `listBranches?name=…`.
+                 */
+                branch: components["parameters"]["BranchPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchPreview"];
+            };
+        };
+        responses: {
+            /** @description The branch, with its preview URL. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Branch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
 }

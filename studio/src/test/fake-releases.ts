@@ -8,7 +8,7 @@
  */
 import { ApiError, type Versioned } from "../api/errors";
 import type { PublishInput, ProjectRef, ReleasesPort } from "../api/releases";
-import type { Deployment, DeliveryKey, Environment, EnvironmentPolicy, Release, ReleaseDiff, ReleasePreview, ReleaseProblem, SigningKey } from "../api/schemas";
+import type { Deployment, DeliveryKey, DeliveryKeyScope, Environment, EnvironmentPolicy, Release, ReleaseDiff, ReleasePreview, ReleaseProblem, SigningKey } from "../api/schemas";
 import { covers, DEFAULT_ENVIRONMENTS } from "../lib/releases";
 
 /** Locale → message ID → text: what a publish would ship. */
@@ -39,7 +39,7 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
   const envs = new Map<string, { env: Environment; etag: number }>();
   for (const name of DEFAULT_ENVIRONMENTS) {
     const t = now();
-    envs.set(name, { env: { name, policy: policyFor(name), created_at: t, updated_at: t }, etag: 1 });
+    envs.set(name, { env: { name, kind: "standard", policy: policyFor(name), created_at: t, updated_at: t }, etag: 1 });
   }
   const releases: Release[] = [];
   const snapshots = new Map<string, FakeCatalog>();
@@ -203,17 +203,32 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
       calls.push(["deliveryKeys", p]);
       return structuredClone(keys);
     },
-    async createDeliveryKey(p, name, key) {
-      calls.push(["createDeliveryKey", p, name, key]);
+    async createDeliveryKey(p, name, scope, key) {
+      calls.push(["createDeliveryKey", p, name, scope, key]);
       const n = keys.length + 1;
       const k: DeliveryKey = {
         id: nextId("dk"),
         name,
         key: `glossa_pk_${String(n).padStart(32, "K")}`,
+        scope: scope ? structuredClone(scope) : { environments: ["production"], branches: false },
         created_by: author,
         created_at: now(),
       };
+      if (k.scope.environments.length === 0 && !k.scope.branches) {
+        throw new ApiError(400, "invalid_key_scope", "A scope allows 1-50 environments, or branch previews.");
+      }
       keys.push(k);
+      return structuredClone(k);
+    },
+    async setDeliveryKeyScope(p, id, scope: DeliveryKeyScope) {
+      calls.push(["setDeliveryKeyScope", p, id, scope]);
+      const k = keys.find((x) => x.id === id);
+      if (!k) throw new ApiError(404, "not_found", "No such key.");
+      if (k.revoked_at) throw new ApiError(409, "key_revoked", "The key is revoked.");
+      if (scope.environments.length === 0 && !scope.branches) {
+        throw new ApiError(400, "invalid_key_scope", "A scope allows 1-50 environments, or branch previews.");
+      }
+      k.scope = structuredClone(scope);
       return structuredClone(k);
     },
     async revokeDeliveryKey(p, id) {

@@ -288,6 +288,31 @@ test("sign in by magic link, set up a project, translate with the keyboard, fix 
   await expect.poll(() => keyIndexed(key)).toBe(true);
   await expect(page.getByTestId("delivery-keys")).toContainText("Active");
   await expect(page.getByTestId("delivery-keys")).not.toContainText(key);
+  // A new key reads production only (RFC 0004 §4.3).
+  const reads = (name: string) => page.getByTestId("delivery-keys").locator("tbody tr").filter({ hasText: name }).getByTestId("key-scope");
+  await expect(reads("web")).toHaveText("production");
+
+  // A preview key reads branch previews, and nothing in production.
+  await page.locator("#dk-name").fill("previews");
+  const scope = page.getByTestId("new-key-scope");
+  await scope.getByRole("checkbox", { name: "production", exact: true }).uncheck();
+  await scope.getByRole("checkbox", { name: "preview", exact: true }).check();
+  await page.getByTestId("new-key-preview").check();
+  await page.getByRole("button", { name: "Create delivery key" }).click();
+  d = page.getByRole("dialog", { name: "Delivery key “previews”" });
+  const previewKey = await d.getByTestId("created-key").inputValue();
+  await d.getByRole("button", { name: "Done" }).click();
+  await expect.poll(() => keyIndexed(previewKey)).toBe(true);
+  await expect(reads("previews")).toHaveText("preview + branch previews");
+
+  // What a key reads can change without changing the key.
+  await page.getByRole("button", { name: "Change scope web" }).click();
+  d = page.getByRole("dialog", { name: "What “web” reads" });
+  await d.getByTestId("scope-edit-preview").check();
+  await expectAccessibleInBothThemes(page, "delivery key scope");
+  await d.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status")).toHaveText("web now reads production + branch previews.");
+  await expect(reads("web")).toHaveText("production + branch previews");
 
   await page.getByRole("button", { name: "Revoke web" }).click();
   d = page.getByRole("dialog", { name: "Revoke “web”?" });

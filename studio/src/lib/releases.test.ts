@@ -8,6 +8,7 @@ const strict: EnvironmentPolicy = { states: ["approved"], include_outdated: fals
 
 const env = (name: string, current?: string): Environment => ({
   name,
+  kind: "standard",
   policy: approved,
   ...(current ? { current_release_id: current } : {}),
   created_at: "t",

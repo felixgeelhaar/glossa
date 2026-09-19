@@ -255,8 +255,16 @@ export const EnvironmentPolicy = z.object({
   include_outdated: z.boolean(),
 });
 
+/**
+ * `standard` serves the main catalog; `branch` is one open branch's
+ * preview, published again when the branch changes (RFC 0004 §4.2).
+ */
+export const EnvironmentKind = z.enum(["standard", "branch"]);
+
 export const Environment = z.object({
   name: z.string().min(1),
+  kind: EnvironmentKind,
+  branch: z.string().min(1).optional(),
   policy: EnvironmentPolicy,
   current_release_id: id.optional(),
   created_at: timestamp,
@@ -338,10 +346,21 @@ export const SigningKey = z.object({
 });
 export const SigningKeys = z.object({ keys: z.array(SigningKey) });
 
+/**
+ * What a delivery key reads at the edge: the environments on its
+ * allowlist and, with `branches`, every branch preview. Anything else
+ * answers 404 (RFC 0004 §4.3).
+ */
+export const DeliveryKeyScope = z.object({
+  environments: z.array(z.string().min(1)).max(50),
+  branches: z.boolean(),
+});
+
 export const DeliveryKey = z.object({
   id,
   name: z.string(),
   key: z.string().regex(/^glossa_pk_[A-Za-z0-9_-]{32}$/),
+  scope: DeliveryKeyScope,
   created_by: z.string(),
   created_at: timestamp,
   revoked_at: timestamp.optional(),
@@ -397,6 +416,8 @@ export type LocaleDiff = z.infer<typeof LocaleDiff>;
 export type ReleaseDiff = z.infer<typeof ReleaseDiff>;
 export type SigningKey = z.infer<typeof SigningKey>;
 export type DeliveryKey = z.infer<typeof DeliveryKey>;
+export type DeliveryKeyScope = z.infer<typeof DeliveryKeyScope>;
+export type EnvironmentKind = z.infer<typeof EnvironmentKind>;
 
 // ── contract alignment (compile time only) ─────────────────────────────
 type S = components["schemas"];
@@ -425,6 +446,7 @@ export type ContractAlignment = [
   Assert<Fits<ReleaseDiff, S["ReleaseDiff"]>>,
   Assert<Fits<SigningKeys, S["SigningKeys"]>>,
   Assert<Fits<DeliveryKey, S["DeliveryKey"]>>,
+  Assert<Fits<DeliveryKeyScope, S["DeliveryKeyScope"]>>,
   Assert<Fits<Meta, S["Meta"]>>,
   Assert<Fits<ProjectTranslation, S["ProjectTranslation"]>>,
   Assert<Fits<TranslationStats, S["TranslationStats"]>>,

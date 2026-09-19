@@ -17,7 +17,7 @@ function mockFetch(...responses: Response[]) {
 
 const p = { tenant: "t", project: "p" };
 const policy = { states: ["approved"], include_outdated: true };
-const env = { name: "production", policy, current_release_id: "r1", created_at: "2026-09-19T08:00:00Z", updated_at: "2026-09-19T08:00:00Z" };
+const env = { name: "production", kind: "standard", policy, current_release_id: "r1", created_at: "2026-09-19T08:00:00Z", updated_at: "2026-09-19T08:00:00Z" };
 const release = {
   id: "r1",
   version: 1,
@@ -108,5 +108,28 @@ describe("apiReleases", () => {
     const req = fetch.mock.calls[0]![0];
     expect(req.method).toBe("DELETE");
     expect(new URL(req.url).pathname).toBe("/v1/tenants/t/projects/p/delivery-keys/dk1");
+  });
+
+  it("creates a key with a scope and changes an existing one's", async () => {
+    const key = {
+      id: "dk1",
+      name: "previews",
+      key: "glossa_pk_" + "a".repeat(32),
+      scope: { environments: ["preview"], branches: true },
+      created_by: "person:me",
+      created_at: "2026-09-19T08:00:00Z",
+    };
+    const fetch = mockFetch(json(201, key), json(200, key));
+    const scope = { environments: ["preview"], branches: true };
+    const created = await apiReleases.createDeliveryKey(p, "previews", scope, "idem-2");
+    expect(created.scope).toEqual(scope);
+    const post = fetch.mock.calls[0]![0];
+    expect(await post.json()).toEqual({ name: "previews", scope });
+
+    await apiReleases.setDeliveryKeyScope(p, "dk1", scope);
+    const put = fetch.mock.calls[1]![0];
+    expect(put.method).toBe("PUT");
+    expect(new URL(put.url).pathname).toBe("/v1/tenants/t/projects/p/delivery-keys/dk1/scope");
+    expect(await put.json()).toEqual(scope);
   });
 });

@@ -456,7 +456,11 @@ func (s *scenario) render() {
 	var key struct {
 		Key string `json:"key"`
 	}
-	s.owner.do(http.MethodPost, s.projectPath("/delivery-keys"), map[string]string{"name": "m2-web"}, http.StatusCreated, &key)
+	// A key reads production only unless it says otherwise (RFC 0004
+	// §4.3), and this one reads the staging release.
+	s.owner.do(http.MethodPost, s.projectPath("/delivery-keys"), map[string]any{
+		"name": "m2-web", "scope": map[string]any{"environments": []string{"staging"}, "branches": false},
+	}, http.StatusCreated, &key)
 	var signing struct {
 		Keys []struct {
 			KeyID     string `json:"key_id"`

@@ -169,6 +169,9 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_PURGE_POLL_INTERVAL` | `5m` | How often a replica asks whether a job is due. It must not exceed the interval. |
 | `GLOSSA_PURGE_JITTER` | `0.2` | Fraction of the poll interval (0–1) each poll is spread by, so replicas started together don't ask in lockstep. |
 | `GLOSSA_PURGE_BATCH_SIZE` | `100` | Object-store deletes issued at a time while freeing unreferenced capture images. |
+| `GLOSSA_BRANCH_WORKERS_ENABLED` | `true` | Publish branch preview environments whose debounced request is due, and sweep the proposals of branches closed 14 days ago. Both are idempotent, so every replica may run them. |
+| `GLOSSA_BRANCH_PUBLISH_INTERVAL` | `5s` | How often due branch publishes are looked for (the debounce itself is 30 s). |
+| `GLOSSA_BRANCH_SWEEP_INTERVAL` | `1h` | How often expired proposals are swept. |
 
 `glossa-edge` reads `GLOSSA_HTTP_*` (listening on `:8081` by default),
 `GLOSSA_LOG_LEVEL`, `GLOSSA_SHUTDOWN_TIMEOUT`, `OTEL_*` (service
@@ -469,10 +472,12 @@ the ID and all history.
 |---|---|---|
 | `catalog_projects`, `catalog_applications`, `catalog_messages` | tenant | Ordinary state; the message row is the projection of its latest source revision. |
 | `catalog_source_revisions` | tenant | Append-only by grant (`glossa_app`: SELECT, INSERT). History is the domain here (RFC 0002 §4). |
+| `catalog_branches`, `catalog_proposals` | tenant | The branch overlay (RFC 0004 §4.1). `glossa_system` reads branch states, proposal links and message states to schedule the proposal sweep (system scope `catalog.proposal_sweep`, migration 0016). |
 
 Events: `catalog.project.{created,updated,deleted}`,
 `catalog.application.{created,updated,deleted}`,
-`catalog.message.{created,source_revised,updated,renamed,obsoleted,reactivated}`.
+`catalog.message.{created,source_revised,updated,renamed,obsoleted,reactivated,activated,proposed}`,
+`catalog.branch.{opened,pushed,closed,merged,reopened}`.
 Every message event carries a `message` snapshot (`message_id`,
 `project_id`, `key`, `namespace`, `state`, `source_revision`, `version`);
 `source_revised` adds `old_revision` and `new_revision`, `renamed` adds
@@ -488,6 +493,48 @@ overwriting a newer revision, obsolete keys reactivated. `GET
 and obsolete message counts (what Studio's export offers to choose
 from): one grouped read per page, served by the
 `catalog_messages_namespaces` index (migration 0010).
+
+**Branches** (RFC 0004 §4.1) are the overlay a feature branch puts on
+the catalog. `POST …/branch-pushes` is CI's push (`glossa push
+--branch`): the branch's whole catalog, up to 10000 messages in one
+transaction, where a key the project doesn't have becomes a `proposed`
+message the branch owns, changed source for a live key a **source
+proposal** (never a source revision: the append-only log records merged
+history only), and a key whose live source already says this is
+`unchanged`. Two open branches proposing one new key with different
+source are a `key_conflict` for both. A complete push withdraws what the
+branch no longer has and reports the project's live keys it lacks; a
+branch never obsoletes anything. The answer, like `GET
+…/branches/{branch}`, is the **status report** the pull request check
+reports: new keys, source proposals, removed keys, conflicts, and the
+current translations per locale a merge would make outdated.
+
+Merging is the **default branch's push** (`message-upserts`), which
+activates proposed messages and turns proposals into revisions, so
+correctness doesn't wait for a webhook; `…/closure` and `…/merge` only
+end the branch and clean up. A closed or merged branch's proposed
+messages stay for 14 days (`ProposalRetention`) before `SweepProposals`
+obsoletes them with their translations and history intact; a reopened
+branch, or a later push of the key, proposes them again. The sweep runs
+in glossa-server as `catalog.proposal_sweep` (`ProposalSweeper`,
+`GLOSSA_BRANCH_WORKERS_ENABLED`, every `GLOSSA_BRANCH_SWEEP_INTERVAL`);
+a system-scope query (migration 0016) finds the tenants that have
+expired proposals, and the sweep itself runs in each tenant's scope.
+
+A branch name may hold `/`, and an encoded slash doesn't survive every
+proxy, so **URLs address a branch by its ID**: `GET …/branches` lists
+them (by name, filtered by `state`, or the one with an exact `name`),
+`POST …/branches` upserts by name (what CI knows: head commit, pull
+request, preview URL), and the ID-addressed operations are the status
+report, `…/proposals`, `…/closure`, `…/merge` and `PUT …/preview`.
+
+Branch tables: `catalog_branches` (one per project and name, with its
+state, `closed_at` and the live keys its last complete push lacked) and
+`catalog_proposals` (one row per branch and key, with the source it
+pushed). Branch events: `catalog.branch.{opened,pushed,closed,merged,reopened}`;
+`pushed` carries the counts and the other open branches its conflicts
+touch, so their checks run again. Release opens, publishes and destroys
+each open branch's preview environment on them.
 
 Project settings: `default_syntax`, `review_required` and
 `default_branch` — the repository's default branch (`main` unless set;
@@ -1384,15 +1431,21 @@ messages with their translations, and its source proposals in the
 source locale. Every other build keeps excluding both. A branch release
 records its branch and can't be promoted
 (`branch_release_not_promotable`); a project has at most 50 branch
-environments (`too_many_branches`). The lifecycle hooks the Branches API
-and the GitHub webhooks will call: `OpenBranchEnvironment`
-(create-on-open, idempotent per branch), `RequestBranchPublish`
-(publish-on-push, debounced: a request moves the pending publish to 30 s
-after it, at most 5 minutes after the first; the `Publisher` runs due
-requests across tenants as `release.publisher`, with the request's ID as
-the publish's idempotency key) and `DestroyBranchEnvironment` (deletes
-the environment and its manifest, so the edge answers 404; releases and
-deployments stay).
+environments (`too_many_branches`). The lifecycle follows the branch,
+over the outbox (`release.branch_environments`), so nothing has to
+remember to call it: `catalog.branch.{opened,pushed,reopened}` opens the
+environment (`OpenBranchEnvironment`, idempotent per branch) and asks
+for a publish (`RequestBranchPublish`, debounced: a request moves the
+pending publish to 30 s after it, at most 5 minutes after the first),
+`localization.translation.revised` asks for one on every open branch
+that proposes the message, and `catalog.branch.{closed,merged}` destroys
+the environment (`DestroyBranchEnvironment`: the environment and its
+manifest go, so the edge answers 404; releases and deployments stay).
+The `Publisher` runs due requests across tenants as `release.publisher`,
+with the request's ID as the publish's idempotency key, so two
+publishers or a retry after a crash publish once.
+`GLOSSA_BRANCH_WORKERS_ENABLED` (default on) runs it in glossa-server,
+every `GLOSSA_BRANCH_PUBLISH_INTERVAL` (5 s).
 
 **Delivery keys are scoped** (RFC 0004 §4.3, SPEC §2): an `environments`
 allowlist and a `branches` flag, written into the key index object and
@@ -1402,8 +1455,13 @@ an unknown key. New keys read `production` only; a preview key
 existing keys the four default environments, and glossa-server's key
 index task (`RewriteKeyIndexes`, run at startup until it succeeds)
 rewrites their index objects; until then the edge reads an object
-without `environments` as those four. The API doesn't expose scopes yet,
-so keys it creates keep the four default environments until it does.
+without `environments` as those four. `POST …/delivery-keys` takes a
+`scope` (without one: `production`), and `PUT
+…/delivery-keys/{id}/scope` changes what an active key reads without
+changing the key, so bundles that ship it keep working; the index object
+follows (`release.delivery_key.scope_changed`), and the stored index
+version drops so the key index task repairs a write that didn't reach
+storage.
 
 **Artifacts** are the RFC 8785 canonical JSON of `{schema, locale,
 namespace, messages}` with each message's MF2 data model, so equal input
@@ -1448,12 +1506,15 @@ Events: `release.published`, `release.promoted`, `release.rolled_back`
 (the Release aggregate shares the context's name, so they are
 `release.<verb>`, as SPEC §3 names them),
 `release.environment.{created,policy_changed,destroyed,publish_requested}`,
-`release.delivery_key.{created,revoked}` (never carrying the key).
-Subscribers: `release.sync_manifest` and `release.sync_delivery_key`
-(storage writes; `sync_manifest` also removes a destroyed environment's
-manifest), `release.retire_project` on `catalog.project.deleted`
-(revokes the project's keys, removes its environments and served
-manifests; releases stay as history).
+`release.delivery_key.{created,scope_changed,revoked}` (never carrying
+the key). Subscribers: `release.sync_manifest` and
+`release.sync_delivery_key` (storage writes; `sync_manifest` also
+removes a destroyed environment's manifest),
+`release.branch_environments` on Catalog's branch events and
+`localization.translation.revised` (the lifecycle above),
+`release.retire_project` on `catalog.project.deleted` (revokes the
+project's keys, removes its environments and served manifests; releases
+stay as history).
 
 Permissions: reads (and previews) need `releases.read`; publish, promote, rollback,
 environment and key changes `releases.publish` (developers, admins,

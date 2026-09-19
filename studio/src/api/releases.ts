@@ -45,7 +45,10 @@ export interface ReleasesPort {
   rollback(p: ProjectRef, environment: string, releaseId: string): Promise<S.Environment>;
   signingKeys(p: ProjectRef): Promise<S.SigningKey[]>;
   deliveryKeys(p: ProjectRef): Promise<S.DeliveryKey[]>;
-  createDeliveryKey(p: ProjectRef, name: string, idempotencyKey: string): Promise<S.DeliveryKey>;
+  /** Without a scope the key reads `production` only. */
+  createDeliveryKey(p: ProjectRef, name: string, scope: S.DeliveryKeyScope | undefined, idempotencyKey: string): Promise<S.DeliveryKey>;
+  /** Replaces what a key reads; the key itself doesn't change. */
+  setDeliveryKeyScope(p: ProjectRef, id: string, scope: S.DeliveryKeyScope): Promise<S.DeliveryKey>;
   revokeDeliveryKey(p: ProjectRef, id: string): Promise<void>;
 }
 
@@ -124,12 +127,22 @@ export const apiReleases: ReleasesPort = {
         ),
       ),
     ),
-  createDeliveryKey: (p, name, key) =>
+  createDeliveryKey: (p, name, scope, key) =>
     value(
       read(
         client.POST("/v1/tenants/{tenant}/projects/{project}/delivery-keys", {
           params: { path: p, header: { "Idempotency-Key": key } },
-          body: { name },
+          body: scope ? { name, scope } : { name },
+        }),
+        S.DeliveryKey,
+      ),
+    ),
+  setDeliveryKeyScope: (p, delivery_key, scope) =>
+    value(
+      read(
+        client.PUT("/v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}/scope", {
+          params: { path: { ...p, delivery_key } },
+          body: scope,
         }),
         S.DeliveryKey,
       ),
