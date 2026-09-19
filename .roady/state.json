@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 89,
+  "version": 90,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -355,11 +355,15 @@
       "elapsed_minutes": 0
     },
     "task-m2-intelligence-core": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "platform/internal/intelligence: provider port + Anthropic (SDK, no env creds)/OpenAI-compatible/Gemini adapters with fortify resilience, routing/pricing/budget, agent-go translation agent with axi-go tools and structural gate, confidence + explanation + review routing, versioned prompts, evals on cassettes (52 cases: structural 1.00, terminology 0.96, formality 0.89)"
+      ],
       "started_at": "2026-09-19T15:09:44.185034+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T16:03:38.46374+02:00",
+      "elapsed_minutes": 53
     },
     "task-m2-intelligence-wiring": {
       "status": "pending",
@@ -492,5 +496,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T15:09:55.346506+02:00"
+  "updated_at": "2026-09-19T16:03:38.463741+02:00"
 }
