@@ -23,6 +23,19 @@ func (q *Queries) CountBuildCaptures(ctx context.Context, buildID uuid.UUID) (in
 	return count, err
 }
 
+const countCapturesOfBuilds = `-- name: CountCapturesOfBuilds :one
+SELECT count(*)::int FROM context_captures WHERE build_id = ANY($1::uuid[])
+`
+
+// How many captures the given builds hold: what a purge deletes with
+// them (RFC 0004 §11 counts deletions by kind).
+func (q *Queries) CountCapturesOfBuilds(ctx context.Context, buildIds []uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countCapturesOfBuilds, buildIds)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getCapture = `-- name: GetCapture :one
 SELECT id, tenant_id, build_id, project_id, route, viewport_width, viewport_height, locale, image_digest, image_width, image_height, created_by, created_at FROM context_captures WHERE id = $1
 `

@@ -220,6 +220,40 @@ func (q *Queries) ListBranchProposals(ctx context.Context, branchID uuid.UUID) (
 	return items, nil
 }
 
+const listClosedBranches = `-- name: ListClosedBranches :many
+SELECT name, closed_at FROM catalog_branches
+WHERE project_id = $1 AND closed_at IS NOT NULL
+ORDER BY name
+`
+
+type ListClosedBranchesRow struct {
+	Name     string
+	ClosedAt pgtype.Timestamptz
+}
+
+// The project's closed and merged branches with when they closed: what
+// Context's retention needs to delete a closed branch's builds after
+// the grace period (RFC 0004 §2.3).
+func (q *Queries) ListClosedBranches(ctx context.Context, projectID uuid.UUID) ([]ListClosedBranchesRow, error) {
+	rows, err := q.db.Query(ctx, listClosedBranches, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClosedBranchesRow
+	for rows.Next() {
+		var i ListClosedBranchesRow
+		if err := rows.Scan(&i.Name, &i.ClosedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProposalsForMessages = `-- name: ListProposalsForMessages :many
 SELECT tenant_id, branch_id, key, message_id, kind, syntax, text, model, base_revision, author, created_at, updated_at FROM catalog_proposals
 WHERE message_id = ANY ($1::uuid[])

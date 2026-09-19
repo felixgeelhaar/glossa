@@ -76,3 +76,11 @@ WHERE m.state = 'proposed'
                   WHERE p.message_id = m.id AND p.kind = 'new_key' AND b.state = 'open')
 ORDER BY m.project_id, m.key
 FOR UPDATE OF m;
+
+-- name: ListClosedBranches :many
+-- The project's closed and merged branches with when they closed: what
+-- Context's retention needs to delete a closed branch's builds after
+-- the grace period (RFC 0004 §2.3).
+SELECT name, closed_at FROM catalog_branches
+WHERE project_id = sqlc.arg(project_id) AND closed_at IS NOT NULL
+ORDER BY name;

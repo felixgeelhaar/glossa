@@ -37,6 +37,11 @@ SELECT * FROM context_regions WHERE capture_id = sqlc.arg(capture_id) ORDER BY p
 -- The images the given builds' captures reference.
 SELECT DISTINCT image_digest FROM context_captures WHERE build_id = ANY(sqlc.arg(build_ids)::uuid[]);
 
+-- name: CountCapturesOfBuilds :one
+-- How many captures the given builds hold: what a purge deletes with
+-- them (RFC 0004 §11 counts deletions by kind).
+SELECT count(*)::int FROM context_captures WHERE build_id = ANY(sqlc.arg(build_ids)::uuid[]);
+
 -- name: ListReferencedImages :many
 -- Which of digests a capture of the project still references.
 SELECT DISTINCT image_digest FROM context_captures
