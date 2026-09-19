@@ -37,7 +37,7 @@ func hash(b []byte) string {
 func source(tamper bool) fakeSource {
 	de := []byte(`{"schema":"glossa.artifact/v1","locale":"de","namespace":"default","messages":{}}`)
 	en := []byte(`{"schema":"glossa.artifact/v1","locale":"en","namespace":"default","messages":{}}`)
-	m := fmt.Sprintf(`{"schema":"glossa.manifest/v1","release":{"id":"rel_1","version":7},"artifacts":{"de":{"default":{"sha256":"%s","size":%d}},"en":{"default":{"sha256":"%s","size":%d}}}}`,
+	m := fmt.Sprintf(`{"schema":"glossa.manifest/v1","environment":"production","release":{"id":"rel_1","version":7},"artifacts":{"de":{"default":{"sha256":"%s","size":%d}},"en":{"default":{"sha256":"%s","size":%d}}}}`,
 		hash(de), len(de), hash(en), len(en))
 	arts := map[string][]byte{hash(de): de, hash(en): en}
 	if tamper {
@@ -46,14 +46,16 @@ func source(tamper bool) fakeSource {
 	return fakeSource{manifest: []byte(m), artifacts: arts}
 }
 
+var want = release.BundleRef{ReleaseID: "rel_1", Environment: "production"}
+
 func TestWriteBundleWritesTheSpecLayout(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "bundle")
 	src := source(false)
-	b, err := release.WriteBundle(context.Background(), src, dir)
+	b, err := release.WriteBundle(context.Background(), src, dir, want)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b.ReleaseID != "rel_1" || b.Version != 7 || b.Artifacts != 2 || strings.Join(b.Locales, ",") != "de,en" {
+	if b.ReleaseID != "rel_1" || b.Version != 7 || b.Environment != "production" || b.Artifacts != 2 || strings.Join(b.Locales, ",") != "de,en" {
 		t.Errorf("bundle = %+v", b)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
@@ -68,9 +70,36 @@ func TestWriteBundleWritesTheSpecLayout(t *testing.T) {
 	}
 }
 
+func TestWriteBundleRemovesArtifactsTheManifestNoLongerNames(t *testing.T) {
+	dir := t.TempDir()
+	stale := filepath.Join(dir, "a", strings.Repeat("0", 64)+".json")
+	keep := filepath.Join(dir, "a", "README")
+	for _, p := range []string{stale, keep} {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b, err := release.WriteBundle(context.Background(), source(false), dir, want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(stale); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("stale artifact kept: %v", err)
+	}
+	if _, err := os.Stat(keep); err != nil {
+		t.Errorf("a file that isn't an artifact was removed: %v", err)
+	}
+	if b.Removed != 1 {
+		t.Errorf("removed = %d", b.Removed)
+	}
+}
+
 func TestWriteBundleRefusesTamperedArtifactsAndLeavesNoManifest(t *testing.T) {
 	dir := t.TempDir()
-	_, err := release.WriteBundle(context.Background(), source(true), dir)
+	_, err := release.WriteBundle(context.Background(), source(true), dir, want)
 	if err == nil || !strings.Contains(err.Error(), "integrity") {
 		t.Fatalf("err = %v", err)
 	}
@@ -79,12 +108,18 @@ func TestWriteBundleRefusesTamperedArtifactsAndLeavesNoManifest(t *testing.T) {
 	}
 }
 
-func TestUnavailableSaysSo(t *testing.T) {
-	var svc release.Service = release.Unavailable{}
-	if _, err := svc.Publish(context.Background(), release.Scope{}, release.PublishRequest{}); !errors.Is(err, release.ErrUnavailable) {
-		t.Errorf("Publish = %v", err)
-	}
-	if _, err := release.WriteBundle(context.Background(), svc.BundleSource(release.Scope{}, "rel_1"), t.TempDir()); !errors.Is(err, release.ErrUnavailable) {
-		t.Errorf("WriteBundle = %v", err)
+func TestWriteBundleRefusesAManifestForAnotherReleaseOrEnvironment(t *testing.T) {
+	for _, ref := range []release.BundleRef{
+		{ReleaseID: "rel_2", Environment: "production"},
+		{ReleaseID: "rel_1", Environment: "staging"},
+	} {
+		dir := t.TempDir()
+		_, err := release.WriteBundle(context.Background(), source(false), dir, ref)
+		if err == nil || !strings.Contains(err.Error(), "manifest names") {
+			t.Errorf("%+v: err = %v", ref, err)
+		}
+		if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+			t.Errorf("%+v: wrote %v", ref, entries)
+		}
 	}
 }

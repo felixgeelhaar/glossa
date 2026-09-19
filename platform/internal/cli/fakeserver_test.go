@@ -31,6 +31,7 @@ type fakeServer struct {
 	locales        []string // including the source
 	messages       map[string]*fakeMessage
 	translations   map[string]map[string]*fakeTranslation // locale → key
+	rel            *fakeReleases
 	requests       []string
 }
 
@@ -51,7 +52,7 @@ type fakeTranslation struct {
 
 func newFakeServer(t *testing.T) *fakeServer {
 	f := &fakeServer{t: t, reviewRequired: true, sourceLocale: "en", locales: []string{"en"},
-		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}}
+		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases()}
 	mux := http.NewServeMux()
 	p := "/v1/tenants/ten_1/projects/prj_1"
 	mux.HandleFunc("GET /v1/tenants", f.tenants)
@@ -65,9 +66,10 @@ func newFakeServer(t *testing.T) *fakeServer {
 	mux.HandleFunc("POST "+p+"/message-upserts", f.upsert)
 	mux.HandleFunc("GET "+p+"/messages/{key}/translations", f.listTranslations)
 	mux.HandleFunc("POST "+p+"/translation-imports", f.importTranslations)
+	f.routeReleases(mux, p)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
-		f.requests = append(f.requests, r.Method+" "+r.URL.Path)
+		f.requests = append(f.requests, r.Method+" "+r.URL.Path+" "+r.Header.Get("Idempotency-Key"))
 		f.mu.Unlock()
 		if r.Header.Get("Authorization") != "Bearer "+testToken {
 			problemResp(w, 401, "unauthenticated", "invalid token")

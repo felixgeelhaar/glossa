@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
 )
 
 // memStore is an in-memory credentials.Store.
@@ -39,7 +38,6 @@ type workspace struct {
 	env         map[string]string
 	store       *memStore
 	stdin       string
-	releases    release.Service
 	interactive bool
 }
 
@@ -108,7 +106,6 @@ func (w *workspace) run(args ...string) result {
 		Dir:         w.dir,
 		Interactive: w.interactive,
 		Credentials: w.store,
-		Releases:    w.releases,
 		Version:     "test",
 	})
 	return result{code: code, stdout: out.String(), stderr: errb.String()}

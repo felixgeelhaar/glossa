@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
 )
 
 // Env is everything the CLI touches outside itself, so tests can run
@@ -49,16 +48,6 @@ type Env struct {
 	ReadSecret func(prompt string) (string, error)
 	// Version is the CLI's version, for --version and the User-Agent.
 	Version string
-	// Releases is the Release API (nil: release.Unavailable until the
-	// /v1 Release endpoints exist).
-	Releases release.Service
-}
-
-func (e *Env) releases() release.Service {
-	if e.Releases == nil {
-		return release.Unavailable{}
-	}
-	return e.Releases
 }
 
 func (e *Env) getenv(k string) string {

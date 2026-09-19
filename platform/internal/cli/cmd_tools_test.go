@@ -1,19 +1,11 @@
 package cli
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
 )
 
 func TestGenerateWritesTypedAccessorsAndChecksStaleness(t *testing.T) {
@@ -77,74 +69,6 @@ func f() { _ = client.T(ctx, "cart.totla", nil) }`)
 		t.Errorf("unused = %v", out.Unused)
 	}
 	w.run("extract", "--strict").want(t, ExitCheckFailed)
-}
-
-func TestReleaseCommandsParseArgumentsAndSayTheyArentAvailableYet(t *testing.T) {
-	srv := newFakeServer(t)
-	w := newWorkspace(t).withProject(srv, map[string]string{"en": sourceEN})
-	for _, tc := range []struct {
-		args []string
-		code string
-	}{
-		{[]string{"release"}, "invalid_usage"},
-		{[]string{"release", "ship"}, "invalid_usage"},
-		{[]string{"release", "promote", "rel_1"}, "invalid_usage"},
-		{[]string{"release", "rollback"}, "invalid_usage"},
-		{[]string{"release", "keys", "extra"}, "invalid_usage"},
-		{[]string{"release", "publish"}, "release_api_unavailable"},
-		{[]string{"release", "promote", "rel_1", "--to", "staging"}, "release_api_unavailable"},
-		{[]string{"release", "rollback", "--environment", "production"}, "release_api_unavailable"},
-		{[]string{"release", "environments"}, "release_api_unavailable"},
-		{[]string{"pull", "--release", "rel_1"}, "release_api_unavailable"},
-	} {
-		var doc errorDoc
-		w.json(&doc, tc.args...).want(t, ExitUsage)
-		if doc.Error.Code != tc.code {
-			t.Errorf("%v: code = %q, want %q (%+v)", tc.args, doc.Error.Code, tc.code, doc.Error)
-		}
-	}
-	inv := &invocation{env: Env{}, name: "release"}
-	r, err := parseReleaseArgs(inv, []string{"publish", "--note", "first"})
-	if err != nil || r.environment != "production" || r.note != "first" {
-		t.Errorf("publish args = %+v, %v", r, err)
-	}
-	r, err = parseReleaseArgs(&invocation{name: "release"}, []string{"promote", "rel_9", "--to", "staging"})
-	if err != nil || r.releaseID != "rel_9" || r.environment != "staging" {
-		t.Errorf("promote args = %+v, %v", r, err)
-	}
-}
-
-// fakeReleases serves one bundle, as the Release API will.
-type fakeReleases struct {
-	release.Unavailable
-	manifest  []byte
-	artifacts map[string][]byte
-}
-
-func (f fakeReleases) BundleSource(release.Scope, string) release.BundleSource { return f }
-func (f fakeReleases) Manifest(context.Context) ([]byte, error)                { return f.manifest, nil }
-func (f fakeReleases) Artifact(_ context.Context, sha string) ([]byte, error) {
-	return f.artifacts[sha], nil
-}
-
-func TestPullReleaseWritesTheBundleLayout(t *testing.T) {
-	srv := newFakeServer(t)
-	w := newWorkspace(t).withProject(srv, map[string]string{"en": sourceEN})
-	art := []byte(`{"schema":"glossa.artifact/v1","locale":"en","namespace":"default","messages":{}}`)
-	sum := sha256.Sum256(art)
-	sha := hex.EncodeToString(sum[:])
-	w.releases = fakeReleases{
-		manifest:  []byte(fmt.Sprintf(`{"schema":"glossa.manifest/v1","release":{"id":"rel_1","version":3},"artifacts":{"en":{"default":{"sha256":%q,"size":%d}}}}`, sha, len(art))),
-		artifacts: map[string][]byte{sha: art},
-	}
-	var out pullJSON
-	w.json(&out, "pull", "--release", "rel_1", "--out", "public/glossa").want(t, ExitOK)
-	if out.Release == nil || out.Release.Version != 3 || out.Release.Artifacts != 1 {
-		t.Fatalf("pull --release = %+v", out)
-	}
-	if _, err := os.Stat(filepath.Join(w.dir, "public", "glossa", "a", sha+".json")); err != nil {
-		t.Error(err)
-	}
 }
 
 // fakeV03 is a Glossa v0.3 API with a de source and an en locale.
