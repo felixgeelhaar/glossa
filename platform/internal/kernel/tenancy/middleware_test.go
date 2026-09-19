@@ -1,6 +1,7 @@
 package tenancy_test
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -12,7 +13,14 @@ import (
 
 type resolverFunc func(*http.Request) (tenancy.ID, error)
 
-func (f resolverFunc) ResolveTenant(r *http.Request) (tenancy.ID, error) { return f(r) }
+type principalKey struct{}
+
+// ResolveTenant also decorates the context, as Identity does with the
+// principal, so the test can prove the decoration reaches the handler.
+func (f resolverFunc) ResolveTenant(r *http.Request) (context.Context, tenancy.ID, error) {
+	id, err := f(r)
+	return context.WithValue(r.Context(), principalKey{}, "ada"), id, err
+}
 
 func TestMiddleware(t *testing.T) {
 	want := tenancy.NewID()
@@ -54,7 +62,7 @@ func TestMiddleware(t *testing.T) {
 			var reached bool
 			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				got, ok := tenancy.FromContext(r.Context())
-				reached = ok && got == want
+				reached = ok && got == want && r.Context().Value(principalKey{}) == "ada"
 				w.WriteHeader(http.StatusOK)
 			})
 			rec := httptest.NewRecorder()
