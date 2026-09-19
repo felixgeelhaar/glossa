@@ -93,6 +93,20 @@ spec:
               value: {{ $v.integration.maxUploadBytes | int64 | quote }}
             - name: GLOSSA_INTEGRATION_RETENTION
               value: {{ $v.integration.retention | quote }}
+            - name: GLOSSA_PURGE_ENABLED
+              value: {{ $v.purge.enabled | quote }}
+            - name: GLOSSA_PURGE_INTERVAL
+              value: {{ $v.purge.interval | quote }}
+            - name: GLOSSA_PURGE_TIMEOUT
+              value: {{ $v.purge.timeout | quote }}
+            - name: GLOSSA_PURGE_LEASE
+              value: {{ $v.purge.lease | quote }}
+            - name: GLOSSA_PURGE_POLL_INTERVAL
+              value: {{ $v.purge.pollInterval | quote }}
+            - name: GLOSSA_PURGE_JITTER
+              value: {{ $v.purge.jitter | quote }}
+            - name: GLOSSA_PURGE_BATCH_SIZE
+              value: {{ $v.purge.batchSize | quote }}
             - name: GLOSSA_STUDIO_URL
               value: {{ include "gp.studioUrl" . | quote }}
             # Surfaced to clients by GET /v1/meta (Studio's runtime snippets).

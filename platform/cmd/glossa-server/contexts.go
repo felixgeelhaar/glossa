@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/coverage"
 	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
@@ -41,6 +42,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/configured"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/ratelimit"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/scheduler"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/sealing"
 	knowledgeapi "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/httpapi"
 	knowledgepg "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/postgres"
@@ -90,6 +92,35 @@ type contexts struct {
 	// objects of keys written before their current format (migration
 	// 0015 gave existing keys a scope).
 	keyIndexes func(context.Context) (int, error)
+	// purgeJobs are the daily retention jobs (RFC 0004 §2.3): Context's
+	// builds, captures and images, and Catalog's proposal sweep. The
+	// scheduler leases each so only one replica runs it.
+	purgeJobs []scheduler.Job
+}
+
+// newPurgeJobs builds the daily retention jobs over the two contexts that
+// have something to purge. Each logs what it did; a failure is the
+// scheduler's to count and retry at the next interval.
+func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, logger *slog.Logger) []scheduler.Job {
+	return []scheduler.Job{
+		{Name: "context.purge", Run: func(ctx context.Context) error {
+			purged, err := usages.Purge(ctx)
+			for _, p := range purged {
+				logger.InfoContext(ctx, "context: retention purged a project",
+					slog.String("tenant_id", p.Tenant.String()), slog.String("project_id", p.Project.String()),
+					slog.Int("builds", len(p.Builds)), slog.Int("captures", p.Captures),
+					slog.Int("images", p.ImagesDeleted))
+			}
+			return err
+		}},
+		{Name: "catalog.proposals", Run: func(ctx context.Context) error {
+			n, err := catalog.SweepAllProposals(ctx)
+			if n > 0 {
+				logger.InfoContext(ctx, "catalog: proposals of closed branches obsoleted", slog.Int("messages", n))
+			}
+			return err
+		}},
+	}
 }
 
 // Context's upload limits (RFC 0004 §10): a usages document is read
@@ -112,14 +143,20 @@ type contextDeps struct {
 	logger  *slog.Logger
 	// sealKey seals tenants' provider keys (derived from the auth
 	// secret).
-	sealKey     []byte
-	registerer  prometheus.Registerer
+	sealKey    []byte
+	registerer prometheus.Registerer
+	// tracer traces CI uploads end to end (RFC 0004 §11).
+	tracer      trace.TracerProvider
 	ai          config.Intelligence
 	integration config.Integration
+	purge       config.Purge
 }
 
 // buildContexts opens object storage and the signer, then the contexts.
-func buildContexts(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, events *outbox.Registry, reg prometheus.Registerer) (contexts, error) {
+func buildContexts(
+	cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, events *outbox.Registry,
+	reg prometheus.Registerer, tp trace.TracerProvider,
+) (contexts, error) {
 	objects, err := configured.Open(cfg.Storage)
 	if err != nil {
 		return contexts{}, err
@@ -134,7 +171,7 @@ func buildContexts(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, e
 	}
 	return newContexts(pool, events, contextDeps{
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
-		integration: cfg.Integration,
+		integration: cfg.Integration, purge: cfg.Purge, tracer: tp,
 	})
 }
 
@@ -142,7 +179,7 @@ func buildContexts(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, e
 // them to each other's events.
 func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) (contexts, error) {
 	uow := db.NewUnitOfWork(pool)
-	catalog := catalogapp.New(catalogpg.NewTransactor(uow))
+	catalog := catalogapp.New(catalogpg.NewTransactor(uow), catalogapp.WithSweeper(catalogpg.NewSweeper(uow)))
 	localization := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(catalog))
 	translationPort := coverage.New(localization)
 	catalog.SetCoverage(translationPort)
@@ -164,7 +201,8 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	usageContext := contextapp.New(contextpg.NewTransactor(uow), contextcatalog.New(catalog),
 		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger),
 		contextapp.WithLimiter(ratelimit.New(contextUploadLimit())), contextapp.WithMetrics(contextmetrics.New(deps.registerer)),
-		contextapp.WithImages(deps.objects, imaging.New("", imaging.DefaultDecodeBudget)))
+		contextapp.WithImages(deps.objects, imaging.New("", imaging.DefaultDecodeBudget)),
+		contextapp.WithDeleteBatch(deps.purge.BatchSize), contextapp.WithTracerProvider(deps.tracer))
 	if err := usageContext.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
@@ -187,6 +225,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	scanner := releasepg.NewScanner(uow)
 	c.keyIndexes = func(ctx context.Context) (int, error) { return release.RewriteKeyIndexes(ctx, scanner) }
+	c.purgeJobs = newPurgeJobs(usageContext, catalog, deps.logger)
 	if deps.ai.WorkersEnabled {
 		c.aiWorker = intelligenceapp.NewWorker(intelligence, intelligencepg.NewClaimer(uow), intelligenceapp.WorkerConfig{
 			Workers: deps.ai.Workers, PollInterval: deps.ai.PollInterval, Lease: deps.ai.Lease, JobTimeout: deps.ai.JobTimeout,

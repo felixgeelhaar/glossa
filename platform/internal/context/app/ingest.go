@@ -5,6 +5,8 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
@@ -39,7 +41,14 @@ type Ingested struct {
 // (Catalog), never the uploader's say. Uploading the same document
 // again for the same application, commit and source is a no-op. Uploads
 // are rate-limited per tenant (ErrRateLimited). Needs catalog.write.
-func (s *Service) IngestUsages(ctx context.Context, in IngestUsages) (Ingested, error) {
+func (s *Service) IngestUsages(ctx context.Context, in IngestUsages) (out Ingested, err error) {
+	// One span per CI upload (RFC 0004 §11). The events the unit of work
+	// publishes carry its context, so ingest → events is one trace.
+	ctx, end := s.span(ctx, "context.ingest_usages",
+		attribute.String("glossa.project_id", in.Project.String()), attribute.String("glossa.source", in.Source),
+		attribute.Int("glossa.document_bytes", len(in.Document)))
+	defer end(&err)
+
 	by, err := actor(ctx, authz.CatalogWrite)
 	if err != nil {
 		return Ingested{}, err
@@ -67,9 +76,16 @@ func (s *Service) IngestUsages(ctx context.Context, in IngestUsages) (Ingested, 
 	if err != nil {
 		return Ingested{}, err
 	}
-	out, err := s.ingest(ctx, b, up)
+	out, err = s.ingest(ctx, b, up)
 	if err == nil {
 		s.metrics.BuildIngested(b.Source, out.Build.UsageCount, out.UnknownKeys, out.Replayed)
+		trace.SpanFromContext(ctx).SetAttributes(
+			attribute.String("glossa.build_id", out.Build.ID.String()),
+			attribute.String("glossa.branch", out.Build.Branch.String()),
+			attribute.Bool("glossa.on_default_branch", out.Build.OnDefaultBranch),
+			attribute.Int("glossa.usages", out.Build.UsageCount),
+			attribute.Int("glossa.unknown_keys", out.UnknownKeys),
+			attribute.Bool("glossa.replayed", out.Replayed))
 	}
 	return out, err
 }

@@ -74,6 +74,25 @@ server:
     maxUploadBytes: 67108864
     # -- GLOSSA_INTEGRATION_RETENTION: how long import/export files are kept.
     retention: 168h
+  # The daily purge job (RFC 0004 §2.3): Context's builds beyond
+  # retention, their captures, the images no capture references any
+  # more, and Catalog's proposal sweep. A lease picks one replica per
+  # run, so this stays on with several replicas.
+  purge:
+    # -- GLOSSA_PURGE_ENABLED: run the retention jobs. Off, builds and their images accumulate.
+    enabled: true
+    # -- GLOSSA_PURGE_INTERVAL: how often the jobs run across the deployment.
+    interval: 24h
+    # -- GLOSSA_PURGE_TIMEOUT: bounds one run of one job.
+    timeout: 30m
+    # -- GLOSSA_PURGE_LEASE: how long a run reserves its job; must exceed the timeout.
+    lease: 35m
+    # -- GLOSSA_PURGE_POLL_INTERVAL: how often a replica asks whether a job is due.
+    pollInterval: 5m
+    # -- GLOSSA_PURGE_JITTER: fraction of pollInterval each poll is spread by (0–1).
+    jitter: 0.2
+    # -- GLOSSA_PURGE_BATCH_SIZE: object-store deletes issued at a time.
+    batchSize: 100
   webauthn:
     # -- GLOSSA_WEBAUTHN_RP_ID (registrable domain). Default: hosts.studio.
     rpId: ""

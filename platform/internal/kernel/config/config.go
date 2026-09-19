@@ -103,6 +103,31 @@ type Config struct {
 	Release              Release
 	Intelligence         Intelligence
 	Integration          Integration
+	Purge                Purge
+}
+
+// Purge configures the daily retention job (RFC 0004 §2.3): Context's
+// builds, captures and images, and Catalog's proposal sweep. One run
+// happens per deployment, not per replica — a lease decides which
+// replica leads it.
+type Purge struct {
+	// Enabled runs the purge scheduler in this process. Off, nothing
+	// purges: builds and their images accumulate.
+	Enabled bool
+	// Interval is how often the jobs run across the deployment.
+	Interval time.Duration
+	// Timeout bounds one run of one job; Lease (longer) is how long a
+	// run reserves its job against the other replicas.
+	Timeout time.Duration
+	Lease   time.Duration
+	// PollInterval is how often a replica asks whether a job is due.
+	PollInterval time.Duration
+	// Jitter spreads each poll by up to this fraction of PollInterval,
+	// so replicas started together don't all ask at once.
+	Jitter float64
+	// BatchSize bounds the object-store deletes one purge issues at a
+	// time, so freeing a large backlog of images doesn't flood MinIO.
+	BatchSize int
 }
 
 // Integration configures the import and export jobs (RFC 0003 §5–§6):
@@ -210,10 +235,18 @@ func decodeKey(s string) ([]byte, error) {
 // String renders the configuration with secrets redacted.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"database=%s migrate=%s http=%s log=%s shutdown=%s otel=%q outbox=%t storage=%s ai_workers=%d",
+		"database=%s migrate=%s http=%s log=%s shutdown=%s otel=%q outbox=%t storage=%s ai_workers=%d purge=%s",
 		c.DatabaseURL, c.Migrate, c.HTTP.Addr, c.LogLevel, c.ShutdownTimeout,
-		c.OTel.Endpoint, c.Outbox.Enabled, c.Storage.Driver, c.aiWorkers(),
+		c.OTel.Endpoint, c.Outbox.Enabled, c.Storage.Driver, c.aiWorkers(), c.purge(),
 	)
+}
+
+// purge renders the retention job's schedule, or "off".
+func (c Config) purge() string {
+	if !c.Purge.Enabled {
+		return "off"
+	}
+	return c.Purge.Interval.String()
 }
 
 func (c Config) aiWorkers() int {
@@ -268,6 +301,15 @@ func Load(lookup LookupFunc) (Config, error) {
 		UploadTimeout:  r.duration("GLOSSA_INTEGRATION_UPLOAD_TIMEOUT", 10*time.Minute),
 		Retention:      r.duration("GLOSSA_INTEGRATION_RETENTION", 7*24*time.Hour),
 	}
+	cfg.Purge = Purge{
+		Enabled:      r.boolean("GLOSSA_PURGE_ENABLED", true),
+		Interval:     r.duration("GLOSSA_PURGE_INTERVAL", 24*time.Hour),
+		Timeout:      r.duration("GLOSSA_PURGE_TIMEOUT", 30*time.Minute),
+		Lease:        r.duration("GLOSSA_PURGE_LEASE", 35*time.Minute),
+		PollInterval: r.duration("GLOSSA_PURGE_POLL_INTERVAL", 5*time.Minute),
+		Jitter:       r.ratio("GLOSSA_PURGE_JITTER", 0.2),
+		BatchSize:    r.intRange("GLOSSA_PURGE_BATCH_SIZE", 100, 1, 10000),
+	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %w", errors.Join(r.errs...))
@@ -288,6 +330,15 @@ func (c Config) validate(r *reader) {
 	}
 	if c.Integration.Lease <= c.Integration.JobTimeout {
 		r.fail("GLOSSA_INTEGRATION_JOB_LEASE", "must be longer than GLOSSA_INTEGRATION_JOB_TIMEOUT")
+	}
+	if c.Purge.Lease <= c.Purge.Timeout {
+		r.fail("GLOSSA_PURGE_LEASE", "must be longer than GLOSSA_PURGE_TIMEOUT")
+	}
+	if c.Purge.Timeout > c.Purge.Interval {
+		r.fail("GLOSSA_PURGE_TIMEOUT", "must fit inside GLOSSA_PURGE_INTERVAL")
+	}
+	if c.Purge.PollInterval > c.Purge.Interval {
+		r.fail("GLOSSA_PURGE_POLL_INTERVAL", "must not exceed GLOSSA_PURGE_INTERVAL")
 	}
 }
 
@@ -397,6 +448,20 @@ func (r *reader) intRange(key string, def, lo, hi int) int {
 		return def
 	}
 	return n
+}
+
+// ratio reads a fraction between 0 and 1 inclusive.
+func (r *reader) ratio(key string, def float64) float64 {
+	raw := r.str(key, "")
+	if raw == "" {
+		return def
+	}
+	f, err := strconv.ParseFloat(raw, 64)
+	if err != nil || f < 0 || f > 1 {
+		r.fail(key, "must be a number between 0 and 1")
+		return def
+	}
+	return f
 }
 
 func (r *reader) boolean(key string, def bool) bool {

@@ -9,6 +9,8 @@ import (
 	"slices"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
@@ -65,7 +67,13 @@ type CapturesIngested struct {
 // application, commit and manifest digest: a repeat returns the first
 // build without reading its images. Rate-limited per tenant with the
 // usage uploads (ErrRateLimited). Needs catalog.write.
-func (s *Service) IngestCaptures(ctx context.Context, in IngestCaptures) (CapturesIngested, error) {
+func (s *Service) IngestCaptures(ctx context.Context, in IngestCaptures) (_ CapturesIngested, err error) {
+	// One span per CI upload (RFC 0004 §11), like the usages upload.
+	ctx, end := s.span(ctx, "context.ingest_captures",
+		attribute.String("glossa.project_id", in.Project.String()),
+		attribute.Int("glossa.manifest_bytes", len(in.Manifest)))
+	defer end(&err)
+
 	by, err := actor(ctx, authz.CatalogWrite)
 	if err != nil {
 		return CapturesIngested{}, err
@@ -107,6 +115,13 @@ func (s *Service) IngestCaptures(ctx context.Context, in IngestCaptures) (Captur
 		out.ImagesStored, out.ImagesDeduplicated = rec.stored, rec.deduplicated
 	}
 	s.recordCaptures(ctx, out, regionCount(captures), rec.bytes)
+	trace.SpanFromContext(ctx).SetAttributes(
+		attribute.String("glossa.build_id", out.Build.ID.String()),
+		attribute.Int("glossa.captures", out.Captures),
+		attribute.Int("glossa.regions", regionCount(captures)),
+		attribute.Int("glossa.images_stored", out.ImagesStored),
+		attribute.Int("glossa.images_deduplicated", out.ImagesDeduplicated),
+		attribute.Bool("glossa.replayed", out.Replayed))
 	return out, nil
 }
 

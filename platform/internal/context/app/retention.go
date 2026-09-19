@@ -104,7 +104,10 @@ func orphaned(ctx context.Context, st Store, project uuid.UUID, images []domain.
 // deleteImages deletes a project's images from object storage (none
 // without WithImages), all of them whatever fails; the failures are
 // joined. Deletes are idempotent: the port answers nil for an object
-// that is already gone, so a re-run after a partial failure is safe.
+// that is already gone, so a re-run after a partial failure is safe,
+// and so is a purge racing the subscriber that erases a deleted
+// project. They go in batches of DeleteBatch, so freeing a large
+// backlog doesn't flood the object store.
 func (s *Service) deleteImages(ctx context.Context, project uuid.UUID, images []domain.Digest) (int, error) {
 	if s.objects == nil {
 		return 0, nil
@@ -114,12 +117,18 @@ func (s *Service) deleteImages(ctx context.Context, project uuid.UUID, images []
 		deleted int
 		errs    []error
 	)
-	for _, d := range images {
-		if err := s.objects.Delete(ctx, domain.ImageKey(t, project, d)); err != nil {
-			errs = append(errs, fmt.Errorf("%w: delete image %s: %v", ErrStorageUnavailable, d, err))
-			continue
+	for batch := range slices.Chunk(images, s.deleteBatch) {
+		for _, d := range batch {
+			if err := s.objects.Delete(ctx, domain.ImageKey(t, project, d)); err != nil {
+				errs = append(errs, fmt.Errorf("%w: delete image %s: %v", ErrStorageUnavailable, d, err))
+				continue
+			}
+			deleted++
 		}
-		deleted++
+		if ctx.Err() != nil {
+			errs = append(errs, ctx.Err())
+			break
+		}
 	}
 	return deleted, errors.Join(errs...)
 }

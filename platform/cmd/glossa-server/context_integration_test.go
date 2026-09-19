@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -225,5 +226,73 @@ func TestContextIsComposed(t *testing.T) {
 			t.Fatal("the deleted project's builds were never erased")
 		}
 		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// TestThePurgeJobRunsInTheServer boots the real composition root with a
+// one-second purge interval and watches the daily retention job
+// (RFC 0004 §2.3) delete the builds beyond the five-build window, with
+// its deletions and its run on /metrics (§11).
+func TestThePurgeJobRunsInTheServer(t *testing.T) {
+	s := startServerWith(t, map[string]string{
+		"GLOSSA_PURGE_INTERVAL":      "1s",
+		"GLOSSA_PURGE_TIMEOUT":       "1s",
+		"GLOSSA_PURGE_LEASE":         "2s",
+		"GLOSSA_PURGE_POLL_INTERVAL": "200ms",
+		"GLOSSA_PURGE_JITTER":        "0",
+	})
+	ada := s.signIn("ada@example.com")
+	var org struct{ ID string }
+	s.do(call{method: "POST", path: "/v1/tenants", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]string{"slug": "acme", "name": "Acme"}}).decode(t, &org)
+	base := "/v1/tenants/" + org.ID
+	var project struct{ ID string }
+	s.do(call{method: "POST", path: base + "/projects", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]any{"slug": "shop", "name": "Shop", "source_locale": "en"}}).decode(t, &project)
+	p := base + "/projects/" + project.ID
+	s.do(call{method: "POST", path: p + "/applications", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]any{"slug": "web", "name": "Web", "platform": "web"}}).want(t, http.StatusCreated, "")
+	var tok struct {
+		Secret string `json:"secret"`
+	}
+	s.do(call{method: "POST", path: base + "/tokens", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]any{"name": "ci", "scopes": []string{"write"}}}).decode(t, &tok)
+	s.do(call{method: "POST", path: p + "/message-upserts", bearer: tok.Secret,
+		body: map[string]any{"items": []map[string]any{{"key": "checkout.pay", "text": "Pay"}}}}).want(t, http.StatusOK, "")
+
+	// Seven builds of one application on the default branch: retention
+	// keeps five.
+	for i := range 7 {
+		doc := usagesDoc(strings.Repeat(fmt.Sprintf("%08x", 0x9f2c1e00+i), 5), "main",
+			usageAt("checkout.pay", "src/Payment.vue", i+1, "Payment", "/checkout"))
+		s.do(call{method: "POST", path: p + "/context-builds?source=plugin", bearer: tok.Secret, body: doc}).
+			want(t, http.StatusCreated, "")
+	}
+
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		var n int
+		if err := s.db.Super.QueryRow(context.Background(),
+			"SELECT count(*) FROM context_builds WHERE project_id = $1", project.ID).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		if n == 5 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the purge left %d builds, want 5\nlogs:\n%s", n, s.logs)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	page := s.metrics()
+	for _, want := range []string{
+		`glossa_context_purge_deletions_total{kind="build"} 2`,
+		`glossa_scheduler_runs_total{job="catalog.proposals",outcome="ok"}`,
+		`glossa_scheduler_runs_total{job="context.purge",outcome="ok"}`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("/metrics lacks %q", want)
+		}
 	}
 }

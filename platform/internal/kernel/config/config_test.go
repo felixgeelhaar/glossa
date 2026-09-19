@@ -202,6 +202,57 @@ func TestIntegrationConfig(t *testing.T) {
 	}
 }
 
+func TestPurgeConfig(t *testing.T) {
+	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
+	cfg, err := config.Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := cfg.Purge
+	if !p.Enabled || p.Interval != 24*time.Hour || p.Timeout != 30*time.Minute || p.Lease != 35*time.Minute ||
+		p.PollInterval != 5*time.Minute || p.Jitter != 0.2 || p.BatchSize != 100 {
+		t.Errorf("defaults = %+v", p)
+	}
+	if !strings.Contains(cfg.String(), "purge=24h0m0s") {
+		t.Errorf("String() = %q, want the purge interval", cfg.String())
+	}
+
+	over := map[string]string{
+		"GLOSSA_PURGE_ENABLED": "false", "GLOSSA_PURGE_INTERVAL": "6h", "GLOSSA_PURGE_TIMEOUT": "2m",
+		"GLOSSA_PURGE_LEASE": "3m", "GLOSSA_PURGE_POLL_INTERVAL": "30s", "GLOSSA_PURGE_JITTER": "0",
+		"GLOSSA_PURGE_BATCH_SIZE": "25",
+	}
+	for k, v := range base {
+		over[k] = v
+	}
+	if cfg, err = config.Load(env(over)); err != nil {
+		t.Fatal(err)
+	}
+	p = cfg.Purge
+	if p.Enabled || p.Interval != 6*time.Hour || p.Timeout != 2*time.Minute || p.Lease != 3*time.Minute ||
+		p.PollInterval != 30*time.Second || p.Jitter != 0 || p.BatchSize != 25 {
+		t.Errorf("overrides = %+v", p)
+	}
+	if !strings.Contains(cfg.String(), "purge=off") {
+		t.Errorf("String() with the purge disabled = %q", cfg.String())
+	}
+
+	// A lease no longer than the timeout, a timeout that can't fit in
+	// the interval, a poll beyond it, and a jitter outside 0–1 are all
+	// reported at once.
+	over["GLOSSA_PURGE_LEASE"] = "2m"
+	over["GLOSSA_PURGE_INTERVAL"] = "10s"
+	over["GLOSSA_PURGE_JITTER"] = "1.5"
+	_, err = config.Load(env(over))
+	for _, want := range []string{
+		"GLOSSA_PURGE_LEASE", "GLOSSA_PURGE_TIMEOUT", "GLOSSA_PURGE_POLL_INTERVAL", "GLOSSA_PURGE_JITTER",
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("invalid purge settings: %v does not mention %s", err, want)
+		}
+	}
+}
+
 func TestIntelligenceConfig(t *testing.T) {
 	cfg, err := config.Load(env(map[string]string{
 		"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret,

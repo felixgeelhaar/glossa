@@ -28,6 +28,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/httpserver"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/observability"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/scheduler"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
@@ -115,6 +116,8 @@ type app struct {
 	integrationWorker *integrationapp.Worker
 	// keyIndexes is Release's key index task (see contexts).
 	keyIndexes func(context.Context) (int, error)
+	// purger runs the daily retention jobs; nil when disabled.
+	purger     *scheduler.Scheduler
 	shutdownTP observability.ShutdownFunc
 }
 
@@ -152,7 +155,12 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger) (*app, e
 		pool.Close()
 		return nil, err
 	}
-	bounded, err := buildContexts(cfg, logger, pool, events, registry)
+	bounded, err := buildContexts(cfg, logger, pool, events, registry, tp)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+	purger, err := newPurger(cfg.Purge, logger, registry, pool, bounded.purgeJobs)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -167,8 +175,30 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger) (*app, e
 	})
 	return &app{
 		cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, aiWorker: bounded.aiWorker,
-		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, shutdownTP: shutdownTP,
+		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger,
+		shutdownTP: shutdownTP,
 	}, nil
+}
+
+// newPurger wires the daily retention scheduler on the Postgres lease,
+// so one replica leads each run (RFC 0004 §2.3). It returns nil when
+// the purge is disabled.
+func newPurger(
+	cfg config.Purge, logger *slog.Logger, reg prometheus.Registerer, pool *pgxpool.Pool, jobs []scheduler.Job,
+) (*scheduler.Scheduler, error) {
+	if !cfg.Enabled {
+		return nil, nil
+	}
+	s, err := scheduler.New(scheduler.NewPostgresLease(db.NewUnitOfWork(pool)), scheduler.Config{
+		Interval: cfg.Interval, Timeout: cfg.Timeout, Lease: cfg.Lease, Poll: cfg.PollInterval, Jitter: cfg.Jitter,
+	}, scheduler.WithLogger(logger), scheduler.WithMetrics(scheduler.NewMetrics(reg)))
+	if err != nil {
+		return nil, err
+	}
+	for _, j := range jobs {
+		s.Add(j)
+	}
+	return s, nil
 }
 
 func newDispatcher(
@@ -202,6 +232,7 @@ func (a *app) run(ctx context.Context) error {
 	dispatched := a.startDispatcher(dispatchCtx, errc)
 	worked := a.startWorker(dispatchCtx)
 	moved := a.startIntegrationWorker(dispatchCtx)
+	purged := a.startPurger(dispatchCtx)
 	a.startKeyIndexTask(dispatchCtx)
 
 	var runErr error
@@ -211,7 +242,23 @@ func (a *app) run(ctx context.Context) error {
 	case runErr = <-errc:
 		a.logger.Error("component failed; shutting down", slog.Any("error", runErr))
 	}
-	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved))
+	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, purged))
+}
+
+// startPurger runs the daily retention jobs until ctx ends; a run in
+// progress finishes first, bounded by its timeout, and gives its lease
+// back so the next replica isn't blocked.
+func (a *app) startPurger(ctx context.Context) <-chan struct{} {
+	done := make(chan struct{})
+	if a.purger == nil {
+		close(done)
+		return done
+	}
+	go func() {
+		defer close(done)
+		_ = a.purger.Run(ctx)
+	}()
+	return done
 }
 
 // keyIndexRetry is how long the key index task waits after a failure.
@@ -294,7 +341,7 @@ func (a *app) startDispatcher(ctx context.Context, errc chan<- error) <-chan str
 	return done
 }
 
-func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched, worked, moved <-chan struct{}) error {
+func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched, worked, moved, purged <-chan struct{}) error {
 	ctx, cancel := context.WithTimeout(context.Background(), a.cfg.ShutdownTimeout)
 	defer cancel()
 	var errs []error
@@ -316,6 +363,11 @@ func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched, worked, move
 	case <-moved:
 	case <-ctx.Done():
 		errs = append(errs, errors.New("import/export workers did not stop before the shutdown timeout; their jobs resume from their last checkpoint when the lease ends"))
+	}
+	select {
+	case <-purged:
+	case <-ctx.Done():
+		errs = append(errs, errors.New("the retention job did not stop before the shutdown timeout; its lease ends on its own and another replica purges at the next interval"))
 	}
 	if err := a.shutdownTP(ctx); err != nil {
 		errs = append(errs, fmt.Errorf("flush traces: %w", err))

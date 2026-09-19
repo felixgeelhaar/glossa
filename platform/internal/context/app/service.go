@@ -6,6 +6,11 @@ import (
 	"net/http"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
@@ -21,8 +26,54 @@ type Service struct {
 	metrics   Metrics
 	objects   Objects
 	images    ImageNormalizer
-	logger    *slog.Logger
-	now       func() time.Time
+	// deleteBatch bounds the object-store deletes one purge issues at a
+	// time.
+	deleteBatch int
+	tracer      trace.Tracer
+	logger      *slog.Logger
+	now         func() time.Time
+}
+
+// tracerName names Context's spans' instrumentation scope.
+const tracerName = "github.com/felixgeelhaar/glossa/platform/internal/context"
+
+// WithTracerProvider makes Context trace a CI upload end to end
+// (RFC 0004 §11: one trace per upload, ingest → events). The events it
+// publishes carry the span's context, so the outbox's deliveries join
+// the same trace. Without one, nothing is traced.
+func WithTracerProvider(tp trace.TracerProvider) Option {
+	return func(s *Service) {
+		if tp != nil {
+			s.tracer = tp.Tracer(tracerName)
+		}
+	}
+}
+
+// span starts a child span of ctx named name, and returns it with the
+// function that ends it: end(err) records the error and finishes.
+func (s *Service) span(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, func(*error)) {
+	ctx, sp := s.tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindInternal), trace.WithAttributes(attrs...))
+	return ctx, func(err *error) {
+		if err != nil && *err != nil {
+			sp.RecordError(*err)
+			sp.SetStatus(codes.Error, (*err).Error())
+		}
+		sp.End()
+	}
+}
+
+// DefaultDeleteBatch is how many images a purge deletes from object
+// storage at a time without WithDeleteBatch.
+const DefaultDeleteBatch = 100
+
+// WithDeleteBatch bounds the object-store deletes one purge issues at a
+// time. A batch of 0 or less keeps the default.
+func WithDeleteBatch(n int) Option {
+	return func(s *Service) {
+		if n > 0 {
+			s.deleteBatch = n
+		}
+	}
 }
 
 // WithLimiter rate-limits uploads per tenant (RFC 0004 §10); without
@@ -58,6 +109,7 @@ func WithSweeper(sw Sweeper) Option { return func(s *Service) { s.sweeper = sw }
 func New(tx Transactor, catalog Catalog, opts ...Option) *Service {
 	s := &Service{
 		tx: tx, catalog: catalog, retention: domain.DefaultRetention, metrics: NoMetrics{}, logger: slog.New(slog.DiscardHandler),
+		deleteBatch: DefaultDeleteBatch, tracer: noop.NewTracerProvider().Tracer(tracerName),
 		now: func() time.Time { return time.Now().UTC() },
 	}
 	for _, o := range opts {
