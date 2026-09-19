@@ -7110,8 +7110,10 @@ type ClientInterface interface {
 	// `invalid_message`, `invalid_namespace`, `invalid_details`,
 	// `invalid_syntax`, `message_too_long`, `duplicate_key`,
 	// `source_revision_conflict` when `base_revision` is stale) without
-	// failing the batch. Needs `catalog.write`. Problem codes:
-	// `too_many_items` (400).
+	// failing the batch. Localization's view of the changed messages is
+	// updated in the same transaction, so `missing_in`/`outdated_in`
+	// listings and fills see the push as soon as it returns. Needs
+	// `catalog.write`. Problem codes: `too_many_items` (400).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -7128,8 +7130,10 @@ type ClientInterface interface {
 	// `invalid_message`, `invalid_namespace`, `invalid_details`,
 	// `invalid_syntax`, `message_too_long`, `duplicate_key`,
 	// `source_revision_conflict` when `base_revision` is stale) without
-	// failing the batch. Needs `catalog.write`. Problem codes:
-	// `too_many_items` (400).
+	// failing the batch. Localization's view of the changed messages is
+	// updated in the same transaction, so `missing_in`/`outdated_in`
+	// listings and fills see the push as soon as it returns. Needs
+	// `catalog.write`. Problem codes: `too_many_items` (400).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -7141,8 +7145,10 @@ type ClientInterface interface {
 	// Filters combine. `missing_in` and `outdated_in` (at most one) ask
 	// Localization which messages have no translation in a locale, or
 	// one made against an older source revision; they also need
-	// `translations.read` and see a new message once its event has been
-	// processed (usually within a second). Needs `catalog.read`.
+	// `translations.read`. They see a bulk upsert's messages
+	// (`message-upserts`, `glossa push`) as soon as it returns, and
+	// other message writes once their event has been processed
+	// (usually within a second). Needs `catalog.read`.
 	// Problem codes: `coverage_filter_conflict` (400).
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages (the `ListMessages` operationId).
@@ -7540,8 +7546,9 @@ type ClientInterface interface {
 	// Filters combine: `state` (repeatable review states), `outdated`,
 	// `namespace`, `key_prefix` and `message_state`. Locales the
 	// project no longer has list nothing. Keys and namespaces come
-	// from Localization's view of the catalog, current once Catalog's
-	// events are processed (usually within a second). One query per
+	// from Localization's view of the catalog: current when a bulk
+	// upsert returns, and after other message writes once their events
+	// are processed (usually within a second). One query per
 	// page. Needs `translations.read`. Problem codes: `invalid_locale`,
 	// `too_many_locales`, `invalid_state`, `invalid_message_state`
 	// (400).
@@ -11023,8 +11030,10 @@ func (c *Client) GetLocale(ctx context.Context, tenant TenantPath, project Proje
 // `invalid_message`, `invalid_namespace`, `invalid_details`,
 // `invalid_syntax`, `message_too_long`, `duplicate_key`,
 // `source_revision_conflict` when `base_revision` is stale) without
-// failing the batch. Needs `catalog.write`. Problem codes:
-// `too_many_items` (400).
+// failing the batch. Localization's view of the changed messages is
+// updated in the same transaction, so `missing_in`/`outdated_in`
+// listings and fills see the push as soon as it returns. Needs
+// `catalog.write`. Problem codes: `too_many_items` (400).
 //
 // Takes any type of body and a specified content type.
 //
@@ -11051,8 +11060,10 @@ func (c *Client) UpsertMessagesWithBody(ctx context.Context, tenant TenantPath, 
 // `invalid_message`, `invalid_namespace`, `invalid_details`,
 // `invalid_syntax`, `message_too_long`, `duplicate_key`,
 // `source_revision_conflict` when `base_revision` is stale) without
-// failing the batch. Needs `catalog.write`. Problem codes:
-// `too_many_items` (400).
+// failing the batch. Localization's view of the changed messages is
+// updated in the same transaction, so `missing_in`/`outdated_in`
+// listings and fills see the push as soon as it returns. Needs
+// `catalog.write`. Problem codes: `too_many_items` (400).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -11074,8 +11085,10 @@ func (c *Client) UpsertMessages(ctx context.Context, tenant TenantPath, project 
 // Filters combine. `missing_in` and `outdated_in` (at most one) ask
 // Localization which messages have no translation in a locale, or
 // one made against an older source revision; they also need
-// `translations.read` and see a new message once its event has been
-// processed (usually within a second). Needs `catalog.read`.
+// `translations.read`. They see a bulk upsert's messages
+// (`message-upserts`, `glossa push`) as soon as it returns, and
+// other message writes once their event has been processed
+// (usually within a second). Needs `catalog.read`.
 // Problem codes: `coverage_filter_conflict` (400).
 //
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages (the `ListMessages` operationId).
@@ -11783,8 +11796,9 @@ func (c *Client) GetTranslationStats(ctx context.Context, tenant TenantPath, pro
 // Filters combine: `state` (repeatable review states), `outdated`,
 // `namespace`, `key_prefix` and `message_state`. Locales the
 // project no longer has list nothing. Keys and namespaces come
-// from Localization's view of the catalog, current once Catalog's
-// events are processed (usually within a second). One query per
+// from Localization's view of the catalog: current when a bulk
+// upsert returns, and after other message writes once their events
+// are processed (usually within a second). One query per
 // page. Needs `translations.read`. Problem codes: `invalid_locale`,
 // `too_many_locales`, `invalid_state`, `invalid_message_state`
 // (400).
@@ -23469,8 +23483,10 @@ type ClientWithResponsesInterface interface {
 	// `invalid_message`, `invalid_namespace`, `invalid_details`,
 	// `invalid_syntax`, `message_too_long`, `duplicate_key`,
 	// `source_revision_conflict` when `base_revision` is stale) without
-	// failing the batch. Needs `catalog.write`. Problem codes:
-	// `too_many_items` (400).
+	// failing the batch. Localization's view of the changed messages is
+	// updated in the same transaction, so `missing_in`/`outdated_in`
+	// listings and fills see the push as soon as it returns. Needs
+	// `catalog.write`. Problem codes: `too_many_items` (400).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -23487,8 +23503,10 @@ type ClientWithResponsesInterface interface {
 	// `invalid_message`, `invalid_namespace`, `invalid_details`,
 	// `invalid_syntax`, `message_too_long`, `duplicate_key`,
 	// `source_revision_conflict` when `base_revision` is stale) without
-	// failing the batch. Needs `catalog.write`. Problem codes:
-	// `too_many_items` (400).
+	// failing the batch. Localization's view of the changed messages is
+	// updated in the same transaction, so `missing_in`/`outdated_in`
+	// listings and fills see the push as soon as it returns. Needs
+	// `catalog.write`. Problem codes: `too_many_items` (400).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -23500,8 +23518,10 @@ type ClientWithResponsesInterface interface {
 	// Filters combine. `missing_in` and `outdated_in` (at most one) ask
 	// Localization which messages have no translation in a locale, or
 	// one made against an older source revision; they also need
-	// `translations.read` and see a new message once its event has been
-	// processed (usually within a second). Needs `catalog.read`.
+	// `translations.read`. They see a bulk upsert's messages
+	// (`message-upserts`, `glossa push`) as soon as it returns, and
+	// other message writes once their event has been processed
+	// (usually within a second). Needs `catalog.read`.
 	// Problem codes: `coverage_filter_conflict` (400).
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -23929,8 +23949,9 @@ type ClientWithResponsesInterface interface {
 	// Filters combine: `state` (repeatable review states), `outdated`,
 	// `namespace`, `key_prefix` and `message_state`. Locales the
 	// project no longer has list nothing. Keys and namespaces come
-	// from Localization's view of the catalog, current once Catalog's
-	// events are processed (usually within a second). One query per
+	// from Localization's view of the catalog: current when a bulk
+	// upsert returns, and after other message writes once their events
+	// are processed (usually within a second). One query per
 	// page. Needs `translations.read`. Problem codes: `invalid_locale`,
 	// `too_many_locales`, `invalid_state`, `invalid_message_state`
 	// (400).
@@ -37455,8 +37476,10 @@ func (c *ClientWithResponses) GetLocaleWithResponse(ctx context.Context, tenant 
 // `invalid_message`, `invalid_namespace`, `invalid_details`,
 // `invalid_syntax`, `message_too_long`, `duplicate_key`,
 // `source_revision_conflict` when `base_revision` is stale) without
-// failing the batch. Needs `catalog.write`. Problem codes:
-// `too_many_items` (400).
+// failing the batch. Localization's view of the changed messages is
+// updated in the same transaction, so `missing_in`/`outdated_in`
+// listings and fills see the push as soon as it returns. Needs
+// `catalog.write`. Problem codes: `too_many_items` (400).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -37479,8 +37502,10 @@ func (c *ClientWithResponses) UpsertMessagesWithBodyWithResponse(ctx context.Con
 // `invalid_message`, `invalid_namespace`, `invalid_details`,
 // `invalid_syntax`, `message_too_long`, `duplicate_key`,
 // `source_revision_conflict` when `base_revision` is stale) without
-// failing the batch. Needs `catalog.write`. Problem codes:
-// `too_many_items` (400).
+// failing the batch. Localization's view of the changed messages is
+// updated in the same transaction, so `missing_in`/`outdated_in`
+// listings and fills see the push as soon as it returns. Needs
+// `catalog.write`. Problem codes: `too_many_items` (400).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -37498,8 +37523,10 @@ func (c *ClientWithResponses) UpsertMessagesWithResponse(ctx context.Context, te
 // Filters combine. `missing_in` and `outdated_in` (at most one) ask
 // Localization which messages have no translation in a locale, or
 // one made against an older source revision; they also need
-// `translations.read` and see a new message once its event has been
-// processed (usually within a second). Needs `catalog.read`.
+// `translations.read`. They see a bulk upsert's messages
+// (`message-upserts`, `glossa push`) as soon as it returns, and
+// other message writes once their event has been processed
+// (usually within a second). Needs `catalog.read`.
 // Problem codes: `coverage_filter_conflict` (400).
 //
 // Returns a wrapper object for the known response body format(s).
@@ -38113,8 +38140,9 @@ func (c *ClientWithResponses) GetTranslationStatsWithResponse(ctx context.Contex
 // Filters combine: `state` (repeatable review states), `outdated`,
 // `namespace`, `key_prefix` and `message_state`. Locales the
 // project no longer has list nothing. Keys and namespaces come
-// from Localization's view of the catalog, current once Catalog's
-// events are processed (usually within a second). One query per
+// from Localization's view of the catalog: current when a bulk
+// upsert returns, and after other message writes once their events
+// are processed (usually within a second). One query per
 // page. Needs `translations.read`. Problem codes: `invalid_locale`,
 // `too_many_locales`, `invalid_state`, `invalid_message_state`
 // (400).

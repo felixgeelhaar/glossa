@@ -215,7 +215,10 @@ migrations, and the tests connect as `glossa_app`.
   is an active member or the bearer token belongs to it — never from a
   header. Pass the `*db.TenantTx` to your sqlc `New(tx)`. The
   transaction commits when `fn` returns nil. Nested units of work are
-  refused.
+  refused. A context's in-process port that must write its own tables
+  in its caller's commit joins the open transaction explicitly with
+  `uow.InCurrentTenantTx(ctx, fn)` (`ErrNoTx` outside one) — how
+  Localization's projection follows Catalog's bulk upsert.
 - `uow.InSystemTx(ctx, db.NewSystemScope("ctx.job"), fn)` is for
   tenantless background work only. It refuses a context that carries a
   tenant, and it runs as `glossa_system`, which sees nothing unless a
@@ -491,14 +494,27 @@ project's `review_required` setting, for the workflow engine to replace.
 | Table | Scope | Why |
 |---|---|---|
 | `localization_locales`, `localization_fallback_graphs` | tenant | Ordinary state keyed by Catalog's project ID (no cross-context foreign keys). |
-| `localization_messages` | tenant | Localization's own projection of Catalog messages, fed by `catalog.message.*` (highest `version` wins) and refreshed synchronously on every translation write. It is what "outdated" and the `missing_in`/`outdated_in` filters read. |
+| `localization_messages` | tenant | Localization's own projection of Catalog messages, fed by `catalog.message.*` (highest `version` wins), updated in the same transaction by Catalog's bulk upsert and refreshed synchronously on every translation write. It is what "outdated" and the `missing_in`/`outdated_in` filters read. |
 | `localization_translations` | tenant | Projection of the latest revision. |
 | `localization_translation_revisions` | tenant | Append-only by grant. |
 
 Localization reads Catalog only through Catalog's application service
 (`adapters/catalog`, the `SourceCatalog` port) and answers Catalog's
 coverage filter through `adapters/coverage`; neither context touches
-the other's tables. Subscribers (names are stored with events; never
+the other's tables. **The projection is synchronous for bulk
+upserts:** `UpsertMessages` (`message-upserts`, `glossa push`, imports)
+hands the messages it changed to Catalog's `MessageProjection` port,
+which `adapters/projection` implements with Localization's
+`ProjectMessages`. That runs Localization's own projection update —
+highest version wins, outdated translations announced — on Localization's
+store *inside Catalog's transaction*, joined through the unit of work
+(`db.UnitOfWork.InCurrentTenantTx`, an explicit join rather than a
+nested unit of work), so listings and fills see a push when it returns
+and a failure rolls both back. The outbox subscriber stays as the
+idempotent catch-up (and still carries every other message write,
+about one poll later): it finds the projection at the event's version
+and changes nothing, so an outdated event is published once
+(`TestBulkUpsertProjectsSynchronously`). Subscribers (names are stored with events; never
 rename them): `localization.track_message` on every
 `catalog.message.*`, `localization.add_source_locale` on
 `catalog.project.created`, `localization.drop_project` on

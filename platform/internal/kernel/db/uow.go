@@ -28,6 +28,9 @@ var (
 	// inner one would run on a second connection and commit on its own,
 	// so it is refused; pass the outer transaction down instead.
 	ErrNestedTx = errors.New("db: nested unit of work")
+	// ErrNoTx means InCurrentTenantTx found no tenant transaction of the
+	// context's tenant to join.
+	ErrNoTx = errors.New("db: no tenant transaction to join")
 )
 
 // Role names provisioned by migration 0001.
@@ -126,8 +129,25 @@ func (u *UnitOfWork) InTenantTx(ctx context.Context, fn func(context.Context, *T
 		if _, err := tx.Exec(ctx, "SELECT set_config($1, $2, true)", tenantGUC, tenant.String()); err != nil {
 			return fmt.Errorf("db: scope transaction to tenant: %w", err)
 		}
-		return fn(ctx, &TenantTx{txQuerier: txQuerier{tx}, tenant: tenant})
+		ttx := &TenantTx{txQuerier: txQuerier{tx}, tenant: tenant}
+		return fn(context.WithValue(ctx, inTxKey{}, ttx), ttx)
 	})
+}
+
+// InCurrentTenantTx runs fn in the tenant transaction ctx is already
+// inside, so one context's in-process port can keep its own tables in
+// step with its caller's write — in the same commit, rolled back with
+// it. It is an explicit join, not a nested unit of work: fn's work
+// commits only when the caller's transaction does, and a failure fails
+// the caller. It refuses (ErrNoTx) a context outside a tenant
+// transaction or whose tenant differs from the transaction's.
+func (u *UnitOfWork) InCurrentTenantTx(ctx context.Context, fn func(context.Context, *TenantTx) error) error {
+	ttx, ok := ctx.Value(inTxKey{}).(*TenantTx)
+	tenant, hasTenant := tenancy.FromContext(ctx)
+	if !ok || !hasTenant || ttx.tenant != tenant {
+		return ErrNoTx
+	}
+	return fn(ctx, ttx)
 }
 
 // InSystemTx runs fn in a transaction as glossa_system, for tenantless
@@ -150,7 +170,11 @@ func (u *UnitOfWork) InSystemTx(ctx context.Context, scope SystemScope, fn func(
 	})
 }
 
+// inTxKey marks a context inside a unit of work: the *TenantTx of a
+// tenant transaction (which InCurrentTenantTx joins), or inSystemTx.
 type inTxKey struct{}
+
+type inSystemTx struct{}
 
 // run owns the transaction lifecycle shared by both scopes.
 func (u *UnitOfWork) run(ctx context.Context, fn func(context.Context, pgx.Tx) error) (err error) {
@@ -168,7 +192,7 @@ func (u *UnitOfWork) run(ctx context.Context, fn func(context.Context, pgx.Tx) e
 		}
 	}()
 
-	if err := fn(context.WithValue(ctx, inTxKey{}, true), tx); err != nil {
+	if err := fn(context.WithValue(ctx, inTxKey{}, inSystemTx{}), tx); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {

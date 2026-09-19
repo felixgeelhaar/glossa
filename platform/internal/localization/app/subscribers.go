@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
@@ -79,6 +81,31 @@ func (s *Service) handleMessageEvent(ctx context.Context, d outbox.Delivery) err
 	}
 	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		return s.applyMessageState(ctx, st, state, bcp47.Tag{})
+	})
+}
+
+// ProjectMessages brings the message projection up to date with
+// messages a Catalog write is changing, inside that write's transaction
+// (Catalog's bulk upsert, through an in-process port): the listings'
+// missing_in and outdated_in agree with Catalog at commit, and the
+// translations a new source revision leaves behind are announced in the
+// same commit. The outbox subscriber stays as the idempotent catch-up —
+// it finds the projection at the snapshot's version and changes nothing.
+// Needs catalog.write: it is the writer's own change.
+func (s *Service) ProjectMessages(ctx context.Context, ms []MessageState) error {
+	if err := authz.Require(ctx, authz.CatalogWrite); err != nil {
+		return err
+	}
+	if len(ms) == 0 {
+		return nil
+	}
+	return s.tx.InCurrent(ctx, func(ctx context.Context, st Store) error {
+		for _, m := range ms {
+			if err := s.applyMessageState(ctx, st, m, bcp47.Tag{}); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

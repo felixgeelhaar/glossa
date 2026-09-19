@@ -21,6 +21,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/coverage"
 	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
+	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/projection"
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
@@ -172,6 +173,7 @@ func newWiring(t *testing.T, answers map[domain.Task][]answer) *wiring {
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
 	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat))
 	cat.SetCoverage(coverage.New(loc))
+	cat.SetProjection(projection.New(loc))
 	know := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(loc, cat), knowledgesources.NewProjects(cat))
 	key := make([]byte, 32)
 	_, _ = rand.Read(key)

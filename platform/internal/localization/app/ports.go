@@ -66,6 +66,10 @@ type SourceCatalog interface {
 // Transactor runs units of work scoped to the tenant on ctx.
 type Transactor interface {
 	InTenant(ctx context.Context, fn func(context.Context, Store) error) error
+	// InCurrent runs fn in the tenant transaction ctx is already inside
+	// (another context's unit of work), committing with it; it fails
+	// when there is none.
+	InCurrent(ctx context.Context, fn func(context.Context, Store) error) error
 }
 
 // MessageState is Localization's projection of one Catalog message.

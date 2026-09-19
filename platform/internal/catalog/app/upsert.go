@@ -78,6 +78,7 @@ func (s *Service) UpsertMessages(ctx context.Context, project domain.ProjectID, 
 			return err
 		}
 		results = make([]UpsertResult, len(items))
+		var changed []domain.Message
 		for i, it := range prepared {
 			if it.err != nil {
 				results[i] = UpsertResult{Key: items[i].Key, Status: UpsertFailed, Error: it.err}
@@ -90,9 +91,15 @@ func (s *Service) UpsertMessages(ctx context.Context, project domain.ProjectID, 
 			if res.Message != nil {
 				existing[res.Message.Key] = *res.Message
 			}
+			if res.Status == UpsertCreated || res.Status == UpsertRevised || res.Status == UpsertUpdated {
+				changed = append(changed, *res.Message)
+			}
 			results[i] = res
 		}
-		return nil
+		if s.projection == nil || len(changed) == 0 {
+			return nil
+		}
+		return s.projection.MessagesChanged(ctx, changed)
 	})
 	return results, err
 }

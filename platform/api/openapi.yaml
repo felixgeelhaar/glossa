@@ -1223,8 +1223,10 @@ paths:
         Filters combine. `missing_in` and `outdated_in` (at most one) ask
         Localization which messages have no translation in a locale, or
         one made against an older source revision; they also need
-        `translations.read` and see a new message once its event has been
-        processed (usually within a second). Needs `catalog.read`.
+        `translations.read`. They see a bulk upsert's messages
+        (`message-upserts`, `glossa push`) as soon as it returns, and
+        other message writes once their event has been processed
+        (usually within a second). Needs `catalog.read`.
         Problem codes: `coverage_filter_conflict` (400).
       security:
         - session: []
@@ -1322,8 +1324,10 @@ paths:
         `invalid_message`, `invalid_namespace`, `invalid_details`,
         `invalid_syntax`, `message_too_long`, `duplicate_key`,
         `source_revision_conflict` when `base_revision` is stale) without
-        failing the batch. Needs `catalog.write`. Problem codes:
-        `too_many_items` (400).
+        failing the batch. Localization's view of the changed messages is
+        updated in the same transaction, so `missing_in`/`outdated_in`
+        listings and fills see the push as soon as it returns. Needs
+        `catalog.write`. Problem codes: `too_many_items` (400).
       security:
         - session: []
           csrf: []
@@ -1910,8 +1914,9 @@ paths:
         Filters combine: `state` (repeatable review states), `outdated`,
         `namespace`, `key_prefix` and `message_state`. Locales the
         project no longer has list nothing. Keys and namespaces come
-        from Localization's view of the catalog, current once Catalog's
-        events are processed (usually within a second). One query per
+        from Localization's view of the catalog: current when a bulk
+        upsert returns, and after other message writes once their events
+        are processed (usually within a second). One query per
         page. Needs `translations.read`. Problem codes: `invalid_locale`,
         `too_many_locales`, `invalid_state`, `invalid_message_state`
         (400).

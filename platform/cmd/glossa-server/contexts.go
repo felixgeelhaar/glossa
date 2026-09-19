@@ -13,6 +13,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/coverage"
 	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
 	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
+	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/projection"
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	integrationapi "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/httpapi"
 	integrationpg "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/postgres"
@@ -112,6 +113,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	catalog := catalogapp.New(catalogpg.NewTransactor(uow))
 	localization := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(catalog))
 	catalog.SetCoverage(coverage.New(localization))
+	catalog.SetProjection(projection.New(localization))
 	if err := localization.Subscribe(events); err != nil {
 		return contexts{}, err
 	}

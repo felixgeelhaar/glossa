@@ -15,6 +15,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/coverage"
 	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
+	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/projection"
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
@@ -66,6 +67,7 @@ func newHarness(t *testing.T) *harness {
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
 	svc := app.New(postgres.NewTransactor(uow), catalogport.New(cat))
 	cat.SetCoverage(coverage.New(svc))
+	cat.SetProjection(projection.New(svc))
 	reg := outbox.NewRegistry()
 	if err := svc.Subscribe(reg); err != nil {
 		t.Fatal(err)

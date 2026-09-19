@@ -111,6 +111,17 @@ type CoverageQuery struct {
 	Limit    int
 }
 
+// MessageProjection is told, inside the transaction that changes them,
+// which messages a bulk upsert changed: Localization keeps its own
+// projection of the catalog in step through it (an in-process adapter;
+// Catalog never writes Localization's tables), so its missing_in and
+// outdated_in listings agree with Catalog at commit instead of one
+// outbox poll later. The composition root wires it; without one, the
+// outbox alone keeps the projection current.
+type MessageProjection interface {
+	MessagesChanged(ctx context.Context, ms []domain.Message) error
+}
+
 // TranslationCoverage is Localization's answer to "which messages are
 // missing or outdated in this locale", in key order. Catalog doesn't
 // read translations itself (RFC 0002 §4: contexts never touch each

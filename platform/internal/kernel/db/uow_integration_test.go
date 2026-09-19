@@ -157,3 +157,59 @@ func TestRequestRoleCannotReachSystemPoliciesWithoutSwitching(t *testing.T) {
 		t.Errorf("glossa_app sees %d events outside any scope", n)
 	}
 }
+
+// A context can join the tenant transaction its caller opened — an
+// in-process port writing its own tables in the caller's commit — and
+// then commits or rolls back with it. Without one, joining is refused.
+func TestInCurrentTenantTxJoinsTheCallersTransaction(t *testing.T) {
+	reset(t)
+	tenant := seedTenant(t, "acme")
+	ctx := tenancy.ContextWithTenant(context.Background(), tenant)
+	uow := db.NewUnitOfWork(env.App)
+	boom := errors.New("boom")
+
+	err := uow.InTenantTx(ctx, func(ctx context.Context, _ *db.TenantTx) error {
+		if err := uow.InCurrentTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
+			if tx.Tenant() != tenant {
+				t.Errorf("joined tenant = %v", tx.Tenant())
+			}
+			return insertEvent(ctx, tx, tenant)
+		}); err != nil {
+			return err
+		}
+		return boom // the caller fails: the joined write goes too
+	})
+	if !errors.Is(err, boom) {
+		t.Fatalf("err = %v", err)
+	}
+	err = uow.InTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
+		if err := uow.InCurrentTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
+			return insertEvent(ctx, tx, tenant)
+		}); err != nil {
+			return err
+		}
+		n, err := countRows(ctx, tx, "outbox_events")
+		if err == nil && n != 1 {
+			t.Errorf("the caller sees %d joined rows before commit, want 1", n)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := env.Super.QueryRow(context.Background(), "SELECT count(*) FROM outbox_events").Scan(&n); err != nil || n != 1 {
+		t.Errorf("committed rows = %d, %v: the rolled-back join left one, or the committed one is missing", n, err)
+	}
+
+	if err := uow.InCurrentTenantTx(ctx, func(context.Context, *db.TenantTx) error { return nil }); !errors.Is(err, db.ErrNoTx) {
+		t.Errorf("join outside a transaction: %v, want ErrNoTx", err)
+	}
+	other := seedTenant(t, "bolt")
+	err = uow.InTenantTx(ctx, func(ctx context.Context, _ *db.TenantTx) error {
+		return uow.InCurrentTenantTx(tenancy.ContextWithTenant(ctx, other), func(context.Context, *db.TenantTx) error { return nil })
+	})
+	if !errors.Is(err, db.ErrNoTx) {
+		t.Errorf("join from another tenant: %v, want ErrNoTx", err)
+	}
+}

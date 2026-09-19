@@ -16,9 +16,10 @@ import (
 
 // Service implements Catalog's use cases.
 type Service struct {
-	tx       Transactor
-	coverage TranslationCoverage
-	now      func() time.Time
+	tx         Transactor
+	coverage   TranslationCoverage
+	projection MessageProjection
+	now        func() time.Time
 }
 
 // Option configures a Service.
@@ -40,6 +41,10 @@ func New(tx Transactor, opts ...Option) *Service {
 // SetCoverage wires the translation coverage port. The composition root
 // calls it once at startup, before serving.
 func (s *Service) SetCoverage(c TranslationCoverage) { s.coverage = c }
+
+// SetProjection wires the message projection a bulk upsert updates in
+// its transaction. The composition root calls it once at startup.
+func (s *Service) SetProjection(p MessageProjection) { s.projection = p }
 
 // author returns the acting principal after checking perm.
 func author(ctx context.Context, perm authz.Permission) (domain.Author, error) {

@@ -40,6 +40,13 @@ func (t *Transactor) InTenant(ctx context.Context, fn func(context.Context, app.
 	})
 }
 
+// InCurrent implements app.Transactor.
+func (t *Transactor) InCurrent(ctx context.Context, fn func(context.Context, app.Store) error) error {
+	return t.uow.InCurrentTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
+		return fn(ctx, &store{tx: tx, q: localizationsql.New(tx)})
+	})
+}
+
 type store struct {
 	tx *db.TenantTx
 	q  *localizationsql.Queries
