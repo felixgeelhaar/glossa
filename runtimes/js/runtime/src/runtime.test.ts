@@ -439,6 +439,61 @@ describe("createRuntime: onRender (RFC 0004 §3.1)", () => {
   });
 });
 
+describe("createRuntime: override (RFC 0004 §5.3)", () => {
+  const preview = { ...r1.manifest, environment: "preview" };
+  const bundled = { manifest: preview, artifacts: r1.parsed };
+  const edited = text("Jetzt bezahlen");
+
+  it("renders the override through t() and parts() until it's cleared, and notifies subscribers", () => {
+    const { create } = setup();
+    const rt = create({ bundled, environment: "preview", locales: ["de"] });
+    let notified = 0;
+    rt.subscribe(() => notified++);
+    expect(rt.override("cart.checkout", "de", edited)).toBe(true);
+    expect(rt.t("cart.checkout")).toBe("Jetzt bezahlen");
+    expect(rt.parts("cart.checkout")).toEqual([{ type: "text", value: "Jetzt bezahlen" }]);
+    expect(rt.t("only.de")).toBe("Nur Deutsch");
+    expect(rt.override("cart.checkout", "de")).toBe(true);
+    expect(rt.t("cart.checkout")).toBe("Zur Kasse");
+    expect(notified).toBe(2);
+  });
+
+  it("formats the override with values, and in the locale it was set for", () => {
+    const { create } = setup();
+    const rt = create({ bundled, environment: "preview", locales: ["de-AT"] });
+    rt.override("greeting", "de", {
+      type: "message",
+      declarations: [],
+      pattern: ["Servus ", { type: "expression", arg: { type: "variable", name: "name" } }],
+    });
+    expect(rt.t("greeting", { name: "Lina" })).toBe("Servus Lina");
+    // de-AT has its own cart.checkout, which a de override doesn't replace.
+    rt.override("cart.checkout", "de", edited);
+    expect(rt.t("cart.checkout")).toBe("Zur Kassa");
+  });
+
+  it("fills a message the locale doesn't have yet, and explain agrees", () => {
+    const { create } = setup();
+    const rt = create({ bundled, environment: "preview", locales: ["de-AT"] });
+    const hooked: Render[] = [];
+    rt.onRender((r) => void hooked.push(r));
+    rt.override("only.de", "de_at", text("Nur Österreich"));
+    expect(rt.t("only.de")).toBe("Nur Österreich");
+    expect(hooked.at(-1)?.locale).toBe("de-AT");
+    expect(rt.explain("only.de").resolvedFrom).toBe("de-AT");
+  });
+
+  it("refuses in production", () => {
+    const { create } = setup();
+    const rt = create({ bundled: { manifest: r1.manifest, artifacts: r1.parsed } });
+    const listener = vi.fn();
+    rt.subscribe(listener);
+    expect(rt.override("cart.checkout", "de-AT", edited)).toBe(false);
+    expect(rt.t("cart.checkout")).toBe("Zur Kassa");
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
 describe("createRuntime: explain", () => {
   it("reports the chain, the steps taken, the release and the source", async () => {
     const { create } = setup();

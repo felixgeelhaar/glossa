@@ -158,6 +158,15 @@ export interface Runtime {
   onRender(hook: RenderHook): () => void;
   /** Whether an `onRender` hook is installed; components mark their host elements only then. */
   readonly hooked: boolean;
+  /**
+   * Live preview for the in-product editor (RFC 0004 §5.3), never in
+   * production: render `model` for `id` in `locale` instead of the release's
+   * message, until it's cleared (no `model`). Subscribers are notified, so
+   * the page re-renders. The locale must be on the active fallback chain to
+   * show. Returns `false`, and changes nothing, when the runtime's
+   * environment is `production`.
+   */
+  override(id: string, locale: string, model?: Message): boolean;
   /** Listen on the error channel. */
   onError(listener: (error: RuntimeError) => void): () => void;
   /** Stop background refresh and drop listeners. */
@@ -210,6 +219,8 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
   const subscribers = new Set<() => void>();
   const listeners = new Set<(e: RuntimeError) => void>(o.onError ? [o.onError] : []);
   const hooks = new Set<RenderHook>();
+  /** Editor overrides (never in production), keyed `locale id`. */
+  const edits = new Map<string, Message>();
   let from: string | undefined;
   const reported = new Map<string, number>();
   let requested = list(o.locales ?? navigatorLanguages() ?? []);
@@ -448,10 +459,13 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
       const st = state;
       if (st) {
         const releaseId = st.m.release.id;
-        const found = st.catalogs.find(([, messages]) => Object.hasOwn(messages, id));
+        const found = st.catalogs.find(
+          ([l, messages]) => edits.has(l + " " + id) || Object.hasOwn(messages, id),
+        );
         if (found) {
           const [locale, messages] = found;
-          const parts = formatToParts(messages[id]!, locale, values, {
+          const message = edits.get(locale + " " + id) ?? messages[id]!;
+          const parts = formatToParts(message, locale, values, {
             bidiIsolation: o.bidiIsolation,
             functions: o.functions,
             onError: (e) =>
@@ -497,7 +511,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     let resolvedFrom: string | null = null;
     for (const l of chain) {
       const c = catalog(m, l);
-      const found = !!c && Object.hasOwn(c, id);
+      const found = !!c && (edits.has(l + " " + id) || Object.hasOwn(c, id));
       steps.push({ locale: l, outcome: !c ? "not-loaded" : found ? "found" : "missing" });
       if (found) {
         resolvedFrom = l;
@@ -558,6 +572,14 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     },
     get hooked() {
       return hooks.size > 0;
+    },
+    override(id, locale, model) {
+      if (env == "production") return false;
+      const k = list(locale)[0] + " " + id;
+      if (model) edits.set(k, model);
+      else edits.delete(k);
+      call(subscribers);
+      return true;
     },
     dispose() {
       stop?.();
