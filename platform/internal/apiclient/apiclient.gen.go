@@ -84,6 +84,27 @@ func (e ArgumentType) Valid() bool {
 	}
 }
 
+// Defines values for DeploymentAction.
+const (
+	DeploymentActionPromote  DeploymentAction = "promote"
+	DeploymentActionPublish  DeploymentAction = "publish"
+	DeploymentActionRollback DeploymentAction = "rollback"
+)
+
+// Valid indicates whether the value is a known member of the DeploymentAction enum.
+func (e DeploymentAction) Valid() bool {
+	switch e {
+	case DeploymentActionPromote:
+		return true
+	case DeploymentActionPublish:
+		return true
+	case DeploymentActionRollback:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Direction.
 const (
 	Ltr Direction = "ltr"
@@ -96,6 +117,27 @@ func (e Direction) Valid() bool {
 	case Ltr:
 		return true
 	case Rtl:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EnvironmentPolicyStates.
+const (
+	EnvironmentPolicyStatesApproved    EnvironmentPolicyStates = "approved"
+	EnvironmentPolicyStatesDraft       EnvironmentPolicyStates = "draft"
+	EnvironmentPolicyStatesNeedsReview EnvironmentPolicyStates = "needs_review"
+)
+
+// Valid indicates whether the value is a known member of the EnvironmentPolicyStates enum.
+func (e EnvironmentPolicyStates) Valid() bool {
+	switch e {
+	case EnvironmentPolicyStatesApproved:
+		return true
+	case EnvironmentPolicyStatesDraft:
+		return true
+	case EnvironmentPolicyStatesNeedsReview:
 		return true
 	default:
 		return false
@@ -263,22 +305,22 @@ func (e QAFindingSeverity) Valid() bool {
 
 // Defines values for ReviewState.
 const (
-	Approved    ReviewState = "approved"
-	Draft       ReviewState = "draft"
-	NeedsReview ReviewState = "needs_review"
-	Rejected    ReviewState = "rejected"
+	ReviewStateApproved    ReviewState = "approved"
+	ReviewStateDraft       ReviewState = "draft"
+	ReviewStateNeedsReview ReviewState = "needs_review"
+	ReviewStateRejected    ReviewState = "rejected"
 )
 
 // Valid indicates whether the value is a known member of the ReviewState enum.
 func (e ReviewState) Valid() bool {
 	switch e {
-	case Approved:
+	case ReviewStateApproved:
 		return true
-	case Draft:
+	case ReviewStateDraft:
 		return true
-	case NeedsReview:
+	case ReviewStateNeedsReview:
 		return true
-	case Rejected:
+	case ReviewStateRejected:
 		return true
 	default:
 		return false
@@ -330,6 +372,21 @@ func (e Scope) Valid() bool {
 	case ScopeRead:
 		return true
 	case ScopeWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SigningKeyAlgorithm.
+const (
+	Ed25519 SigningKeyAlgorithm = "Ed25519"
+)
+
+// Valid indicates whether the value is a known member of the SigningKeyAlgorithm enum.
+func (e SigningKeyAlgorithm) Valid() bool {
+	switch e {
+	case Ed25519:
 		return true
 	default:
 		return false
@@ -478,6 +535,24 @@ type CreateApplication struct {
 	Slug     Slug     `json:"slug"`
 }
 
+// CreateDeliveryKey defines model for CreateDeliveryKey.
+type CreateDeliveryKey struct {
+	// Name What uses it, e.g. "web" or "go-emails".
+	Name string `json:"name"`
+}
+
+// CreateEnvironment defines model for CreateEnvironment.
+type CreateEnvironment struct {
+	// Name `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	Name EnvironmentName `json:"name"`
+
+	// Policy Which translations ship to an environment: those in `states`
+	// (never `rejected`), and outdated ones (made against an older
+	// source revision) only with `include_outdated`. Production and
+	// staging start with `approved`, the others with everything.
+	Policy *EnvironmentPolicy `json:"policy,omitempty"`
+}
+
 // CreateMessage defines model for CreateMessage.
 type CreateMessage struct {
 	Description *string `json:"description,omitempty"`
@@ -531,6 +606,60 @@ type CreatedToken struct {
 	Token  Token   `json:"token"`
 }
 
+// DeliveryKey defines model for DeliveryKey.
+type DeliveryKey struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CreatedBy `person:<id>` or `token:<id>`.
+	CreatedBy string `json:"created_by"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Key Publishable by design; shown on every read.
+	Key  string `json:"key"`
+	Name string `json:"name"`
+
+	// RevokedAt RFC 3339, UTC.
+	RevokedAt *Timestamp `json:"revoked_at,omitempty"`
+}
+
+// DeliveryKeyList defines model for DeliveryKeyList.
+type DeliveryKeyList struct {
+	Items         []DeliveryKey `json:"items"`
+	NextPageToken *string       `json:"next_page_token,omitempty"`
+}
+
+// Deployment defines model for Deployment.
+type Deployment struct {
+	Action DeploymentAction `json:"action"`
+
+	// Author `person:<id>` or `token:<id>`.
+	Author string `json:"author"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Number Counts the environment's deployments from 1.
+	Number int `json:"number"`
+
+	// PreviousReleaseId An opaque identifier.
+	PreviousReleaseId *Id `json:"previous_release_id,omitempty"`
+
+	// ReleaseId An opaque identifier.
+	ReleaseId Id `json:"release_id"`
+}
+
+// DeploymentAction defines model for Deployment.Action.
+type DeploymentAction string
+
+// DeploymentList defines model for DeploymentList.
+type DeploymentList struct {
+	Items         []Deployment `json:"items"`
+	NextPageToken *string      `json:"next_page_token,omitempty"`
+}
+
 // Direction Derived from the locale's (likely) script.
 type Direction string
 
@@ -541,6 +670,48 @@ type Email = openapi_types.Email
 type EmailRequest struct {
 	Email Email `json:"email"`
 }
+
+// Environment defines model for Environment.
+type Environment struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CurrentReleaseId An opaque identifier.
+	CurrentReleaseId *Id `json:"current_release_id,omitempty"`
+
+	// Name `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	Name EnvironmentName `json:"name"`
+
+	// Policy Which translations ship to an environment: those in `states`
+	// (never `rejected`), and outdated ones (made against an older
+	// source revision) only with `include_outdated`. Production and
+	// staging start with `approved`, the others with everything.
+	Policy EnvironmentPolicy `json:"policy"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// EnvironmentList defines model for EnvironmentList.
+type EnvironmentList struct {
+	Items         []Environment `json:"items"`
+	NextPageToken *string       `json:"next_page_token,omitempty"`
+}
+
+// EnvironmentName `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+type EnvironmentName = string
+
+// EnvironmentPolicy Which translations ship to an environment: those in `states`
+// (never `rejected`), and outdated ones (made against an older
+// source revision) only with `include_outdated`. Production and
+// staging start with `approved`, the others with everything.
+type EnvironmentPolicy struct {
+	IncludeOutdated bool                      `json:"include_outdated"`
+	States          []EnvironmentPolicyStates `json:"states"`
+}
+
+// EnvironmentPolicyStates defines model for EnvironmentPolicy.States.
+type EnvironmentPolicyStates string
 
 // FallbackGraph defines model for FallbackGraph.
 type FallbackGraph struct {
@@ -572,6 +743,20 @@ type ItemError struct {
 //
 // Examples: de, pt-BR, zh-Hant-TW
 type Locale = string
+
+// LocaleDiff defines model for LocaleDiff.
+type LocaleDiff struct {
+	Added   []string `json:"added"`
+	Changed []string `json:"changed"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale  Locale   `json:"locale"`
+	Removed []string `json:"removed"`
+}
 
 // LocaleList defines model for LocaleList.
 type LocaleList struct {
@@ -878,6 +1063,19 @@ type ProjectSettings struct {
 	ReviewRequired bool `json:"review_required"`
 }
 
+// Promotion defines model for Promotion.
+type Promotion struct {
+	// ReleaseId An opaque identifier.
+	ReleaseId Id `json:"release_id"`
+}
+
+// PublishRelease defines model for PublishRelease.
+type PublishRelease struct {
+	// Environment `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	Environment EnvironmentName `json:"environment"`
+	Note        *string         `json:"note,omitempty"`
+}
+
 // PutFallbackGraph defines model for PutFallbackGraph.
 type PutFallbackGraph struct {
 	Fallback map[string][]Locale `json:"fallback"`
@@ -936,6 +1134,107 @@ type Registration struct {
 	Password    string  `json:"password"`
 }
 
+// Release defines model for Release.
+type Release struct {
+	// Author `person:<id>` or `token:<id>`.
+	Author string        `json:"author"`
+	Counts ReleaseCounts `json:"counts"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Environment `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	Environment EnvironmentName `json:"environment"`
+
+	// Id An opaque identifier.
+	Id      Id              `json:"id"`
+	Locales []ReleaseLocale `json:"locales"`
+
+	// ManifestDigest SHA-256 of the RFC 8785 canonical JSON of what every
+	// environment's manifest of this release carries (`sourceLocale`,
+	// `locales`, `fallback`, `artifacts`). Equal digests ship
+	// exactly the same text.
+	ManifestDigest string  `json:"manifest_digest"`
+	Note           *string `json:"note,omitempty"`
+
+	// ParentId What its environment served before it.
+	ParentId *Id `json:"parent_id,omitempty"`
+
+	// Policy Which translations ship to an environment: those in `states`
+	// (never `rejected`), and outdated ones (made against an older
+	// source revision) only with `include_outdated`. Production and
+	// staging start with `approved`, the others with everything.
+	Policy EnvironmentPolicy `json:"policy"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale Locale `json:"source_locale"`
+
+	// Version Counts the project's releases from 1.
+	Version int `json:"version"`
+}
+
+// ReleaseArtifact A `glossa.artifact/v1` artifact (runtimes/testdata/schemas/artifact.schema.json), as stored.
+type ReleaseArtifact map[string]interface{}
+
+// ReleaseCounts defines model for ReleaseCounts.
+type ReleaseCounts struct {
+	Artifacts int `json:"artifacts"`
+	Bytes     int `json:"bytes"`
+
+	// Locales Per locale code.
+	Locales map[string]ReleaseLocaleCounts `json:"locales"`
+
+	// Messages Source messages.
+	Messages int `json:"messages"`
+
+	// NewArtifacts Artifacts this publish uploaded; the rest were already stored.
+	NewArtifacts int `json:"new_artifacts"`
+}
+
+// ReleaseDiff defines model for ReleaseDiff.
+type ReleaseDiff struct {
+	// BaseReleaseId An opaque identifier.
+	BaseReleaseId *Id          `json:"base_release_id,omitempty"`
+	Locales       []LocaleDiff `json:"locales"`
+
+	// ReleaseId An opaque identifier.
+	ReleaseId Id `json:"release_id"`
+}
+
+// ReleaseList defines model for ReleaseList.
+type ReleaseList struct {
+	Items         []Release `json:"items"`
+	NextPageToken *string   `json:"next_page_token,omitempty"`
+}
+
+// ReleaseLocale defines model for ReleaseLocale.
+type ReleaseLocale struct {
+	// Code A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Code Locale `json:"code"`
+
+	// Direction Derived from the locale's (likely) script.
+	Direction Direction `json:"direction"`
+}
+
+// ReleaseLocaleCounts defines model for ReleaseLocaleCounts.
+type ReleaseLocaleCounts struct {
+	Messages int `json:"messages"`
+
+	// Outdated Outdated translations shipped (the policy allowed them).
+	Outdated int `json:"outdated"`
+}
+
+// ReleaseManifest A `glossa.manifest/v1` manifest (runtimes/testdata/schemas/manifest.schema.json), as served.
+type ReleaseManifest map[string]interface{}
+
 // RenameMessage defines model for RenameMessage.
 type RenameMessage struct {
 	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
@@ -965,6 +1264,12 @@ type ReviseSource struct {
 // Translators and reviewers can be limited to `locales`.
 type Role string
 
+// Rollback defines model for Rollback.
+type Rollback struct {
+	// ReleaseId An opaque identifier.
+	ReleaseId *Id `json:"release_id,omitempty"`
+}
+
 // Scope `read` reads the tenant; `write` pushes messages and
 // translations; `publish` creates releases; `admin` manages the
 // tenant, members and tokens (never owners). Every scope implies
@@ -979,6 +1284,27 @@ type Session struct {
 	// ExpiresAt RFC 3339, UTC.
 	ExpiresAt Timestamp `json:"expires_at"`
 	Person    Person    `json:"person"`
+}
+
+// SigningKey defines model for SigningKey.
+type SigningKey struct {
+	// Active Whether it signs new manifests.
+	Active    bool                `json:"active"`
+	Algorithm SigningKeyAlgorithm `json:"algorithm"`
+
+	// KeyId The manifest's `signatures[].keyId`.
+	KeyId string `json:"key_id"`
+
+	// PublicKey The raw 32-byte public key, base64url without padding.
+	PublicKey string `json:"public_key"`
+}
+
+// SigningKeyAlgorithm defines model for SigningKey.Algorithm.
+type SigningKeyAlgorithm string
+
+// SigningKeys defines model for SigningKeys.
+type SigningKeys struct {
+	Keys []SigningKey `json:"keys"`
 }
 
 // Slug defines model for Slug.
@@ -1211,6 +1537,15 @@ type UpdateApplication struct {
 	Slug     *Slug     `json:"slug,omitempty"`
 }
 
+// UpdateEnvironment defines model for UpdateEnvironment.
+type UpdateEnvironment struct {
+	// Policy Which translations ship to an environment: those in `states`
+	// (never `rejected`), and outdated ones (made against an older
+	// source revision) only with `include_outdated`. Production and
+	// staging start with `approved`, the others with everything.
+	Policy EnvironmentPolicy `json:"policy"`
+}
+
 // UpdateMember defines model for UpdateMember.
 type UpdateMember struct {
 	Locales *[]Locale `json:"locales,omitempty"`
@@ -1244,6 +1579,12 @@ type ApplicationPath = Id
 // CeremonyCookie defines model for CeremonyCookie.
 type CeremonyCookie = string
 
+// DeliveryKeyPath An opaque identifier.
+type DeliveryKeyPath = Id
+
+// EnvironmentPath `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+type EnvironmentPath = EnvironmentName
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
 
@@ -1275,6 +1616,9 @@ type PageToken = string
 
 // ProjectPath An opaque identifier.
 type ProjectPath = Id
+
+// ReleasePath An opaque identifier.
+type ReleasePath = Id
 
 // TenantPath An opaque identifier.
 type TenantPath = Id
@@ -1311,6 +1655,9 @@ type TooManyRequests = Problem
 
 // Unauthenticated RFC 9457 problem details.
 type Unauthenticated = Problem
+
+// Unavailable RFC 9457 problem details.
+type Unavailable = Problem
 
 // UnprocessableEntity RFC 9457 problem details.
 type UnprocessableEntity = Problem
@@ -1415,6 +1762,41 @@ type UpdateApplicationParams struct {
 	IfMatch IfMatch `json:"If-Match"`
 }
 
+// ListDeliveryKeysParams defines parameters for ListDeliveryKeys.
+type ListDeliveryKeysParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// CreateDeliveryKeyParams defines parameters for CreateDeliveryKey.
+type CreateDeliveryKeyParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListEnvironmentsParams defines parameters for ListEnvironments.
+type ListEnvironmentsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// UpdateEnvironmentParams defines parameters for UpdateEnvironment.
+type UpdateEnvironmentParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListDeploymentsParams defines parameters for ListDeployments.
+type ListDeploymentsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
 // PutFallbackGraphParams defines parameters for PutFallbackGraph.
 type PutFallbackGraphParams struct {
 	// IfMatch When sent, the `ETag` the change is based on.
@@ -1513,6 +1895,30 @@ type ListTranslationRevisionsParams struct {
 	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
+// ListReleasesParams defines parameters for ListReleases.
+type ListReleasesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// PublishReleaseParams defines parameters for PublishRelease.
+type PublishReleaseParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// GetReleaseDiffParams defines parameters for GetReleaseDiff.
+type GetReleaseDiffParams struct {
+	// Base The release `id` to compare with.
+	Base *Id `form:"base,omitempty" json:"base,omitempty"`
+}
+
+// GetReleaseManifestParams defines parameters for GetReleaseManifest.
+type GetReleaseManifestParams struct {
+	Environment string `form:"environment" json:"environment"`
+}
+
 // ListTokensParams defines parameters for ListTokens.
 type ListTokensParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -1580,6 +1986,21 @@ type CreateApplicationJSONRequestBody = CreateApplication
 // UpdateApplicationJSONRequestBody defines body for UpdateApplication for application/json ContentType.
 type UpdateApplicationJSONRequestBody = UpdateApplication
 
+// CreateDeliveryKeyJSONRequestBody defines body for CreateDeliveryKey for application/json ContentType.
+type CreateDeliveryKeyJSONRequestBody = CreateDeliveryKey
+
+// CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
+type CreateEnvironmentJSONRequestBody = CreateEnvironment
+
+// UpdateEnvironmentJSONRequestBody defines body for UpdateEnvironment for application/json ContentType.
+type UpdateEnvironmentJSONRequestBody = UpdateEnvironment
+
+// PromoteReleaseJSONRequestBody defines body for PromoteRelease for application/json ContentType.
+type PromoteReleaseJSONRequestBody = Promotion
+
+// RollbackEnvironmentJSONRequestBody defines body for RollbackEnvironment for application/json ContentType.
+type RollbackEnvironmentJSONRequestBody = Rollback
+
 // PutFallbackGraphJSONRequestBody defines body for PutFallbackGraph for application/json ContentType.
 type PutFallbackGraphJSONRequestBody = PutFallbackGraph
 
@@ -1606,6 +2027,9 @@ type PutTranslationJSONRequestBody = PutTranslation
 
 // ReviewTranslationJSONRequestBody defines body for ReviewTranslation for application/json ContentType.
 type ReviewTranslationJSONRequestBody = ReviewTranslation
+
+// PublishReleaseJSONRequestBody defines body for PublishRelease for application/json ContentType.
+type PublishReleaseJSONRequestBody = PublishRelease
 
 // ImportTranslationsJSONRequestBody defines body for ImportTranslations for application/json ContentType.
 type ImportTranslationsJSONRequestBody = TranslationImport
@@ -2188,6 +2612,173 @@ type ClientInterface interface {
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 	UpdateApplication(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListDeliveryKeys Publishable delivery keys, including revoked ones
+	//
+	// Needs `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `ListDeliveryKeys` operationId).
+	ListDeliveryKeys(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListDeliveryKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDeliveryKeyWithBody Create a publishable delivery key
+	//
+	// The key runtimes fetch releases from glossa-edge with
+	// (`/v1/{key}/{environment}/manifest.json`). It is public by
+	// design — it ships in browser bundles — scoped to this project,
+	// read-only, and grants nothing on this API. Needs
+	// `releases.publish`. Problem codes: `invalid_key_name` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `CreateDeliveryKey` operationId).
+	CreateDeliveryKeyWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateDeliveryKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDeliveryKey Create a publishable delivery key
+	//
+	// The key runtimes fetch releases from glossa-edge with
+	// (`/v1/{key}/{environment}/manifest.json`). It is public by
+	// design — it ships in browser bundles — scoped to this project,
+	// read-only, and grants nothing on this API. Needs
+	// `releases.publish`. Problem codes: `invalid_key_name` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `CreateDeliveryKey` operationId).
+	CreateDeliveryKey(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateDeliveryKeyParams, body CreateDeliveryKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeDeliveryKey Revoke a delivery key
+	//
+	// The edge answers 404 for it within its key cache TTL (30 s by
+	// default) plus any CDN max-age. It stays listed as revoked.
+	// Needs `releases.publish`. Problem codes: `key_revoked` (409).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key} (the `RevokeDeliveryKey` operationId).
+	RevokeDeliveryKey(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListEnvironments Environments of a project
+	//
+	// By name. Every project has `development`, `preview`, `staging`
+	// and `production`; they are created on first use. Needs
+	// `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments (the `ListEnvironments` operationId).
+	ListEnvironments(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListEnvironmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateEnvironmentWithBody Add a custom environment
+	//
+	// A branch preview, a QA stage. Without `policy` it ships
+	// everything not rejected. Needs `releases.publish`. Problem codes:
+	// `environment_exists` (409), `invalid_environment`,
+	// `invalid_policy` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments (the `CreateEnvironment` operationId).
+	CreateEnvironmentWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateEnvironment Add a custom environment
+	//
+	// A branch preview, a QA stage. Without `policy` it ships
+	// everything not rejected. Needs `releases.publish`. Problem codes:
+	// `environment_exists` (409), `invalid_environment`,
+	// `invalid_policy` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments (the `CreateEnvironment` operationId).
+	CreateEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetEnvironment An environment, its policy and the release it serves
+	//
+	// Needs `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `GetEnvironment` operationId).
+	GetEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateEnvironmentWithBody Change an environment's eligibility policy
+	//
+	// The policy decides what the next publish ships and which
+	// releases may be promoted here; the release served keeps serving.
+	// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `UpdateEnvironment` operationId).
+	UpdateEnvironmentWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateEnvironment Change an environment's eligibility policy
+	//
+	// The policy decides what the next publish ships and which
+	// releases may be promoted here; the release served keeps serving.
+	// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `UpdateEnvironment` operationId).
+	UpdateEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDeployments The environment's history of pointer moves
+	//
+	// Newest first. Needs `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments (the `ListDeployments` operationId).
+	ListDeployments(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *ListDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PromoteReleaseWithBody Point the environment at an existing release
+	//
+	// Moves the pointer; nothing is rebuilt. The environment's policy
+	// must cover the policy the release was built under, so a preview
+	// release with drafts can't reach production. Promoting the
+	// release already served changes nothing, so a retry is safe.
+	// Needs `releases.publish`. Problem codes: `release_not_found`
+	// (404), `release_ineligible` (409), `storage_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
+	PromoteReleaseWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PromoteRelease Point the environment at an existing release
+	//
+	// Moves the pointer; nothing is rebuilt. The environment's policy
+	// must cover the policy the release was built under, so a preview
+	// release with drafts can't reach production. Promoting the
+	// release already served changes nothing, so a retry is safe.
+	// Needs `releases.publish`. Problem codes: `release_not_found`
+	// (404), `release_ineligible` (409), `storage_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
+	PromoteRelease(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body PromoteReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RollbackEnvironmentWithBody Point the environment back at a release it served before
+	//
+	// Without `release_id`, the newest release the environment served
+	// that is older than the current one: rolling back twice goes two
+	// steps back, so send `release_id` when a retry must not. Moves
+	// the pointer only. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `no_rollback_target`,
+	// `not_in_history` (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
+	RollbackEnvironmentWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RollbackEnvironment Point the environment back at a release it served before
+	//
+	// Without `release_id`, the newest release the environment served
+	// that is older than the current one: rolling back twice goes two
+	// steps back, so send `release_id` when a retry must not. Moves
+	// the pointer only. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `no_rollback_target`,
+	// `not_in_history` (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
+	RollbackEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body RollbackEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetFallbackGraph A project's fallback graph
 	//
 	// Exactly the `fallback` member releases publish
@@ -2542,6 +3133,94 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListReleaseSigningKeys The public keys manifests are signed with
+	//
+	// Configure runtimes with these (runtimes/SPEC.md §1.3). Active
+	// keys sign every new manifest; retired ones are still listed
+	// while runtimes may hold manifests only they signed. Rotation:
+	// a new key is added (manifests carry both signatures), runtimes
+	// move to it, the old one is retired. Needs `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-signing-keys (the `ListReleaseSigningKeys` operationId).
+	ListReleaseSigningKeys(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListReleases Releases of a project
+	//
+	// Newest first. Needs `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases (the `ListReleases` operationId).
+	ListReleases(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PublishReleaseWithBody Publish a release to an environment
+	//
+	// Builds one artifact per locale and namespace from the active
+	// messages and the translations the environment's policy makes
+	// eligible, stores the ones storage doesn't have yet, records the
+	// immutable release and points the environment at it; the edge
+	// serves it within seconds. Publishing an unchanged catalog
+	// uploads nothing. Needs `releases.publish`. Problem codes:
+	// `invalid_environment`, `invalid_note` (400),
+	// `not_releasable` (422), `storage_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/releases (the `PublishRelease` operationId).
+	PublishReleaseWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *PublishReleaseParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PublishRelease Publish a release to an environment
+	//
+	// Builds one artifact per locale and namespace from the active
+	// messages and the translations the environment's policy makes
+	// eligible, stores the ones storage doesn't have yet, records the
+	// immutable release and points the environment at it; the edge
+	// serves it within seconds. Publishing an unchanged catalog
+	// uploads nothing. Needs `releases.publish`. Problem codes:
+	// `invalid_environment`, `invalid_note` (400),
+	// `not_releasable` (422), `storage_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/releases (the `PublishRelease` operationId).
+	PublishRelease(ctx context.Context, tenant TenantPath, project ProjectPath, params *PublishReleaseParams, body PublishReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRelease A release, its counts and manifest digest
+	//
+	// Needs `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release} (the `GetRelease` operationId).
+	GetRelease(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetReleaseArtifact One artifact of a release, as stored
+	//
+	// The exact bytes the manifest's `sha256` covers
+	// (runtimes/SPEC.md §1.2), for bundling
+	// (`glossa pull --release` writes `a/<sha256>.json`). Needs
+	// `releases.read`. Problem codes: `storage_unavailable` (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest} (the `GetReleaseArtifact` operationId).
+	GetReleaseArtifact(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, digest string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetReleaseDiff What changed since another release, per locale
+	//
+	// Message IDs added, changed and removed in each locale, compared
+	// with `base` (default: the release's parent, what its environment
+	// served before it; without one, everything is added). Needs
+	// `releases.read`. Problem codes: `release_not_found` (404),
+	// `storage_unavailable` (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/diff (the `GetReleaseDiff` operationId).
+	GetReleaseDiff(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseDiffParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetReleaseManifest The signed manifest of a release for an environment
+	//
+	// Byte for byte what glossa-edge serves when `environment` serves
+	// this release (runtimes/SPEC.md §1.1): what `glossa pull
+	// --release` writes as a bundle's `manifest.json`. Needs
+	// `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest (the `GetReleaseManifest` operationId).
+	GetReleaseManifest(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseManifestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ImportTranslationsWithBody Import translations in bulk
 	//
@@ -3645,6 +4324,323 @@ func (c *Client) UpdateApplication(ctx context.Context, tenant TenantPath, proje
 	return c.Client.Do(req)
 }
 
+// ListDeliveryKeys Publishable delivery keys, including revoked ones
+//
+// Needs `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `ListDeliveryKeys` operationId).
+func (c *Client) ListDeliveryKeys(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListDeliveryKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeliveryKeysRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateDeliveryKeyWithBody Create a publishable delivery key
+//
+// The key runtimes fetch releases from glossa-edge with
+// (`/v1/{key}/{environment}/manifest.json`). It is public by
+// design — it ships in browser bundles — scoped to this project,
+// read-only, and grants nothing on this API. Needs
+// `releases.publish`. Problem codes: `invalid_key_name` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `CreateDeliveryKey` operationId).
+func (c *Client) CreateDeliveryKeyWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateDeliveryKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDeliveryKeyRequestWithBody(c.Server, tenant, project, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateDeliveryKey Create a publishable delivery key
+//
+// The key runtimes fetch releases from glossa-edge with
+// (`/v1/{key}/{environment}/manifest.json`). It is public by
+// design — it ships in browser bundles — scoped to this project,
+// read-only, and grants nothing on this API. Needs
+// `releases.publish`. Problem codes: `invalid_key_name` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `CreateDeliveryKey` operationId).
+func (c *Client) CreateDeliveryKey(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateDeliveryKeyParams, body CreateDeliveryKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDeliveryKeyRequest(c.Server, tenant, project, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RevokeDeliveryKey Revoke a delivery key
+//
+// The edge answers 404 for it within its key cache TTL (30 s by
+// default) plus any CDN max-age. It stays listed as revoked.
+// Needs `releases.publish`. Problem codes: `key_revoked` (409).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key} (the `RevokeDeliveryKey` operationId).
+func (c *Client) RevokeDeliveryKey(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeDeliveryKeyRequest(c.Server, tenant, project, deliveryKey)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListEnvironments Environments of a project
+//
+// By name. Every project has `development`, `preview`, `staging`
+// and `production`; they are created on first use. Needs
+// `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments (the `ListEnvironments` operationId).
+func (c *Client) ListEnvironments(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListEnvironmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListEnvironmentsRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateEnvironmentWithBody Add a custom environment
+//
+// A branch preview, a QA stage. Without `policy` it ships
+// everything not rejected. Needs `releases.publish`. Problem codes:
+// `environment_exists` (409), `invalid_environment`,
+// `invalid_policy` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments (the `CreateEnvironment` operationId).
+func (c *Client) CreateEnvironmentWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEnvironmentRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateEnvironment Add a custom environment
+//
+// A branch preview, a QA stage. Without `policy` it ships
+// everything not rejected. Needs `releases.publish`. Problem codes:
+// `environment_exists` (409), `invalid_environment`,
+// `invalid_policy` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments (the `CreateEnvironment` operationId).
+func (c *Client) CreateEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEnvironmentRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetEnvironment An environment, its policy and the release it serves
+//
+// Needs `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `GetEnvironment` operationId).
+func (c *Client) GetEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEnvironmentRequest(c.Server, tenant, project, environment)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateEnvironmentWithBody Change an environment's eligibility policy
+//
+// The policy decides what the next publish ships and which
+// releases may be promoted here; the release served keeps serving.
+// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `UpdateEnvironment` operationId).
+func (c *Client) UpdateEnvironmentWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEnvironmentRequestWithBody(c.Server, tenant, project, environment, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateEnvironment Change an environment's eligibility policy
+//
+// The policy decides what the next publish ships and which
+// releases may be promoted here; the release served keeps serving.
+// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `UpdateEnvironment` operationId).
+func (c *Client) UpdateEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEnvironmentRequest(c.Server, tenant, project, environment, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListDeployments The environment's history of pointer moves
+//
+// Newest first. Needs `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments (the `ListDeployments` operationId).
+func (c *Client) ListDeployments(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *ListDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeploymentsRequest(c.Server, tenant, project, environment, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PromoteReleaseWithBody Point the environment at an existing release
+//
+// Moves the pointer; nothing is rebuilt. The environment's policy
+// must cover the policy the release was built under, so a preview
+// release with drafts can't reach production. Promoting the
+// release already served changes nothing, so a retry is safe.
+// Needs `releases.publish`. Problem codes: `release_not_found`
+// (404), `release_ineligible` (409), `storage_unavailable` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
+func (c *Client) PromoteReleaseWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPromoteReleaseRequestWithBody(c.Server, tenant, project, environment, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PromoteRelease Point the environment at an existing release
+//
+// Moves the pointer; nothing is rebuilt. The environment's policy
+// must cover the policy the release was built under, so a preview
+// release with drafts can't reach production. Promoting the
+// release already served changes nothing, so a retry is safe.
+// Needs `releases.publish`. Problem codes: `release_not_found`
+// (404), `release_ineligible` (409), `storage_unavailable` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
+func (c *Client) PromoteRelease(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body PromoteReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPromoteReleaseRequest(c.Server, tenant, project, environment, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RollbackEnvironmentWithBody Point the environment back at a release it served before
+//
+// Without `release_id`, the newest release the environment served
+// that is older than the current one: rolling back twice goes two
+// steps back, so send `release_id` when a retry must not. Moves
+// the pointer only. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `no_rollback_target`,
+// `not_in_history` (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
+func (c *Client) RollbackEnvironmentWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRollbackEnvironmentRequestWithBody(c.Server, tenant, project, environment, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RollbackEnvironment Point the environment back at a release it served before
+//
+// Without `release_id`, the newest release the environment served
+// that is older than the current one: rolling back twice goes two
+// steps back, so send `release_id` when a retry must not. Moves
+// the pointer only. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `no_rollback_target`,
+// `not_in_history` (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
+func (c *Client) RollbackEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body RollbackEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRollbackEnvironmentRequest(c.Server, tenant, project, environment, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetFallbackGraph A project's fallback graph
 //
 // Exactly the `fallback` member releases publish
@@ -4280,6 +5276,174 @@ func (c *Client) ReviewTranslation(ctx context.Context, tenant TenantPath, proje
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 func (c *Client) ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListTranslationRevisionsRequest(c.Server, tenant, project, message, locale, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListReleaseSigningKeys The public keys manifests are signed with
+//
+// Configure runtimes with these (runtimes/SPEC.md §1.3). Active
+// keys sign every new manifest; retired ones are still listed
+// while runtimes may hold manifests only they signed. Rotation:
+// a new key is added (manifests carry both signatures), runtimes
+// move to it, the old one is retired. Needs `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-signing-keys (the `ListReleaseSigningKeys` operationId).
+func (c *Client) ListReleaseSigningKeys(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListReleaseSigningKeysRequest(c.Server, tenant, project)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListReleases Releases of a project
+//
+// Newest first. Needs `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases (the `ListReleases` operationId).
+func (c *Client) ListReleases(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListReleasesRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PublishReleaseWithBody Publish a release to an environment
+//
+// Builds one artifact per locale and namespace from the active
+// messages and the translations the environment's policy makes
+// eligible, stores the ones storage doesn't have yet, records the
+// immutable release and points the environment at it; the edge
+// serves it within seconds. Publishing an unchanged catalog
+// uploads nothing. Needs `releases.publish`. Problem codes:
+// `invalid_environment`, `invalid_note` (400),
+// `not_releasable` (422), `storage_unavailable` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/releases (the `PublishRelease` operationId).
+func (c *Client) PublishReleaseWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *PublishReleaseParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishReleaseRequestWithBody(c.Server, tenant, project, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PublishRelease Publish a release to an environment
+//
+// Builds one artifact per locale and namespace from the active
+// messages and the translations the environment's policy makes
+// eligible, stores the ones storage doesn't have yet, records the
+// immutable release and points the environment at it; the edge
+// serves it within seconds. Publishing an unchanged catalog
+// uploads nothing. Needs `releases.publish`. Problem codes:
+// `invalid_environment`, `invalid_note` (400),
+// `not_releasable` (422), `storage_unavailable` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/releases (the `PublishRelease` operationId).
+func (c *Client) PublishRelease(ctx context.Context, tenant TenantPath, project ProjectPath, params *PublishReleaseParams, body PublishReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishReleaseRequest(c.Server, tenant, project, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetRelease A release, its counts and manifest digest
+//
+// Needs `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release} (the `GetRelease` operationId).
+func (c *Client) GetRelease(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReleaseRequest(c.Server, tenant, project, release)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetReleaseArtifact One artifact of a release, as stored
+//
+// The exact bytes the manifest's `sha256` covers
+// (runtimes/SPEC.md §1.2), for bundling
+// (`glossa pull --release` writes `a/<sha256>.json`). Needs
+// `releases.read`. Problem codes: `storage_unavailable` (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest} (the `GetReleaseArtifact` operationId).
+func (c *Client) GetReleaseArtifact(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, digest string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReleaseArtifactRequest(c.Server, tenant, project, release, digest)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetReleaseDiff What changed since another release, per locale
+//
+// Message IDs added, changed and removed in each locale, compared
+// with `base` (default: the release's parent, what its environment
+// served before it; without one, everything is added). Needs
+// `releases.read`. Problem codes: `release_not_found` (404),
+// `storage_unavailable` (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/diff (the `GetReleaseDiff` operationId).
+func (c *Client) GetReleaseDiff(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseDiffParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReleaseDiffRequest(c.Server, tenant, project, release, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetReleaseManifest The signed manifest of a release for an environment
+//
+// Byte for byte what glossa-edge serves when `environment` serves
+// this release (runtimes/SPEC.md §1.1): what `glossa pull
+// --release` writes as a bundle's `manifest.json`. Needs
+// `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest (the `GetReleaseManifest` operationId).
+func (c *Client) GetReleaseManifest(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseManifestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReleaseManifestRequest(c.Server, tenant, project, release, params)
 	if err != nil {
 		return nil, err
 	}
@@ -6136,6 +7300,668 @@ func NewUpdateApplicationRequestWithBody(server string, tenant TenantPath, proje
 	return req, nil
 }
 
+// NewListDeliveryKeysRequest constructs an http.Request for the ListDeliveryKeys method
+func NewListDeliveryKeysRequest(server string, tenant TenantPath, project ProjectPath, params *ListDeliveryKeysParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/delivery-keys", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDeliveryKeyRequest calls the generic CreateDeliveryKey builder with application/json body
+func NewCreateDeliveryKeyRequest(server string, tenant TenantPath, project ProjectPath, params *CreateDeliveryKeyParams, body CreateDeliveryKeyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDeliveryKeyRequestWithBody(server, tenant, project, params, "application/json", bodyReader)
+}
+
+// NewCreateDeliveryKeyRequestWithBody constructs an http.Request for the CreateDeliveryKey method, with any body, and a specified content type
+func NewCreateDeliveryKeyRequestWithBody(server string, tenant TenantPath, project ProjectPath, params *CreateDeliveryKeyParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/delivery-keys", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRevokeDeliveryKeyRequest constructs an http.Request for the RevokeDeliveryKey method
+func NewRevokeDeliveryKeyRequest(server string, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "delivery_key", deliveryKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/delivery-keys/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListEnvironmentsRequest constructs an http.Request for the ListEnvironments method
+func NewListEnvironmentsRequest(server string, tenant TenantPath, project ProjectPath, params *ListEnvironmentsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateEnvironmentRequest calls the generic CreateEnvironment builder with application/json body
+func NewCreateEnvironmentRequest(server string, tenant TenantPath, project ProjectPath, body CreateEnvironmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateEnvironmentRequestWithBody(server, tenant, project, "application/json", bodyReader)
+}
+
+// NewCreateEnvironmentRequestWithBody constructs an http.Request for the CreateEnvironment method, with any body, and a specified content type
+func NewCreateEnvironmentRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetEnvironmentRequest constructs an http.Request for the GetEnvironment method
+func NewGetEnvironmentRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateEnvironmentRequest calls the generic UpdateEnvironment builder with application/json body
+func NewUpdateEnvironmentRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, body UpdateEnvironmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateEnvironmentRequestWithBody(server, tenant, project, environment, params, "application/json", bodyReader)
+}
+
+// NewUpdateEnvironmentRequestWithBody constructs an http.Request for the UpdateEnvironment method, with any body, and a specified content type
+func NewUpdateEnvironmentRequestWithBody(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListDeploymentsRequest constructs an http.Request for the ListDeployments method
+func NewListDeploymentsRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *ListDeploymentsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s/deployments", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPromoteReleaseRequest calls the generic PromoteRelease builder with application/json body
+func NewPromoteReleaseRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body PromoteReleaseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPromoteReleaseRequestWithBody(server, tenant, project, environment, "application/json", bodyReader)
+}
+
+// NewPromoteReleaseRequestWithBody constructs an http.Request for the PromoteRelease method, with any body, and a specified content type
+func NewPromoteReleaseRequestWithBody(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s/promotions", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRollbackEnvironmentRequest calls the generic RollbackEnvironment builder with application/json body
+func NewRollbackEnvironmentRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body RollbackEnvironmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRollbackEnvironmentRequestWithBody(server, tenant, project, environment, "application/json", bodyReader)
+}
+
+// NewRollbackEnvironmentRequestWithBody constructs an http.Request for the RollbackEnvironment method, with any body, and a specified content type
+func NewRollbackEnvironmentRequestWithBody(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s/rollbacks", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetFallbackGraphRequest constructs an http.Request for the GetFallbackGraph method
 func NewGetFallbackGraphRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
 	var err error
@@ -7561,6 +9387,445 @@ func NewListTranslationRevisionsRequest(server string, tenant TenantPath, projec
 	return req, nil
 }
 
+// NewListReleaseSigningKeysRequest constructs an http.Request for the ListReleaseSigningKeys method
+func NewListReleaseSigningKeysRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/release-signing-keys", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListReleasesRequest constructs an http.Request for the ListReleases method
+func NewListReleasesRequest(server string, tenant TenantPath, project ProjectPath, params *ListReleasesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/releases", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPublishReleaseRequest calls the generic PublishRelease builder with application/json body
+func NewPublishReleaseRequest(server string, tenant TenantPath, project ProjectPath, params *PublishReleaseParams, body PublishReleaseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPublishReleaseRequestWithBody(server, tenant, project, params, "application/json", bodyReader)
+}
+
+// NewPublishReleaseRequestWithBody constructs an http.Request for the PublishRelease method, with any body, and a specified content type
+func NewPublishReleaseRequestWithBody(server string, tenant TenantPath, project ProjectPath, params *PublishReleaseParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/releases", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetReleaseRequest constructs an http.Request for the GetRelease method
+func NewGetReleaseRequest(server string, tenant TenantPath, project ProjectPath, release ReleasePath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "release", release, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/releases/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetReleaseArtifactRequest constructs an http.Request for the GetReleaseArtifact method
+func NewGetReleaseArtifactRequest(server string, tenant TenantPath, project ProjectPath, release ReleasePath, digest string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "release", release, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "digest", digest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/releases/%s/artifacts/%s", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetReleaseDiffRequest constructs an http.Request for the GetReleaseDiff method
+func NewGetReleaseDiffRequest(server string, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseDiffParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "release", release, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/releases/%s/diff", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Base != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "base", *params.Base, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetReleaseManifestRequest constructs an http.Request for the GetReleaseManifest method
+func NewGetReleaseManifestRequest(server string, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseManifestParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "release", release, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/releases/%s/manifest", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "environment", params.Environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewImportTranslationsRequest calls the generic ImportTranslations builder with application/json body
 func NewImportTranslationsRequest(server string, tenant TenantPath, project ProjectPath, body ImportTranslationsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -8409,6 +10674,183 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 	UpdateApplicationWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApplicationResponse, error)
 
+	// ListDeliveryKeysWithResponse Publishable delivery keys, including revoked ones
+	//
+	// Needs `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `ListDeliveryKeys` operationId).
+	ListDeliveryKeysWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListDeliveryKeysParams, reqEditors ...RequestEditorFn) (*ListDeliveryKeysResponse, error)
+
+	// CreateDeliveryKeyWithBodyWithResponse Create a publishable delivery key
+	//
+	// The key runtimes fetch releases from glossa-edge with
+	// (`/v1/{key}/{environment}/manifest.json`). It is public by
+	// design — it ships in browser bundles — scoped to this project,
+	// read-only, and grants nothing on this API. Needs
+	// `releases.publish`. Problem codes: `invalid_key_name` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `CreateDeliveryKey` operationId).
+	CreateDeliveryKeyWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateDeliveryKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDeliveryKeyResponse, error)
+
+	// CreateDeliveryKeyWithResponse Create a publishable delivery key
+	//
+	// The key runtimes fetch releases from glossa-edge with
+	// (`/v1/{key}/{environment}/manifest.json`). It is public by
+	// design — it ships in browser bundles — scoped to this project,
+	// read-only, and grants nothing on this API. Needs
+	// `releases.publish`. Problem codes: `invalid_key_name` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `CreateDeliveryKey` operationId).
+	CreateDeliveryKeyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateDeliveryKeyParams, body CreateDeliveryKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDeliveryKeyResponse, error)
+
+	// RevokeDeliveryKeyWithResponse Revoke a delivery key
+	//
+	// The edge answers 404 for it within its key cache TTL (30 s by
+	// default) plus any CDN max-age. It stays listed as revoked.
+	// Needs `releases.publish`. Problem codes: `key_revoked` (409).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key} (the `RevokeDeliveryKey` operationId).
+	RevokeDeliveryKeyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, reqEditors ...RequestEditorFn) (*RevokeDeliveryKeyResponse, error)
+
+	// ListEnvironmentsWithResponse Environments of a project
+	//
+	// By name. Every project has `development`, `preview`, `staging`
+	// and `production`; they are created on first use. Needs
+	// `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments (the `ListEnvironments` operationId).
+	ListEnvironmentsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListEnvironmentsParams, reqEditors ...RequestEditorFn) (*ListEnvironmentsResponse, error)
+
+	// CreateEnvironmentWithBodyWithResponse Add a custom environment
+	//
+	// A branch preview, a QA stage. Without `policy` it ships
+	// everything not rejected. Needs `releases.publish`. Problem codes:
+	// `environment_exists` (409), `invalid_environment`,
+	// `invalid_policy` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments (the `CreateEnvironment` operationId).
+	CreateEnvironmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEnvironmentResponse, error)
+
+	// CreateEnvironmentWithResponse Add a custom environment
+	//
+	// A branch preview, a QA stage. Without `policy` it ships
+	// everything not rejected. Needs `releases.publish`. Problem codes:
+	// `environment_exists` (409), `invalid_environment`,
+	// `invalid_policy` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments (the `CreateEnvironment` operationId).
+	CreateEnvironmentWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentResponse, error)
+
+	// GetEnvironmentWithResponse An environment, its policy and the release it serves
+	//
+	// Needs `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `GetEnvironment` operationId).
+	GetEnvironmentWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, reqEditors ...RequestEditorFn) (*GetEnvironmentResponse, error)
+
+	// UpdateEnvironmentWithBodyWithResponse Change an environment's eligibility policy
+	//
+	// The policy decides what the next publish ships and which
+	// releases may be promoted here; the release served keeps serving.
+	// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `UpdateEnvironment` operationId).
+	UpdateEnvironmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResponse, error)
+
+	// UpdateEnvironmentWithResponse Change an environment's eligibility policy
+	//
+	// The policy decides what the next publish ships and which
+	// releases may be promoted here; the release served keeps serving.
+	// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `UpdateEnvironment` operationId).
+	UpdateEnvironmentWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResponse, error)
+
+	// ListDeploymentsWithResponse The environment's history of pointer moves
+	//
+	// Newest first. Needs `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments (the `ListDeployments` operationId).
+	ListDeploymentsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *ListDeploymentsParams, reqEditors ...RequestEditorFn) (*ListDeploymentsResponse, error)
+
+	// PromoteReleaseWithBodyWithResponse Point the environment at an existing release
+	//
+	// Moves the pointer; nothing is rebuilt. The environment's policy
+	// must cover the policy the release was built under, so a preview
+	// release with drafts can't reach production. Promoting the
+	// release already served changes nothing, so a retry is safe.
+	// Needs `releases.publish`. Problem codes: `release_not_found`
+	// (404), `release_ineligible` (409), `storage_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
+	PromoteReleaseWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PromoteReleaseResponse, error)
+
+	// PromoteReleaseWithResponse Point the environment at an existing release
+	//
+	// Moves the pointer; nothing is rebuilt. The environment's policy
+	// must cover the policy the release was built under, so a preview
+	// release with drafts can't reach production. Promoting the
+	// release already served changes nothing, so a retry is safe.
+	// Needs `releases.publish`. Problem codes: `release_not_found`
+	// (404), `release_ineligible` (409), `storage_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
+	PromoteReleaseWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body PromoteReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*PromoteReleaseResponse, error)
+
+	// RollbackEnvironmentWithBodyWithResponse Point the environment back at a release it served before
+	//
+	// Without `release_id`, the newest release the environment served
+	// that is older than the current one: rolling back twice goes two
+	// steps back, so send `release_id` when a retry must not. Moves
+	// the pointer only. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `no_rollback_target`,
+	// `not_in_history` (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
+	RollbackEnvironmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RollbackEnvironmentResponse, error)
+
+	// RollbackEnvironmentWithResponse Point the environment back at a release it served before
+	//
+	// Without `release_id`, the newest release the environment served
+	// that is older than the current one: rolling back twice goes two
+	// steps back, so send `release_id` when a retry must not. Moves
+	// the pointer only. Needs `releases.publish`. Problem codes:
+	// `release_not_found` (404), `no_rollback_target`,
+	// `not_in_history` (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
+	RollbackEnvironmentWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body RollbackEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*RollbackEnvironmentResponse, error)
+
 	// GetFallbackGraphWithResponse A project's fallback graph
 	//
 	// Exactly the `fallback` member releases publish
@@ -8785,6 +11227,106 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*ListTranslationRevisionsResponse, error)
+
+	// ListReleaseSigningKeysWithResponse The public keys manifests are signed with
+	//
+	// Configure runtimes with these (runtimes/SPEC.md §1.3). Active
+	// keys sign every new manifest; retired ones are still listed
+	// while runtimes may hold manifests only they signed. Rotation:
+	// a new key is added (manifests carry both signatures), runtimes
+	// move to it, the old one is retired. Needs `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-signing-keys (the `ListReleaseSigningKeys` operationId).
+	ListReleaseSigningKeysWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*ListReleaseSigningKeysResponse, error)
+
+	// ListReleasesWithResponse Releases of a project
+	//
+	// Newest first. Needs `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases (the `ListReleases` operationId).
+	ListReleasesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*ListReleasesResponse, error)
+
+	// PublishReleaseWithBodyWithResponse Publish a release to an environment
+	//
+	// Builds one artifact per locale and namespace from the active
+	// messages and the translations the environment's policy makes
+	// eligible, stores the ones storage doesn't have yet, records the
+	// immutable release and points the environment at it; the edge
+	// serves it within seconds. Publishing an unchanged catalog
+	// uploads nothing. Needs `releases.publish`. Problem codes:
+	// `invalid_environment`, `invalid_note` (400),
+	// `not_releasable` (422), `storage_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/releases (the `PublishRelease` operationId).
+	PublishReleaseWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PublishReleaseParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishReleaseResponse, error)
+
+	// PublishReleaseWithResponse Publish a release to an environment
+	//
+	// Builds one artifact per locale and namespace from the active
+	// messages and the translations the environment's policy makes
+	// eligible, stores the ones storage doesn't have yet, records the
+	// immutable release and points the environment at it; the edge
+	// serves it within seconds. Publishing an unchanged catalog
+	// uploads nothing. Needs `releases.publish`. Problem codes:
+	// `invalid_environment`, `invalid_note` (400),
+	// `not_releasable` (422), `storage_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/releases (the `PublishRelease` operationId).
+	PublishReleaseWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PublishReleaseParams, body PublishReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishReleaseResponse, error)
+
+	// GetReleaseWithResponse A release, its counts and manifest digest
+	//
+	// Needs `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release} (the `GetRelease` operationId).
+	GetReleaseWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, reqEditors ...RequestEditorFn) (*GetReleaseResponse, error)
+
+	// GetReleaseArtifactWithResponse One artifact of a release, as stored
+	//
+	// The exact bytes the manifest's `sha256` covers
+	// (runtimes/SPEC.md §1.2), for bundling
+	// (`glossa pull --release` writes `a/<sha256>.json`). Needs
+	// `releases.read`. Problem codes: `storage_unavailable` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest} (the `GetReleaseArtifact` operationId).
+	GetReleaseArtifactWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, digest string, reqEditors ...RequestEditorFn) (*GetReleaseArtifactResponse, error)
+
+	// GetReleaseDiffWithResponse What changed since another release, per locale
+	//
+	// Message IDs added, changed and removed in each locale, compared
+	// with `base` (default: the release's parent, what its environment
+	// served before it; without one, everything is added). Needs
+	// `releases.read`. Problem codes: `release_not_found` (404),
+	// `storage_unavailable` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/diff (the `GetReleaseDiff` operationId).
+	GetReleaseDiffWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseDiffParams, reqEditors ...RequestEditorFn) (*GetReleaseDiffResponse, error)
+
+	// GetReleaseManifestWithResponse The signed manifest of a release for an environment
+	//
+	// Byte for byte what glossa-edge serves when `environment` serves
+	// this release (runtimes/SPEC.md §1.1): what `glossa pull
+	// --release` writes as a bundle's `manifest.json`. Needs
+	// `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest (the `GetReleaseManifest` operationId).
+	GetReleaseManifestWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseManifestParams, reqEditors ...RequestEditorFn) (*GetReleaseManifestResponse, error)
 
 	// ImportTranslationsWithBodyWithResponse Import translations in bulk
 	//
@@ -11142,6 +13684,775 @@ func (r UpdateApplicationResponse) ContentType() string {
 	return ""
 }
 
+type ListDeliveryKeysResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeliveryKeyList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListDeliveryKeysResponse) GetJSON200() *DeliveryKeyList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListDeliveryKeysResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListDeliveryKeysResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListDeliveryKeysResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListDeliveryKeysResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListDeliveryKeysResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDeliveryKeysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDeliveryKeysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDeliveryKeysResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateDeliveryKeyResponse201Headers the declared response headers of an HTTP 201 response for CreateDeliveryKey
+type CreateDeliveryKeyResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateDeliveryKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *DeliveryKey
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateDeliveryKeyResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateDeliveryKeyResponse) GetJSON201() *DeliveryKey {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateDeliveryKeyResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateDeliveryKeyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateDeliveryKeyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateDeliveryKeyResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateDeliveryKeyResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateDeliveryKeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDeliveryKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDeliveryKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateDeliveryKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeDeliveryKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RevokeDeliveryKeyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RevokeDeliveryKeyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RevokeDeliveryKeyResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r RevokeDeliveryKeyResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r RevokeDeliveryKeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeDeliveryKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeDeliveryKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeDeliveryKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListEnvironmentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *EnvironmentList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListEnvironmentsResponse) GetJSON200() *EnvironmentList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListEnvironmentsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListEnvironmentsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListEnvironmentsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListEnvironmentsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListEnvironmentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListEnvironmentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListEnvironmentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListEnvironmentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateEnvironmentResponse201Headers the declared response headers of an HTTP 201 response for CreateEnvironment
+type CreateEnvironmentResponse201Headers struct {
+	ETag     *string
+	Location *string
+}
+
+type CreateEnvironmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Environment
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateEnvironmentResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateEnvironmentResponse) GetJSON201() *Environment {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateEnvironmentResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateEnvironmentResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateEnvironmentResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateEnvironmentResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateEnvironmentResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateEnvironmentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateEnvironmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateEnvironmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateEnvironmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetEnvironmentResponse200Headers the declared response headers of an HTTP 200 response for GetEnvironment
+type GetEnvironmentResponse200Headers struct {
+	ETag *string
+}
+
+type GetEnvironmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Environment
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetEnvironmentResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetEnvironmentResponse) GetJSON200() *Environment {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetEnvironmentResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetEnvironmentResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetEnvironmentResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetEnvironmentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEnvironmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEnvironmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetEnvironmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// UpdateEnvironmentResponse200Headers the declared response headers of an HTTP 200 response for UpdateEnvironment
+type UpdateEnvironmentResponse200Headers struct {
+	ETag *string
+}
+
+type UpdateEnvironmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Environment
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *UpdateEnvironmentResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateEnvironmentResponse) GetJSON200() *Environment {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r UpdateEnvironmentResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r UpdateEnvironmentResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r UpdateEnvironmentResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r UpdateEnvironmentResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r UpdateEnvironmentResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r UpdateEnvironmentResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r UpdateEnvironmentResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateEnvironmentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateEnvironmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateEnvironmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateEnvironmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDeploymentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeploymentList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListDeploymentsResponse) GetJSON200() *DeploymentList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListDeploymentsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListDeploymentsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListDeploymentsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListDeploymentsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListDeploymentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDeploymentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDeploymentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDeploymentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// PromoteReleaseResponse200Headers the declared response headers of an HTTP 200 response for PromoteRelease
+type PromoteReleaseResponse200Headers struct {
+	ETag *string
+}
+
+type PromoteReleaseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Environment
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *PromoteReleaseResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PromoteReleaseResponse) GetJSON200() *Environment {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r PromoteReleaseResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PromoteReleaseResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PromoteReleaseResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r PromoteReleaseResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r PromoteReleaseResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r PromoteReleaseResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PromoteReleaseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PromoteReleaseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PromoteReleaseResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// RollbackEnvironmentResponse200Headers the declared response headers of an HTTP 200 response for RollbackEnvironment
+type RollbackEnvironmentResponse200Headers struct {
+	ETag *string
+}
+
+type RollbackEnvironmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Environment
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *RollbackEnvironmentResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RollbackEnvironmentResponse) GetJSON200() *Environment {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r RollbackEnvironmentResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RollbackEnvironmentResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RollbackEnvironmentResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RollbackEnvironmentResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r RollbackEnvironmentResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r RollbackEnvironmentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RollbackEnvironmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RollbackEnvironmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RollbackEnvironmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // GetFallbackGraphResponse200Headers the declared response headers of an HTTP 200 response for GetFallbackGraph
 type GetFallbackGraphResponse200Headers struct {
 	ETag *string
@@ -12722,6 +16033,504 @@ func (r ListTranslationRevisionsResponse) ContentType() string {
 	return ""
 }
 
+type ListReleaseSigningKeysResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SigningKeys
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListReleaseSigningKeysResponse) GetJSON200() *SigningKeys {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListReleaseSigningKeysResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListReleaseSigningKeysResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListReleaseSigningKeysResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListReleaseSigningKeysResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListReleaseSigningKeysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListReleaseSigningKeysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListReleaseSigningKeysResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListReleasesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReleaseList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListReleasesResponse) GetJSON200() *ReleaseList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListReleasesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListReleasesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListReleasesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListReleasesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListReleasesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListReleasesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListReleasesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListReleasesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// PublishReleaseResponse201Headers the declared response headers of an HTTP 201 response for PublishRelease
+type PublishReleaseResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type PublishReleaseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Release
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *PublishReleaseResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PublishReleaseResponse) GetJSON201() *Release {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r PublishReleaseResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PublishReleaseResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PublishReleaseResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r PublishReleaseResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r PublishReleaseResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r PublishReleaseResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r PublishReleaseResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r PublishReleaseResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PublishReleaseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PublishReleaseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PublishReleaseResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetReleaseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Release
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetReleaseResponse) GetJSON200() *Release {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetReleaseResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetReleaseResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetReleaseResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetReleaseResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReleaseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReleaseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetReleaseResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetReleaseArtifactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReleaseArtifact
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetReleaseArtifactResponse) GetJSON200() *ReleaseArtifact {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetReleaseArtifactResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetReleaseArtifactResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetReleaseArtifactResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r GetReleaseArtifactResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r GetReleaseArtifactResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReleaseArtifactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReleaseArtifactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetReleaseArtifactResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetReleaseDiffResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReleaseDiff
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetReleaseDiffResponse) GetJSON200() *ReleaseDiff {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetReleaseDiffResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetReleaseDiffResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetReleaseDiffResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r GetReleaseDiffResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r GetReleaseDiffResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReleaseDiffResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReleaseDiffResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetReleaseDiffResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetReleaseManifestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReleaseManifest
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetReleaseManifestResponse) GetJSON200() *ReleaseManifest {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r GetReleaseManifestResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetReleaseManifestResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetReleaseManifestResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetReleaseManifestResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetReleaseManifestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReleaseManifestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReleaseManifestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetReleaseManifestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ImportTranslationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -13899,6 +17708,273 @@ func (c *ClientWithResponses) UpdateApplicationWithResponse(ctx context.Context,
 	return ParseUpdateApplicationResponse(rsp)
 }
 
+// ListDeliveryKeysWithResponse Publishable delivery keys, including revoked ones
+//
+// Needs `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `ListDeliveryKeys` operationId).
+func (c *ClientWithResponses) ListDeliveryKeysWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListDeliveryKeysParams, reqEditors ...RequestEditorFn) (*ListDeliveryKeysResponse, error) {
+	rsp, err := c.ListDeliveryKeys(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDeliveryKeysResponse(rsp)
+}
+
+// CreateDeliveryKeyWithBodyWithResponse Create a publishable delivery key
+//
+// The key runtimes fetch releases from glossa-edge with
+// (`/v1/{key}/{environment}/manifest.json`). It is public by
+// design — it ships in browser bundles — scoped to this project,
+// read-only, and grants nothing on this API. Needs
+// `releases.publish`. Problem codes: `invalid_key_name` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `CreateDeliveryKey` operationId).
+func (c *ClientWithResponses) CreateDeliveryKeyWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateDeliveryKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDeliveryKeyResponse, error) {
+	rsp, err := c.CreateDeliveryKeyWithBody(ctx, tenant, project, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDeliveryKeyResponse(rsp)
+}
+
+// CreateDeliveryKeyWithResponse Create a publishable delivery key
+//
+// The key runtimes fetch releases from glossa-edge with
+// (`/v1/{key}/{environment}/manifest.json`). It is public by
+// design — it ships in browser bundles — scoped to this project,
+// read-only, and grants nothing on this API. Needs
+// `releases.publish`. Problem codes: `invalid_key_name` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/delivery-keys (the `CreateDeliveryKey` operationId).
+func (c *ClientWithResponses) CreateDeliveryKeyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateDeliveryKeyParams, body CreateDeliveryKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDeliveryKeyResponse, error) {
+	rsp, err := c.CreateDeliveryKey(ctx, tenant, project, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDeliveryKeyResponse(rsp)
+}
+
+// RevokeDeliveryKeyWithResponse Revoke a delivery key
+//
+// The edge answers 404 for it within its key cache TTL (30 s by
+// default) plus any CDN max-age. It stays listed as revoked.
+// Needs `releases.publish`. Problem codes: `key_revoked` (409).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key} (the `RevokeDeliveryKey` operationId).
+func (c *ClientWithResponses) RevokeDeliveryKeyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath, reqEditors ...RequestEditorFn) (*RevokeDeliveryKeyResponse, error) {
+	rsp, err := c.RevokeDeliveryKey(ctx, tenant, project, deliveryKey, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeDeliveryKeyResponse(rsp)
+}
+
+// ListEnvironmentsWithResponse Environments of a project
+//
+// By name. Every project has `development`, `preview`, `staging`
+// and `production`; they are created on first use. Needs
+// `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments (the `ListEnvironments` operationId).
+func (c *ClientWithResponses) ListEnvironmentsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListEnvironmentsParams, reqEditors ...RequestEditorFn) (*ListEnvironmentsResponse, error) {
+	rsp, err := c.ListEnvironments(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListEnvironmentsResponse(rsp)
+}
+
+// CreateEnvironmentWithBodyWithResponse Add a custom environment
+//
+// A branch preview, a QA stage. Without `policy` it ships
+// everything not rejected. Needs `releases.publish`. Problem codes:
+// `environment_exists` (409), `invalid_environment`,
+// `invalid_policy` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments (the `CreateEnvironment` operationId).
+func (c *ClientWithResponses) CreateEnvironmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEnvironmentResponse, error) {
+	rsp, err := c.CreateEnvironmentWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateEnvironmentResponse(rsp)
+}
+
+// CreateEnvironmentWithResponse Add a custom environment
+//
+// A branch preview, a QA stage. Without `policy` it ships
+// everything not rejected. Needs `releases.publish`. Problem codes:
+// `environment_exists` (409), `invalid_environment`,
+// `invalid_policy` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments (the `CreateEnvironment` operationId).
+func (c *ClientWithResponses) CreateEnvironmentWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentResponse, error) {
+	rsp, err := c.CreateEnvironment(ctx, tenant, project, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateEnvironmentResponse(rsp)
+}
+
+// GetEnvironmentWithResponse An environment, its policy and the release it serves
+//
+// Needs `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `GetEnvironment` operationId).
+func (c *ClientWithResponses) GetEnvironmentWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, reqEditors ...RequestEditorFn) (*GetEnvironmentResponse, error) {
+	rsp, err := c.GetEnvironment(ctx, tenant, project, environment, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEnvironmentResponse(rsp)
+}
+
+// UpdateEnvironmentWithBodyWithResponse Change an environment's eligibility policy
+//
+// The policy decides what the next publish ships and which
+// releases may be promoted here; the release served keeps serving.
+// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `UpdateEnvironment` operationId).
+func (c *ClientWithResponses) UpdateEnvironmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResponse, error) {
+	rsp, err := c.UpdateEnvironmentWithBody(ctx, tenant, project, environment, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEnvironmentResponse(rsp)
+}
+
+// UpdateEnvironmentWithResponse Change an environment's eligibility policy
+//
+// The policy decides what the next publish ships and which
+// releases may be promoted here; the release served keeps serving.
+// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `UpdateEnvironment` operationId).
+func (c *ClientWithResponses) UpdateEnvironmentWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResponse, error) {
+	rsp, err := c.UpdateEnvironment(ctx, tenant, project, environment, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEnvironmentResponse(rsp)
+}
+
+// ListDeploymentsWithResponse The environment's history of pointer moves
+//
+// Newest first. Needs `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments (the `ListDeployments` operationId).
+func (c *ClientWithResponses) ListDeploymentsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *ListDeploymentsParams, reqEditors ...RequestEditorFn) (*ListDeploymentsResponse, error) {
+	rsp, err := c.ListDeployments(ctx, tenant, project, environment, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDeploymentsResponse(rsp)
+}
+
+// PromoteReleaseWithBodyWithResponse Point the environment at an existing release
+//
+// Moves the pointer; nothing is rebuilt. The environment's policy
+// must cover the policy the release was built under, so a preview
+// release with drafts can't reach production. Promoting the
+// release already served changes nothing, so a retry is safe.
+// Needs `releases.publish`. Problem codes: `release_not_found`
+// (404), `release_ineligible` (409), `storage_unavailable` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
+func (c *ClientWithResponses) PromoteReleaseWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PromoteReleaseResponse, error) {
+	rsp, err := c.PromoteReleaseWithBody(ctx, tenant, project, environment, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePromoteReleaseResponse(rsp)
+}
+
+// PromoteReleaseWithResponse Point the environment at an existing release
+//
+// Moves the pointer; nothing is rebuilt. The environment's policy
+// must cover the policy the release was built under, so a preview
+// release with drafts can't reach production. Promoting the
+// release already served changes nothing, so a retry is safe.
+// Needs `releases.publish`. Problem codes: `release_not_found`
+// (404), `release_ineligible` (409), `storage_unavailable` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions (the `PromoteRelease` operationId).
+func (c *ClientWithResponses) PromoteReleaseWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body PromoteReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*PromoteReleaseResponse, error) {
+	rsp, err := c.PromoteRelease(ctx, tenant, project, environment, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePromoteReleaseResponse(rsp)
+}
+
+// RollbackEnvironmentWithBodyWithResponse Point the environment back at a release it served before
+//
+// Without `release_id`, the newest release the environment served
+// that is older than the current one: rolling back twice goes two
+// steps back, so send `release_id` when a retry must not. Moves
+// the pointer only. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `no_rollback_target`,
+// `not_in_history` (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
+func (c *ClientWithResponses) RollbackEnvironmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RollbackEnvironmentResponse, error) {
+	rsp, err := c.RollbackEnvironmentWithBody(ctx, tenant, project, environment, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRollbackEnvironmentResponse(rsp)
+}
+
+// RollbackEnvironmentWithResponse Point the environment back at a release it served before
+//
+// Without `release_id`, the newest release the environment served
+// that is older than the current one: rolling back twice goes two
+// steps back, so send `release_id` when a retry must not. Moves
+// the pointer only. Needs `releases.publish`. Problem codes:
+// `release_not_found` (404), `no_rollback_target`,
+// `not_in_history` (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
+func (c *ClientWithResponses) RollbackEnvironmentWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body RollbackEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*RollbackEnvironmentResponse, error) {
+	rsp, err := c.RollbackEnvironment(ctx, tenant, project, environment, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRollbackEnvironmentResponse(rsp)
+}
+
 // GetFallbackGraphWithResponse A project's fallback graph
 //
 // Exactly the `fallback` member releases publish
@@ -14448,6 +18524,154 @@ func (c *ClientWithResponses) ListTranslationRevisionsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseListTranslationRevisionsResponse(rsp)
+}
+
+// ListReleaseSigningKeysWithResponse The public keys manifests are signed with
+//
+// Configure runtimes with these (runtimes/SPEC.md §1.3). Active
+// keys sign every new manifest; retired ones are still listed
+// while runtimes may hold manifests only they signed. Rotation:
+// a new key is added (manifests carry both signatures), runtimes
+// move to it, the old one is retired. Needs `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-signing-keys (the `ListReleaseSigningKeys` operationId).
+func (c *ClientWithResponses) ListReleaseSigningKeysWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*ListReleaseSigningKeysResponse, error) {
+	rsp, err := c.ListReleaseSigningKeys(ctx, tenant, project, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListReleaseSigningKeysResponse(rsp)
+}
+
+// ListReleasesWithResponse Releases of a project
+//
+// Newest first. Needs `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases (the `ListReleases` operationId).
+func (c *ClientWithResponses) ListReleasesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*ListReleasesResponse, error) {
+	rsp, err := c.ListReleases(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListReleasesResponse(rsp)
+}
+
+// PublishReleaseWithBodyWithResponse Publish a release to an environment
+//
+// Builds one artifact per locale and namespace from the active
+// messages and the translations the environment's policy makes
+// eligible, stores the ones storage doesn't have yet, records the
+// immutable release and points the environment at it; the edge
+// serves it within seconds. Publishing an unchanged catalog
+// uploads nothing. Needs `releases.publish`. Problem codes:
+// `invalid_environment`, `invalid_note` (400),
+// `not_releasable` (422), `storage_unavailable` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/releases (the `PublishRelease` operationId).
+func (c *ClientWithResponses) PublishReleaseWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PublishReleaseParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishReleaseResponse, error) {
+	rsp, err := c.PublishReleaseWithBody(ctx, tenant, project, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishReleaseResponse(rsp)
+}
+
+// PublishReleaseWithResponse Publish a release to an environment
+//
+// Builds one artifact per locale and namespace from the active
+// messages and the translations the environment's policy makes
+// eligible, stores the ones storage doesn't have yet, records the
+// immutable release and points the environment at it; the edge
+// serves it within seconds. Publishing an unchanged catalog
+// uploads nothing. Needs `releases.publish`. Problem codes:
+// `invalid_environment`, `invalid_note` (400),
+// `not_releasable` (422), `storage_unavailable` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/releases (the `PublishRelease` operationId).
+func (c *ClientWithResponses) PublishReleaseWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PublishReleaseParams, body PublishReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishReleaseResponse, error) {
+	rsp, err := c.PublishRelease(ctx, tenant, project, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishReleaseResponse(rsp)
+}
+
+// GetReleaseWithResponse A release, its counts and manifest digest
+//
+// Needs `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release} (the `GetRelease` operationId).
+func (c *ClientWithResponses) GetReleaseWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, reqEditors ...RequestEditorFn) (*GetReleaseResponse, error) {
+	rsp, err := c.GetRelease(ctx, tenant, project, release, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReleaseResponse(rsp)
+}
+
+// GetReleaseArtifactWithResponse One artifact of a release, as stored
+//
+// The exact bytes the manifest's `sha256` covers
+// (runtimes/SPEC.md §1.2), for bundling
+// (`glossa pull --release` writes `a/<sha256>.json`). Needs
+// `releases.read`. Problem codes: `storage_unavailable` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest} (the `GetReleaseArtifact` operationId).
+func (c *ClientWithResponses) GetReleaseArtifactWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, digest string, reqEditors ...RequestEditorFn) (*GetReleaseArtifactResponse, error) {
+	rsp, err := c.GetReleaseArtifact(ctx, tenant, project, release, digest, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReleaseArtifactResponse(rsp)
+}
+
+// GetReleaseDiffWithResponse What changed since another release, per locale
+//
+// Message IDs added, changed and removed in each locale, compared
+// with `base` (default: the release's parent, what its environment
+// served before it; without one, everything is added). Needs
+// `releases.read`. Problem codes: `release_not_found` (404),
+// `storage_unavailable` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/diff (the `GetReleaseDiff` operationId).
+func (c *ClientWithResponses) GetReleaseDiffWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseDiffParams, reqEditors ...RequestEditorFn) (*GetReleaseDiffResponse, error) {
+	rsp, err := c.GetReleaseDiff(ctx, tenant, project, release, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReleaseDiffResponse(rsp)
+}
+
+// GetReleaseManifestWithResponse The signed manifest of a release for an environment
+//
+// Byte for byte what glossa-edge serves when `environment` serves
+// this release (runtimes/SPEC.md §1.1): what `glossa pull
+// --release` writes as a bundle's `manifest.json`. Needs
+// `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest (the `GetReleaseManifest` operationId).
+func (c *ClientWithResponses) GetReleaseManifestWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, release ReleasePath, params *GetReleaseManifestParams, reqEditors ...RequestEditorFn) (*GetReleaseManifestResponse, error) {
+	rsp, err := c.GetReleaseManifest(ctx, tenant, project, release, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReleaseManifestResponse(rsp)
 }
 
 // ImportTranslationsWithBodyWithResponse Import translations in bulk
@@ -16514,6 +20738,676 @@ func ParseUpdateApplicationResponse(rsp *http.Response) (*UpdateApplicationRespo
 	return response, nil
 }
 
+// ParseListDeliveryKeysResponse parses an HTTP response from a ListDeliveryKeysWithResponse call
+func ParseListDeliveryKeysResponse(rsp *http.Response) (*ListDeliveryKeysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDeliveryKeysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeliveryKeyList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDeliveryKeyResponse parses an HTTP response from a CreateDeliveryKeyWithResponse call
+func ParseCreateDeliveryKeyResponse(rsp *http.Response) (*CreateDeliveryKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDeliveryKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DeliveryKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateDeliveryKeyResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRevokeDeliveryKeyResponse parses an HTTP response from a RevokeDeliveryKeyWithResponse call
+func ParseRevokeDeliveryKeyResponse(rsp *http.Response) (*RevokeDeliveryKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeDeliveryKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListEnvironmentsResponse parses an HTTP response from a ListEnvironmentsWithResponse call
+func ParseListEnvironmentsResponse(rsp *http.Response) (*ListEnvironmentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListEnvironmentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EnvironmentList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateEnvironmentResponse parses an HTTP response from a CreateEnvironmentWithResponse call
+func ParseCreateEnvironmentResponse(rsp *http.Response) (*CreateEnvironmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateEnvironmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Environment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateEnvironmentResponse201Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetEnvironmentResponse parses an HTTP response from a GetEnvironmentWithResponse call
+func ParseGetEnvironmentResponse(rsp *http.Response) (*GetEnvironmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEnvironmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Environment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetEnvironmentResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseUpdateEnvironmentResponse parses an HTTP response from a UpdateEnvironmentWithResponse call
+func ParseUpdateEnvironmentResponse(rsp *http.Response) (*UpdateEnvironmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateEnvironmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Environment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers UpdateEnvironmentResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListDeploymentsResponse parses an HTTP response from a ListDeploymentsWithResponse call
+func ParseListDeploymentsResponse(rsp *http.Response) (*ListDeploymentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDeploymentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeploymentList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePromoteReleaseResponse parses an HTTP response from a PromoteReleaseWithResponse call
+func ParsePromoteReleaseResponse(rsp *http.Response) (*PromoteReleaseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PromoteReleaseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Environment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers PromoteReleaseResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRollbackEnvironmentResponse parses an HTTP response from a RollbackEnvironmentWithResponse call
+func ParseRollbackEnvironmentResponse(rsp *http.Response) (*RollbackEnvironmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RollbackEnvironmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Environment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers RollbackEnvironmentResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseGetFallbackGraphResponse parses an HTTP response from a GetFallbackGraphWithResponse call
 func ParseGetFallbackGraphResponse(rsp *http.Response) (*GetFallbackGraphResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -17858,6 +22752,411 @@ func ParseListTranslationRevisionsResponse(rsp *http.Response) (*ListTranslation
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest TranslationRevisionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListReleaseSigningKeysResponse parses an HTTP response from a ListReleaseSigningKeysWithResponse call
+func ParseListReleaseSigningKeysResponse(rsp *http.Response) (*ListReleaseSigningKeysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListReleaseSigningKeysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SigningKeys
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListReleasesResponse parses an HTTP response from a ListReleasesWithResponse call
+func ParseListReleasesResponse(rsp *http.Response) (*ListReleasesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListReleasesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePublishReleaseResponse parses an HTTP response from a PublishReleaseWithResponse call
+func ParsePublishReleaseResponse(rsp *http.Response) (*PublishReleaseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PublishReleaseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Release
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers PublishReleaseResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetReleaseResponse parses an HTTP response from a GetReleaseWithResponse call
+func ParseGetReleaseResponse(rsp *http.Response) (*GetReleaseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReleaseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Release
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetReleaseArtifactResponse parses an HTTP response from a GetReleaseArtifactWithResponse call
+func ParseGetReleaseArtifactResponse(rsp *http.Response) (*GetReleaseArtifactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReleaseArtifactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseArtifact
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetReleaseDiffResponse parses an HTTP response from a GetReleaseDiffWithResponse call
+func ParseGetReleaseDiffResponse(rsp *http.Response) (*GetReleaseDiffResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReleaseDiffResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseDiff
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetReleaseManifestResponse parses an HTTP response from a GetReleaseManifestWithResponse call
+func ParseGetReleaseManifestResponse(rsp *http.Response) (*GetReleaseManifestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReleaseManifestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseManifest
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
