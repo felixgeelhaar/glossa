@@ -1,0 +1,91 @@
+package app
+
+import (
+	"context"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/idempotency"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
+)
+
+// Service implements Catalog's use cases.
+type Service struct {
+	tx       Transactor
+	coverage TranslationCoverage
+	now      func() time.Time
+}
+
+// Option configures a Service.
+type Option func(*Service)
+
+// WithClock replaces time.Now (tests).
+func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
+
+// New returns the service. Wire Localization's coverage with
+// SetCoverage once both contexts exist.
+func New(tx Transactor, opts ...Option) *Service {
+	s := &Service{tx: tx, now: func() time.Time { return time.Now().UTC() }}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
+}
+
+// SetCoverage wires the translation coverage port. The composition root
+// calls it once at startup, before serving.
+func (s *Service) SetCoverage(c TranslationCoverage) { s.coverage = c }
+
+// author returns the acting principal after checking perm.
+func author(ctx context.Context, perm authz.Permission) (domain.Author, error) {
+	if err := authz.Require(ctx, perm); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return domain.Author(p.Actor.String()), nil
+}
+
+// idempotentID derives a create's ID from its Idempotency-Key, or
+// returns uuid.Nil when there is no key.
+func idempotentID(operation, scope string, by domain.Author, key string) (uuid.UUID, error) {
+	if key == "" {
+		return uuid.Nil, nil
+	}
+	if err := idempotency.CheckKey(key); err != nil {
+		return uuid.Nil, err
+	}
+	return idempotency.ID(operation, scope, string(by), key), nil
+}
+
+func invalidPageToken() error {
+	return problem.New(http.StatusBadRequest, "invalid_page_token", "page_token is not one this list issued")
+}
+
+// afterUUID reads a page cursor holding an ID.
+func afterUUID(s string) (uuid.UUID, error) {
+	if s == "" {
+		return uuid.Nil, nil
+	}
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil, invalidPageToken()
+	}
+	return id, nil
+}
+
+// beforeRevision reads a page cursor holding a revision number.
+func beforeRevision(s string) (int, error) {
+	if s == "" {
+		return int(^uint32(0) >> 1), nil
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 {
+		return 0, invalidPageToken()
+	}
+	return n, nil
+}

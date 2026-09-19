@@ -27,6 +27,13 @@ import (
 // only, not on Identity's domain.
 type Permission = domain.Permission
 
+// Locale is the locale RequireFor checks, re-exported for the same
+// reason.
+type Locale = domain.Locale
+
+// ParseLocale canonicalizes a BCP 47 tag for RequireFor.
+func ParseLocale(s string) (Locale, error) { return domain.ParseLocale(s) }
+
 // The permissions other contexts check.
 const (
 	TenantRead         = domain.PermTenantRead
