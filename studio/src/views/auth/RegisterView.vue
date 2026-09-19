@@ -1,10 +1,20 @@
 <script setup lang="ts">
+/**
+ * Registration. With email the account waits for its verification link;
+ * without email (GET /v1/meta) it is usable at once, so Studio signs it
+ * in with the password just chosen.
+ */
 import { ref } from "vue";
-import { RouterLink } from "vue-router";
+import { RouterLink, useRouter } from "vue-router";
 import { auth } from "../../api/endpoints";
 import AuthLayout from "../../components/AuthLayout.vue";
 import ErrorAlert from "../../components/ErrorAlert.vue";
+import { useMeta } from "../../session/meta";
+import { establishSession } from "../../session/session";
 import { strings } from "../../strings";
+
+const router = useRouter();
+const { email: sendsEmail } = useMeta();
 
 const email = ref("");
 const name = ref("");
@@ -18,8 +28,14 @@ async function submit(): Promise<void> {
   busy.value = true;
   try {
     const display_name = name.value.trim();
-    await auth.register({ email: email.value.trim(), password: password.value, ...(display_name ? { display_name } : {}) });
-    sentTo.value = email.value.trim();
+    const address = email.value.trim();
+    await auth.register({ email: address, password: password.value, ...(display_name ? { display_name } : {}) });
+    if (sendsEmail.value) {
+      sentTo.value = address;
+      return;
+    }
+    await establishSession(await auth.signInWithPassword({ email: address, password: password.value }));
+    await router.replace({ name: "home" });
   } catch (e) {
     error.value = e;
   } finally {
@@ -33,7 +49,7 @@ async function submit(): Promise<void> {
     <p role="status">{{ strings.auth.registered(sentTo) }}</p>
     <RouterLink :to="{ name: 'sign-in' }">{{ strings.auth.backToSignIn }}</RouterLink>
   </AuthLayout>
-  <AuthLayout v-else :title="strings.auth.registerTitle" :lead="strings.auth.registerLead">
+  <AuthLayout v-else :title="strings.auth.registerTitle" :lead="sendsEmail ? strings.auth.registerLead : strings.auth.registerLeadNoEmail">
     <ErrorAlert :error="error" />
     <form class="stack" @submit.prevent="submit">
       <div class="field">

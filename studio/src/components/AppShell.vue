@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
+import { me as meApi } from "../api/endpoints";
 import { passkeysSupported } from "../lib/webauthn";
-import { getPref, PASSKEY_EMAIL, PASSKEY_PROMO_DISMISSED, PASSKEYS_DISABLED, setPref } from "../lib/prefs";
+import { getPref, PASSKEY_PROMO_DISMISSED, setPref } from "../lib/prefs";
+import { useMeta } from "../session/meta";
 import { signOut, useSession } from "../session/session";
 import { strings } from "../strings";
 import BrandMark from "./BrandMark.vue";
@@ -23,16 +25,25 @@ function switchTenant(e: Event): void {
   else void router.push({ name: "projects", params: { tenant: value } });
 }
 
-const promoHidden = ref(false);
-const showPasskeyPromo = computed(
-  () =>
-    !promoHidden.value &&
-    route.name !== "account" &&
-    passkeysSupported() &&
-    !getPref(PASSKEY_EMAIL) &&
-    !getPref(PASSKEY_PROMO_DISMISSED) &&
-    !getPref(PASSKEYS_DISABLED),
+// The promo shows while the person has no passkey on any device (asked
+// of the server) and the server has passkeys, until dismissed.
+const { passkey: passkeysOn } = useMeta();
+const promoHidden = ref(!!getPref(PASSKEY_PROMO_DISMISSED));
+const hasPasskey = ref<boolean>();
+async function checkPasskeys(): Promise<void> {
+  if (!person.value || !passkeysOn.value || promoHidden.value || !passkeysSupported()) return;
+  // On failure, assume one exists: the promo is a nudge, not a gate.
+  hasPasskey.value = (await meApi.passkeys().catch(() => [{}])).length > 0;
+}
+watch(() => [person.value?.id, passkeysOn.value] as const, checkPasskeys, { immediate: true });
+// Back from the account page, where one may have been added.
+watch(
+  () => route.name,
+  (_to, from) => {
+    if (from === "account") void checkPasskeys();
+  },
 );
+const showPasskeyPromo = computed(() => !promoHidden.value && route.name !== "account" && passkeysOn.value && passkeysSupported() && hasPasskey.value === false);
 function dismissPromo(): void {
   setPref(PASSKEY_PROMO_DISMISSED, "1");
   promoHidden.value = true;

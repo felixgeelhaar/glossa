@@ -28,6 +28,12 @@ export async function all<T>(fetchPage: (pageToken?: string) => Promise<{ items:
 
 const PAGE = 100;
 
+// ── meta ──────────────────────────────────────────────────────────────
+export const meta = {
+  /** What this deployment offers: sign-in methods, email, glossa-edge's URL. Public. */
+  get: () => value(read(client.GET("/v1/meta"), S.Meta)),
+};
+
 // ── auth ──────────────────────────────────────────────────────────────
 export const auth = {
   requestMagicLink: (email: string) => done(client.POST("/v1/auth/magic-links", { body: { email } })),
@@ -51,6 +57,10 @@ export const auth = {
 export const me = {
   get: () => value(read(client.GET("/v1/me"), S.Me)),
   beginPasskey: () => value(read(client.POST("/v1/me/passkey-challenges"), S.PasskeyOptions)),
+  /** Every passkey of the signed-in person, on any device, oldest first. */
+  passkeys: () =>
+    all((page_token) => value(read(client.GET("/v1/me/passkeys", { params: { query: { page_size: PAGE, page_token } } }), S.page(S.Passkey)))),
+  deletePasskey: (passkey: string) => done(client.DELETE("/v1/me/passkeys/{passkey}", { params: { path: { passkey } } })),
   finishPasskey: (name: string, credential: Record<string, unknown>) =>
     value(read(client.POST("/v1/me/passkeys", { body: { name, credential }, params: {} }), S.Passkey)),
   beginTotp: () => value(read(client.PUT("/v1/me/totp"), S.TotpEnrollment)),
@@ -179,6 +189,13 @@ export const locales = {
     ),
 };
 
+// ── message preview ───────────────────────────────────────────────────
+export const preview = {
+  /** Parse (and with values, format) a message with the server's kernel — the one MF1 converter. */
+  message: (body: Body<"MessagePreviewRequest">, signal?: AbortSignal) =>
+    value(read(client.POST("/v1/message-previews", { body, ...(signal ? { signal } : {}) }), S.MessagePreview)),
+};
+
 // ── translations ──────────────────────────────────────────────────────
 export const translations = {
   /** The translation, or null when the message has none in this locale yet. */
@@ -209,6 +226,20 @@ export const translations = {
       }),
       S.Translation,
     ),
+  /** One page of the project-wide listing: translations of active messages in one locale. */
+  projectPage: (p: Path, locale: string, page_token?: string, signal?: AbortSignal) =>
+    value(
+      read(
+        client.GET("/v1/tenants/{tenant}/projects/{project}/translations", {
+          params: { path: p, query: { locale: [locale], message_state: "active", page_size: PAGE, page_token } },
+          ...(signal ? { signal } : {}),
+        }),
+        S.page(S.ProjectTranslation),
+      ),
+    ),
+  /** Per-locale counts: translated, missing, outdated, review states. */
+  stats: (p: Path, signal?: AbortSignal) =>
+    value(read(client.GET("/v1/tenants/{tenant}/projects/{project}/translation-stats", { params: { path: p }, ...(signal ? { signal } : {}) }), S.TranslationStats)),
   revisions: (p: TranslationPath) =>
     all((page_token) =>
       value(

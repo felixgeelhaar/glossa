@@ -68,7 +68,15 @@ export const Membership = z.object({
 
 export const Me = z.object({ person: Person, csrf_token: z.string().min(1), memberships: z.array(Membership) });
 
-export const Passkey = z.object({ id: z.string(), name: z.string(), created_at: timestamp });
+export const Passkey = z.object({ id: z.string(), name: z.string(), created_at: timestamp, last_used_at: timestamp.optional() });
+
+export const SignInMethod = z.enum(["passkey", "password", "magic_link"]);
+/** What the deployment offers (GET /v1/meta). */
+export const Meta = z.object({
+  sign_in_methods: z.array(SignInMethod),
+  email_delivery: z.boolean(),
+  edge_url: z.string().optional(),
+});
 export const PasskeyOptions = z.object({ options: z.record(z.string(), z.unknown()) });
 export const TotpEnrollment = z.object({ secret: z.string(), otpauth_uri: z.string() });
 
@@ -162,6 +170,41 @@ export const Translation = z.object({
   revision: z.number().int(),
   created_at: timestamp,
   updated_at: timestamp,
+});
+
+/** A translation with its message, from the project-wide listing. */
+export const ProjectTranslation = Translation.extend({
+  key: z.string(),
+  namespace: z.string(),
+  message_state: MessageState,
+});
+
+const ReviewStateCounts = z.object({
+  draft: z.number().int().min(0),
+  needs_review: z.number().int().min(0),
+  approved: z.number().int().min(0),
+  rejected: z.number().int().min(0),
+});
+export const LocaleStats = z.object({
+  code: z.string(),
+  direction: Direction,
+  is_source: z.boolean(),
+  translated: z.number().int().min(0),
+  missing: z.number().int().min(0),
+  outdated: z.number().int().min(0),
+  states: ReviewStateCounts,
+});
+export const TranslationStats = z.object({ messages: z.number().int().min(0), locales: z.array(LocaleStats) });
+
+export const MessagePreviewError = z.object({ stage: z.enum(["parse", "format"]), code: z.string(), message: z.string() });
+export const MessagePreview = z.object({
+  valid: z.boolean(),
+  message: MF2Message.optional(),
+  mf2: z.string().optional(),
+  arguments: z.array(Argument),
+  markup: z.array(MarkupElement),
+  formatted: z.string().optional(),
+  errors: z.array(MessagePreviewError),
 });
 
 export const TranslationRevision = z.object({
@@ -266,6 +309,26 @@ export const ReleaseDiff = z.object({
   locales: z.array(LocaleDiff),
 });
 
+export const ReleaseProblem = z.object({
+  code: z.enum(["not_releasable"]),
+  detail: z.string(),
+  key: z.string().optional(),
+  locale: z.string().optional(),
+});
+/** What a publish would ship (POST …/environments/{env}/release-previews); nothing is stored. */
+export const ReleasePreview = z.object({
+  environment: z.string().min(1),
+  policy: EnvironmentPolicy,
+  base_release_id: id.optional(),
+  releasable: z.boolean(),
+  problems: z.array(ReleaseProblem),
+  manifest_digest: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+  source_locale: z.string().optional(),
+  locales: z.array(ReleaseLocale).optional(),
+  counts: ReleaseCounts.optional(),
+  changes: z.array(LocaleDiff).optional(),
+});
+
 export const SigningKey = z.object({
   key_id: z.string().min(1),
   algorithm: z.enum(["Ed25519"]),
@@ -299,6 +362,15 @@ export type Membership = z.infer<typeof Membership>;
 export type Me = z.infer<typeof Me>;
 export type Passkey = z.infer<typeof Passkey>;
 export type TotpEnrollment = z.infer<typeof TotpEnrollment>;
+export type SignInMethod = z.infer<typeof SignInMethod>;
+export type Meta = z.infer<typeof Meta>;
+export type ProjectTranslation = z.infer<typeof ProjectTranslation>;
+export type TranslationStats = z.infer<typeof TranslationStats>;
+export type LocaleStats = z.infer<typeof LocaleStats>;
+export type MessagePreview = z.infer<typeof MessagePreview>;
+export type MessagePreviewError = z.infer<typeof MessagePreviewError>;
+export type ReleasePreview = z.infer<typeof ReleasePreview>;
+export type ReleaseProblem = z.infer<typeof ReleaseProblem>;
 export type Project = z.infer<typeof Project>;
 export type ProjectSettings = z.infer<typeof ProjectSettings>;
 export type Application = z.infer<typeof Application>;
@@ -352,4 +424,9 @@ export type ContractAlignment = [
   Assert<Fits<ReleaseDiff, S["ReleaseDiff"]>>,
   Assert<Fits<SigningKeys, S["SigningKeys"]>>,
   Assert<Fits<DeliveryKey, S["DeliveryKey"]>>,
+  Assert<Fits<Meta, S["Meta"]>>,
+  Assert<Fits<ProjectTranslation, S["ProjectTranslation"]>>,
+  Assert<Fits<TranslationStats, S["TranslationStats"]>>,
+  Assert<Fits<MessagePreview, S["MessagePreview"]>>,
+  Assert<Fits<ReleasePreview, S["ReleasePreview"]>>,
 ];

@@ -5,7 +5,10 @@ import { auth } from "../../api/endpoints";
 import AuthLayout from "../../components/AuthLayout.vue";
 import ErrorAlert from "../../components/ErrorAlert.vue";
 import { forgetHash, tokenFromHash } from "../../lib/links";
+import { useMeta } from "../../session/meta";
 import { strings } from "../../strings";
+
+const { email: sendsEmail } = useMeta();
 
 const token = ref<string>();
 const email = ref("");
@@ -34,7 +37,11 @@ async function run(action: () => Promise<void>, outcome: "sent" | "changed"): Pr
 </script>
 
 <template>
-  <AuthLayout v-if="done" :title="done === 'sent' ? strings.auth.linkSentTitle : strings.auth.setPasswordTitle">
+  <AuthLayout v-if="!sendsEmail" :title="strings.auth.resetTitle">
+    <p role="status">{{ strings.auth.resetUnavailable }}</p>
+    <RouterLink :to="{ name: 'sign-in' }">{{ strings.auth.backToSignIn }}</RouterLink>
+  </AuthLayout>
+  <AuthLayout v-else-if="done" :title="done === 'sent' ? strings.auth.linkSentTitle : strings.auth.setPasswordTitle">
     <p role="status">{{ done === "sent" ? strings.auth.resetSent(email) : strings.auth.passwordChanged }}</p>
     <RouterLink :to="{ name: 'sign-in' }">{{ strings.auth.backToSignIn }}</RouterLink>
   </AuthLayout>

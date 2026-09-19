@@ -1,24 +1,42 @@
 <script setup lang="ts">
-import { ref } from "vue";
+/**
+ * The signed-in person's credentials: every passkey registered on any
+ * device (from the server, not guessed per browser) with its last use,
+ * removable; the authenticator app; sign out everywhere.
+ */
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { me as meApi } from "../api/endpoints";
-import { isApiError } from "../api/errors";
-import type { TotpEnrollment } from "../api/schemas";
+import type { Passkey, TotpEnrollment } from "../api/schemas";
 import ErrorAlert from "../components/ErrorAlert.vue";
-import { PASSKEY_EMAIL, PASSKEYS_DISABLED, setPref } from "../lib/prefs";
+import ModalDialog from "../components/ModalDialog.vue";
+import { absoluteTime, relativeTime } from "../lib/time";
 import { createCredential, passkeysSupported } from "../lib/webauthn";
+import { useMeta } from "../session/meta";
 import { refreshSession, signOut, useSession } from "../session/session";
 import { strings } from "../strings";
 
 const router = useRouter();
 const { person } = useSession();
+const { passkey: passkeysOn } = useMeta();
 const s = strings.account;
 
 const supported = passkeysSupported();
+const canAdd = computed(() => supported && passkeysOn.value);
+const passkeys = ref<Passkey[]>();
 const passkeyName = ref<string>(s.passkeyNameDefault);
 const passkeyBusy = ref(false);
 const passkeyError = ref<unknown>(null);
 const passkeyDone = ref("");
+
+async function loadPasskeys(): Promise<void> {
+  try {
+    passkeys.value = await meApi.passkeys();
+  } catch (e) {
+    passkeyError.value = e;
+  }
+}
+onMounted(loadPasskeys);
 
 async function addPasskey(): Promise<void> {
   passkeyError.value = null;
@@ -27,13 +45,39 @@ async function addPasskey(): Promise<void> {
   try {
     const { options } = await meApi.beginPasskey();
     const pk = await meApi.finishPasskey(passkeyName.value.trim() || s.passkeyNameDefault, await createCredential(options));
-    if (person.value) setPref(PASSKEY_EMAIL, person.value.email);
     passkeyDone.value = s.passkeyAdded(pk.name);
+    await loadPasskeys();
   } catch (e) {
-    if (isApiError(e, "passkeys_disabled")) setPref(PASSKEYS_DISABLED, "1");
     passkeyError.value = e;
   } finally {
     passkeyBusy.value = false;
+  }
+}
+
+const removing = ref<Passkey | null>(null);
+const removeBusy = ref(false);
+const removeError = ref<unknown>(null);
+
+function askRemove(pk: Passkey): void {
+  removeError.value = null;
+  passkeyDone.value = "";
+  removing.value = pk;
+}
+
+async function removePasskey(): Promise<void> {
+  const pk = removing.value;
+  if (!pk) return;
+  removeBusy.value = true;
+  removeError.value = null;
+  try {
+    await meApi.deletePasskey(pk.id);
+    removing.value = null;
+    passkeyDone.value = s.passkeyRemoved(pk.name);
+    await loadPasskeys();
+  } catch (e) {
+    removeError.value = e;
+  } finally {
+    removeBusy.value = false;
   }
 }
 
@@ -96,8 +140,36 @@ async function everywhere(): Promise<void> {
     <section id="passkeys" class="card stack" aria-labelledby="passkeys-h">
       <h2 id="passkeys-h">{{ s.passkeys }}</h2>
       <p class="muted">{{ s.passkeysLead }}</p>
+      <p v-if="passkeys && !passkeys.length" class="muted" data-testid="no-passkeys">{{ s.noPasskeys }}</p>
+      <div v-else-if="passkeys" class="scroll">
+        <table class="table" data-testid="passkeys">
+          <caption class="visually-hidden">{{ s.passkeys }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ s.passkeyColumns.name }}</th>
+              <th scope="col">{{ s.passkeyColumns.added }}</th>
+              <th scope="col">{{ s.passkeyColumns.lastUsed }}</th>
+              <th scope="col"><span class="visually-hidden">{{ s.passkeyColumns.actions }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="pk in passkeys" :key="pk.id">
+              <th scope="row">{{ pk.name }}</th>
+              <td><time :datetime="pk.created_at" :title="absoluteTime(pk.created_at)">{{ relativeTime(pk.created_at) }}</time></td>
+              <td>
+                <time v-if="pk.last_used_at" :datetime="pk.last_used_at" :title="absoluteTime(pk.last_used_at)">{{ relativeTime(pk.last_used_at) }}</time>
+                <span v-else class="muted">{{ s.neverUsed }}</span>
+              </td>
+              <td class="num">
+                <button type="button" class="btn btn-sm btn-danger" :aria-label="s.removePasskeyLabel(pk.name)" @click="askRemove(pk)">{{ s.removePasskey }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p v-if="!supported" class="alert alert-warn">{{ s.passkeysUnsupported }}</p>
-      <form v-else class="row" @submit.prevent="addPasskey">
+      <p v-else-if="!passkeysOn" class="muted">{{ s.passkeysOff }}</p>
+      <form v-if="canAdd" class="row" @submit.prevent="addPasskey">
         <div class="field">
           <label for="passkey-name">{{ s.passkeyName }}</label>
           <input id="passkey-name" v-model="passkeyName" maxlength="100" />
@@ -140,6 +212,15 @@ async function everywhere(): Promise<void> {
       <p class="muted">{{ s.sessionsLead }}</p>
       <div><button type="button" class="btn btn-danger" @click="everywhere">{{ strings.nav.signOutEverywhere }}</button></div>
     </section>
+
+    <ModalDialog :open="removing !== null" :title="s.removeTitle(removing?.name ?? '')" @close="removing = null">
+      <p>{{ s.removeLead }}</p>
+      <ErrorAlert :error="removeError" />
+      <template #actions>
+        <button type="button" class="btn" :disabled="removeBusy" @click="removing = null">{{ strings.app.cancel }}</button>
+        <button type="button" class="btn btn-danger" :disabled="removeBusy" @click="removePasskey">{{ s.removeConfirm }}</button>
+      </template>
+    </ModalDialog>
   </div>
 </template>
 
@@ -153,5 +234,8 @@ async function everywhere(): Promise<void> {
 .secret {
   word-break: break-all;
   font-size: var(--kl-text-base);
+}
+.num {
+  text-align: end;
 }
 </style>

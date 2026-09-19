@@ -25,7 +25,5 @@ export function setPref(key: string, value: string | undefined): void {
   }
 }
 
-/** The address that enrolled a passkey in this browser: sign-in offers the passkey first. */
-export const PASSKEY_EMAIL = "passkey-email";
+/** The person dismissed the passkey promo in this browser. */
 export const PASSKEY_PROMO_DISMISSED = "passkey-promo-dismissed";
-export const PASSKEYS_DISABLED = "passkeys-disabled";
