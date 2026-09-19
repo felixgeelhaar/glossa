@@ -54,6 +54,7 @@ The `Runtime`:
 | `parts(id, values?, { default? }) → Part[]` | The same as parts (text, markup, bidi isolates, fallbacks, values), for adapters and typed accessors. |
 | `explain(id, locales?) → Explanation` | SPEC §6, without side effects: `{ id, requested, locale, chain, resolvedFrom, release, source, steps }`. With `locales`, explains those instead of the active ones and loads nothing. |
 | `locale`, `dir`, `release` | The active locale, its direction from the manifest, and `{ id, version }`. |
+| `availableLocales` | The active release's `locales` (`{ code, direction }[]`, empty until one is active), e.g. for a locale picker. |
 | `setLocales(locales) → Promise` | Switches once the new chain's artifacts are loaded. |
 | `refresh() → Promise` | Revalidates now. Concurrent calls share one request. |
 | `ready` | Settles after the first load. Never rejects. |

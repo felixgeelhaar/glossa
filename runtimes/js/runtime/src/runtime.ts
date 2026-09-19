@@ -7,7 +7,7 @@
 import { format, formatToParts } from "./format.js";
 import type { FormatOptions, Part } from "./format.js";
 import { canonicalLocales, fallbackChain, lookupLocale, navigatorLanguages } from "./locale.js";
-import type { Artifact, Manifest } from "./manifest.js";
+import type { Artifact, Manifest, ManifestLocale } from "./manifest.js";
 import type { Message } from "./model.js";
 import { webStorage } from "./storage.js";
 import type { RuntimeStorage } from "./storage.js";
@@ -115,6 +115,8 @@ export interface Runtime {
   /** The active locale's direction, for `dir` attributes. */
   readonly dir: "ltr" | "rtl";
   readonly release: { id: string; version: number } | undefined;
+  /** The locales the active release offers (its manifest's `locales`), e.g. for a locale picker. */
+  readonly availableLocales: readonly ManifestLocale[];
   /** Render a message as a string. */
   t(id: string, values?: Record<string, unknown>, opts?: TranslateOptions): string;
   /** Render a message as parts (text, markup, bidi isolates, fallbacks, values). */
@@ -460,6 +462,9 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     },
     get release() {
       return state && { id: state.m.release.id, version: state.m.release.version };
+    },
+    get availableLocales() {
+      return state?.m.locales ?? [];
     },
     t: render(format, (s) => s),
     parts: render(formatToParts, (value): Part[] => [{ type: "text", value }]),
