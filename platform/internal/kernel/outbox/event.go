@@ -50,8 +50,9 @@ var ErrInvalidEvent = errors.New("outbox: invalid event")
 type Event struct {
 	// ID identifies the event; a UUIDv7 is generated when zero.
 	ID uuid.UUID
-	// Type names the event, conventionally "<context>.<event>", e.g.
-	// "catalog.source_revised". Handlers subscribe by type.
+	// Type names the event "<context>.<aggregate>.<past-tense verb>" in
+	// snake_case, e.g. "identity.member.added" (platform/README.md,
+	// "Domain events"). Handlers subscribe by type.
 	Type string
 	// AggregateType and AggregateID identify the aggregate that raised it.
 	AggregateType string
