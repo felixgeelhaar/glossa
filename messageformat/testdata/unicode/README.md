@@ -12,3 +12,12 @@ commit and recording it here. Glossa's own cases live in
 
 The upstream suite's format and error codes are documented in its
 [README](https://github.com/unicode-org/message-format-wg/blob/main/test/README.md).
+
+## Data model schema
+
+[`data-model/message.schema.json`](./data-model/message.schema.json) is the
+spec's JSON Schema for the MessageFormat 2 data model
+(`spec/data-model/message.json`, same commit). It is **the wire contract** for
+precompiled messages: the Go server serializes messages into release artifacts
+in exactly this shape, and every runtime reads exactly this shape. Both sides
+validate their fixtures against it.
