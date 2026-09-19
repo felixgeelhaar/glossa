@@ -15,6 +15,9 @@ import (
 	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/projection"
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
+	contextcatalog "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/catalog"
+	contextpg "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/postgres"
+	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
 	integrationapi "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/httpapi"
 	integrationpg "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/postgres"
 	integrationsources "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/sources"
@@ -71,6 +74,10 @@ type contexts struct {
 	// runs them (nil when disabled).
 	integrationAPI    *integrationapi.API
 	integrationWorker *integrationapp.Worker
+	// usageContext is the Context context (RFC 0004): where messages
+	// appear. It has no routes yet; its subscribers erase a deleted
+	// project's or application's context.
+	usageContext *contextapp.Service
 }
 
 // contextDeps are what the contexts need beyond the database.
@@ -163,6 +170,11 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 			Workers: deps.integration.Workers, PollInterval: deps.integration.PollInterval,
 			Lease: deps.integration.Lease, JobTimeout: deps.integration.JobTimeout,
 		})
+	}
+	c.usageContext = contextapp.New(contextpg.NewTransactor(uow), contextcatalog.New(catalog),
+		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger))
+	if err := c.usageContext.Subscribe(events); err != nil {
+		return contexts{}, err
 	}
 	return c, nil
 }

@@ -5,7 +5,7 @@ the `glossa-server` kernel (configuration, observability, the HTTP edge,
 Postgres with forced row-level security, tenancy, the transactional
 outbox), the `/v1` API contract, the bounded contexts under
 `internal/<context>/` (Identity, Catalog, Localization, Release,
-Knowledge, Intelligence and Integration so far) and `glossa-edge`, the
+Knowledge, Intelligence, Integration and Context so far) and `glossa-edge`, the
 stateless delivery server.
 
 ```text
@@ -51,6 +51,10 @@ internal/integration/       interchange (RFC 0003 §5–§6)
   domain/                   import/export jobs, options, access snapshot, state capping, merge conflicts, PO keys
   app/                      import and export use cases, the Worker (claims, checkpoints, retention), mapping
   adapters/                 postgres (sqlc), sources (Catalog/Localization/Knowledge ports), httpapi
+internal/context/           where messages appear (RFC 0004 §2–§3)
+  domain/                   usages documents, builds, captures and regions, current views, retention
+  app/                      ingest, current and unused usages, purge, the outbox subscribers
+  adapters/                 postgres (sqlc; the system-scope Sweeper), catalog (Catalog's port)
 internal/preview/           stateless message preview (parse, MF2, format), rate-limited per caller
 internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
@@ -1038,6 +1042,87 @@ format end to end on Postgres (app role, no BYPASSRLS) and MinIO —
 including the XLIFF locale option, per-item positions and the
 workspace's routes; `cmd/glossa-server` uploads, imports, exports and
 downloads through the generated server.
+
+## Context
+
+Where every message appears (RFC 0004 §2–§3, intent §16–§18, §68). The
+Go packages live in `internal/context/`; their names (`domain`, `app`,
+`postgres`, `catalog`) never clash with the standard library's
+`context`, and callers alias them `contextapp`, `contextpg` and so on.
+It is a library and tables so far: the Context API (RFC 0004 §13,
+wave 2) adds routes, and the server only composes it for its
+subscribers.
+
+- A **build** is one upload for one application at one commit: branch,
+  whether that branch is the repository's default, source (`plugin`,
+  `extract`, `runtime` or `capture`), tool and the SHA-256 digest of
+  the uploaded document. An upload is idempotent by (application,
+  commit, source, digest): a repeat is a replay.
+- A **usage** is key × file, line, column, component, route and kind
+  (the call shape) in a build. Keys are resolved to message IDs **at
+  ingest** through Catalog's port, so a rename never touches a usage;
+  a key the catalog doesn't know is stored with a null ID (an *unknown
+  key*, counted in the event).
+- A **capture** is one (route, viewport, locale) screenshot of a build:
+  the image's digest and size (the image itself is content-addressed in
+  object storage, RFC 0004 §3.3). Its **regions** are the boxes
+  (`element`, `text` or `attribute`, `visible` or not) of the messages
+  rendered on it, resolved like usages.
+- Limits (§10): a document of at most 20 MB and 100 000 usages; 500
+  captures per build (held under an advisory lock on the build); 10 000
+  regions per capture; images of at most 40 megapixels.
+
+`IngestUsages` takes the raw `glossa.usages/v1` document
+(`domain.UsagesDocument`; field names exactly as RFC 0004 §2.2, the JSON
+Schema lives with the usage fixtures in `runtimes/testdata/usages/`), the
+source and the repository's default branch as the uploader knows it.
+Unknown fields are ignored within v1. `IngestCapture` adds a capture to
+a build of the project. Both need `catalog.write` (developers, `write`
+tokens) and publish `context.build.ingested` (`build_id`, `project_id`,
+`application_id`, `commit`, `branch`, `on_default_branch`, `source`,
+`usages`, `unknown_keys`, `by`) and `context.capture.ingested`.
+
+**Current usages.** Collectors are independent, so "the latest build of
+each application" is taken per application **and source**: the Go
+extractor's build never hides the bundler plugin's usages, and a
+capture build with no usages never makes everything unused. The
+default view is the latest default-branch build per (application,
+source); a branch view uses the branch's latest build per (application,
+source) and falls back to the default branch's where the branch didn't
+rebuild (`domain.CurrentBuilds`, a pure function over the project's
+build summaries). `MessageUsages`/`KeyUsages` list a message's current
+usages, default branch first; `UnusedMessages` lists the active
+messages without one — reported, never obsoleted. Reads need
+`catalog.read`.
+
+**Retention** (`domain.RetentionPolicy`, §2.3): per (application,
+branch, source) the latest 5 builds are kept, plus every current one; a
+closed branch's builds go 14 days after it closed (default-branch builds
+never do). `PurgeProject` applies it and returns the deleted builds and
+the images no remaining capture references, for the caller to delete
+from object storage. `Purge` visits every project holding builds through
+the system scope `context.retention` (migration 0012 opens only
+`context_builds.tenant_id` and `project_id` to `glossa_system`) and
+purges each in its tenant as the background principal `context.purge`.
+Scheduling it daily, and deleting images, come with the purge jobs
+(RFC 0004 §13, wave 7). Closed branches come from Catalog's branch
+overlay (§4.1); until then the port reports none.
+
+| Table | Scope | Why |
+|---|---|---|
+| `context_builds` | tenant | Keyed by Catalog's project and application IDs (no cross-context foreign keys). SELECT, INSERT, DELETE: immutable. System scope reads `tenant_id` and `project_id` only. |
+| `context_usages` | tenant | A build's usages by position, with the message ID resolved at ingest; cascade with their build. |
+| `context_captures` | tenant | One per (build, route, viewport, locale); cascade with their build. |
+| `context_regions` | tenant | A capture's regions by position; cascade with their capture. |
+
+Subscribers: `context.drop_project` on `catalog.project.deleted` and
+`context.drop_application` on `catalog.application.deleted` erase what
+they held. **Tests**: `internal/context/domain` (documents, limits,
+current views, retention) and `internal/context/app` on Postgres (app
+role): ingest, replay, batches, unknown keys, renames, branch views,
+unused messages, captures and their limit, retention with orphaned
+images, the cross-tenant sweep and tenant isolation;
+`cmd/glossa-server` checks the composition.
 
 ## Message preview
 
