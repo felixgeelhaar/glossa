@@ -103,6 +103,13 @@ describe("<glossa-provider> + <glossa-text>", () => {
     expect(el.shadowRoot!.querySelector("slot")).not.toBeNull();
   });
 
+  it("takes the message ID from message= where a template reserves key (Vue)", async () => {
+    const p = await mount(
+      `<glossa-provider ${edgeAttrs} locale="de"><glossa-text message="cart.checkout">…</glossa-text></glossa-provider>`,
+    );
+    expect(rendered(p.querySelector("glossa-text")!)).toBe("Zur Kasse");
+  });
+
   it("renders a bundled release synchronously, before any request settles", async () => {
     const p = await mount(
       `<glossa-provider locale="de"><glossa-text key="cart.checkout">…</glossa-text></glossa-provider>`,

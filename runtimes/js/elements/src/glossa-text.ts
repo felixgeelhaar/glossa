@@ -1,6 +1,7 @@
 /**
  * `<glossa-text key="…">Inline default</glossa-text>`: renders message `key`
- * with the nearest `<glossa-provider>`'s runtime. The slot content is the
+ * with the nearest `<glossa-provider>`'s runtime. Inside Vue templates, where
+ * `key` is reserved and never reaches the DOM, use `message="…"` instead. The slot content is the
  * inline default (runtimes/SPEC.md §3, step 5): it shows while the first load
  * is pending and whenever no locale of the active chain has the message, so
  * the page never shows a blank.
@@ -47,10 +48,13 @@ export class GlossaText extends LitElement {
 
   static override properties: PropertyDeclarations = {
     key: { type: String },
+    message: { type: String },
   };
 
   /** The message ID. */
   public key = "";
+  /** The message ID, for templates that reserve `key` (Vue). `key` wins when both are set. */
+  public message = "";
 
   protected ctx = new ContextConsumer(this, { context: glossaContext, subscribe: true });
 
@@ -61,8 +65,8 @@ export class GlossaText extends LitElement {
 
   protected override render() {
     const ctx = this.ctx.value;
-    const parts =
-      ctx?.runtime && this.key ? resolveParts(ctx.runtime, this.key, this.values()) : undefined;
+    const id = this.key || this.message;
+    const parts = ctx?.runtime && id ? resolveParts(ctx.runtime, id, this.values()) : undefined;
     const pending = !parts && !ctx?.ready;
     this.toggleAttribute("data-glossa-pending", pending);
     this.toggleAttribute("data-glossa-missing", !parts && !pending);

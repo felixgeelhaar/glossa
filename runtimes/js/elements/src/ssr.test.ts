@@ -36,6 +36,12 @@ describe("prerender", () => {
     );
   });
 
+  it("reads the message ID from message= too", () => {
+    expect(prerender(`<glossa-text message="cart.checkout">Checkout</glossa-text>`, rt())).toBe(
+      `<glossa-text message="cart.checkout">Zur Kasse</glossa-text>`,
+    );
+  });
+
   it("keeps the inline default when the message is missing", () => {
     const html = `<glossa-text key="nope">Default <em>label</em></glossa-text>`;
     expect(prerender(html, rt())).toBe(html);

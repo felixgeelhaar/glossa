@@ -100,7 +100,8 @@ export function prerender(
       }
       continue;
     }
-    const parts = a.key ? resolveParts(runtime, a.key, valuesOf(kind, a)) : undefined;
+    const id = a.key || a.message;
+    const parts = id ? resolveParts(runtime, id, valuesOf(kind, a)) : undefined;
     const [closeStart, closeEnd] = closing(html, `glossa-${kind}`, openEnd);
     if (!parts || closeStart < 0) continue; // keep the inline default; nested elements still render
     const name = html.slice(m.index + 1, m.index + 1 + `glossa-${kind}`.length);
