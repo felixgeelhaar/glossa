@@ -24,6 +24,7 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
 const (
@@ -151,6 +152,22 @@ func (e *Env) Reset(ctx context.Context) error {
 	}
 	_, err = e.Super.Exec(ctx, "TRUNCATE "+tables+" CASCADE")
 	return err
+}
+
+// SeedTenant creates an organization tenant the way Identity does: in
+// a transaction scoped to the new tenant's own id.
+func (e *Env) SeedTenant(ctx context.Context, slug string) (tenancy.ID, error) {
+	tn, err := tenancy.NewTenant(tenancy.KindOrganization, slug, "Tenant "+slug)
+	if err != nil {
+		return tenancy.ID{}, err
+	}
+	scoped := tenancy.ContextWithTenant(ctx, tn.ID)
+	err = db.NewUnitOfWork(e.App).InTenantTx(scoped, func(ctx context.Context, tx *db.TenantTx) error {
+		_, err := tx.Exec(ctx, "INSERT INTO tenants (id, kind, slug, name) VALUES ($1, $2, $3, $4)",
+			tn.ID.UUID(), string(tn.Kind), string(tn.Slug), tn.Name)
+		return err
+	})
+	return tn.ID, err
 }
 
 // Close stops the pools and the container.
