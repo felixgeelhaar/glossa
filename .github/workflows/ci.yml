@@ -187,6 +187,9 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
       - name: build @glossa/messageformat
         run: pnpm --filter @glossa/messageformat build
+      # Studio's build publishes this bundle at /overlay/v1/overlay.js.
+      - name: build @glossa/overlay
+        run: pnpm --filter @glossa/overlay... build
       # Also clones and builds @klarlabs-studio/ui at the commit pinned in
       # studio/package.json (see studio/README.md, "Design system").
       - name: build Studio
