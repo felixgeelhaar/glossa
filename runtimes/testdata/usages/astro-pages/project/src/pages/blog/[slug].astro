@@ -1,0 +1,8 @@
+---
+import { getGlossa } from "@glossa/astro/server";
+
+const { t } = getGlossa(Astro);
+---
+<article>
+  <a href="/blog">{t("blog.back")}</a>
+</article>

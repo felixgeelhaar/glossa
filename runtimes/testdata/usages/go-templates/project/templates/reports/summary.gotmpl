@@ -1,0 +1,8 @@
+{{- /* Dynamic keys and look-alikes are not usages. */ -}}
+{{t .Key}}
+{{t (printf "report.%s" .Section)}}
+{{printf "t \"fake.string\""}}
+{{$key := "fake.variable"}}{{t $key}}
+{{with .Totals}}{{t "report.totals" "count" .Count}}{{end}}
+{{"report.piped" | t}}
+{{.Title | t "report.title" "name"}}
