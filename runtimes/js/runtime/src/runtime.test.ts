@@ -328,6 +328,19 @@ describe("createRuntime: resolution", () => {
     expect([rt.locale, rt.dir]).toEqual(["de-AT", "ltr"]);
   });
 
+  it("exposes the active release's locales, for locale pickers", async () => {
+    const { create } = setup();
+    const rt = create();
+    expect(rt.availableLocales).toEqual([]);
+    await rt.ready;
+    expect(rt.availableLocales).toEqual([
+      { code: "de", direction: "ltr" },
+      { code: "de-AT", direction: "ltr" },
+      { code: "en", direction: "ltr" },
+      { code: "ar", direction: "rtl" },
+    ]);
+  });
+
   it("notifies subscribers on activation until they unsubscribe", async () => {
     const { create } = setup();
     const rt = create();
