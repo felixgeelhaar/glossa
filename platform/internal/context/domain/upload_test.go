@@ -178,6 +178,31 @@ func TestParseSource(t *testing.T) {
 	}
 }
 
+func TestResolveKeepsUnknownKeysWithoutAnID(t *testing.T) {
+	pay, help := uuid.New(), uuid.New()
+	ids := map[string]uuid.UUID{"checkout.pay": pay, "checkout.help": help}
+	usages := []domain.Usage{{Key: "checkout.pay"}, {Key: "checkout.gone"}, {Key: "checkout.pay"}}
+	if unknown := domain.ResolveUsages(usages, ids); unknown != 1 {
+		t.Errorf("unknown usages = %d, want 1", unknown)
+	}
+	if *usages[0].MessageID != pay || usages[1].MessageID != nil || *usages[2].MessageID != pay {
+		t.Errorf("usages = %+v", usages)
+	}
+	regions := []domain.Region{{Key: "checkout.help"}, {Key: "x"}}
+	if unknown := domain.ResolveRegions(regions, ids); unknown != 1 {
+		t.Errorf("unknown regions = %d, want 1", unknown)
+	}
+	if *regions[0].MessageID != help || regions[1].MessageID != nil {
+		t.Errorf("regions = %+v", regions)
+	}
+	if keys := domain.UsageKeys(usages); len(keys) != 2 {
+		t.Errorf("distinct keys = %v", keys)
+	}
+	if keys := domain.RegionKeys(regions); len(keys) != 2 {
+		t.Errorf("distinct region keys = %v", keys)
+	}
+}
+
 func TestParseBranch(t *testing.T) {
 	for _, ok := range []string{"main", "feat/checkout-copy", "release/2026.09", "renovate/@vue-3.x", "pr_7"} {
 		if _, err := domain.ParseBranch(ok); err != nil {

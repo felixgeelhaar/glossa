@@ -65,6 +65,10 @@ var systemPolicies = map[string][]string{
 	// retention sweep deletes expired files, across tenants (system
 	// scope integration.jobs).
 	"integration_jobs": {"integration_jobs_system_select", "integration_jobs_system_update"},
+	// Context's retention sweep finds the projects holding builds across
+	// tenants (system scope context.retention; tenant_id and project_id
+	// only), then purges each in its tenant's scope.
+	"context_builds": {"context_builds_system_select"},
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
 	// Identity's global tables are system scope only (see systemTables).

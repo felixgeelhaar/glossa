@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+
+	"github.com/google/uuid"
 )
 
 // UsagesSchema is the document type every collector writes.
@@ -59,8 +61,8 @@ type DocumentUsage struct {
 }
 
 // Usage is a message's key at a location in a build (RFC 0004 §2.2).
-// The message ID is resolved at ingest and kept apart (a key the
-// catalog doesn't know has none).
+// The key is resolved to the message's ID at ingest, so a later rename
+// doesn't touch the usage.
 type Usage struct {
 	Key  string
 	File string
@@ -75,6 +77,9 @@ type Usage struct {
 	// Kind is the call shape the collector recognized (t, element, go,
 	// template, typed …).
 	Kind string
+	// MessageID is the message the key named at ingest; nil for a key
+	// the catalog didn't know (an unknown key).
+	MessageID *uuid.UUID
 }
 
 var kindPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}$`)
@@ -157,11 +162,67 @@ func (doc UsagesDocument) validate() (Upload, error) {
 	}
 	usages := make([]Usage, len(doc.Usages))
 	for i, d := range doc.Usages {
-		u := Usage(d)
+		u := Usage{
+			Key: d.Key, File: d.File, Line: d.Line, Column: d.Column, Component: d.Component, Route: d.Route, Kind: d.Kind,
+		}
 		if err := u.validate(); err != nil {
 			return Upload{}, fmt.Errorf("%w: usages[%d]: %v", ErrInvalidUpload, i, err)
 		}
 		usages[i] = u
 	}
 	return Upload{Application: doc.Application, Commit: commit, Branch: branch, Tool: tool, Usages: usages}, nil
+}
+
+// UsageKeys returns the distinct keys of usages.
+func UsageKeys(usages []Usage) []string {
+	return distinct(len(usages), func(i int) string { return usages[i].Key })
+}
+
+// RegionKeys returns the distinct keys of regions.
+func RegionKeys(regions []Region) []string {
+	return distinct(len(regions), func(i int) string { return regions[i].Key })
+}
+
+func distinct(n int, key func(int) string) []string {
+	seen := make(map[string]bool, n)
+	var out []string
+	for i := range n {
+		if k := key(i); !seen[k] {
+			seen[k] = true
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// ResolveUsages sets each usage's message ID from ids (key → ID) and
+// returns how many usages name a key ids lacks.
+func ResolveUsages(usages []Usage, ids map[string]uuid.UUID) (unknown int) {
+	for i := range usages {
+		usages[i].MessageID = lookup(ids, usages[i].Key)
+		if usages[i].MessageID == nil {
+			unknown++
+		}
+	}
+	return unknown
+}
+
+// ResolveRegions sets each region's message ID from ids and returns how
+// many regions name a key ids lacks.
+func ResolveRegions(regions []Region, ids map[string]uuid.UUID) (unknown int) {
+	for i := range regions {
+		regions[i].MessageID = lookup(ids, regions[i].Key)
+		if regions[i].MessageID == nil {
+			unknown++
+		}
+	}
+	return unknown
+}
+
+func lookup(ids map[string]uuid.UUID, key string) *uuid.UUID {
+	id, ok := ids[key]
+	if !ok {
+		return nil
+	}
+	return &id
 }
