@@ -56,6 +56,8 @@ provide(PROJECT, ctx);
 const tabs = [
   { name: "translate", label: strings.nav.translate },
   { name: "review", label: strings.nav.review },
+  { name: "terms", label: strings.nav.termbase },
+  { name: "style", label: strings.nav.style },
   { name: "locales", label: strings.nav.locales },
   { name: "releases", label: strings.nav.releases },
   { name: "settings", label: strings.nav.settings },
