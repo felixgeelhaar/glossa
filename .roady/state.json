@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 49,
+  "version": 50,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -192,6 +192,61 @@
       ],
       "started_at": "2026-05-25T08:10:00.855235+02:00",
       "completed_at": "2026-05-25T08:10:10.21297+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-p1-check": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-p1-compiler": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-p1-delivery": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-p1-go-sdk": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-p1-knowledge": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-p1-locale-identity": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-p1-mcp": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-p1-message-model": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-p1-mf-kernel": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-p1-releases": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-p1-ts-runtime": {
+      "status": "pending",
+      "path": "",
       "elapsed_minutes": 0
     },
     "task-positioning": {
