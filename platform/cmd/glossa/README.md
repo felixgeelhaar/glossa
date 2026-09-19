@@ -78,6 +78,12 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `locales`, `messages` | Lists. `messages --prefix --namespace --missing-in --outdated-in --state active\|obsolete\|all` |
 | `import --from v0` | Imports a Glossa v0.3 project (below). |
 | `release` | `publish [--dry-run]`, `list`, `show`, `diff`, `promote`, `rollback`, `environments`, `keys [list\|create\|revoke]` (see *Release*). |
+| `tm` | Translation memory: `search <text> --to L`, `concordance <text>`, `units [--locale-pair de:en] [--retire <id>]` (see *Knowledge and AI*). |
+| `terms` | Termbase: `list`, `show`, `add`, `edit`, `deprecate`, `forbid`, and `check`, terminology QA over the project's translations. |
+| `style` | `show [--locale --namespace]`: the effective style guide; `edit --file style.yaml`: create or replace one. |
+| `translate` | `--locale L [--namespace --key-prefix] [--missing\|--outdated] [--dry-run] [--wait]`: fills locales with AI suggestions. |
+| `review` | The AI review queue: `list [--locale]`, `accept <id\|key> [--text]`, `reject <id\|key> [--reason]`. |
+| `ai status` | Provider consent, the monthly budget and spend, providers (never their keys), and the project's auto-translate locales, namespace tags and review routing. |
 
 `check` reads like CI output:
 
@@ -95,17 +101,20 @@ Localization check failed: 1 error, 0 warnings.
 Missing translations are errors in required locales and warnings in the
 others; outdated translations and compatibility warnings are warnings.
 Checks are `qa.Checker`s, so source-copy lint (M3) and later layers plug
-in without changing the command.
+in without changing the command. `check --terminology` adds the
+termbase layer (check `terminology`: the server's terminology QA over
+every translation but rejected ones): a forbidden term is an error, a
+deprecated or missing one a warning.
 
 ## Exit codes
 
 | Code | Meaning |
 |---|---|
 | 0 | OK |
-| 1 | A check failed: `check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable) |
-| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml or catalog, unavailable command, input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`) |
-| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found, server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`) |
-| 4 | Partial failure: `push` or `import` went through but some items failed |
+| 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider) |
+| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`) |
+| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`), `translate --wait` giving up (`wait_timeout`) |
+| 4 | Partial failure: `push` or `import` went through but some items failed; `translate --wait`: some jobs failed |
 
 Errors print what happened, where, why and how to fix it:
 
@@ -146,6 +155,29 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.release.environments/v1` | `{environments: [Environment]}` |
 | `glossa.cli.release.keys/v1` | `{keys: [DeliveryKey]}` |
 | `glossa.cli.release.key/v1` | `{action: created \| revoked, key: DeliveryKey}` |
+
+| `glossa.cli.tm.search/v1` | `{query: {text, from, to, syntax}, source_normalized, matches: [{score, kind (exact \| context \| fuzzy), target, variables_adapted, unit: Unit}]}` |
+| `glossa.cli.tm.concordance/v1` | `{query: {text, side, from?, to?}, matches: [{similarity, unit: Unit}]}` |
+| `glossa.cli.tm.units/v1` | `{units: [Unit]}` |
+| `glossa.cli.tm.retire/v1` | `{unit: Unit}` |
+| `glossa.cli.terms.list/v1` | `{concepts: [Concept]}` |
+| `glossa.cli.terms.show/v1` | `{concept: Concept}` |
+| `glossa.cli.terms.change/v1` | `{action: created \| updated \| unchanged \| deprecated \| forbidden, concept: Concept}` (`add`, `edit`, `deprecate`, `forbid`) |
+| `glossa.cli.terms.check/v1` | `{fail_on, locales: [{code, checked, errors, warnings}], findings: [{code (term_forbidden \| term_missing), severity, locale, key, side (source \| target), text, start, end, suggestions, concept_id, term_id, message}], checked, errors, warnings, passed}` |
+| `glossa.cli.style.show/v1` | `{scope: Scope, fields: StyleFields, rules: [StyleRule], sources: [{style_guide_id, version, project_id?, locale?, namespace?}]}` |
+| `glossa.cli.style.edit/v1` | `{action: created \| updated \| unchanged, guide: {id, name, scope: Scope, version, fields: StyleFields, rules: [StyleRule]}}` |
+| `glossa.cli.translate/v1` | `{dry_run, locales, filter: {namespace?, key_prefix?, missing, outdated}, plan: [{locale, queue, keys}] (dry run), skipped: {reason: n}, refusals: [{code, message, fix}], fills: [{id, locales, keys?, jobs_created, jobs_existing, skipped, job_states, warnings}], wait: {elapsed_ms, job_states: {state: n}, failed: [{id, key, locale, state, failure_code?, error?}]} \| null}` |
+| `glossa.cli.review.list/v1` | `{suggestions: [Suggestion]}` (riskiest first) |
+| `glossa.cli.review.decision/v1` | `{decision: accepted \| rejected, edited, suggestion: Suggestion}` |
+| `glossa.cli.ai.status/v1` | `{consent: {enabled, changed_at?, changed_by?}, max_concurrent_jobs, budget: {monthly_micro_usd, spent_micro_usd, remaining_micro_usd, month_start, calls, by_provider: [{provider, model, calls, cost_micro_usd, input_tokens, output_tokens}]}, providers: [{name, kind, enabled, api_key_set, base_url?, models}], project: {auto_translate_locales, namespace_tags: {namespace: [tag]}, review: {auto_approve, auto_approve_min, recommend_min, auto_approve_environments?, force_review?}}}` |
+
+The Knowledge and AI shapes share:
+
+- `Unit`: `{id, source_locale, target_locale, source, target, project_id (null: tenant-wide), message_key?, namespace?, origin, state (active \| retired), hit_count, created_at, retired_at?, retired_reason?}`
+- `Concept`: `{id, project_id (null: tenant-wide), definition, domain, note, version, terms: [{id, locale, text, status (preferred \| admitted \| deprecated \| forbidden), part_of_speech?, case_sensitive, note?}], updated_at}`
+- `Scope`: `{project_id, locale, namespace}` (null: broader)
+- `StyleFields`, `StyleRule`: the API's (`formality: {register, pronoun}`, `tone`, `punctuation`, `numbers`, `dates`; `{id, title?, rationale?, good?, bad?, disabled?}`)
+- `Suggestion`: `{id, key, locale, namespace, text (MF2), score, action (auto_approve \| approve_recommended \| review_required), action_note?, risk_tags, status, origin (ai \| translation_memory), provider?, model?, explanation: [{factor, value, contribution, reason}], findings: [{code, severity?, message, term?}], translation_revision?, created_at}`
 
 The release shapes share:
 
@@ -289,6 +321,72 @@ v6 → v7 (0191… → 0192…)
   `latest` is what `--environment` serves now; a release ID or `v<N>`
   defaults to the environment it was published to.
 
+## Knowledge and AI
+
+The termbase, translation memory and style guides (RFC 0003 §2) and AI
+translation (§3). The token needs `read` to search, list and check, and
+`write` to change the termbase and style guides, retire units, run
+`translate` and decide suggestions. Approving translations stays with
+people (Studio), and so do provider keys, consent and budgets.
+
+```sh
+glossa terms add Warenkorb --preferred en=cart --forbidden en=basket --definition "Where items wait"
+glossa terms forbid trolley --locale en --concept <id>
+glossa terms check --locale en            # CI: exit 1 on a forbidden term
+glossa check --terminology                # structural QA plus the termbase
+glossa tm search "Bezahle {amount, number}" --to en
+glossa style edit --file style/de.yaml --locale de && glossa style show --locale de
+glossa translate --locale ja --dry-run    # what would be queued, and why it would do little
+glossa translate --locale ja --wait       # queue, then poll until the jobs finish
+glossa review list --locale ja && glossa review accept checkout.pay --locale ja
+```
+
+```text
+✓ 12 translations checked against the termbase (brotwerk on https://glossa.example.com)
+✗ en 1 error, 0 warnings
+  error cart.items  term_forbidden: "loaf" is forbidden (use "bread")
+✓ ja no findings
+
+Terminology check failed: 1 error, 0 warnings.
+```
+
+- `tm search` parses the text in glossa.yaml's `syntax` (`--syntax`)
+  and matches it against the project's and the tenant-wide units
+  (`--all-projects`: every project's). Targets come back as MF2, renamed
+  to the query's variables. `tm units` lists the project's units;
+  `--retire <id>` takes one out of matching.
+- `terms add <term>` makes it preferred in `--locale` (default: the
+  source locale); `--preferred|--admitted|--deprecated|--forbidden
+  L=TEXT` add more. Concepts belong to the project unless
+  `--tenant-wide`. `show`, `deprecate` and `forbid` find a concept by a
+  term's text (`--locale` narrows it) or take its ID; `--concept` names
+  it, and lets `forbid` add a term the concept lacks. Changes replace the
+  concept conditionally (`If-Match`), so concurrent edits fail instead of
+  overwriting each other.
+- `terms check` checks every translation but rejected ones (`--states`
+  narrows it) in every target locale (`--locale`, repeatable), and fails
+  on errors (`--fail-on warning`, or glossa.yaml's `check.fail_on`).
+- `style edit --file` takes YAML with `name`, `fields` and `rules` (the
+  API's field names; an unknown field is an error) and creates or
+  replaces the guide of exactly the scope given: the project (default) or
+  the tenant (`--tenant-wide`), plus `--locale` and `--namespace`. `style
+  show` merges every applicable guide, the narrowest winning, and names
+  the versions it used.
+- `translate` queues one job per message missing in each locale
+  (`--outdated`: outdated ones instead; both flags: both), never for
+  sensitive namespaces. `--dry-run` queues nothing: it lists the keys per
+  locale and the refusals the fill would warn about
+  (`provider_consent_off`, `no_budget`, `budget_exhausted`,
+  `no_provider`), and exits 1 when there is one. `--wait` prints progress
+  to stderr and exits 4 when a job failed, each with its `failure_code`
+  (`provider_consent`, `invalid_output`, `budget_exceeded`, `no_route`,
+  …). Each invocation sends a new `Idempotency-Key`.
+- `review accept` writes the suggestion as the translation, in the state
+  the project's review policy gives an API token (tokens never approve).
+  `--text` accepts your edit instead, in glossa.yaml's syntax
+  (`--syntax`). A key names that message's pending suggestion (with
+  `--locale` when it has several).
+
 ## Known limits
 
 - `check`, `diff`, `pull`, `push --translations` and `import` read
@@ -304,3 +402,15 @@ v6 → v7 (0191… → 0192…)
   doesn't read `.gitignore` (it skips hidden directories, `node_modules`,
   `dist`, `vendor`, `build` and `coverage`).
 - Windows stores tokens in the file store.
+- `terms check` (and `check --terminology`) sends one terminology-check
+  request per translation, eight at a time: the API has no batch check.
+- `translate --dry-run` computes its plan on the client (the message
+  listing's `missing_in` and `outdated_in`, the project's namespace tags,
+  the tenant's settings, budget and providers), since fills have no dry
+  run. It can't tell which jobs an exact translation-memory match would
+  satisfy without a provider, and like `check` it reads Localization's
+  view of the catalog, so a message pushed a moment ago can be missing
+  from the plan.
+- `translate --outdated` without `--missing` sends the outdated keys
+  (500 per fill, one fill per locale), since a fill can't select only
+  outdated translations.
