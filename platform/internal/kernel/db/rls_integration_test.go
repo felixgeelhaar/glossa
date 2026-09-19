@@ -1,0 +1,295 @@
+//go:build integration
+
+package db_test
+
+import (
+	"context"
+	"errors"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+)
+
+// ── RLS guard ────────────────────────────────────────────────────────
+//
+// The guard inspects the catalog after all migrations have run, so it
+// covers every table any bounded context will ever add. A new table
+// either carries tenant_id and is locked down, or is consciously listed
+// below with a reason. There is no third option.
+
+// tenantRoots are tenant-owned tables keyed by the tenant id itself.
+var tenantRoots = []string{"tenants"}
+
+// globalTables hold no tenant data. Each entry needs a reason.
+var globalTables = map[string]string{
+	"schema_migrations": "golang-migrate bookkeeping; no grants to glossa_app",
+}
+
+// systemPolicies are the only policies allowed to target a role other
+// than PUBLIC. Each opens a table to a background path; keep it short.
+var systemPolicies = map[string][]string{
+	"outbox_events": {"outbox_events_system_select", "outbox_events_system_update"},
+}
+
+type tableSecurity struct {
+	name                 string
+	hasTenantID          bool
+	rowSecurity, forced  bool
+	hasTenantAllPolicy   bool
+	nonTenantPolicies    []string
+	nonPublicPolicyNames []string
+}
+
+func TestRLSGuard(t *testing.T) {
+	tables := loadTableSecurity(t)
+	if len(tables) == 0 {
+		t.Fatal("no tables found; did migrations run?")
+	}
+	for _, tbl := range tables {
+		t.Run(tbl.name, func(t *testing.T) { checkTable(t, tbl) })
+	}
+}
+
+func checkTable(t *testing.T, tbl tableSecurity) {
+	tenantOwned := tbl.hasTenantID || slices.Contains(tenantRoots, tbl.name)
+	if !tenantOwned {
+		if _, ok := globalTables[tbl.name]; !ok {
+			t.Errorf("%s has no tenant_id column: add tenant_id with RLS, or list it in globalTables with a reason", tbl.name)
+		}
+		return
+	}
+	if !tbl.rowSecurity {
+		t.Errorf("%s: ROW LEVEL SECURITY is not enabled", tbl.name)
+	}
+	if !tbl.forced {
+		t.Errorf("%s: ROW LEVEL SECURITY is not FORCEd (the owner would bypass it)", tbl.name)
+	}
+	if !tbl.hasTenantAllPolicy {
+		t.Errorf("%s: needs a PUBLIC FOR ALL policy with USING and WITH CHECK on app_current_tenant()", tbl.name)
+	}
+	for _, p := range tbl.nonTenantPolicies {
+		t.Errorf("%s: PUBLIC policy %s does not constrain on app_current_tenant(); it would open the table", tbl.name, p)
+	}
+	allowed := systemPolicies[tbl.name]
+	for _, p := range tbl.nonPublicPolicyNames {
+		if !slices.Contains(allowed, p) {
+			t.Errorf("%s: role-specific policy %s is not in systemPolicies", tbl.name, p)
+		}
+	}
+}
+
+func loadTableSecurity(t *testing.T) []tableSecurity {
+	t.Helper()
+	ctx := context.Background()
+	rows, err := env.Super.Query(ctx, `
+		SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity,
+		       EXISTS (SELECT FROM pg_attribute a
+		               WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped)
+		FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+		WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+		ORDER BY c.relname`)
+	if err != nil {
+		t.Fatalf("list tables: %v", err)
+	}
+	tables, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (tableSecurity, error) {
+		var ts tableSecurity
+		err := r.Scan(&ts.name, &ts.rowSecurity, &ts.forced, &ts.hasTenantID)
+		return ts, err
+	})
+	if err != nil {
+		t.Fatalf("scan tables: %v", err)
+	}
+	for i := range tables {
+		loadPolicies(t, &tables[i])
+	}
+	return tables
+}
+
+func loadPolicies(t *testing.T, ts *tableSecurity) {
+	t.Helper()
+	rows, err := env.Super.Query(context.Background(), `
+		SELECT p.polname, p.polcmd::text, p.polpermissive, p.polroles = '{0}'::oid[],
+		       coalesce(pg_get_expr(p.polqual, p.polrelid), ''),
+		       coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '')
+		FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
+		JOIN pg_namespace n ON n.oid = c.relnamespace
+		WHERE n.nspname = 'public' AND c.relname = $1`, ts.name)
+	if err != nil {
+		t.Fatalf("list policies of %s: %v", ts.name, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name, cmd, using, check string
+		var permissive, public bool
+		if err := rows.Scan(&name, &cmd, &permissive, &public, &using, &check); err != nil {
+			t.Fatalf("scan policy: %v", err)
+		}
+		classifyPolicy(ts, name, cmd, permissive, public, using, check)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("policies of %s: %v", ts.name, err)
+	}
+}
+
+func classifyPolicy(ts *tableSecurity, name, cmd string, permissive, public bool, using, check string) {
+	const fn = "app_current_tenant()"
+	if !public {
+		ts.nonPublicPolicyNames = append(ts.nonPublicPolicyNames, name)
+		return
+	}
+	scoped := (using == "" || strings.Contains(using, fn)) && (check == "" || strings.Contains(check, fn))
+	if permissive && !scoped {
+		ts.nonTenantPolicies = append(ts.nonTenantPolicies, name)
+	}
+	if permissive && cmd == "*" && strings.Contains(using, fn) && strings.Contains(check, fn) {
+		ts.hasTenantAllPolicy = true
+	}
+}
+
+// ── Isolation suite ──────────────────────────────────────────────────
+
+const rlsViolation = "42501" // insufficient_privilege: RLS WITH CHECK or missing grant
+
+func asTenant(t *testing.T, tenant tenancy.ID, fn func(context.Context, *db.TenantTx) error) error {
+	t.Helper()
+	ctx := tenancy.ContextWithTenant(context.Background(), tenant)
+	return db.NewUnitOfWork(env.App).InTenantTx(ctx, fn)
+}
+
+func wantPgCode(t *testing.T, err error, code, what string) {
+	t.Helper()
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != code {
+		t.Errorf("%s: err = %v, want SQLSTATE %s", what, err, code)
+	}
+}
+
+func TestIsolationTenants(t *testing.T) {
+	reset(t)
+	a, b := seedTenant(t, "acme"), seedTenant(t, "bolt")
+
+	err := asTenant(t, a, func(ctx context.Context, tx *db.TenantTx) error {
+		var ids []string
+		rows, err := tx.Query(ctx, "SELECT id::text FROM tenants")
+		if err != nil {
+			return err
+		}
+		if ids, err = pgx.CollectRows(rows, pgx.RowTo[string]); err != nil {
+			return err
+		}
+		if len(ids) != 1 || ids[0] != a.String() {
+			t.Errorf("tenant A sees tenants %v, want only itself", ids)
+		}
+
+		tag, err := tx.Exec(ctx, "UPDATE tenants SET name = 'pwned' WHERE id = $1", b.UUID())
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() != 0 {
+			t.Errorf("tenant A updated %d of tenant B's rows", tag.RowsAffected())
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = asTenant(t, a, func(ctx context.Context, tx *db.TenantTx) error {
+		_, err := tx.Exec(ctx,
+			"INSERT INTO tenants (id, kind, slug, name) VALUES ($1, 'individual', 'sneaky', 'Sneaky')",
+			tenancy.NewID().UUID())
+		return err
+	})
+	wantPgCode(t, err, rlsViolation, "tenant A inserting another tenant")
+
+	var name string
+	if err := env.Super.QueryRow(context.Background(), "SELECT name FROM tenants WHERE id = $1", b.UUID()).Scan(&name); err != nil {
+		t.Fatal(err)
+	}
+	if name == "pwned" {
+		t.Error("tenant B's row was modified")
+	}
+}
+
+func TestIsolationOutbox(t *testing.T) {
+	reset(t)
+	a, b := seedTenant(t, "acme"), seedTenant(t, "bolt")
+	seedEvent(t, a)
+	seedEvent(t, b)
+	seedEvent(t, b)
+
+	err := asTenant(t, a, func(ctx context.Context, tx *db.TenantTx) error {
+		var foreign int
+		if err := tx.QueryRow(ctx, "SELECT count(*) FROM outbox_events WHERE tenant_id <> $1", a.UUID()).Scan(&foreign); err != nil {
+			return err
+		}
+		if foreign != 0 {
+			t.Errorf("tenant A sees %d of tenant B's events", foreign)
+		}
+		n, err := countRows(ctx, tx, "outbox_events")
+		if err == nil && n != 1 {
+			t.Errorf("tenant A sees %d events, want 1", n)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = asTenant(t, a, func(ctx context.Context, tx *db.TenantTx) error {
+		return insertEvent(ctx, tx, b)
+	})
+	wantPgCode(t, err, rlsViolation, "tenant A publishing as tenant B")
+
+	err = asTenant(t, a, func(ctx context.Context, tx *db.TenantTx) error {
+		_, err := tx.Exec(ctx, "UPDATE outbox_events SET status = 'dead'")
+		return err
+	})
+	wantPgCode(t, err, rlsViolation, "request path updating the outbox")
+}
+
+func TestIsolationWithoutTenantContext(t *testing.T) {
+	reset(t)
+	a := seedTenant(t, "acme")
+	seedEvent(t, a)
+	ctx := context.Background()
+
+	// A raw transaction that never set app.tenant_id — what a handler
+	// bypassing the unit of work would get.
+	tx, err := env.App.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	for _, table := range []string{"tenants", "outbox_events"} {
+		n, err := countRows(ctx, tx, table)
+		if err != nil {
+			t.Fatalf("count %s: %v", table, err)
+		}
+		if n != 0 {
+			t.Errorf("unscoped transaction sees %d rows of %s", n, table)
+		}
+	}
+
+	_, err = tx.Exec(ctx, "SAVEPOINT s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tx.Exec(ctx,
+		"INSERT INTO tenants (id, kind, slug, name) VALUES ($1, 'individual', 'ghost', 'Ghost')",
+		tenancy.NewID().UUID())
+	wantPgCode(t, err, rlsViolation, "unscoped tenant insert")
+	if _, err := tx.Exec(ctx, "ROLLBACK TO SAVEPOINT s1"); err != nil {
+		t.Fatal(err)
+	}
+
+	err = insertEvent(ctx, tx, a)
+	wantPgCode(t, err, rlsViolation, "unscoped outbox insert")
+}
