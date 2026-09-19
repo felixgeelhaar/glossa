@@ -97,6 +97,10 @@ translated HTML that reads correctly without JavaScript, and when the elements
 load they render the same text, so nothing flickers. `@glossa/astro` does this
 for every page at build time.
 
+`@glossa/elements/parts` holds the rendering rules every adapter shares
+(`resolveParts`, `partsToTree`, `treeToHtml`, `SAFE_TAGS`), so `@glossa/vue`
+and the elements render markup the same way. It has no DOM or Lit dependency.
+
 ## Size
 
 Minified and brotli-compressed (`pnpm size`):
