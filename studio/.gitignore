@@ -8,3 +8,5 @@ coverage/
 test-results/
 playwright-report/
 e2e/.state/
+# vitest scratch (build/overlay.test.ts)
+.tmp/

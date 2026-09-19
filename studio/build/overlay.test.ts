@@ -14,8 +14,10 @@ import { build } from "vite";
 
 import { OVERLAY_JS, OVERLAY_JSON, overlayAssets, overlayDelivery } from "./overlay";
 
-// Inside the package: Vite's HTML build needs its root below the project.
-const cache = join(dirname(fileURLToPath(import.meta.url)), "..", "node_modules", ".tmp");
+// Inside the package, and not under node_modules: Vite's HTML build needs its
+// root below the project, and a validation worktree symlinks node_modules out
+// of it (warden), which puts the root outside again.
+const cache = join(dirname(fileURLToPath(import.meta.url)), "..", ".tmp");
 mkdirSync(cache, { recursive: true });
 const work = mkdtempSync(join(cache, "overlay-"));
 afterAll(() => rmSync(work, { recursive: true, force: true }));
