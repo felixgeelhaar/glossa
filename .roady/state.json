@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 83,
+  "version": 84,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -266,11 +266,15 @@
       "elapsed_minutes": 50
     },
     "task-m1-cli": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "glossa CLI: init/login/push/pull/extract/generate(TS, Vue, Go)/check/status/diff/locales/messages/import --from v0 + release publish/list/show/diff/promote/rollback/environments/keys and pull --release (SPEC §3.4 bundles); integration: push→import→publish→pull→Go runtime offline→promote→rollback on Postgres+MinIO"
+      ],
       "started_at": "2026-09-19T13:24:57.535784+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T13:55:12.958439+02:00",
+      "elapsed_minutes": 30
     },
     "task-m1-contract": {
       "status": "done",
@@ -453,5 +457,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T13:24:57.535784+02:00"
+  "updated_at": "2026-09-19T13:55:12.95844+02:00"
 }
