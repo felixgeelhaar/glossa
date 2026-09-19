@@ -83,6 +83,15 @@ export const ImportResult = z.object({
   detail: z.string().optional(),
   line: z.number().int().optional(),
   column: z.number().int().optional(),
+  /** The item in the format's own terms: an XLIFF fragment identifier, a JSON pointer, a PO msgctxt/msgid, tu[n], conceptEntry[n]. */
+  ref: z.string().optional(),
+});
+
+/** A namespace of a project with its message counts (Catalog's listing, for the export dialog). */
+export const NamespaceSummary = z.object({
+  name: z.string().min(1),
+  active_messages: z.number().int().min(0),
+  obsolete_messages: z.number().int().min(0),
 });
 
 export const ExportOptions = z.object({
@@ -115,6 +124,9 @@ export type ImportJob = z.infer<typeof ImportJob>;
 export type ImportResult = z.infer<typeof ImportResult>;
 export type ExportOptions = z.infer<typeof ExportOptions>;
 export type ExportJob = z.infer<typeof ExportJob>;
+export type NamespaceSummary = z.infer<typeof NamespaceSummary>;
+/** The workspace's knowledge files: its translation memory (TMX) and termbase (TBX). */
+export type KnowledgeKind = "tm" | "termbase";
 
 // ── contract alignment (compile time only) ─────────────────────────────
 type C = components["schemas"];
@@ -127,6 +139,7 @@ export type IntegrationContractAlignment = [
   Assert<Fits<ImportJob, C["ImportJob"]>>,
   Assert<Fits<ImportResult, C["ImportResult"]>>,
   Assert<Fits<ExportJob, C["ExportJob"]>>,
+  Assert<Fits<NamespaceSummary, C["NamespaceSummary"]>>,
   Assert<Fits<C["ImportResultStatus"], ImportResultStatus>>,
   Assert<Fits<C["ImportResultKind"], ImportResultKind>>,
 ];

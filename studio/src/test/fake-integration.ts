@@ -11,7 +11,7 @@
 import { ApiError } from "../api/errors";
 import type { ExportFile, ExportRequest, ImportRequest, IntegrationPort, Page } from "../api/integration";
 import { sha256Hex } from "../lib/integration";
-import type { ExportJob, ImportCounts, ImportJob, ImportResult, IntegrationFormat } from "../api/integration-schemas";
+import type { ExportJob, ImportCounts, ImportJob, ImportResult, IntegrationFormat, KnowledgeKind, NamespaceSummary } from "../api/integration-schemas";
 
 export interface FakeIntegration extends IntegrationPort {
   readonly calls: Array<[string, ...unknown[]]>;
@@ -27,9 +27,12 @@ export interface FakeIntegration extends IntegrationPort {
   pageSize: number;
   /** Hold jobs where they are (reads don't advance them). */
   hold: boolean;
+  /** The project's namespaces (Catalog's listing). */
+  namespaceList: NamespaceSummary[];
 }
 
 const NOW = "2026-09-19T08:00:00Z";
+const formatOf = (k: KnowledgeKind): IntegrationFormat => (k === "tm" ? "tmx" : "tbx");
 const kindOf = (f: IntegrationFormat) => (f === "tmx" ? "tm" : f === "tbx" ? "termbase" : "catalog");
 const zero = (): ImportCounts => ({ created: 0, updated: 0, unchanged: 0, conflict: 0, invalid: 0 });
 const hex = (text: string) => {
@@ -121,6 +124,7 @@ export function createFakeIntegration(): FakeIntegration {
     exportContent: () => "{}\n",
     pageSize: 100,
     hold: false,
+    namespaceList: [],
 
     async importJobs(_tenant, q, token) {
       calls.push(["importJobs", q]);
@@ -233,6 +237,28 @@ export function createFakeIntegration(): FakeIntegration {
       if (j.state !== "succeeded") throw new ApiError(409, "export_not_ready", "Not ready.");
       const content = fake.exportContent(j);
       return { blob: new Blob([content]), name: j.file_name, sha256: j.file?.sha256 };
+    },
+
+    async namespaces(_tenant, project, token) {
+      calls.push(["namespaces", project, token]);
+      return pageOf(fake.namespaceList, 2, token);
+    },
+    async knowledgeImports(_tenant, kind, token) {
+      calls.push(["knowledgeImports", kind]);
+      return pageOf([...imports].reverse().filter((j) => !j.project_id && j.kind === kind), 50, token);
+    },
+    async knowledgeExports(_tenant, kind, token) {
+      calls.push(["knowledgeExports", kind]);
+      return pageOf([...exports].reverse().filter((j) => !j.project_id && j.kind === kind), 50, token);
+    },
+    async createKnowledgeImport(tenant, kind, body, key) {
+      calls.push(["createKnowledgeImport", kind, body, key]);
+      return fake.createImport(tenant, { format: formatOf(kind), ...body }, key);
+    },
+    async createKnowledgeExport(tenant, kind, body, key) {
+      calls.push(["createKnowledgeExport", kind, body, key]);
+      if (kind === "termbase" && body.options && Object.keys(body.options).length) throw new ApiError(400, "invalid_options", "TBX takes no options.");
+      return fake.createExport(tenant, { format: formatOf(kind), ...body }, key);
     },
   };
   return fake;

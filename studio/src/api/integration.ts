@@ -21,6 +21,8 @@ import { page } from "./schemas";
 type Body<N extends keyof components["schemas"]> = components["schemas"][N];
 export type ImportRequest = Body<"ImportJobRequest">;
 export type ExportRequest = Body<"ExportJobRequest">;
+export type KnowledgeImportRequest = Body<"KnowledgeImportJobRequest">;
+export type KnowledgeExportRequest = Body<"KnowledgeExportJobRequest">;
 
 export interface Page<T> {
   items: T[];
@@ -63,6 +65,20 @@ export interface IntegrationPort {
   createExport(tenant: string, body: ExportRequest, idempotencyKey: string): Promise<X.ExportJob>;
   cancelExport(tenant: string, id: string): Promise<X.ExportJob>;
   download(tenant: string, job: X.ExportJob): Promise<ExportFile>;
+
+  /** A project's namespaces by name, with their message counts (what an export offers to choose from). */
+  namespaces(tenant: string, project: string, pageToken?: string): Promise<Page<X.NamespaceSummary>>;
+
+  // The workspace's own translation memory (TMX) and termbase (TBX): tenant-wide jobs on routes of
+  // their own. They are ordinary jobs otherwise: uploaded to, followed and downloaded like any.
+  /** The workspace's imports of one kind, newest first. */
+  knowledgeImports(tenant: string, kind: X.KnowledgeKind, pageToken?: string): Promise<Page<X.ImportJob>>;
+  /** The workspace's exports of one kind, newest first. */
+  knowledgeExports(tenant: string, kind: X.KnowledgeKind, pageToken?: string): Promise<Page<X.ExportJob>>;
+  /** A tenant-wide TMX or TBX import in `awaiting_upload`. */
+  createKnowledgeImport(tenant: string, kind: X.KnowledgeKind, body: KnowledgeImportRequest, idempotencyKey: string): Promise<X.ImportJob>;
+  /** A tenant-wide TMX or TBX export, queued. */
+  createKnowledgeExport(tenant: string, kind: X.KnowledgeKind, body: KnowledgeExportRequest, idempotencyKey: string): Promise<X.ExportJob>;
 }
 
 const value = async <T>(p: Promise<Versioned<T>>): Promise<T> => (await p).value;
@@ -189,6 +205,38 @@ export const apiIntegration: IntegrationPort = {
       name: dispositionName(r.response.headers.get("Content-Disposition")) ?? job.file_name,
       sha256: etag ? etag.replace(/^(W\/)?"|"$/g, "") : undefined,
     };
+  },
+
+  namespaces: async (tenant, project, page_token) =>
+    toPage(
+      await value(
+        read(
+          client.GET("/v1/tenants/{tenant}/projects/{project}/namespaces", { params: { path: { tenant, project }, query: { page_size: 100, page_token } } }),
+          page(X.NamespaceSummary),
+        ),
+      ),
+    ),
+  knowledgeImports: async (tenant, kind, page_token) => {
+    const params = { path: { tenant }, query: { page_size: PAGE, page_token } };
+    const call = kind === "tm" ? client.GET("/v1/tenants/{tenant}/tm-import-jobs", { params }) : client.GET("/v1/tenants/{tenant}/termbase-import-jobs", { params });
+    return toPage(await value(read(call, page(X.ImportJob))));
+  },
+  knowledgeExports: async (tenant, kind, page_token) => {
+    const params = { path: { tenant }, query: { page_size: PAGE, page_token } };
+    const call = kind === "tm" ? client.GET("/v1/tenants/{tenant}/tm-export-jobs", { params }) : client.GET("/v1/tenants/{tenant}/termbase-export-jobs", { params });
+    return toPage(await value(read(call, page(X.ExportJob))));
+  },
+  createKnowledgeImport: (tenant, kind, body, key) => {
+    const params = { path: { tenant }, header: { "Idempotency-Key": key } };
+    const call =
+      kind === "tm" ? client.POST("/v1/tenants/{tenant}/tm-import-jobs", { params, body }) : client.POST("/v1/tenants/{tenant}/termbase-import-jobs", { params, body });
+    return value(read(call, X.ImportJob));
+  },
+  createKnowledgeExport: (tenant, kind, body, key) => {
+    const params = { path: { tenant }, header: { "Idempotency-Key": key } };
+    const call =
+      kind === "tm" ? client.POST("/v1/tenants/{tenant}/tm-export-jobs", { params, body }) : client.POST("/v1/tenants/{tenant}/termbase-export-jobs", { params, body });
+    return value(read(call, X.ExportJob));
   },
 };
 

@@ -140,6 +140,39 @@ describe("upload", () => {
   });
 });
 
+describe("namespaces and the workspace's routes", () => {
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+  it("pages through a project's namespaces", async () => {
+    const fetch = vi.fn(async (_r: Request) => json({ items: [{ name: "checkout", active_messages: 3, obsolete_messages: 1 }], next_page_token: "n" }));
+    vi.stubGlobal("fetch", fetch);
+    const p = await apiIntegration.namespaces("t", "p", "tok");
+    const url = new URL(fetch.mock.calls[0]![0].url);
+    expect(url.pathname).toBe("/v1/tenants/t/projects/p/namespaces");
+    expect(url.searchParams.get("page_token")).toBe("tok");
+    expect(p).toEqual({ items: [{ name: "checkout", active_messages: 3, obsolete_messages: 1 }], next: "n" });
+  });
+
+  it("creates and lists tenant-wide TMX and TBX jobs on their own routes", async () => {
+    const tenantJob = { ...importJob, project_id: undefined, kind: "tm", format: "tmx" };
+    const fetch = vi.fn(async (r: Request) => (r.method === "POST" ? json(tenantJob, 201) : json({ items: [tenantJob] })));
+    vi.stubGlobal("fetch", fetch);
+    setCsrfToken("csrf-1");
+    const created = await apiIntegration.createKnowledgeImport("t", "tm", { mode: "dry_run", file_name: "m.tmx" }, "key-1");
+    expect(created.format).toBe("tmx");
+    const post = fetch.mock.calls[0]![0];
+    expect([post.method, new URL(post.url).pathname, post.headers.get("Idempotency-Key")]).toEqual(["POST", "/v1/tenants/t/tm-import-jobs", "key-1"]);
+    expect(await post.json()).toEqual({ mode: "dry_run", file_name: "m.tmx" });
+    await apiIntegration.knowledgeImports("t", "termbase");
+    expect(new URL(fetch.mock.calls[1]![0].url).pathname).toBe("/v1/tenants/t/termbase-import-jobs");
+    fetch.mockImplementation(async (r: Request) => (r.method === "POST" ? json({ ...exportJob, project_id: undefined, kind: "termbase", format: "tbx" }, 201) : json({ items: [] })));
+    await apiIntegration.createKnowledgeExport("t", "termbase", {}, "key-2");
+    expect(new URL(fetch.mock.calls[2]![0].url).pathname).toBe("/v1/tenants/t/termbase-export-jobs");
+    await apiIntegration.knowledgeExports("t", "tm");
+    expect(new URL(fetch.mock.calls[3]![0].url).pathname).toBe("/v1/tenants/t/tm-export-jobs");
+  });
+});
+
 describe("download", () => {
   it("fetches the file with the session and names it from Content-Disposition", async () => {
     const fetch = vi.fn(
