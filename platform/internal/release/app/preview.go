@@ -56,7 +56,7 @@ func (s *Service) PreviewPublish(ctx context.Context, project uuid.UUID, environ
 		return PublishPreview{}, err
 	}
 	pv := PublishPreview{Environment: env, Base: base}
-	built, err := s.build(ctx, project, env.Policy)
+	built, err := s.build(ctx, project, env)
 	var nr *domain.NotReleasableError
 	if errors.As(err, &nr) {
 		pv.Problems = nr.Problems

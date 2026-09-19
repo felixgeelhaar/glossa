@@ -6,6 +6,7 @@ package sources
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -82,6 +83,8 @@ func (p *Port) Snapshot(ctx context.Context, project uuid.UUID, states []string)
 		})
 	}
 	for locale, byMessage := range tr.Translations {
+		// Translations of every message the project has, proposed ones
+		// included: only a branch build ships those.
 		out := make(map[uuid.UUID]domain.Translation, len(byMessage))
 		for id, t := range byMessage {
 			out[id] = domain.Translation{Model: t.Content.ModelJSON(), Outdated: t.Outdated()}
@@ -89,4 +92,35 @@ func (p *Port) Snapshot(ctx context.Context, project uuid.UUID, states []string)
 		snap.Translations[locale.String()] = out
 	}
 	return snap, nil
+}
+
+// BranchOverlay implements app.Source: the branch's new keys whose
+// messages are still proposed (a key merged since is live and in the
+// snapshot already), with the source this branch pushed, and its source
+// proposals for live messages. A branch the catalog doesn't know yet
+// (its environment opened before its first push) proposes nothing.
+func (p *Port) BranchOverlay(ctx context.Context, project uuid.UUID, branch string) (domain.Overlay, error) {
+	o, err := p.catalog.BranchOverlay(ctx, catalogdomain.ProjectID(project), branch)
+	if errors.Is(err, catalogapp.ErrNotFound) {
+		return domain.Overlay{}, nil
+	}
+	if err != nil {
+		return domain.Overlay{}, err
+	}
+	out := domain.Overlay{Changes: map[uuid.UUID]json.RawMessage{}}
+	for _, pr := range o.Proposals {
+		m, ok := o.Messages[pr.MessageID]
+		if !ok {
+			continue
+		}
+		switch {
+		case pr.Kind == catalogdomain.ProposalNewKey && m.State == catalogdomain.MessageProposed:
+			out.Proposed = append(out.Proposed, domain.SourceMessage{
+				ID: m.ID.UUID(), Key: string(pr.Key), Namespace: string(m.Namespace), Model: pr.Source.ModelJSON(),
+			})
+		case pr.Kind == catalogdomain.ProposalSourceChange && m.State == catalogdomain.MessageActive:
+			out.Changes[m.ID.UUID()] = pr.Source.ModelJSON()
+		}
+	}
+	return out, nil
 }

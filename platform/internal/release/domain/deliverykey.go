@@ -19,6 +19,8 @@ type DeliveryKey struct {
 	ProjectID uuid.UUID
 	Key       string
 	Name      string
+	// Scope is what the key reads at the edge (RFC 0004 §4.3).
+	Scope     delivery.Scope
 	CreatedBy string
 	CreatedAt time.Time
 	// RevokedAt is nil while the key is active.
@@ -26,17 +28,22 @@ type DeliveryKey struct {
 	RevokedBy string
 }
 
-// NewDeliveryKey creates an active key named name.
-func NewDeliveryKey(project uuid.UUID, name, by string, now time.Time) (DeliveryKey, error) {
+// NewDeliveryKey creates an active key named name that reads scope
+// (delivery.DefaultScope for a key that ships in production bundles).
+func NewDeliveryKey(project uuid.UUID, name string, scope delivery.Scope, by string, now time.Time) (DeliveryKey, error) {
 	if n := utf8.RuneCountInString(name); n < 1 || n > 200 {
 		return DeliveryKey{}, ErrInvalidKeyName
+	}
+	scope, err := delivery.NewScope(scope.Environments, scope.Branches)
+	if err != nil {
+		return DeliveryKey{}, err
 	}
 	key, err := delivery.NewKey()
 	if err != nil {
 		return DeliveryKey{}, err
 	}
 	return DeliveryKey{
-		ID: uuid.Must(uuid.NewV7()), ProjectID: project, Key: key, Name: name, CreatedBy: by,
+		ID: uuid.Must(uuid.NewV7()), ProjectID: project, Key: key, Name: name, Scope: scope, CreatedBy: by,
 		CreatedAt: now.UTC().Truncate(time.Microsecond),
 	}, nil
 }

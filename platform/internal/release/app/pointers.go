@@ -15,8 +15,10 @@ import (
 // release's artifacts are already in storage, and only the
 // environment's manifest is written. The environment's policy must
 // cover the policy the release was built under, so a preview release
-// with drafts never reaches production. Promoting the release an
-// environment already serves changes nothing.
+// with drafts never reaches production, and a branch release is never
+// promoted (branch_release_not_promotable): it holds text that exists
+// only on its branch. Promoting the release an environment already
+// serves changes nothing.
 func (s *Service) Promote(ctx context.Context, project uuid.UUID, name string, release uuid.UUID) (domain.Environment, error) {
 	by, err := s.checkProject(ctx, project, authz.ReleasesPublish)
 	if err != nil {
@@ -31,6 +33,9 @@ func (s *Service) Promote(ctx context.Context, project uuid.UUID, name string, r
 			return domain.Release{}, ErrReleaseNotInProject
 		}
 		if err != nil {
+			return domain.Release{}, err
+		}
+		if err := rel.Promotable(); err != nil {
 			return domain.Release{}, err
 		}
 		if !env.Policy.Covers(rel.Policy) {

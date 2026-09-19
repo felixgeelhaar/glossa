@@ -176,10 +176,10 @@ func TestPreviewPublishAccess(t *testing.T) {
 		t.Errorf("anonymous: %v", err)
 	}
 	// A custom environment previews under its own policy.
-	if _, err := h.svc.CreateEnvironment(h.as("developer"), p, "pr-7", &domain.Policy{States: []string{"approved"}}); err != nil {
+	if _, err := h.svc.CreateEnvironment(h.as("developer"), p, "qa-7", &domain.Policy{States: []string{"approved"}}); err != nil {
 		t.Fatal(err)
 	}
-	pv, err := h.svc.PreviewPublish(h.as("developer"), p, "pr-7")
+	pv, err := h.svc.PreviewPublish(h.as("developer"), p, "qa-7")
 	if err != nil || pv.Environment.Policy.IncludeOutdated {
 		t.Errorf("custom: %v %+v", err, pv.Environment)
 	}

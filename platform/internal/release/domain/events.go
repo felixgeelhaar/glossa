@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 // Release's domain events (platform/README.md, "Domain events"). The
 // Release aggregate shares the context's name, so its events are
 // release.<verb>, as runtimes/SPEC.md §3 names release.published.
@@ -14,6 +16,12 @@ const (
 
 	EventEnvironmentCreated       = "release.environment.created"
 	EventEnvironmentPolicyChanged = "release.environment.policy_changed"
+	// EventEnvironmentDestroyed: a branch environment was destroyed; its
+	// manifest is removed, so the edge answers 404 (RFC 0004 §4.2).
+	EventEnvironmentDestroyed = "release.environment.destroyed"
+	// EventPublishRequested: a branch environment is to be published
+	// again once the request is due (debounced).
+	EventPublishRequested = "release.environment.publish_requested"
 
 	EventDeliveryKeyCreated = "release.delivery_key.created"
 	EventDeliveryKeyRevoked = "release.delivery_key.revoked"
@@ -44,8 +52,12 @@ type PointerMoved struct {
 
 // EnvironmentChanged is the payload of the environment events.
 type EnvironmentChanged struct {
-	ProjectID       string   `json:"project_id"`
-	Environment     string   `json:"environment"`
+	ProjectID   string `json:"project_id"`
+	Environment string `json:"environment"`
+	// Kind is standard or branch; Branch names a branch environment's
+	// branch.
+	Kind            string   `json:"kind,omitempty"`
+	Branch          string   `json:"branch,omitempty"`
 	States          []string `json:"states"`
 	IncludeOutdated bool     `json:"include_outdated"`
 	Version         int      `json:"version"`
@@ -55,8 +67,20 @@ type EnvironmentChanged struct {
 // DeliveryKeyChanged is the payload of the delivery key events. It never
 // carries the key itself: public or not, keys stay out of event logs.
 type DeliveryKeyChanged struct {
-	KeyID     string `json:"key_id"`
-	ProjectID string `json:"project_id"`
-	Name      string `json:"name"`
-	By        string `json:"by"`
+	KeyID        string   `json:"key_id"`
+	ProjectID    string   `json:"project_id"`
+	Name         string   `json:"name"`
+	Environments []string `json:"environments"`
+	Branches     bool     `json:"branches"`
+	By           string   `json:"by"`
+}
+
+// PublishRequested is the payload of release.environment.publish_requested.
+type PublishRequested struct {
+	ProjectID   string    `json:"project_id"`
+	Environment string    `json:"environment"`
+	Branch      string    `json:"branch"`
+	RequestID   string    `json:"request_id"`
+	NotBefore   time.Time `json:"not_before"`
+	By          string    `json:"by"`
 }

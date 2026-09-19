@@ -43,11 +43,47 @@ type SourceMessage struct {
 	Namespace string
 	Model     json.RawMessage
 	// Proposed marks a message that exists only on branches (RFC 0004
-	// §4.1). Build leaves it out.
+	// §4.1). Build leaves it out; BuildBranch ships it.
 	Proposed bool
 	// Proposal is a branch's proposed source for the message, if the
-	// snapshot carries one. Build ships Model, never the proposal.
+	// snapshot carries one. Build ships Model, never the proposal;
+	// BuildBranch ships the proposal in the source locale.
 	Proposal json.RawMessage
+}
+
+// Overlay is what one branch adds to the main catalog (RFC 0004 §4.1):
+// the messages it proposes and its proposed source for live messages.
+type Overlay struct {
+	// Proposed are the branch's new keys, each with the source the
+	// branch pushed.
+	Proposed []SourceMessage
+	// Changes maps a live message's ID to the source the branch proposes
+	// for it.
+	Changes map[uuid.UUID]json.RawMessage
+}
+
+// WithOverlay returns a copy of s carrying o: o's proposed messages
+// (marked Proposed) and, on the live messages it changes, their
+// proposals. s itself is unchanged. Only BuildBranch ships the overlay.
+func (s Snapshot) WithOverlay(o Overlay) Snapshot {
+	out := s
+	out.Messages = make([]SourceMessage, 0, len(s.Messages)+len(o.Proposed))
+	have := make(map[uuid.UUID]bool, len(s.Messages))
+	for _, m := range s.Messages {
+		if p, ok := o.Changes[m.ID]; ok && !m.Proposed {
+			m.Proposal = p
+		}
+		have[m.ID] = true
+		out.Messages = append(out.Messages, m)
+	}
+	for _, m := range o.Proposed {
+		if have[m.ID] {
+			continue
+		}
+		m.Proposed, m.Proposal = true, nil
+		out.Messages = append(out.Messages, m)
+	}
+	return out
 }
 
 // Translation is an eligible translation as a release takes it from
@@ -145,17 +181,26 @@ type Built struct {
 // Build excludes the branch overlay — proposed messages and source
 // proposals (RFC 0004 §4.2) — so no text that exists only on a branch
 // reaches a release: that is what keeps release eligibility intact.
-// Only a branch environment's build (a later change) adds its overlay.
+// Only a branch environment's build (BuildBranch) adds its overlay.
 //
 // A snapshot artifacts can't carry fails with a *NotReleasableError
 // listing every problem found, not only the first.
-func Build(s Snapshot, p Policy) (Built, error) {
+func Build(s Snapshot, p Policy) (Built, error) { return build(s, p, false) }
+
+// BuildBranch is a branch environment's build: Build, plus the overlay
+// the snapshot carries (Snapshot.WithOverlay). Proposed messages ship
+// like live ones, with their translations; a source proposal replaces
+// the message's source in the source locale only, because translations
+// stay against the live source (RFC 0004 §4.1).
+func BuildBranch(s Snapshot, p Policy) (Built, error) { return build(s, p, true) }
+
+func build(s Snapshot, p Policy, overlay bool) (Built, error) {
 	var ps problems
 	locales := orderLocales(s, &ps)
 	if err := ps.err(); err != nil {
 		return Built{}, err
 	}
-	byLocale, stats := groupMessages(s, locales, p, &ps)
+	byLocale, stats := groupMessages(s, locales, p, overlay, &ps)
 	if err := ps.err(); err != nil {
 		return Built{}, err
 	}
@@ -223,8 +268,9 @@ func compareStrings(a, b string) int {
 }
 
 // groupMessages sorts messages into locale → namespace → key → model.
-// A message artifacts can't carry is a problem and left out.
-func groupMessages(s Snapshot, locales []Locale, p Policy, ps *problems) (map[string]map[string]map[string]json.RawMessage, Stats) {
+// A message artifacts can't carry is a problem and left out. overlay
+// ships the branch overlay the snapshot carries.
+func groupMessages(s Snapshot, locales []Locale, p Policy, overlay bool, ps *problems) (map[string]map[string]map[string]json.RawMessage, Stats) {
 	out := map[string]map[string]map[string]json.RawMessage{}
 	stats := Stats{Locales: map[string]LocaleStats{}}
 	for _, l := range locales {
@@ -232,8 +278,11 @@ func groupMessages(s Snapshot, locales []Locale, p Policy, ps *problems) (map[st
 	}
 	keys := map[string]bool{}
 	for _, m := range s.Messages {
-		if m.Proposed {
+		if m.Proposed && !overlay {
 			continue
+		}
+		if !overlay {
+			m.Proposal = nil
 		}
 		stats.Messages++
 		if !checkMessage(m, keys, ps) {
@@ -273,6 +322,9 @@ func groupMessages(s Snapshot, locales []Locale, p Policy, ps *problems) (map[st
 // pick returns the model locale ships for m, if any.
 func pick(s Snapshot, locale string, m SourceMessage, p Policy) (json.RawMessage, bool, bool) {
 	if locale == s.SourceLocale {
+		if m.Proposal != nil {
+			return m.Proposal, false, true
+		}
 		return m.Model, false, true
 	}
 	t, ok := s.Translations[locale][m.ID]

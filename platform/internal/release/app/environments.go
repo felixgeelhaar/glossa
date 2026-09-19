@@ -149,8 +149,9 @@ func (s *Service) UpdateEnvironment(ctx context.Context, project uuid.UUID, name
 			return ErrPreconditionFailed
 		}
 		expected := e.Version
-		if !e.ChangePolicy(p, s.now()) {
-			return nil
+		changed, err := e.ChangePolicy(p, s.now())
+		if err != nil || !changed {
+			return err
 		}
 		if err := st.UpdateEnvironment(ctx, e, expected); err != nil {
 			return err
@@ -164,8 +165,8 @@ func environmentEvent(typ string, e domain.Environment, by string) outbox.Event 
 	return outbox.Event{
 		Type: typ, AggregateType: domain.AggregateEnvironment, AggregateID: e.ProjectID.String() + "/" + e.Name,
 		Payload: domain.EnvironmentChanged{
-			ProjectID: e.ProjectID.String(), Environment: e.Name, States: e.Policy.States,
-			IncludeOutdated: e.Policy.IncludeOutdated, Version: e.Version, By: by,
+			ProjectID: e.ProjectID.String(), Environment: e.Name, Kind: string(e.Kind), Branch: e.Branch,
+			States: e.Policy.States, IncludeOutdated: e.Policy.IncludeOutdated, Version: e.Version, By: by,
 		},
 	}
 }

@@ -26,6 +26,10 @@ var problems = []struct {
 	{domain.ErrNoRollbackTarget, 409, "no_rollback_target", ""},
 	{domain.ErrNotInHistory, 409, "not_in_history", ""},
 	{domain.ErrKeyRevoked, 409, "key_revoked", ""},
+	// RFC 0004 §4.2; documented with the branches API (wave 4).
+	{domain.ErrBranchReleaseNotPromotable, 409, "branch_release_not_promotable", ""},
+	{domain.ErrTooManyBranches, 409, "too_many_branches", ""},
+	{domain.ErrFixedPolicy, 409, "fixed_policy", ""},
 	{app.ErrPreconditionFailed, 412, problem.CodePreconditionFailed, "the resource changed; fetch it and retry with its new ETag"},
 	{app.ErrIdempotencyReuse, 422, "idempotency_key_reused", "this Idempotency-Key was used for a different request"},
 	{domain.ErrNotReleasable, 422, "not_releasable", ""},

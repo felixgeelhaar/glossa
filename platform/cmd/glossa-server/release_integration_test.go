@@ -420,12 +420,12 @@ func TestEnvironmentsOverHTTP(t *testing.T) {
 	s.do(call{method: "PATCH", path: p + "/environments/production", cookie: ada.cookie, csrf: ada.csrf, body: policy,
 		headers: map[string]string{"If-Match": `"1"`}}).want(t, http.StatusPreconditionFailed, "precondition_failed")
 
-	r = s.do(call{method: "POST", path: p + "/environments", cookie: ada.cookie, csrf: ada.csrf, body: map[string]string{"name": "pr-7"}})
+	r = s.do(call{method: "POST", path: p + "/environments", cookie: ada.cookie, csrf: ada.csrf, body: map[string]string{"name": "qa-7"}})
 	r.want(t, http.StatusCreated, "")
-	if r.header.Get("Location") != p+"/environments/pr-7" {
+	if r.header.Get("Location") != p+"/environments/qa-7" {
 		t.Errorf("Location %s", r.header.Get("Location"))
 	}
-	s.do(call{method: "POST", path: p + "/environments", cookie: ada.cookie, csrf: ada.csrf, body: map[string]string{"name": "pr-7"}}).
+	s.do(call{method: "POST", path: p + "/environments", cookie: ada.cookie, csrf: ada.csrf, body: map[string]string{"name": "qa-7"}}).
 		want(t, http.StatusConflict, "environment_exists")
 	s.do(call{method: "GET", path: p + "/environments/nope", cookie: ada.cookie}).want(t, http.StatusNotFound, "not_found")
 	s.do(call{method: "POST", path: p + "/environments/production/rollbacks", cookie: ada.cookie, csrf: ada.csrf, body: map[string]any{}}).

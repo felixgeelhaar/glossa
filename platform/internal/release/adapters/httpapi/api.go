@@ -14,6 +14,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
@@ -455,7 +456,12 @@ func (a *API) CreateDeliveryKey(ctx context.Context, req apiv1.CreateDeliveryKey
 	if req.Params.IdempotencyKey != nil {
 		idem = *req.Params.IdempotencyKey
 	}
-	k, replayed, err := a.svc.CreateDeliveryKey(ctx, project, req.Body.Name, idem)
+	// The API doesn't expose key scopes yet (RFC 0004 §13, wave 4). Until
+	// it does, a key it creates reads what every key read before scopes
+	// existed — the default environments, like the keys migrated to
+	// them — so Studio, the CLI and existing integrations keep working.
+	legacy := delivery.Scope{Environments: delivery.DefaultEnvironments}
+	k, replayed, err := a.svc.CreateDeliveryKey(ctx, project, app.NewDeliveryKey{Name: req.Body.Name, Scope: &legacy}, idem)
 	if err != nil {
 		return nil, mapError(err)
 	}

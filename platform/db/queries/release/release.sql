@@ -6,11 +6,24 @@
 -- name: InsertEnvironment :execrows
 -- An environment's identity is its name within the project, so creating
 -- one twice is a no-op (the default environments are ensured this way).
-INSERT INTO release_environments (tenant_id, project_id, name, policy, current_release_id, version,
+INSERT INTO release_environments (tenant_id, project_id, name, kind, branch, policy, current_release_id, version,
                                   created_by, created_at, updated_at)
-VALUES (app_current_tenant(), sqlc.arg(project_id), sqlc.arg(name), sqlc.arg(policy), NULL, sqlc.arg(version),
-        sqlc.arg(created_by), sqlc.arg(created_at), sqlc.arg(updated_at))
-ON CONFLICT (project_id, name) DO NOTHING;
+VALUES (app_current_tenant(), sqlc.arg(project_id), sqlc.arg(name), sqlc.arg(kind), sqlc.narg(branch), sqlc.arg(policy),
+        NULL, sqlc.arg(version), sqlc.arg(created_by), sqlc.arg(created_at), sqlc.arg(updated_at))
+ON CONFLICT DO NOTHING;
+
+-- name: GetBranchEnvironment :one
+SELECT * FROM release_environments WHERE project_id = sqlc.arg(project_id) AND branch = sqlc.arg(branch);
+
+-- name: LockBranchEnvironment :one
+SELECT * FROM release_environments WHERE project_id = sqlc.arg(project_id) AND branch = sqlc.arg(branch) FOR UPDATE;
+
+-- name: CountBranchEnvironments :one
+SELECT count(*)::integer FROM release_environments WHERE project_id = sqlc.arg(project_id) AND kind = 'branch';
+
+-- name: DeleteEnvironment :execrows
+-- Its deployments stay: they are history, like the releases.
+DELETE FROM release_environments WHERE project_id = sqlc.arg(project_id) AND name = sqlc.arg(name);
 
 -- name: GetEnvironment :one
 SELECT * FROM release_environments WHERE project_id = sqlc.arg(project_id) AND name = sqlc.arg(name);
@@ -41,11 +54,11 @@ DELETE FROM release_environments WHERE project_id = sqlc.arg(project_id) RETURNI
 
 -- name: InsertRelease :execrows
 -- A retried publish (same Idempotency-Key, same ID) inserts nothing.
-INSERT INTO release_releases (id, tenant_id, project_id, version, parent_id, environment, policy, content,
+INSERT INTO release_releases (id, tenant_id, project_id, version, parent_id, environment, policy, branch, content,
                               manifest_digest, stats, note, created_by, created_at)
 VALUES (sqlc.arg(id), app_current_tenant(), sqlc.arg(project_id), sqlc.arg(version), sqlc.narg(parent_id),
-        sqlc.arg(environment), sqlc.arg(policy), sqlc.arg(content), sqlc.arg(manifest_digest), sqlc.arg(stats),
-        sqlc.arg(note), sqlc.arg(created_by), sqlc.arg(created_at))
+        sqlc.arg(environment), sqlc.arg(policy), sqlc.narg(branch), sqlc.arg(content), sqlc.arg(manifest_digest),
+        sqlc.arg(stats), sqlc.arg(note), sqlc.arg(created_by), sqlc.arg(created_at))
 ON CONFLICT (id) DO NOTHING;
 
 -- name: GetRelease :one
@@ -99,10 +112,15 @@ SELECT EXISTS (
 -- ── delivery keys ──────────────────────────────────────────────────
 
 -- name: InsertDeliveryKey :execrows
-INSERT INTO release_delivery_keys (id, tenant_id, project_id, key, name, created_by, created_at)
+INSERT INTO release_delivery_keys (id, tenant_id, project_id, key, name, environments, branches, created_by, created_at)
 VALUES (sqlc.arg(id), app_current_tenant(), sqlc.arg(project_id), sqlc.arg(key), sqlc.arg(name),
-        sqlc.arg(created_by), sqlc.arg(created_at))
+        sqlc.arg(environments)::text[], sqlc.arg(branches), sqlc.arg(created_by), sqlc.arg(created_at))
 ON CONFLICT (id) DO NOTHING;
+
+-- name: MarkKeyIndexed :exec
+-- The key's index object was written in this format.
+UPDATE release_delivery_keys SET index_version = sqlc.arg(index_version)
+WHERE id = sqlc.arg(id) AND index_version <> sqlc.arg(index_version);
 
 -- name: GetDeliveryKey :one
 SELECT * FROM release_delivery_keys WHERE project_id = sqlc.arg(project_id) AND id = sqlc.arg(id);

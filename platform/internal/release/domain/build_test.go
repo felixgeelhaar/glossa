@@ -140,6 +140,48 @@ func TestBuildExcludesTheBranchOverlay(t *testing.T) {
 	}
 }
 
+// RFC 0004 §4.2: a branch environment's build is the main catalog plus
+// that branch's overlay: its proposed messages (translated like any
+// other) and its source proposals, rendered in the source locale only —
+// translations stay against the live source.
+func TestBuildBranchAddsItsOverlay(t *testing.T) {
+	s := shop(t)
+	idTip := uuid.MustParse("0192f5a0-0000-7000-8000-000000000004")
+	s.Translations["de"][idTip] = domain.Translation{Model: model(t, "de", "Trinkgeld geben")}
+	branch := s.WithOverlay(domain.Overlay{
+		Proposed: []domain.SourceMessage{{ID: idTip, Key: "checkout.tip", Namespace: "default", Model: model(t, "en", "Add a tip")}},
+		Changes:  map[uuid.UUID]json.RawMessage{idPay: model(t, "en", "Pay securely {amount, number}")},
+	})
+	b, err := domain.BuildBranch(branch, domain.BranchPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := artifactsByPath(b)
+	if !strings.Contains(got["en/default"], "checkout.tip") || !strings.Contains(got["en/default"], "securely") {
+		t.Errorf("en lacks the overlay: %s", got["en/default"])
+	}
+	if !strings.Contains(got["de/default"], "Trinkgeld") || !strings.Contains(got["de/default"], "bezahlen") {
+		t.Errorf("de: %s", got["de/default"])
+	}
+	if b.Stats.Messages != 4 || b.Stats.Locales["de"].Messages != 3 {
+		t.Errorf("stats %+v", b.Stats)
+	}
+	// The overlay is only ever the branch build's: the snapshot it came
+	// from is unchanged, and the main build of the overlaid snapshot
+	// still leaves it out.
+	if len(s.Messages) != 3 || s.Messages[1].Proposal != nil {
+		t.Errorf("WithOverlay changed its receiver: %+v", s.Messages)
+	}
+	main, err := domain.Build(branch, domain.BranchPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, _ := domain.Build(shop(t), domain.BranchPolicy())
+	if !slices.Equal(main.Artifacts[0].Body, want.Artifacts[0].Body) || main.Stats.Messages != 3 {
+		t.Errorf("the main build of an overlaid snapshot ships the overlay: %s", main.Artifacts[0].Body)
+	}
+}
+
 func TestBuildPolicyDropsOutdated(t *testing.T) {
 	b, err := domain.Build(shop(t), domain.Policy{States: []string{"approved"}, IncludeOutdated: false})
 	if err != nil {
@@ -271,9 +313,14 @@ func TestManifestIsSignedCanonicalJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 9, 19, 8, 0, 0, 123456789, time.UTC)
-	rel, err := domain.NewRelease(uuid.New(), uuid.New(), 42, uuid.Nil, "production", domain.DefaultPolicy("production"), b, "", "person:x", now)
+	project := uuid.New()
+	production, err := domain.NewEnvironment(project, "production", domain.DefaultPolicy("production"), now)
 	if err != nil {
 		t.Fatal(err)
+	}
+	rel, err := domain.NewRelease(uuid.New(), project, 42, uuid.Nil, production, b, "", "person:x", now)
+	if err != nil || rel.Environment != "production" || !rel.Policy.Equal(production.Policy) || rel.Branch != "" {
+		t.Fatalf("%+v, %v", rel, err)
 	}
 	s, pubs := signer(t, "k_2026a", "k_2026b")
 	body, err := rel.Manifest("staging").Encode(s)

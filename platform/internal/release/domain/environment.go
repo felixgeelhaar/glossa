@@ -29,6 +29,14 @@ var (
 	ErrNoRollbackTarget   = errors.New("release: the environment has no earlier release to roll back to")
 	ErrNotInHistory       = errors.New("release: the environment never served that release")
 	ErrKeyRevoked         = errors.New("release: the delivery key is already revoked")
+
+	ErrInvalidBranch = errors.New("release: a branch environment needs a branch name of 1-255 bytes " +
+		"without control characters, and a pull request number that isn't negative")
+	ErrFixedPolicy = errors.New("release: a branch environment's policy is fixed " +
+		"(draft, needs_review and approved, outdated included)")
+	ErrBranchReleaseNotPromotable = errors.New("release: a branch release can't be promoted: " +
+		"it holds text that exists only on its branch. Publish to the environment instead")
+	ErrTooManyBranches = errors.New("release: a project has at most 50 open branch environments")
 )
 
 // The default environments every project has (intent §37).
@@ -169,13 +177,42 @@ func (p Policy) Equal(o Policy) bool {
 	return slices.Equal(p.States, o.States) && p.IncludeOutdated == o.IncludeOutdated
 }
 
+// EnvironmentKind says what an environment serves.
+type EnvironmentKind string
+
+// Environment kinds.
+const (
+	// KindStandard serves the main catalog: the default environments and
+	// custom ones (a QA stage).
+	KindStandard EnvironmentKind = "standard"
+	// KindBranch serves one open branch's preview: the main catalog plus
+	// that branch's overlay (RFC 0004 §4.2).
+	KindBranch EnvironmentKind = "branch"
+)
+
+// MaxBranchEnvironments bounds a project's open branch environments.
+const MaxBranchEnvironments = 50
+
+// maxBranchLen bounds a branch name (Catalog's limit).
+const maxBranchLen = 255
+
+// BranchPolicy is every branch environment's fixed policy: everything
+// not rejected, outdated included — a preview shows the work in
+// progress.
+func BranchPolicy() Policy {
+	return Policy{States: slices.Clone(shippable), IncludeOutdated: true}
+}
+
 // Environment is where a project's text is served (development,
 // production, a branch preview): a policy for what may ship there and a
 // pointer to the release it serves.
 type Environment struct {
 	ProjectID uuid.UUID
 	Name      string
-	Policy    Policy
+	Kind      EnvironmentKind
+	// Branch is the branch a branch environment previews; "" otherwise.
+	Branch string
+	Policy Policy
 	// Current is the release served, uuid.Nil before the first publish.
 	Current uuid.UUID
 	// Version increments with every change (policy or pointer); it is
@@ -185,27 +222,50 @@ type Environment struct {
 	UpdatedAt time.Time
 }
 
-// NewEnvironment creates an environment with policy.
+// NewEnvironment creates a standard environment with policy. Branch
+// environment names (pr-<n>, br-<8 hex>) are reserved: delivery keys
+// reach those environments through their branches flag, by name.
 func NewEnvironment(project uuid.UUID, name string, policy Policy, now time.Time) (Environment, error) {
 	if _, err := ParseEnvironmentName(name); err != nil {
 		return Environment{}, err
 	}
+	if delivery.IsBranchEnvironment(name) {
+		return Environment{}, fmt.Errorf("%w: %q is reserved for branch environments", ErrInvalidEnvironment, name)
+	}
 	if _, err := NewPolicy(policy.States, policy.IncludeOutdated); err != nil {
 		return Environment{}, err
 	}
-	return Environment{ProjectID: project, Name: name, Policy: policy, Version: 1, CreatedAt: now, UpdatedAt: now}, nil
+	return Environment{
+		ProjectID: project, Name: name, Kind: KindStandard, Policy: policy, Version: 1, CreatedAt: now, UpdatedAt: now,
+	}, nil
+}
+
+// NewBranchEnvironment creates the environment that previews branch
+// (RFC 0004 §4.2): pr-<pr> for a pull request (pr > 0), br-<8 hex of
+// sha256(branch)> otherwise, with the fixed BranchPolicy.
+func NewBranchEnvironment(project uuid.UUID, branch string, pr int, now time.Time) (Environment, error) {
+	if branch == "" || len(branch) > maxBranchLen || pr < 0 || strings.ContainsFunc(branch, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
+		return Environment{}, ErrInvalidBranch
+	}
+	return Environment{
+		ProjectID: project, Name: delivery.BranchEnvironmentName(branch, pr), Kind: KindBranch, Branch: branch,
+		Policy: BranchPolicy(), Version: 1, CreatedAt: now, UpdatedAt: now,
+	}, nil
 }
 
 // ChangePolicy replaces the policy; false if it is unchanged. The
 // release served keeps serving: a policy decides what the next publish
-// takes.
-func (e *Environment) ChangePolicy(p Policy, now time.Time) bool {
+// takes. A branch environment's policy is fixed.
+func (e *Environment) ChangePolicy(p Policy, now time.Time) (bool, error) {
 	if e.Policy.Equal(p) {
-		return false
+		return false, nil
+	}
+	if e.Kind == KindBranch {
+		return false, ErrFixedPolicy
 	}
 	e.Policy = p
 	e.touch(now)
-	return true
+	return true, nil
 }
 
 // Point makes the environment serve release; false if it already does.

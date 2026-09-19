@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
@@ -117,21 +118,99 @@ func TestEnvironment(t *testing.T) {
 	if e.Point(r, now) || e.Version != 2 {
 		t.Error("pointing at the served release changed the environment")
 	}
-	if e.ChangePolicy(domain.DefaultPolicy("qa"), now) {
+	if changed, _ := e.ChangePolicy(domain.DefaultPolicy("qa"), now); changed {
 		t.Error("an equal policy is a change")
 	}
-	if !e.ChangePolicy(domain.DefaultPolicy("production"), now) || e.Version != 3 {
-		t.Errorf("policy change: %+v", e)
+	if changed, err := e.ChangePolicy(domain.DefaultPolicy("production"), now); err != nil || !changed || e.Version != 3 {
+		t.Errorf("policy change: %+v, %v", e, err)
+	}
+	if e.Kind != domain.KindStandard || e.Branch != "" {
+		t.Errorf("kind %q, branch %q", e.Kind, e.Branch)
+	}
+	// Branch environment names are reserved for branch environments.
+	for _, name := range []string{"pr-7", "br-0a1b2c3d"} {
+		if _, err := domain.NewEnvironment(project, name, domain.DefaultPolicy(name), now); !errors.Is(err, domain.ErrInvalidEnvironment) ||
+			!strings.Contains(err.Error(), "branch") {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
+// RFC 0004 §4.2: one environment per open branch, pr-<number> or
+// br-<8 hex of sha256(branch)>, with the fixed preview policy.
+func TestBranchEnvironment(t *testing.T) {
+	now := time.Date(2026, 9, 19, 8, 0, 0, 0, time.UTC)
+	project := uuid.New()
+	e, err := domain.NewBranchEnvironment(project, "feature/tip", 42, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Name != "pr-42" || e.Kind != domain.KindBranch || e.Branch != "feature/tip" || e.Version != 1 {
+		t.Errorf("%+v", e)
+	}
+	want := domain.Policy{States: []string{"draft", "needs_review", "approved"}, IncludeOutdated: true}
+	if !e.Policy.Equal(want) || !domain.BranchPolicy().Equal(want) {
+		t.Errorf("policy %+v", e.Policy)
+	}
+	noPR, err := domain.NewBranchEnvironment(project, "feature/tip", 0, now)
+	if err != nil || noPR.Name != delivery.BranchEnvironmentName("feature/tip", 0) || !strings.HasPrefix(noPR.Name, "br-") {
+		t.Errorf("without a PR: %+v, %v", noPR, err)
+	}
+	for _, bad := range []string{"", strings.Repeat("x", 256), "a\x00b"} {
+		if _, err := domain.NewBranchEnvironment(project, bad, 0, now); !errors.Is(err, domain.ErrInvalidBranch) {
+			t.Errorf("branch %q: %v", bad, err)
+		}
+	}
+	if _, err := domain.NewBranchEnvironment(project, "x", -1, now); !errors.Is(err, domain.ErrInvalidBranch) {
+		t.Errorf("negative PR: %v", err)
+	}
+	// The policy is fixed.
+	if changed, err := e.ChangePolicy(domain.DefaultPolicy("production"), now); !errors.Is(err, domain.ErrFixedPolicy) || changed || e.Version != 1 {
+		t.Errorf("policy change: %v", err)
+	}
+	if changed, err := e.ChangePolicy(domain.BranchPolicy(), now); err != nil || changed {
+		t.Errorf("unchanged policy: %v", err)
+	}
+}
+
+// Branch releases hold text that exists only on their branch, so they
+// can't be promoted anywhere (RFC 0004 §4.2).
+func TestBranchReleasesAreNotPromotable(t *testing.T) {
+	now := time.Date(2026, 9, 19, 8, 0, 0, 0, time.UTC)
+	project := uuid.New()
+	env, _ := domain.NewBranchEnvironment(project, "feature/tip", 42, now)
+	built, err := domain.BuildBranch(domain.Snapshot{SourceLocale: "en", Locales: []domain.Locale{{Code: "en", Direction: "ltr"}}}, env.Policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rel, err := domain.NewRelease(uuid.New(), project, 1, uuid.Nil, env, built, "", "system:release", now)
+	if err != nil || rel.Branch != "feature/tip" || rel.Environment != "pr-42" {
+		t.Fatalf("%+v, %v", rel, err)
+	}
+	if err := rel.Promotable(); !errors.Is(err, domain.ErrBranchReleaseNotPromotable) {
+		t.Errorf("branch release: %v", err)
+	}
+	preview, _ := domain.NewEnvironment(project, "preview", domain.DefaultPolicy("preview"), now)
+	main, _ := domain.NewRelease(uuid.New(), project, 2, uuid.Nil, preview, built, "", "person:x", now)
+	if err := main.Promotable(); err != nil {
+		t.Errorf("main release: %v", err)
 	}
 }
 
 func TestDeliveryKey(t *testing.T) {
 	now := time.Now()
-	if _, err := domain.NewDeliveryKey(uuid.New(), "", "person:x", now); !errors.Is(err, domain.ErrInvalidKeyName) {
+	if _, err := domain.NewDeliveryKey(uuid.New(), "", delivery.DefaultScope(), "person:x", now); !errors.Is(err, domain.ErrInvalidKeyName) {
 		t.Errorf("empty name: %v", err)
 	}
-	k, err := domain.NewDeliveryKey(uuid.New(), "web", "person:x", now)
-	if err != nil || !k.Active() {
+	if _, err := domain.NewDeliveryKey(uuid.New(), "web", delivery.Scope{Environments: []string{"pr-7"}}, "person:x", now); !errors.Is(err, delivery.ErrInvalidScope) {
+		t.Errorf("branch environment in the allowlist: %v", err)
+	}
+	preview, err := domain.NewDeliveryKey(uuid.New(), "preview", delivery.Scope{Environments: []string{"preview", "preview"}, Branches: true}, "person:x", now)
+	if err != nil || !slices.Equal(preview.Scope.Environments, []string{"preview"}) || !preview.Scope.Branches {
+		t.Fatalf("preview key: %+v, %v", preview, err)
+	}
+	k, err := domain.NewDeliveryKey(uuid.New(), "web", delivery.DefaultScope(), "person:x", now)
+	if err != nil || !k.Active() || !k.Scope.Equal(delivery.DefaultScope()) {
 		t.Fatal(err)
 	}
 	if err := k.Revoke("person:y", now); err != nil || k.Active() || k.RevokedBy != "person:y" {

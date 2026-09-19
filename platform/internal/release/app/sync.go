@@ -71,19 +71,25 @@ func (s *Service) SyncDeliveryKey(ctx context.Context, project, id uuid.UUID) er
 		if err != nil {
 			return err
 		}
-		return s.syncKey(ctx, k)
+		return s.syncKey(ctx, st, k)
 	})
 }
 
-func (s *Service) syncKey(ctx context.Context, k domain.DeliveryKey) error {
+// keyIndexVersion is the key index object format syncKey writes: 2 has
+// the key's scope (environments, branches); 1 predates scopes.
+const keyIndexVersion = 2
+
+// syncKey writes or removes k's index object in st's transaction, and
+// records the format written.
+func (s *Service) syncKey(ctx context.Context, st Store, k domain.DeliveryKey) error {
 	path := delivery.KeyIndexPath(k.Key)
 	if !k.Active() {
 		return s.remove(ctx, path)
 	}
-	if err := s.objects.Put(ctx, path, delivery.EncodeKeyIndex(k.ProjectID.String(), k.ID.String(), delivery.Scope{Environments: delivery.DefaultEnvironments}), "application/json"); err != nil {
+	if err := s.objects.Put(ctx, path, delivery.EncodeKeyIndex(k.ProjectID.String(), k.ID.String(), k.Scope), "application/json"); err != nil {
 		return fmt.Errorf("%w: %v", ErrStorage, err)
 	}
-	return nil
+	return st.MarkKeyIndexed(ctx, k.ID, keyIndexVersion)
 }
 
 func (s *Service) remove(ctx context.Context, path string) error {

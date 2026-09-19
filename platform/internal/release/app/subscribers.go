@@ -20,13 +20,14 @@ const catalogProjectDeleted = "catalog.project.deleted"
 // each event; never rename them.
 //
 //   - release.sync_manifest writes an environment's manifest after every
-//     pointer move, until storage has it.
+//     pointer move, until storage has it, and removes a destroyed branch
+//     environment's.
 //   - release.sync_delivery_key writes or removes a key's index object.
 //   - release.retire_project stops serving a deleted project: its keys
 //     are revoked and its environments and served manifests removed.
 //     Releases stay: they are immutable history.
 func (s *Service) Subscribe(r *outbox.Registry) error {
-	for _, typ := range []string{domain.EventPublished, domain.EventPromoted, domain.EventRolledBack} {
+	for _, typ := range []string{domain.EventPublished, domain.EventPromoted, domain.EventRolledBack, domain.EventEnvironmentDestroyed} {
 		if err := r.Subscribe(typ, "release.sync_manifest", outbox.HandlerFunc(s.handlePointerMoved)); err != nil {
 			return err
 		}
@@ -106,7 +107,7 @@ func (s *Service) handleProjectDeleted(ctx context.Context, d outbox.Delivery) e
 			if err := st.RevokeDeliveryKey(ctx, k); err != nil {
 				return err
 			}
-			if err := s.syncKey(ctx, k); err != nil {
+			if err := s.syncKey(ctx, st, k); err != nil {
 				return err
 			}
 		}

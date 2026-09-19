@@ -16,6 +16,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/postgres/releasesql"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
@@ -58,10 +59,13 @@ func environment(r releasesql.ReleaseEnvironment) (domain.Environment, error) {
 		return domain.Environment{}, fmt.Errorf("release: stored policy of %s: %w", r.Name, err)
 	}
 	return domain.Environment{
-		ProjectID: r.ProjectID, Name: r.Name, Policy: p, Current: r.CurrentReleaseID.UUID,
+		ProjectID: r.ProjectID, Name: r.Name, Kind: domain.EnvironmentKind(r.Kind), Branch: r.Branch.String,
+		Policy: p, Current: r.CurrentReleaseID.UUID,
 		Version: int(r.Version), CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
 	}, nil
 }
+
+func text(s string) pgtype.Text { return pgtype.Text{String: s, Valid: s != ""} }
 
 func environments(rows []releasesql.ReleaseEnvironment) ([]domain.Environment, error) {
 	out := make([]domain.Environment, 0, len(rows))
@@ -80,10 +84,40 @@ func (s *store) InsertEnvironment(ctx context.Context, e domain.Environment, by 
 	if err != nil {
 		return false, err
 	}
+	kind := e.Kind
+	if kind == "" {
+		kind = domain.KindStandard
+	}
 	n, err := s.q.InsertEnvironment(ctx, releasesql.InsertEnvironmentParams{
-		ProjectID: e.ProjectID, Name: e.Name, Policy: policy, Version: int32Of(e.Version),
-		CreatedBy: by, CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt,
+		ProjectID: e.ProjectID, Name: e.Name, Kind: string(kind), Branch: text(e.Branch), Policy: policy,
+		Version: int32Of(e.Version), CreatedBy: by, CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt,
 	})
+	return n == 1, storeError(err)
+}
+
+func (s *store) BranchEnvironment(ctx context.Context, project uuid.UUID, branch string, lock bool) (domain.Environment, error) {
+	var (
+		row releasesql.ReleaseEnvironment
+		err error
+	)
+	if lock {
+		row, err = s.q.LockBranchEnvironment(ctx, releasesql.LockBranchEnvironmentParams{ProjectID: project, Branch: text(branch)})
+	} else {
+		row, err = s.q.GetBranchEnvironment(ctx, releasesql.GetBranchEnvironmentParams{ProjectID: project, Branch: text(branch)})
+	}
+	if err != nil {
+		return domain.Environment{}, storeError(err)
+	}
+	return environment(row)
+}
+
+func (s *store) CountBranchEnvironments(ctx context.Context, project uuid.UUID) (int, error) {
+	n, err := s.q.CountBranchEnvironments(ctx, project)
+	return int(n), storeError(err)
+}
+
+func (s *store) DeleteEnvironment(ctx context.Context, project uuid.UUID, name string) (bool, error) {
+	n, err := s.q.DeleteEnvironment(ctx, releasesql.DeleteEnvironmentParams{ProjectID: project, Name: name})
 	return n == 1, storeError(err)
 }
 
@@ -147,7 +181,7 @@ func (s *store) DeleteProjectEnvironments(ctx context.Context, project uuid.UUID
 func release(r releasesql.ReleaseRelease) (domain.Release, error) {
 	out := domain.Release{
 		ID: r.ID, ProjectID: r.ProjectID, Version: int(r.Version), Parent: r.ParentID.UUID, Environment: r.Environment,
-		Digest: r.ManifestDigest, Note: r.Note, Author: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
+		Branch: r.Branch.String, Digest: r.ManifestDigest, Note: r.Note, Author: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
 	}
 	for _, f := range []struct {
 		name string
@@ -176,7 +210,7 @@ func (s *store) InsertRelease(ctx context.Context, r domain.Release) (bool, erro
 	}
 	n, err := s.q.InsertRelease(ctx, releasesql.InsertReleaseParams{
 		ID: r.ID, ProjectID: r.ProjectID, Version: int32Of(r.Version), ParentID: nullID(r.Parent),
-		Environment: r.Environment, Policy: policy, Content: content, ManifestDigest: r.Digest, Stats: stats,
+		Environment: r.Environment, Policy: policy, Branch: text(r.Branch), Content: content, ManifestDigest: r.Digest, Stats: stats,
 		Note: r.Note, CreatedBy: r.Author, CreatedAt: r.CreatedAt,
 	})
 	return n == 1, storeError(err)
@@ -263,7 +297,12 @@ func (s *store) ServedIn(ctx context.Context, project uuid.UUID, environment str
 
 func deliveryKey(r releasesql.ReleaseDeliveryKey) domain.DeliveryKey {
 	k := domain.DeliveryKey{
-		ID: r.ID, ProjectID: r.ProjectID, Key: r.Key, Name: r.Name, CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
+		ID: r.ID, ProjectID: r.ProjectID, Key: r.Key, Name: r.Name,
+		Scope:     delivery.Scope{Environments: r.Environments, Branches: r.Branches},
+		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
+	}
+	if k.Scope.Environments == nil {
+		k.Scope.Environments = []string{}
 	}
 	if r.RevokedAt.Valid {
 		at := r.RevokedAt.Time.UTC()
@@ -273,10 +312,19 @@ func deliveryKey(r releasesql.ReleaseDeliveryKey) domain.DeliveryKey {
 }
 
 func (s *store) InsertDeliveryKey(ctx context.Context, k domain.DeliveryKey) (bool, error) {
+	envs := k.Scope.Environments
+	if envs == nil {
+		envs = []string{}
+	}
 	n, err := s.q.InsertDeliveryKey(ctx, releasesql.InsertDeliveryKeyParams{
-		ID: k.ID, ProjectID: k.ProjectID, Key: k.Key, Name: k.Name, CreatedBy: k.CreatedBy, CreatedAt: k.CreatedAt,
+		ID: k.ID, ProjectID: k.ProjectID, Key: k.Key, Name: k.Name, Environments: envs, Branches: k.Scope.Branches,
+		CreatedBy: k.CreatedBy, CreatedAt: k.CreatedAt,
 	})
 	return n == 1, storeError(err)
+}
+
+func (s *store) MarkKeyIndexed(ctx context.Context, id uuid.UUID, version int) error {
+	return storeError(s.q.MarkKeyIndexed(ctx, releasesql.MarkKeyIndexedParams{ID: id, IndexVersion: int16(version)})) //nolint:gosec // a small format number
 }
 
 func (s *store) DeliveryKey(ctx context.Context, project, id uuid.UUID, lock bool) (domain.DeliveryKey, error) {
@@ -326,6 +374,33 @@ func (s *store) RevokeDeliveryKey(ctx context.Context, k domain.DeliveryKey) err
 	_, err := s.q.RevokeDeliveryKey(ctx, releasesql.RevokeDeliveryKeyParams{
 		RevokedAt: pgtype.Timestamptz{Time: *k.RevokedAt, Valid: true}, RevokedBy: pgtype.Text{String: k.RevokedBy, Valid: true},
 		ProjectID: k.ProjectID, ID: k.ID,
+	})
+	return storeError(err)
+}
+
+// ── publish requests ────────────────────────────────────────────────
+
+func (s *store) PublishRequest(ctx context.Context, project uuid.UUID, environment string) (domain.PublishRequest, error) {
+	r, err := s.q.LockPublishRequest(ctx, releasesql.LockPublishRequestParams{ProjectID: project, Environment: environment})
+	if err != nil {
+		return domain.PublishRequest{}, storeError(err)
+	}
+	return domain.PublishRequest{
+		ProjectID: r.ProjectID, Environment: r.Environment, ID: r.RequestID,
+		FirstRequestedAt: r.FirstRequestedAt.UTC(), NotBefore: r.NotBefore.UTC(), By: r.RequestedBy,
+	}, nil
+}
+
+func (s *store) SavePublishRequest(ctx context.Context, r domain.PublishRequest) error {
+	return storeError(s.q.SavePublishRequest(ctx, releasesql.SavePublishRequestParams{
+		ProjectID: r.ProjectID, Environment: r.Environment, RequestID: r.ID,
+		FirstRequestedAt: r.FirstRequestedAt, NotBefore: r.NotBefore, RequestedBy: r.By,
+	}))
+}
+
+func (s *store) DeletePublishRequest(ctx context.Context, r domain.PublishRequest) error {
+	_, err := s.q.DeletePublishRequest(ctx, releasesql.DeletePublishRequestParams{
+		ProjectID: r.ProjectID, Environment: r.Environment, RequestID: r.ID,
 	})
 	return storeError(err)
 }

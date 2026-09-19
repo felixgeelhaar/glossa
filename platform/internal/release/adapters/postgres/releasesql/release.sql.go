@@ -15,7 +15,7 @@ import (
 )
 
 const activeDeliveryKeys = `-- name: ActiveDeliveryKeys :many
-SELECT id, tenant_id, project_id, key, name, created_by, created_at, revoked_at, revoked_by FROM release_delivery_keys WHERE project_id = $1 AND revoked_at IS NULL ORDER BY id
+SELECT id, tenant_id, project_id, key, name, created_by, created_at, revoked_at, revoked_by, environments, branches, index_version FROM release_delivery_keys WHERE project_id = $1 AND revoked_at IS NULL ORDER BY id
 `
 
 func (q *Queries) ActiveDeliveryKeys(ctx context.Context, projectID uuid.UUID) ([]ReleaseDeliveryKey, error) {
@@ -37,6 +37,9 @@ func (q *Queries) ActiveDeliveryKeys(ctx context.Context, projectID uuid.UUID) (
 			&i.CreatedAt,
 			&i.RevokedAt,
 			&i.RevokedBy,
+			&i.Environments,
+			&i.Branches,
+			&i.IndexVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -46,6 +49,35 @@ func (q *Queries) ActiveDeliveryKeys(ctx context.Context, projectID uuid.UUID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const countBranchEnvironments = `-- name: CountBranchEnvironments :one
+SELECT count(*)::integer FROM release_environments WHERE project_id = $1 AND kind = 'branch'
+`
+
+func (q *Queries) CountBranchEnvironments(ctx context.Context, projectID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countBranchEnvironments, projectID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const deleteEnvironment = `-- name: DeleteEnvironment :execrows
+DELETE FROM release_environments WHERE project_id = $1 AND name = $2
+`
+
+type DeleteEnvironmentParams struct {
+	ProjectID uuid.UUID
+	Name      string
+}
+
+// Its deployments stay: they are history, like the releases.
+func (q *Queries) DeleteEnvironment(ctx context.Context, arg DeleteEnvironmentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteEnvironment, arg.ProjectID, arg.Name)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteProjectEnvironments = `-- name: DeleteProjectEnvironments :many
@@ -72,8 +104,36 @@ func (q *Queries) DeleteProjectEnvironments(ctx context.Context, projectID uuid.
 	return items, nil
 }
 
+const getBranchEnvironment = `-- name: GetBranchEnvironment :one
+SELECT tenant_id, project_id, name, policy, current_release_id, version, created_by, created_at, updated_at, kind, branch FROM release_environments WHERE project_id = $1 AND branch = $2
+`
+
+type GetBranchEnvironmentParams struct {
+	ProjectID uuid.UUID
+	Branch    pgtype.Text
+}
+
+func (q *Queries) GetBranchEnvironment(ctx context.Context, arg GetBranchEnvironmentParams) (ReleaseEnvironment, error) {
+	row := q.db.QueryRow(ctx, getBranchEnvironment, arg.ProjectID, arg.Branch)
+	var i ReleaseEnvironment
+	err := row.Scan(
+		&i.TenantID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Policy,
+		&i.CurrentReleaseID,
+		&i.Version,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Kind,
+		&i.Branch,
+	)
+	return i, err
+}
+
 const getDeliveryKey = `-- name: GetDeliveryKey :one
-SELECT id, tenant_id, project_id, key, name, created_by, created_at, revoked_at, revoked_by FROM release_delivery_keys WHERE project_id = $1 AND id = $2
+SELECT id, tenant_id, project_id, key, name, created_by, created_at, revoked_at, revoked_by, environments, branches, index_version FROM release_delivery_keys WHERE project_id = $1 AND id = $2
 `
 
 type GetDeliveryKeyParams struct {
@@ -94,12 +154,15 @@ func (q *Queries) GetDeliveryKey(ctx context.Context, arg GetDeliveryKeyParams) 
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.RevokedBy,
+		&i.Environments,
+		&i.Branches,
+		&i.IndexVersion,
 	)
 	return i, err
 }
 
 const getEnvironment = `-- name: GetEnvironment :one
-SELECT tenant_id, project_id, name, policy, current_release_id, version, created_by, created_at, updated_at FROM release_environments WHERE project_id = $1 AND name = $2
+SELECT tenant_id, project_id, name, policy, current_release_id, version, created_by, created_at, updated_at, kind, branch FROM release_environments WHERE project_id = $1 AND name = $2
 `
 
 type GetEnvironmentParams struct {
@@ -120,12 +183,14 @@ func (q *Queries) GetEnvironment(ctx context.Context, arg GetEnvironmentParams) 
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Kind,
+		&i.Branch,
 	)
 	return i, err
 }
 
 const getRelease = `-- name: GetRelease :one
-SELECT id, tenant_id, project_id, version, parent_id, environment, policy, content, manifest_digest, stats, note, created_by, created_at FROM release_releases WHERE project_id = $1 AND id = $2
+SELECT id, tenant_id, project_id, version, parent_id, environment, policy, content, manifest_digest, stats, note, created_by, created_at, branch FROM release_releases WHERE project_id = $1 AND id = $2
 `
 
 type GetReleaseParams struct {
@@ -150,25 +215,28 @@ func (q *Queries) GetRelease(ctx context.Context, arg GetReleaseParams) (Release
 		&i.Note,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.Branch,
 	)
 	return i, err
 }
 
 const insertDeliveryKey = `-- name: InsertDeliveryKey :execrows
 
-INSERT INTO release_delivery_keys (id, tenant_id, project_id, key, name, created_by, created_at)
+INSERT INTO release_delivery_keys (id, tenant_id, project_id, key, name, environments, branches, created_by, created_at)
 VALUES ($1, app_current_tenant(), $2, $3, $4,
-        $5, $6)
+        $5::text[], $6, $7, $8)
 ON CONFLICT (id) DO NOTHING
 `
 
 type InsertDeliveryKeyParams struct {
-	ID        uuid.UUID
-	ProjectID uuid.UUID
-	Key       string
-	Name      string
-	CreatedBy string
-	CreatedAt time.Time
+	ID           uuid.UUID
+	ProjectID    uuid.UUID
+	Key          string
+	Name         string
+	Environments []string
+	Branches     bool
+	CreatedBy    string
+	CreatedAt    time.Time
 }
 
 // ── delivery keys ──────────────────────────────────────────────────
@@ -178,6 +246,8 @@ func (q *Queries) InsertDeliveryKey(ctx context.Context, arg InsertDeliveryKeyPa
 		arg.ProjectID,
 		arg.Key,
 		arg.Name,
+		arg.Environments,
+		arg.Branches,
 		arg.CreatedBy,
 		arg.CreatedAt,
 	)
@@ -224,16 +294,18 @@ func (q *Queries) InsertDeployment(ctx context.Context, arg InsertDeploymentPara
 const insertEnvironment = `-- name: InsertEnvironment :execrows
 
 
-INSERT INTO release_environments (tenant_id, project_id, name, policy, current_release_id, version,
+INSERT INTO release_environments (tenant_id, project_id, name, kind, branch, policy, current_release_id, version,
                                   created_by, created_at, updated_at)
-VALUES (app_current_tenant(), $1, $2, $3, NULL, $4,
-        $5, $6, $7)
-ON CONFLICT (project_id, name) DO NOTHING
+VALUES (app_current_tenant(), $1, $2, $3, $4, $5,
+        NULL, $6, $7, $8, $9)
+ON CONFLICT DO NOTHING
 `
 
 type InsertEnvironmentParams struct {
 	ProjectID uuid.UUID
 	Name      string
+	Kind      string
+	Branch    pgtype.Text
 	Policy    json.RawMessage
 	Version   int32
 	CreatedBy string
@@ -250,6 +322,8 @@ func (q *Queries) InsertEnvironment(ctx context.Context, arg InsertEnvironmentPa
 	result, err := q.db.Exec(ctx, insertEnvironment,
 		arg.ProjectID,
 		arg.Name,
+		arg.Kind,
+		arg.Branch,
 		arg.Policy,
 		arg.Version,
 		arg.CreatedBy,
@@ -264,11 +338,11 @@ func (q *Queries) InsertEnvironment(ctx context.Context, arg InsertEnvironmentPa
 
 const insertRelease = `-- name: InsertRelease :execrows
 
-INSERT INTO release_releases (id, tenant_id, project_id, version, parent_id, environment, policy, content,
+INSERT INTO release_releases (id, tenant_id, project_id, version, parent_id, environment, policy, branch, content,
                               manifest_digest, stats, note, created_by, created_at)
 VALUES ($1, app_current_tenant(), $2, $3, $4,
         $5, $6, $7, $8, $9,
-        $10, $11, $12)
+        $10, $11, $12, $13)
 ON CONFLICT (id) DO NOTHING
 `
 
@@ -279,6 +353,7 @@ type InsertReleaseParams struct {
 	ParentID       uuid.NullUUID
 	Environment    string
 	Policy         json.RawMessage
+	Branch         pgtype.Text
 	Content        json.RawMessage
 	ManifestDigest string
 	Stats          json.RawMessage
@@ -297,6 +372,7 @@ func (q *Queries) InsertRelease(ctx context.Context, arg InsertReleaseParams) (i
 		arg.ParentID,
 		arg.Environment,
 		arg.Policy,
+		arg.Branch,
 		arg.Content,
 		arg.ManifestDigest,
 		arg.Stats,
@@ -328,7 +404,7 @@ func (q *Queries) LastDeploymentNumber(ctx context.Context, arg LastDeploymentNu
 }
 
 const listDeliveryKeys = `-- name: ListDeliveryKeys :many
-SELECT id, tenant_id, project_id, key, name, created_by, created_at, revoked_at, revoked_by FROM release_delivery_keys
+SELECT id, tenant_id, project_id, key, name, created_by, created_at, revoked_at, revoked_by, environments, branches, index_version FROM release_delivery_keys
 WHERE project_id = $1 AND id > $2
 ORDER BY id
 LIMIT $3
@@ -359,6 +435,9 @@ func (q *Queries) ListDeliveryKeys(ctx context.Context, arg ListDeliveryKeysPara
 			&i.CreatedAt,
 			&i.RevokedAt,
 			&i.RevokedBy,
+			&i.Environments,
+			&i.Branches,
+			&i.IndexVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -421,7 +500,7 @@ func (q *Queries) ListDeployments(ctx context.Context, arg ListDeploymentsParams
 }
 
 const listEnvironments = `-- name: ListEnvironments :many
-SELECT tenant_id, project_id, name, policy, current_release_id, version, created_by, created_at, updated_at FROM release_environments
+SELECT tenant_id, project_id, name, policy, current_release_id, version, created_by, created_at, updated_at, kind, branch FROM release_environments
 WHERE project_id = $1 AND name > $2
 ORDER BY name
 LIMIT $3
@@ -452,6 +531,8 @@ func (q *Queries) ListEnvironments(ctx context.Context, arg ListEnvironmentsPara
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Kind,
+			&i.Branch,
 		); err != nil {
 			return nil, err
 		}
@@ -464,7 +545,7 @@ func (q *Queries) ListEnvironments(ctx context.Context, arg ListEnvironmentsPara
 }
 
 const listReleases = `-- name: ListReleases :many
-SELECT id, tenant_id, project_id, version, parent_id, environment, policy, content, manifest_digest, stats, note, created_by, created_at FROM release_releases
+SELECT id, tenant_id, project_id, version, parent_id, environment, policy, content, manifest_digest, stats, note, created_by, created_at, branch FROM release_releases
 WHERE project_id = $1 AND version < $2
 ORDER BY version DESC
 LIMIT $3
@@ -500,6 +581,7 @@ func (q *Queries) ListReleases(ctx context.Context, arg ListReleasesParams) ([]R
 			&i.Note,
 			&i.CreatedBy,
 			&i.CreatedAt,
+			&i.Branch,
 		); err != nil {
 			return nil, err
 		}
@@ -511,8 +593,36 @@ func (q *Queries) ListReleases(ctx context.Context, arg ListReleasesParams) ([]R
 	return items, nil
 }
 
+const lockBranchEnvironment = `-- name: LockBranchEnvironment :one
+SELECT tenant_id, project_id, name, policy, current_release_id, version, created_by, created_at, updated_at, kind, branch FROM release_environments WHERE project_id = $1 AND branch = $2 FOR UPDATE
+`
+
+type LockBranchEnvironmentParams struct {
+	ProjectID uuid.UUID
+	Branch    pgtype.Text
+}
+
+func (q *Queries) LockBranchEnvironment(ctx context.Context, arg LockBranchEnvironmentParams) (ReleaseEnvironment, error) {
+	row := q.db.QueryRow(ctx, lockBranchEnvironment, arg.ProjectID, arg.Branch)
+	var i ReleaseEnvironment
+	err := row.Scan(
+		&i.TenantID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Policy,
+		&i.CurrentReleaseID,
+		&i.Version,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Kind,
+		&i.Branch,
+	)
+	return i, err
+}
+
 const lockDeliveryKey = `-- name: LockDeliveryKey :one
-SELECT id, tenant_id, project_id, key, name, created_by, created_at, revoked_at, revoked_by FROM release_delivery_keys WHERE project_id = $1 AND id = $2 FOR UPDATE
+SELECT id, tenant_id, project_id, key, name, created_by, created_at, revoked_at, revoked_by, environments, branches, index_version FROM release_delivery_keys WHERE project_id = $1 AND id = $2 FOR UPDATE
 `
 
 type LockDeliveryKeyParams struct {
@@ -533,12 +643,15 @@ func (q *Queries) LockDeliveryKey(ctx context.Context, arg LockDeliveryKeyParams
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.RevokedBy,
+		&i.Environments,
+		&i.Branches,
+		&i.IndexVersion,
 	)
 	return i, err
 }
 
 const lockEnvironment = `-- name: LockEnvironment :one
-SELECT tenant_id, project_id, name, policy, current_release_id, version, created_by, created_at, updated_at FROM release_environments WHERE project_id = $1 AND name = $2 FOR UPDATE
+SELECT tenant_id, project_id, name, policy, current_release_id, version, created_by, created_at, updated_at, kind, branch FROM release_environments WHERE project_id = $1 AND name = $2 FOR UPDATE
 `
 
 type LockEnvironmentParams struct {
@@ -559,12 +672,14 @@ func (q *Queries) LockEnvironment(ctx context.Context, arg LockEnvironmentParams
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Kind,
+		&i.Branch,
 	)
 	return i, err
 }
 
 const lockProjectEnvironments = `-- name: LockProjectEnvironments :many
-SELECT tenant_id, project_id, name, policy, current_release_id, version, created_by, created_at, updated_at FROM release_environments WHERE project_id = $1 ORDER BY name FOR UPDATE
+SELECT tenant_id, project_id, name, policy, current_release_id, version, created_by, created_at, updated_at, kind, branch FROM release_environments WHERE project_id = $1 ORDER BY name FOR UPDATE
 `
 
 // Serializes publishes of one project (release versions have no gaps).
@@ -587,6 +702,8 @@ func (q *Queries) LockProjectEnvironments(ctx context.Context, projectID uuid.UU
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Kind,
+			&i.Branch,
 		); err != nil {
 			return nil, err
 		}
@@ -596,6 +713,22 @@ func (q *Queries) LockProjectEnvironments(ctx context.Context, projectID uuid.UU
 		return nil, err
 	}
 	return items, nil
+}
+
+const markKeyIndexed = `-- name: MarkKeyIndexed :exec
+UPDATE release_delivery_keys SET index_version = $1
+WHERE id = $2 AND index_version <> $1
+`
+
+type MarkKeyIndexedParams struct {
+	IndexVersion int16
+	ID           uuid.UUID
+}
+
+// The key's index object was written in this format.
+func (q *Queries) MarkKeyIndexed(ctx context.Context, arg MarkKeyIndexedParams) error {
+	_, err := q.db.Exec(ctx, markKeyIndexed, arg.IndexVersion, arg.ID)
+	return err
 }
 
 const maxReleaseVersion = `-- name: MaxReleaseVersion :one
@@ -636,7 +769,7 @@ func (q *Queries) RevokeDeliveryKey(ctx context.Context, arg RevokeDeliveryKeyPa
 }
 
 const rollbackTarget = `-- name: RollbackTarget :one
-SELECT r.id, r.tenant_id, r.project_id, r.version, r.parent_id, r.environment, r.policy, r.content, r.manifest_digest, r.stats, r.note, r.created_by, r.created_at FROM release_deployments d
+SELECT r.id, r.tenant_id, r.project_id, r.version, r.parent_id, r.environment, r.policy, r.content, r.manifest_digest, r.stats, r.note, r.created_by, r.created_at, r.branch FROM release_deployments d
 JOIN release_releases r ON r.id = d.release_id
 WHERE d.project_id = $1 AND d.environment = $2
   AND r.version < $3
@@ -669,6 +802,7 @@ func (q *Queries) RollbackTarget(ctx context.Context, arg RollbackTargetParams) 
 		&i.Note,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.Branch,
 	)
 	return i, err
 }

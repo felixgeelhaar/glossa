@@ -9,19 +9,33 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
+	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
+// NewDeliveryKey is a key to create.
+type NewDeliveryKey struct {
+	Name string
+	// Scope is what the key reads at the edge; nil means
+	// delivery.DefaultScope (production only). A preview key, for preview
+	// deployments only, has Branches set (RFC 0004 §4.3).
+	Scope *delivery.Scope
+}
+
 // CreateDeliveryKey creates a publishable delivery key for the project
-// and writes its index object, so glossa-edge resolves it. A repeated
-// idemKey returns the first request's key with replayed set (the key is
-// public, so replaying it reveals nothing).
-func (s *Service) CreateDeliveryKey(ctx context.Context, project uuid.UUID, name, idemKey string) (domain.DeliveryKey, bool, error) {
+// and writes its index object, so glossa-edge resolves it within its
+// scope. A repeated idemKey returns the first request's key with
+// replayed set (the key is public, so replaying it reveals nothing).
+func (s *Service) CreateDeliveryKey(ctx context.Context, project uuid.UUID, in NewDeliveryKey, idemKey string) (domain.DeliveryKey, bool, error) {
 	by, err := s.checkProject(ctx, project, authz.ReleasesPublish)
 	if err != nil {
 		return domain.DeliveryKey{}, false, err
 	}
-	k, err := domain.NewDeliveryKey(project, name, by, s.now())
+	scope := delivery.DefaultScope()
+	if in.Scope != nil {
+		scope = *in.Scope
+	}
+	k, err := domain.NewDeliveryKey(project, in.Name, scope, by, s.now())
 	if err != nil {
 		return domain.DeliveryKey{}, false, err
 	}
@@ -43,7 +57,7 @@ func (s *Service) CreateDeliveryKey(ctx context.Context, project uuid.UUID, name
 			if err != nil {
 				return err
 			}
-			if first.Name != k.Name {
+			if first.Name != k.Name || !first.Scope.Equal(k.Scope) {
 				return ErrIdempotencyReuse
 			}
 			k, replayed = first, true
@@ -118,6 +132,9 @@ func (s *Service) syncKeyNow(ctx context.Context, project, id uuid.UUID) {
 func keyEvent(typ string, k domain.DeliveryKey, by string) outbox.Event {
 	return outbox.Event{
 		Type: typ, AggregateType: domain.AggregateDeliveryKey, AggregateID: k.ID.String(),
-		Payload: domain.DeliveryKeyChanged{KeyID: k.ID.String(), ProjectID: k.ProjectID.String(), Name: k.Name, By: by},
+		Payload: domain.DeliveryKeyChanged{
+			KeyID: k.ID.String(), ProjectID: k.ProjectID.String(), Name: k.Name,
+			Environments: k.Scope.Environments, Branches: k.Scope.Branches, By: by,
+		},
 	}
 }

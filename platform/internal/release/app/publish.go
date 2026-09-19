@@ -49,7 +49,7 @@ func (s *Service) Publish(ctx context.Context, project uuid.UUID, in PublishInpu
 		}
 		return domain.Release{}, false, err
 	}
-	built, err := s.build(ctx, project, env.Policy)
+	built, err := s.build(ctx, project, env)
 	if err != nil {
 		return domain.Release{}, false, err
 	}
@@ -104,14 +104,22 @@ func (s *Service) replay(first domain.Release, in PublishInput) (domain.Release,
 
 // build is the one build of a release, shared by Publish and
 // PreviewPublish: the project's releasable source and the translations
-// policy makes eligible, turned into artifacts. It reads; it stores
-// nothing.
-func (s *Service) build(ctx context.Context, project uuid.UUID, policy domain.Policy) (domain.Built, error) {
-	snap, err := s.source.Snapshot(ctx, project, policy.States)
+// env's policy makes eligible, turned into artifacts — plus, for a
+// branch environment, that branch's overlay and no other (RFC 0004
+// §4.2). It reads; it stores nothing.
+func (s *Service) build(ctx context.Context, project uuid.UUID, env domain.Environment) (domain.Built, error) {
+	snap, err := s.source.Snapshot(ctx, project, env.Policy.States)
 	if err != nil {
 		return domain.Built{}, err
 	}
-	return domain.Build(snap, policy)
+	if env.Kind != domain.KindBranch {
+		return domain.Build(snap, env.Policy)
+	}
+	overlay, err := s.source.BranchOverlay(ctx, project, env.Branch)
+	if err != nil {
+		return domain.Built{}, err
+	}
+	return domain.BuildBranch(snap.WithOverlay(overlay), env.Policy)
 }
 
 // missing returns the artifacts storage doesn't have yet.
@@ -163,7 +171,9 @@ func (s *Service) record(ctx context.Context, id, project uuid.UUID, target doma
 		if err != nil {
 			return err
 		}
-		rel, err = domain.NewRelease(id, project, version+1, env.Current, env.Name, target.Policy, built, note, by, s.now())
+		// Built under target's policy (and overlay): the one read before
+		// building, even if the environment changed since.
+		rel, err = domain.NewRelease(id, project, version+1, env.Current, target, built, note, by, s.now())
 		if err != nil {
 			return err
 		}

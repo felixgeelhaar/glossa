@@ -13,15 +13,18 @@ import (
 )
 
 type ReleaseDeliveryKey struct {
-	ID        uuid.UUID
-	TenantID  uuid.UUID
-	ProjectID uuid.UUID
-	Key       string
-	Name      string
-	CreatedBy string
-	CreatedAt time.Time
-	RevokedAt pgtype.Timestamptz
-	RevokedBy pgtype.Text
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	ProjectID    uuid.UUID
+	Key          string
+	Name         string
+	CreatedBy    string
+	CreatedAt    time.Time
+	RevokedAt    pgtype.Timestamptz
+	RevokedBy    pgtype.Text
+	Environments []string
+	Branches     bool
+	IndexVersion int16
 }
 
 type ReleaseDeployment struct {
@@ -46,6 +49,18 @@ type ReleaseEnvironment struct {
 	CreatedBy        string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	Kind             string
+	Branch           pgtype.Text
+}
+
+type ReleasePublishRequest struct {
+	TenantID         uuid.UUID
+	ProjectID        uuid.UUID
+	Environment      string
+	RequestID        uuid.UUID
+	FirstRequestedAt time.Time
+	NotBefore        time.Time
+	RequestedBy      string
 }
 
 type ReleaseRelease struct {
@@ -62,4 +77,5 @@ type ReleaseRelease struct {
 	Note           string
 	CreatedBy      string
 	CreatedAt      time.Time
+	Branch         pgtype.Text
 }

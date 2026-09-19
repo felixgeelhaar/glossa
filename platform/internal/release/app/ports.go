@@ -15,10 +15,12 @@ package app
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
@@ -43,6 +45,34 @@ type Source interface {
 	// Snapshot reads the project's active messages and its translations
 	// in the review states given.
 	Snapshot(ctx context.Context, project uuid.UUID, states []string) (domain.Snapshot, error)
+	// BranchOverlay reads what branch adds to the main catalog: its
+	// proposed messages and its source proposals (RFC 0004 §4.1). A
+	// branch the catalog doesn't know yet proposes nothing.
+	BranchOverlay(ctx context.Context, project uuid.UUID, branch string) (domain.Overlay, error)
+}
+
+// EnvironmentRef names an environment of a tenant's project.
+type EnvironmentRef struct {
+	Tenant      tenancy.ID
+	Project     uuid.UUID
+	Environment string
+}
+
+// KeyRef names a delivery key of a tenant's project.
+type KeyRef struct {
+	Tenant  tenancy.ID
+	Project uuid.UUID
+	Key     uuid.UUID
+}
+
+// Scanner finds Release's background work across tenants (system
+// scope); the work itself runs in each tenant's scope.
+type Scanner interface {
+	// DuePublishRequests lists publish requests due at now.
+	DuePublishRequests(ctx context.Context, now time.Time, limit int) ([]EnvironmentRef, error)
+	// StaleKeyIndexes lists active keys whose index object was last
+	// written in a format older than version.
+	StaleKeyIndexes(ctx context.Context, version, limit int) ([]KeyRef, error)
 }
 
 // Transactor runs units of work scoped to the tenant on ctx.
@@ -63,6 +93,21 @@ type Store interface {
 	// (ErrStaleVersion otherwise).
 	UpdateEnvironment(ctx context.Context, e domain.Environment, expected int) error
 	DeleteProjectEnvironments(ctx context.Context, project uuid.UUID) ([]string, error)
+	// BranchEnvironment is the environment of branch (ErrNotFound if
+	// none).
+	BranchEnvironment(ctx context.Context, project uuid.UUID, branch string, lock bool) (domain.Environment, error)
+	CountBranchEnvironments(ctx context.Context, project uuid.UUID) (int, error)
+	// DeleteEnvironment removes an environment (its pending publish
+	// request with it); its deployments stay as history.
+	DeleteEnvironment(ctx context.Context, project uuid.UUID, name string) (bool, error)
+
+	// PublishRequest locks an environment's pending publish request
+	// (ErrNotFound if none).
+	PublishRequest(ctx context.Context, project uuid.UUID, environment string) (domain.PublishRequest, error)
+	SavePublishRequest(ctx context.Context, r domain.PublishRequest) error
+	// DeletePublishRequest removes r if it is still the pending request
+	// (its ID): a request made since stays.
+	DeletePublishRequest(ctx context.Context, r domain.PublishRequest) error
 
 	// InsertRelease records r; false if a release with its ID exists.
 	InsertRelease(ctx context.Context, r domain.Release) (bool, error)
@@ -86,6 +131,9 @@ type Store interface {
 	DeliveryKeys(ctx context.Context, project, after uuid.UUID, limit int) ([]domain.DeliveryKey, error)
 	ActiveDeliveryKeys(ctx context.Context, project uuid.UUID) ([]domain.DeliveryKey, error)
 	RevokeDeliveryKey(ctx context.Context, k domain.DeliveryKey) error
+	// MarkKeyIndexed records the format the key's index object was last
+	// written in.
+	MarkKeyIndexed(ctx context.Context, id uuid.UUID, version int) error
 
 	Publish(ctx context.Context, e outbox.Event) error
 }

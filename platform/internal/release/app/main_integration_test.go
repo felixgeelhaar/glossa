@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -61,6 +62,28 @@ type harness struct {
 	signingKey   ed25519.PublicKey
 	dispatcher   *outbox.Dispatcher
 	tenant       tenancy.ID
+	// clock is the service's clock: real time, moved on by Advance.
+	clock *offsetClock
+	// scanner finds background work across tenants (system scope).
+	scanner *postgres.Scanner
+}
+
+// offsetClock is real time plus an offset tests move forward.
+type offsetClock struct {
+	mu     sync.Mutex
+	offset time.Duration
+}
+
+func (c *offsetClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return time.Now().UTC().Add(c.offset)
+}
+
+func (c *offsetClock) Advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.offset += d
 }
 
 func newHarness(t *testing.T) *harness {
@@ -87,7 +110,8 @@ func newHarness(t *testing.T) *harness {
 		t.Fatal(err)
 	}
 	objects := objectstore.NewMemory()
-	svc := app.New(postgres.NewTransactor(uow), sources.New(cat, loc), objects, signer)
+	clock := &offsetClock{}
+	svc := app.New(postgres.NewTransactor(uow), sources.New(cat, loc), objects, signer, app.WithClock(clock.Now))
 	reg := outbox.NewRegistry()
 	if err := loc.Subscribe(reg); err != nil {
 		t.Fatal(err)
@@ -104,7 +128,7 @@ func newHarness(t *testing.T) *harness {
 	}
 	return &harness{
 		catalog: cat, localization: loc, svc: svc, objects: objects, dispatcher: d, tenant: tenant,
-		signingKey: key.Key.Public().(ed25519.PublicKey),
+		signingKey: key.Key.Public().(ed25519.PublicKey), clock: clock, scanner: postgres.NewScanner(uow),
 	}
 }
 

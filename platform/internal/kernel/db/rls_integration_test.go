@@ -69,6 +69,12 @@ var systemPolicies = map[string][]string{
 	// tenants (system scope context.retention; tenant_id and project_id
 	// only), then purges each in its tenant's scope.
 	"context_builds": {"context_builds_system_select"},
+	// Release's publisher finds due branch-environment publishes (system
+	// scope release.publisher), and its key index task the keys whose
+	// index object predates scopes (release.key_index): IDs, times and
+	// format versions only, read-only; the work runs in tenant scope.
+	"release_publish_requests": {"release_publish_requests_system_select"},
+	"release_delivery_keys":    {"release_delivery_keys_system_select"},
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
 	// Identity's global tables are system scope only (see systemTables).

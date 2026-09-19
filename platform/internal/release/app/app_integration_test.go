@@ -249,11 +249,11 @@ func TestEnvironments(t *testing.T) {
 		t.Errorf("unknown environment: %v", err)
 	}
 
-	pr, err := h.svc.CreateEnvironment(ctx, p, "pr-42", nil)
+	pr, err := h.svc.CreateEnvironment(ctx, p, "qa", nil)
 	if err != nil || !slices.Equal(pr.Policy.States, []string{"draft", "needs_review", "approved"}) {
 		t.Fatalf("custom: %v %+v", err, pr)
 	}
-	if _, err := h.svc.CreateEnvironment(ctx, p, "pr-42", nil); !errors.Is(err, app.ErrEnvironmentExists) {
+	if _, err := h.svc.CreateEnvironment(ctx, p, "qa", nil); !errors.Is(err, app.ErrEnvironmentExists) {
 		t.Errorf("duplicate: %v", err)
 	}
 	if _, err := h.svc.CreateEnvironment(ctx, p, "a", nil); !errors.Is(err, domain.ErrInvalidEnvironment) {
@@ -261,14 +261,14 @@ func TestEnvironments(t *testing.T) {
 	}
 
 	strict := domain.Policy{States: []string{"approved"}}
-	if _, err := h.svc.UpdateEnvironment(ctx, p, "pr-42", 99, strict); !errors.Is(err, app.ErrPreconditionFailed) {
+	if _, err := h.svc.UpdateEnvironment(ctx, p, "qa", 99, strict); !errors.Is(err, app.ErrPreconditionFailed) {
 		t.Errorf("stale If-Match: %v", err)
 	}
-	updated, err := h.svc.UpdateEnvironment(ctx, p, "pr-42", pr.Version, strict)
+	updated, err := h.svc.UpdateEnvironment(ctx, p, "qa", pr.Version, strict)
 	if err != nil || updated.Version != 2 || updated.Policy.IncludeOutdated {
 		t.Fatalf("update: %v %+v", err, updated)
 	}
-	if _, err := h.svc.UpdateEnvironment(ctx, p, "pr-42", 2, domain.Policy{States: []string{"rejected"}}); !errors.Is(err, domain.ErrInvalidPolicy) {
+	if _, err := h.svc.UpdateEnvironment(ctx, p, "qa", 2, domain.Policy{States: []string{"rejected"}}); !errors.Is(err, domain.ErrInvalidPolicy) {
 		t.Errorf("rejected in a policy: %v", err)
 	}
 	envs, _, _ = h.svc.ListEnvironments(ctx, p, firstPage())
@@ -290,7 +290,7 @@ func TestPermissions(t *testing.T) {
 	if _, _, err := h.svc.ListEnvironments(translator, p, firstPage()); err != nil {
 		t.Errorf("translator can't read environments: %v", err)
 	}
-	if _, _, err := h.svc.CreateDeliveryKey(translator, p, "web", ""); !errors.Is(err, authz.ErrForbidden) {
+	if _, _, err := h.svc.CreateDeliveryKey(translator, p, app.NewDeliveryKey{Name: "web"}, ""); !errors.Is(err, authz.ErrForbidden) {
 		t.Errorf("translator created a key: %v", err)
 	}
 	reader := authztest.Token(context.Background(), h.tenant, "read")
@@ -310,19 +310,45 @@ func TestDeliveryKeys(t *testing.T) {
 	h := newHarness(t)
 	p := h.project(t, nil, shop)
 	ctx := h.as("developer")
-	k, replayed, err := h.svc.CreateDeliveryKey(ctx, p, "web", "k-1")
-	if err != nil || replayed || !delivery.ValidKey(k.Key) {
+	k, replayed, err := h.svc.CreateDeliveryKey(ctx, p, app.NewDeliveryKey{Name: "web"}, "k-1")
+	if err != nil || replayed || !delivery.ValidKey(k.Key) || !k.Scope.Equal(delivery.DefaultScope()) {
 		t.Fatalf("create: %v %+v", err, k)
 	}
-	if again, replayed, err := h.svc.CreateDeliveryKey(ctx, p, "web", "k-1"); err != nil || !replayed || again.Key != k.Key {
+	if again, replayed, err := h.svc.CreateDeliveryKey(ctx, p, app.NewDeliveryKey{Name: "web"}, "k-1"); err != nil || !replayed || again.Key != k.Key {
 		t.Errorf("replay: %v %v", err, replayed)
+	}
+	preview := delivery.Scope{Environments: []string{"preview"}, Branches: true}
+	if _, _, err := h.svc.CreateDeliveryKey(ctx, p, app.NewDeliveryKey{Name: "web", Scope: &preview}, "k-1"); !errors.Is(err, app.ErrIdempotencyReuse) {
+		t.Errorf("same Idempotency-Key, other scope: %v", err)
 	}
 	idx, err := h.objects.Get(context.Background(), delivery.KeyIndexPath(k.Key), delivery.MaxKeyIndexBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := delivery.DecodeKeyIndex(idx); err != nil || got.Project != p.String() {
+	releasetest.KeyIndex(t, idx)
+	// New keys read production only (RFC 0004 §4.3).
+	if got, err := delivery.DecodeKeyIndex(idx); err != nil || got.Project != p.String() ||
+		!slices.Equal(got.Environments, []string{"production"}) || got.Branches {
 		t.Fatalf("index %s %v", idx, err)
+	}
+	pk, _, err := h.svc.CreateDeliveryKey(ctx, p, app.NewDeliveryKey{Name: "preview deployments", Scope: &preview}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, _, _ := h.svc.ListDeliveryKeys(ctx, p, firstPage())
+	if i := slices.IndexFunc(listed, func(k domain.DeliveryKey) bool { return k.ID == pk.ID }); len(listed) != 2 || i < 0 || !listed[i].Scope.Equal(preview) {
+		t.Errorf("stored scope: %+v", listed)
+	}
+	idx, _ = h.objects.Get(context.Background(), delivery.KeyIndexPath(pk.Key), delivery.MaxKeyIndexBytes)
+	if got, err := delivery.DecodeKeyIndex(idx); err != nil || !got.Branches || !slices.Equal(got.Environments, []string{"preview"}) {
+		t.Fatalf("preview key index %s %v", idx, err)
+	}
+	bad := delivery.Scope{Environments: []string{"pr-1"}}
+	if _, _, err := h.svc.CreateDeliveryKey(ctx, p, app.NewDeliveryKey{Name: "x", Scope: &bad}, ""); !errors.Is(err, delivery.ErrInvalidScope) {
+		t.Errorf("a branch environment by name: %v", err)
+	}
+	if err := h.svc.RevokeDeliveryKey(ctx, p, pk.ID); err != nil {
+		t.Fatal(err)
 	}
 	if err := h.svc.RevokeDeliveryKey(ctx, p, k.ID); err != nil {
 		t.Fatal(err)
@@ -334,7 +360,7 @@ func TestDeliveryKeys(t *testing.T) {
 		t.Errorf("revoke twice: %v", err)
 	}
 	keys, _, err := h.svc.ListDeliveryKeys(ctx, p, firstPage())
-	if err != nil || len(keys) != 1 || keys[0].Active() {
+	if err != nil || len(keys) != 2 || keys[0].Active() || keys[1].Active() {
 		t.Errorf("list: %v %+v", err, keys)
 	}
 	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type LIKE 'release.delivery_key.%' AND payload::text LIKE '%glossa_pk_%'"); n != 0 {
@@ -351,7 +377,7 @@ func TestOutboxKeepsStorageInStep(t *testing.T) {
 	if _, _, err := h.svc.Publish(ctx, p, app.PublishInput{Environment: "production"}, ""); err != nil {
 		t.Fatal(err)
 	}
-	k, _, err := h.svc.CreateDeliveryKey(ctx, p, "web", "")
+	k, _, err := h.svc.CreateDeliveryKey(ctx, p, app.NewDeliveryKey{Name: "web"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
