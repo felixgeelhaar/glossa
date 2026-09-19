@@ -1,0 +1,87 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $np := .Values.networkPolicy -}}
+# glossa-server: in from the ingress controller (and scrapers); out to
+# DNS, Postgres, object storage and SMTP (and the OTLP collector).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gp.componentName" (dict "root" $ "component" "server") }}
+  labels:
+    {{- include "gp.componentLabels" (dict "root" $ "component" "server") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "gp.selectorLabels" (dict "root" $ "component" "server") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- include "gp.np.fromIngressController" (dict "root" $ "port" 8080) | nindent 4 }}
+    {{- if .Values.metrics.allowFrom }}
+    {{- include "gp.np.fromScrapers" (dict "root" $ "port" 8080) | nindent 4 }}
+    {{- end }}
+    {{- with $np.extraIngress.server }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    {{- include "gp.np.dnsEgress" . | nindent 4 }}
+    {{- include "gp.np.egressRule" $np.egress.postgres | nindent 4 }}
+    {{- include "gp.np.egressRule" $np.egress.objectStorage | nindent 4 }}
+    {{- if eq .Values.mail.driver "smtp" }}
+    {{- include "gp.np.egressRule" $np.egress.smtp | nindent 4 }}
+    {{- end }}
+    {{- if .Values.server.otel.endpoint }}
+    {{- include "gp.np.egressRule" $np.egress.otlp | nindent 4 }}
+    {{- end }}
+    {{- with $np.extraEgress.server }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+---
+# glossa-edge: in from the ingress controller (and scrapers); out to DNS
+# and object storage only (and the OTLP collector). It has no database.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gp.componentName" (dict "root" $ "component" "edge") }}
+  labels:
+    {{- include "gp.componentLabels" (dict "root" $ "component" "edge") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "gp.selectorLabels" (dict "root" $ "component" "edge") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- include "gp.np.fromIngressController" (dict "root" $ "port" 8081) | nindent 4 }}
+    {{- if .Values.metrics.allowFrom }}
+    {{- include "gp.np.fromScrapers" (dict "root" $ "port" 8081) | nindent 4 }}
+    {{- end }}
+    {{- with $np.extraIngress.edge }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    {{- include "gp.np.dnsEgress" . | nindent 4 }}
+    {{- include "gp.np.egressRule" $np.egress.objectStorage | nindent 4 }}
+    {{- if .Values.edge.otel.endpoint }}
+    {{- include "gp.np.egressRule" $np.egress.otlp | nindent 4 }}
+    {{- end }}
+    {{- with $np.extraEgress.edge }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+---
+# Studio: static files. In from the ingress controller; no egress at all.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gp.componentName" (dict "root" $ "component" "studio") }}
+  labels:
+    {{- include "gp.componentLabels" (dict "root" $ "component" "studio") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "gp.selectorLabels" (dict "root" $ "component" "studio") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- include "gp.np.fromIngressController" (dict "root" $ "port" 8080) | nindent 4 }}
+    {{- with $np.extraIngress.studio }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress: []
+{{- end }}

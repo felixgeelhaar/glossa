@@ -1,0 +1,343 @@
+# Default values for glossa-platform. Every value is documented in
+# README.md. Values marked REQUIRED have no usable default: the chart
+# refuses to render until they are set (see examples/).
+
+# -- Overrides the chart name in labels.
+nameOverride: ""
+# -- Prefix of every resource name (default: the release name).
+fullnameOverride: ""
+
+## ── Hostnames ─────────────────────────────────────────────────────
+## Klarlabs standard §4: app.<domain> for the product, api.<domain> for
+## the public API; cdn.<domain> for glossa-edge. REQUIRED, all three.
+hosts:
+  # -- Studio. Its /v1 is routed to glossa-server, so the session cookie
+  # stays first-party (studio/README.md).
+  studio: ""
+  # -- The public /v1 API (CLI, API tokens) on glossa-server.
+  api: ""
+  # -- glossa-edge: runtimes fetch manifests and artifacts here.
+  cdn: ""
+
+## ── Images ────────────────────────────────────────────────────────
+image:
+  registry: ghcr.io
+  pullPolicy: IfNotPresent
+  # -- imagePullSecrets for all pods (GHCR packages are public for this repo).
+  pullSecrets: []
+
+## ── Common pod settings ───────────────────────────────────────────
+# -- Labels added to every resource.
+commonLabels: {}
+# -- Annotations on every Deployment (e.g. Keel's keel.sh/policy).
+deploymentAnnotations: {}
+# -- Annotations on every pod.
+podAnnotations: {}
+
+## ── glossa-server ─────────────────────────────────────────────────
+server:
+  image:
+    repository: felixgeelhaar/glossa-server
+    # -- Defaults to .Chart.AppVersion.
+    tag: ""
+    # -- sha256:… pins the image by digest (tag is kept for readability).
+    digest: ""
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  logLevel: info
+  # -- GLOSSA_SHUTDOWN_TIMEOUT; keep it below terminationGracePeriodSeconds.
+  shutdownTimeout: 25s
+  terminationGracePeriodSeconds: 35
+  # -- GLOSSA_SESSION_TTL.
+  sessionTTL: 336h
+  outbox:
+    # -- GLOSSA_OUTBOX_ENABLED: run the dispatcher in the server pods.
+    enabled: true
+  webauthn:
+    # -- GLOSSA_WEBAUTHN_RP_ID (registrable domain). Default: hosts.studio.
+    rpId: ""
+    rpName: Glossa
+    # -- GLOSSA_WEBAUTHN_ORIGINS. Default: https://<hosts.studio>.
+    origins: []
+  otel:
+    # -- OTEL_EXPORTER_OTLP_ENDPOINT; empty disables trace export.
+    endpoint: ""
+  # -- Extra env vars (a list of EnvVar) for the server container.
+  extraEnv: []
+  pdb:
+    enabled: true
+    maxUnavailable: 1
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # -- Replaces the default soft spread across nodes.
+  topologySpreadConstraints: []
+  migrations:
+    # -- Run `glossa-server -migrate=only` as a pre-install/pre-upgrade hook Job.
+    enabled: true
+    # -- Retries absorb a slow NetworkPolicy sync on a fresh pod; a failed
+    # migration leaves golang-migrate dirty, so retries fail fast then.
+    backoffLimit: 3
+    activeDeadlineSeconds: 600
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+
+## ── glossa-edge ───────────────────────────────────────────────────
+edge:
+  image:
+    repository: felixgeelhaar/glossa-edge
+    tag: ""
+    digest: ""
+  replicas: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    # Leave room above cache.bytes for the Go heap.
+    limits:
+      memory: 256Mi
+  logLevel: info
+  shutdownTimeout: 25s
+  terminationGracePeriodSeconds: 35
+  cache:
+    # -- GLOSSA_EDGE_CACHE_BYTES.
+    bytes: 67108864
+    # -- GLOSSA_EDGE_KEY_TTL: the longest a revoked delivery key keeps working.
+    keyTTL: 30s
+    # -- GLOSSA_EDGE_MANIFEST_TTL: the delay of a publish at one edge.
+    manifestTTL: 5s
+  otel:
+    endpoint: ""
+  extraEnv: []
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    enabled: true
+    maxUnavailable: 1
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+
+## ── Studio ────────────────────────────────────────────────────────
+studio:
+  image:
+    repository: felixgeelhaar/glossa-studio
+    tag: ""
+    digest: ""
+  replicas: 2
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
+  # Rendered into /config.json and the CSP at container start.
+  runtimeConfig:
+    # -- GLOSSA_STUDIO_API_BASE_URL. Empty: /v1 on Studio's own origin.
+    apiBaseUrl: ""
+    # -- GLOSSA_STUDIO_EDGE_URL. Default: https://<hosts.cdn>.
+    edgeUrl: ""
+    # -- GLOSSA_STUDIO_ENVIRONMENT.
+    environment: production
+    # -- GLOSSA_STUDIO_CSP_CONNECT_SRC: extra connect-src origins, space separated.
+    cspConnectSrc: ""
+  extraEnv: []
+  pdb:
+    enabled: true
+    maxUnavailable: 1
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+
+## ── Postgres (external; this chart bundles none) ──────────────────
+## Klarlabs standard §2: the server connects as the non-superuser
+## glossa_app (FORCE RLS); the owner (CREATEROLE, never superuser) only
+## runs migrations. Each DSN comes from an existing Secret.
+database:
+  app:
+    # -- REQUIRED. Secret holding the glossa_app DSN (DATABASE_URL).
+    secretName: ""
+    secretKey: DATABASE_URL
+  migration:
+    # -- REQUIRED when server.migrations.enabled. Secret holding the owner DSN.
+    secretName: ""
+    secretKey: MIGRATION_DATABASE_URL
+
+## ── Secrets of glossa-server ──────────────────────────────────────
+auth:
+  # -- REQUIRED. Secret holding GLOSSA_AUTH_SECRET (base64 of ≥ 32 random bytes).
+  secretName: ""
+  secretKey: GLOSSA_AUTH_SECRET
+
+release:
+  signingKeys:
+    # -- REQUIRED. Secret holding GLOSSA_RELEASE_SIGNING_KEYS (keyId=base64 seed,…).
+    secretName: ""
+    secretKey: GLOSSA_RELEASE_SIGNING_KEYS
+  # -- GLOSSA_RELEASE_RETIRED_KEYS: keyId=base64(public key),… (public, not secret).
+  retiredKeys: ""
+
+mail:
+  # -- GLOSSA_MAIL_DRIVER: smtp, or log (development only: links go to the log).
+  driver: smtp
+  # -- GLOSSA_MAIL_FROM, e.g. "Glossa <no-reply@example.com>".
+  from: ""
+  smtp:
+    # -- GLOSSA_SMTP_ADDR (host:587, STARTTLS required). REQUIRED with driver smtp.
+    addr: ""
+    # -- Secret with the SMTP AUTH credentials; empty: no AUTH.
+    secretName: ""
+    usernameKey: GLOSSA_SMTP_USERNAME
+    passwordKey: GLOSSA_SMTP_PASSWORD
+
+## ── Object storage (S3-compatible) ────────────────────────────────
+## Release artifacts, manifests and delivery keys. glossa-server writes,
+## glossa-edge only reads.
+objectStorage:
+  # -- REQUIRED. host[:port] without a scheme.
+  endpoint: ""
+  # -- REQUIRED.
+  bucket: ""
+  region: us-east-1
+  # -- Lets several deployments share one bucket.
+  prefix: ""
+  # -- Path-style requests (MinIO and some providers).
+  pathStyle: false
+  # -- Plain HTTP. Never outside a local cluster.
+  insecure: false
+  timeout: 10s
+  server:
+    # -- REQUIRED. Secret with read-write credentials.
+    secretName: ""
+    accessKeyIdKey: GLOSSA_S3_ACCESS_KEY_ID
+    secretAccessKeyKey: GLOSSA_S3_SECRET_ACCESS_KEY
+  edge:
+    # -- Secret with read-only credentials. Empty: the server's (not recommended).
+    secretName: ""
+    accessKeyIdKey: GLOSSA_S3_ACCESS_KEY_ID
+    secretAccessKeyKey: GLOSSA_S3_SECRET_ACCESS_KEY
+
+## ── Ingress (traefik IngressRoute + cert-manager) ─────────────────
+## Routes:
+##   https://<studio>/v1/*  → glossa-server     https://<studio>/*  → Studio
+##   https://<api>/v1/*     → glossa-server     (nothing else: /metrics and
+##   https://<cdn>/v1/*     → glossa-edge        the probes stay internal)
+ingress:
+  enabled: true
+  entryPoints:
+    web: web
+    websecure: websecure
+  # -- Permanent redirect from http to https (ACME HTTP-01 paths excepted).
+  httpsRedirect: true
+  # -- Traefik compress middleware per host. The edge's strong ETags hash the
+  # uncompressed bytes, so compression there is left to a CDN by default.
+  compress:
+    studio: true
+    api: true
+    cdn: false
+  hsts:
+    enabled: true
+    maxAge: 31536000
+    includeSubdomains: false
+    preload: false
+  certManager:
+    # -- Create a Certificate per host.
+    enabled: true
+    issuerName: letsencrypt-prod
+    issuerKind: ClusterIssuer
+  # -- TLS Secret per host. Default: <fullname>-<studio|api|cdn>-tls.
+  tlsSecretNames:
+    studio: ""
+    api: ""
+    cdn: ""
+  # -- Extra traefik middlewares per host, as {name, namespace} refs.
+  extraMiddlewares:
+    studio: []
+    api: []
+    cdn: []
+
+## ── NetworkPolicies ───────────────────────────────────────────────
+## One policy per component, Ingress and Egress: everything not listed is
+## denied. Egress to a destination outside the cluster is matched by IP
+## (NetworkPolicy has no hostnames): set `to` to ipBlock peers. An empty
+## `to` allows the ports to ANY destination — acceptable only until the
+## provider's address ranges are known.
+networkPolicy:
+  enabled: true
+  # -- Where the ingress controller runs (k3s: traefik in kube-system).
+  ingressController:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kube-system
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: traefik
+  # -- Cluster DNS, reachable from every pod that dials out.
+  dns:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kube-system
+    podSelector:
+      matchLabels:
+        k8s-app: kube-dns
+  egress:
+    # -- glossa-server and the migration Job → Postgres.
+    postgres:
+      to: []
+      ports:
+        - port: 5432
+          protocol: TCP
+    # -- glossa-server and glossa-edge → object storage.
+    objectStorage:
+      to: []
+      ports:
+        - port: 443
+          protocol: TCP
+    # -- glossa-server → SMTP submission.
+    smtp:
+      to: []
+      ports:
+        - port: 587
+          protocol: TCP
+    # -- glossa-server and glossa-edge → OTLP collector (only when an endpoint is set).
+    otlp:
+      to: []
+      ports:
+        - port: 4318
+          protocol: TCP
+  # -- Extra ingress rules (NetworkPolicyIngressRule) per component.
+  extraIngress:
+    server: []
+    edge: []
+    studio: []
+  # -- Extra egress rules (NetworkPolicyEgressRule) per component.
+  extraEgress:
+    server: []
+    edge: []
+
+## ── Metrics ───────────────────────────────────────────────────────
+## glossa-server and glossa-edge serve Prometheus metrics on /metrics of
+## their HTTP port.
+metrics:
+  # -- Peers (NetworkPolicyPeer) allowed to scrape server and edge.
+  allowFrom: []
+  serviceMonitor:
+    # -- Needs the Prometheus Operator CRDs.
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}

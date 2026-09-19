@@ -1,0 +1,162 @@
+{{- $name := include "gp.componentName" (dict "root" $ "component" "server") -}}
+{{- $v := .Values.server -}}
+{{- if and (eq .Values.mail.driver "smtp") (not .Values.mail.smtp.addr) }}
+{{- fail "mail.smtp.addr is required when mail.driver is smtp" }}
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "gp.componentLabels" (dict "root" $ "component" "server") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "gp.selectorLabels" (dict "root" $ "component" "server") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "gp.componentLabels" (dict "root" $ "component" "server") | nindent 4 }}
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ $v.replicas }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "gp.selectorLabels" (dict "root" $ "component" "server") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "gp.componentLabels" (dict "root" $ "component" "server") | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: {{ $v.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- include "gp.podSecurityContext" 65532 | nindent 8 }}
+      topologySpreadConstraints:
+        {{- include "gp.topologySpread" (dict "root" $ "values" $v "component" "server") | nindent 8 }}
+      {{- with (include "gp.scheduling" (dict "root" $ "values" $v) | trim) }}{{ . | nindent 6 }}{{ end }}
+      containers:
+        - name: server
+          image: {{ include "gp.image" (dict "root" $ "image" $v.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- include "gp.containerSecurityContext" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: GLOSSA_HTTP_ADDR
+              value: ":8080"
+            - name: GLOSSA_MIGRATE
+              value: "off"
+            - name: GLOSSA_LOG_LEVEL
+              value: {{ $v.logLevel | quote }}
+            - name: GLOSSA_SHUTDOWN_TIMEOUT
+              value: {{ $v.shutdownTimeout | quote }}
+            - name: GLOSSA_OUTBOX_ENABLED
+              value: {{ $v.outbox.enabled | quote }}
+            - name: GLOSSA_STUDIO_URL
+              value: {{ include "gp.studioUrl" . | quote }}
+            - name: GLOSSA_SESSION_TTL
+              value: {{ $v.sessionTTL | quote }}
+            - name: GLOSSA_WEBAUTHN_RP_ID
+              value: {{ $v.webauthn.rpId | default (include "gp.host.studio" .) | quote }}
+            - name: GLOSSA_WEBAUTHN_RP_NAME
+              value: {{ $v.webauthn.rpName | quote }}
+            - name: GLOSSA_WEBAUTHN_ORIGINS
+              value: {{ $v.webauthn.origins | default (list (include "gp.studioUrl" .)) | join "," | quote }}
+            - name: GLOSSA_MAIL_DRIVER
+              value: {{ .Values.mail.driver | quote }}
+            {{- with .Values.mail.from }}
+            - name: GLOSSA_MAIL_FROM
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.mail.smtp.addr }}
+            - name: GLOSSA_SMTP_ADDR
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.mail.smtp.secretName }}
+            {{- include "gp.secretEnv" (dict "name" "GLOSSA_SMTP_USERNAME" "secret" . "key" $.Values.mail.smtp.usernameKey) | nindent 12 }}
+            {{- include "gp.secretEnv" (dict "name" "GLOSSA_SMTP_PASSWORD" "secret" . "key" $.Values.mail.smtp.passwordKey) | nindent 12 }}
+            {{- end }}
+            {{- with $v.otel.endpoint }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
+            {{- include "gp.databaseAppEnv" . | nindent 12 }}
+            {{- include "gp.authEnv" . | nindent 12 }}
+            {{- include "gp.secretEnv" (dict "name" "GLOSSA_RELEASE_SIGNING_KEYS" "secret" (required "release.signingKeys.secretName is required (Secret with GLOSSA_RELEASE_SIGNING_KEYS)" .Values.release.signingKeys.secretName) "key" .Values.release.signingKeys.secretKey) | nindent 12 }}
+            {{- with .Values.release.retiredKeys }}
+            - name: GLOSSA_RELEASE_RETIRED_KEYS
+              value: {{ . | quote }}
+            {{- end }}
+            {{- include "gp.storageEnv" (dict "root" $ "creds" .Values.objectStorage.server "secretName" (required "objectStorage.server.secretName is required (Secret with read-write S3 credentials)" .Values.objectStorage.server.secretName)) | nindent 12 }}
+            {{- with $v.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /livez
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+          resources:
+            {{- toYaml $v.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+{{- if $v.pdb.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "gp.componentLabels" (dict "root" $ "component" "server") | nindent 4 }}
+spec:
+  maxUnavailable: {{ $v.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "gp.selectorLabels" (dict "root" $ "component" "server") | nindent 6 }}
+{{- end }}

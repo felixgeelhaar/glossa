@@ -1,0 +1,28 @@
+# The least a render needs: every REQUIRED value, defaults for the rest.
+# Hostnames and names are placeholders (RFC 2606 example.com).
+hosts:
+  studio: app.example.com
+  api: api.example.com
+  cdn: cdn.example.com
+database:
+  app:
+    secretName: glossa-db-app
+  migration:
+    secretName: glossa-db-owner
+auth:
+  secretName: glossa-auth
+release:
+  signingKeys:
+    secretName: glossa-release-signing
+mail:
+  from: "Glossa <no-reply@example.com>"
+  smtp:
+    addr: smtp.example.com:587
+    secretName: glossa-smtp
+objectStorage:
+  endpoint: objects.example.com
+  bucket: glossa-releases
+  server:
+    secretName: glossa-s3-rw
+  edge:
+    secretName: glossa-s3-ro

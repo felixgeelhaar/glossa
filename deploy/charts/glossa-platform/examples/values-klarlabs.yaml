@@ -1,0 +1,135 @@
+# Klarlabs k3s (Hetzner, EU) values for glossa-platform — Klarlabs product
+# standards §1 (GHCR, semver tags, one namespace per product, PodSecurity
+# restricted, cert-manager letsencrypt-prod, traefik) and §2 (non-superuser
+# app role, FORCE RLS).
+#
+# NOT READY TO INSTALL. Every "TODO(infra)" is a decision the owner still
+# has to make; every *.invalid hostname and 192.0.2.x/203.0.113.x address is
+# a placeholder (RFC 2606 / RFC 5737). No credentials live here: Secrets
+# are created out of band (README.md, "First install").
+#
+#   helm upgrade --install glossa-platform deploy/charts/glossa-platform \
+#     --namespace <TODO(infra)> -f deploy/charts/glossa-platform/examples/values-klarlabs.yaml
+
+# TODO(infra): namespace and names. The v0.3 chart (release "glossa",
+# namespace "glossa") already owns the names api, admin, postgres,
+# glossa-compress and glossa-https-redirect there. Either install this
+# chart into its own namespace (e.g. glossa-platform) while v0.3 runs, or
+# into "glossa" with the default prefix (the release name) so nothing
+# collides. Standard §1 wants one namespace per product in the end.
+fullnameOverride: ""
+
+# TODO(infra): the product domain. Standard §4: app.<domain>, api.<domain>;
+# cdn.<domain> for glossa-edge. Decide whether a CDN (and which) fronts cdn.
+hosts:
+  studio: app.todo-domain.invalid
+  api: api.todo-domain.invalid
+  cdn: cdn.todo-domain.invalid
+
+# TODO(infra): rollout driver. Standard §1 names Keel (below); v0.3 is
+# rolled by RollOps (.rollops/). Pick one; drop the other's config.
+deploymentAnnotations:
+  keel.sh/policy: minor
+  keel.sh/trigger: poll
+  keel.sh/pollSchedule: "@every 5m"
+
+commonLabels:
+  klarlabs.de/product: glossa
+
+server:
+  # TODO(infra): pin each image by digest once the first release is pushed
+  # (release.yml prints it); with Keel, leave digests empty.
+  image:
+    tag: ""
+    digest: ""
+  replicas: 2
+  webauthn:
+    # TODO(infra): passkey RP ID. The Studio host (default) scopes passkeys
+    # to app.<domain>; the apex would share them across subdomains. It can't
+    # change later without re-enrolling every passkey.
+    rpId: ""
+  otel:
+    # TODO(infra): OTLP/HTTP collector, if the cluster runs one.
+    endpoint: ""
+
+edge:
+  replicas: 2
+  autoscaling:
+    enabled: false
+
+studio:
+  replicas: 2
+
+# TODO(infra): database placement. Options: CloudNativePG in the cluster
+# (glossa_owner as the database owner with CREATEROLE, glossa_app as a
+# managed role with a passwordSecret) or Postgres 16 outside the cluster.
+# Either way, the two Secrets below hold full DSNs (sslmode=require or
+# verify-full outside the cluster).
+database:
+  app:
+    secretName: glossa-db-app        # key DATABASE_URL, user glossa_app
+  migration:
+    secretName: glossa-db-owner      # key MIGRATION_DATABASE_URL, user glossa_owner
+
+auth:
+  secretName: glossa-auth            # key GLOSSA_AUTH_SECRET
+
+release:
+  signingKeys:
+    secretName: glossa-release-signing   # key GLOSSA_RELEASE_SIGNING_KEYS
+  retiredKeys: ""
+
+# TODO(infra): mail provider (an EU submission service with STARTTLS on
+# 587) and the sender domain's SPF/DKIM/DMARC.
+mail:
+  driver: smtp
+  from: "Glossa <no-reply@todo-domain.invalid>"
+  smtp:
+    addr: smtp.todo-provider.invalid:587
+    secretName: glossa-smtp          # keys GLOSSA_SMTP_USERNAME, GLOSSA_SMTP_PASSWORD
+
+# TODO(infra): object storage provider, bucket and region. Candidates:
+# Hetzner Object Storage (same region as the cluster), or MinIO in the
+# cluster (then pathStyle: true and an in-cluster NetworkPolicy peer).
+# Create two credentials: read-write for the server, read-only for the edge.
+objectStorage:
+  endpoint: objects.todo-provider.invalid
+  bucket: todo-glossa-releases
+  region: todo-region
+  prefix: ""
+  pathStyle: false
+  server:
+    secretName: glossa-s3-rw         # keys GLOSSA_S3_ACCESS_KEY_ID, GLOSSA_S3_SECRET_ACCESS_KEY
+  edge:
+    secretName: glossa-s3-ro         # same keys, read-only credentials
+
+ingress:
+  certManager:
+    issuerName: letsencrypt-prod
+    issuerKind: ClusterIssuer
+
+networkPolicy:
+  enabled: true
+  egress:
+    # TODO(infra): Postgres peer. In-cluster CNPG: a namespaceSelector +
+    # podSelector (cnpg.io/cluster: <name>). External: its ipBlock.
+    postgres:
+      to:
+        - ipBlock:
+            cidr: 192.0.2.10/32
+    # TODO(infra): the object storage provider's address ranges.
+    objectStorage:
+      to:
+        - ipBlock:
+            cidr: 203.0.113.0/24
+    # TODO(infra): the SMTP provider's address ranges.
+    smtp:
+      to:
+        - ipBlock:
+            cidr: 198.51.100.0/24
+
+metrics:
+  # TODO(infra): where Prometheus runs, if it does.
+  allowFrom: []
+  serviceMonitor:
+    enabled: false

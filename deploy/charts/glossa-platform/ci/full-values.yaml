@@ -1,0 +1,94 @@
+# Every optional feature on, so CI renders every template and branch.
+# Hostnames, addresses and names are placeholders (RFC 2606 / RFC 5737).
+fullnameOverride: glossa
+hosts:
+  studio: app.example.com
+  api: api.example.com
+  cdn: cdn.example.com
+deploymentAnnotations:
+  keel.sh/policy: minor
+  keel.sh/trigger: poll
+  keel.sh/pollSchedule: "@every 5m"
+commonLabels:
+  klarlabs.de/product: glossa
+server:
+  image:
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  webauthn:
+    rpId: example.com
+    origins: [https://app.example.com]
+  otel:
+    endpoint: http://otel-collector.observability:4318
+  extraEnv:
+    - name: GLOSSA_OUTBOX_BATCH_SIZE
+      value: "100"
+edge:
+  autoscaling:
+    enabled: true
+  otel:
+    endpoint: http://otel-collector.observability:4318
+studio:
+  runtimeConfig:
+    cspConnectSrc: https://cdn.example.com
+database:
+  app:
+    secretName: glossa-db-app
+  migration:
+    secretName: glossa-db-owner
+auth:
+  secretName: glossa-auth
+release:
+  signingKeys:
+    secretName: glossa-release-signing
+  retiredKeys: "k0=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+mail:
+  from: "Glossa <no-reply@example.com>"
+  smtp:
+    addr: smtp.example.com:587
+    secretName: glossa-smtp
+objectStorage:
+  endpoint: objects.example.com
+  bucket: glossa
+  prefix: prod/
+  server:
+    secretName: glossa-s3-rw
+  edge:
+    secretName: glossa-s3-ro
+ingress:
+  tlsSecretNames:
+    studio: app-example-com-tls
+  extraMiddlewares:
+    api:
+      - name: glossa-ratelimit
+networkPolicy:
+  egress:
+    postgres:
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: databases
+          podSelector:
+            matchLabels:
+              cnpg.io/cluster: pg-main
+    objectStorage:
+      to:
+        - ipBlock:
+            cidr: 192.0.2.0/24
+    smtp:
+      to:
+        - ipBlock:
+            cidr: 198.51.100.10/32
+    otlp:
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+metrics:
+  allowFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack

@@ -1,0 +1,24 @@
+Glossa platform {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+  Studio        https://{{ .Values.hosts.studio }}
+  API           https://{{ .Values.hosts.api }}/v1
+  Delivery      https://{{ .Values.hosts.cdn }}/v1
+
+{{- if .Values.server.migrations.enabled }}
+
+Migrations ran as the Job {{ include "gp.componentName" (dict "root" $ "component" "migrate") }} before the server started.
+{{- end }}
+
+Check:
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl -n {{ .Release.Namespace }} get certificates
+
+{{- if eq .Values.mail.driver "log" }}
+
+WARNING: mail.driver=log writes sign-in links to the server log. Development only.
+{{- end }}
+{{- if and .Values.networkPolicy.enabled (or (not .Values.networkPolicy.egress.postgres.to) (not .Values.networkPolicy.egress.objectStorage.to)) }}
+
+NOTE: networkPolicy.egress.postgres.to / objectStorage.to is empty, so those
+ports are open to any destination. Pin them to the provider's addresses.
+{{- end }}
