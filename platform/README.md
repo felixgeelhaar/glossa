@@ -4,7 +4,7 @@ Go module for Glossa's control plane (RFC 0002). It holds the
 `glossa-server` kernel (configuration, observability, the HTTP edge,
 Postgres with forced row-level security, tenancy, the transactional
 outbox), the `/v1` API contract, and the bounded contexts under
-`internal/<context>/`. Identity is the first.
+`internal/<context>/`: Identity, Catalog and Localization so far.
 
 ```text
 api/openapi.yaml            the /v1 contract (OpenAPI 3.1), source of truth
@@ -22,6 +22,12 @@ internal/kernel/
   outbox/                   Publish, Registry, Dispatcher, Postgres store
   problem/                  RFC 9457 error bodies with stable codes
   pagination/               page_size/page_token cursor pagination
+  bcp47/                    canonical locale tags and text direction (shared kernel)
+  mfcontent/                authored text + canonical MF2 model + derived metadata (shared kernel)
+  etag/, idempotency/       ETag/If-Match and Idempotency-Key helpers
+internal/apiv1/apiconv/     message content, QA findings and If-Match on the wire
+internal/catalog/           projects, applications, messages, source revisions
+internal/localization/      locales, fallback graphs, translations, revisions
 internal/identity/
   domain/                   Person, Member, roles, locale scopes, Grant, APIToken, events
   app/                      sign-in flows (auth-go) and tenant/member/token use cases
@@ -165,7 +171,9 @@ To add operations: write them in the spec, run
 `go generate ./internal/apiv1/...` (`TestGeneratedCodeIsCurrent` fails
 on a stale `apiv1.gen.go`), implement the new methods on your context's
 handler type in `internal/<context>/adapters/httpapi`, and embed that
-type in `apiServer` (`cmd/glossa-server/api.go`). You don't write auth
+type in `apiServer` (`cmd/glossa-server/api.go`, through an alias: every
+context names its type `API`; `var _ apiv1.StrictServerInterface =
+apiServer{}` fails the build until every operation has a handler). You don't write auth
 code: Identity's `Guard` reads each route's `security` from the
 contract and enforces it, and on `/v1/tenants/{tenant}/…` your handler
 runs with the tenant and principal on its context. Authorize in the
@@ -193,7 +201,8 @@ never changes meaning: a breaking payload change is a new type with a
 `.v2` suffix, published alongside the old one until its subscribers
 move. Identity publishes `identity.tenant.created`,
 `identity.member.{added,activated,access_changed,removed}` and
-`identity.token.{created,revoked}`.
+`identity.token.{created,revoked}`. Catalog and Localization's events
+are listed under their sections below.
 
 ### Outbox
 
@@ -296,3 +305,101 @@ them beyond implementing auth-go's own ports; each belongs in auth-go:
    story; products on pgx + RLS (Glossa) implement every port themselves.
 8. **Password policy.** No length/strength helper beyond the 1024-byte cap;
    Glossa enforces a 12-character minimum.
+
+## Catalog
+
+What the product says (RFC 0002 §4). A **project** (tenant-owned, slug,
+fixed source locale, settings) has **applications** (web, api, ios,
+android, other) and **messages**. A message has an immutable ID and a
+key runtimes use (`checkout.pay`, unique per project); its source is
+stored as the canonical MF2 data model plus the authored text and syntax
+(ICU MF1 by default), parsed only by the `messageformat` kernel.
+Arguments and markup are derived from the model on every change. Only a
+model change is a new source revision, so pushing the same catalog
+twice, in either syntax, changes nothing. Renaming is explicit and keeps
+the ID and all history.
+
+| Table | Scope | Why |
+|---|---|---|
+| `catalog_projects`, `catalog_applications`, `catalog_messages` | tenant | Ordinary state; the message row is the projection of its latest source revision. |
+| `catalog_source_revisions` | tenant | Append-only by grant (`glossa_app`: SELECT, INSERT). History is the domain here (RFC 0002 §4). |
+
+Events: `catalog.project.{created,updated,deleted}`,
+`catalog.application.{created,updated,deleted}`,
+`catalog.message.{created,source_revised,updated,renamed,obsoleted,reactivated}`.
+Every message event carries a `message` snapshot (`message_id`,
+`project_id`, `key`, `namespace`, `state`, `source_revision`, `version`);
+`source_revised` adds `old_revision` and `new_revision`, `renamed` adds
+`old_key` and `new_key`. A consumer keeps the snapshot with the highest
+`version`, which makes delivery order and duplicates irrelevant.
+
+Permissions: reads need `catalog.read`, writes `catalog.write`
+(developers, admins, owners, `write` tokens), deleting a project
+`tenant.manage`. `POST …/message-upserts` is the CLI's push: up to 500
+items in one transaction, per-item results, `base_revision` to refuse
+overwriting a newer revision, obsolete keys reactivated.
+
+## Localization
+
+What each locale says. **Locales** are canonical BCP 47 (no extensions
+or private use, ≤ 35 characters) with a direction derived from the likely
+script; the source locale is one of them from the project's creation.
+The **fallback graph** is exactly the manifest's `fallback` object,
+validated against the project's locales and refused if cyclic. A
+**translation** (message × locale) is the projection of an append-only
+**revision** log; every revision carries provenance (`origin`:
+human, ai, translation_memory, machine_translation, import, adaptation;
+`origin_detail`; the principal) and the source revision it was made
+against. Outdated is derived — `source_revision <` the message's current
+one — and never stored. Every write is checked with
+`messageformat.CheckCompat` against the source revision it claims: error
+findings reject it (`422 structural_qa_failed` with `findings`),
+warnings (and `max-length-exceeded`) are stored and returned. Review
+state (`draft`, `needs_review`, `approved`, `rejected`) is data: a
+`ReviewFlow` of allowed transitions and reviewer-only states, plus the
+project's `review_required` setting, for the workflow engine to replace.
+
+| Table | Scope | Why |
+|---|---|---|
+| `localization_locales`, `localization_fallback_graphs` | tenant | Ordinary state keyed by Catalog's project ID (no cross-context foreign keys). |
+| `localization_messages` | tenant | Localization's own projection of Catalog messages, fed by `catalog.message.*` (highest `version` wins) and refreshed synchronously on every translation write. It is what "outdated" and the `missing_in`/`outdated_in` filters read. |
+| `localization_translations` | tenant | Projection of the latest revision. |
+| `localization_translation_revisions` | tenant | Append-only by grant. |
+
+Localization reads Catalog only through Catalog's application service
+(`adapters/catalog`, the `SourceCatalog` port) and answers Catalog's
+coverage filter through `adapters/coverage`; neither context touches
+the other's tables. Subscribers (names are stored with events; never
+rename them): `localization.track_message` on every
+`catalog.message.*`, `localization.add_source_locale` on
+`catalog.project.created`, `localization.drop_project` on
+`catalog.project.deleted`. Events: `localization.locale.{added,removed}`,
+`localization.fallback_graph.changed`,
+`localization.translation.{revised,reviewed}`, and
+`localization.translation.outdated` — once per translation a source
+revision leaves behind, the trigger for re-translation (M2) and review
+routing.
+
+Permissions: reads need `translations.read`; locales and the fallback
+graph `catalog.write`; writing a translation `translations.write` for
+its locale (translators and reviewers are limited to their locale scope,
+which covers CLDR descendants); approving or rejecting
+`translations.review` for the locale. No token scope grants review, so
+with `review_required` a token's writes wait for a human.
+
+### What Release reads
+
+A release is built from two application reads, each one tenant
+transaction, joined by message ID:
+
+- `catalogapp.Service.ReleaseSource(ctx, project)` → the project (source
+  locale) and every **active** message in key order: key, namespace,
+  current source content (the source locale's artifact).
+- `localizationapp.Service.ReleaseTranslations(ctx, project, states)` →
+  the locales with direction (source first), the fallback graph as the
+  manifest's `fallback`, and per locale the translations in the eligible
+  review states (production: `approved`), each with its canonical model,
+  `source_revision` and derived outdated flag.
+
+Release keeps translations of active messages in the project's locales
+and writes one artifact per locale and namespace (runtimes/SPEC.md §1).
