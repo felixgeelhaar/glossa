@@ -169,9 +169,9 @@ func (f *fakeServer) uploadCaptures(w http.ResponseWriter, r *http.Request) {
 	f.ctx.captures = append(f.ctx.captures, up)
 	sum := sha256.Sum256(manifest)
 	digest := hex.EncodeToString(sum[:])
-	answer := map[string]any{"captures": len(up.doc.Captures), "unknown_keys": 0}
+	answer := map[string]any{"captures": len(up.doc.Captures), "unknown_keys": []string{}}
 	if b, ok := f.ctx.captureDigest[digest]; ok {
-		answer["build"], answer["images_stored"], answer["images_deduplicated"] = b, 0, len(up.images)
+		answer["build"], answer["images_stored"], answer["images_deduplicated"] = map[string]any{"id": b}, 0, 0
 		writeJSONResp(w, 200, answer)
 		return
 	}

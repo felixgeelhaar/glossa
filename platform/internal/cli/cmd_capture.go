@@ -75,12 +75,12 @@ type captureOutput struct {
 }
 
 type captureUpload struct {
-	Build              string `json:"build"`
-	Captures           int    `json:"captures"`
-	ImagesStored       int    `json:"images_stored"`
-	ImagesDeduplicated int    `json:"images_deduplicated"`
-	UnknownKeys        int    `json:"unknown_keys"`
-	Replayed           bool   `json:"replayed"`
+	Build              string   `json:"build"`
+	Captures           int      `json:"captures"`
+	ImagesStored       int      `json:"images_stored"`
+	ImagesDeduplicated int      `json:"images_deduplicated"`
+	UnknownKeys        []string `json:"unknown_keys"`
+	Replayed           bool     `json:"replayed"`
 }
 
 func runCaptureCmd(ctx context.Context, inv *invocation, args []string) error {
@@ -243,7 +243,7 @@ func (inv *invocation) uploadCaptures(ctx context.Context, p *project, out *capt
 		}
 		return err
 	}
-	out.Upload = &captureUpload{Build: up.Build, Captures: up.Captures, ImagesStored: up.ImagesStored,
+	out.Upload = &captureUpload{Build: string(up.Build.Id), Captures: up.Captures, ImagesStored: up.ImagesStored,
 		ImagesDeduplicated: up.ImagesDeduplicated, UnknownKeys: up.UnknownKeys, Replayed: up.Replayed}
 	return nil
 }
@@ -362,8 +362,8 @@ func printCapture(p *printer, out *captureJSON) {
 		}
 		p.line("%s %s %s to build %s (%d images stored, %d already there)", p.pass(), what, plural(u.Captures, "capture", "captures"), u.Build,
 			u.ImagesStored, u.ImagesDeduplicated)
-		if u.UnknownKeys > 0 {
-			p.line("%s %s the catalog doesn't know (`glossa push` the catalog first)", p.caution(), plural(u.UnknownKeys, "region names a key", "regions name keys"))
+		if len(u.UnknownKeys) > 0 {
+			p.line("%s %s the catalog doesn't know (`glossa push` the catalog first)", p.caution(), plural(len(u.UnknownKeys), "region names a key", "regions name keys"))
 		}
 	}
 	printCoverage(p, out.Coverage)
