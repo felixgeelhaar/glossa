@@ -140,6 +140,56 @@ func (m Message) IsSelect() bool {
 	return m.Type == SelectMessageType
 }
 
+// clonePatternElement returns a deep copy of el, so converted messages
+// never share maps or pointers between variants.
+func clonePatternElement(el PatternElement) PatternElement {
+	switch el := el.(type) {
+	case Expression:
+		return el.clone()
+	case Markup:
+		el.Options = cloneOptions(el.Options)
+		el.Attributes = cloneAttributes(el.Attributes)
+		return el
+	default:
+		return el
+	}
+}
+
+func (e Expression) clone() Expression {
+	if e.Function != nil {
+		fn := FunctionRef{Name: e.Function.Name, Options: cloneOptions(e.Function.Options)}
+		e.Function = &fn
+	}
+	e.Attributes = cloneAttributes(e.Attributes)
+	return e
+}
+
+func cloneOptions(o Options) Options {
+	if o == nil {
+		return nil
+	}
+	out := make(Options, len(o))
+	for k, v := range o {
+		out[k] = v
+	}
+	return out
+}
+
+func cloneAttributes(a Attributes) Attributes {
+	if a == nil {
+		return nil
+	}
+	out := make(Attributes, len(a))
+	for k, v := range a {
+		if v != nil {
+			lit := *v
+			v = &lit
+		}
+		out[k] = v
+	}
+	return out
+}
+
 // Patterns returns every pattern of m: the single pattern of a pattern
 // message, or each variant's pattern in order.
 func (m Message) Patterns() []Pattern {

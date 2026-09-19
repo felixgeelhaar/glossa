@@ -37,7 +37,7 @@ func ParseMF2(src string) (Message, error) {
 // Validate checks that msg is a valid MF2 message: representable in the
 // syntax and free of data model errors.
 func Validate(msg Message) error {
-	_, err := toEngineValidated(msg)
+	_, err := Stringify(msg)
 	return err
 }
 
