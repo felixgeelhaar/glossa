@@ -84,6 +84,9 @@ func commands() []command {
 		{"tm", "Search the translation memory; list and retire units", runTM},
 		{"terms", "Manage the termbase; check translations against it", runTerms},
 		{"style", "Show the effective style guide; edit one from YAML", runStyle},
+		{"translate", "Fill locales with AI suggestions", runTranslate},
+		{"review", "Review AI suggestions: list, accept, reject", runReview},
+		{"ai", "Show AI consent, budget, providers and project policy", runAI},
 	}
 }
 
