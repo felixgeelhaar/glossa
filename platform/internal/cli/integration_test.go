@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -19,9 +20,12 @@ import (
 	"testing"
 	"time"
 
+	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/cli"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store/s3test"
 )
 
 // testAuthSecret is base64 of 42 bytes.
@@ -44,14 +48,15 @@ func (s *syncBuffer) String() string {
 	return s.buf.String()
 }
 
-// server is a real glossa-server binary on a testcontainers Postgres.
+// server is a real glossa-server binary on a testcontainers Postgres
+// (and, for releases, a MinIO bucket).
 type server struct {
 	t    *testing.T
 	base string
 	logs *syncBuffer
 }
 
-func startServer(t *testing.T) *server {
+func startServer(t *testing.T, vars map[string]string) *server {
 	t.Helper()
 	env, err := dbtest.Start(context.Background())
 	if err != nil {
@@ -85,6 +90,9 @@ func startServer(t *testing.T) *server {
 		"GLOSSA_STUDIO_URL=https://studio.test",
 		"GLOSSA_OUTBOX_POLL_INTERVAL=50ms",
 	)
+	for k, v := range vars {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
 	cmd.Stdout, cmd.Stderr = logs, logs
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -236,9 +244,11 @@ func (r runner) run(want cli.ExitCode, out any, args ...string) string {
 // TestCLIAgainstGlossaServer is M1's CLI loop against the real server:
 // init → push (ICU MF1) → check fails (en missing) → import the
 // translations from Glossa v0.3 → check passes → generate. Re-running
-// push and import changes nothing.
+// push and import changes nothing. Then the release half, on MinIO:
+// publish → pull --release → the Go runtime loads the bundle offline →
+// promote → rollback → delivery keys.
 func TestCLIAgainstGlossaServer(t *testing.T) {
-	s := startServer(t)
+	s := startServer(t, objectStorage(t))
 	cookie, csrf := s.signIn("ada@example.com")
 	var org struct{ ID string }
 	s.do(call{method: "POST", path: "/v1/tenants", cookie: cookie, csrf: csrf,
@@ -251,7 +261,7 @@ func TestCLIAgainstGlossaServer(t *testing.T) {
 		body: map[string]string{"code": "en"}}, http.StatusCreated, nil)
 	var tok struct{ Secret string }
 	s.do(call{method: "POST", path: base + "/tokens", cookie: cookie, csrf: csrf,
-		body: map[string]any{"name": "ci", "scopes": []string{"write"}}}, http.StatusCreated, &tok)
+		body: map[string]any{"name": "ci", "scopes": []string{"write", "publish"}}}, http.StatusCreated, &tok)
 
 	dir := t.TempDir()
 	r := runner{t: t, dir: dir, env: map[string]string{"GLOSSA_TOKEN": tok.Secret, "GLOSSA_V0_KEY": "glossa_v03"},
@@ -372,4 +382,210 @@ func TestCLIAgainstGlossaServer(t *testing.T) {
 	}
 	r.run(cli.ExitOK, nil, "generate", "--check")
 	r.run(cli.ExitOK, nil, "diff", "--exit-code")
+
+	releaseLoop(t, r)
+}
+
+// objectStorage starts MinIO with a bucket and returns glossa-server's
+// storage configuration for it.
+func objectStorage(t *testing.T) map[string]string {
+	t.Helper()
+	ctx := context.Background()
+	minio, err := s3test.Start(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(minio.Close)
+	const bucket = "glossa-cli"
+	if _, err := minio.Store(ctx, bucket); err != nil {
+		t.Fatal(err)
+	}
+	return map[string]string{
+		"GLOSSA_STORAGE_DRIVER":       "s3",
+		"GLOSSA_S3_ENDPOINT":          minio.Endpoint,
+		"GLOSSA_S3_BUCKET":            bucket,
+		"GLOSSA_S3_ACCESS_KEY_ID":     minio.AccessKeyID,
+		"GLOSSA_S3_SECRET_ACCESS_KEY": minio.SecretAccessKey,
+		"GLOSSA_S3_INSECURE":          "true",
+		"GLOSSA_S3_PATH_STYLE":        "true",
+	}
+}
+
+type releaseDoc struct {
+	ID      string `json:"id"`
+	Version int    `json:"version"`
+	Counts  struct {
+		Messages int `json:"messages"`
+		Locales  map[string]struct {
+			Messages int `json:"messages"`
+		} `json:"locales"`
+	} `json:"counts"`
+}
+
+type movedDoc struct {
+	Environment struct {
+		Name    string `json:"name"`
+		Release *struct {
+			ID      string `json:"id"`
+			Version int    `json:"version"`
+		} `json:"release"`
+	} `json:"environment"`
+	Previous *struct {
+		Version int `json:"version"`
+	} `json:"previous"`
+}
+
+type errorDoc struct {
+	Error struct {
+		Code string `json:"code"`
+	} `json:"error"`
+}
+
+// offline loads a bundle with the Go runtime and nothing else.
+func offline(t *testing.T, dir, environment string) *glossa.Client {
+	t.Helper()
+	c, err := glossa.New(glossa.Config{
+		Environment: environment, Bundled: os.DirFS(dir),
+		DisableCache: true, RefreshInterval: -1, DisableBidiIsolation: true,
+		Logger: slog.New(slog.DiscardHandler),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	return c
+}
+
+// releaseLoop publishes what the import brought (en: two translations
+// needing review, one draft), bundles it, and moves environments.
+func releaseLoop(t *testing.T, r runner) {
+	var pub struct {
+		Replayed bool       `json:"replayed"`
+		Release  releaseDoc `json:"release"`
+	}
+	// Preview ships unreviewed text; the key makes a retried CI step safe.
+	r.run(cli.ExitOK, &pub, "release", "publish", "--environment", "preview", "--note", "from v0.3", "--idempotency-key", "ci-42")
+	v1 := pub.Release
+	if pub.Replayed || v1.Version != 1 || v1.Counts.Messages != 3 || v1.Counts.Locales["en"].Messages != 3 {
+		t.Fatalf("publish = %+v", pub)
+	}
+	r.run(cli.ExitOK, &pub, "release", "publish", "--environment", "preview", "--note", "from v0.3", "--idempotency-key", "ci-42")
+	if !pub.Replayed || pub.Release.ID != v1.ID {
+		t.Errorf("replayed publish = %+v", pub)
+	}
+	// The same key for a different request is refused, not replayed.
+	var e errorDoc
+	r.run(cli.ExitUsage, &e, "release", "publish", "--environment", "preview", "--idempotency-key", "ci-42")
+	if e.Error.Code != "idempotency_key_reused" {
+		t.Errorf("reused key = %+v", e)
+	}
+
+	// pull --release: the bundle loads offline with the Go runtime.
+	var pull struct {
+		Release struct {
+			ReleaseID   string `json:"release_id"`
+			Environment string `json:"environment"`
+			Artifacts   int    `json:"artifacts"`
+		} `json:"release"`
+	}
+	r.run(cli.ExitOK, &pull, "pull", "--release", "latest", "--environment", "preview", "--out", "public/glossa")
+	if pull.Release.ReleaseID != v1.ID || pull.Release.Environment != "preview" || pull.Release.Artifacts != 2 {
+		t.Fatalf("pull --release = %+v", pull)
+	}
+	bundle := filepath.Join(r.dir, "public", "glossa")
+	c := offline(t, bundle, "preview")
+	if got := c.For("en").T("checkout.pay", glossa.Args{"amount": 3}); got != "Pay 3" {
+		t.Errorf("en checkout.pay = %q", got)
+	}
+	if got := c.For("de").T("cart.items", glossa.Args{"count": 2}); got != "2 Brote" {
+		t.Errorf("de cart.items = %q", got)
+	}
+	if ex := c.For("en").Explain("home.title"); ex.Source != glossa.SourceBundled || ex.Release == nil || ex.Release.ID != v1.ID {
+		t.Errorf("explain = %+v", ex)
+	}
+	// Runtimes refuse a manifest for another environment: that's why the
+	// bundle is written for one.
+	if ex := offline(t, bundle, "production").For("en").Explain("home.title"); ex.Release != nil {
+		t.Errorf("a preview bundle loaded as production: %+v", ex)
+	}
+
+	// Production ships approved text only, so preview's release can't go
+	// there; development takes everything.
+	r.run(cli.ExitNetwork, &e, "release", "promote", "v1", "--to", "production")
+	if e.Error.Code != "release_ineligible" {
+		t.Errorf("promote to production = %+v", e)
+	}
+	var moved movedDoc
+	r.run(cli.ExitOK, &moved, "release", "promote", "v1", "--to", "development")
+	if moved.Environment.Release == nil || moved.Environment.Release.ID != v1.ID || moved.Previous != nil {
+		t.Fatalf("promote = %+v", moved)
+	}
+	r.run(cli.ExitOK, &pub, "release", "publish", "--environment", "development")
+	if pub.Release.Version != 2 {
+		t.Fatalf("second publish = %+v", pub)
+	}
+	var diff struct {
+		Base      *struct{ ID string } `json:"base"`
+		Identical bool                 `json:"identical"`
+	}
+	r.run(cli.ExitOK, &diff, "release", "diff", "v2")
+	if diff.Base == nil || diff.Base.ID != v1.ID || !diff.Identical {
+		t.Errorf("diff = %+v", diff)
+	}
+	r.run(cli.ExitOK, &moved, "release", "rollback", "--environment", "development")
+	if moved.Environment.Release == nil || moved.Environment.Release.ID != v1.ID || moved.Previous == nil || moved.Previous.Version != 2 {
+		t.Fatalf("rollback = %+v", moved)
+	}
+
+	var envs struct {
+		Environments []struct {
+			Name    string `json:"name"`
+			Release *struct {
+				Version int `json:"version"`
+			} `json:"release"`
+		} `json:"environments"`
+	}
+	r.run(cli.ExitOK, &envs, "release", "environments")
+	serving := map[string]int{}
+	for _, e := range envs.Environments {
+		if e.Release != nil {
+			serving[e.Name] = e.Release.Version
+		}
+	}
+	if serving["development"] != 1 || serving["preview"] != 1 || len(serving) != 2 {
+		t.Errorf("environments = %+v", envs)
+	}
+	var list struct {
+		Releases []struct {
+			Version int      `json:"version"`
+			Serving []string `json:"serving"`
+		} `json:"releases"`
+	}
+	r.run(cli.ExitOK, &list, "release", "list")
+	if len(list.Releases) != 2 || list.Releases[0].Version != 2 || len(list.Releases[0].Serving) != 0 ||
+		strings.Join(list.Releases[1].Serving, ",") != "development,preview" {
+		t.Errorf("list = %+v", list)
+	}
+
+	// Delivery keys: shown in full, revoked by name.
+	var key struct {
+		Key struct {
+			ID        string     `json:"id"`
+			Key       string     `json:"key"`
+			RevokedAt *time.Time `json:"revoked_at"`
+		} `json:"key"`
+	}
+	r.run(cli.ExitOK, &key, "release", "keys", "create", "web")
+	if key.Key.Key == "" || key.Key.RevokedAt != nil {
+		t.Fatalf("keys create = %+v", key)
+	}
+	id := key.Key.ID
+	r.run(cli.ExitOK, &key, "release", "keys", "revoke", "web")
+	if key.Key.ID != id || key.Key.RevokedAt == nil {
+		t.Errorf("keys revoke = %+v", key)
+	}
+	r.run(cli.ExitNetwork, &e, "release", "keys", "revoke", id)
+	if e.Error.Code != "key_revoked" {
+		t.Errorf("second revoke = %+v", e)
+	}
 }
