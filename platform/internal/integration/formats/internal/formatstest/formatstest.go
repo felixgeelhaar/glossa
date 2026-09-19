@@ -5,6 +5,8 @@ package formatstest
 import (
 	"fmt"
 	"math/rand/v2"
+	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -136,5 +138,68 @@ func SameContent(t testing.TB, what string, a, b mfcontent.Content) {
 		t.Errorf("%s: zero = %v, want %v", what, b.IsZero(), a.IsZero())
 	case !a.IsZero() && !a.SameModel(b):
 		t.Errorf("%s differs:\n got %s\nwant %s", what, b.ModelJSON(), a.ModelJSON())
+	}
+}
+
+// SameCatalog fails t when got differs from want in anything the
+// exchange model carries. Nil and empty slices are equal.
+func SameCatalog(t testing.TB, want, got formats.Catalog) {
+	t.Helper()
+	if want.SourceLocale != got.SourceLocale {
+		t.Errorf("source locale = %q, want %q", got.SourceLocale, want.SourceLocale)
+	}
+	if len(want.Entries) != len(got.Entries) {
+		t.Fatalf("%d entries, want %d", len(got.Entries), len(want.Entries))
+	}
+	for i := range want.Entries {
+		SameEntry(t, want.Entries[i], got.Entries[i])
+	}
+}
+
+// SameEntry compares two entries.
+func SameEntry(t testing.TB, want, got formats.Entry) {
+	t.Helper()
+	w, g := want, got
+	if w.ID != g.ID || w.Namespace != g.Namespace || w.Description != g.Description || w.MaxLength != g.MaxLength {
+		t.Errorf("entry = {%q %q %q %d}, want {%q %q %q %d}", g.ID, g.Namespace, g.Description, g.MaxLength,
+			w.ID, w.Namespace, w.Description, w.MaxLength)
+	}
+	if !slices.Equal(w.Notes, g.Notes) && len(w.Notes)+len(g.Notes) > 0 ||
+		!slices.Equal(w.References, g.References) && len(w.References)+len(g.References) > 0 {
+		t.Errorf("entry %q: notes %q refs %q, want %q %q", w.ID, g.Notes, g.References, w.Notes, w.References)
+	}
+	SameContent(t, fmt.Sprintf("entry %q source", w.ID), w.Source, g.Source)
+	if len(w.Targets) != len(g.Targets) {
+		t.Errorf("entry %q: %d targets, want %d", w.ID, len(g.Targets), len(w.Targets))
+		return
+	}
+	for j := range w.Targets {
+		wt, gt := w.Targets[j], g.Targets[j]
+		if wt.Locale != gt.Locale || wt.State != gt.State {
+			t.Errorf("entry %q target %d: %s/%s, want %s/%s", w.ID, j, gt.Locale, gt.State, wt.Locale, wt.State)
+		}
+		SameContent(t, fmt.Sprintf("entry %q target %s", w.ID, wt.Locale), wt.Content, gt.Content)
+	}
+}
+
+// States are the review states, for random picks.
+var States = []formats.State{formats.StateDraft, formats.StateNeedsReview, formats.StateApproved, formats.StateRejected}
+
+// Golden compares got with the golden file path, rewriting it when
+// update is set.
+func Golden(t testing.TB, path string, got []byte, update bool) {
+	t.Helper()
+	if update {
+		if err := os.WriteFile(path, got, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	want, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("%v (run with -update to create it)", err)
+	}
+	if string(want) != string(got) {
+		t.Errorf("output differs from %s (run with -update to accept):\n%s", path, got)
 	}
 }
