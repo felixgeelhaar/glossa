@@ -90,6 +90,27 @@ func (e ArgumentType) Valid() bool {
 	}
 }
 
+// Defines values for DeploymentAction.
+const (
+	DeploymentActionPromote  DeploymentAction = "promote"
+	DeploymentActionPublish  DeploymentAction = "publish"
+	DeploymentActionRollback DeploymentAction = "rollback"
+)
+
+// Valid indicates whether the value is a known member of the DeploymentAction enum.
+func (e DeploymentAction) Valid() bool {
+	switch e {
+	case DeploymentActionPromote:
+		return true
+	case DeploymentActionPublish:
+		return true
+	case DeploymentActionRollback:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Direction.
 const (
 	Ltr Direction = "ltr"
@@ -102,6 +123,27 @@ func (e Direction) Valid() bool {
 	case Ltr:
 		return true
 	case Rtl:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EnvironmentPolicyStates.
+const (
+	EnvironmentPolicyStatesApproved    EnvironmentPolicyStates = "approved"
+	EnvironmentPolicyStatesDraft       EnvironmentPolicyStates = "draft"
+	EnvironmentPolicyStatesNeedsReview EnvironmentPolicyStates = "needs_review"
+)
+
+// Valid indicates whether the value is a known member of the EnvironmentPolicyStates enum.
+func (e EnvironmentPolicyStates) Valid() bool {
+	switch e {
+	case EnvironmentPolicyStatesApproved:
+		return true
+	case EnvironmentPolicyStatesDraft:
+		return true
+	case EnvironmentPolicyStatesNeedsReview:
 		return true
 	default:
 		return false
@@ -269,22 +311,22 @@ func (e QAFindingSeverity) Valid() bool {
 
 // Defines values for ReviewState.
 const (
-	Approved    ReviewState = "approved"
-	Draft       ReviewState = "draft"
-	NeedsReview ReviewState = "needs_review"
-	Rejected    ReviewState = "rejected"
+	ReviewStateApproved    ReviewState = "approved"
+	ReviewStateDraft       ReviewState = "draft"
+	ReviewStateNeedsReview ReviewState = "needs_review"
+	ReviewStateRejected    ReviewState = "rejected"
 )
 
 // Valid indicates whether the value is a known member of the ReviewState enum.
 func (e ReviewState) Valid() bool {
 	switch e {
-	case Approved:
+	case ReviewStateApproved:
 		return true
-	case Draft:
+	case ReviewStateDraft:
 		return true
-	case NeedsReview:
+	case ReviewStateNeedsReview:
 		return true
-	case Rejected:
+	case ReviewStateRejected:
 		return true
 	default:
 		return false
@@ -336,6 +378,21 @@ func (e Scope) Valid() bool {
 	case ScopeRead:
 		return true
 	case ScopeWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SigningKeyAlgorithm.
+const (
+	Ed25519 SigningKeyAlgorithm = "Ed25519"
+)
+
+// Valid indicates whether the value is a known member of the SigningKeyAlgorithm enum.
+func (e SigningKeyAlgorithm) Valid() bool {
+	switch e {
+	case Ed25519:
 		return true
 	default:
 		return false
@@ -484,6 +541,24 @@ type CreateApplication struct {
 	Slug     Slug     `json:"slug"`
 }
 
+// CreateDeliveryKey defines model for CreateDeliveryKey.
+type CreateDeliveryKey struct {
+	// Name What uses it, e.g. "web" or "go-emails".
+	Name string `json:"name"`
+}
+
+// CreateEnvironment defines model for CreateEnvironment.
+type CreateEnvironment struct {
+	// Name `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	Name EnvironmentName `json:"name"`
+
+	// Policy Which translations ship to an environment: those in `states`
+	// (never `rejected`), and outdated ones (made against an older
+	// source revision) only with `include_outdated`. Production and
+	// staging start with `approved`, the others with everything.
+	Policy *EnvironmentPolicy `json:"policy,omitempty"`
+}
+
 // CreateMessage defines model for CreateMessage.
 type CreateMessage struct {
 	Description *string `json:"description,omitempty"`
@@ -537,6 +612,60 @@ type CreatedToken struct {
 	Token  Token   `json:"token"`
 }
 
+// DeliveryKey defines model for DeliveryKey.
+type DeliveryKey struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CreatedBy `person:<id>` or `token:<id>`.
+	CreatedBy string `json:"created_by"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Key Publishable by design; shown on every read.
+	Key  string `json:"key"`
+	Name string `json:"name"`
+
+	// RevokedAt RFC 3339, UTC.
+	RevokedAt *Timestamp `json:"revoked_at,omitempty"`
+}
+
+// DeliveryKeyList defines model for DeliveryKeyList.
+type DeliveryKeyList struct {
+	Items         []DeliveryKey `json:"items"`
+	NextPageToken *string       `json:"next_page_token,omitempty"`
+}
+
+// Deployment defines model for Deployment.
+type Deployment struct {
+	Action DeploymentAction `json:"action"`
+
+	// Author `person:<id>` or `token:<id>`.
+	Author string `json:"author"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Number Counts the environment's deployments from 1.
+	Number int `json:"number"`
+
+	// PreviousReleaseId An opaque identifier.
+	PreviousReleaseId *Id `json:"previous_release_id,omitempty"`
+
+	// ReleaseId An opaque identifier.
+	ReleaseId Id `json:"release_id"`
+}
+
+// DeploymentAction defines model for Deployment.Action.
+type DeploymentAction string
+
+// DeploymentList defines model for DeploymentList.
+type DeploymentList struct {
+	Items         []Deployment `json:"items"`
+	NextPageToken *string      `json:"next_page_token,omitempty"`
+}
+
 // Direction Derived from the locale's (likely) script.
 type Direction string
 
@@ -547,6 +676,48 @@ type Email = openapi_types.Email
 type EmailRequest struct {
 	Email Email `json:"email"`
 }
+
+// Environment defines model for Environment.
+type Environment struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CurrentReleaseId An opaque identifier.
+	CurrentReleaseId *Id `json:"current_release_id,omitempty"`
+
+	// Name `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	Name EnvironmentName `json:"name"`
+
+	// Policy Which translations ship to an environment: those in `states`
+	// (never `rejected`), and outdated ones (made against an older
+	// source revision) only with `include_outdated`. Production and
+	// staging start with `approved`, the others with everything.
+	Policy EnvironmentPolicy `json:"policy"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// EnvironmentList defines model for EnvironmentList.
+type EnvironmentList struct {
+	Items         []Environment `json:"items"`
+	NextPageToken *string       `json:"next_page_token,omitempty"`
+}
+
+// EnvironmentName `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+type EnvironmentName = string
+
+// EnvironmentPolicy Which translations ship to an environment: those in `states`
+// (never `rejected`), and outdated ones (made against an older
+// source revision) only with `include_outdated`. Production and
+// staging start with `approved`, the others with everything.
+type EnvironmentPolicy struct {
+	IncludeOutdated bool                      `json:"include_outdated"`
+	States          []EnvironmentPolicyStates `json:"states"`
+}
+
+// EnvironmentPolicyStates defines model for EnvironmentPolicy.States.
+type EnvironmentPolicyStates string
 
 // FallbackGraph defines model for FallbackGraph.
 type FallbackGraph struct {
@@ -578,6 +749,20 @@ type ItemError struct {
 //
 // Examples: de, pt-BR, zh-Hant-TW
 type Locale = string
+
+// LocaleDiff defines model for LocaleDiff.
+type LocaleDiff struct {
+	Added   []string `json:"added"`
+	Changed []string `json:"changed"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale  Locale   `json:"locale"`
+	Removed []string `json:"removed"`
+}
 
 // LocaleList defines model for LocaleList.
 type LocaleList struct {
@@ -884,6 +1069,19 @@ type ProjectSettings struct {
 	ReviewRequired bool `json:"review_required"`
 }
 
+// Promotion defines model for Promotion.
+type Promotion struct {
+	// ReleaseId An opaque identifier.
+	ReleaseId Id `json:"release_id"`
+}
+
+// PublishRelease defines model for PublishRelease.
+type PublishRelease struct {
+	// Environment `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	Environment EnvironmentName `json:"environment"`
+	Note        *string         `json:"note,omitempty"`
+}
+
 // PutFallbackGraph defines model for PutFallbackGraph.
 type PutFallbackGraph struct {
 	Fallback map[string][]Locale `json:"fallback"`
@@ -942,6 +1140,107 @@ type Registration struct {
 	Password    string  `json:"password"`
 }
 
+// Release defines model for Release.
+type Release struct {
+	// Author `person:<id>` or `token:<id>`.
+	Author string        `json:"author"`
+	Counts ReleaseCounts `json:"counts"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Environment `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+	Environment EnvironmentName `json:"environment"`
+
+	// Id An opaque identifier.
+	Id      Id              `json:"id"`
+	Locales []ReleaseLocale `json:"locales"`
+
+	// ManifestDigest SHA-256 of the RFC 8785 canonical JSON of what every
+	// environment's manifest of this release carries (`sourceLocale`,
+	// `locales`, `fallback`, `artifacts`). Equal digests ship
+	// exactly the same text.
+	ManifestDigest string  `json:"manifest_digest"`
+	Note           *string `json:"note,omitempty"`
+
+	// ParentId What its environment served before it.
+	ParentId *Id `json:"parent_id,omitempty"`
+
+	// Policy Which translations ship to an environment: those in `states`
+	// (never `rejected`), and outdated ones (made against an older
+	// source revision) only with `include_outdated`. Production and
+	// staging start with `approved`, the others with everything.
+	Policy EnvironmentPolicy `json:"policy"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale Locale `json:"source_locale"`
+
+	// Version Counts the project's releases from 1.
+	Version int `json:"version"`
+}
+
+// ReleaseArtifact A `glossa.artifact/v1` artifact (runtimes/testdata/schemas/artifact.schema.json), as stored.
+type ReleaseArtifact map[string]interface{}
+
+// ReleaseCounts defines model for ReleaseCounts.
+type ReleaseCounts struct {
+	Artifacts int `json:"artifacts"`
+	Bytes     int `json:"bytes"`
+
+	// Locales Per locale code.
+	Locales map[string]ReleaseLocaleCounts `json:"locales"`
+
+	// Messages Source messages.
+	Messages int `json:"messages"`
+
+	// NewArtifacts Artifacts this publish uploaded; the rest were already stored.
+	NewArtifacts int `json:"new_artifacts"`
+}
+
+// ReleaseDiff defines model for ReleaseDiff.
+type ReleaseDiff struct {
+	// BaseReleaseId An opaque identifier.
+	BaseReleaseId *Id          `json:"base_release_id,omitempty"`
+	Locales       []LocaleDiff `json:"locales"`
+
+	// ReleaseId An opaque identifier.
+	ReleaseId Id `json:"release_id"`
+}
+
+// ReleaseList defines model for ReleaseList.
+type ReleaseList struct {
+	Items         []Release `json:"items"`
+	NextPageToken *string   `json:"next_page_token,omitempty"`
+}
+
+// ReleaseLocale defines model for ReleaseLocale.
+type ReleaseLocale struct {
+	// Code A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Code Locale `json:"code"`
+
+	// Direction Derived from the locale's (likely) script.
+	Direction Direction `json:"direction"`
+}
+
+// ReleaseLocaleCounts defines model for ReleaseLocaleCounts.
+type ReleaseLocaleCounts struct {
+	Messages int `json:"messages"`
+
+	// Outdated Outdated translations shipped (the policy allowed them).
+	Outdated int `json:"outdated"`
+}
+
+// ReleaseManifest A `glossa.manifest/v1` manifest (runtimes/testdata/schemas/manifest.schema.json), as served.
+type ReleaseManifest map[string]interface{}
+
 // RenameMessage defines model for RenameMessage.
 type RenameMessage struct {
 	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
@@ -971,6 +1270,12 @@ type ReviseSource struct {
 // Translators and reviewers can be limited to `locales`.
 type Role string
 
+// Rollback defines model for Rollback.
+type Rollback struct {
+	// ReleaseId An opaque identifier.
+	ReleaseId *Id `json:"release_id,omitempty"`
+}
+
 // Scope `read` reads the tenant; `write` pushes messages and
 // translations; `publish` creates releases; `admin` manages the
 // tenant, members and tokens (never owners). Every scope implies
@@ -985,6 +1290,27 @@ type Session struct {
 	// ExpiresAt RFC 3339, UTC.
 	ExpiresAt Timestamp `json:"expires_at"`
 	Person    Person    `json:"person"`
+}
+
+// SigningKey defines model for SigningKey.
+type SigningKey struct {
+	// Active Whether it signs new manifests.
+	Active    bool                `json:"active"`
+	Algorithm SigningKeyAlgorithm `json:"algorithm"`
+
+	// KeyId The manifest's `signatures[].keyId`.
+	KeyId string `json:"key_id"`
+
+	// PublicKey The raw 32-byte public key, base64url without padding.
+	PublicKey string `json:"public_key"`
+}
+
+// SigningKeyAlgorithm defines model for SigningKey.Algorithm.
+type SigningKeyAlgorithm string
+
+// SigningKeys defines model for SigningKeys.
+type SigningKeys struct {
+	Keys []SigningKey `json:"keys"`
 }
 
 // Slug defines model for Slug.
@@ -1217,6 +1543,15 @@ type UpdateApplication struct {
 	Slug     *Slug     `json:"slug,omitempty"`
 }
 
+// UpdateEnvironment defines model for UpdateEnvironment.
+type UpdateEnvironment struct {
+	// Policy Which translations ship to an environment: those in `states`
+	// (never `rejected`), and outdated ones (made against an older
+	// source revision) only with `include_outdated`. Production and
+	// staging start with `approved`, the others with everything.
+	Policy EnvironmentPolicy `json:"policy"`
+}
+
 // UpdateMember defines model for UpdateMember.
 type UpdateMember struct {
 	Locales *[]Locale `json:"locales,omitempty"`
@@ -1250,6 +1585,12 @@ type ApplicationPath = Id
 // CeremonyCookie defines model for CeremonyCookie.
 type CeremonyCookie = string
 
+// DeliveryKeyPath An opaque identifier.
+type DeliveryKeyPath = Id
+
+// EnvironmentPath `development`, `preview`, `staging`, `production` or a custom name (not `a`).
+type EnvironmentPath = EnvironmentName
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
 
@@ -1281,6 +1622,9 @@ type PageToken = string
 
 // ProjectPath An opaque identifier.
 type ProjectPath = Id
+
+// ReleasePath An opaque identifier.
+type ReleasePath = Id
 
 // TenantPath An opaque identifier.
 type TenantPath = Id
@@ -1317,6 +1661,9 @@ type TooManyRequests = Problem
 
 // Unauthenticated RFC 9457 problem details.
 type Unauthenticated = Problem
+
+// Unavailable RFC 9457 problem details.
+type Unavailable = Problem
 
 // UnprocessableEntity RFC 9457 problem details.
 type UnprocessableEntity = Problem
@@ -1421,6 +1768,41 @@ type UpdateApplicationParams struct {
 	IfMatch IfMatch `json:"If-Match"`
 }
 
+// ListDeliveryKeysParams defines parameters for ListDeliveryKeys.
+type ListDeliveryKeysParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// CreateDeliveryKeyParams defines parameters for CreateDeliveryKey.
+type CreateDeliveryKeyParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListEnvironmentsParams defines parameters for ListEnvironments.
+type ListEnvironmentsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// UpdateEnvironmentParams defines parameters for UpdateEnvironment.
+type UpdateEnvironmentParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListDeploymentsParams defines parameters for ListDeployments.
+type ListDeploymentsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
 // PutFallbackGraphParams defines parameters for PutFallbackGraph.
 type PutFallbackGraphParams struct {
 	// IfMatch When sent, the `ETag` the change is based on.
@@ -1519,6 +1901,30 @@ type ListTranslationRevisionsParams struct {
 	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
+// ListReleasesParams defines parameters for ListReleases.
+type ListReleasesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// PublishReleaseParams defines parameters for PublishRelease.
+type PublishReleaseParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// GetReleaseDiffParams defines parameters for GetReleaseDiff.
+type GetReleaseDiffParams struct {
+	// Base The release `id` to compare with.
+	Base *Id `form:"base,omitempty" json:"base,omitempty"`
+}
+
+// GetReleaseManifestParams defines parameters for GetReleaseManifest.
+type GetReleaseManifestParams struct {
+	Environment string `form:"environment" json:"environment"`
+}
+
 // ListTokensParams defines parameters for ListTokens.
 type ListTokensParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -1586,6 +1992,21 @@ type CreateApplicationJSONRequestBody = CreateApplication
 // UpdateApplicationJSONRequestBody defines body for UpdateApplication for application/json ContentType.
 type UpdateApplicationJSONRequestBody = UpdateApplication
 
+// CreateDeliveryKeyJSONRequestBody defines body for CreateDeliveryKey for application/json ContentType.
+type CreateDeliveryKeyJSONRequestBody = CreateDeliveryKey
+
+// CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
+type CreateEnvironmentJSONRequestBody = CreateEnvironment
+
+// UpdateEnvironmentJSONRequestBody defines body for UpdateEnvironment for application/json ContentType.
+type UpdateEnvironmentJSONRequestBody = UpdateEnvironment
+
+// PromoteReleaseJSONRequestBody defines body for PromoteRelease for application/json ContentType.
+type PromoteReleaseJSONRequestBody = Promotion
+
+// RollbackEnvironmentJSONRequestBody defines body for RollbackEnvironment for application/json ContentType.
+type RollbackEnvironmentJSONRequestBody = Rollback
+
 // PutFallbackGraphJSONRequestBody defines body for PutFallbackGraph for application/json ContentType.
 type PutFallbackGraphJSONRequestBody = PutFallbackGraph
 
@@ -1612,6 +2033,9 @@ type PutTranslationJSONRequestBody = PutTranslation
 
 // ReviewTranslationJSONRequestBody defines body for ReviewTranslation for application/json ContentType.
 type ReviewTranslationJSONRequestBody = ReviewTranslation
+
+// PublishReleaseJSONRequestBody defines body for PublishRelease for application/json ContentType.
+type PublishReleaseJSONRequestBody = PublishRelease
 
 // ImportTranslationsJSONRequestBody defines body for ImportTranslations for application/json ContentType.
 type ImportTranslationsJSONRequestBody = TranslationImport
@@ -1723,6 +2147,36 @@ type ServerInterface interface {
 	// UpdateApplication Change an application
 	// (PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application})
 	UpdateApplication(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, application ApplicationPath, params UpdateApplicationParams)
+	// ListDeliveryKeys Publishable delivery keys, including revoked ones
+	// (GET /v1/tenants/{tenant}/projects/{project}/delivery-keys)
+	ListDeliveryKeys(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListDeliveryKeysParams)
+	// CreateDeliveryKey Create a publishable delivery key
+	// (POST /v1/tenants/{tenant}/projects/{project}/delivery-keys)
+	CreateDeliveryKey(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params CreateDeliveryKeyParams)
+	// RevokeDeliveryKey Revoke a delivery key
+	// (DELETE /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key})
+	RevokeDeliveryKey(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath)
+	// ListEnvironments Environments of a project
+	// (GET /v1/tenants/{tenant}/projects/{project}/environments)
+	ListEnvironments(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListEnvironmentsParams)
+	// CreateEnvironment Add a custom environment
+	// (POST /v1/tenants/{tenant}/projects/{project}/environments)
+	CreateEnvironment(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath)
+	// GetEnvironment An environment, its policy and the release it serves
+	// (GET /v1/tenants/{tenant}/projects/{project}/environments/{environment})
+	GetEnvironment(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, environment EnvironmentPath)
+	// UpdateEnvironment Change an environment's eligibility policy
+	// (PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment})
+	UpdateEnvironment(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params UpdateEnvironmentParams)
+	// ListDeployments The environment's history of pointer moves
+	// (GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments)
+	ListDeployments(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params ListDeploymentsParams)
+	// PromoteRelease Point the environment at an existing release
+	// (POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions)
+	PromoteRelease(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, environment EnvironmentPath)
+	// RollbackEnvironment Point the environment back at a release it served before
+	// (POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks)
+	RollbackEnvironment(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, environment EnvironmentPath)
 	// GetFallbackGraph A project's fallback graph
 	// (GET /v1/tenants/{tenant}/projects/{project}/fallback-graph)
 	GetFallbackGraph(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath)
@@ -1783,6 +2237,27 @@ type ServerInterface interface {
 	// ListTranslationRevisions A translation's history with provenance, newest first
 	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions)
 	ListTranslationRevisions(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params ListTranslationRevisionsParams)
+	// ListReleaseSigningKeys The public keys manifests are signed with
+	// (GET /v1/tenants/{tenant}/projects/{project}/release-signing-keys)
+	ListReleaseSigningKeys(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath)
+	// ListReleases Releases of a project
+	// (GET /v1/tenants/{tenant}/projects/{project}/releases)
+	ListReleases(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListReleasesParams)
+	// PublishRelease Publish a release to an environment
+	// (POST /v1/tenants/{tenant}/projects/{project}/releases)
+	PublishRelease(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params PublishReleaseParams)
+	// GetRelease A release, its counts and manifest digest
+	// (GET /v1/tenants/{tenant}/projects/{project}/releases/{release})
+	GetRelease(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, release ReleasePath)
+	// GetReleaseArtifact One artifact of a release, as stored
+	// (GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest})
+	GetReleaseArtifact(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, release ReleasePath, digest string)
+	// GetReleaseDiff What changed since another release, per locale
+	// (GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/diff)
+	GetReleaseDiff(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, release ReleasePath, params GetReleaseDiffParams)
+	// GetReleaseManifest The signed manifest of a release for an environment
+	// (GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest)
+	GetReleaseManifest(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, release ReleasePath, params GetReleaseManifestParams)
 	// ImportTranslations Import translations in bulk
 	// (POST /v1/tenants/{tenant}/projects/{project}/translation-imports)
 	ImportTranslations(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath)
@@ -3010,6 +3485,549 @@ func (siw *ServerInterfaceWrapper) UpdateApplication(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateApplication(w, r, tenant, project, application, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListDeliveryKeys operation middleware
+func (siw *ServerInterfaceWrapper) ListDeliveryKeys(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDeliveryKeysParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDeliveryKeys(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateDeliveryKey operation middleware
+func (siw *ServerInterfaceWrapper) CreateDeliveryKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateDeliveryKeyParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateDeliveryKey(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeDeliveryKey operation middleware
+func (siw *ServerInterfaceWrapper) RevokeDeliveryKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "delivery_key" -------------
+	var deliveryKey DeliveryKeyPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "delivery_key", r.PathValue("delivery_key"), &deliveryKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "delivery_key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeDeliveryKey(w, r, tenant, project, deliveryKey)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListEnvironments operation middleware
+func (siw *ServerInterfaceWrapper) ListEnvironments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListEnvironmentsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListEnvironments(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateEnvironment operation middleware
+func (siw *ServerInterfaceWrapper) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateEnvironment(w, r, tenant, project)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEnvironment operation middleware
+func (siw *ServerInterfaceWrapper) GetEnvironment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "environment" -------------
+	var environment EnvironmentPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "environment", r.PathValue("environment"), &environment, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "environment", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEnvironment(w, r, tenant, project, environment)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateEnvironment operation middleware
+func (siw *ServerInterfaceWrapper) UpdateEnvironment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "environment" -------------
+	var environment EnvironmentPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "environment", r.PathValue("environment"), &environment, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "environment", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateEnvironmentParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateEnvironment(w, r, tenant, project, environment, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListDeployments operation middleware
+func (siw *ServerInterfaceWrapper) ListDeployments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "environment" -------------
+	var environment EnvironmentPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "environment", r.PathValue("environment"), &environment, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "environment", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDeploymentsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDeployments(w, r, tenant, project, environment, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PromoteRelease operation middleware
+func (siw *ServerInterfaceWrapper) PromoteRelease(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "environment" -------------
+	var environment EnvironmentPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "environment", r.PathValue("environment"), &environment, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "environment", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PromoteRelease(w, r, tenant, project, environment)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RollbackEnvironment operation middleware
+func (siw *ServerInterfaceWrapper) RollbackEnvironment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "environment" -------------
+	var environment EnvironmentPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "environment", r.PathValue("environment"), &environment, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "environment", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RollbackEnvironment(w, r, tenant, project, environment)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4286,6 +5304,381 @@ func (siw *ServerInterfaceWrapper) ListTranslationRevisions(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// ListReleaseSigningKeys operation middleware
+func (siw *ServerInterfaceWrapper) ListReleaseSigningKeys(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListReleaseSigningKeys(w, r, tenant, project)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListReleases operation middleware
+func (siw *ServerInterfaceWrapper) ListReleases(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListReleasesParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListReleases(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PublishRelease operation middleware
+func (siw *ServerInterfaceWrapper) PublishRelease(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PublishReleaseParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PublishRelease(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRelease operation middleware
+func (siw *ServerInterfaceWrapper) GetRelease(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "release" -------------
+	var release ReleasePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "release", r.PathValue("release"), &release, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "release", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRelease(w, r, tenant, project, release)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReleaseArtifact operation middleware
+func (siw *ServerInterfaceWrapper) GetReleaseArtifact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "release" -------------
+	var release ReleasePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "release", r.PathValue("release"), &release, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "release", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "digest" -------------
+	var digest string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "digest", r.PathValue("digest"), &digest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "digest", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReleaseArtifact(w, r, tenant, project, release, digest)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReleaseDiff operation middleware
+func (siw *ServerInterfaceWrapper) GetReleaseDiff(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "release" -------------
+	var release ReleasePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "release", r.PathValue("release"), &release, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "release", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetReleaseDiffParams
+
+	// ------------- Optional query parameter "base" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "base", r.URL.Query(), &params.Base, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "base"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "base", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReleaseDiff(w, r, tenant, project, release, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReleaseManifest operation middleware
+func (siw *ServerInterfaceWrapper) GetReleaseManifest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "release" -------------
+	var release ReleasePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "release", r.PathValue("release"), &release, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "release", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetReleaseManifestParams
+
+	// ------------- Required query parameter "environment" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "environment", r.URL.Query(), &params.Environment, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "environment"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "environment", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReleaseManifest(w, r, tenant, project, release, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ImportTranslations operation middleware
 func (siw *ServerInterfaceWrapper) ImportTranslations(w http.ResponseWriter, r *http.Request) {
 
@@ -4675,6 +6068,23 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions", wrapper.ListTranslationRevisions)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/reviews", wrapper.ReviewTranslation)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/translation-imports", wrapper.ImportTranslations)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/environments", wrapper.ListEnvironments)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/environments", wrapper.CreateEnvironment)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/environments/{environment}", wrapper.GetEnvironment)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/environments/{environment}", wrapper.UpdateEnvironment)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions", wrapper.PromoteRelease)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks", wrapper.RollbackEnvironment)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments", wrapper.ListDeployments)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/releases", wrapper.ListReleases)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/releases", wrapper.PublishRelease)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/releases/{release}", wrapper.GetRelease)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/releases/{release}/diff", wrapper.GetReleaseDiff)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest", wrapper.GetReleaseManifest)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest}", wrapper.GetReleaseArtifact)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/release-signing-keys", wrapper.ListReleaseSigningKeys)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/delivery-keys", wrapper.ListDeliveryKeys)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/delivery-keys", wrapper.CreateDeliveryKey)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}", wrapper.RevokeDeliveryKey)
 
 	return m
 }
@@ -4705,6 +6115,8 @@ type StructuralQAFailedApplicationProblemPlusJSONResponse QAProblem
 type TooManyRequestsApplicationProblemPlusJSONResponse Problem
 
 type UnauthenticatedApplicationProblemPlusJSONResponse Problem
+
+type UnavailableApplicationProblemPlusJSONResponse Problem
 
 type UnprocessableEntityApplicationProblemPlusJSONResponse Problem
 
@@ -7481,6 +8893,1050 @@ func (response UpdateApplication428ApplicationProblemPlusJSONResponse) VisitUpda
 	return err
 }
 
+type ListDeliveryKeysRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  ListDeliveryKeysParams
+}
+
+type ListDeliveryKeysResponseObject interface {
+	VisitListDeliveryKeysResponse(w http.ResponseWriter) error
+}
+
+type ListDeliveryKeys200JSONResponse DeliveryKeyList
+
+func (response ListDeliveryKeys200JSONResponse) VisitListDeliveryKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDeliveryKeys400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListDeliveryKeys400ApplicationProblemPlusJSONResponse) VisitListDeliveryKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDeliveryKeys401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListDeliveryKeys401ApplicationProblemPlusJSONResponse) VisitListDeliveryKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDeliveryKeys403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListDeliveryKeys403ApplicationProblemPlusJSONResponse) VisitListDeliveryKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDeliveryKeys404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListDeliveryKeys404ApplicationProblemPlusJSONResponse) VisitListDeliveryKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateDeliveryKeyRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  CreateDeliveryKeyParams
+	Body    *CreateDeliveryKeyJSONRequestBody
+}
+
+type CreateDeliveryKeyResponseObject interface {
+	VisitCreateDeliveryKeyResponse(w http.ResponseWriter) error
+}
+
+type CreateDeliveryKey201ResponseHeaders struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateDeliveryKey201JSONResponse struct {
+	Body    DeliveryKey
+	Headers CreateDeliveryKey201ResponseHeaders
+}
+
+func (response CreateDeliveryKey201JSONResponse) VisitCreateDeliveryKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.IdempotentReplayed != nil {
+		w.Header().Set("Idempotent-Replayed", fmt.Sprint(*response.Headers.IdempotentReplayed))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateDeliveryKey400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CreateDeliveryKey400ApplicationProblemPlusJSONResponse) VisitCreateDeliveryKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateDeliveryKey401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateDeliveryKey401ApplicationProblemPlusJSONResponse) VisitCreateDeliveryKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateDeliveryKey403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CreateDeliveryKey403ApplicationProblemPlusJSONResponse) VisitCreateDeliveryKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateDeliveryKey404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CreateDeliveryKey404ApplicationProblemPlusJSONResponse) VisitCreateDeliveryKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateDeliveryKey422ApplicationProblemPlusJSONResponse struct {
+	UnprocessableEntityApplicationProblemPlusJSONResponse
+}
+
+func (response CreateDeliveryKey422ApplicationProblemPlusJSONResponse) VisitCreateDeliveryKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeDeliveryKeyRequestObject struct {
+	Tenant      TenantPath      `json:"tenant"`
+	Project     ProjectPath     `json:"project"`
+	DeliveryKey DeliveryKeyPath `json:"delivery_key"`
+}
+
+type RevokeDeliveryKeyResponseObject interface {
+	VisitRevokeDeliveryKeyResponse(w http.ResponseWriter) error
+}
+
+type RevokeDeliveryKey204Response struct {
+}
+
+func (response RevokeDeliveryKey204Response) VisitRevokeDeliveryKeyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevokeDeliveryKey401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response RevokeDeliveryKey401ApplicationProblemPlusJSONResponse) VisitRevokeDeliveryKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeDeliveryKey403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response RevokeDeliveryKey403ApplicationProblemPlusJSONResponse) VisitRevokeDeliveryKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeDeliveryKey404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RevokeDeliveryKey404ApplicationProblemPlusJSONResponse) VisitRevokeDeliveryKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeDeliveryKey409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response RevokeDeliveryKey409ApplicationProblemPlusJSONResponse) VisitRevokeDeliveryKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEnvironmentsRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  ListEnvironmentsParams
+}
+
+type ListEnvironmentsResponseObject interface {
+	VisitListEnvironmentsResponse(w http.ResponseWriter) error
+}
+
+type ListEnvironments200JSONResponse EnvironmentList
+
+func (response ListEnvironments200JSONResponse) VisitListEnvironmentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEnvironments400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListEnvironments400ApplicationProblemPlusJSONResponse) VisitListEnvironmentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEnvironments401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListEnvironments401ApplicationProblemPlusJSONResponse) VisitListEnvironmentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEnvironments403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListEnvironments403ApplicationProblemPlusJSONResponse) VisitListEnvironmentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEnvironments404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListEnvironments404ApplicationProblemPlusJSONResponse) VisitListEnvironmentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEnvironmentRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Body    *CreateEnvironmentJSONRequestBody
+}
+
+type CreateEnvironmentResponseObject interface {
+	VisitCreateEnvironmentResponse(w http.ResponseWriter) error
+}
+
+type CreateEnvironment201ResponseHeaders struct {
+	ETag     *string
+	Location *string
+}
+
+type CreateEnvironment201JSONResponse struct {
+	Body    Environment
+	Headers CreateEnvironment201ResponseHeaders
+}
+
+func (response CreateEnvironment201JSONResponse) VisitCreateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEnvironment400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CreateEnvironment400ApplicationProblemPlusJSONResponse) VisitCreateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEnvironment401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateEnvironment401ApplicationProblemPlusJSONResponse) VisitCreateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEnvironment403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CreateEnvironment403ApplicationProblemPlusJSONResponse) VisitCreateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEnvironment404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CreateEnvironment404ApplicationProblemPlusJSONResponse) VisitCreateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEnvironment409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CreateEnvironment409ApplicationProblemPlusJSONResponse) VisitCreateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEnvironmentRequestObject struct {
+	Tenant      TenantPath      `json:"tenant"`
+	Project     ProjectPath     `json:"project"`
+	Environment EnvironmentPath `json:"environment"`
+}
+
+type GetEnvironmentResponseObject interface {
+	VisitGetEnvironmentResponse(w http.ResponseWriter) error
+}
+
+type GetEnvironment200ResponseHeaders struct {
+	ETag *string
+}
+
+type GetEnvironment200JSONResponse struct {
+	Body    Environment
+	Headers GetEnvironment200ResponseHeaders
+}
+
+func (response GetEnvironment200JSONResponse) VisitGetEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEnvironment401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetEnvironment401ApplicationProblemPlusJSONResponse) VisitGetEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEnvironment403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetEnvironment403ApplicationProblemPlusJSONResponse) VisitGetEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEnvironment404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetEnvironment404ApplicationProblemPlusJSONResponse) VisitGetEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEnvironmentRequestObject struct {
+	Tenant      TenantPath      `json:"tenant"`
+	Project     ProjectPath     `json:"project"`
+	Environment EnvironmentPath `json:"environment"`
+	Params      UpdateEnvironmentParams
+	Body        *UpdateEnvironmentJSONRequestBody
+}
+
+type UpdateEnvironmentResponseObject interface {
+	VisitUpdateEnvironmentResponse(w http.ResponseWriter) error
+}
+
+type UpdateEnvironment200ResponseHeaders struct {
+	ETag *string
+}
+
+type UpdateEnvironment200JSONResponse struct {
+	Body    Environment
+	Headers UpdateEnvironment200ResponseHeaders
+}
+
+func (response UpdateEnvironment200JSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEnvironment400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateEnvironment400ApplicationProblemPlusJSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEnvironment401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateEnvironment401ApplicationProblemPlusJSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEnvironment403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateEnvironment403ApplicationProblemPlusJSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEnvironment404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateEnvironment404ApplicationProblemPlusJSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEnvironment409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateEnvironment409ApplicationProblemPlusJSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEnvironment412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateEnvironment412ApplicationProblemPlusJSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEnvironment428ApplicationProblemPlusJSONResponse struct {
+	PreconditionRequiredApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateEnvironment428ApplicationProblemPlusJSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDeploymentsRequestObject struct {
+	Tenant      TenantPath      `json:"tenant"`
+	Project     ProjectPath     `json:"project"`
+	Environment EnvironmentPath `json:"environment"`
+	Params      ListDeploymentsParams
+}
+
+type ListDeploymentsResponseObject interface {
+	VisitListDeploymentsResponse(w http.ResponseWriter) error
+}
+
+type ListDeployments200JSONResponse DeploymentList
+
+func (response ListDeployments200JSONResponse) VisitListDeploymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDeployments400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListDeployments400ApplicationProblemPlusJSONResponse) VisitListDeploymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDeployments401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListDeployments401ApplicationProblemPlusJSONResponse) VisitListDeploymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDeployments403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListDeployments403ApplicationProblemPlusJSONResponse) VisitListDeploymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDeployments404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListDeployments404ApplicationProblemPlusJSONResponse) VisitListDeploymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PromoteReleaseRequestObject struct {
+	Tenant      TenantPath      `json:"tenant"`
+	Project     ProjectPath     `json:"project"`
+	Environment EnvironmentPath `json:"environment"`
+	Body        *PromoteReleaseJSONRequestBody
+}
+
+type PromoteReleaseResponseObject interface {
+	VisitPromoteReleaseResponse(w http.ResponseWriter) error
+}
+
+type PromoteRelease200ResponseHeaders struct {
+	ETag *string
+}
+
+type PromoteRelease200JSONResponse struct {
+	Body    Environment
+	Headers PromoteRelease200ResponseHeaders
+}
+
+func (response PromoteRelease200JSONResponse) VisitPromoteReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PromoteRelease400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response PromoteRelease400ApplicationProblemPlusJSONResponse) VisitPromoteReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PromoteRelease401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response PromoteRelease401ApplicationProblemPlusJSONResponse) VisitPromoteReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PromoteRelease403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response PromoteRelease403ApplicationProblemPlusJSONResponse) VisitPromoteReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PromoteRelease404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response PromoteRelease404ApplicationProblemPlusJSONResponse) VisitPromoteReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PromoteRelease409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response PromoteRelease409ApplicationProblemPlusJSONResponse) VisitPromoteReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackEnvironmentRequestObject struct {
+	Tenant      TenantPath      `json:"tenant"`
+	Project     ProjectPath     `json:"project"`
+	Environment EnvironmentPath `json:"environment"`
+	Body        *RollbackEnvironmentJSONRequestBody
+}
+
+type RollbackEnvironmentResponseObject interface {
+	VisitRollbackEnvironmentResponse(w http.ResponseWriter) error
+}
+
+type RollbackEnvironment200ResponseHeaders struct {
+	ETag *string
+}
+
+type RollbackEnvironment200JSONResponse struct {
+	Body    Environment
+	Headers RollbackEnvironment200ResponseHeaders
+}
+
+func (response RollbackEnvironment200JSONResponse) VisitRollbackEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackEnvironment400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response RollbackEnvironment400ApplicationProblemPlusJSONResponse) VisitRollbackEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackEnvironment401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response RollbackEnvironment401ApplicationProblemPlusJSONResponse) VisitRollbackEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackEnvironment403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response RollbackEnvironment403ApplicationProblemPlusJSONResponse) VisitRollbackEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackEnvironment404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RollbackEnvironment404ApplicationProblemPlusJSONResponse) VisitRollbackEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackEnvironment409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response RollbackEnvironment409ApplicationProblemPlusJSONResponse) VisitRollbackEnvironmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetFallbackGraphRequestObject struct {
 	Tenant  TenantPath  `json:"tenant"`
 	Project ProjectPath `json:"project"`
@@ -9652,6 +12108,655 @@ func (response ListTranslationRevisions404ApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type ListReleaseSigningKeysRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+}
+
+type ListReleaseSigningKeysResponseObject interface {
+	VisitListReleaseSigningKeysResponse(w http.ResponseWriter) error
+}
+
+type ListReleaseSigningKeys200JSONResponse SigningKeys
+
+func (response ListReleaseSigningKeys200JSONResponse) VisitListReleaseSigningKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListReleaseSigningKeys401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListReleaseSigningKeys401ApplicationProblemPlusJSONResponse) VisitListReleaseSigningKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListReleaseSigningKeys403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListReleaseSigningKeys403ApplicationProblemPlusJSONResponse) VisitListReleaseSigningKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListReleaseSigningKeys404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListReleaseSigningKeys404ApplicationProblemPlusJSONResponse) VisitListReleaseSigningKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListReleasesRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  ListReleasesParams
+}
+
+type ListReleasesResponseObject interface {
+	VisitListReleasesResponse(w http.ResponseWriter) error
+}
+
+type ListReleases200JSONResponse ReleaseList
+
+func (response ListReleases200JSONResponse) VisitListReleasesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListReleases400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListReleases400ApplicationProblemPlusJSONResponse) VisitListReleasesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListReleases401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListReleases401ApplicationProblemPlusJSONResponse) VisitListReleasesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListReleases403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListReleases403ApplicationProblemPlusJSONResponse) VisitListReleasesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListReleases404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListReleases404ApplicationProblemPlusJSONResponse) VisitListReleasesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishReleaseRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  PublishReleaseParams
+	Body    *PublishReleaseJSONRequestBody
+}
+
+type PublishReleaseResponseObject interface {
+	VisitPublishReleaseResponse(w http.ResponseWriter) error
+}
+
+type PublishRelease201ResponseHeaders struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type PublishRelease201JSONResponse struct {
+	Body    Release
+	Headers PublishRelease201ResponseHeaders
+}
+
+func (response PublishRelease201JSONResponse) VisitPublishReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.IdempotentReplayed != nil {
+		w.Header().Set("Idempotent-Replayed", fmt.Sprint(*response.Headers.IdempotentReplayed))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishRelease400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response PublishRelease400ApplicationProblemPlusJSONResponse) VisitPublishReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishRelease401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response PublishRelease401ApplicationProblemPlusJSONResponse) VisitPublishReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishRelease403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response PublishRelease403ApplicationProblemPlusJSONResponse) VisitPublishReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishRelease404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response PublishRelease404ApplicationProblemPlusJSONResponse) VisitPublishReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishRelease409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response PublishRelease409ApplicationProblemPlusJSONResponse) VisitPublishReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishRelease422ApplicationProblemPlusJSONResponse struct {
+	UnprocessableEntityApplicationProblemPlusJSONResponse
+}
+
+func (response PublishRelease422ApplicationProblemPlusJSONResponse) VisitPublishReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishRelease503ApplicationProblemPlusJSONResponse struct {
+	UnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response PublishRelease503ApplicationProblemPlusJSONResponse) VisitPublishReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Release ReleasePath `json:"release"`
+}
+
+type GetReleaseResponseObject interface {
+	VisitGetReleaseResponse(w http.ResponseWriter) error
+}
+
+type GetRelease200JSONResponse Release
+
+func (response GetRelease200JSONResponse) VisitGetReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRelease401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetRelease401ApplicationProblemPlusJSONResponse) VisitGetReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRelease403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetRelease403ApplicationProblemPlusJSONResponse) VisitGetReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRelease404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetRelease404ApplicationProblemPlusJSONResponse) VisitGetReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseArtifactRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Release ReleasePath `json:"release"`
+	Digest  string      `json:"digest"`
+}
+
+type GetReleaseArtifactResponseObject interface {
+	VisitGetReleaseArtifactResponse(w http.ResponseWriter) error
+}
+
+type GetReleaseArtifact200JSONResponse ReleaseArtifact
+
+func (response GetReleaseArtifact200JSONResponse) VisitGetReleaseArtifactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseArtifact401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseArtifact401ApplicationProblemPlusJSONResponse) VisitGetReleaseArtifactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseArtifact403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseArtifact403ApplicationProblemPlusJSONResponse) VisitGetReleaseArtifactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseArtifact404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseArtifact404ApplicationProblemPlusJSONResponse) VisitGetReleaseArtifactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseArtifact503ApplicationProblemPlusJSONResponse struct {
+	UnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseArtifact503ApplicationProblemPlusJSONResponse) VisitGetReleaseArtifactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseDiffRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Release ReleasePath `json:"release"`
+	Params  GetReleaseDiffParams
+}
+
+type GetReleaseDiffResponseObject interface {
+	VisitGetReleaseDiffResponse(w http.ResponseWriter) error
+}
+
+type GetReleaseDiff200JSONResponse ReleaseDiff
+
+func (response GetReleaseDiff200JSONResponse) VisitGetReleaseDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseDiff401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseDiff401ApplicationProblemPlusJSONResponse) VisitGetReleaseDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseDiff403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseDiff403ApplicationProblemPlusJSONResponse) VisitGetReleaseDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseDiff404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseDiff404ApplicationProblemPlusJSONResponse) VisitGetReleaseDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseDiff503ApplicationProblemPlusJSONResponse struct {
+	UnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseDiff503ApplicationProblemPlusJSONResponse) VisitGetReleaseDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseManifestRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Release ReleasePath `json:"release"`
+	Params  GetReleaseManifestParams
+}
+
+type GetReleaseManifestResponseObject interface {
+	VisitGetReleaseManifestResponse(w http.ResponseWriter) error
+}
+
+type GetReleaseManifest200JSONResponse ReleaseManifest
+
+func (response GetReleaseManifest200JSONResponse) VisitGetReleaseManifestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseManifest400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseManifest400ApplicationProblemPlusJSONResponse) VisitGetReleaseManifestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseManifest401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseManifest401ApplicationProblemPlusJSONResponse) VisitGetReleaseManifestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseManifest403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseManifest403ApplicationProblemPlusJSONResponse) VisitGetReleaseManifestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseManifest404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetReleaseManifest404ApplicationProblemPlusJSONResponse) VisitGetReleaseManifestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ImportTranslationsRequestObject struct {
 	Tenant  TenantPath  `json:"tenant"`
 	Project ProjectPath `json:"project"`
@@ -10169,6 +13274,36 @@ type StrictServerInterface interface {
 	// UpdateApplication Change an application
 	// (PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application})
 	UpdateApplication(ctx context.Context, request UpdateApplicationRequestObject) (UpdateApplicationResponseObject, error)
+	// ListDeliveryKeys Publishable delivery keys, including revoked ones
+	// (GET /v1/tenants/{tenant}/projects/{project}/delivery-keys)
+	ListDeliveryKeys(ctx context.Context, request ListDeliveryKeysRequestObject) (ListDeliveryKeysResponseObject, error)
+	// CreateDeliveryKey Create a publishable delivery key
+	// (POST /v1/tenants/{tenant}/projects/{project}/delivery-keys)
+	CreateDeliveryKey(ctx context.Context, request CreateDeliveryKeyRequestObject) (CreateDeliveryKeyResponseObject, error)
+	// RevokeDeliveryKey Revoke a delivery key
+	// (DELETE /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key})
+	RevokeDeliveryKey(ctx context.Context, request RevokeDeliveryKeyRequestObject) (RevokeDeliveryKeyResponseObject, error)
+	// ListEnvironments Environments of a project
+	// (GET /v1/tenants/{tenant}/projects/{project}/environments)
+	ListEnvironments(ctx context.Context, request ListEnvironmentsRequestObject) (ListEnvironmentsResponseObject, error)
+	// CreateEnvironment Add a custom environment
+	// (POST /v1/tenants/{tenant}/projects/{project}/environments)
+	CreateEnvironment(ctx context.Context, request CreateEnvironmentRequestObject) (CreateEnvironmentResponseObject, error)
+	// GetEnvironment An environment, its policy and the release it serves
+	// (GET /v1/tenants/{tenant}/projects/{project}/environments/{environment})
+	GetEnvironment(ctx context.Context, request GetEnvironmentRequestObject) (GetEnvironmentResponseObject, error)
+	// UpdateEnvironment Change an environment's eligibility policy
+	// (PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment})
+	UpdateEnvironment(ctx context.Context, request UpdateEnvironmentRequestObject) (UpdateEnvironmentResponseObject, error)
+	// ListDeployments The environment's history of pointer moves
+	// (GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments)
+	ListDeployments(ctx context.Context, request ListDeploymentsRequestObject) (ListDeploymentsResponseObject, error)
+	// PromoteRelease Point the environment at an existing release
+	// (POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions)
+	PromoteRelease(ctx context.Context, request PromoteReleaseRequestObject) (PromoteReleaseResponseObject, error)
+	// RollbackEnvironment Point the environment back at a release it served before
+	// (POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks)
+	RollbackEnvironment(ctx context.Context, request RollbackEnvironmentRequestObject) (RollbackEnvironmentResponseObject, error)
 	// GetFallbackGraph A project's fallback graph
 	// (GET /v1/tenants/{tenant}/projects/{project}/fallback-graph)
 	GetFallbackGraph(ctx context.Context, request GetFallbackGraphRequestObject) (GetFallbackGraphResponseObject, error)
@@ -10229,6 +13364,27 @@ type StrictServerInterface interface {
 	// ListTranslationRevisions A translation's history with provenance, newest first
 	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions)
 	ListTranslationRevisions(ctx context.Context, request ListTranslationRevisionsRequestObject) (ListTranslationRevisionsResponseObject, error)
+	// ListReleaseSigningKeys The public keys manifests are signed with
+	// (GET /v1/tenants/{tenant}/projects/{project}/release-signing-keys)
+	ListReleaseSigningKeys(ctx context.Context, request ListReleaseSigningKeysRequestObject) (ListReleaseSigningKeysResponseObject, error)
+	// ListReleases Releases of a project
+	// (GET /v1/tenants/{tenant}/projects/{project}/releases)
+	ListReleases(ctx context.Context, request ListReleasesRequestObject) (ListReleasesResponseObject, error)
+	// PublishRelease Publish a release to an environment
+	// (POST /v1/tenants/{tenant}/projects/{project}/releases)
+	PublishRelease(ctx context.Context, request PublishReleaseRequestObject) (PublishReleaseResponseObject, error)
+	// GetRelease A release, its counts and manifest digest
+	// (GET /v1/tenants/{tenant}/projects/{project}/releases/{release})
+	GetRelease(ctx context.Context, request GetReleaseRequestObject) (GetReleaseResponseObject, error)
+	// GetReleaseArtifact One artifact of a release, as stored
+	// (GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest})
+	GetReleaseArtifact(ctx context.Context, request GetReleaseArtifactRequestObject) (GetReleaseArtifactResponseObject, error)
+	// GetReleaseDiff What changed since another release, per locale
+	// (GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/diff)
+	GetReleaseDiff(ctx context.Context, request GetReleaseDiffRequestObject) (GetReleaseDiffResponseObject, error)
+	// GetReleaseManifest The signed manifest of a release for an environment
+	// (GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest)
+	GetReleaseManifest(ctx context.Context, request GetReleaseManifestRequestObject) (GetReleaseManifestResponseObject, error)
 	// ImportTranslations Import translations in bulk
 	// (POST /v1/tenants/{tenant}/projects/{project}/translation-imports)
 	ImportTranslations(ctx context.Context, request ImportTranslationsRequestObject) (ImportTranslationsResponseObject, error)
@@ -11293,6 +14449,322 @@ func (sh *strictHandler) UpdateApplication(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// ListDeliveryKeys operation middleware
+func (sh *strictHandler) ListDeliveryKeys(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListDeliveryKeysParams) {
+	var request ListDeliveryKeysRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDeliveryKeys(ctx, request.(ListDeliveryKeysRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDeliveryKeys")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListDeliveryKeysResponseObject); ok {
+		if err := validResponse.VisitListDeliveryKeysResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateDeliveryKey operation middleware
+func (sh *strictHandler) CreateDeliveryKey(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params CreateDeliveryKeyParams) {
+	var request CreateDeliveryKeyRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	var body CreateDeliveryKeyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateDeliveryKey(ctx, request.(CreateDeliveryKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateDeliveryKey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateDeliveryKeyResponseObject); ok {
+		if err := validResponse.VisitCreateDeliveryKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeDeliveryKey operation middleware
+func (sh *strictHandler) RevokeDeliveryKey(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, deliveryKey DeliveryKeyPath) {
+	var request RevokeDeliveryKeyRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.DeliveryKey = deliveryKey
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeDeliveryKey(ctx, request.(RevokeDeliveryKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeDeliveryKey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokeDeliveryKeyResponseObject); ok {
+		if err := validResponse.VisitRevokeDeliveryKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListEnvironments operation middleware
+func (sh *strictHandler) ListEnvironments(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListEnvironmentsParams) {
+	var request ListEnvironmentsRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListEnvironments(ctx, request.(ListEnvironmentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListEnvironments")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListEnvironmentsResponseObject); ok {
+		if err := validResponse.VisitListEnvironmentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateEnvironment operation middleware
+func (sh *strictHandler) CreateEnvironment(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath) {
+	var request CreateEnvironmentRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+
+	var body CreateEnvironmentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateEnvironment(ctx, request.(CreateEnvironmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateEnvironment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateEnvironmentResponseObject); ok {
+		if err := validResponse.VisitCreateEnvironmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetEnvironment operation middleware
+func (sh *strictHandler) GetEnvironment(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, environment EnvironmentPath) {
+	var request GetEnvironmentRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Environment = environment
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetEnvironment(ctx, request.(GetEnvironmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetEnvironment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetEnvironmentResponseObject); ok {
+		if err := validResponse.VisitGetEnvironmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateEnvironment operation middleware
+func (sh *strictHandler) UpdateEnvironment(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params UpdateEnvironmentParams) {
+	var request UpdateEnvironmentRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Environment = environment
+	request.Params = params
+
+	var body UpdateEnvironmentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateEnvironment(ctx, request.(UpdateEnvironmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateEnvironment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateEnvironmentResponseObject); ok {
+		if err := validResponse.VisitUpdateEnvironmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListDeployments operation middleware
+func (sh *strictHandler) ListDeployments(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params ListDeploymentsParams) {
+	var request ListDeploymentsRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Environment = environment
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDeployments(ctx, request.(ListDeploymentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDeployments")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListDeploymentsResponseObject); ok {
+		if err := validResponse.VisitListDeploymentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PromoteRelease operation middleware
+func (sh *strictHandler) PromoteRelease(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, environment EnvironmentPath) {
+	var request PromoteReleaseRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Environment = environment
+
+	var body PromoteReleaseJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PromoteRelease(ctx, request.(PromoteReleaseRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PromoteRelease")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PromoteReleaseResponseObject); ok {
+		if err := validResponse.VisitPromoteReleaseResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RollbackEnvironment operation middleware
+func (sh *strictHandler) RollbackEnvironment(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, environment EnvironmentPath) {
+	var request RollbackEnvironmentRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Environment = environment
+
+	var body RollbackEnvironmentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RollbackEnvironment(ctx, request.(RollbackEnvironmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RollbackEnvironment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RollbackEnvironmentResponseObject); ok {
+		if err := validResponse.VisitRollbackEnvironmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetFallbackGraph operation middleware
 func (sh *strictHandler) GetFallbackGraph(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath) {
 	var request GetFallbackGraphRequestObject
@@ -11926,6 +15398,211 @@ func (sh *strictHandler) ListTranslationRevisions(w http.ResponseWriter, r *http
 	}
 }
 
+// ListReleaseSigningKeys operation middleware
+func (sh *strictHandler) ListReleaseSigningKeys(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath) {
+	var request ListReleaseSigningKeysRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListReleaseSigningKeys(ctx, request.(ListReleaseSigningKeysRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListReleaseSigningKeys")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListReleaseSigningKeysResponseObject); ok {
+		if err := validResponse.VisitListReleaseSigningKeysResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListReleases operation middleware
+func (sh *strictHandler) ListReleases(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListReleasesParams) {
+	var request ListReleasesRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListReleases(ctx, request.(ListReleasesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListReleases")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListReleasesResponseObject); ok {
+		if err := validResponse.VisitListReleasesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PublishRelease operation middleware
+func (sh *strictHandler) PublishRelease(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params PublishReleaseParams) {
+	var request PublishReleaseRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	var body PublishReleaseJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PublishRelease(ctx, request.(PublishReleaseRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PublishRelease")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PublishReleaseResponseObject); ok {
+		if err := validResponse.VisitPublishReleaseResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRelease operation middleware
+func (sh *strictHandler) GetRelease(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, release ReleasePath) {
+	var request GetReleaseRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Release = release
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRelease(ctx, request.(GetReleaseRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRelease")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetReleaseResponseObject); ok {
+		if err := validResponse.VisitGetReleaseResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetReleaseArtifact operation middleware
+func (sh *strictHandler) GetReleaseArtifact(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, release ReleasePath, digest string) {
+	var request GetReleaseArtifactRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Release = release
+	request.Digest = digest
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetReleaseArtifact(ctx, request.(GetReleaseArtifactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetReleaseArtifact")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetReleaseArtifactResponseObject); ok {
+		if err := validResponse.VisitGetReleaseArtifactResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetReleaseDiff operation middleware
+func (sh *strictHandler) GetReleaseDiff(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, release ReleasePath, params GetReleaseDiffParams) {
+	var request GetReleaseDiffRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Release = release
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetReleaseDiff(ctx, request.(GetReleaseDiffRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetReleaseDiff")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetReleaseDiffResponseObject); ok {
+		if err := validResponse.VisitGetReleaseDiffResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetReleaseManifest operation middleware
+func (sh *strictHandler) GetReleaseManifest(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, release ReleasePath, params GetReleaseManifestParams) {
+	var request GetReleaseManifestRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Release = release
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetReleaseManifest(ctx, request.(GetReleaseManifestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetReleaseManifest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetReleaseManifestResponseObject); ok {
+		if err := validResponse.VisitGetReleaseManifestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ImportTranslations operation middleware
 func (sh *strictHandler) ImportTranslations(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath) {
 	var request ImportTranslationsRequestObject
@@ -12080,232 +15757,296 @@ func (sh *strictHandler) GetToken(w http.ResponseWriter, r *http.Request, tenant
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"9sP/GwA=",
+	"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",
+	"/ZiCDHKB+8GFXH3+8Pn/DgA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -143,7 +143,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger) (*app, e
 		pool.Close()
 		return nil, err
 	}
-	bounded, err := newContexts(pool, events)
+	bounded, err := buildContexts(cfg, logger, pool, events)
 	if err != nil {
 		pool.Close()
 		return nil, err

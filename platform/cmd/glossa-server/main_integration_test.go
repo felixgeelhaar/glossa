@@ -62,6 +62,7 @@ func TestServerLifecycle(t *testing.T) {
 		"GLOSSA_SHUTDOWN_TIMEOUT":     "5s",
 		"GLOSSA_OUTBOX_POLL_INTERVAL": "50ms",
 		"GLOSSA_AUTH_SECRET":          testAuthSecret,
+		"GLOSSA_STORAGE_DIR":          t.TempDir(),
 	})
 	logs := &syncBuffer{}
 	ctx, cancel := context.WithCancel(context.Background())

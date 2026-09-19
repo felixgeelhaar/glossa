@@ -101,6 +101,22 @@ tags:
       a review state. `outdated` is derived: the translation was made
       against an older source revision than the message's current one.
 
+  - name: environments
+    description: |
+      Where a project's text is served (Release): `development`,
+      `preview`, `staging`, `production` and custom ones, each with an
+      eligibility policy and the release it serves. Promote and roll
+      back move the pointer; nothing is rebuilt.
+  - name: releases
+    description: |
+      Immutable, signed snapshots of a project's text: one
+      content-addressed artifact per locale and namespace, described by
+      a manifest glossa-edge serves (runtimes/SPEC.md §1).
+  - name: delivery-keys
+    description: |
+      Publishable, project-scoped, revocable keys runtimes fetch
+      releases from glossa-edge with.
+
 paths:
   # ── auth ────────────────────────────────────────────────────────────
   /v1/auth/magic-links:
@@ -1745,6 +1761,537 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  # ── environments ────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/environments:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listEnvironments
+      tags: [environments]
+      summary: Environments of a project
+      description: |
+        By name. Every project has `development`, `preview`, `staging`
+        and `production`; they are created on first use. Needs
+        `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of environments.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvironmentList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: createEnvironment
+      tags: [environments]
+      summary: Add a custom environment
+      description: |
+        A branch preview, a QA stage. Without `policy` it ships
+        everything not rejected. Needs `releases.publish`. Problem codes:
+        `environment_exists` (409), `invalid_environment`,
+        `invalid_policy` (400).
+      x-glossa-idempotency: The name is the environment's identity; a retry answers 409 environment_exists.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateEnvironment" }
+      responses:
+        "201":
+          description: The environment.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Environment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+    get:
+      operationId: getEnvironment
+      tags: [environments]
+      summary: An environment, its policy and the release it serves
+      description: Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The environment.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Environment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateEnvironment
+      tags: [environments]
+      summary: Change an environment's eligibility policy
+      description: |
+        The policy decides what the next publish ships and which
+        releases may be promoted here; the release served keeps serving.
+        Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateEnvironment" }
+      responses:
+        "200":
+          description: The updated environment.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Environment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+    post:
+      operationId: promoteRelease
+      tags: [environments]
+      summary: Point the environment at an existing release
+      description: |
+        Moves the pointer; nothing is rebuilt. The environment's policy
+        must cover the policy the release was built under, so a preview
+        release with drafts can't reach production. Promoting the
+        release already served changes nothing, so a retry is safe.
+        Needs `releases.publish`. Problem codes: `release_not_found`
+        (404), `release_ineligible` (409), `storage_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Promotion" }
+      responses:
+        "200":
+          description: The environment, now serving the release.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Environment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+    post:
+      operationId: rollbackEnvironment
+      tags: [environments]
+      summary: Point the environment back at a release it served before
+      description: |
+        Without `release_id`, the newest release the environment served
+        that is older than the current one: rolling back twice goes two
+        steps back, so send `release_id` when a retry must not. Moves
+        the pointer only. Needs `releases.publish`. Problem codes:
+        `release_not_found` (404), `no_rollback_target`,
+        `not_in_history` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Rollback" }
+      responses:
+        "200":
+          description: The environment, now serving the earlier release.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Environment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+    get:
+      operationId: listDeployments
+      tags: [environments]
+      summary: The environment's history of pointer moves
+      description: Newest first. Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of deployments.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeploymentList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── releases ────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/releases:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listReleases
+      tags: [releases]
+      summary: Releases of a project
+      description: Newest first. Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of releases.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: publishRelease
+      tags: [releases]
+      summary: Publish a release to an environment
+      description: |
+        Builds one artifact per locale and namespace from the active
+        messages and the translations the environment's policy makes
+        eligible, stores the ones storage doesn't have yet, records the
+        immutable release and points the environment at it; the edge
+        serves it within seconds. Publishing an unchanged catalog
+        uploads nothing. Needs `releases.publish`. Problem codes:
+        `invalid_environment`, `invalid_note` (400),
+        `not_releasable` (422), `storage_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PublishRelease" }
+      responses:
+        "201":
+          description: The release.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Release" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/releases/{release}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ReleasePath"
+    get:
+      operationId: getRelease
+      tags: [releases]
+      summary: A release, its counts and manifest digest
+      description: Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The release.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Release" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/releases/{release}/diff:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ReleasePath"
+    get:
+      operationId: getReleaseDiff
+      tags: [releases]
+      summary: What changed since another release, per locale
+      description: |
+        Message IDs added, changed and removed in each locale, compared
+        with `base` (default: the release's parent, what its environment
+        served before it; without one, everything is added). Needs
+        `releases.read`. Problem codes: `release_not_found` (404),
+        `storage_unavailable` (503).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - name: base
+          in: query
+          required: false
+          description: The release `id` to compare with.
+          schema: { $ref: "#/components/schemas/Id" }
+      responses:
+        "200":
+          description: The diff.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseDiff" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ReleasePath"
+    get:
+      operationId: getReleaseManifest
+      tags: [releases]
+      summary: The signed manifest of a release for an environment
+      description: |
+        Byte for byte what glossa-edge serves when `environment` serves
+        this release (runtimes/SPEC.md §1.1): what `glossa pull
+        --release` writes as a bundle's `manifest.json`. Needs
+        `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - name: environment
+          in: query
+          required: true
+          schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
+      responses:
+        "200":
+          description: The manifest (`glossa.manifest/v1`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseManifest" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ReleasePath"
+      - name: digest
+        in: path
+        required: true
+        description: The artifact's SHA-256, as the manifest names it.
+        schema: { type: string, pattern: "^[0-9a-f]{64}$" }
+    get:
+      operationId: getReleaseArtifact
+      tags: [releases]
+      summary: One artifact of a release, as stored
+      description: |
+        The exact bytes the manifest's `sha256` covers
+        (runtimes/SPEC.md §1.2), for bundling
+        (`glossa pull --release` writes `a/<sha256>.json`). Needs
+        `releases.read`. Problem codes: `storage_unavailable` (503).
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The artifact (`glossa.artifact/v1`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseArtifact" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/release-signing-keys:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listReleaseSigningKeys
+      tags: [releases]
+      summary: The public keys manifests are signed with
+      description: |
+        Configure runtimes with these (runtimes/SPEC.md §1.3). Active
+        keys sign every new manifest; retired ones are still listed
+        while runtimes may hold manifests only they signed. Rotation:
+        a new key is added (manifests carry both signatures), runtimes
+        move to it, the old one is retired. Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The keys, active first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SigningKeys" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── delivery keys ───────────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/delivery-keys:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listDeliveryKeys
+      tags: [delivery-keys]
+      summary: Publishable delivery keys, including revoked ones
+      description: Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of keys.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryKeyList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: createDeliveryKey
+      tags: [delivery-keys]
+      summary: Create a publishable delivery key
+      description: |
+        The key runtimes fetch releases from glossa-edge with
+        (`/v1/{key}/{environment}/manifest.json`). It is public by
+        design — it ships in browser bundles — scoped to this project,
+        read-only, and grants nothing on this API. Needs
+        `releases.publish`. Problem codes: `invalid_key_name` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateDeliveryKey" }
+      responses:
+        "201":
+          description: The key.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryKey" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/projects/{project}/delivery-keys/{delivery_key}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/DeliveryKeyPath"
+    delete:
+      operationId: revokeDeliveryKey
+      tags: [delivery-keys]
+      summary: Revoke a delivery key
+      description: |
+        The edge answers 404 for it within its key cache TTL (30 s by
+        default) plus any CDN max-age. It stays listed as revoked.
+        Needs `releases.publish`. Problem codes: `key_revoked` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Revoked. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
 components:
   securitySchemes:
     session:
@@ -1812,6 +2359,24 @@ components:
       required: true
       description: A locale code; canonicalized before use.
       schema: { $ref: "#/components/schemas/Locale" }
+    EnvironmentPath:
+      name: environment
+      in: path
+      required: true
+      description: An environment `name`.
+      schema: { $ref: "#/components/schemas/EnvironmentName" }
+    ReleasePath:
+      name: release
+      in: path
+      required: true
+      description: A release `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    DeliveryKeyPath:
+      name: delivery_key
+      in: path
+      required: true
+      description: A delivery key `id` (not the key itself).
+      schema: { $ref: "#/components/schemas/Id" }
     PageSize:
       name: page_size
       in: query
@@ -1917,6 +2482,11 @@ components:
           schema: { $ref: "#/components/schemas/Problem" }
     TooManyRequests:
       description: Slow down.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unavailable:
+      description: A dependency (object storage) is unavailable; retry.
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -2658,3 +3228,212 @@ components:
         results:
           type: array
           items: { $ref: "#/components/schemas/TranslationImportItemResult" }
+
+    EnvironmentPolicy:
+      type: object
+      required: [states, include_outdated]
+      description: |
+        Which translations ship to an environment: those in `states`
+        (never `rejected`), and outdated ones (made against an older
+        source revision) only with `include_outdated`. Production and
+        staging start with `approved`, the others with everything.
+      properties:
+        states:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, enum: [draft, needs_review, approved] }
+        include_outdated: { type: boolean }
+    Environment:
+      type: object
+      required: [name, policy, created_at, updated_at]
+      properties:
+        name: { $ref: "#/components/schemas/EnvironmentName" }
+        policy: { $ref: "#/components/schemas/EnvironmentPolicy" }
+        current_release_id: { $ref: "#/components/schemas/Id" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    EnvironmentName:
+      type: string
+      pattern: "^[a-z0-9][a-z0-9-]{0,62}$"
+      description: '`development`, `preview`, `staging`, `production` or a custom name (not `a`).'
+    EnvironmentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Environment" }
+        next_page_token: { type: string }
+    CreateEnvironment:
+      type: object
+      required: [name]
+      properties:
+        name: { $ref: "#/components/schemas/EnvironmentName" }
+        policy: { $ref: "#/components/schemas/EnvironmentPolicy" }
+    UpdateEnvironment:
+      type: object
+      required: [policy]
+      properties:
+        policy: { $ref: "#/components/schemas/EnvironmentPolicy" }
+    Promotion:
+      type: object
+      required: [release_id]
+      properties:
+        release_id: { $ref: "#/components/schemas/Id" }
+    Rollback:
+      type: object
+      properties:
+        release_id: { $ref: "#/components/schemas/Id" }
+    Deployment:
+      type: object
+      required: [number, release_id, action, author, created_at]
+      properties:
+        number: { type: integer, minimum: 1, description: Counts the environment's deployments from 1. }
+        release_id: { $ref: "#/components/schemas/Id" }
+        previous_release_id: { $ref: "#/components/schemas/Id" }
+        action: { type: string, enum: [publish, promote, rollback] }
+        author: { type: string, description: "`person:<id>` or `token:<id>`." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    DeploymentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Deployment" }
+        next_page_token: { type: string }
+    PublishRelease:
+      type: object
+      required: [environment]
+      properties:
+        environment: { $ref: "#/components/schemas/EnvironmentName" }
+        note: { type: string, maxLength: 1000 }
+    ReleaseLocale:
+      type: object
+      required: [code, direction]
+      properties:
+        code: { $ref: "#/components/schemas/Locale" }
+        direction: { $ref: "#/components/schemas/Direction" }
+    ReleaseLocaleCounts:
+      type: object
+      required: [messages, outdated]
+      properties:
+        messages: { type: integer, minimum: 0 }
+        outdated: { type: integer, minimum: 0, description: Outdated translations shipped (the policy allowed them). }
+    ReleaseCounts:
+      type: object
+      required: [messages, artifacts, bytes, new_artifacts, locales]
+      properties:
+        messages: { type: integer, minimum: 0, description: Source messages. }
+        artifacts: { type: integer, minimum: 0 }
+        bytes: { type: integer, minimum: 0 }
+        new_artifacts:
+          type: integer
+          minimum: 0
+          description: Artifacts this publish uploaded; the rest were already stored.
+        locales:
+          type: object
+          description: Per locale code.
+          additionalProperties: { $ref: "#/components/schemas/ReleaseLocaleCounts" }
+    Release:
+      type: object
+      required: [id, version, environment, policy, manifest_digest, source_locale, locales, counts, author, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        version: { type: integer, minimum: 1, description: Counts the project's releases from 1. }
+        parent_id:
+          $ref: "#/components/schemas/Id"
+          description: What its environment served before it.
+        environment: { $ref: "#/components/schemas/EnvironmentName" }
+        policy: { $ref: "#/components/schemas/EnvironmentPolicy" }
+        manifest_digest:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+          description: |
+            SHA-256 of the RFC 8785 canonical JSON of what every
+            environment's manifest of this release carries (`sourceLocale`,
+            `locales`, `fallback`, `artifacts`). Equal digests ship
+            exactly the same text.
+        source_locale: { $ref: "#/components/schemas/Locale" }
+        locales:
+          type: array
+          items: { $ref: "#/components/schemas/ReleaseLocale" }
+        counts: { $ref: "#/components/schemas/ReleaseCounts" }
+        note: { type: string }
+        author: { type: string, description: "`person:<id>` or `token:<id>`." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    ReleaseList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Release" }
+        next_page_token: { type: string }
+    LocaleDiff:
+      type: object
+      required: [locale, added, changed, removed]
+      properties:
+        locale: { $ref: "#/components/schemas/Locale" }
+        added: { type: array, items: { type: string } }
+        changed: { type: array, items: { type: string } }
+        removed: { type: array, items: { type: string } }
+    ReleaseDiff:
+      type: object
+      required: [release_id, locales]
+      properties:
+        release_id: { $ref: "#/components/schemas/Id" }
+        base_release_id: { $ref: "#/components/schemas/Id" }
+        locales:
+          type: array
+          items: { $ref: "#/components/schemas/LocaleDiff" }
+    ReleaseManifest:
+      type: object
+      additionalProperties: true
+      description: A `glossa.manifest/v1` manifest (runtimes/testdata/schemas/manifest.schema.json), as served.
+    ReleaseArtifact:
+      type: object
+      additionalProperties: true
+      description: A `glossa.artifact/v1` artifact (runtimes/testdata/schemas/artifact.schema.json), as stored.
+    SigningKey:
+      type: object
+      required: [key_id, algorithm, public_key, active]
+      properties:
+        key_id: { type: string, description: "The manifest's `signatures[].keyId`." }
+        algorithm: { type: string, enum: [Ed25519] }
+        public_key: { type: string, description: "The raw 32-byte public key, base64url without padding." }
+        active: { type: boolean, description: Whether it signs new manifests. }
+    SigningKeys:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          items: { $ref: "#/components/schemas/SigningKey" }
+    DeliveryKey:
+      type: object
+      required: [id, name, key, created_by, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { type: string }
+        key:
+          type: string
+          pattern: "^glossa_pk_[A-Za-z0-9_-]{32}$"
+          description: Publishable by design; shown on every read.
+        created_by: { type: string, description: "`person:<id>` or `token:<id>`." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        revoked_at: { $ref: "#/components/schemas/Timestamp" }
+    DeliveryKeyList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DeliveryKey" }
+        next_page_token: { type: string }
+    CreateDeliveryKey:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200, description: 'What uses it, e.g. "web" or "go-emails".' }

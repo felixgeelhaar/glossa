@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,9 +27,16 @@ type server struct {
 	t    *testing.T
 	base string
 	logs *syncBuffer
+	// db is the server's Postgres; stop shuts the server down (once).
+	db   *dbtest.Env
+	stop func()
 }
 
-func startServer(t *testing.T) *server {
+func startServer(t *testing.T) *server { return startServerWith(t, nil) }
+
+// startServerWith boots the server with extra environment variables
+// (object storage, signing keys) on top of the defaults.
+func startServerWith(t *testing.T, extra map[string]string) *server {
 	t.Helper()
 	env, err := dbtest.Start(context.Background())
 	if err != nil {
@@ -37,31 +45,38 @@ func startServer(t *testing.T) *server {
 	t.Cleanup(env.Close)
 	addr := freeAddr(t)
 	logs := &syncBuffer{}
+	vars := map[string]string{
+		"DATABASE_URL":           env.AppDSN,
+		"MIGRATION_DATABASE_URL": env.OwnerDSN,
+		"GLOSSA_MIGRATE":         "up",
+		"GLOSSA_HTTP_ADDR":       addr,
+		"GLOSSA_AUTH_SECRET":     testAuthSecret,
+		"GLOSSA_MAIL_DRIVER":     "log",
+		"GLOSSA_STUDIO_URL":      "https://studio.test",
+		"GLOSSA_STORAGE_DIR":     t.TempDir(),
+		// Deliver domain events promptly (Localization follows Catalog).
+		"GLOSSA_OUTBOX_POLL_INTERVAL": "50ms",
+	}
+	for k, v := range extra {
+		vars[k] = v
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() {
-		done <- run(ctx, nil, lookupFrom(map[string]string{
-			"DATABASE_URL":           env.AppDSN,
-			"MIGRATION_DATABASE_URL": env.OwnerDSN,
-			"GLOSSA_MIGRATE":         "up",
-			"GLOSSA_HTTP_ADDR":       addr,
-			"GLOSSA_AUTH_SECRET":     testAuthSecret,
-			"GLOSSA_MAIL_DRIVER":     "log",
-			"GLOSSA_STUDIO_URL":      "https://studio.test",
-			// Deliver domain events promptly (Localization follows Catalog).
-			"GLOSSA_OUTBOX_POLL_INTERVAL": "50ms",
-		}), logs)
-	}()
-	t.Cleanup(func() {
-		cancel()
-		select {
-		case <-done:
-		case <-time.After(10 * time.Second):
-			t.Error("server did not stop")
-		}
-	})
+	go func() { done <- run(ctx, nil, lookupFrom(vars), logs) }()
+	var once sync.Once
+	stop := func() {
+		once.Do(func() {
+			cancel()
+			select {
+			case <-done:
+			case <-time.After(10 * time.Second):
+				t.Error("server did not stop")
+			}
+		})
+	}
+	t.Cleanup(stop)
 	waitReady(t, "http://"+addr+"/readyz", done)
-	return &server{t: t, base: "http://" + addr, logs: logs}
+	return &server{t: t, base: "http://" + addr, logs: logs, db: env, stop: stop}
 }
 
 // call is one request; cookie, csrf and bearer are optional.
