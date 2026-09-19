@@ -48,65 +48,118 @@ func write(t *testing.T, root, name, body string) {
 	}
 }
 
-func TestScanFindsEveryUsageKind(t *testing.T) {
-	root := t.TempDir()
-	write(t, root, "src/cart.astro", `<glossa-text key="cart.checkout">Zur Kasse</glossa-text>
-<glossa-plural message='cart.items' count="3"></glossa-plural>`)
-	write(t, root, "src/App.vue", `<template>
-  <GlossaText id="terms.hint">Lies die AGB.</GlossaText>
-  <p>{{ $t("cart.items", { count: 3 }) }} {{ t('athlete.greeting', { name }) }}</p>
-</template>
-<script setup lang="ts">
-const m = useTypedMessages();
-m.checkout.paymentFailed({ reason });
-messages.title();
-other.title();
-format("not.a.message");
-</script>`)
-	write(t, root, "internal/mail/mail.go", `package mail
-
-func render() {
-	_ = client.T(ctx, "email.welcome.subject", glossa.Args{"name": n})
-	_ = loc.T("email.welcome.body", nil)
-	_ = msg.For(loc).CheckoutPay(12.5)
-}`)
-	write(t, root, "templates/welcome.html", `<h1>{{t "email.welcome.title" "name" .Name}}</h1>`)
-	write(t, root, "node_modules/x/index.ts", `t("vendored.key")`)
-	write(t, root, "src/cart.test.ts", `t("test.key")`)
-
-	acc := extract.Accessors{
-		TS: map[string]string{"checkout.paymentFailed": "checkout.payment_failed", "title": "title"},
-		Go: map[string]string{"CheckoutPay": "checkout.pay"},
+func lines(us []extract.Usage) string {
+	var out []string
+	for _, u := range us {
+		s := fmt.Sprintf("%s %s:%d:%d %s", u.Key, u.File, u.Line, u.Column, u.Kind)
+		if u.Component != "" {
+			s += " " + u.Component
+		}
+		out = append(out, s)
 	}
-	usages, files, err := extract.Scan(root, extract.Options{
-		Include:   []string{"**/*.{ts,vue,astro,html,go}"},
+	return strings.Join(out, "\n")
+}
+
+// TestScanSelectsFiles covers what the fixture suite doesn't: include,
+// exclude and template globs, skipped directories, and files that don't
+// parse.
+func TestScanSelectsFiles(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "src/App.vue", `<template><p>{{ $t("cart.items") }}</p></template>`)
+	write(t, root, "templates/mail.html", `<h1>{{t "email.title"}}</h1>`)
+	write(t, root, "templates/broken.gotmpl", `{{t "email.broken"`)
+	write(t, root, "internal/broken.go", `package broken
+func f() { l.T("go.broken") `)
+	write(t, root, "node_modules/x/index.ts", `t("vendored.key")`)
+	write(t, root, ".cache/x.ts", `t("hidden.key")`)
+	write(t, root, "src/cart.test.ts", `t("test.key")`)
+	write(t, root, "src/notes.md", `t("not.included")`)
+
+	res, err := extract.Scan(root, extract.Options{
+		Include:   []string{"**/*.{ts,vue,go}"},
 		Exclude:   []string{"**/*.test.*"},
-		Accessors: acc,
+		Templates: []string{"templates/**"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	want := "cart.items src/App.vue:1:21 t App\nemail.title templates/mail.html:1:10 template"
+	if got := lines(res.Usages); got != want {
+		t.Errorf("usages:\n%s\nwant:\n%s", got, want)
+	}
+	if res.Files != 4 {
+		t.Errorf("files = %d, want 4", res.Files)
+	}
+	if len(res.Skipped) != 2 || res.Skipped[0].File != "internal/broken.go" || res.Skipped[1].File != "templates/broken.gotmpl" {
+		t.Errorf("skipped = %+v", res.Skipped)
+	}
+}
+
+// TestGoShapesBeyondTheFixtures pins Go details the shared suite leaves
+// open: generic receivers, the runtime imported without a name, and
+// shadowed imports.
+func TestGoShapesBeyondTheFixtures(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "set/set.go", `package set
+
+import (
+	"strings"
+
+	"github.com/felixgeelhaar/glossa/runtimes/go"
+)
+
+type Set[T any] struct{ l *glossa.Localizer }
+
+func (s *Set[T]) Label() string { return s.l.T("set.label", nil) }
+
+func Default() string { return glossa.Default("x").Text + strings.Title("y") }
+
+func Shadow(strings *Msgs) string { return strings.Title() }
+`)
+	res, err := extract.Scan(root, extract.Options{Include: []string{"**"},
+		Accessors: extract.Accessors{Go: map[string]string{"Default": "default", "Title": "title"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "set.label set/set.go:11:49 t set.(*Set).Label\ntitle set/set.go:15:52 accessor set.Shadow"
+	if got := lines(res.Usages); got != want {
+		t.Errorf("usages:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// TestTemplatePipes: a literal piped into a bare t or th is its key; td's
+// piped value is its default text, never a key.
+func TestTemplatePipes(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "a.tmpl", `{{"a.one" | th}}{{"fake.default" | td}}{{"fake.x" | printf "%s" | t}}`)
+	res, err := extract.Scan(root, extract.Options{Templates: extract.DefaultTemplates})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := lines(res.Usages), "a.one a.tmpl:1:4 template"; got != want {
+		t.Errorf("usages:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestDocumentIsSortedAndNeverNull(t *testing.T) {
+	doc := extract.NewDocument(extract.Header{Application: "web"}, nil)
+	if doc.Schema != "glossa.usages/v1" || doc.Usages == nil {
+		t.Errorf("doc = %+v", doc)
+	}
+	us := []extract.Usage{
+		{Key: "b", File: "a", Line: 1, Column: 1},
+		{Key: "a", File: "src/negatives.html", Line: 1, Column: 1},
+		{Key: "a", File: "src/Negatives.vue", Line: 2, Column: 1},
+		{Key: "a", File: "src/Negatives.vue", Line: 1, Column: 9},
+		{Key: "a", File: "src/Negatives.vue", Line: 1, Column: 3},
+	}
+	extract.Sort(us)
 	var got []string
-	for _, u := range usages {
-		got = append(got, fmt.Sprintf("%s %s:%d %s", u.Key, u.File, u.Line, u.Kind))
+	for _, u := range us {
+		got = append(got, fmt.Sprintf("%s %s:%d:%d", u.Key, u.File, u.Line, u.Column))
 	}
-	want := []string{
-		"athlete.greeting src/App.vue:3 t",
-		"cart.checkout src/cart.astro:1 element",
-		"cart.items src/App.vue:3 t",
-		"cart.items src/cart.astro:2 element",
-		"checkout.pay internal/mail/mail.go:6 typed",
-		"checkout.payment_failed src/App.vue:7 typed",
-		"email.welcome.body internal/mail/mail.go:5 go",
-		"email.welcome.subject internal/mail/mail.go:4 go",
-		"email.welcome.title templates/welcome.html:1 template",
-		"terms.hint src/App.vue:2 element",
-		"title src/App.vue:8 typed",
-	}
-	if strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Errorf("usages:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
-	}
-	if files != 4 {
-		t.Errorf("files = %d, want 4 (vendored and test files skipped)", files)
+	want := "a src/Negatives.vue:1:3,a src/Negatives.vue:1:9,a src/Negatives.vue:2:1,a src/negatives.html:1:1,b a:1:1"
+	if strings.Join(got, ",") != want {
+		t.Errorf("order = %v", got)
 	}
 }

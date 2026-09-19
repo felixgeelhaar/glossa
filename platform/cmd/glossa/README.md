@@ -35,6 +35,8 @@ catalogs:
 extract:
   include: ["**/*.{ts,tsx,js,jsx,mjs,vue,astro,svelte,html,go}"]
   exclude: ["**/*.test.*", "**/*_test.go", "**/*.d.ts"]
+  templates: ["**/*.{tmpl,gotmpl,gohtml}"]  # read as Go templates
+  application: web               # the usages document's application
 generate:
   typescript: src/glossa/messages.ts
   vue: src/glossa/glossa-vue.ts  # needs typescript
@@ -71,7 +73,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `login` / `logout` / `whoami` | Token storage; `--server`, `--token-stdin` |
 | `push` | Sends the source catalog through `message-upserts` (500 per request). Reports created/revised/updated/unchanged/failed per key. `--dry-run` compares canonical models with the server instead of writing. `--translations` also imports the other catalogs as translations (provenance `import`). |
 | `pull` | Writes translations to the catalogs, sorted and deterministic. `--states approved,needs_review\|all`, `--locales`. `--release <id\|v<N>\|latest> [--environment env] [--out dir]` writes a release bundle instead (see *Release*). |
-| `extract` | Finds usages: `<glossa-text key\|message\|id="…">`, `<GlossaText id="…">`, `t("…")`, `$t("…")`, Go `x.T(ctx, "…")` / `l.T("…")`, `{{t "…"}}`, and the generated accessors. Reports file:line, IDs missing from the catalog, and catalog messages nothing uses. `--strict` exits 1 on unknown IDs. |
+| `extract` | Finds message usages and prints them as a `glossa.usages/v1` document (RFC 0004 §2.2; contract and fixtures: `runtimes/testdata/usages/`). Go is parsed with `go/parser`: `.T(…)` calls (`Client.T(ctx, "…")`, `l.T("…")`, `For(…).T("…")`) and the generated accessors, with the enclosing `pkg.Func` / `pkg.(*Type).Method` as component; files starting with `// Code generated … DO NOT EDIT.` are skipped. Go templates (`extract.templates`) are parsed with `text/template/parse`: `{{t}}`, `{{td}}`, `{{th}}`. Web files are scanned lexically: `t("…")`/`$t("…")`, `<glossa-text\|rich\|plural\|select key\|message>`, `<GlossaText id>`, `<T id>`, typed accessors; Vue and Astro files are their own component, Astro pages carry their route. Only literal keys count. Reports keys missing from the catalog and catalog messages nothing uses; `--strict` exits 1 on unknown keys. `--upload` sends the document to the project's context builds. The document's application is `--application`, `GLOSSA_APPLICATION` or `extract.application`; its commit and branch are `--commit`/`--branch`, `GLOSSA_COMMIT`/`GLOSSA_BRANCH`, GitHub Actions (a pull request's head, not its merge commit) or GitLab CI, else git. |
 | `generate` | Typed accessors from the catalog's argument metadata. `--check` writes nothing and exits 1 when the files are stale; `--from-server` uses the server's messages. |
 | `check` | Structural QA: invalid messages, translation/source compatibility (`messageformat.CheckCompat`), missing and outdated translations. `--offline` checks local catalogs. `--require-complete=de,en\|none`, `--fail-on=error\|warning`. |
 | `status` | Coverage per locale: translated, approved, needs review, draft, outdated, missing. One request: the server's `translation-stats`. `--offline` counts the local catalogs. |
@@ -142,7 +144,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.whoami/v1` | `{server, token (redacted), token_source, tenant, project?: {id, slug, name, source_locale}}` |
 | `glossa.cli.push/v1` | `{dry_run, source, summary: {created, revised, updated, unchanged, failed}, messages: [{key, status, revision?, error?: {code, detail}}], translations?: [{key, locale, status, state?, error?}]}` |
 | `glossa.cli.pull/v1` | `{states, locales: [{locale, path, messages, skipped: {state: n}, outdated, changed}], release?: {dir, release_id, version, environment, locales, artifacts, bytes, removed}}` |
-| `glossa.cli.extract/v1` | `{files, usages: [{key, file, line, column, kind}], unknown: [{key, locations: [{file, line}]}], unused: [key]}` |
+| `glossa.usages/v1` | `extract --json` (with or without `--upload`): `{application, commit, branch, tool: {name, version}, usages: [{key, file, line, column, component?, route?, kind}]}`, sorted by key, file, line, column; kind is `t`, `component`, `element`, `accessor` or `template` (the schema: `runtimes/testdata/schemas/usages.v1.schema.json`) |
 | `glossa.cli.generate/v1` | `{source, messages, check, files: [{path, kind, changed}], warnings: [{key, reason}]}` |
 | `glossa.cli.check/v1` | `{policy: {require_complete (null = all), fail_on}, origin, messages, invalid_messages, locales: [{code, is_source, required, messages, translated, missing, outdated, errors, warnings, complete}], findings: [{check, code, severity, locale?, key?, subject?, detail?, message, where?}], errors, warnings, passed}` |
 | `glossa.cli.status/v1` | `{origin, messages, locales: [{code, direction, is_source, translated, approved, needs_review, draft, rejected, outdated, missing, coverage}]}` |
@@ -532,9 +534,18 @@ Terminology check failed: 1 error, 0 warnings.
   Localization's view of the catalog: current when a push (`message-upserts`)
   returns; after other message writes (Studio edits, renames) once their
   events are processed, usually within a second.
-- `extract` is lexical: it finds literal IDs, not computed ones, and
-  doesn't read `.gitignore` (it skips hidden directories, `node_modules`,
-  `dist`, `vendor`, `build` and `coverage`).
+- `extract` finds literal keys, not computed ones, and doesn't read
+  `.gitignore` (it skips hidden directories, `node_modules`, `dist`,
+  `vendor`, `build` and `coverage`). Its web scan is lexical, the fallback
+  when `@glossa/unplugin` doesn't run: it doesn't skip comments or
+  strings, and JSX files get no component. A Go file or template that
+  doesn't parse is reported and skipped. Go accessor calls on an imported
+  package (`strings.Title`) don't count; an unaliased import whose package
+  name differs from its path is guessed from the path.
+- `extract --upload` posts the document to
+  `POST /v1/tenants/{tenant}/projects/{project}/context-builds?source=extract&default_branch=…`
+  (the default branch from `--default-branch`, `GLOSSA_DEFAULT_BRANCH`,
+  CI or `origin/HEAD`); the upload is idempotent by the document's digest.
 - Windows stores tokens in the file store.
 - `translate --dry-run`'s `tm_exact` counts exact translation-memory
   matches; the job still validates one before reusing it (structure,

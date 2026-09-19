@@ -59,29 +59,6 @@ func TestGenerateNeedsOutputs(t *testing.T) {
 	}
 }
 
-func TestExtractReportsUnknownAndUnused(t *testing.T) {
-	w := newWorkspace(t).withProject(nil, map[string]string{"en": sourceEN})
-	w.write("src/App.vue", `<template><p>{{ $t("cart.items", { count }) }} {{ t("cart.totla") }}</p></template>
-<script setup lang="ts">
-const m = useTypedMessages();
-m.checkout.pay({ amount });
-</script>`)
-	w.write("internal/mail/mail.go", `package mail
-func f() { _ = client.T(ctx, "cart.totla", nil) }`)
-	var out extractJSON
-	w.json(&out, "extract").want(t, ExitOK)
-	if out.Files != 2 || len(out.Usages) != 4 {
-		t.Fatalf("extract = %+v", out)
-	}
-	if len(out.Unknown) != 1 || out.Unknown[0].Key != "cart.totla" || len(out.Unknown[0].Locations) != 2 {
-		t.Errorf("unknown = %+v", out.Unknown)
-	}
-	if strings.Join(out.Unused, ",") != "cart.checkout" {
-		t.Errorf("unused = %v", out.Unused)
-	}
-	w.run("extract", "--strict").want(t, ExitCheckFailed)
-}
-
 // fakeV03 is a Glossa v0.3 API with a de source and an en locale.
 func fakeV03(t *testing.T) *httptest.Server {
 	t.Helper()

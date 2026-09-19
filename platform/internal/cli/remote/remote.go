@@ -32,6 +32,9 @@ const pageSize = 100
 type Client struct {
 	api    *apiclient.ClientWithResponses
 	server string
+	// doer is the API's retrying transport, for calls outside the
+	// generated client.
+	doer *retryingDoer
 	// transfer moves import and export files: the same transport
 	// without the client's overall timeout (a file may take longer than
 	// a request; the context bounds it).
@@ -80,7 +83,7 @@ func New(server, token string, opts Options) (*Client, error) {
 	}
 	transfer := *hc
 	transfer.Timeout = 0
-	return &Client{api: api, server: server, transfer: &transfer, editor: editor, userAgent: opts.UserAgent}, nil
+	return &Client{api: api, server: server, doer: doer, transfer: &transfer, editor: editor, userAgent: opts.UserAgent}, nil
 }
 
 // Server is the base URL.

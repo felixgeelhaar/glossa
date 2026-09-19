@@ -65,6 +65,7 @@ func TestLoadRejectsInvalidFiles(t *testing.T) {
 		{"vue without ts", valid + "generate:\n  vue: src/glossa-vue.ts\n", "generate.vue"},
 		{"react without ts", valid + "generate:\n  react: src/glossa-react.ts\n", "generate.react"},
 		{"fail_on", valid + "check:\n  fail_on: info\n", "check.fail_on"},
+		{"application", valid + "extract:\n  application: Web App\n", "extract.application"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := config.Load(write(t, t.TempDir(), tc.body), nil)

@@ -1,130 +1,223 @@
-// Package extract finds message usages in source code (product intent
-// §32): the web components (<glossa-text key="…">), Vue
-// (<GlossaText id="…">, t("…"), $t("…")), the Go runtime
-// (client.T(ctx, "…"), l.T("…"), {{t "…"}} in templates) and the typed
-// accessors `glossa generate` writes (messages.checkout.pay(…),
-// m.CheckoutPay(…)). Each usage records file and line; the Context
-// context will receive them once it exists (M3).
+// Package extract finds message usages in source code and writes them as
+// a glossa.usages/v1 document (RFC 0004 §2.1, §2.2). It is the collector
+// for Go and for anything built without @glossa/unplugin:
 //
-// Extraction is lexical, not a full parse: it sees literal IDs only, which
-// is what a message ID should be.
+//   - Go files are parsed with go/parser: `.T(…)` method calls
+//     (Client.T(ctx, "…"), Localizer.T("…"), client.For(…).T("…")) and
+//     the typed accessors `glossa generate` writes (msg.For(l).CheckoutPay(…)),
+//     each with the enclosing declaration as its component.
+//   - Go templates are parsed with text/template/parse: {{t "…"}},
+//     {{td "…" "…"}}, {{th "…"}}.
+//   - Web files (HTML, Vue, Astro, TS, JS, JSX) keep a lexical scan, the
+//     fallback when no bundler plugin runs.
+//
+// Only literal keys count: a message key has to be a string literal at
+// the call site. The shared fixture suite in runtimes/testdata/usages is
+// the contract, and @glossa/unplugin passes the same one.
 package extract
 
 import (
-	"bufio"
 	"bytes"
+	"cmp"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
+)
+
+// Schema is the document type Document carries.
+const Schema = "glossa.usages/v1"
+
+// The kinds of usage (the contract's call shapes).
+const (
+	KindT         = "t"
+	KindComponent = "component"
+	KindElement   = "element"
+	KindAccessor  = "accessor"
+	KindTemplate  = "template"
 )
 
 // Usage is one place a message is used.
 type Usage struct {
-	Key    string `json:"key"`
-	File   string `json:"file"`
-	Line   int    `json:"line"`
-	Column int    `json:"column"`
-	// Kind is element, t, go, template or typed.
+	Key  string `json:"key"`
+	File string `json:"file"`
+	// Line and Column are 1-based; Column counts Unicode code points and
+	// points at the key's first character inside its quotes, or at an
+	// accessor's first path segment.
+	Line   int `json:"line"`
+	Column int `json:"column"`
+	// Component is the Go declaration (pkg.Func, pkg.(*Type).Method) or
+	// the Vue/Astro file around the usage; empty when none applies.
+	Component string `json:"component,omitempty"`
+	// Route is the route pattern, where the file says it (Astro pages).
+	Route string `json:"route,omitempty"`
+	// Kind is t, component, element, accessor or template.
 	Kind string `json:"kind"`
 }
 
-// Accessors map the typed accessor names `generate` emits back to IDs.
+// Tool is what produced a document.
+type Tool struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+// Header is a build's identity: the document fields around the usages.
+type Header struct {
+	Application string
+	Commit      string
+	Branch      string
+	Tool        Tool
+}
+
+// Document is a glossa.usages/v1 document: one build's usages.
+type Document struct {
+	Schema      string  `json:"schema"`
+	Application string  `json:"application"`
+	Commit      string  `json:"commit"`
+	Branch      string  `json:"branch"`
+	Tool        Tool    `json:"tool"`
+	Usages      []Usage `json:"usages"`
+}
+
+// NewDocument returns the document for h and usages (sorted as Scan
+// returns them).
+func NewDocument(h Header, usages []Usage) Document {
+	if usages == nil {
+		usages = []Usage{}
+	}
+	return Document{Schema: Schema, Application: h.Application, Commit: h.Commit, Branch: h.Branch,
+		Tool: h.Tool, Usages: usages}
+}
+
+// Accessors map the typed accessor names `generate` emits back to keys.
 type Accessors struct {
-	// TS maps an accessor path (checkout.paymentFailed) to its ID.
+	// TS maps an accessor path (checkout.paymentFailed) to its key.
 	TS map[string]string
-	// Go maps a method name (CheckoutPaymentFailed) to its ID.
+	// Go maps a method name (CheckoutPaymentFailed) to its key.
 	Go map[string]string
 }
 
+// DefaultTemplates are the Go template files when the config names none.
+var DefaultTemplates = []string{"**/*.{tmpl,gotmpl,gohtml}"}
+
 // Options configure a scan.
 type Options struct {
+	// Include and Exclude select the files; Templates are the files read
+	// as Go templates (a file matching them needn't match Include).
 	Include   []string
 	Exclude   []string
+	Templates []string
 	Accessors Accessors
 }
 
-const keyRE = `([a-z0-9_-]+(?:\.[a-z0-9_-]+)*)`
-
-type pattern struct {
-	kind string
-	re   *regexp.Regexp
-	// goOnly patterns run on .go files, webOnly on everything else.
-	goOnly, webOnly bool
+// Skipped is a file the scan couldn't read as its language.
+type Skipped struct {
+	File   string `json:"file"`
+	Reason string `json:"reason"`
 }
 
-var patterns = []pattern{
-	{kind: "element", webOnly: true, re: regexp.MustCompile(`<glossa-(?:text|rich|plural|select)\b[^>]*?\b(?:key|message|id)\s*=\s*["']` + keyRE + `["']`)},
-	{kind: "element", webOnly: true, re: regexp.MustCompile(`<GlossaText\b[^>]*?\bid\s*=\s*["']` + keyRE + `["']`)},
-	{kind: "t", webOnly: true, re: regexp.MustCompile(`(?:^|[^A-Za-z0-9_$])\$?t\(\s*["'` + "`" + `]` + keyRE + `["'` + "`" + `]`)},
-	{kind: "go", goOnly: true, re: regexp.MustCompile(`\.T\(\s*[^,()"]+,\s*"` + keyRE + `"`)},
-	{kind: "go", goOnly: true, re: regexp.MustCompile(`\.T\(\s*"` + keyRE + `"`)},
-	{kind: "template", re: regexp.MustCompile(`\{\{-?\s*td?\s+"` + keyRE + `"`)},
+// Result is what Scan found.
+type Result struct {
+	// Usages are sorted by key, file, line and column (bytewise, which is
+	// code-point order).
+	Usages []Usage
+	// Files is the number of files scanned.
+	Files int
+	// Skipped are files that failed to parse; they add no usages.
+	Skipped []Skipped
 }
 
-var (
-	tsAccessor = regexp.MustCompile(`([A-Za-z_$][\w$]*)((?:\.[A-Za-z_$][\w$]*)+)\s*\(`)
-	goAccessor = regexp.MustCompile(`\.([A-Z][A-Za-z0-9_]*)\(`)
-)
+// keyPattern is the contract's message key.
+var keyPattern = regexp.MustCompile(`^[a-z0-9_-]+(?:\.[a-z0-9_-]+)*$`)
+
+const maxKeyLen = 200
+
+func validKey(s string) bool { return len(s) <= maxKeyLen && keyPattern.MatchString(s) }
+
+// generated is the first line of a generated file.
+var generated = regexp.MustCompile(`^// Code generated .* DO NOT EDIT\.$`)
+
+func isGenerated(src []byte) bool {
+	first, _, _ := bytes.Cut(src, []byte("\n"))
+	return generated.Match(bytes.TrimSuffix(first, []byte("\r")))
+}
 
 // skipDirs are never scanned.
 var skipDirs = map[string]bool{"node_modules": true, "dist": true, "vendor": true, "build": true, "coverage": true}
 
-// Scan walks root and returns the usages in files that match an include
-// glob and no exclude glob, sorted by key, file and line, and the number
-// of files scanned.
-func Scan(root string, opts Options) ([]Usage, int, error) {
+// Scan walks root and returns the usages in the selected files.
+func Scan(root string, opts Options) (Result, error) {
 	include, err := compileAll(opts.Include)
 	if err != nil {
-		return nil, 0, err
+		return Result{}, err
 	}
 	exclude, err := compileAll(opts.Exclude)
 	if err != nil {
-		return nil, 0, err
+		return Result{}, err
 	}
-	var (
-		usages []Usage
-		files  int
-	)
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	templates, err := compileAll(opts.Templates)
+	if err != nil {
+		return Result{}, err
+	}
+	var res Result
+	err = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, _ := filepath.Rel(root, path)
-		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
-			if path != root && (strings.HasPrefix(d.Name(), ".") || skipDirs[d.Name()]) {
+			if p != root && (strings.HasPrefix(d.Name(), ".") || skipDirs[d.Name()]) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if !matchAny(include, rel) || matchAny(exclude, rel) {
-			return nil
-		}
-		data, err := os.ReadFile(path)
+		rel, err := filepath.Rel(root, p)
 		if err != nil {
 			return err
 		}
-		files++
-		usages = append(usages, scanFile(rel, data, opts.Accessors)...)
+		rel = filepath.ToSlash(rel)
+		isTemplate := matchAny(templates, rel)
+		if !(isTemplate || matchAny(include, rel)) || matchAny(exclude, rel) {
+			return nil
+		}
+		src, err := os.ReadFile(p) //nolint:gosec // walking the project the user pointed at
+		if err != nil {
+			return err
+		}
+		res.Files++
+		usages, err := scanFile(rel, src, isTemplate, opts.Accessors)
+		if err != nil {
+			res.Skipped = append(res.Skipped, Skipped{File: rel, Reason: err.Error()})
+			return nil
+		}
+		res.Usages = append(res.Usages, usages...)
 		return nil
 	})
-	sort.Slice(usages, func(i, j int) bool {
-		a, b := usages[i], usages[j]
-		if a.Key != b.Key {
-			return a.Key < b.Key
-		}
-		if a.File != b.File {
-			return a.File < b.File
-		}
-		if a.Line != b.Line {
-			return a.Line < b.Line
-		}
-		return a.Column < b.Column
+	Sort(res.Usages)
+	return res, err
+}
+
+// Sort orders usages by key, file, line and column: the document's order.
+func Sort(usages []Usage) {
+	slices.SortFunc(usages, func(a, b Usage) int {
+		return cmp.Or(strings.Compare(a.Key, b.Key), strings.Compare(a.File, b.File),
+			cmp.Compare(a.Line, b.Line), cmp.Compare(a.Column, b.Column))
 	})
-	return usages, files, err
+}
+
+func scanFile(file string, src []byte, isTemplate bool, acc Accessors) ([]Usage, error) {
+	switch {
+	case isTemplate:
+		return scanTemplate(file, src)
+	case isGenerated(src):
+		return nil, nil
+	case path.Ext(file) == ".go":
+		return scanGo(file, src, acc.Go)
+	default:
+		return scanWeb(file, src, acc.TS), nil
+	}
 }
 
 func compileAll(patterns []string) ([]*Glob, error) {
@@ -139,60 +232,11 @@ func compileAll(patterns []string) ([]*Glob, error) {
 	return out, nil
 }
 
-func matchAny(gs []*Glob, path string) bool {
+func matchAny(gs []*Glob, p string) bool {
 	for _, g := range gs {
-		if g.Match(path) {
+		if g.Match(p) {
 			return true
 		}
 	}
 	return false
-}
-
-// scanFile finds usages line by line.
-func scanFile(file string, data []byte, acc Accessors) []Usage {
-	isGo := strings.HasSuffix(file, ".go")
-	var out []Usage
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	sc.Buffer(make([]byte, 64*1024), 4*1024*1024)
-	line := 0
-	seen := map[[2]int]bool{} // (line, column) already reported
-	add := func(key, kind string, col int) {
-		pos := [2]int{line, col}
-		if seen[pos] {
-			return
-		}
-		seen[pos] = true
-		out = append(out, Usage{Key: key, File: file, Line: line, Column: col, Kind: kind})
-	}
-	for sc.Scan() {
-		line++
-		text := sc.Text()
-		for _, p := range patterns {
-			if (p.goOnly && !isGo) || (p.webOnly && isGo) {
-				continue
-			}
-			for _, m := range p.re.FindAllStringSubmatchIndex(text, -1) {
-				add(text[m[2]:m[3]], p.kind, m[2]+1)
-			}
-		}
-		if isGo {
-			for _, m := range goAccessor.FindAllStringSubmatchIndex(text, -1) {
-				if key, ok := acc.Go[text[m[2]:m[3]]]; ok {
-					add(key, "typed", m[2]+1)
-				}
-			}
-			continue
-		}
-		for _, m := range tsAccessor.FindAllStringSubmatchIndex(text, -1) {
-			receiver, path := text[m[2]:m[3]], strings.TrimPrefix(text[m[4]:m[5]], ".")
-			key, ok := acc.TS[path]
-			// A one-segment path (title) is too common a method name to
-			// trust unless it's called on `messages`.
-			if !ok || (!strings.Contains(path, ".") && receiver != "messages") {
-				continue
-			}
-			add(key, "typed", m[4]+2)
-		}
-	}
-	return out
 }

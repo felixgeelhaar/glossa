@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -63,7 +64,19 @@ type Catalogs struct {
 type Extract struct {
 	Include []string `yaml:"include,omitempty" json:"include,omitempty"`
 	Exclude []string `yaml:"exclude,omitempty" json:"exclude,omitempty"`
+	// Templates are the files read as Go templates ({{t "…"}}). Unset:
+	// **/*.{tmpl,gotmpl,gohtml}.
+	Templates []string `yaml:"templates,omitempty" json:"templates,omitempty"`
+	// Application is the slug of the application the scanned code builds
+	// (the usages document's application); --application overrides it.
+	Application string `yaml:"application,omitempty" json:"application,omitempty"`
 }
+
+// applicationSlug is an application's slug (catalog Slug rules).
+var applicationSlug = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+
+// ValidApplication reports whether s is an application slug.
+func ValidApplication(s string) bool { return applicationSlug.MatchString(s) }
 
 // Generate says where `generate` writes typed accessors. Empty outputs
 // are skipped.
@@ -209,6 +222,9 @@ func (c *Config) Validate() error {
 	case "", "error", "warning":
 	default:
 		return bad("check.fail_on", "must be error or warning (got %q)", c.Check.FailOn)
+	}
+	if c.Extract.Application != "" && !ValidApplication(c.Extract.Application) {
+		return bad("extract.application", "%q is not an application slug (lowercase letters, digits and -, e.g. web)", c.Extract.Application)
 	}
 	if c.Generate.Vue != "" && c.Generate.TypeScript == "" {
 		return bad("generate.vue", "needs generate.typescript (the Vue registration imports the typed module)")

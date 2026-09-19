@@ -20,8 +20,9 @@ const (
 )
 
 var defaultExtract = config.Extract{
-	Include: []string{"**/*.{ts,tsx,js,jsx,mjs,vue,astro,svelte,html,go}"},
-	Exclude: []string{"**/*.test.*", "**/*_test.go", "**/*.d.ts"},
+	Include:   []string{"**/*.{ts,tsx,js,jsx,mjs,vue,astro,svelte,html,go}"},
+	Exclude:   []string{"**/*.test.*", "**/*_test.go", "**/*.d.ts"},
+	Templates: []string{"**/*.{tmpl,gotmpl,gohtml}"},
 }
 
 type initJSON struct {
