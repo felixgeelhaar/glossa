@@ -79,6 +79,9 @@ type Principal struct {
 	Tenant tenancy.ID
 	// Member is the person's membership in Tenant, when there is one.
 	Member domain.MemberID
+	// TokenTenant is the tenant an API token belongs to, also on
+	// tenantless routes; zero for people.
+	TokenTenant tenancy.ID
 	// Grant is what the principal may do in Tenant.
 	Grant domain.Grant
 }
