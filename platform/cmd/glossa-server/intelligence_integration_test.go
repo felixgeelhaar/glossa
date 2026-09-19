@@ -88,16 +88,20 @@ func TestIntelligenceOverHTTP(t *testing.T) {
 	}}})).want(t, http.StatusOK, "")
 	var fill struct {
 		ID          string         `json:"id"`
+		Select      string         `json:"select"`
 		JobsCreated int            `json:"jobs_created"`
 		Warnings    []string       `json:"warnings"`
 		JobStates   map[string]int `json:"job_states"`
 	}
+	s.do(owner(call{method: "POST", path: p + "/ai-fills", body: map[string]any{
+		"locales": []string{"fr"}, "select": "missing", "include_outdated": true,
+	}})).want(t, http.StatusBadRequest, "invalid_query")
 	r = s.do(owner(call{method: "POST", path: p + "/ai-fills", body: map[string]any{
 		"locales": []string{"fr"}, "keys": []string{"order.pay", "checkout.total"},
 	}, headers: map[string]string{"Idempotency-Key": "fill-fr-1"}}))
 	r.want(t, http.StatusCreated, "")
 	r.decode(t, &fill)
-	if fill.JobsCreated != 2 || !strings.Contains(strings.Join(fill.Warnings, ","), "provider_consent_off") {
+	if fill.JobsCreated != 2 || !strings.Contains(strings.Join(fill.Warnings, ","), "provider_consent_off") || fill.Select != "missing_or_outdated" {
 		t.Fatalf("fill = %s", r.body)
 	}
 	jobs := waitForJobs(t, s, base, tp.token, fill.ID, 2)

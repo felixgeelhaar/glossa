@@ -57,6 +57,27 @@ func (e AIFillTrigger) Valid() bool {
 	}
 }
 
+// Defines values for AIFillSelect.
+const (
+	Missing           AIFillSelect = "missing"
+	MissingOrOutdated AIFillSelect = "missing_or_outdated"
+	Outdated          AIFillSelect = "outdated"
+)
+
+// Valid indicates whether the value is a known member of the AIFillSelect enum.
+func (e AIFillSelect) Valid() bool {
+	switch e {
+	case Missing:
+		return true
+	case MissingOrOutdated:
+		return true
+	case Outdated:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AIJobState.
 const (
 	AIJobStateCancelled AIJobState = "cancelled"
@@ -1432,7 +1453,10 @@ type AIFill struct {
 	ProjectId   Id     `json:"project_id"`
 	RequestedBy string `json:"requested_by"`
 
-	// Skipped Messages left out, by reason: `sensitive`, `up_to_date`, `limit`.
+	// Select The effective selection.
+	Select AIFillSelect `json:"select"`
+
+	// Skipped Messages left out, by reason: `sensitive`, `up_to_date`, `not_selected`, `limit`.
 	Skipped map[string]int `json:"skipped"`
 	Trigger AIFillTrigger  `json:"trigger"`
 
@@ -1442,6 +1466,9 @@ type AIFill struct {
 
 // AIFillTrigger defines model for AIFill.Trigger.
 type AIFillTrigger string
+
+// AIFillSelect Which messages a fill translates, by their translation's state in each locale: `missing` (none, or rejected), `outdated` (made against an older source revision) or either.
+type AIFillSelect string
 
 // AIJob defines model for AIJob.
 type AIJob struct {
@@ -1963,6 +1990,7 @@ type ArgumentType string
 
 // CreateAIFill defines model for CreateAIFill.
 type CreateAIFill struct {
+	// IncludeOutdated The older spelling of `select: missing_or_outdated`.
 	IncludeOutdated *bool         `json:"include_outdated,omitempty"`
 	KeyPrefix       *string       `json:"key_prefix,omitempty"`
 	Keys            *[]MessageKey `json:"keys,omitempty"`
@@ -1970,6 +1998,9 @@ type CreateAIFill struct {
 
 	// Namespace Groups messages into separately loadable bundles. Default `default`.
 	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// Select Default `missing`; `missing_or_outdated` with `include_outdated` or listed `keys`.
+	Select *AIFillSelect `json:"select,omitempty"`
 }
 
 // CreateAIProvider defines model for CreateAIProvider.
@@ -6339,18 +6370,27 @@ type ClientInterface interface {
 
 	// CreateAIFillWithBody Fill locales with AI ("Fill with AI", `glossa translate`)
 	//
-	// Queues one job per message missing in each locale (and, with
-	// `include_outdated`, outdated there), or per listed `keys` that
-	// are missing or outdated, narrowed by `namespace` and
-	// `key_prefix`. Messages in `sensitive` namespaces are skipped
-	// (`skipped.sensitive`). A job exists once per message, locale,
-	// source revision and knowledge fingerprint: an existing one is
-	// reused (`jobs_existing`), a failed, dead or cancelled one queued
-	// again. `warnings` say when jobs will do little: consent off (only
-	// exact translation-memory matches are reused), no budget, no
-	// provider. Needs `intelligence.translate` for every locale.
-	// Problem codes: `too_many_locales`, `too_many_keys`,
-	// `invalid_locale` (400), `locale_not_found` (404).
+	// Queues one job per message whose translation in each locale is
+	// in the state `select` names — `missing` (none, or rejected; the
+	// default), `outdated` (made against an older source revision) or
+	// `missing_or_outdated` — among the listed `keys` or every active
+	// message, narrowed by `namespace` and `key_prefix`. Clients don't
+	// need to list keys to fill outdated translations. `include_outdated`
+	// is the older spelling of `missing_or_outdated`; listed `keys`
+	// without `select` are filled when missing or outdated. The fill
+	// records the effective `select`. Messages in `sensitive`
+	// namespaces are skipped (`skipped.sensitive`), listed keys that
+	// are current (`skipped.up_to_date`) or in a state the select
+	// leaves out (`skipped.not_selected`). A job exists once per
+	// message, locale, source revision and knowledge fingerprint: an
+	// existing one is reused (`jobs_existing`), a failed, dead or
+	// cancelled one queued again. `warnings` say when jobs will do
+	// little: consent off (only exact translation-memory matches are
+	// reused), no budget, no provider. Needs
+	// `intelligence.translate` for every locale. Problem codes:
+	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
+	// `invalid_query` (an unknown `select`, or one `include_outdated`
+	// contradicts) (400), `locale_not_found` (404).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -6359,18 +6399,27 @@ type ClientInterface interface {
 
 	// CreateAIFill Fill locales with AI ("Fill with AI", `glossa translate`)
 	//
-	// Queues one job per message missing in each locale (and, with
-	// `include_outdated`, outdated there), or per listed `keys` that
-	// are missing or outdated, narrowed by `namespace` and
-	// `key_prefix`. Messages in `sensitive` namespaces are skipped
-	// (`skipped.sensitive`). A job exists once per message, locale,
-	// source revision and knowledge fingerprint: an existing one is
-	// reused (`jobs_existing`), a failed, dead or cancelled one queued
-	// again. `warnings` say when jobs will do little: consent off (only
-	// exact translation-memory matches are reused), no budget, no
-	// provider. Needs `intelligence.translate` for every locale.
-	// Problem codes: `too_many_locales`, `too_many_keys`,
-	// `invalid_locale` (400), `locale_not_found` (404).
+	// Queues one job per message whose translation in each locale is
+	// in the state `select` names — `missing` (none, or rejected; the
+	// default), `outdated` (made against an older source revision) or
+	// `missing_or_outdated` — among the listed `keys` or every active
+	// message, narrowed by `namespace` and `key_prefix`. Clients don't
+	// need to list keys to fill outdated translations. `include_outdated`
+	// is the older spelling of `missing_or_outdated`; listed `keys`
+	// without `select` are filled when missing or outdated. The fill
+	// records the effective `select`. Messages in `sensitive`
+	// namespaces are skipped (`skipped.sensitive`), listed keys that
+	// are current (`skipped.up_to_date`) or in a state the select
+	// leaves out (`skipped.not_selected`). A job exists once per
+	// message, locale, source revision and knowledge fingerprint: an
+	// existing one is reused (`jobs_existing`), a failed, dead or
+	// cancelled one queued again. `warnings` say when jobs will do
+	// little: consent off (only exact translation-memory matches are
+	// reused), no budget, no provider. Needs
+	// `intelligence.translate` for every locale. Problem codes:
+	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
+	// `invalid_query` (an unknown `select`, or one `include_outdated`
+	// contradicts) (400), `locale_not_found` (404).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -9705,18 +9754,27 @@ func (c *Client) UpdateProject(ctx context.Context, tenant TenantPath, project P
 
 // CreateAIFillWithBody Fill locales with AI ("Fill with AI", `glossa translate`)
 //
-// Queues one job per message missing in each locale (and, with
-// `include_outdated`, outdated there), or per listed `keys` that
-// are missing or outdated, narrowed by `namespace` and
-// `key_prefix`. Messages in `sensitive` namespaces are skipped
-// (`skipped.sensitive`). A job exists once per message, locale,
-// source revision and knowledge fingerprint: an existing one is
-// reused (`jobs_existing`), a failed, dead or cancelled one queued
-// again. `warnings` say when jobs will do little: consent off (only
-// exact translation-memory matches are reused), no budget, no
-// provider. Needs `intelligence.translate` for every locale.
-// Problem codes: `too_many_locales`, `too_many_keys`,
-// `invalid_locale` (400), `locale_not_found` (404).
+// Queues one job per message whose translation in each locale is
+// in the state `select` names — `missing` (none, or rejected; the
+// default), `outdated` (made against an older source revision) or
+// `missing_or_outdated` — among the listed `keys` or every active
+// message, narrowed by `namespace` and `key_prefix`. Clients don't
+// need to list keys to fill outdated translations. `include_outdated`
+// is the older spelling of `missing_or_outdated`; listed `keys`
+// without `select` are filled when missing or outdated. The fill
+// records the effective `select`. Messages in `sensitive`
+// namespaces are skipped (`skipped.sensitive`), listed keys that
+// are current (`skipped.up_to_date`) or in a state the select
+// leaves out (`skipped.not_selected`). A job exists once per
+// message, locale, source revision and knowledge fingerprint: an
+// existing one is reused (`jobs_existing`), a failed, dead or
+// cancelled one queued again. `warnings` say when jobs will do
+// little: consent off (only exact translation-memory matches are
+// reused), no budget, no provider. Needs
+// `intelligence.translate` for every locale. Problem codes:
+// `too_many_locales`, `too_many_keys`, `invalid_locale`,
+// `invalid_query` (an unknown `select`, or one `include_outdated`
+// contradicts) (400), `locale_not_found` (404).
 //
 // Takes any type of body and a specified content type.
 //
@@ -9735,18 +9793,27 @@ func (c *Client) CreateAIFillWithBody(ctx context.Context, tenant TenantPath, pr
 
 // CreateAIFill Fill locales with AI ("Fill with AI", `glossa translate`)
 //
-// Queues one job per message missing in each locale (and, with
-// `include_outdated`, outdated there), or per listed `keys` that
-// are missing or outdated, narrowed by `namespace` and
-// `key_prefix`. Messages in `sensitive` namespaces are skipped
-// (`skipped.sensitive`). A job exists once per message, locale,
-// source revision and knowledge fingerprint: an existing one is
-// reused (`jobs_existing`), a failed, dead or cancelled one queued
-// again. `warnings` say when jobs will do little: consent off (only
-// exact translation-memory matches are reused), no budget, no
-// provider. Needs `intelligence.translate` for every locale.
-// Problem codes: `too_many_locales`, `too_many_keys`,
-// `invalid_locale` (400), `locale_not_found` (404).
+// Queues one job per message whose translation in each locale is
+// in the state `select` names — `missing` (none, or rejected; the
+// default), `outdated` (made against an older source revision) or
+// `missing_or_outdated` — among the listed `keys` or every active
+// message, narrowed by `namespace` and `key_prefix`. Clients don't
+// need to list keys to fill outdated translations. `include_outdated`
+// is the older spelling of `missing_or_outdated`; listed `keys`
+// without `select` are filled when missing or outdated. The fill
+// records the effective `select`. Messages in `sensitive`
+// namespaces are skipped (`skipped.sensitive`), listed keys that
+// are current (`skipped.up_to_date`) or in a state the select
+// leaves out (`skipped.not_selected`). A job exists once per
+// message, locale, source revision and knowledge fingerprint: an
+// existing one is reused (`jobs_existing`), a failed, dead or
+// cancelled one queued again. `warnings` say when jobs will do
+// little: consent off (only exact translation-memory matches are
+// reused), no budget, no provider. Needs
+// `intelligence.translate` for every locale. Problem codes:
+// `too_many_locales`, `too_many_keys`, `invalid_locale`,
+// `invalid_query` (an unknown `select`, or one `include_outdated`
+// contradicts) (400), `locale_not_found` (404).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -22236,18 +22303,27 @@ type ClientWithResponsesInterface interface {
 
 	// CreateAIFillWithBodyWithResponse Fill locales with AI ("Fill with AI", `glossa translate`)
 	//
-	// Queues one job per message missing in each locale (and, with
-	// `include_outdated`, outdated there), or per listed `keys` that
-	// are missing or outdated, narrowed by `namespace` and
-	// `key_prefix`. Messages in `sensitive` namespaces are skipped
-	// (`skipped.sensitive`). A job exists once per message, locale,
-	// source revision and knowledge fingerprint: an existing one is
-	// reused (`jobs_existing`), a failed, dead or cancelled one queued
-	// again. `warnings` say when jobs will do little: consent off (only
-	// exact translation-memory matches are reused), no budget, no
-	// provider. Needs `intelligence.translate` for every locale.
-	// Problem codes: `too_many_locales`, `too_many_keys`,
-	// `invalid_locale` (400), `locale_not_found` (404).
+	// Queues one job per message whose translation in each locale is
+	// in the state `select` names — `missing` (none, or rejected; the
+	// default), `outdated` (made against an older source revision) or
+	// `missing_or_outdated` — among the listed `keys` or every active
+	// message, narrowed by `namespace` and `key_prefix`. Clients don't
+	// need to list keys to fill outdated translations. `include_outdated`
+	// is the older spelling of `missing_or_outdated`; listed `keys`
+	// without `select` are filled when missing or outdated. The fill
+	// records the effective `select`. Messages in `sensitive`
+	// namespaces are skipped (`skipped.sensitive`), listed keys that
+	// are current (`skipped.up_to_date`) or in a state the select
+	// leaves out (`skipped.not_selected`). A job exists once per
+	// message, locale, source revision and knowledge fingerprint: an
+	// existing one is reused (`jobs_existing`), a failed, dead or
+	// cancelled one queued again. `warnings` say when jobs will do
+	// little: consent off (only exact translation-memory matches are
+	// reused), no budget, no provider. Needs
+	// `intelligence.translate` for every locale. Problem codes:
+	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
+	// `invalid_query` (an unknown `select`, or one `include_outdated`
+	// contradicts) (400), `locale_not_found` (404).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -22256,18 +22332,27 @@ type ClientWithResponsesInterface interface {
 
 	// CreateAIFillWithResponse Fill locales with AI ("Fill with AI", `glossa translate`)
 	//
-	// Queues one job per message missing in each locale (and, with
-	// `include_outdated`, outdated there), or per listed `keys` that
-	// are missing or outdated, narrowed by `namespace` and
-	// `key_prefix`. Messages in `sensitive` namespaces are skipped
-	// (`skipped.sensitive`). A job exists once per message, locale,
-	// source revision and knowledge fingerprint: an existing one is
-	// reused (`jobs_existing`), a failed, dead or cancelled one queued
-	// again. `warnings` say when jobs will do little: consent off (only
-	// exact translation-memory matches are reused), no budget, no
-	// provider. Needs `intelligence.translate` for every locale.
-	// Problem codes: `too_many_locales`, `too_many_keys`,
-	// `invalid_locale` (400), `locale_not_found` (404).
+	// Queues one job per message whose translation in each locale is
+	// in the state `select` names — `missing` (none, or rejected; the
+	// default), `outdated` (made against an older source revision) or
+	// `missing_or_outdated` — among the listed `keys` or every active
+	// message, narrowed by `namespace` and `key_prefix`. Clients don't
+	// need to list keys to fill outdated translations. `include_outdated`
+	// is the older spelling of `missing_or_outdated`; listed `keys`
+	// without `select` are filled when missing or outdated. The fill
+	// records the effective `select`. Messages in `sensitive`
+	// namespaces are skipped (`skipped.sensitive`), listed keys that
+	// are current (`skipped.up_to_date`) or in a state the select
+	// leaves out (`skipped.not_selected`). A job exists once per
+	// message, locale, source revision and knowledge fingerprint: an
+	// existing one is reused (`jobs_existing`), a failed, dead or
+	// cancelled one queued again. `warnings` say when jobs will do
+	// little: consent off (only exact translation-memory matches are
+	// reused), no budget, no provider. Needs
+	// `intelligence.translate` for every locale. Problem codes:
+	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
+	// `invalid_query` (an unknown `select`, or one `include_outdated`
+	// contradicts) (400), `locale_not_found` (404).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -35711,18 +35796,27 @@ func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, ten
 
 // CreateAIFillWithBodyWithResponse Fill locales with AI ("Fill with AI", `glossa translate`)
 //
-// Queues one job per message missing in each locale (and, with
-// `include_outdated`, outdated there), or per listed `keys` that
-// are missing or outdated, narrowed by `namespace` and
-// `key_prefix`. Messages in `sensitive` namespaces are skipped
-// (`skipped.sensitive`). A job exists once per message, locale,
-// source revision and knowledge fingerprint: an existing one is
-// reused (`jobs_existing`), a failed, dead or cancelled one queued
-// again. `warnings` say when jobs will do little: consent off (only
-// exact translation-memory matches are reused), no budget, no
-// provider. Needs `intelligence.translate` for every locale.
-// Problem codes: `too_many_locales`, `too_many_keys`,
-// `invalid_locale` (400), `locale_not_found` (404).
+// Queues one job per message whose translation in each locale is
+// in the state `select` names — `missing` (none, or rejected; the
+// default), `outdated` (made against an older source revision) or
+// `missing_or_outdated` — among the listed `keys` or every active
+// message, narrowed by `namespace` and `key_prefix`. Clients don't
+// need to list keys to fill outdated translations. `include_outdated`
+// is the older spelling of `missing_or_outdated`; listed `keys`
+// without `select` are filled when missing or outdated. The fill
+// records the effective `select`. Messages in `sensitive`
+// namespaces are skipped (`skipped.sensitive`), listed keys that
+// are current (`skipped.up_to_date`) or in a state the select
+// leaves out (`skipped.not_selected`). A job exists once per
+// message, locale, source revision and knowledge fingerprint: an
+// existing one is reused (`jobs_existing`), a failed, dead or
+// cancelled one queued again. `warnings` say when jobs will do
+// little: consent off (only exact translation-memory matches are
+// reused), no budget, no provider. Needs
+// `intelligence.translate` for every locale. Problem codes:
+// `too_many_locales`, `too_many_keys`, `invalid_locale`,
+// `invalid_query` (an unknown `select`, or one `include_outdated`
+// contradicts) (400), `locale_not_found` (404).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -35737,18 +35831,27 @@ func (c *ClientWithResponses) CreateAIFillWithBodyWithResponse(ctx context.Conte
 
 // CreateAIFillWithResponse Fill locales with AI ("Fill with AI", `glossa translate`)
 //
-// Queues one job per message missing in each locale (and, with
-// `include_outdated`, outdated there), or per listed `keys` that
-// are missing or outdated, narrowed by `namespace` and
-// `key_prefix`. Messages in `sensitive` namespaces are skipped
-// (`skipped.sensitive`). A job exists once per message, locale,
-// source revision and knowledge fingerprint: an existing one is
-// reused (`jobs_existing`), a failed, dead or cancelled one queued
-// again. `warnings` say when jobs will do little: consent off (only
-// exact translation-memory matches are reused), no budget, no
-// provider. Needs `intelligence.translate` for every locale.
-// Problem codes: `too_many_locales`, `too_many_keys`,
-// `invalid_locale` (400), `locale_not_found` (404).
+// Queues one job per message whose translation in each locale is
+// in the state `select` names — `missing` (none, or rejected; the
+// default), `outdated` (made against an older source revision) or
+// `missing_or_outdated` — among the listed `keys` or every active
+// message, narrowed by `namespace` and `key_prefix`. Clients don't
+// need to list keys to fill outdated translations. `include_outdated`
+// is the older spelling of `missing_or_outdated`; listed `keys`
+// without `select` are filled when missing or outdated. The fill
+// records the effective `select`. Messages in `sensitive`
+// namespaces are skipped (`skipped.sensitive`), listed keys that
+// are current (`skipped.up_to_date`) or in a state the select
+// leaves out (`skipped.not_selected`). A job exists once per
+// message, locale, source revision and knowledge fingerprint: an
+// existing one is reused (`jobs_existing`), a failed, dead or
+// cancelled one queued again. `warnings` say when jobs will do
+// little: consent off (only exact translation-memory matches are
+// reused), no budget, no provider. Needs
+// `intelligence.translate` for every locale. Problem codes:
+// `too_many_locales`, `too_many_keys`, `invalid_locale`,
+// `invalid_query` (an unknown `select`, or one `include_outdated`
+// contradicts) (400), `locale_not_found` (404).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //

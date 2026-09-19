@@ -230,7 +230,7 @@ func toFill(r app.FillResult) apiv1.AIFill {
 	f := r.Fill
 	out := apiv1.AIFill{
 		Id: f.ID.String(), ProjectId: f.ProjectID.String(), Trigger: apiv1.AIFillTrigger(f.Trigger), Locales: nonNil(f.Locales),
-		Namespace: nonEmpty(f.Filter.Namespace), KeyPrefix: nonEmpty(f.Filter.KeyPrefix),
+		Namespace: nonEmpty(f.Filter.Namespace), KeyPrefix: nonEmpty(f.Filter.KeyPrefix), Select: apiv1.AIFillSelect(f.Filter.Selection()),
 		JobsCreated: f.JobsCreated, JobsExisting: f.JobsExisting, Skipped: map[string]int{}, JobStates: map[string]int{},
 		Warnings: nonNil(r.Warnings), RequestedBy: f.RequestedBy, CreatedAt: f.CreatedAt,
 	}

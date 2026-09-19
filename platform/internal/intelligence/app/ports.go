@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -93,8 +94,57 @@ type FillFilter struct {
 	// Keys lists messages explicitly (at most MaxFillKeys).
 	Keys []string `json:"keys,omitempty"`
 	// IncludeOutdated also re-translates outdated translations; by
-	// default only missing ones are filled.
+	// default only missing ones are filled. It is Select
+	// missing_or_outdated, kept for clients that predate Select.
 	IncludeOutdated bool `json:"include_outdated,omitempty"`
+	// Select chooses messages by their translation's state; a fill
+	// records the effective one.
+	Select FillSelect `json:"select,omitempty"`
+}
+
+// FillSelect chooses a fill's messages by the state of their
+// translation in each locale.
+type FillSelect string
+
+// Fill selections.
+const (
+	// SelectMissing: no usable translation (none, or rejected).
+	SelectMissing FillSelect = "missing"
+	// SelectOutdated: a usable translation made against an older source
+	// revision.
+	SelectOutdated          FillSelect = "outdated"
+	SelectMissingOrOutdated FillSelect = "missing_or_outdated"
+)
+
+// Selection is the filter's effective select: as asked, or — for
+// requests and fills without one — missing, both with include_outdated,
+// and both for listed keys (which were always filled when missing or
+// outdated).
+func (f FillFilter) Selection() FillSelect {
+	switch {
+	case f.Select != "":
+		return f.Select
+	case f.IncludeOutdated || len(f.Keys) > 0:
+		return SelectMissingOrOutdated
+	}
+	return SelectMissing
+}
+
+func (s FillSelect) missing() bool  { return s != SelectOutdated }
+func (s FillSelect) outdated() bool { return s != SelectMissing }
+
+// validate refuses an unknown select and one include_outdated
+// contradicts.
+func (f FillFilter) validate() error {
+	switch f.Select {
+	case "", SelectMissing, SelectOutdated, SelectMissingOrOutdated:
+	default:
+		return fmt.Errorf("%w: select must be missing, outdated or missing_or_outdated", ErrInvalidQuery)
+	}
+	if f.IncludeOutdated && f.Select != "" && f.Select != SelectMissingOrOutdated {
+		return fmt.Errorf("%w: include_outdated means select missing_or_outdated; send one of them", ErrInvalidQuery)
+	}
+	return nil
 }
 
 // JobView is a job with its audit ledger.

@@ -26,6 +26,10 @@ const (
 	fillPage    = 100
 )
 
+// SkipNotSelected counts listed keys whose translation's state the
+// fill's select leaves out.
+const SkipNotSelected = "not_selected"
+
 // Warnings a fill answers with when jobs will fail or do little.
 const (
 	WarnProviderConsentOff = "provider_consent_off"
@@ -47,9 +51,9 @@ type FillResult struct {
 	Warnings []string
 }
 
-// RequestFill queues jobs for the project's messages missing (or, with
-// include_outdated, outdated) in each locale — Studio's "Fill with AI"
-// and the CLI's translate. Sensitive namespaces are skipped. Jobs that
+// RequestFill queues jobs for the project's messages missing, outdated
+// or either in each locale (the filter's select) — Studio's "Fill with
+// AI" and the CLI's translate. Sensitive namespaces are skipped. Jobs that
 // exist for the same message, locale, source revision and knowledge are
 // reused (failed, dead and cancelled ones are queued again). Needs
 // intelligence.translate for every locale.
@@ -60,6 +64,10 @@ func (s *Service) RequestFill(ctx context.Context, project uuid.UUID, req FillRe
 	if len(req.Filter.Keys) > MaxFillKeys {
 		return FillResult{}, false, ErrTooManyKeys
 	}
+	if err := req.Filter.validate(); err != nil {
+		return FillResult{}, false, err
+	}
+	req.Filter.Select = req.Filter.Selection()
 	locales, err := canonicalLocales(req.Locales)
 	if err != nil {
 		return FillResult{}, false, err
@@ -240,9 +248,11 @@ func (s *Service) fill(ctx context.Context, f *Fill, requeue bool) error {
 }
 
 // eachFillMessage calls fn with pages of the messages a fill covers in
-// locale: the listed keys that are missing or outdated there, or every
-// active message missing there (and outdated, when asked), filtered.
+// locale: those whose translation there is in the state the fill
+// selects (missing, outdated or either) — among the listed keys, or
+// every active message, filtered.
 func (s *Service) eachFillMessage(ctx context.Context, f Fill, locale string, fn func([]SourceMessage) error) error {
+	sel := f.Filter.Selection()
 	if len(f.Filter.Keys) > 0 {
 		msgs, err := s.Catalog.MessagesByKeys(ctx, f.ProjectID, f.Filter.Keys)
 		if err != nil {
@@ -257,16 +267,23 @@ func (s *Service) eachFillMessage(ctx context.Context, f Fill, locale string, fn
 			if err != nil && !errors.Is(err, ErrNotFound) {
 				return err
 			}
-			if tr.upToDate(m.Revision) && !(f.Filter.IncludeOutdated && tr.SourceRevision < m.Revision) {
+			missing := !tr.usable()
+			switch {
+			case tr.upToDate(m.Revision):
 				f.Skipped[domain.SkipUpToDate]++
-				continue
+			case missing && sel.missing(), !missing && sel.outdated():
+				todo = append(todo, m)
+			default:
+				f.Skipped[SkipNotSelected]++
 			}
-			todo = append(todo, m)
 		}
 		return fn(todo)
 	}
-	queries := []MessageQuery{{Namespace: f.Filter.Namespace, KeyPrefix: f.Filter.KeyPrefix, MissingIn: locale}}
-	if f.Filter.IncludeOutdated {
+	var queries []MessageQuery
+	if sel.missing() {
+		queries = append(queries, MessageQuery{Namespace: f.Filter.Namespace, KeyPrefix: f.Filter.KeyPrefix, MissingIn: locale})
+	}
+	if sel.outdated() {
 		queries = append(queries, MessageQuery{Namespace: f.Filter.Namespace, KeyPrefix: f.Filter.KeyPrefix, OutdatedIn: locale})
 	}
 	for _, q := range queries {
@@ -291,10 +308,14 @@ func (s *Service) eachFillMessage(ctx context.Context, f Fill, locale string, fn
 	return nil
 }
 
+// usable reports a translation that exists and wasn't rejected: one
+// that isn't missing.
+func (t TranslationState) usable() bool { return t.Exists && t.State != "rejected" }
+
 // upToDate reports a usable translation made against the current
 // source revision: nothing to translate.
 func (t TranslationState) upToDate(revision int) bool {
-	return t.Exists && t.State != "rejected" && t.SourceRevision >= revision
+	return t.usable() && t.SourceRevision >= revision
 }
 
 // enqueue stores jobs in one transaction and counts new and existing.

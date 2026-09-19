@@ -2479,18 +2479,27 @@ export interface paths {
         put?: never;
         /**
          * Fill locales with AI ("Fill with AI", `glossa translate`)
-         * @description Queues one job per message missing in each locale (and, with
-         *     `include_outdated`, outdated there), or per listed `keys` that
-         *     are missing or outdated, narrowed by `namespace` and
-         *     `key_prefix`. Messages in `sensitive` namespaces are skipped
-         *     (`skipped.sensitive`). A job exists once per message, locale,
-         *     source revision and knowledge fingerprint: an existing one is
-         *     reused (`jobs_existing`), a failed, dead or cancelled one queued
-         *     again. `warnings` say when jobs will do little: consent off (only
-         *     exact translation-memory matches are reused), no budget, no
-         *     provider. Needs `intelligence.translate` for every locale.
-         *     Problem codes: `too_many_locales`, `too_many_keys`,
-         *     `invalid_locale` (400), `locale_not_found` (404).
+         * @description Queues one job per message whose translation in each locale is
+         *     in the state `select` names — `missing` (none, or rejected; the
+         *     default), `outdated` (made against an older source revision) or
+         *     `missing_or_outdated` — among the listed `keys` or every active
+         *     message, narrowed by `namespace` and `key_prefix`. Clients don't
+         *     need to list keys to fill outdated translations. `include_outdated`
+         *     is the older spelling of `missing_or_outdated`; listed `keys`
+         *     without `select` are filled when missing or outdated. The fill
+         *     records the effective `select`. Messages in `sensitive`
+         *     namespaces are skipped (`skipped.sensitive`), listed keys that
+         *     are current (`skipped.up_to_date`) or in a state the select
+         *     leaves out (`skipped.not_selected`). A job exists once per
+         *     message, locale, source revision and knowledge fingerprint: an
+         *     existing one is reused (`jobs_existing`), a failed, dead or
+         *     cancelled one queued again. `warnings` say when jobs will do
+         *     little: consent off (only exact translation-memory matches are
+         *     reused), no budget, no provider. Needs
+         *     `intelligence.translate` for every locale. Problem codes:
+         *     `too_many_locales`, `too_many_keys`, `invalid_locale`,
+         *     `invalid_query` (an unknown `select`, or one `include_outdated`
+         *     contradicts) (400), `locale_not_found` (404).
          */
         post: operations["createAIFill"];
         delete?: never;
@@ -4557,13 +4566,23 @@ export interface components {
             auto_translate_locales?: components["schemas"]["Locale"][];
             review?: components["schemas"]["AIReviewPolicy"];
         };
+        /**
+         * @description Which messages a fill translates, by their translation's state in each locale: `missing` (none, or rejected), `outdated` (made against an older source revision) or either.
+         * @enum {string}
+         */
+        AIFillSelect: "missing" | "outdated" | "missing_or_outdated";
         CreateAIFill: {
             locales: components["schemas"]["Locale"][];
             namespace?: components["schemas"]["Namespace"];
             key_prefix?: string;
             keys?: components["schemas"]["MessageKey"][];
-            /** @default false */
+            /**
+             * @description The older spelling of `select: missing_or_outdated`.
+             * @default false
+             */
             include_outdated: boolean;
+            /** @description Default `missing`; `missing_or_outdated` with `include_outdated` or listed `keys`. */
+            select?: components["schemas"]["AIFillSelect"];
         };
         /** @enum {string} */
         AIJobState: "queued" | "running" | "succeeded" | "skipped" | "failed" | "dead" | "cancelled";
@@ -4579,11 +4598,13 @@ export interface components {
             key_prefix?: string;
             keys?: string[];
             include_outdated?: boolean;
+            /** @description The effective selection. */
+            select: components["schemas"]["AIFillSelect"];
             /** @description Jobs queued, new or queued again. */
             jobs_created: number;
             /** @description Jobs that already existed for the same message, locale, source revision and knowledge. */
             jobs_existing: number;
-            /** @description Messages left out, by reason: `sensitive`, `up_to_date`, `limit`. */
+            /** @description Messages left out, by reason: `sensitive`, `up_to_date`, `not_selected`, `limit`. */
             skipped: {
                 [key: string]: number;
             };

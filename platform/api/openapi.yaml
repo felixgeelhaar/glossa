@@ -3725,18 +3725,27 @@ paths:
       tags: [ai-jobs]
       summary: Fill locales with AI ("Fill with AI", `glossa translate`)
       description: |
-        Queues one job per message missing in each locale (and, with
-        `include_outdated`, outdated there), or per listed `keys` that
-        are missing or outdated, narrowed by `namespace` and
-        `key_prefix`. Messages in `sensitive` namespaces are skipped
-        (`skipped.sensitive`). A job exists once per message, locale,
-        source revision and knowledge fingerprint: an existing one is
-        reused (`jobs_existing`), a failed, dead or cancelled one queued
-        again. `warnings` say when jobs will do little: consent off (only
-        exact translation-memory matches are reused), no budget, no
-        provider. Needs `intelligence.translate` for every locale.
-        Problem codes: `too_many_locales`, `too_many_keys`,
-        `invalid_locale` (400), `locale_not_found` (404).
+        Queues one job per message whose translation in each locale is
+        in the state `select` names — `missing` (none, or rejected; the
+        default), `outdated` (made against an older source revision) or
+        `missing_or_outdated` — among the listed `keys` or every active
+        message, narrowed by `namespace` and `key_prefix`. Clients don't
+        need to list keys to fill outdated translations. `include_outdated`
+        is the older spelling of `missing_or_outdated`; listed `keys`
+        without `select` are filled when missing or outdated. The fill
+        records the effective `select`. Messages in `sensitive`
+        namespaces are skipped (`skipped.sensitive`), listed keys that
+        are current (`skipped.up_to_date`) or in a state the select
+        leaves out (`skipped.not_selected`). A job exists once per
+        message, locale, source revision and knowledge fingerprint: an
+        existing one is reused (`jobs_existing`), a failed, dead or
+        cancelled one queued again. `warnings` say when jobs will do
+        little: consent off (only exact translation-memory matches are
+        reused), no budget, no provider. Needs
+        `intelligence.translate` for every locale. Problem codes:
+        `too_many_locales`, `too_many_keys`, `invalid_locale`,
+        `invalid_query` (an unknown `select`, or one `include_outdated`
+        contradicts) (400), `locale_not_found` (404).
       security:
         - session: []
           csrf: []
@@ -6619,6 +6628,10 @@ components:
           additionalProperties: { type: array, maxItems: 3, items: { $ref: "#/components/schemas/AINamespaceTag" } }
         auto_translate_locales: { type: array, maxItems: 200, items: { $ref: "#/components/schemas/Locale" } }
         review: { $ref: "#/components/schemas/AIReviewPolicy" }
+    AIFillSelect:
+      type: string
+      enum: [missing, outdated, missing_or_outdated]
+      description: "Which messages a fill translates, by their translation's state in each locale: `missing` (none, or rejected), `outdated` (made against an older source revision) or either."
     CreateAIFill:
       type: object
       required: [locales]
@@ -6627,7 +6640,10 @@ components:
         namespace: { $ref: "#/components/schemas/Namespace" }
         key_prefix: { type: string, maxLength: 200 }
         keys: { type: array, maxItems: 500, items: { $ref: "#/components/schemas/MessageKey" } }
-        include_outdated: { type: boolean, default: false }
+        include_outdated: { type: boolean, default: false, description: "The older spelling of `select: missing_or_outdated`." }
+        select:
+          $ref: "#/components/schemas/AIFillSelect"
+          description: "Default `missing`; `missing_or_outdated` with `include_outdated` or listed `keys`."
     AIJobState:
       type: string
       enum: [queued, running, succeeded, skipped, failed, dead, cancelled]
@@ -6636,7 +6652,7 @@ components:
       enum: [message_created, translation_outdated, locale_added, fill]
     AIFill:
       type: object
-      required: [id, project_id, trigger, locales, jobs_created, jobs_existing, skipped, job_states, warnings, requested_by, created_at]
+      required: [id, project_id, trigger, locales, select, jobs_created, jobs_existing, skipped, job_states, warnings, requested_by, created_at]
       properties:
         id: { $ref: "#/components/schemas/Id" }
         project_id: { $ref: "#/components/schemas/Id" }
@@ -6646,11 +6662,12 @@ components:
         key_prefix: { type: string }
         keys: { type: array, items: { type: string } }
         include_outdated: { type: boolean }
+        select: { $ref: "#/components/schemas/AIFillSelect", description: The effective selection. }
         jobs_created: { type: integer, description: "Jobs queued, new or queued again." }
         jobs_existing: { type: integer, description: "Jobs that already existed for the same message, locale, source revision and knowledge." }
         skipped:
           type: object
-          description: "Messages left out, by reason: `sensitive`, `up_to_date`, `limit`."
+          description: "Messages left out, by reason: `sensitive`, `up_to_date`, `not_selected`, `limit`."
           additionalProperties: { type: integer }
         job_states:
           type: object

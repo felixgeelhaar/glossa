@@ -293,6 +293,7 @@ func (a *API) CreateAIFill(ctx context.Context, req apiv1.CreateAIFillRequestObj
 		Locales: b.Locales,
 		Filter: app.FillFilter{
 			Namespace: deref(b.Namespace), KeyPrefix: deref(b.KeyPrefix), Keys: deref(b.Keys), IncludeOutdated: deref(b.IncludeOutdated),
+			Select: app.FillSelect(deref(b.Select)),
 		},
 	}, deref(req.Params.IdempotencyKey))
 	if err != nil {

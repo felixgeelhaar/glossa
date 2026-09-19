@@ -719,9 +719,11 @@ translations and knowledge read only): `catalog.message.created` and
 `localization.translation.outdated` queue jobs for the locales with
 auto-translate on, `localization.locale.added` fills a new locale with
 auto-translate on (the fill's ID is the event's), and `POST
-…/projects/{project}/ai-fills` queues explicit fills (missing, optionally
-outdated, or listed keys; failed, dead or cancelled jobs are queued
-again). A duplicate event finds the existing job.
+…/projects/{project}/ai-fills` queues explicit fills: the messages
+whose translation is in the state `select` names (`missing`, the
+default; `outdated`; `missing_or_outdated`), among listed keys or all of
+them, so a client re-translates outdated text without listing keys
+(failed, dead or cancelled jobs are queued again). A duplicate event finds the existing job.
 
 Workers run in glossa-server (`GLOSSA_AI_*`). A claim is one statement in
 the system scope `intelligence.jobs`, serialized by an advisory lock and
