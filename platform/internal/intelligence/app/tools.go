@@ -178,7 +178,7 @@ func (j *job) disclose(task domain.Task, attempts []Attempt, s sent) {
 }
 
 func (j *job) tmLookup(ctx context.Context) (tmOutput, error) {
-	m, err := j.t.cfg.Knowledge.LookupTM(ctx, j.scope(), domain.TMQuery{Pair: j.pair(), Source: j.req.Source, Key: j.req.Key, Limit: j.t.cfg.TMLimit})
+	m, err := j.t.cfg.Knowledge.LookupTM(ctx, j.scope(), domain.TMQuery{Pair: j.pair(), Source: j.req.Source, Key: j.req.Key, Namespace: j.req.Namespace, Limit: j.t.cfg.TMLimit})
 	return tmOutput{Matches: m}, err
 }
 

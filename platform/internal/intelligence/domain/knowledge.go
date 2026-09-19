@@ -27,10 +27,11 @@ type TMQuery struct {
 	Pair LocalePair `json:"pair"`
 	// Source is the source message in MF2 syntax.
 	Source string `json:"source"`
-	// Key lets the Knowledge context score 101 (in-context exact) when
-	// the neighbouring messages match too.
-	Key   string `json:"key,omitempty"`
-	Limit int    `json:"limit,omitempty"`
+	// Key and Namespace let the Knowledge context score 101 (in-context
+	// exact): a unit approved for the same key in the same namespace.
+	Key       string `json:"key,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
 }
 
 // TM match score bands (RFC 0003 §2.1).

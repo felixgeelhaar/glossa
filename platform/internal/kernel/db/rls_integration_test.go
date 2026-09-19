@@ -57,6 +57,10 @@ var systemPolicies = map[string][]string{
 	// Validating /v1/tenants/{tenant} against the session's memberships,
 	// and finding invitations for a verified email at sign-in.
 	"identity_members": {"identity_members_system_select"},
+	// Intelligence's job workers claim across tenants (system scope
+	// intelligence.jobs) under each tenant's concurrency cap.
+	"intelligence_jobs":     {"intelligence_jobs_system_select", "intelligence_jobs_system_update"},
+	"intelligence_settings": {"intelligence_settings_system_select"},
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
 	// Identity's global tables are system scope only (see systemTables).
