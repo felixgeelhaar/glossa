@@ -67,7 +67,7 @@ networkPolicy:
               kubernetes.io/metadata.name: databases
           podSelector:
             matchLabels:
-              cnpg.io/cluster: pg-main
+              app.kubernetes.io/name: postgresql
     objectStorage:
       to:
         - ipBlock:

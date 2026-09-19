@@ -2,10 +2,15 @@
 
 Helm chart for Glossa's platform (RFC 0002 §3, §11): **glossa-server**
 (control plane and the `/v1` API), **glossa-edge** (the stateless
-delivery plane) and **Studio** (the web app). It bundles no Postgres:
-the database is external and referenced through Secrets. Object storage
-is either external S3 or, with `minio.enabled`, one MinIO in the
-release's namespace (see [In-namespace MinIO](#in-namespace-minio)).
+delivery plane) and **Studio** (the web app). Postgres is either
+external (DSNs from Secrets) or, with `postgres.enabled`, one plain
+Postgres StatefulSet in the release's namespace, the Klarlabs pattern
+(see [In-namespace Postgres](#in-namespace-postgres)). Object storage is
+either external S3 or, with `minio.enabled`, one MinIO in the release's
+namespace (see [In-namespace MinIO](#in-namespace-minio)). With
+`backup.enabled`, CronJobs dump Postgres and mirror MinIO to an rclone
+remote outside the cluster every night and restore the newest dump every
+week (see [Backups](#backups)).
 
 The v0.3 chart (`deploy/charts/glossa`) is separate and unchanged.
 
@@ -16,8 +21,10 @@ app.<domain>/*    │→ studio        :8080     object storage (read-write)│
 api.<domain>/v1/* │→ glossa-server :8080     SMTP (optional)            │
 cdn.<domain>/v1/* │→ glossa-edge   :8081 ──→ object storage (read-only) │
                   └─────────────────────────────────────────────────────┘
-pre-install/pre-upgrade hook:   glossa-server -migrate=only (schema owner)
+database hooks (pre-install, or post-install with postgres.enabled; pre-upgrade):
+  postgres-init (owner, database) → migrate (schema owner) → postgres-app-login (glossa_app LOGIN)
 post-install/post-upgrade hook: MinIO bootstrap (bucket, users; minio.enabled)
+CronJobs (backup.enabled): postgres-backup, minio-backup → rclone remote; postgres-restore-test
 ```
 
 What it renders:
@@ -39,14 +46,27 @@ PodDisruptionBudget and a NetworkPolicy; the bootstrap Job
 `<fullname>-minio-bootstrap` (hook) with its NetworkPolicy; and the
 `helm test` Pod `<fullname>-minio-test` with its NetworkPolicy.
 
+With `postgres.enabled` it adds `<fullname>-postgres`: a StatefulSet with
+a Longhorn volume, a ClusterIP and a headless Service (5432), a
+PodDisruptionBudget and a NetworkPolicy; the hook Jobs
+`<fullname>-postgres-init` and `<fullname>-postgres-app-login` with their
+NetworkPolicy; and the `helm test` Pod `<fullname>-postgres-test`. With
+`backup.enabled`: the CronJobs `<fullname>-postgres-backup`,
+`<fullname>-minio-backup` and `<fullname>-postgres-restore-test`, each
+with a NetworkPolicy.
+
 Every pod meets PodSecurity **restricted**: non-root (65532 for the Go
-images, 101 for Studio's nginx, 1000 for MinIO and mc), `seccompProfile: RuntimeDefault`, all
+images and the MinIO mirror, 101 for Studio's nginx, 1000 for MinIO and
+mc, 70 for Postgres and its Jobs), `seccompProfile: RuntimeDefault`, all
 capabilities dropped, no privilege escalation, **read-only root
 filesystem** (an `emptyDir` at `/tmp`), no service account token, no
 service-link env vars. Probes: `GET /livez` (startup, liveness) and
 `GET /readyz` (readiness) on the server and edge, `GET /healthz` on
-Studio. The server drains on SIGTERM within `server.shutdownTimeout`,
-below `terminationGracePeriodSeconds`.
+Studio, `pg_isready` on Postgres. The server drains on SIGTERM within
+`server.shutdownTimeout`, below `terminationGracePeriodSeconds`. Nothing
+installs packages at runtime: the backup Jobs pair the Postgres image
+with a pinned rclone image instead of `apk add rclone` (which needs root
+and a writable root filesystem).
 
 ## Images
 
@@ -76,8 +96,13 @@ with a 502 problem if that routing is missing. With `docker run
 
 ## First install
 
-Order matters: the migration Job runs before any other resource of the
-release exists and needs its Secrets and database already in place.
+Order matters: **create the Secrets → install → the database hooks run
+(owner and database, migration, glossa_app's LOGIN) → the server pods
+become ready.** With an external database the hooks run pre-install,
+before any other resource of the release exists, so the database and its
+Secrets must already be in place. With `postgres.enabled` the release
+creates the database, so on the first install they run post-install (see
+[Order of the database hooks](#order-of-the-database-hooks)).
 
 1. **Cluster prerequisites.** traefik (k3s ships it), cert-manager with a
    `ClusterIssuer` named `letsencrypt-prod` (or set
@@ -96,21 +121,26 @@ release exists and needs its Secrets and database already in place.
 3. **DNS.** Point `hosts.studio`, `hosts.api` and `hosts.cdn` at the
    ingress's public address. cert-manager's HTTP-01 challenge needs them
    to resolve before the Certificates can be issued.
-4. **Database and roles** (Postgres 16). The schema owner runs migrations
-   and must have `CREATEROLE` but must **not** be a superuser; the app role
-   must be `NOSUPERUSER NOBYPASSRLS` (the server refuses to start
-   otherwise). The first migration creates `glossa_app` and
-   `glossa_system` as `NOLOGIN` only if they are missing, so create
-   `glossa_app` with its login up front and the first install comes up in
-   one go:
+4. **Database and roles** (Postgres 16).
+   - **In-namespace (`postgres.enabled`, the Klarlabs pattern):** nothing
+     to do in Postgres. The hooks create the schema owner, the database
+     and the backup role, and give `glossa_app` its login after the
+     migration has created it. Only the Secrets of step 6 are needed.
+   - **External** (`postgres.enabled: false`): the schema owner runs
+     migrations and must have `CREATEROLE` but must **not** be a
+     superuser; the app role must be `NOSUPERUSER NOBYPASSRLS` (the server
+     refuses to start otherwise). The first migration creates `glossa_app`
+     and `glossa_system` as `NOLOGIN` only if they are missing, so create
+     `glossa_app` with its login up front and the first install comes up
+     in one go:
 
-   ```sql
-   CREATE ROLE glossa_owner LOGIN CREATEROLE PASSWORD '…';
-   CREATE DATABASE glossa OWNER glossa_owner;
-   CREATE ROLE glossa_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD '…';
-   ```
+     ```sql
+     CREATE ROLE glossa_owner LOGIN CREATEROLE PASSWORD '…';
+     CREATE DATABASE glossa OWNER glossa_owner;
+     CREATE ROLE glossa_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD '…';
+     ```
 
-   With CloudNativePG, see [Postgres with CloudNativePG](#postgres-with-cloudnativepg).
+     Backups of an external database are its provider's.
 5. **Bucket and credentials.** External storage: create the bucket (and
    prefix, if shared) and two credentials, read-write for glossa-server
    and **read-only** for glossa-edge. With `minio.enabled`, create only
@@ -121,6 +151,18 @@ release exists and needs its Secrets and database already in place.
 
    ```sh
    NS=glossa-platform
+   # In-namespace Postgres: one key, `password`, per role. Hex, because the
+   # chart puts them into keyword/value DSNs (no ' or \ allowed).
+   for s in glossa-pg-superuser glossa-pg-owner glossa-pg-app glossa-pg-backup; do
+     kubectl -n $NS create secret generic $s --from-literal=password="$(openssl rand -hex 24)"
+   done
+   # Backups: rclone.conf and the files it references (Klarlabs: the Storage
+   # Box's SSH key and known_hosts), mounted at /etc/rclone. Klarlabs copies
+   # v0.3's (see Backups).
+   kubectl -n glossa get secret rclone-config -o json \
+     | jq '{apiVersion, kind, type, data, metadata: {name: .metadata.name}}' \
+     | kubectl -n $NS apply -f -
+   # External Postgres instead: the two DSNs.
    kubectl -n $NS create secret generic glossa-db-app \
      --from-literal=DATABASE_URL='postgres://glossa_app:…@<host>:5432/glossa?sslmode=require&pool_max_conns=20'
    kubectl -n $NS create secret generic glossa-db-owner \
@@ -159,97 +201,260 @@ release exists and needs its Secrets and database already in place.
 
    Back up `GLOSSA_AUTH_SECRET` and the signing seeds outside the cluster.
    Percent-encode special characters in DSN passwords.
-7. **Install:**
+7. **Install.** With `postgres.enabled`, the first install goes
+   **without `--wait`**, then waits for the rollout:
 
    ```sh
    helm upgrade --install glossa-platform deploy/charts/glossa-platform \
-     --namespace glossa-platform -f my-values.yaml --wait --timeout 10m
+     --namespace glossa-platform -f my-values.yaml --timeout 15m
+   kubectl -n glossa-platform rollout status deployment/<fullname>-server --timeout 10m
    ```
 
-   The hook Job migrates first; server pods start after it succeeds. A
-   failed Job is kept for `kubectl logs job/<fullname>-migrate`. With
-   `minio.enabled`, `--wait` waits for MinIO too, then the bootstrap Job
-   creates the bucket and users (neither server nor edge needs them to
-   become ready); `kubectl logs job/<fullname>-minio-bootstrap` if it
-   fails. The whole install, Longhorn volume attach included, has to fit
-   in `--timeout`.
-8. **Verify:** with `minio.enabled`, `helm test glossa-platform -n
-   glossa-platform` checks that the edge's credentials read the bucket but
-   cannot write or delete. `https://<studio>` loads and signs in,
-   `https://<api>/v1/…` answers, `https://<cdn>/v1/<key>/production/manifest.json`
-   answers 404 for an unknown key. `/metrics`, `/livez` and `/readyz` are
-   not routed publicly.
+   Helm always waits for hook Jobs, so the command returns once
+   postgres-init, the migration and postgres-app-login have succeeded.
+   `--wait` would wait for the server pods *before* running the
+   post-install hooks, and they cannot become ready before `glossa_app`
+   has its login: the install would hang until `--timeout`. Until the
+   hooks are done the server pods restart; that is expected. Every later
+   `helm upgrade` takes `--wait` (the hooks run pre-upgrade).
 
-Upgrades run the same Job before the new server version starts; there is
-no down-migration step in the chart. Rotating signing keys: add the new
-key to the Secret (both sign), move runtimes to it, then move the old one
-to `release.retiredKeys` (platform/README.md, "Release").
+   With an external database, `--wait --timeout 10m` works from the
+   start: the migration runs pre-install and server pods start after it.
 
-Uninstall leaves the hook NetworkPolicies (migration, MinIO bootstrap and
-test) and never touches the database, the bucket or the Secrets. MinIO's
-PersistentVolumeClaim (`data-<fullname>-minio-0`) is kept too; deleting it
-deletes the data (Longhorn's reclaim policy is `Delete`).
+   A failed hook Job is kept for `kubectl logs job/<fullname>-postgres-init`
+   (or `-migrate`, `-postgres-app-login`). With `minio.enabled`, the
+   MinIO bootstrap Job creates the bucket and users after the install
+   (neither server nor edge needs them to become ready);
+   `kubectl logs job/<fullname>-minio-bootstrap` if it fails. The whole
+   install, Longhorn volume attach included, has to fit in `--timeout`.
+8. **Verify:** `helm test glossa-platform -n glossa-platform` checks, with
+   `postgres.enabled`, that `glossa_app` connects and can `SET ROLE` to
+   no superuser, BYPASSRLS or CREATEROLE role, and with `minio.enabled`
+   that the edge's credentials read the bucket but cannot write or delete.
+   With backups, run the first backup and the restore drill now rather
+   than waiting for the weekend ([Backups](#backups)). `https://<studio>`
+   loads and signs in, `https://<api>/v1/…` answers,
+   `https://<cdn>/v1/<key>/production/manifest.json` answers 404 for an
+   unknown key. `/metrics`, `/livez` and `/readyz` are not routed
+   publicly.
 
-### Postgres with CloudNativePG
+Upgrades run the same hooks before the new server version starts; there
+is no down-migration step in the chart. Rotating signing keys: add the
+new key to the Secret (both sign), move runtimes to it, then move the old
+one to `release.retiredKeys` (platform/README.md, "Release").
 
-The chart does not create the database. With the
-[CloudNativePG](https://cloudnative-pg.io) operator installed, a minimal
-cluster in the release's namespace (Klarlabs: `glossa-pg` in
-`glossa-platform`):
+Uninstall leaves the hook NetworkPolicies (migration, Postgres bootstrap,
+MinIO bootstrap and the tests) and never touches the database, the bucket,
+the backups or the Secrets. The PersistentVolumeClaims
+(`data-<fullname>-postgres-0`, `data-<fullname>-minio-0`) are kept too;
+deleting one deletes its data (Longhorn's reclaim policy is `Delete`).
 
-```yaml
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-metadata:
-  name: glossa-pg
-  namespace: glossa-platform
-spec:
-  instances: 1
-  imageName: ghcr.io/cloudnative-pg/postgresql:16   # pin by digest
-  storage:
-    storageClass: longhorn
-    size: 5Gi
-  bootstrap:
-    initdb:
-      database: glossa
-      owner: glossa_owner          # CNPG writes its DSN to glossa-pg-app (key uri)
-  managed:
-    roles:
-      - name: glossa_owner         # runs migrations: CREATEROLE, never superuser
-        ensure: present
-        login: true
-        createrole: true
-        superuser: false
-      - name: glossa_app           # the server's role: FORCE RLS applies to it
-        ensure: present
-        login: true
-        superuser: false
-        bypassrls: false
-        createdb: false
-        createrole: false
-        passwordSecret:
-          name: glossa-db-app
-```
+## In-namespace Postgres
 
-Create `glossa-db-app` **before** the Cluster: CNPG takes `glossa_app`'s
-password from it, and the chart its DSN (`database.app.secretKey`
-`DATABASE_URL`), so one Secret holds both:
+`postgres.enabled` runs one Postgres per product namespace, the Klarlabs
+pattern every product uses (v0.3's `glossa` namespace included): a
+single-replica StatefulSet, no operator. glossa-server, the migration and
+bootstrap Jobs, the backup Job and the test Pod reach it on 5432;
+nothing else does.
+
+**Image and version.** `postgres.image` is `postgres:16.15-alpine`,
+pinned by digest: Postgres 16, v0.3's major (v0.3 runs 16.14; a minor
+bump is a plain image change). Every Job that talks to Postgres uses the
+same image, so `pg_dump`, `psql` and the restore drill's throwaway server
+always have the server's major version (see [Backups](#backups) for why
+that matters). A **major** upgrade is not an image change: the data
+directory is incompatible, so dump, install the new major on a new
+volume, restore.
+
+**Pod.** uid/gid 70 (the alpine image's `postgres` user), read-only root
+filesystem with `emptyDir`s for `/var/run/postgresql` and `/tmp`, data in
+`/var/lib/postgresql/data/pgdata` (a subdirectory: the volume's root is
+not owned by uid 70). The image's entrypoint runs `initdb` on an empty
+volume and creates only the superuser. `pg_isready` probes; the startup
+probe allows ten minutes for crash recovery. Its STOPSIGNAL is SIGINT (a
+fast shutdown) within `terminationGracePeriodSeconds: 60`.
+
+**Storage.** `longhorn` (3 replicas) by default: v0.3's database once
+lived on a one-node `local-path` volume, so losing that node lost the
+database. `postgres.persistence` is a volumeClaimTemplate and immutable
+after install: grow the PVC (`data-<fullname>-postgres-0`) instead. The
+PVC is retained when the StatefulSet is deleted or scaled to 0. The
+PodDisruptionBudget (`maxUnavailable: 1`) lets a node drain move the pod;
+the server is unavailable meanwhile.
+
+**Roles.** Nothing is generated by the chart; every password comes from
+an existing Secret (key `password`).
+
+| Role | Created by | Attributes | Used by |
+|---|---|---|---|
+| `postgres.superuser.username` (`postgres`) | initdb | superuser | Postgres itself and the two bootstrap Jobs, nothing else |
+| `postgres.owner.username` (`glossa_owner`) | postgres-init | `LOGIN CREATEROLE`, never superuser or BYPASSRLS; owns the database | the migration Job |
+| `glossa_app` | the first migration (`NOLOGIN`, as the owner, who so holds ADMIN OPTION on it) | `LOGIN` + password from postgres-app-login; never superuser, BYPASSRLS, CREATEROLE, CREATEDB | glossa-server (FORCE RLS binds it) |
+| `glossa_system` | the first migration | `NOLOGIN`; `glossa_app` may `SET ROLE` to it | the server's system scope |
+| `backup.postgres.role.username` (`glossa_backup`) | postgres-init (backups on) | `LOGIN BYPASSRLS`, member of `pg_read_all_data`, nothing else | the backup Job's `pg_dump` |
+
+The backup role exists because nobody else can dump without being a
+superuser: the tables `FORCE ROW LEVEL SECURITY`, which binds their owner
+too, and `pg_dump` refuses a table whose policies would filter it
+(`query would be affected by row-level security policy`). It can read
+everything and change nothing, which is what the pod holding the
+off-site credentials should have.
+
+### Order of the database hooks
+
+| Weight | Hook | Connects as | Does |
+|---|---|---|---|
+| -10 | NetworkPolicies of the hook pods | | DNS and Postgres egress |
+| -5 | `<fullname>-postgres-init` | superuser | waits for Postgres; owner role and password; database owned by it; backup role; `glossa_app`'s password if the role exists already |
+| 0 | `<fullname>-migrate` | owner | `glossa-server -migrate=only`; the first migration creates `glossa_app` and `glossa_system` `NOLOGIN` |
+| 5 | `<fullname>-postgres-app-login` | superuser | `ALTER ROLE glossa_app LOGIN PASSWORD …` |
+
+They run **post-install** on the first install (the StatefulSet is a
+release resource and does not exist before it) and **pre-upgrade** on
+every upgrade (before new server pods roll). With an external database
+only the migration runs, pre-install and pre-upgrade. Both bootstrap Jobs
+are idempotent (`files/postgres-bootstrap.sh`): they converge on the
+state above, so a rotated password in a Secret is applied by the next
+`helm upgrade`.
+
+Why hook Jobs rather than an initdb script in a ConfigMap: an initdb
+script runs once, on an empty volume, and never again, so it cannot
+apply a rotated password, cannot run *after* the migration that creates
+`glossa_app`, and a failure midway leaves an initialized data directory
+the entrypoint never retries (a half-bootstrapped database). It would
+also put every role's password into the Postgres pod. The Jobs re-run on
+every upgrade, fail loudly and are kept for `kubectl logs`.
+
+Enabling `postgres.enabled` on an existing release is not an upgrade
+path: the pre-upgrade hooks would wait for a database that does not
+exist yet. Move the data with a dump and restore instead.
+
+**DSNs.** With `database.app.secretName` and
+`database.migration.secretName` unset, the server and the migration Job
+get keyword/value DSNs for `<fullname>-postgres:5432` built from the
+owner's and `glossa_app`'s passwords (Kubernetes expands `$(VAR)`, so the
+password never lands in a manifest): `host=… dbname=glossa
+user=glossa_app password='…' sslmode=disable pool_max_conns=20`.
+Keyword/value needs no percent-encoding, only no `'` or `\`, which
+postgres-init refuses. `sslmode=disable` is the in-namespace trade-off
+MinIO makes too: the traffic stays on the pod network and NetworkPolicy
+admits only the listed pods. Setting a `database.*` Secret overrides the
+built DSN.
+
+**Rotating passwords.** Owner, `glossa_app`, backup role: change the
+Secret, `helm upgrade` (postgres-init applies it before new pods roll),
+then `kubectl rollout restart deployment/<fullname>-server` for the app
+password. The superuser's `POSTGRES_PASSWORD` only matters at initdb;
+change it inside the pod (the local socket trusts `postgres`), then in
+the Secret:
 
 ```sh
-PW=$(openssl rand -hex 24)
-kubectl -n glossa-platform create secret generic glossa-db-app \
-  --type=kubernetes.io/basic-auth \
-  --from-literal=username=glossa_app --from-literal=password="$PW" \
-  --from-literal=DATABASE_URL="postgres://glossa_app:$PW@glossa-pg-rw:5432/glossa?sslmode=require&pool_max_conns=20"
-kubectl -n glossa-platform label secret glossa-db-app cnpg.io/reload=true
+kubectl -n glossa-platform exec -it <fullname>-postgres-0 -- \
+  psql -U postgres -c "ALTER ROLE postgres PASSWORD 'new-hex-password'"
 ```
 
-Then `database.migration.secretName: glossa-pg-app` with `secretKey: uri`
-(the owner's DSN, generated by CNPG), and let the server and the
-migration Job reach the instances with
-`networkPolicy.egress.postgres.to: [{podSelector: {matchLabels:
-{cnpg.io/cluster: glossa-pg}}}]`. Backups (Barman to object storage
-outside the cluster) are configured on the Cluster, not in this chart.
+**psql.** `kubectl -n glossa-platform exec -it <fullname>-postgres-0 --
+psql -U postgres -d glossa`.
+
+## Backups
+
+`backup.enabled` adds three CronJobs (UTC) writing to an rclone remote
+outside the cluster. Klarlabs: the shared Hetzner Storage Box over SFTP
+(port 23), with v0.3's `rclone-config` Secret (`rclone.conf`,
+`id_storagebox`, `known_hosts`) copied into the namespace; it is mounted
+at `/etc/rclone`, where `rclone.conf`'s `key_file` points.
+
+| CronJob | Default schedule | What |
+|---|---|---|
+| `<fullname>-postgres-backup` | `40 3 * * *` | `pg_dump` → verify → upload to `backup.postgres.remote` → retention |
+| `<fullname>-minio-backup` | `50 3 * * *` | the release bucket → `backup.minio.remote/current`, changes kept in `…/deleted/<timestamp>` |
+| `<fullname>-postgres-restore-test` | `40 5 * * 0` | the newest dump restored into a throwaway Postgres and checked |
+
+No image installs anything at runtime (v0.3 ran `apk add rclone` as root):
+each pod pairs `postgres.image` with the pinned `docker.io/rclone/rclone`
+image, sharing an `emptyDir`, under the restricted profile.
+
+**postgres-backup** (`files/postgres-dump.sh`, then
+`files/postgres-upload.sh`). The dump container runs `postgres.image`, so
+`pg_dump` is the server's major version, and refuses to run otherwise.
+That is v0.3's lesson (commit `ace78d5`, 2026-09-13): `pg_dump` 17
+against the 16 server wrote `SET transaction_timeout`, which 16 cannot
+parse, so every dump restored **zero tables** under `ON_ERROR_STOP` while
+looking perfect from the backup side. Before anything is uploaded the dump
+must pass `gzip -t`, end with `pg_dump`'s completion trailer, and hold
+one `CREATE TABLE` per table of the live database. The upload is checked
+by size; then dumps older than `retentionDays` are deleted, only this
+release's own files (`<database>-<timestamp>.sql.gz`) in that one
+directory, and only after a verified upload, so the newest dump always
+survives.
+
+**minio-backup** (`files/minio-backup.sh`). Brotwerk's pattern (`mc
+mirror` to scratch, then `rclone sync`) in one step: rclone reads MinIO
+directly with glossa-edge's **read-only** user, so there is no scratch
+copy of the bucket and no root. A plain sync would carry an accidental
+delete, or an empty bucket on a freshly lost volume, into the backup the
+next night; here what a run removes or overwrites moves to
+`deleted/<timestamp>/` (kept `deletedRetentionDays`), and an empty bucket
+never replaces a non-empty mirror (the Job fails instead). Keep the path
+out of any directory another product `rclone sync`s to (Brotwerk syncs
+`storagebox:minio/`).
+
+**postgres-restore-test** (`files/restore-fetch.sh`,
+`files/postgres-restore-test.sh`). A backup that has never been restored
+is a hypothesis; v0.3's drill is what found its unrestorable dumps. This
+one fetches the newest dump (by this release's file names), fails if it
+is older than `maxDumpAgeHours` (the nightly backup has stopped), starts
+a throwaway Postgres of `postgres.image` inside its own pod (it never
+connects to the live database), restores in one transaction under
+`ON_ERROR_STOP`, and asserts the post-state: as many tables as the dump
+creates, a clean `schema_migrations` version, and rows in every table of
+`nonEmptyTables`.
+
+### Backup runbook
+
+```sh
+NS=glossa-platform
+# Run now (e.g. after install, or before a risky upgrade), then read the log:
+kubectl -n $NS create job --from=cronjob/<fullname>-postgres-backup backup-$(date +%s)
+kubectl -n $NS create job --from=cronjob/<fullname>-minio-backup mirror-$(date +%s)
+kubectl -n $NS create job --from=cronjob/<fullname>-postgres-restore-test drill-$(date +%s)
+kubectl -n $NS logs job/<name> --all-containers
+# What is on the remote (from a machine with the same rclone.conf):
+rclone lsl storagebox:db/glossa-platform/
+```
+
+A failed run stays as a failed Job (`failedJobsHistoryLimit`); alert on
+failed Jobs of these CronJobs.
+
+**Restoring the database** (after data loss; the drill rehearses steps
+3–4 every week):
+
+1. Stop the writers: `kubectl -n $NS scale deployment/<fullname>-server --replicas=0`.
+2. Fetch a dump: `rclone copy storagebox:db/glossa-platform/glossa-<timestamp>.sql.gz .`
+3. Recreate the database, and on a **new, empty volume** first run
+   `helm upgrade` so postgres-init recreates the owner and the database,
+   then the migration roles (as the owner, like the first migration does):
+
+   ```sh
+   P="kubectl -n $NS exec -i <fullname>-postgres-0 -- psql -U postgres -v ON_ERROR_STOP=1"
+   $P -c 'DROP DATABASE glossa WITH (FORCE)' -c 'CREATE DATABASE glossa OWNER glossa_owner'
+   # New volume only:
+   $P -c 'SET ROLE glossa_owner' \
+      -c 'CREATE ROLE glossa_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS' \
+      -c 'CREATE ROLE glossa_system NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS' \
+      -c 'GRANT glossa_system TO glossa_app WITH INHERIT FALSE, SET TRUE'
+   ```
+
+4. Restore, all or nothing:
+   `gunzip -c glossa-<timestamp>.sql.gz | $P -d glossa --single-transaction -q`
+5. `helm upgrade` (migrations newer than the dump apply; postgres-app-login
+   gives `glossa_app` its login), then scale the server back up.
+
+**Restoring MinIO**: copy `backup.minio.remote/current` back into the
+bucket with the server's read-write user, e.g. `rclone copy
+storagebox:glossa-platform/minio/current :s3,provider=Minio,endpoint=…:glossa`
+through a `kubectl port-forward` to `<fullname>-minio`. Objects deleted
+by mistake are under `…/deleted/<timestamp>/`.
 
 ## Deploying with RollOps
 
@@ -272,11 +477,16 @@ The chart's Helm hooks are plain resources in that output and do not run
 by themselves: the migration Job (`<fullname>-migrate`, with its
 NetworkPolicy) must complete before the server Deployment rolls, and a
 Job is immutable, so it is deleted and re-created per rollout. With
+`postgres.enabled` the order is the hooks' weights (see [Order of the
+database hooks](#order-of-the-database-hooks)): the Postgres StatefulSet
+ready → `<fullname>-postgres-init` → `<fullname>-migrate` →
+`<fullname>-postgres-app-login` → the server Deployment. With
 `minio.enabled` the same holds for `<fullname>-minio-bootstrap`, which
-runs once MinIO is up (and again whenever a user Secret changes).
-`--skip-tests` leaves out the `helm test` Pod. The MinIO StatefulSet's
-volumeClaimTemplate is immutable: keep `minio.persistence` unchanged in
-the rendered manifests.
+runs once MinIO is up (and again whenever a user Secret changes). The
+backup CronJobs are ordinary resources. `--skip-tests` leaves out the
+`helm test` Pods. The StatefulSets' volumeClaimTemplates are immutable:
+keep `postgres.persistence` and `minio.persistence` unchanged in the
+rendered manifests.
 
 ## In-namespace MinIO
 
@@ -331,12 +541,13 @@ kubectl -n glossa-platform port-forward statefulset/<fullname>-minio 9001
 # http://localhost:9001, root credentials from minio.rootCredentials
 ```
 
-**Backups.** Longhorn snapshots and backups cover the volume: label the
-PVC for a recurring job group (`minio.persistence.labels`, e.g.
-`recurring-job-group.longhorn.io/<group>: enabled`), or back up
-`data-<fullname>-minio-0` from the Longhorn UI. A backup target outside
-the cluster is what makes it a backup. After a restore, `helm upgrade`
-re-runs the bootstrap Job, which is harmless on existing state.
+**Backups.** With `backup.enabled`, `<fullname>-minio-backup` mirrors the
+bucket off the cluster every night (see [Backups](#backups)). Longhorn
+snapshots can add in-cluster restore points: label the PVC for a
+recurring job group (`minio.persistence.labels`, e.g.
+`recurring-job-group.longhorn.io/<group>: enabled`). After a restore,
+`helm upgrade` re-runs the bootstrap Job, which is harmless on existing
+state.
 
 **Images.** MinIO publishes community builds under AGPLv3; the pinned
 `quay.io/minio/minio` and `quay.io/minio/mc` digests are the latest tags
@@ -363,21 +574,28 @@ directions; anything not listed is denied.
 
 | Pod | Ingress | Egress |
 |---|---|---|
-| server | ingress controller → 8080; `metrics.allowFrom` → 8080 | DNS; `egress.postgres`; object storage¹; `egress.smtp` (SMTP configured); `egress.otlp` (endpoint set) |
+| server | ingress controller → 8080; `metrics.allowFrom` → 8080 | DNS; Postgres²; object storage¹; `egress.smtp` (SMTP configured); `egress.otlp` (endpoint set) |
 | edge | ingress controller → 8081; `metrics.allowFrom` → 8081 | DNS; object storage¹; `egress.otlp` (endpoint set) |
 | studio | ingress controller → 8080 | none |
-| migrate Job | none | DNS; `egress.postgres` |
-| minio | server, edge, bootstrap Job, test Pod → 9000; `extraIngress.minio` | DNS |
+| migrate Job | none | DNS; Postgres² |
+| postgres | server, migrate Job, bootstrap Jobs, backup Job, test Pod → 5432; `extraIngress.postgres` | DNS |
+| postgres-init/-app-login Jobs, postgres-test Pod | none | DNS; Postgres → 5432 |
+| minio | server, edge, bootstrap Job, backup Job, test Pod → 9000; `extraIngress.minio` | DNS |
 | minio-bootstrap Job, minio-test Pod | none | DNS; MinIO → 9000 |
+| postgres-backup | none | DNS; Postgres → 5432; `egress.backupRemote` |
+| minio-backup | none | DNS; MinIO → 9000; `egress.backupRemote` |
+| postgres-restore-test | none | DNS; `egress.backupRemote` (it restores inside its own pod) |
 
 ¹ `egress.objectStorage`, or with `minio.enabled` the MinIO pod on 9000
 (a podSelector rule; `egress.objectStorage` is then unused).
+² `egress.postgres`, or with `postgres.enabled` the Postgres pod on 5432
+(a podSelector rule; `egress.postgres` is then unused).
 
 NetworkPolicy matches IPs, not hostnames. Each `egress.*.to` takes
 NetworkPolicyPeers (`ipBlock` for external services, namespace/pod
-selectors for in-cluster ones such as CNPG or MinIO). **An empty `to`
-allows those ports to any destination**; NOTES.txt warns while Postgres
-or object storage is unpinned. Most policy engines let the kubelet's
+selectors for in-cluster ones). **An empty `to` allows those ports to any
+destination**; NOTES.txt warns while an external Postgres, object storage
+or the backup remote is unpinned. Most policy engines let the kubelet's
 probes through regardless; if yours doesn't, allow the node addresses
 with `networkPolicy.extraIngress`.
 
@@ -460,8 +678,8 @@ the value until it is set.
 
 | Value | Default | Meaning |
 |---|---|---|
-| `database.app.secretName` / `.secretKey` | REQUIRED / `DATABASE_URL` | glossa_app DSN (server). Pool size goes in the DSN (`pool_max_conns`). |
-| `database.migration.secretName` / `.secretKey` | REQUIRED with migrations / `MIGRATION_DATABASE_URL` | Owner DSN; mounted into the migration Job only. |
+| `database.app.secretName` / `.secretKey` | REQUIRED unless `postgres.enabled` / `DATABASE_URL` | glossa_app DSN (server). Pool size goes in the DSN (`pool_max_conns`). With `postgres.enabled`, unset means a DSN for the in-namespace Postgres. |
+| `database.migration.secretName` / `.secretKey` | REQUIRED with migrations unless `postgres.enabled` / `MIGRATION_DATABASE_URL` | Owner DSN; mounted into the migration Job only. Defaults like `database.app`. |
 | `auth.secretName` / `.secretKey` | REQUIRED / `GLOSSA_AUTH_SECRET` | Base64 of ≥ 32 random bytes. |
 | `release.signingKeys.secretName` / `.secretKey` | REQUIRED / `GLOSSA_RELEASE_SIGNING_KEYS` | `keyId=base64(seed)`, comma-separated. |
 | `release.retiredKeys` | `""` | `GLOSSA_RELEASE_RETIRED_KEYS` (public keys, not secret). |
@@ -500,6 +718,62 @@ the value until it is set.
 | `minio.bootstrap.backoffLimit` / `.activeDeadlineSeconds` | `3` / `900` | |
 | `minio.bootstrap.resources` | 10m / 32Mi, limit 128Mi | Also the test Pod's. |
 
+### In-namespace Postgres
+
+| Value | Default | Meaning |
+|---|---|---|
+| `postgres.enabled` | `false` | Postgres in the release's namespace; the DSNs default to it. |
+| `postgres.image.repository` / `.tag` / `.digest` | `docker.io/library/postgres` / `16.15-alpine` / `sha256:3c5c88…` | Also every Job's `psql`/`pg_dump` and the drill's throwaway server: one major version everywhere. |
+| `postgres.database` | `glossa` | Created by postgres-init, owned by the owner. Also the dump file prefix. |
+| `postgres.superuser.username` | `postgres` | `POSTGRES_USER` at initdb. |
+| `postgres.superuser.secretName` / `.passwordKey` | REQUIRED with `postgres.enabled` / `password` | Read by Postgres and the bootstrap Jobs only. |
+| `postgres.owner.username` | `glossa_owner` | Schema owner: `LOGIN CREATEROLE`, never a superuser. |
+| `postgres.owner.secretName` / `.passwordKey` | REQUIRED with `postgres.enabled` / `password` | |
+| `postgres.app.secretName` / `.passwordKey` | REQUIRED with `postgres.enabled` / `password` | `glossa_app`'s password (server, `helm test`). |
+| `postgres.app.poolMaxConns` | `20` | `pool_max_conns` of the built DSN, per server pod. |
+| `postgres.persistence.storageClassName` | `longhorn` | 3 Longhorn replicas. Immutable after install. |
+| `postgres.persistence.size` | `5Gi` | Immutable in the template; grow the PVC instead. |
+| `postgres.persistence.labels` / `.annotations` | `{}` | On the PVC. |
+| `postgres.resources` | 100m / 256Mi, limit 1Gi | |
+| `postgres.terminationGracePeriodSeconds` | `60` | |
+| `postgres.pdb.enabled` / `.maxUnavailable` | `true` / `1` | `0` blocks node drains. |
+| `postgres.nodeSelector` / `.tolerations` / `.affinity` | empty | Also used by the Postgres Jobs, the backup and restore Jobs and the test Pod. |
+| `postgres.bootstrap.enabled` | `true` | The postgres-init and postgres-app-login hook Jobs (and the `helm test` Pod). |
+| `postgres.bootstrap.waitSeconds` | `600` | How long postgres-init waits for Postgres. |
+| `postgres.bootstrap.backoffLimit` / `.activeDeadlineSeconds` | `3` / `900` | |
+| `postgres.bootstrap.resources` | 10m / 32Mi, limit 128Mi | Also the test Pod's. |
+
+### Backups
+
+| Value | Default | Meaning |
+|---|---|---|
+| `backup.enabled` | `false` | The backup CronJobs; needs `postgres.enabled` or `minio.enabled`. |
+| `backup.rclone.image.repository` / `.tag` / `.digest` | `docker.io/rclone/rclone` / `1.75.1` / `sha256:45401a…` | |
+| `backup.rclone.configSecretName` | REQUIRED with `backup.enabled` | Existing Secret mounted at `/etc/rclone`. |
+| `backup.rclone.configKey` | `rclone.conf` | |
+| `backup.successfulJobsHistoryLimit` / `.failedJobsHistoryLimit` | `3` / `3` | Per CronJob. |
+| `backup.postgres.enabled` | `true` | Nightly dump (with `postgres.enabled`). |
+| `backup.postgres.schedule` | `40 3 * * *` | UTC. |
+| `backup.postgres.remote` | REQUIRED | `<remote>:<directory>`, e.g. `storagebox:db/glossa-platform`; never a remote's root. |
+| `backup.postgres.retentionDays` | `30` | Older dumps of this release are deleted after a verified upload. |
+| `backup.postgres.role.username` | `glossa_backup` | `LOGIN BYPASSRLS`, `pg_read_all_data`; created by postgres-init. |
+| `backup.postgres.role.secretName` / `.passwordKey` | REQUIRED with backups / `password` | |
+| `backup.postgres.backoffLimit` / `.activeDeadlineSeconds` | `2` / `3600` | |
+| `backup.postgres.scratchSize` | `2Gi` | `emptyDir` for the compressed dump. |
+| `backup.postgres.resources` | 50m / 64Mi, limit 512Mi | Also the drill's fetch container. |
+| `backup.minio.enabled` | `true` | Nightly bucket mirror (with `minio.enabled`). |
+| `backup.minio.schedule` | `50 3 * * *` | UTC. |
+| `backup.minio.remote` | REQUIRED | e.g. `storagebox:glossa-platform/minio`; `current/` and `deleted/<timestamp>/` below it. |
+| `backup.minio.deletedRetentionDays` | `30` | How long `deleted/` keeps a run's removed or overwritten objects. |
+| `backup.minio.backoffLimit` / `.activeDeadlineSeconds` / `.resources` | `2` / `3600` / 50m, 64Mi, limit 512Mi | |
+| `backup.restoreTest.enabled` | `true` | The weekly drill (with the Postgres backup). |
+| `backup.restoreTest.schedule` | `40 5 * * 0` | UTC, Sundays. |
+| `backup.restoreTest.nonEmptyTables` | `[]` | Tables that must come back with rows, e.g. `[tenants]`. |
+| `backup.restoreTest.maxDumpAgeHours` | `48` | Fails when the newest dump is older. |
+| `backup.restoreTest.backoffLimit` / `.activeDeadlineSeconds` | `1` / `3600` | |
+| `backup.restoreTest.scratchSize` | `4Gi` | The dump plus the throwaway data directory. |
+| `backup.restoreTest.resources` | 100m / 256Mi, limit 1Gi | The throwaway Postgres. |
+
 ### Ingress
 
 | Value | Default | Meaning |
@@ -521,11 +795,12 @@ the value until it is set.
 | `networkPolicy.enabled` | `true` | Policies for all components and the migration Job. |
 | `networkPolicy.ingressController.namespaceSelector` / `.podSelector` | kube-system / `app.kubernetes.io/name: traefik` | Where traffic may come from. |
 | `networkPolicy.dns.namespaceSelector` / `.podSelector` | kube-system / `k8s-app: kube-dns` | Cluster DNS (53/UDP+TCP). |
-| `networkPolicy.egress.postgres` | `to: []`, 5432 | Server and migration Job. |
+| `networkPolicy.egress.postgres` | `to: []`, 5432 | Server and migration Job; unused with `postgres.enabled`. |
 | `networkPolicy.egress.objectStorage` | `to: []`, 443 | Server and edge; unused with `minio.enabled`. |
 | `networkPolicy.egress.smtp` | `to: []`, 587 | Server, only when SMTP is configured. |
 | `networkPolicy.egress.otlp` | `to: []`, 4318 | Server/edge, when their OTel endpoint is set. |
-| `networkPolicy.extraIngress.{server,edge,studio,minio}` | `[]` | Extra `NetworkPolicyIngressRule`s. |
+| `networkPolicy.egress.backupRemote` | `to: []`, 23 | The backup Jobs → the rclone remote (Storage Box SFTP). |
+| `networkPolicy.extraIngress.{server,edge,studio,minio,postgres}` | `[]` | Extra `NetworkPolicyIngressRule`s. |
 | `networkPolicy.extraEgress.{server,edge}` | `[]` | Extra `NetworkPolicyEgressRule`s. |
 | `metrics.allowFrom` | `[]` | Peers that may scrape `/metrics` on server and edge. |
 | `metrics.serviceMonitor.enabled` | `false` | ServiceMonitors for server and edge. |
@@ -542,9 +817,21 @@ helm template t deploy/charts/glossa-platform -f deploy/charts/glossa-platform/c
 
 `ci/*-values.yaml` follow chart-testing's layout (`ct lint` picks them
 up): `minimal` (external S3, no SMTP), `full` (every optional feature,
-external S3 and SMTP) and `minio` (the in-namespace MinIO).
+external S3 and SMTP), `minio` (the in-namespace MinIO) and `postgres`
+(the in-namespace Postgres and MinIO with every backup on).
 `examples/values-klarlabs.yaml` holds the Klarlabs decisions, with
 `TODO(infra)` markers for the questions still open. CI runs lint,
 template and kubeconform for every one of them on each pull request that
-touches the chart. In a cluster, `helm test <release>` runs the MinIO
-check (`files/minio-test.sh`).
+touches the chart. In a cluster, `helm test <release>` runs the Postgres
+and MinIO checks (`files/postgres-test.sh`, `files/minio-test.sh`).
+
+`ci/e2e-database.sh` (Docker, helm, go, python3 with PyYAML) runs the
+database scripts exactly as rendered from `ci/postgres-values.yaml`
+against throwaway containers: Postgres as the StatefulSet runs it,
+postgres-init, the real migrations, postgres-app-login, the `helm test`
+script, glossa-server starting as `glossa_app`, a password rotation, the
+backup (dump, checks, upload, scoped retention), the restore drill, the
+restore runbook onto an empty volume and the MinIO mirror, and the
+failures the checks exist for: `pg_dump` 17 against a 16 server, an
+unrestorable dump, an empty required table, a stale dump, an emptied
+bucket. CI runs it too.

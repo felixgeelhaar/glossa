@@ -5,8 +5,11 @@
 #
 #   namespace       glossa-platform (its own; v0.3 keeps running in "glossa")
 #   hosts           app. / api. / cdn.glossa.klarlabs.de
-#   database        a CloudNativePG cluster "glossa-pg" in glossa-platform
+#   database        the Klarlabs Postgres pattern: the in-namespace Postgres 16
+#                   StatefulSet on longhorn (3 replicas), no operator
 #   object storage  the in-namespace MinIO on longhorn (3 replicas)
+#   backups         nightly pg_dump and MinIO mirror to the Hetzner Storage
+#                   Box (rclone over SFTP), weekly restore drill
 #   mail            none for now
 #   rollout         RollOps, images pinned by digest at deploy time
 #   metrics         ServiceMonitors for the cluster-observability Prometheus,
@@ -15,12 +18,19 @@
 # No credentials live here: Secrets are created out of band (README.md,
 # "First install"). The "TODO(infra)" markers are the questions still open.
 #
+# The first install creates the database, so its hooks run post-install and
+# the server pods restart until glossa_app can log in: install without
+# --wait, then wait for the rollout (README.md, "Order of the database hooks").
+# Upgrades take --wait.
+#
 #   kubectl create namespace glossa-platform   # + the PodSecurity labels (README.md)
 #   helm upgrade --install glossa-platform deploy/charts/glossa-platform \
 #     --namespace glossa-platform -f deploy/charts/glossa-platform/examples/values-klarlabs.yaml \
-#     --wait --timeout 15m
+#     --timeout 15m
+#   kubectl -n glossa-platform rollout status deployment/glossa-server
 
-# Resource names glossa-server, glossa-edge, glossa-studio, glossa-minio, …
+# Resource names glossa-server, glossa-edge, glossa-studio, glossa-minio,
+# glossa-postgres, …
 # The namespace is glossa-platform's own, so nothing collides with v0.3.
 fullnameOverride: glossa
 
@@ -66,20 +76,57 @@ studio:
     digest: ""
   replicas: 2
 
-# CloudNativePG cluster "glossa-pg" in glossa-platform (README.md, "Postgres
-# with CloudNativePG"): glossa_owner is its bootstrap owner, so CNPG writes
-# the owner's DSN to glossa-pg-app (key uri); glossa_app is a managed role
-# whose basic-auth Secret glossa-db-app also carries its DSN.
-# TODO(infra): the CloudNativePG operator is not installed in the cluster
-# yet (no clusters.postgresql.cnpg.io CRD). Who installs it, which version?
-# TODO(infra): CNPG backups — Barman to which object store (not this
-# namespace's MinIO: a backup must leave the cluster)?
-database:
+# The Klarlabs Postgres pattern (owner decision; README.md, "In-namespace
+# Postgres"): glossa-postgres, Postgres 16 like v0.3's, on longhorn. The
+# server's and the migration's DSNs default to it, so database.* stays
+# unset. The bootstrap hooks create glossa_owner and the database before
+# the migration and give glossa_app its login after it. Each Secret holds
+# one key, `password` (openssl rand -hex 24; no ' or \).
+postgres:
+  enabled: true
+  database: glossa
+  superuser:
+    secretName: glossa-pg-superuser  # Postgres (initdb) and the bootstrap hooks only
+  owner:
+    username: glossa_owner
+    secretName: glossa-pg-owner      # the migration Job
   app:
-    secretName: glossa-db-app        # key DATABASE_URL, user glossa_app
-  migration:
-    secretName: glossa-pg-app        # CNPG-generated, user glossa_owner
-    secretKey: uri
+    secretName: glossa-pg-app        # glossa-server, as glossa_app
+  persistence:
+    # 3 replicas: v0.3's local-path volume pinned its database to one node.
+    storageClassName: longhorn
+    size: 5Gi
+
+# Nightly backups to the shared Hetzner Storage Box, with the same
+# rclone-config Secret (rclone.conf, id_storagebox, known_hosts) as v0.3's
+# namespace: copy it into glossa-platform (README.md, "Backups").
+backup:
+  enabled: true
+  rclone:
+    configSecretName: rclone-config
+  postgres:
+    # 03:40 UTC, after v0.3's 03:20 dump. The db/<product>/ convention of
+    # every Klarlabs product; retention stays at 30 days (Brotwerk's own
+    # job deletes anything older than 30 days under db/ on a shared box).
+    schedule: "40 3 * * *"
+    remote: storagebox:db/glossa-platform
+    retentionDays: 30
+    role:
+      username: glossa_backup
+      secretName: glossa-pg-backup   # key password
+  minio:
+    # Deliberately not under minio/: Brotwerk `rclone sync`s its bucket to
+    # storagebox:minio/, which would delete a sibling directory there if it
+    # shares the box's root. TODO(infra): confirm the path (and whether each
+    # product has its own Storage Box sub-account).
+    schedule: "50 3 * * *"
+    remote: storagebox:glossa-platform/minio
+  restoreTest:
+    # Sundays 05:40 UTC, offset from v0.3's 05:20 drill.
+    schedule: "40 5 * * 0"
+    # Add tables that must never come back empty once the first tenant
+    # exists, e.g. [tenants].
+    nonEmptyTables: []
 
 auth:
   secretName: glossa-auth            # key GLOSSA_AUTH_SECRET
@@ -121,9 +168,9 @@ minio:
     # release from this bucket.
     storageClassName: longhorn
     size: 5Gi
-    # TODO(infra): which Longhorn recurring backup job should cover this
-    # volume? The cluster has only a filesystem-trim job today; name its
-    # group here (recurring-job-group.longhorn.io/<group>: enabled).
+    # The off-cluster copy is backup.minio's nightly mirror. Longhorn
+    # snapshots would only add in-cluster restore points; the cluster has
+    # only a filesystem-trim recurring job today.
     labels: {}
 
 ingress:
@@ -134,14 +181,17 @@ ingress:
 networkPolicy:
   enabled: true
   egress:
-    # The CNPG cluster's pods, in this namespace.
-    postgres:
-      to:
-        - podSelector:
-            matchLabels:
-              cnpg.io/cluster: glossa-pg
-    # Object storage: with minio.enabled the chart allows only the MinIO
-    # pod on 9000; egress.objectStorage is not used.
+    # Postgres and object storage: with postgres.enabled and minio.enabled
+    # the chart allows only the glossa-postgres pod on 5432 and the MinIO
+    # pod on 9000; egress.postgres and egress.objectStorage are not used.
+    # The backup Jobs → the Storage Box's SFTP port (23).
+    # TODO(infra): pin it to the Storage Box's address; until then port 23
+    # is open to any destination for the backup pods only.
+    backupRemote:
+      to: []
+      ports:
+        - port: 23
+          protocol: TCP
     # cluster-observability's Tempo.
     otlp:
       to:
