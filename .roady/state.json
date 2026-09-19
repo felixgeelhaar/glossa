@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 90,
+  "version": 91,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -371,11 +371,15 @@
       "elapsed_minutes": 0
     },
     "task-m2-knowledge": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "Knowledge context: TM derived from approvals via idempotent subscriber (exact 100/101 + pg_trgm fuzzy; 30/30 near-miss top-1, 0/8 false matches), termbase with locale-aware recognition and terminology QA (de/en/fr/es/ja), stacked versioned style guides, Reader port for Intelligence, 12 endpoints; migration 0007 (pg_trgm)"
+      ],
       "started_at": "2026-09-19T15:09:42.738352+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T16:08:12.640378+02:00",
+      "elapsed_minutes": 58
     },
     "task-m2-knowledge-ai": {
       "status": "pending",
@@ -496,5 +500,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T16:03:38.463741+02:00"
+  "updated_at": "2026-09-19T16:08:12.640379+02:00"
 }
