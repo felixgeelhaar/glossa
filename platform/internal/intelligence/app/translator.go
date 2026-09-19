@@ -243,6 +243,8 @@ func (t *Translator) suggestion(req domain.TranslationRequest, source mf.Message
 		SourceLength: domain.TextLength(source), TextLength: check.Structure.TextLength,
 		MaxLength: tr.maxLength(), SourceLocale: req.SourceLocale, TargetLocale: req.TargetLocale,
 		Tags: slices.Concat(req.Tags, k.Context.Context.Tags), MarkupCount: domain.MarkupCount(source),
+		// Still missing after the allowed repairs: kept, but forced to review.
+		MissingPluralCategories: check.Structure.MissingPluralCategories(),
 	}
 	for _, f := range check.TermFindings {
 		switch f.Code {
@@ -268,12 +270,13 @@ func (t *Translator) suggestion(req domain.TranslationRequest, source mf.Message
 	return s, nil
 }
 
-// countWarnings counts structural warnings; max_length has its own
-// factor, so it is not counted twice.
+// countWarnings counts structural warnings; max_length and missing
+// plural categories have their own factors, so they are not counted
+// twice.
 func countWarnings(fs []mf.Finding) int {
 	n := 0
 	for _, f := range fs {
-		if f.Code != FindingMaxLengthExceeded {
+		if f.Code != FindingMaxLengthExceeded && f.Code != mf.FindingMissingPluralCategory {
 			n++
 		}
 	}

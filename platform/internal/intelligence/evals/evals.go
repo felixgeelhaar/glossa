@@ -73,6 +73,10 @@ type Expect struct {
 	RequiredTerms  []string   `json:"required_terms,omitempty"`
 	ForbiddenTerms []string   `json:"forbidden_terms,omitempty"`
 	Formality      *Formality `json:"formality,omitempty"`
+	// Action, when set, is the expected review routing
+	// ("review_required" for a draft that stayed without the target's
+	// plural categories).
+	Action string `json:"action,omitempty"`
 }
 
 // Formality lists markers of the expected form of address.
@@ -156,16 +160,18 @@ type Outcome struct {
 	Message    string            `json:"message,omitempty"`
 	Structural bool              `json:"structural"`
 	// Terminology and Formality are nil when the case expects nothing.
-	Terminology *bool   `json:"terminology,omitempty"`
-	Formality   *bool   `json:"formality,omitempty"`
-	OriginOK    bool    `json:"origin_ok"`
-	EditRatio   float64 `json:"edit_ratio"`
-	Exact       bool    `json:"exact"`
-	Confidence  float64 `json:"confidence"`
-	Action      string  `json:"action,omitempty"`
-	Repairs     int     `json:"repairs"`
-	Calls       int     `json:"calls"`
-	CostMicros  int64   `json:"cost_micro_usd"`
+	Terminology *bool `json:"terminology,omitempty"`
+	Formality   *bool `json:"formality,omitempty"`
+	OriginOK    bool  `json:"origin_ok"`
+	// ActionOK is false when the case expects another review routing.
+	ActionOK   bool    `json:"action_ok"`
+	EditRatio  float64 `json:"edit_ratio"`
+	Exact      bool    `json:"exact"`
+	Confidence float64 `json:"confidence"`
+	Action     string  `json:"action,omitempty"`
+	Repairs    int     `json:"repairs"`
+	Calls      int     `json:"calls"`
+	CostMicros int64   `json:"cost_micro_usd"`
 }
 
 // RunCase translates one case and measures the result. Only an
@@ -202,6 +208,7 @@ func RunCase(ctx context.Context, c Case, setup Setup) (Outcome, error) {
 	o.Suggestion, o.Message = s, s.Message
 	o.Structural = true
 	o.OriginOK = c.Expect.Origin == "" || c.Expect.Origin == string(s.Provenance.Origin)
+	o.ActionOK = c.Expect.Action == "" || c.Expect.Action == string(s.Action)
 	o.Confidence, o.Action, o.Repairs = s.Confidence.Score, string(s.Action), s.Provenance.Repairs
 	o.Calls, o.CostMicros = len(s.Calls), int64(s.Cost)
 	text := domain.PlainText(s.Model)

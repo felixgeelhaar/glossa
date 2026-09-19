@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 
 	agentdomain "go.klarlabs.de/agent/domain/agent"
 	agentapi "go.klarlabs.de/agent/interfaces/api"
@@ -146,10 +147,19 @@ func (t trail) exactTM() *domain.TMMatch {
 	return best
 }
 
-// tmReusable: an exact hit that is structurally valid and has no
-// terminology findings is reused without a model call.
+// tmReusable: an exact hit that is structurally valid, has every plural
+// category the target needs and no terminology findings is reused
+// without a model call.
 func (t trail) tmReusable() bool {
-	return t.tmCheck != nil && t.tmCheck.Valid && len(t.tmCheck.TermFindings) == 0
+	return t.tmCheck != nil && !t.tmCheck.Structure.NeedsRepair() && len(t.tmCheck.TermFindings) == 0
+}
+
+// repairing reports whether the last draft goes back to the model: it
+// needs repair (structural errors or missing plural categories) and
+// repairs remain.
+func (t trail) repairing(maxRepairs int) bool {
+	last := t.lastCheck()
+	return last != nil && last.Structure.NeedsRepair() && len(t.drafts)-1 < maxRepairs
 }
 
 func (t trail) lastCheck() *validateOutput {
@@ -196,8 +206,8 @@ func (p *planner) explore(t trail) agentapi.Decision {
 	}
 	reason := "gather: knowledge complete"
 	switch last := t.lastCheck(); {
-	case last != nil && !last.Valid:
-		reason = fmt.Sprintf("repair %d of %d: the draft has %d structural errors", len(t.drafts), p.maxRepairs, len(last.Structure.Errors))
+	case t.repairing(p.maxRepairs):
+		reason = fmt.Sprintf("repair %d of %d: %s", len(t.drafts), p.maxRepairs, repairReason(last.Structure))
 	case last != nil && last.Valid:
 		reason = "assess: the draft passed validation"
 	}
@@ -219,7 +229,7 @@ func (p *planner) decide(t trail) (agentapi.Decision, error) {
 	reason := "decide: draft a translation"
 	if last := t.lastCheck(); last != nil {
 		reason = "decide: assess the valid draft"
-		if !last.Valid {
+		if t.repairing(p.maxRepairs) {
 			reason = "decide: repair the draft"
 		}
 	}
@@ -232,7 +242,7 @@ func (p *planner) act(t trail) (agentapi.Decision, error) {
 		return call(ToolDraft, draftInput{Knowledge: t.knowledge()}, "draft: translate with the gathered knowledge")
 	case last == nil:
 		return agentapi.NewTransitionDecision(agentapi.StateValidate, "validate the new draft"), nil
-	case !last.Valid:
+	case t.repairing(p.maxRepairs):
 		attempts := make([]attempt, len(t.drafts))
 		for i, d := range t.drafts {
 			attempts[i] = attempt{Answer: d.Answer, Findings: slices.Concat(t.checks[i].Structure.Errors, t.checks[i].Structure.Warnings)}
@@ -254,15 +264,23 @@ func (p *planner) validate(t trail) (agentapi.Decision, error) {
 		return call(ToolValidate, in, fmt.Sprintf("validate draft %d", d.Attempt))
 	}
 	switch {
-	case !last.Valid && len(t.drafts)-1 < p.maxRepairs:
+	case t.repairing(p.maxRepairs):
 		return agentapi.NewTransitionDecision(agentapi.StateExplore,
-			fmt.Sprintf("repair: %d structural errors, repair %d of %d", len(last.Structure.Errors), len(t.drafts), p.maxRepairs)), nil
+			fmt.Sprintf("repair %d of %d: %s", len(t.drafts), p.maxRepairs, repairReason(last.Structure))), nil
 	case !last.Valid:
 		return agentapi.NewFailDecision(reasonInvalidOutput, nil), nil
 	case p.assess && t.assessed == nil:
 		return agentapi.NewTransitionDecision(agentapi.StateExplore, "assess: the draft passed validation"), nil
 	}
 	return finish(domain.OriginAI, "done: the draft passed validation")
+}
+
+// repairReason says why a draft goes back to the model.
+func repairReason(s Structure) string {
+	if !s.Valid() {
+		return fmt.Sprintf("%d structural errors", len(s.Errors))
+	}
+	return "missing plural categories " + strings.Join(s.MissingPluralCategories(), ", ")
 }
 
 func call(tool string, in any, reason string) (agentapi.Decision, error) {

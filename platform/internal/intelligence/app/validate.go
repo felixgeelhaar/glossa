@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	mf "github.com/felixgeelhaar/glossa/messageformat"
 
@@ -27,6 +28,25 @@ type Structure struct {
 
 // Valid reports whether the candidate passes the gate.
 func (s Structure) Valid() bool { return len(s.Errors) == 0 }
+
+// MissingPluralCategories lists the target locale's CLDR plural
+// categories the candidate only reaches through its catch-all variant
+// (CheckCompat's missing-plural-category warnings), without duplicates.
+func (s Structure) MissingPluralCategories() []string {
+	var out []string
+	for _, f := range s.Warnings {
+		if f.Code == mf.FindingMissingPluralCategory && f.Detail != "" && !slices.Contains(out, f.Detail) {
+			out = append(out, f.Detail)
+		}
+	}
+	return out
+}
+
+// NeedsRepair reports whether the candidate goes back to the model: it
+// fails the gate, or — policy, though CheckCompat calls it a warning —
+// it lacks plural categories the target locale requires (a Polish
+// translation with only one/other).
+func (s Structure) NeedsRepair() bool { return !s.Valid() || len(s.MissingPluralCategories()) > 0 }
 
 // CheckStructure parses candidate as MF2 and checks it against source for
 // the target locale: the kernel's CheckCompat plus max_length.

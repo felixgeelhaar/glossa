@@ -3,7 +3,7 @@
   "source": "scripted",
   "interactions": [
     {
-      "key": "3e9172c644117c3ad4676b8d6a3f01c2d8426ecee183ad149802cf371dfea2b8",
+      "key": "4842b62a3e53f54c183e5b2de075c33841089c20f10f9b0216ad271e3401e266",
       "provider": "anthropic",
       "request": {
         "task": "translate",
@@ -17,7 +17,7 @@
         "messages": [
           {
             "role": "user",
-            "text": "Translate this message from en to pl.\n\n\u003csource\u003e\n.input {$count :number}\n.match $count\none {{{$count} comment}}\n* {{{$count} comments}}\n\u003c/source\u003e\n\n\u003cstructure\u003e\n- $count: number, selects by plural (source keys: one, *)\n- pl plural categories: one, few, many, other — write one variant per category, `*` for other\n\u003c/structure\u003e\n\n\u003ccontext\u003e\n- key: doc.comments\n- description: Comment counter\n\u003c/context\u003e\n\n\u003cglossary\u003e\n- \"comment\" (A remark on a document); use: komentarz\n\u003c/glossary\u003e\n\n\u003cstyle_guide\u003e\n- form of address: informal (\"ty\")\n\u003c/style_guide\u003e"
+            "text": "Translate this message from en to pl.\n\n\u003csource\u003e\n.input {$count :number}\n.match $count\none {{{$count} task open}}\n* {{{$count} tasks open}}\n\u003c/source\u003e\n\n\u003cstructure\u003e\n- $count: number, selects by plural (source keys: one, *)\n- pl plural categories: one, few, many, other — write one variant per category, `*` for other\n\u003c/structure\u003e\n\n\u003ccontext\u003e\n- key: tasks.open\n- description: Task counter on the dashboard\n\u003c/context\u003e\n\n\u003cstyle_guide\u003e\n- form of address: informal (\"ty\")\n\u003c/style_guide\u003e"
           }
         ],
         "output": {
@@ -47,16 +47,16 @@
       "response": {
         "provider": "anthropic",
         "model": "claude-sonnet-5",
-        "text": "{\"message\": \".input {$count :number}\\n.match $count\\none {{{$count} komentarz}}\\n* {{{$count} komentarzy}}\", \"notes\": \"\"}",
+        "text": "{\"message\": \".input {$count :number}\\n.match $count\\none {{{$count} otwarte zadanie}}\\nfew {{{$count} otwarte zadania}}\\n* {{{$count} otwartych zadań}}\", \"notes\": \"\"}",
         "stop": "end",
         "usage": {
-          "input_tokens": 1011,
-          "output_tokens": 35
+          "input_tokens": 993,
+          "output_tokens": 48
         }
       }
     },
     {
-      "key": "c8f69fcc92e08795744d373d4ef0fad58f43f172a2926583ff043929a9135f23",
+      "key": "c6c5740d4acbef1201693a4486dfb487ed47618920d1cdad45345b9915d09085",
       "provider": "anthropic",
       "request": {
         "task": "translate",
@@ -70,15 +70,15 @@
         "messages": [
           {
             "role": "user",
-            "text": "Translate this message from en to pl.\n\n\u003csource\u003e\n.input {$count :number}\n.match $count\none {{{$count} comment}}\n* {{{$count} comments}}\n\u003c/source\u003e\n\n\u003cstructure\u003e\n- $count: number, selects by plural (source keys: one, *)\n- pl plural categories: one, few, many, other — write one variant per category, `*` for other\n\u003c/structure\u003e\n\n\u003ccontext\u003e\n- key: doc.comments\n- description: Comment counter\n\u003c/context\u003e\n\n\u003cglossary\u003e\n- \"comment\" (A remark on a document); use: komentarz\n\u003c/glossary\u003e\n\n\u003cstyle_guide\u003e\n- form of address: informal (\"ty\")\n\u003c/style_guide\u003e"
+            "text": "Translate this message from en to pl.\n\n\u003csource\u003e\n.input {$count :number}\n.match $count\none {{{$count} task open}}\n* {{{$count} tasks open}}\n\u003c/source\u003e\n\n\u003cstructure\u003e\n- $count: number, selects by plural (source keys: one, *)\n- pl plural categories: one, few, many, other — write one variant per category, `*` for other\n\u003c/structure\u003e\n\n\u003ccontext\u003e\n- key: tasks.open\n- description: Task counter on the dashboard\n\u003c/context\u003e\n\n\u003cstyle_guide\u003e\n- form of address: informal (\"ty\")\n\u003c/style_guide\u003e"
           },
           {
             "role": "assistant",
-            "text": "{\"message\": \".input {$count :number}\\n.match $count\\none {{{$count} komentarz}}\\n* {{{$count} komentarzy}}\", \"notes\": \"\"}"
+            "text": "{\"message\": \".input {$count :number}\\n.match $count\\none {{{$count} otwarte zadanie}}\\nfew {{{$count} otwarte zadania}}\\n* {{{$count} otwartych zadań}}\", \"notes\": \"\"}"
           },
           {
             "role": "user",
-            "text": "Your translation cannot be used yet: the platform's structural validation of MF2 found these problems (attempt 1 of 2 to fix them):\n\n- missing-plural-category (count): the target locale's plural category \"few\" has no variant of its own and falls back to *\n- missing-plural-category (count): the target locale's plural category \"many\" has no variant of its own and falls back to *\n\nThe pl plural categories are: one, few, many, other (write `*` for other).\n\nFix these problems and keep everything that was already right. Answer with the complete corrected message in the same JSON format."
+            "text": "Your translation cannot be used yet: the platform's structural validation of MF2 found these problems (attempt 1 of 2 to fix them):\n\n- missing-plural-category (count): the target locale's plural category \"many\" has no variant of its own and falls back to *\n\nThe pl plural categories are: one, few, many, other (write `*` for other).\n\nFix these problems and keep everything that was already right. Answer with the complete corrected message in the same JSON format."
           }
         ],
         "output": {
@@ -108,16 +108,16 @@
       "response": {
         "provider": "anthropic",
         "model": "claude-sonnet-5",
-        "text": "{\"message\": \".input {$count :number}\\n.match $count\\none {{{$count} komentarz}}\\nfew {{{$count} komentarze}}\\nmany {{{$count} komentarzy}}\\n* {{{$count} komentarza}}\", \"notes\": \"\"}",
+        "text": "{\"message\": \".input {$count :number}\\n.match $count\\none {{{$count} otwarte zadanie}}\\nfew {{{$count} otwarte zadania}}\\nmany {{{$count} otwartych zadań}}\\n* {{{$count} otwartego zadania}}\", \"notes\": \"\"}",
         "stop": "end",
         "usage": {
-          "input_tokens": 1213,
-          "output_tokens": 52
+          "input_tokens": 1173,
+          "output_tokens": 58
         }
       }
     },
     {
-      "key": "66d4739935a0f103f24158f30f73123a388c6881e6e44e2538087764eab0f795",
+      "key": "298294e30b521d1205b408dc381e874590abe394c9dbc40b33a5ecd49b322167",
       "provider": "anthropic",
       "request": {
         "task": "assess",
@@ -131,7 +131,7 @@
         "messages": [
           {
             "role": "user",
-            "text": "Review this en → pl translation.\n\n\u003csource\u003e\n.input {$count :number}\n.match $count\none {{{$count} comment}}\n* {{{$count} comments}}\n\u003c/source\u003e\n\n\u003ctranslation\u003e\n.input {$count :number}\n.match $count\none {{{$count} komentarz}}\nfew {{{$count} komentarze}}\nmany {{{$count} komentarzy}}\n* {{{$count} komentarza}}\n\u003c/translation\u003e\n\n\u003ccontext\u003e\n- description: Comment counter\n\u003c/context\u003e\n\n\u003cglossary\u003e\n- \"comment\"; use: komentarz\n\u003c/glossary\u003e\n\n\u003cstyle_guide\u003e\n- form of address: informal (\"ty\")\n\u003c/style_guide\u003e"
+            "text": "Review this en → pl translation.\n\n\u003csource\u003e\n.input {$count :number}\n.match $count\none {{{$count} task open}}\n* {{{$count} tasks open}}\n\u003c/source\u003e\n\n\u003ctranslation\u003e\n.input {$count :number}\n.match $count\none {{{$count} otwarte zadanie}}\nfew {{{$count} otwarte zadania}}\nmany {{{$count} otwartych zadań}}\n* {{{$count} otwartego zadania}}\n\u003c/translation\u003e\n\n\u003ccontext\u003e\n- description: Task counter on the dashboard\n\u003c/context\u003e\n\n\u003cstyle_guide\u003e\n- form of address: informal (\"ty\")\n\u003c/style_guide\u003e"
           }
         ],
         "output": {
@@ -169,7 +169,7 @@
         "text": "{\"score\": 0.9, \"formality_ok\": true, \"issues\": []}",
         "stop": "end",
         "usage": {
-          "input_tokens": 487,
+          "input_tokens": 484,
           "output_tokens": 15
         }
       }

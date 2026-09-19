@@ -365,6 +365,101 @@ func TestConcurrentJobs(t *testing.T) {
 	}
 }
 
+// Policy (orchestrator decision): a draft that lacks CLDR plural
+// categories the TARGET locale needs is sent back for repair, like a
+// structural error, even though CheckCompat reports it as a warning.
+func TestMissingPluralCategoriesAreRepaired(t *testing.T) {
+	f := newFixture(t)
+	copied := ".input {$count :number}\n.match $count\none {{Masz {$count} plik.}}\n* {{Masz {$count} plików.}}"
+	complete := ".input {$count :number}\n.match $count\none {{Masz {$count} plik.}}\nfew {{Masz {$count} pliki.}}\nmany {{Masz {$count} plików.}}\n* {{Masz {$count} pliku.}}"
+	f.provider.answers[domain.TaskTranslate] = []string{draft(copied), draft(complete)}
+	f.provider.answers[domain.TaskAssess] = []string{assessment(0.9, true)}
+
+	res, err := f.tr.Translate(context.Background(), request("pl", pluralSource))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := res.Suggestion
+	if s.Provenance.Repairs != 1 || s.Message != complete {
+		t.Fatalf("repairs = %d, message %q", s.Provenance.Repairs, s.Message)
+	}
+	repair := f.provider.calls[1].Messages[2].Text
+	for _, want := range []string{"missing-plural-category", "few", "many", "pl plural categories are: one, few, many, other"} {
+		if !strings.Contains(repair, want) {
+			t.Errorf("repair turn lacks %q:\n%s", want, repair)
+		}
+	}
+	if s.Confidence.Has(domain.FactorMissingPluralCategories) {
+		t.Errorf("a repaired draft has no missing categories: %+v", s.Confidence)
+	}
+}
+
+// When the categories are still missing after the allowed repairs, the
+// suggestion is kept, forced to review_required with a low score, and
+// the explanation names the missing categories.
+func TestMissingPluralCategoriesAfterRepairsForceReview(t *testing.T) {
+	f := newFixture(t)
+	copied := ".input {$count :number}\n.match $count\none {{Masz {$count} plik.}}\n* {{Masz {$count} plików.}}"
+	f.provider.answers[domain.TaskTranslate] = []string{draft(copied), draft(copied), draft(copied)}
+	f.provider.answers[domain.TaskAssess] = []string{assessment(0.99, true)}
+	// Even a policy that would auto-approve anything can't let it through.
+	tr := f.withReview(t, domain.ReviewPolicy{AutoApprove: true, AutoApproveMin: 0.01, RecommendMin: 0.01})
+
+	res, err := tr.Translate(context.Background(), request("pl", pluralSource))
+	if err != nil {
+		t.Fatalf("the suggestion is kept: %v", err)
+	}
+	s := res.Suggestion
+	if s.Provenance.Repairs != 2 || len(f.provider.calls) != 4 {
+		t.Errorf("repairs = %d, calls %v", s.Provenance.Repairs, f.provider.tasks())
+	}
+	if s.Action != domain.ActionReviewRequired || s.Confidence.Score > 0.3 {
+		t.Errorf("action %s, confidence %+v", s.Action, s.Confidence)
+	}
+	var factor *domain.Factor
+	for i, fc := range s.Confidence.Explanation {
+		if fc.Factor == domain.FactorMissingPluralCategories {
+			factor = &s.Confidence.Explanation[i]
+		}
+	}
+	if factor == nil || factor.Value != 2 || !strings.Contains(factor.Reason, "few, many") || factor.Contribution >= 0 {
+		t.Errorf("explanation = %+v", s.Confidence.Explanation)
+	}
+}
+
+// An exact TM match that lacks the target's categories is not reused:
+// the model drafts, with the match as a hint.
+func TestExactTMMissingCategoriesIsNotReused(t *testing.T) {
+	f := newFixture(t)
+	copied := ".input {$count :number}\n.match $count\none {{Masz {$count} plik.}}\n* {{Masz {$count} plików.}}"
+	complete := ".input {$count :number}\n.match $count\none {{Masz {$count} plik.}}\nfew {{Masz {$count} pliki.}}\nmany {{Masz {$count} plików.}}\n* {{Masz {$count} pliku.}}"
+	f.knowledge.AddUnits(memory.TMUnit{ID: "u7", Pair: domain.LocalePair{Source: "en", Target: "pl"}, Source: pluralSource, Target: copied})
+	f.provider.answers[domain.TaskTranslate] = []string{draft(complete)}
+	f.provider.answers[domain.TaskAssess] = []string{assessment(0.9, true)}
+
+	res, err := f.tr.Translate(context.Background(), request("pl", pluralSource))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Suggestion.Provenance.Origin != domain.OriginAI || res.Suggestion.Message != complete {
+		t.Errorf("suggestion = %+v %q", res.Suggestion.Provenance, res.Suggestion.Message)
+	}
+}
+
+func (f *fixture) withReview(t *testing.T, review domain.ReviewPolicy) *app.Translator {
+	t.Helper()
+	policy := domain.RoutingPolicy{Rules: []domain.RoutingRule{
+		{Task: domain.TaskTranslate, Routes: []domain.Route{{Provider: "anthropic", Model: "claude-sonnet-5", MaxTokens: 8000, Effort: "medium"}}},
+		{Task: domain.TaskAssess, Routes: []domain.Route{{Provider: "anthropic", Model: "claude-haiku-4-5-20251001", MaxTokens: 1024}}},
+	}}
+	router := app.NewRouter(map[string]domain.Provider{"anthropic": f.provider}, policy, app.DefaultPrices(), f.budget)
+	tr, err := app.NewTranslator(app.Config{Router: router, Knowledge: f.knowledge, Review: review})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tr
+}
+
 func TestForbiddenTermRequiresReview(t *testing.T) {
 	f := newFixture(t)
 	f.provider.answers[domain.TaskTranslate] = []string{draft(".input {$count :number}\n.match $count\none {{Du hast {$count} File.}}\n* {{Du hast {$count} Files.}}")}

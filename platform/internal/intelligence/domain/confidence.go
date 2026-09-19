@@ -45,6 +45,9 @@ type Signals struct {
 	Tags []string
 	// MarkupCount is the number of markup elements in the source.
 	MarkupCount int
+	// MissingPluralCategories are CLDR plural categories of the target
+	// locale the translation still lacks after the allowed repairs.
+	MissingPluralCategories []string
 }
 
 // Factor names one explained contribution to a score.
@@ -61,6 +64,9 @@ const (
 	FactorLengthRatio    = "length_ratio"
 	FactorRiskTag        = "risk_tag"
 	FactorMarkup         = "markup_density"
+	// FactorMissingPluralCategories: the translation lacks plural
+	// categories the target locale needs; it always needs review.
+	FactorMissingPluralCategories = "missing_plural_categories"
 )
 
 // Factor is one line of a score's explanation: the signal, its value and
@@ -121,8 +127,11 @@ type ScoringConfig struct {
 	MarkupEach       float64
 	MarkupCap        float64
 	MaxScore         float64
-	LengthMildBand   [2]float64
-	LengthSevereBand [2]float64
+	// MissingPluralRisk is added when the translation lacks plural
+	// categories of the target locale: enough to make it low confidence.
+	MissingPluralRisk float64
+	LengthMildBand    [2]float64
+	LengthSevereBand  [2]float64
 }
 
 // DefaultScoring returns the M2 weights.
@@ -148,16 +157,17 @@ func DefaultScoring() ScoringConfig {
 			"pl": 1.2, "ru": 1.15, "sv": 1.1, "da": 1.1, "fi": 1.2, "tr": 1.15,
 			"ja": 0.55, "zh": 0.5, "ko": 0.6,
 		},
-		LengthMinChars:   12,
-		LengthMildRisk:   0.07,
-		LengthSevereRisk: 0.15,
-		LengthMildBand:   [2]float64{0.67, 1.5},
-		LengthSevereBand: [2]float64{0.5, 2.0},
-		TagRisk:          map[string]float64{TagLegal: 0.30, TagMarketing: 0.15},
-		MarkupFreeCount:  2,
-		MarkupEach:       0.02,
-		MarkupCap:        0.10,
-		MaxScore:         0.99,
+		LengthMinChars:    12,
+		LengthMildRisk:    0.07,
+		LengthSevereRisk:  0.15,
+		LengthMildBand:    [2]float64{0.67, 1.5},
+		LengthSevereBand:  [2]float64{0.5, 2.0},
+		TagRisk:           map[string]float64{TagLegal: 0.30, TagMarketing: 0.15},
+		MarkupFreeCount:   2,
+		MarkupEach:        0.02,
+		MarkupCap:         0.10,
+		MissingPluralRisk: 0.60,
+		MaxScore:          0.99,
 	}
 }
 
@@ -203,6 +213,10 @@ func (c ScoringConfig) assess(s Signals) (risk.RiskAssessment, []float64) {
 		b.add(FactorFormality, 0, c.FormalityRisk, "the form of address does not follow the style guide")
 	}
 	c.length(b, s)
+	if n := len(s.MissingPluralCategories); n > 0 {
+		b.add(FactorMissingPluralCategories, float64(n), c.MissingPluralRisk,
+			fmt.Sprintf("the translation lacks the %s plural categories %s", s.TargetLocale, strings.Join(s.MissingPluralCategories, ", ")))
+	}
 	for _, tag := range slices.Sorted(slices.Values(s.Tags)) {
 		if w, ok := c.TagRisk[tag]; ok {
 			b.add(FactorRiskTag, 0, w, fmt.Sprintf("the namespace is tagged %s", tag))

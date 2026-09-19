@@ -40,9 +40,14 @@ func DefaultReviewPolicy() ReviewPolicy {
 	}
 }
 
+// MandatoryReview lists factors that require review under every policy:
+// a translation lacking the target locale's plural categories is kept
+// as a suggestion but never approved without a human.
+var MandatoryReview = []string{FactorMissingPluralCategories}
+
 // Route maps a confidence to an action.
 func (p ReviewPolicy) Route(c Confidence) Action {
-	for _, f := range p.ForceReview {
+	for _, f := range slices.Concat(MandatoryReview, p.ForceReview) {
 		if c.Has(f) {
 			return ActionReviewRequired
 		}

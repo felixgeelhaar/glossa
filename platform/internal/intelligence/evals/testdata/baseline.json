@@ -1,10 +1,10 @@
 {
   "all": {
-    "cases": 52,
+    "cases": 54,
     "structural_pass_rate": 1,
-    "terminology_compliance": 0.957,
+    "terminology_compliance": 0.958,
     "formality_compliance": 0.889,
-    "mean_edit_ratio": 0.039,
+    "mean_edit_ratio": 0.038,
     "origin_accuracy": 1
   },
   "de-en": {
@@ -48,11 +48,11 @@
     "origin_accuracy": 1
   },
   "en-pl": {
-    "cases": 6,
+    "cases": 8,
     "structural_pass_rate": 1,
     "terminology_compliance": 1,
     "formality_compliance": 1,
-    "mean_edit_ratio": 0.066,
+    "mean_edit_ratio": 0.05,
     "origin_accuracy": 1
   }
 }

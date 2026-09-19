@@ -149,6 +149,7 @@ func TestReviewPolicyRoute(t *testing.T) {
 	auto := def
 	auto.AutoApprove = true
 	forbidden := domain.Confidence{Score: 0.95, Explanation: []domain.Factor{{Factor: domain.FactorTermForbidden, Contribution: -0.35}}}
+	missing := domain.Confidence{Score: 0.99, Explanation: []domain.Factor{{Factor: domain.FactorMissingPluralCategories, Value: 2, Contribution: -0.6}}}
 	helpedByTM := domain.Confidence{Score: 0.95, Explanation: []domain.Factor{{Factor: domain.FactorTMMatch, Contribution: 0.04}}}
 	tests := []struct {
 		name   string
@@ -163,11 +164,26 @@ func TestReviewPolicyRoute(t *testing.T) {
 		{"below recommend", def, domain.Confidence{Score: 0.7499}, domain.ActionReviewRequired},
 		{"forced review wins", auto, forbidden, domain.ActionReviewRequired},
 		{"a helping factor does not force review", auto, helpedByTM, domain.ActionAutoApprove},
+		{"missing plural categories force review under any policy", domain.ReviewPolicy{AutoApprove: true}, missing, domain.ActionReviewRequired},
 	}
 	for _, tc := range tests {
 		if got := tc.policy.Route(tc.conf); got != tc.want {
 			t.Errorf("%s: %s, want %s", tc.name, got, tc.want)
 		}
+	}
+}
+
+func TestMissingPluralCategoriesLowerTheScore(t *testing.T) {
+	c := domain.DefaultScoring().Score(domain.Signals{
+		Origin: domain.OriginAI, TMScore: 0, SourceLocale: "en", TargetLocale: "pl",
+		MissingPluralCategories: []string{"few", "many"},
+	})
+	if c.Score > 0.2 || !c.Has(domain.FactorMissingPluralCategories) {
+		t.Fatalf("confidence = %+v", c)
+	}
+	last := c.Explanation[len(c.Explanation)-1]
+	if last.Value != 2 || last.Reason != "the translation lacks the pl plural categories few, many" {
+		t.Errorf("factor = %+v", last)
 	}
 }
 

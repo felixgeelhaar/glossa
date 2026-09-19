@@ -86,6 +86,9 @@ func TestEvalsOnCassettes(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", c.ID, err)
 		}
+		if o.Structural && !o.ActionOK {
+			t.Errorf("%s: routed to %s, want %s", c.ID, o.Action, c.Expect.Action)
+		}
 		if unused := cas.Unused(); len(unused) != 0 {
 			t.Errorf("%s: %d recorded interactions were not replayed; re-record the cassette", c.ID, len(unused))
 		}
