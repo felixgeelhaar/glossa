@@ -11,7 +11,7 @@ import (
 )
 
 // Open returns the configured store.
-func Open(cfg config.Storage) (objectstore.Store, error) {
+func Open(cfg config.Storage) (objectstore.StreamStore, error) {
 	switch cfg.Driver {
 	case "dir":
 		return objectstore.NewDir(cfg.Dir)

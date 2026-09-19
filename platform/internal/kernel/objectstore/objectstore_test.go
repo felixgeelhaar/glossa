@@ -10,7 +10,10 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/objectstoretest"
 )
 
-func TestMemory(t *testing.T) { objectstoretest.Run(t, objectstore.NewMemory()) }
+func TestMemory(t *testing.T) {
+	objectstoretest.Run(t, objectstore.NewMemory())
+	objectstoretest.RunStreams(t, objectstore.NewMemory())
+}
 
 func TestDir(t *testing.T) {
 	s, err := objectstore.NewDir(t.TempDir())
@@ -18,6 +21,7 @@ func TestDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	objectstoretest.Run(t, s)
+	objectstoretest.RunStreams(t, s)
 }
 
 func TestDirLeavesNoTemporaryFiles(t *testing.T) {

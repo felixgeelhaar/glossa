@@ -30,6 +30,7 @@ func TestS3Store(t *testing.T) {
 		t.Fatalf("ping: %v", err)
 	}
 	t.Run("conformance", func(t *testing.T) { objectstoretest.Run(t, s) })
+	t.Run("streams", func(t *testing.T) { objectstoretest.RunStreams(t, s) })
 
 	t.Run("prefix isolates deployments", func(t *testing.T) {
 		cfg := env.Config("glossa-conformance")

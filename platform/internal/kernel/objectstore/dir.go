@@ -86,40 +86,78 @@ func (d *Dir) Exists(_ context.Context, key string) (bool, error) {
 	return fi.Mode().IsRegular(), nil
 }
 
-// Put implements Writer.
+// Put implements Writer. Published objects are public by design; a
+// colocated edge running as another user must be able to read them.
 func (d *Dir) Put(ctx context.Context, key string, body []byte, _ string) error {
+	_, err := d.write(ctx, key, 0o644, func(w io.Writer) (int64, error) { //nolint:gosec // public release data
+		n, err := w.Write(body)
+		return int64(n), err
+	})
+	return err
+}
+
+var _ StreamStore = (*Dir)(nil)
+
+// PutStream implements Streamer. Interchange files are private to this
+// process's user.
+func (d *Dir) PutStream(ctx context.Context, key string, r io.Reader, _ string) (int64, error) {
+	return d.write(ctx, key, 0o600, func(w io.Writer) (int64, error) { return io.Copy(w, r) })
+}
+
+// Open implements Streamer.
+func (d *Dir) Open(ctx context.Context, key string) (io.ReadCloser, error) {
 	p, err := d.path(key)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := ctx.Err(); err != nil {
-		return err
+		return nil, err
+	}
+	f, err := os.Open(p) //nolint:gosec // p is a validated key under root
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("objectstore: open %s: %w", key, err)
+	}
+	return f, nil
+}
+
+// write fills a temporary file next to the object and renames it into
+// place, so readers never see a partly written object. A failed fill
+// leaves nothing behind and returns fill's error unwrapped.
+func (d *Dir) write(ctx context.Context, key string, mode os.FileMode, fill func(io.Writer) (int64, error)) (int64, error) {
+	p, err := d.path(key)
+	if err != nil {
+		return 0, err
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
 	}
 	dir := filepath.Dir(p)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return fmt.Errorf("objectstore: create %s: %w", dir, err)
+		return 0, fmt.Errorf("objectstore: create %s: %w", dir, err)
 	}
 	tmp, err := os.CreateTemp(dir, ".tmp-*")
 	if err != nil {
-		return fmt.Errorf("objectstore: put %s: %w", key, err)
+		return 0, fmt.Errorf("objectstore: put %s: %w", key, err)
 	}
 	defer func() { _ = os.Remove(tmp.Name()) }() // no-op after the rename
-	if _, err := tmp.Write(body); err != nil {
+	n, err := fill(tmp)
+	if err != nil {
 		_ = tmp.Close()
-		return fmt.Errorf("objectstore: put %s: %w", key, err)
+		return 0, err
 	}
 	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("objectstore: put %s: %w", key, err)
+		return 0, fmt.Errorf("objectstore: put %s: %w", key, err)
 	}
-	// Published objects are public by design; a colocated edge running
-	// as another user must be able to read them.
-	if err := os.Chmod(tmp.Name(), 0o644); err != nil { //nolint:gosec // public release data
-		return fmt.Errorf("objectstore: put %s: %w", key, err)
+	if err := os.Chmod(tmp.Name(), mode); err != nil {
+		return 0, fmt.Errorf("objectstore: put %s: %w", key, err)
 	}
 	if err := os.Rename(tmp.Name(), p); err != nil {
-		return fmt.Errorf("objectstore: put %s: %w", key, err)
+		return 0, fmt.Errorf("objectstore: put %s: %w", key, err)
 	}
-	return nil
+	return n, nil
 }
 
 // Delete implements Writer.

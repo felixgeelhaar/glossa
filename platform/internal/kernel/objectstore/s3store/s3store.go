@@ -200,6 +200,82 @@ func (s *Store) Put(ctx context.Context, key string, body []byte, contentType st
 	return err
 }
 
+var _ objectstore.StreamStore = (*Store)(nil)
+
+// streamPartSize is the multipart part (and buffer) size of a stream of
+// unknown length: 10 000 parts reach 160 GiB.
+const streamPartSize = 16 << 20
+
+// PutStream implements objectstore.Streamer: a multipart upload of
+// unknown length, aborted (nothing stored) when r fails. It is bounded
+// by ctx rather than the per-operation timeout, which is sized for
+// small objects.
+func (s *Store) PutStream(ctx context.Context, key string, r io.Reader, contentType string) (int64, error) {
+	name, err := s.object(key)
+	if err != nil {
+		return 0, err
+	}
+	var (
+		n       int64
+		readErr error
+	)
+	_, err = s.breaker.Execute(ctx, func(ctx context.Context) (any, error) {
+		tr := &trackingReader{r: r}
+		info, err := s.client.PutObject(ctx, s.bucket, name, tr, -1,
+			minio.PutObjectOptions{ContentType: contentType, PartSize: streamPartSize})
+		if tr.err != nil {
+			readErr = tr.err // the caller's reader, not the storage, failed
+			return nil, nil
+		}
+		if err != nil {
+			return nil, s.fail("put", key, err)
+		}
+		n = info.Size
+		return nil, nil
+	})
+	if readErr != nil {
+		return 0, readErr
+	}
+	return n, err
+}
+
+// trackingReader remembers the first error of r other than io.EOF.
+type trackingReader struct {
+	r   io.Reader
+	err error
+}
+
+func (t *trackingReader) Read(p []byte) (int, error) {
+	n, err := t.r.Read(p)
+	if err != nil && !errors.Is(err, io.EOF) && t.err == nil {
+		t.err = err
+	}
+	return n, err
+}
+
+// Open implements objectstore.Streamer. The object is read lazily under
+// ctx; a missing one is reported up front.
+func (s *Store) Open(ctx context.Context, key string) (io.ReadCloser, error) {
+	name, err := s.object(key)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.do(ctx, func(ctx context.Context) (any, error) {
+		if _, err := s.client.StatObject(ctx, s.bucket, name, minio.StatObjectOptions{}); err != nil {
+			return nil, s.fail("stat", key, err)
+		}
+		return nil, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	obj, err := s.client.GetObject(ctx, s.bucket, name, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, s.fail("get", key, err)
+	}
+	return obj, nil
+}
+
 // Delete implements objectstore.Writer.
 func (s *Store) Delete(ctx context.Context, key string) error {
 	name, err := s.object(key)

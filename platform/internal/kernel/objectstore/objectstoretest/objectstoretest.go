@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 
@@ -112,3 +113,57 @@ func Run(t *testing.T, s objectstore.Store) {
 		}
 	})
 }
+
+// RunStreams exercises the streaming half of s: large objects written
+// from a reader and read back through Open, all or nothing.
+func RunStreams(t *testing.T, s objectstore.StreamStore) {
+	t.Helper()
+	ctx := context.Background()
+
+	t.Run("stream in and out", func(t *testing.T) {
+		body := bytes.Repeat([]byte("0123456789abcdef"), 3<<16) // 3 MiB, more than one buffer
+		key := "conformance/stream/large.bin"
+		n, err := s.PutStream(ctx, key, bytes.NewReader(body), "application/octet-stream")
+		if err != nil || n != int64(len(body)) {
+			t.Fatalf("PutStream = %d, %v", n, err)
+		}
+		rc, err := s.Open(ctx, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil || !bytes.Equal(got, body) {
+			t.Fatalf("Open read %d bytes, %v; want %d identical bytes", len(got), err, len(body))
+		}
+		if err := s.Delete(ctx, key); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("open a missing object", func(t *testing.T) {
+		if _, err := s.Open(ctx, "conformance/stream/missing"); !errors.Is(err, objectstore.ErrNotFound) {
+			t.Errorf("Open missing = %v, want ErrNotFound", err)
+		}
+		if _, err := s.Open(ctx, "../escape"); !errors.Is(err, objectstore.ErrInvalidKey) {
+			t.Errorf("Open(../escape) = %v, want ErrInvalidKey", err)
+		}
+	})
+
+	t.Run("a failed stream stores nothing", func(t *testing.T) {
+		key := "conformance/stream/failed"
+		broken := io.MultiReader(bytes.NewReader(bytes.Repeat([]byte("x"), 1<<20)), errReader{})
+		if _, err := s.PutStream(ctx, key, broken, "application/octet-stream"); !errors.Is(err, errBroken) {
+			t.Fatalf("PutStream from a failing reader = %v, want its error", err)
+		}
+		if ok, err := s.Exists(ctx, key); ok || err != nil {
+			t.Errorf("a failed stream left an object: %v, %v", ok, err)
+		}
+	})
+}
+
+var errBroken = errors.New("objectstoretest: the reader broke")
+
+type errReader struct{}
+
+func (errReader) Read([]byte) (int, error) { return 0, errBroken }
