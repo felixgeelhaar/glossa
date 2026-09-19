@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 59,
+  "version": 62,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -189,11 +189,15 @@
       "elapsed_minutes": 0
     },
     "task-m0-kernel": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "platform/ kernel: config, bolt+OTel+Prometheus, net/http server with probes, pgx+migrate+sqlc, tenant/system UoW, FORCE RLS + generic RLS guard, transactional outbox with at-least-once dispatcher and dead-letter; 51 unit + 23 integration tests green"
+      ],
       "started_at": "2026-09-19T08:54:19.537127+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T10:39:19.078034+02:00",
+      "elapsed_minutes": 104
     },
     "task-m0-layout": {
       "status": "done",
@@ -207,18 +211,26 @@
       "elapsed_minutes": 0
     },
     "task-m0-mf-go": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "messageformat/ Go kernel (ParseMF2/ParseMF1/Validate/Stringify/Format/Arguments/MarkupElements/CheckCompat, ports over messageformat-go); Unicode suite 462/462; fixtures mf1-to-mf2 (55 cases, reference-verified), arguments (21), compat (30); 93% coverage"
+      ],
       "started_at": "2026-09-19T08:54:15.759242+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T10:39:13.368581+02:00",
+      "elapsed_minutes": 104
     },
     "task-m0-mf-ts": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "@glossa/messageformat (MF2 over messageformat v4, zod schemas vs JSON Schema) + @glossa/runtime interpreter (3.13 kB brotli, Unicode suite 301 runtime cases, 0 skips); runtime renders all Go-converted MF1 models like MF1 (103 samples); single MF1 converter decision in 0b2d0fe"
+      ],
       "started_at": "2026-09-19T08:54:17.473249+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T10:39:16.628071+02:00",
+      "elapsed_minutes": 104
     },
     "task-m0-openapi": {
       "status": "pending",
@@ -344,5 +356,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T08:54:19.537127+02:00"
+  "updated_at": "2026-09-19T10:39:19.078035+02:00"
 }
