@@ -1,0 +1,139 @@
+// Package authz is how every bounded context asks "may the caller do
+// this here?". Identity's HTTP edge puts a Principal on the request
+// context after authenticating the caller and checking the tenant in the
+// path against their membership or token; application services then
+// call Require before acting:
+//
+//	if err := authz.Require(ctx, authz.CatalogWrite); err != nil {
+//		return err // errors.Is(err, authz.ErrForbidden)
+//	}
+//	if err := authz.RequireFor(ctx, authz.TranslationsWrite, locale); err != nil { … }
+//
+// Checks are explicit and local: a permission, optionally a locale. There
+// is no policy language and no remote call. The role matrix and token
+// scopes that produce a Grant live in the Identity domain.
+package authz
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+)
+
+// Permission is re-exported so other contexts depend on this package
+// only, not on Identity's domain.
+type Permission = domain.Permission
+
+// The permissions other contexts check.
+const (
+	TenantRead         = domain.PermTenantRead
+	TenantManage       = domain.PermTenantManage
+	MembersRead        = domain.PermMembersRead
+	MembersManage      = domain.PermMembersManage
+	OwnersManage       = domain.PermOwnersManage
+	TokensRead         = domain.PermTokensRead
+	TokensManage       = domain.PermTokensManage
+	CatalogRead        = domain.PermCatalogRead
+	CatalogWrite       = domain.PermCatalogWrite
+	TranslationsRead   = domain.PermTranslationsRead
+	TranslationsWrite  = domain.PermTranslationsWrite
+	TranslationsReview = domain.PermTranslationsReview
+	ReleasesRead       = domain.PermReleasesRead
+	ReleasesPublish    = domain.PermReleasesPublish
+)
+
+var (
+	// ErrUnauthenticated means the context carries no principal.
+	ErrUnauthenticated = errors.New("authz: unauthenticated")
+	// ErrForbidden means the principal lacks the permission here.
+	ErrForbidden = errors.New("authz: forbidden")
+)
+
+// DeniedError says which permission was missing. It matches ErrForbidden.
+type DeniedError struct {
+	Permission Permission
+	Locale     string // empty unless the check was for a locale
+}
+
+func (e *DeniedError) Error() string {
+	if e.Locale != "" {
+		return fmt.Sprintf("authz: %s is not granted for %s", e.Permission, e.Locale)
+	}
+	return fmt.Sprintf("authz: %s is not granted", e.Permission)
+}
+
+// Is makes errors.Is(err, ErrForbidden) true.
+func (e *DeniedError) Is(target error) bool { return target == ErrForbidden }
+
+// Principal is the authenticated caller.
+type Principal struct {
+	// Actor is the person or API token acting.
+	Actor domain.Actor
+	// Person is set when a person is acting (session), zero for tokens.
+	Person domain.PersonID
+	// Tenant is the tenant the grant applies to; zero outside tenant
+	// routes, where the grant is empty.
+	Tenant tenancy.ID
+	// Member is the person's membership in Tenant, when there is one.
+	Member domain.MemberID
+	// Grant is what the principal may do in Tenant.
+	Grant domain.Grant
+}
+
+type ctxKey struct{}
+
+// WithPrincipal returns a context carrying p. Only Identity's HTTP edge
+// (and tests) should call it.
+func WithPrincipal(ctx context.Context, p Principal) context.Context {
+	return context.WithValue(ctx, ctxKey{}, p)
+}
+
+// From returns the principal on ctx.
+func From(ctx context.Context) (Principal, bool) {
+	p, ok := ctx.Value(ctxKey{}).(Principal)
+	return p, ok
+}
+
+// Require returns nil if the principal holds perm for every locale in
+// the context's tenant.
+func Require(ctx context.Context, perm Permission) error {
+	p, err := inTenant(ctx)
+	if err != nil {
+		return err
+	}
+	if !p.Grant.Allows(perm) {
+		return &DeniedError{Permission: perm}
+	}
+	return nil
+}
+
+// RequireFor returns nil if the principal holds perm for locale in the
+// context's tenant. Use it for locale-scoped work (translate, review).
+func RequireFor(ctx context.Context, perm Permission, locale domain.Locale) error {
+	p, err := inTenant(ctx)
+	if err != nil {
+		return err
+	}
+	if !p.Grant.AllowsFor(perm, locale) {
+		return &DeniedError{Permission: perm, Locale: locale.String()}
+	}
+	return nil
+}
+
+// inTenant returns the principal, refusing one whose grant belongs to a
+// different tenant than the one the context (and so the database
+// transaction) is scoped to.
+func inTenant(ctx context.Context) (Principal, error) {
+	p, ok := From(ctx)
+	if !ok {
+		return Principal{}, ErrUnauthenticated
+	}
+	tenant, ok := tenancy.FromContext(ctx)
+	if !ok || tenant != p.Tenant {
+		return Principal{}, fmt.Errorf("%w: principal is not scoped to this tenant", ErrForbidden)
+	}
+	return p, nil
+}
