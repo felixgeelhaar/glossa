@@ -3,4 +3,5 @@ packages:
   - "packages/*"
   - "messageformat/js"
   - "runtimes/js/*"
+  - "runtimes/js/react/react-18"
   - "studio"

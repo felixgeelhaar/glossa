@@ -130,6 +130,9 @@ declare module "@glossa/react" {
   errors or warnings, and the server's DOM nodes are kept.
 - The SPEC scenario and loading fixtures run through React too: every case
   is read from the DOM of a mounted component, as `t()` and as `<T>`.
+- The whole suite runs on React 19 and again on React 18.3
+  ([`react-18/`](./react-18), a test-only workspace package, since pnpm would
+  otherwise link an aliased `react-dom@18` to React 19).
 
 ## Atlassian Forge and Tauri
 
