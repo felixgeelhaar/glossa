@@ -206,12 +206,15 @@ importers:
 
   runtimes/js/runtime:
     devDependencies:
+      '@glossa/messageformat':
+        specifier: workspace:*
+        version: link:../../../messageformat/js
       '@size-limit/preset-small-lib':
         specifier: ^11.0.0
         version: 11.2.0(size-limit@11.2.0)
-      messageformat:
-        specifier: 4.0.0
-        version: 4.0.0
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.19
       size-limit:
         specifier: ^11.0.0
         version: 11.2.0
