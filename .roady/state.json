@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 84,
+  "version": 85,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -337,11 +337,15 @@
       "elapsed_minutes": 56
     },
     "task-m1-studio": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "Studio v0: auth (magic link/passkeys/password+TOTP), projects, locales + fallback graph, keyboard-first translator workspace with live MF2 preview and QA, Releases (environments, publish/promote/rollback, diffs, history) and delivery keys with runtime snippets; 175 unit tests, Playwright e2e vs real server incl. release loop, axe clean, 87 kB gzip"
+      ],
       "started_at": "2026-09-19T13:24:56.123664+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T14:08:44.173248+02:00",
+      "elapsed_minutes": 43
     },
     "task-m2-knowledge-ai": {
       "status": "pending",
@@ -457,5 +461,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T13:55:12.95844+02:00"
+  "updated_at": "2026-09-19T14:08:44.173249+02:00"
 }
