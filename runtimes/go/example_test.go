@@ -187,3 +187,35 @@ func ExampleLocalizer_Explain() {
 	//   ]
 	// }
 }
+
+// A translation's markup renders as safe HTML: only allow-listed tags
+// become (attribute-free) elements, so the link in the message stays
+// text. In templates, the same function is th.
+func ExampleLocalizer_HTML() {
+	client := newExampleClient()
+	defer client.Close()
+
+	fmt.Println(client.For("en").HTML("invoice.terms", glossa.Args{"days": 14}))
+	// Output:
+	// Pay within <b>14 days</b>.<br><i>Questions?</i> Ask <u>us</u>.
+}
+
+// Runs carry fpdf's font styles, so a PDF renderer needs no markup
+// parser. Keep isolation marks out of left-to-right documents.
+func ExampleLocalizer_Runs() {
+	client := newExampleClient()
+	defer client.Close()
+
+	for _, r := range client.For("en").Runs("invoice.terms", glossa.Args{"days": 14}, glossa.BidiIsolation(false)) {
+		// pdf.SetFont("NotoSans", r.Style(), 10); pdf.Write(5, r.Text)
+		fmt.Printf("%-2s %q\n", r.Style(), r.Text)
+	}
+	// Output:
+	//    "Pay within "
+	// B  "14 days"
+	//    ".\n"
+	// I  "Questions?"
+	//    " Ask "
+	// U  "us"
+	//    "."
+}

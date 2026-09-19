@@ -50,8 +50,8 @@
 //
 // # Templates
 //
-// [Localizer.FuncMap] provides t, td, lang and dir for html/template and
-// text/template. Parse email templates once with [TemplateFuncs], then
+// [Localizer.FuncMap] provides t, td, th, lang and dir for html/template
+// and text/template. Parse email templates once with [TemplateFuncs], then
 // bind the recipient's locale on a clone:
 //
 //	var welcome = template.Must(template.New("welcome").Funcs(glossa.TemplateFuncs()).Parse(`
@@ -66,6 +66,18 @@
 //		err := tmpl.Funcs(client.For(u.Locale).FuncMap()).Execute(&b, u)
 //		return b.String(), err
 //	}
+//
+// # Markup and documents
+//
+// T renders MF2 markup ({#b}…{/b}) as nothing. [Localizer.Parts] keeps
+// it: text, markup, placeholder values and fallbacks, with the same
+// resolution and fallbacks as T. On top of the parts, [Localizer.HTML]
+// (the template function th) renders safe HTML, with the rules of
+// @glossa/elements: only allow-listed inline tags become elements, markup
+// options are always dropped (a translation can't add a link), and other
+// markup keeps only its text. [Localizer.Runs] renders text runs with
+// bold, italic and underline flags, whose [Run.Style] is fpdf's SetFont
+// style; the runtime itself has no PDF dependency.
 //
 // For CLI output, [EnvLocales] reads the user's locale from the POSIX
 // environment and [BidiIsolation](false) keeps isolation marks out of the

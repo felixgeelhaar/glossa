@@ -19,6 +19,8 @@ var exampleBundle = map[string]map[string]string{
 		"cli.sync.done":   "Synced {$count :integer} items in {$seconds :number maximumFractionDigits=1}s",
 		"greeting":        "Hello!",
 		"invoice.overdue": "Invoice {$number} is overdue.",
+		"invoice.terms": "Pay within {#b}{$days :integer} days{/b}.{#br/}" +
+			"{#link href=|https://example.com/help|}{#i}Questions?{/i} Ask {#u}us{/u}.{/link}",
 	},
 	"de": {
 		"email.welcome.subject": "Willkommen bei Brotwerk, {$name}!",
