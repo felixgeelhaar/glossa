@@ -1351,6 +1351,18 @@ type AIConfidenceFactor struct {
 	Value  float64 `json:"value"`
 }
 
+// AICostEstimate defines model for AICostEstimate.
+type AICostEstimate struct {
+	// EstimatedMicroUsd Money in millionths of a US dollar (1 USD = 1000000).
+	EstimatedMicroUsd MicroUSD `json:"estimated_micro_usd"`
+
+	// MaxMicroUsd Money in millionths of a US dollar (1 USD = 1000000).
+	MaxMicroUsd MicroUSD `json:"max_micro_usd"`
+
+	// Unpriced A route's model has no price; its calls count as 0.
+	Unpriced bool `json:"unpriced"`
+}
+
 // AIDecision defines model for AIDecision.
 type AIDecision struct {
 	Edit   *AIEditDiff `json:"edit,omitempty"`
@@ -1466,6 +1478,51 @@ type AIFill struct {
 
 // AIFillTrigger defines model for AIFill.Trigger.
 type AIFillTrigger string
+
+// AIFillPreview defines model for AIFillPreview.
+type AIFillPreview struct {
+	Cost    AICostEstimate        `json:"cost"`
+	Locales []AIFillPreviewLocale `json:"locales"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+
+	// Select The effective selection.
+	Select AIFillSelect `json:"select"`
+
+	// Warnings As a fill's: `provider_consent_off`, `no_budget`, `no_provider`.
+	Warnings []string `json:"warnings"`
+}
+
+// AIFillPreviewLocale defines model for AIFillPreviewLocale.
+type AIFillPreviewLocale struct {
+	Cost AICostEstimate `json:"cost"`
+
+	// Existing Jobs that exist and would be reused, not run again.
+	Existing int `json:"existing"`
+
+	// Keys The messages a fill would queue (or reuse) a job for, in key order.
+	Keys []MessageKey `json:"keys"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// Provider Messages that would call a provider.
+	Provider int `json:"provider"`
+
+	// Refused Messages that would not reach a provider, by reason: `sensitive` (never queued), `provider_consent`, `no_route`, `budget_exceeded` (queued, then failing).
+	Refused map[string]int `json:"refused"`
+
+	// Skipped Messages left out, by reason: `up_to_date`, `not_selected`, `limit`.
+	Skipped map[string]int `json:"skipped"`
+
+	// TmExact Messages an exact translation-memory match covers: no provider call.
+	TmExact int `json:"tm_exact"`
+}
 
 // AIFillSelect Which messages a fill translates, by their translation's state in each locale: `missing` (none, or rejected), `outdated` (made against an older source revision) or either.
 type AIFillSelect string
@@ -5060,6 +5117,9 @@ type CreateProjectJSONRequestBody = CreateProject
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProject
 
+// PreviewAIFillJSONRequestBody defines body for PreviewAIFill for application/json ContentType.
+type PreviewAIFillJSONRequestBody = CreateAIFill
+
 // CreateAIFillJSONRequestBody defines body for CreateAIFill for application/json ContentType.
 type CreateAIFillJSONRequestBody = CreateAIFill
 
@@ -6368,6 +6428,62 @@ type ClientInterface interface {
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project} (the `UpdateProject` operationId).
 	UpdateProject(ctx context.Context, tenant TenantPath, project ProjectPath, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PreviewAIFillWithBody What a fill would do, without doing it (`glossa translate --dry-run`)
+	//
+	// Takes a fill request and answers, per locale, what `POST
+	// …/ai-fills` would do with it, writing nothing — no fill, no job,
+	// no translation-memory hit count, no spend, no event. The same
+	// checks, selection and limits apply; then each message is decided
+	// the way its job would be: `existing` jobs (queued, running or
+	// finished) are reused, `tm_exact` messages have an exact
+	// translation-memory match that is reused without a provider call
+	// (when it validates), and the rest either call a provider
+	// (`provider`, priced in `cost`) or are `refused` —
+	// `sensitive` (never queued), `provider_consent`, `no_route` (no
+	// route to an enabled provider allowing the model) or
+	// `budget_exceeded` (this month's spend plus the calls before it
+	// leave no room for the call's upper bound). `cost` uses the price
+	// table in effect: `estimated_micro_usd` expects one draft and one
+	// self-assessment per message (prompts at about three characters a
+	// token, a draft twice its source); `max_micro_usd` is the bound
+	// the budget guard reserves (every repair, each call's whole
+	// `max_tokens`); `unpriced` flags a model without a price. Needs
+	// `intelligence.translate` for every locale. Problem codes: those
+	// of `createAIFill`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews (the `PreviewAIFill` operationId).
+	PreviewAIFillWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewAIFill What a fill would do, without doing it (`glossa translate --dry-run`)
+	//
+	// Takes a fill request and answers, per locale, what `POST
+	// …/ai-fills` would do with it, writing nothing — no fill, no job,
+	// no translation-memory hit count, no spend, no event. The same
+	// checks, selection and limits apply; then each message is decided
+	// the way its job would be: `existing` jobs (queued, running or
+	// finished) are reused, `tm_exact` messages have an exact
+	// translation-memory match that is reused without a provider call
+	// (when it validates), and the rest either call a provider
+	// (`provider`, priced in `cost`) or are `refused` —
+	// `sensitive` (never queued), `provider_consent`, `no_route` (no
+	// route to an enabled provider allowing the model) or
+	// `budget_exceeded` (this month's spend plus the calls before it
+	// leave no room for the call's upper bound). `cost` uses the price
+	// table in effect: `estimated_micro_usd` expects one draft and one
+	// self-assessment per message (prompts at about three characters a
+	// token, a draft twice its source); `max_micro_usd` is the bound
+	// the budget guard reserves (every repair, each call's whole
+	// `max_tokens`); `unpriced` flags a model without a price. Needs
+	// `intelligence.translate` for every locale. Problem codes: those
+	// of `createAIFill`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews (the `PreviewAIFill` operationId).
+	PreviewAIFill(ctx context.Context, tenant TenantPath, project ProjectPath, body PreviewAIFillJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateAIFillWithBody Fill locales with AI ("Fill with AI", `glossa translate`)
 	//
 	// Queues one job per message whose translation in each locale is
@@ -6386,7 +6502,8 @@ type ClientInterface interface {
 	// existing one is reused (`jobs_existing`), a failed, dead or
 	// cancelled one queued again. `warnings` say when jobs will do
 	// little: consent off (only exact translation-memory matches are
-	// reused), no budget, no provider. Needs
+	// reused), no budget, no provider. `POST …/ai-fill-previews`
+	// answers what a fill would do without queueing anything. Needs
 	// `intelligence.translate` for every locale. Problem codes:
 	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
 	// `invalid_query` (an unknown `select`, or one `include_outdated`
@@ -6415,7 +6532,8 @@ type ClientInterface interface {
 	// existing one is reused (`jobs_existing`), a failed, dead or
 	// cancelled one queued again. `warnings` say when jobs will do
 	// little: consent off (only exact translation-memory matches are
-	// reused), no budget, no provider. Needs
+	// reused), no budget, no provider. `POST …/ai-fill-previews`
+	// answers what a fill would do without queueing anything. Needs
 	// `intelligence.translate` for every locale. Problem codes:
 	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
 	// `invalid_query` (an unknown `select`, or one `include_outdated`
@@ -9752,6 +9870,82 @@ func (c *Client) UpdateProject(ctx context.Context, tenant TenantPath, project P
 	return c.Client.Do(req)
 }
 
+// PreviewAIFillWithBody What a fill would do, without doing it (`glossa translate --dry-run`)
+//
+// Takes a fill request and answers, per locale, what `POST
+// …/ai-fills` would do with it, writing nothing — no fill, no job,
+// no translation-memory hit count, no spend, no event. The same
+// checks, selection and limits apply; then each message is decided
+// the way its job would be: `existing` jobs (queued, running or
+// finished) are reused, `tm_exact` messages have an exact
+// translation-memory match that is reused without a provider call
+// (when it validates), and the rest either call a provider
+// (`provider`, priced in `cost`) or are `refused` —
+// `sensitive` (never queued), `provider_consent`, `no_route` (no
+// route to an enabled provider allowing the model) or
+// `budget_exceeded` (this month's spend plus the calls before it
+// leave no room for the call's upper bound). `cost` uses the price
+// table in effect: `estimated_micro_usd` expects one draft and one
+// self-assessment per message (prompts at about three characters a
+// token, a draft twice its source); `max_micro_usd` is the bound
+// the budget guard reserves (every repair, each call's whole
+// `max_tokens`); `unpriced` flags a model without a price. Needs
+// `intelligence.translate` for every locale. Problem codes: those
+// of `createAIFill`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews (the `PreviewAIFill` operationId).
+func (c *Client) PreviewAIFillWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewAIFillRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewAIFill What a fill would do, without doing it (`glossa translate --dry-run`)
+//
+// Takes a fill request and answers, per locale, what `POST
+// …/ai-fills` would do with it, writing nothing — no fill, no job,
+// no translation-memory hit count, no spend, no event. The same
+// checks, selection and limits apply; then each message is decided
+// the way its job would be: `existing` jobs (queued, running or
+// finished) are reused, `tm_exact` messages have an exact
+// translation-memory match that is reused without a provider call
+// (when it validates), and the rest either call a provider
+// (`provider`, priced in `cost`) or are `refused` —
+// `sensitive` (never queued), `provider_consent`, `no_route` (no
+// route to an enabled provider allowing the model) or
+// `budget_exceeded` (this month's spend plus the calls before it
+// leave no room for the call's upper bound). `cost` uses the price
+// table in effect: `estimated_micro_usd` expects one draft and one
+// self-assessment per message (prompts at about three characters a
+// token, a draft twice its source); `max_micro_usd` is the bound
+// the budget guard reserves (every repair, each call's whole
+// `max_tokens`); `unpriced` flags a model without a price. Needs
+// `intelligence.translate` for every locale. Problem codes: those
+// of `createAIFill`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews (the `PreviewAIFill` operationId).
+func (c *Client) PreviewAIFill(ctx context.Context, tenant TenantPath, project ProjectPath, body PreviewAIFillJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewAIFillRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CreateAIFillWithBody Fill locales with AI ("Fill with AI", `glossa translate`)
 //
 // Queues one job per message whose translation in each locale is
@@ -9770,7 +9964,8 @@ func (c *Client) UpdateProject(ctx context.Context, tenant TenantPath, project P
 // existing one is reused (`jobs_existing`), a failed, dead or
 // cancelled one queued again. `warnings` say when jobs will do
 // little: consent off (only exact translation-memory matches are
-// reused), no budget, no provider. Needs
+// reused), no budget, no provider. `POST …/ai-fill-previews`
+// answers what a fill would do without queueing anything. Needs
 // `intelligence.translate` for every locale. Problem codes:
 // `too_many_locales`, `too_many_keys`, `invalid_locale`,
 // `invalid_query` (an unknown `select`, or one `include_outdated`
@@ -9809,7 +10004,8 @@ func (c *Client) CreateAIFillWithBody(ctx context.Context, tenant TenantPath, pr
 // existing one is reused (`jobs_existing`), a failed, dead or
 // cancelled one queued again. `warnings` say when jobs will do
 // little: consent off (only exact translation-memory matches are
-// reused), no budget, no provider. Needs
+// reused), no budget, no provider. `POST …/ai-fill-previews`
+// answers what a fill would do without queueing anything. Needs
 // `intelligence.translate` for every locale. Problem codes:
 // `too_many_locales`, `too_many_keys`, `invalid_locale`,
 // `invalid_query` (an unknown `select`, or one `include_outdated`
@@ -15833,6 +16029,60 @@ func NewUpdateProjectRequestWithBody(server string, tenant TenantPath, project P
 		req.Header.Set("If-Match", headerParam0)
 
 	}
+
+	return req, nil
+}
+
+// NewPreviewAIFillRequest calls the generic PreviewAIFill builder with application/json body
+func NewPreviewAIFillRequest(server string, tenant TenantPath, project ProjectPath, body PreviewAIFillJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewAIFillRequestWithBody(server, tenant, project, "application/json", bodyReader)
+}
+
+// NewPreviewAIFillRequestWithBody constructs an http.Request for the PreviewAIFill method, with any body, and a specified content type
+func NewPreviewAIFillRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/ai-fill-previews", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -22301,6 +22551,62 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project} (the `UpdateProject` operationId).
 	UpdateProjectWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
 
+	// PreviewAIFillWithBodyWithResponse What a fill would do, without doing it (`glossa translate --dry-run`)
+	//
+	// Takes a fill request and answers, per locale, what `POST
+	// …/ai-fills` would do with it, writing nothing — no fill, no job,
+	// no translation-memory hit count, no spend, no event. The same
+	// checks, selection and limits apply; then each message is decided
+	// the way its job would be: `existing` jobs (queued, running or
+	// finished) are reused, `tm_exact` messages have an exact
+	// translation-memory match that is reused without a provider call
+	// (when it validates), and the rest either call a provider
+	// (`provider`, priced in `cost`) or are `refused` —
+	// `sensitive` (never queued), `provider_consent`, `no_route` (no
+	// route to an enabled provider allowing the model) or
+	// `budget_exceeded` (this month's spend plus the calls before it
+	// leave no room for the call's upper bound). `cost` uses the price
+	// table in effect: `estimated_micro_usd` expects one draft and one
+	// self-assessment per message (prompts at about three characters a
+	// token, a draft twice its source); `max_micro_usd` is the bound
+	// the budget guard reserves (every repair, each call's whole
+	// `max_tokens`); `unpriced` flags a model without a price. Needs
+	// `intelligence.translate` for every locale. Problem codes: those
+	// of `createAIFill`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews (the `PreviewAIFill` operationId).
+	PreviewAIFillWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewAIFillResponse, error)
+
+	// PreviewAIFillWithResponse What a fill would do, without doing it (`glossa translate --dry-run`)
+	//
+	// Takes a fill request and answers, per locale, what `POST
+	// …/ai-fills` would do with it, writing nothing — no fill, no job,
+	// no translation-memory hit count, no spend, no event. The same
+	// checks, selection and limits apply; then each message is decided
+	// the way its job would be: `existing` jobs (queued, running or
+	// finished) are reused, `tm_exact` messages have an exact
+	// translation-memory match that is reused without a provider call
+	// (when it validates), and the rest either call a provider
+	// (`provider`, priced in `cost`) or are `refused` —
+	// `sensitive` (never queued), `provider_consent`, `no_route` (no
+	// route to an enabled provider allowing the model) or
+	// `budget_exceeded` (this month's spend plus the calls before it
+	// leave no room for the call's upper bound). `cost` uses the price
+	// table in effect: `estimated_micro_usd` expects one draft and one
+	// self-assessment per message (prompts at about three characters a
+	// token, a draft twice its source); `max_micro_usd` is the bound
+	// the budget guard reserves (every repair, each call's whole
+	// `max_tokens`); `unpriced` flags a model without a price. Needs
+	// `intelligence.translate` for every locale. Problem codes: those
+	// of `createAIFill`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews (the `PreviewAIFill` operationId).
+	PreviewAIFillWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body PreviewAIFillJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewAIFillResponse, error)
+
 	// CreateAIFillWithBodyWithResponse Fill locales with AI ("Fill with AI", `glossa translate`)
 	//
 	// Queues one job per message whose translation in each locale is
@@ -22319,7 +22625,8 @@ type ClientWithResponsesInterface interface {
 	// existing one is reused (`jobs_existing`), a failed, dead or
 	// cancelled one queued again. `warnings` say when jobs will do
 	// little: consent off (only exact translation-memory matches are
-	// reused), no budget, no provider. Needs
+	// reused), no budget, no provider. `POST …/ai-fill-previews`
+	// answers what a fill would do without queueing anything. Needs
 	// `intelligence.translate` for every locale. Problem codes:
 	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
 	// `invalid_query` (an unknown `select`, or one `include_outdated`
@@ -22348,7 +22655,8 @@ type ClientWithResponsesInterface interface {
 	// existing one is reused (`jobs_existing`), a failed, dead or
 	// cancelled one queued again. `warnings` say when jobs will do
 	// little: consent off (only exact translation-memory matches are
-	// reused), no budget, no provider. Needs
+	// reused), no budget, no provider. `POST …/ai-fill-previews`
+	// answers what a fill would do without queueing anything. Needs
 	// `intelligence.translate` for every locale. Problem codes:
 	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
 	// `invalid_query` (an unknown `select`, or one `include_outdated`
@@ -28323,6 +28631,75 @@ func (r UpdateProjectResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewAIFillResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AIFillPreview
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewAIFillResponse) GetJSON200() *AIFillPreview {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r PreviewAIFillResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PreviewAIFillResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PreviewAIFillResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r PreviewAIFillResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewAIFillResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewAIFillResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewAIFillResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewAIFillResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -35794,6 +36171,74 @@ func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, ten
 	return ParseUpdateProjectResponse(rsp)
 }
 
+// PreviewAIFillWithBodyWithResponse What a fill would do, without doing it (`glossa translate --dry-run`)
+//
+// Takes a fill request and answers, per locale, what `POST
+// …/ai-fills` would do with it, writing nothing — no fill, no job,
+// no translation-memory hit count, no spend, no event. The same
+// checks, selection and limits apply; then each message is decided
+// the way its job would be: `existing` jobs (queued, running or
+// finished) are reused, `tm_exact` messages have an exact
+// translation-memory match that is reused without a provider call
+// (when it validates), and the rest either call a provider
+// (`provider`, priced in `cost`) or are `refused` —
+// `sensitive` (never queued), `provider_consent`, `no_route` (no
+// route to an enabled provider allowing the model) or
+// `budget_exceeded` (this month's spend plus the calls before it
+// leave no room for the call's upper bound). `cost` uses the price
+// table in effect: `estimated_micro_usd` expects one draft and one
+// self-assessment per message (prompts at about three characters a
+// token, a draft twice its source); `max_micro_usd` is the bound
+// the budget guard reserves (every repair, each call's whole
+// `max_tokens`); `unpriced` flags a model without a price. Needs
+// `intelligence.translate` for every locale. Problem codes: those
+// of `createAIFill`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews (the `PreviewAIFill` operationId).
+func (c *ClientWithResponses) PreviewAIFillWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewAIFillResponse, error) {
+	rsp, err := c.PreviewAIFillWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewAIFillResponse(rsp)
+}
+
+// PreviewAIFillWithResponse What a fill would do, without doing it (`glossa translate --dry-run`)
+//
+// Takes a fill request and answers, per locale, what `POST
+// …/ai-fills` would do with it, writing nothing — no fill, no job,
+// no translation-memory hit count, no spend, no event. The same
+// checks, selection and limits apply; then each message is decided
+// the way its job would be: `existing` jobs (queued, running or
+// finished) are reused, `tm_exact` messages have an exact
+// translation-memory match that is reused without a provider call
+// (when it validates), and the rest either call a provider
+// (`provider`, priced in `cost`) or are `refused` —
+// `sensitive` (never queued), `provider_consent`, `no_route` (no
+// route to an enabled provider allowing the model) or
+// `budget_exceeded` (this month's spend plus the calls before it
+// leave no room for the call's upper bound). `cost` uses the price
+// table in effect: `estimated_micro_usd` expects one draft and one
+// self-assessment per message (prompts at about three characters a
+// token, a draft twice its source); `max_micro_usd` is the bound
+// the budget guard reserves (every repair, each call's whole
+// `max_tokens`); `unpriced` flags a model without a price. Needs
+// `intelligence.translate` for every locale. Problem codes: those
+// of `createAIFill`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews (the `PreviewAIFill` operationId).
+func (c *ClientWithResponses) PreviewAIFillWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body PreviewAIFillJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewAIFillResponse, error) {
+	rsp, err := c.PreviewAIFill(ctx, tenant, project, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewAIFillResponse(rsp)
+}
+
 // CreateAIFillWithBodyWithResponse Fill locales with AI ("Fill with AI", `glossa translate`)
 //
 // Queues one job per message whose translation in each locale is
@@ -35812,7 +36257,8 @@ func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, ten
 // existing one is reused (`jobs_existing`), a failed, dead or
 // cancelled one queued again. `warnings` say when jobs will do
 // little: consent off (only exact translation-memory matches are
-// reused), no budget, no provider. Needs
+// reused), no budget, no provider. `POST …/ai-fill-previews`
+// answers what a fill would do without queueing anything. Needs
 // `intelligence.translate` for every locale. Problem codes:
 // `too_many_locales`, `too_many_keys`, `invalid_locale`,
 // `invalid_query` (an unknown `select`, or one `include_outdated`
@@ -35847,7 +36293,8 @@ func (c *ClientWithResponses) CreateAIFillWithBodyWithResponse(ctx context.Conte
 // existing one is reused (`jobs_existing`), a failed, dead or
 // cancelled one queued again. `warnings` say when jobs will do
 // little: consent off (only exact translation-memory matches are
-// reused), no budget, no provider. Needs
+// reused), no budget, no provider. `POST …/ai-fill-previews`
+// answers what a fill would do without queueing anything. Needs
 // `intelligence.translate` for every locale. Problem codes:
 // `too_many_locales`, `too_many_keys`, `invalid_locale`,
 // `invalid_query` (an unknown `select`, or one `include_outdated`
@@ -41687,6 +42134,60 @@ func ParseUpdateProjectResponse(rsp *http.Response) (*UpdateProjectResponse, err
 			headers.ETag = &value
 		}
 		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParsePreviewAIFillResponse parses an HTTP response from a PreviewAIFillWithResponse call
+func ParsePreviewAIFillResponse(rsp *http.Response) (*PreviewAIFillResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewAIFillResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIFillPreview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
 	}
 
 	return response, nil

@@ -249,6 +249,24 @@ func toFill(r app.FillResult) apiv1.AIFill {
 	return out
 }
 
+func toCost(c app.CostEstimate) apiv1.AICostEstimate {
+	return apiv1.AICostEstimate{EstimatedMicroUsd: apiv1.MicroUSD(c.Estimated), MaxMicroUsd: apiv1.MicroUSD(c.Max), Unpriced: c.Unpriced}
+}
+
+func toFillPreview(p app.FillPreview) apiv1.AIFillPreview {
+	out := apiv1.AIFillPreview{
+		ProjectId: p.ProjectID.String(), Select: apiv1.AIFillSelect(p.Select), Warnings: nonNil(p.Warnings),
+		Locales: make([]apiv1.AIFillPreviewLocale, len(p.Locales)), Cost: toCost(p.Cost),
+	}
+	for i, l := range p.Locales {
+		out.Locales[i] = apiv1.AIFillPreviewLocale{
+			Locale: l.Locale, Keys: nonNil(l.Keys), Existing: l.Existing, TmExact: l.TMExact, Provider: l.Provider,
+			Refused: l.Refused, Skipped: l.Skipped, Cost: toCost(l.Cost),
+		}
+	}
+	return out
+}
+
 func toJob(j domain.Job, audit json.RawMessage) apiv1.AIJob {
 	out := apiv1.AIJob{
 		Id: j.ID.String(), ProjectId: j.ProjectID.String(), MessageId: j.MessageID.String(), MessageKey: j.MessageKey,

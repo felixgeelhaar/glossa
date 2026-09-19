@@ -96,6 +96,41 @@ func TestIntelligenceOverHTTP(t *testing.T) {
 	s.do(owner(call{method: "POST", path: p + "/ai-fills", body: map[string]any{
 		"locales": []string{"fr"}, "select": "missing", "include_outdated": true,
 	}})).want(t, http.StatusBadRequest, "invalid_query")
+
+	// The preview says it first, and queues nothing.
+	var pv struct {
+		Select  string `json:"select"`
+		Locales []struct {
+			Locale   string         `json:"locale"`
+			Keys     []string       `json:"keys"`
+			TMExact  int            `json:"tm_exact"`
+			Provider int            `json:"provider"`
+			Refused  map[string]int `json:"refused"`
+		} `json:"locales"`
+		Warnings []string `json:"warnings"`
+		Cost     struct {
+			Estimated int64 `json:"estimated_micro_usd"`
+		} `json:"cost"`
+	}
+	r = s.do(owner(call{method: "POST", path: p + "/ai-fill-previews", body: map[string]any{
+		"locales": []string{"fr"}, "keys": []string{"order.pay", "checkout.total"},
+	}}))
+	r.want(t, http.StatusOK, "")
+	r.decode(t, &pv)
+	if pv.Select != "missing_or_outdated" || len(pv.Locales) != 1 || strings.Join(pv.Locales[0].Keys, ",") != "checkout.total,order.pay" ||
+		pv.Locales[0].TMExact != 1 || pv.Locales[0].Refused["provider_consent"] != 1 || pv.Cost.Estimated != 0 {
+		t.Fatalf("preview = %s", r.body)
+	}
+	var none struct {
+		Items []aiJob `json:"items"`
+	}
+	s.do(call{method: "GET", path: base + "/ai-jobs", bearer: tp.token}).decode(t, &none)
+	if len(none.Items) != 0 {
+		t.Fatalf("the preview queued jobs: %+v", none.Items)
+	}
+	s.do(owner(call{method: "POST", path: p + "/ai-fill-previews", body: map[string]any{
+		"locales": []string{"ja"},
+	}})).want(t, http.StatusNotFound, "locale_not_found")
 	r = s.do(owner(call{method: "POST", path: p + "/ai-fills", body: map[string]any{
 		"locales": []string{"fr"}, "keys": []string{"order.pay", "checkout.total"},
 	}, headers: map[string]string{"Idempotency-Key": "fill-fr-1"}}))

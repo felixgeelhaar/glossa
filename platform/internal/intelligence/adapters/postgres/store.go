@@ -455,6 +455,22 @@ func (s *store) EnqueueJob(ctx context.Context, j domain.Job, requeue bool) (dom
 	return job(r).Job, created, storeError(err)
 }
 
+func (s *store) JobStates(ctx context.Context, jobs []domain.Job) (map[uuid.UUID]domain.JobState, error) {
+	p := intelligencesql.JobStatesByKeyParams{}
+	for _, j := range jobs {
+		p.MessageIds = append(p.MessageIds, j.MessageID)
+		p.Locales = append(p.Locales, j.Locale)
+		p.SourceRevisions = append(p.SourceRevisions, i32(j.SourceRevision))
+		p.Fingerprints = append(p.Fingerprints, j.Fingerprint)
+	}
+	rows, err := s.q.JobStatesByKey(ctx, p)
+	out := make(map[uuid.UUID]domain.JobState, len(rows))
+	for _, r := range rows {
+		out[r.MessageID] = domain.JobState(r.State)
+	}
+	return out, err
+}
+
 func (s *store) Job(ctx context.Context, id uuid.UUID) (app.JobView, error) {
 	r, err := s.q.GetJob(ctx, id)
 	if err != nil {

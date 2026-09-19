@@ -456,6 +456,57 @@ func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
 	return err
 }
 
+const jobStatesByKey = `-- name: JobStatesByKey :many
+SELECT j.message_id, j.locale, j.state
+FROM intelligence_jobs j
+JOIN (SELECT unnest($1::uuid[]) AS message_id, unnest($2::text[]) AS locale,
+             unnest($3::int[]) AS source_revision,
+             unnest($4::text[]) AS fingerprint) AS k
+  ON j.message_id = k.message_id AND j.locale = k.locale AND j.source_revision = k.source_revision
+ AND j.knowledge_fingerprint = k.fingerprint
+`
+
+type JobStatesByKeyParams struct {
+	MessageIds      []uuid.UUID
+	Locales         []string
+	SourceRevisions []int32
+	Fingerprints    []string
+}
+
+type JobStatesByKeyRow struct {
+	MessageID uuid.UUID
+	Locale    string
+	State     string
+}
+
+// The state of each job that exists for one of the given keys (message,
+// locale, source revision, knowledge fingerprint): a fill preview's
+// "already queued or done", in one round trip per page.
+func (q *Queries) JobStatesByKey(ctx context.Context, arg JobStatesByKeyParams) ([]JobStatesByKeyRow, error) {
+	rows, err := q.db.Query(ctx, jobStatesByKey,
+		arg.MessageIds,
+		arg.Locales,
+		arg.SourceRevisions,
+		arg.Fingerprints,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []JobStatesByKeyRow
+	for rows.Next() {
+		var i JobStatesByKeyRow
+		if err := rows.Scan(&i.MessageID, &i.Locale, &i.State); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listJobs = `-- name: ListJobs :many
 SELECT id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision, knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at, claim_token, failure_code, last_error, suggestion_id, audit, created_by, created_at, started_at, finished_at, updated_at FROM intelligence_jobs
 WHERE ($1::uuid IS NULL OR project_id = $1::uuid)

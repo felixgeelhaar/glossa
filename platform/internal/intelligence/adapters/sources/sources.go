@@ -308,10 +308,14 @@ func (k *Knowledge) LookupTM(ctx context.Context, scope domain.Scope, q domain.T
 	if limit <= 0 {
 		limit = knowledgeapp.DefaultTMLimit
 	}
-	matches, err := k.svc.LookupTM(ctx, knowledgeapp.TMQuery{
+	tq := knowledgeapp.TMQuery{
 		ProjectID: project, SourceLocale: src, TargetLocale: tgt, Source: msg, MessageKey: q.Key, Namespace: q.Namespace,
-		Limit: limit, CountHits: true,
-	})
+		Limit: limit, CountHits: !q.Uncounted,
+	}
+	if q.ExactOnly {
+		tq.MinScore = knowledgedomain.ScoreExact
+	}
+	matches, err := k.svc.LookupTM(ctx, tq)
 	if err != nil {
 		return nil, err
 	}

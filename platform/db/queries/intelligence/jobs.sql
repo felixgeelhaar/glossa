@@ -45,6 +45,18 @@ SELECT * FROM intelligence_jobs
 WHERE message_id = sqlc.arg(message_id) AND locale = sqlc.arg(locale)
   AND source_revision = sqlc.arg(source_revision) AND knowledge_fingerprint = sqlc.arg(knowledge_fingerprint);
 
+-- name: JobStatesByKey :many
+-- The state of each job that exists for one of the given keys (message,
+-- locale, source revision, knowledge fingerprint): a fill preview's
+-- "already queued or done", in one round trip per page.
+SELECT j.message_id, j.locale, j.state
+FROM intelligence_jobs j
+JOIN (SELECT unnest(sqlc.arg(message_ids)::uuid[]) AS message_id, unnest(sqlc.arg(locales)::text[]) AS locale,
+             unnest(sqlc.arg(source_revisions)::int[]) AS source_revision,
+             unnest(sqlc.arg(fingerprints)::text[]) AS fingerprint) AS k
+  ON j.message_id = k.message_id AND j.locale = k.locale AND j.source_revision = k.source_revision
+ AND j.knowledge_fingerprint = k.fingerprint;
+
 -- name: GetJob :one
 SELECT * FROM intelligence_jobs WHERE id = sqlc.arg(id);
 

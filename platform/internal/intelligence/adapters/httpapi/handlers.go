@@ -283,19 +283,34 @@ func (a *API) PutProjectAISettings(ctx context.Context, req apiv1.PutProjectAISe
 
 // ── fills and jobs ───────────────────────────────────────────────────
 
-func (a *API) CreateAIFill(ctx context.Context, req apiv1.CreateAIFillRequestObject) (apiv1.CreateAIFillResponseObject, error) {
-	project, err := pathID(req.Project)
-	if err != nil {
-		return nil, err
-	}
-	b := req.Body
-	res, replayed, err := a.svc.RequestFill(ctx, project, app.FillRequest{
+func fillRequest(b *apiv1.CreateAIFill) app.FillRequest {
+	return app.FillRequest{
 		Locales: b.Locales,
 		Filter: app.FillFilter{
 			Namespace: deref(b.Namespace), KeyPrefix: deref(b.KeyPrefix), Keys: deref(b.Keys), IncludeOutdated: deref(b.IncludeOutdated),
 			Select: app.FillSelect(deref(b.Select)),
 		},
-	}, deref(req.Params.IdempotencyKey))
+	}
+}
+
+func (a *API) PreviewAIFill(ctx context.Context, req apiv1.PreviewAIFillRequestObject) (apiv1.PreviewAIFillResponseObject, error) {
+	project, err := pathID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	pv, err := a.svc.PreviewFill(ctx, project, fillRequest(req.Body))
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return apiv1.PreviewAIFill200JSONResponse(toFillPreview(pv)), nil
+}
+
+func (a *API) CreateAIFill(ctx context.Context, req apiv1.CreateAIFillRequestObject) (apiv1.CreateAIFillResponseObject, error) {
+	project, err := pathID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	res, replayed, err := a.svc.RequestFill(ctx, project, fillRequest(req.Body), deref(req.Params.IdempotencyKey))
 	if err != nil {
 		return nil, mapError(err)
 	}

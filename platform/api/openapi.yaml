@@ -3741,7 +3741,8 @@ paths:
         existing one is reused (`jobs_existing`), a failed, dead or
         cancelled one queued again. `warnings` say when jobs will do
         little: consent off (only exact translation-memory matches are
-        reused), no budget, no provider. Needs
+        reused), no budget, no provider. `POST …/ai-fill-previews`
+        answers what a fill would do without queueing anything. Needs
         `intelligence.translate` for every locale. Problem codes:
         `too_many_locales`, `too_many_keys`, `invalid_locale`,
         `invalid_query` (an unknown `select`, or one `include_outdated`
@@ -3771,6 +3772,55 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/projects/{project}/ai-fill-previews:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    post:
+      operationId: previewAIFill
+      tags: [ai-jobs]
+      summary: What a fill would do, without doing it (`glossa translate --dry-run`)
+      description: |
+        Takes a fill request and answers, per locale, what `POST
+        …/ai-fills` would do with it, writing nothing — no fill, no job,
+        no translation-memory hit count, no spend, no event. The same
+        checks, selection and limits apply; then each message is decided
+        the way its job would be: `existing` jobs (queued, running or
+        finished) are reused, `tm_exact` messages have an exact
+        translation-memory match that is reused without a provider call
+        (when it validates), and the rest either call a provider
+        (`provider`, priced in `cost`) or are `refused` —
+        `sensitive` (never queued), `provider_consent`, `no_route` (no
+        route to an enabled provider allowing the model) or
+        `budget_exceeded` (this month's spend plus the calls before it
+        leave no room for the call's upper bound). `cost` uses the price
+        table in effect: `estimated_micro_usd` expects one draft and one
+        self-assessment per message (prompts at about three characters a
+        token, a draft twice its source); `max_micro_usd` is the bound
+        the budget guard reserves (every repair, each call's whole
+        `max_tokens`); `unpriced` flags a model without a price. Needs
+        `intelligence.translate` for every locale. Problem codes: those
+        of `createAIFill`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateAIFill" }
+      responses:
+        "200":
+          description: What the fill would do.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIFillPreview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/tenants/{tenant}/ai-fills/{ai_fill}:
     parameters:
@@ -6679,6 +6729,46 @@ components:
           items: { type: string }
         requested_by: { type: string }
         created_at: { $ref: "#/components/schemas/Timestamp" }
+    AICostEstimate:
+      type: object
+      required: [estimated_micro_usd, max_micro_usd, unpriced]
+      properties:
+        estimated_micro_usd: { $ref: "#/components/schemas/MicroUSD" }
+        max_micro_usd: { $ref: "#/components/schemas/MicroUSD" }
+        unpriced: { type: boolean, description: "A route's model has no price; its calls count as 0." }
+    AIFillPreviewLocale:
+      type: object
+      required: [locale, keys, existing, tm_exact, provider, refused, skipped, cost]
+      properties:
+        locale: { $ref: "#/components/schemas/Locale" }
+        keys:
+          type: array
+          description: The messages a fill would queue (or reuse) a job for, in key order.
+          items: { $ref: "#/components/schemas/MessageKey" }
+        existing: { type: integer, description: "Jobs that exist and would be reused, not run again." }
+        tm_exact: { type: integer, description: "Messages an exact translation-memory match covers: no provider call." }
+        provider: { type: integer, description: Messages that would call a provider. }
+        refused:
+          type: object
+          description: "Messages that would not reach a provider, by reason: `sensitive` (never queued), `provider_consent`, `no_route`, `budget_exceeded` (queued, then failing)."
+          additionalProperties: { type: integer }
+        skipped:
+          type: object
+          description: "Messages left out, by reason: `up_to_date`, `not_selected`, `limit`."
+          additionalProperties: { type: integer }
+        cost: { $ref: "#/components/schemas/AICostEstimate" }
+    AIFillPreview:
+      type: object
+      required: [project_id, select, locales, warnings, cost]
+      properties:
+        project_id: { $ref: "#/components/schemas/Id" }
+        select: { $ref: "#/components/schemas/AIFillSelect", description: The effective selection. }
+        locales: { type: array, items: { $ref: "#/components/schemas/AIFillPreviewLocale" } }
+        warnings:
+          type: array
+          description: "As a fill's: `provider_consent_off`, `no_budget`, `no_provider`."
+          items: { type: string }
+        cost: { $ref: "#/components/schemas/AICostEstimate" }
     AIAuditEntry:
       type: object
       required: [tool, output, at]

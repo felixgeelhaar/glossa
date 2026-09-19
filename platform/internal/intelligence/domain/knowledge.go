@@ -32,6 +32,11 @@ type TMQuery struct {
 	Key       string `json:"key,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
 	Limit     int    `json:"limit,omitempty"`
+	// ExactOnly leaves fuzzy matches out.
+	ExactOnly bool `json:"exact_only,omitempty"`
+	// Uncounted looks without using: the matches' hit counts stay (a
+	// fill preview).
+	Uncounted bool `json:"uncounted,omitempty"`
 }
 
 // TM match score bands (RFC 0003 §2.1).

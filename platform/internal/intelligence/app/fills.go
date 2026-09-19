@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -58,25 +57,9 @@ type FillResult struct {
 // reused (failed, dead and cancelled ones are queued again). Needs
 // intelligence.translate for every locale.
 func (s *Service) RequestFill(ctx context.Context, project uuid.UUID, req FillRequest, idemKey string) (FillResult, bool, error) {
-	if len(req.Locales) == 0 || len(req.Locales) > MaxFillLocales {
-		return FillResult{}, false, ErrTooManyLocales
-	}
-	if len(req.Filter.Keys) > MaxFillKeys {
-		return FillResult{}, false, ErrTooManyKeys
-	}
-	if err := req.Filter.validate(); err != nil {
-		return FillResult{}, false, err
-	}
-	req.Filter.Select = req.Filter.Selection()
-	locales, err := canonicalLocales(req.Locales)
+	locales, by, err := s.checkFill(ctx, &req)
 	if err != nil {
 		return FillResult{}, false, err
-	}
-	var by string
-	for _, l := range locales {
-		if by, err = actorFor(ctx, authz.IntelligenceTranslate, l); err != nil {
-			return FillResult{}, false, err
-		}
 	}
 	id, err := idempotentID(ctx, "intelligence.fill", by, idemKey)
 	if err != nil {
@@ -89,17 +72,8 @@ func (s *Service) RequestFill(ctx context.Context, project uuid.UUID, req FillRe
 		res, werr := s.fillResult(ctx, prior)
 		return res, found, errors.Join(err, werr)
 	}
-	if _, err := s.Catalog.Project(ctx, project); err != nil {
+	if err := s.checkFillTarget(ctx, project, locales); err != nil {
 		return FillResult{}, false, err
-	}
-	have, err := s.Localization.Locales(ctx, project)
-	if err != nil {
-		return FillResult{}, false, err
-	}
-	for _, l := range locales {
-		if !slices.Contains(have, l) {
-			return FillResult{}, false, fmt.Errorf("%w: %s", ErrLocaleNotFound, l)
-		}
 	}
 	f := Fill{ID: id, ProjectID: project, Trigger: domain.TriggerFill, Locales: locales, Filter: req.Filter, RequestedBy: by, CreatedAt: s.Now()}
 	if err := s.fill(ctx, &f, true); err != nil {
@@ -140,18 +114,26 @@ func (s *Service) fillResult(ctx context.Context, f Fill) (FillResult, error) {
 		if err != nil {
 			return err
 		}
-		if !settings.ProviderConsent {
-			res.Warnings = append(res.Warnings, WarnProviderConsentOff)
-		}
-		if settings.MonthlyBudget == 0 {
-			res.Warnings = append(res.Warnings, WarnNoBudget)
-		}
-		if !slices.ContainsFunc(providers, func(p StoredProvider) bool { return p.Enabled }) {
-			res.Warnings = append(res.Warnings, WarnNoProvider)
-		}
+		res.Warnings = fillWarnings(settings, providers)
 		return nil
 	})
 	return res, err
+}
+
+// fillWarnings say when a fill's jobs will do little: consent off, no
+// budget, no provider.
+func fillWarnings(settings domain.TenantSettings, providers []StoredProvider) []string {
+	var out []string
+	if !settings.ProviderConsent {
+		out = append(out, WarnProviderConsentOff)
+	}
+	if settings.MonthlyBudget == 0 {
+		out = append(out, WarnNoBudget)
+	}
+	if !slices.ContainsFunc(providers, func(p StoredProvider) bool { return p.Enabled }) {
+		out = append(out, WarnNoProvider)
+	}
+	return out
 }
 
 // GetFill returns a fill with its jobs' states. Needs intelligence.read.
@@ -225,7 +207,7 @@ func (s *Service) fill(ctx context.Context, f *Fill, requeue bool) error {
 					continue
 				}
 				if total >= MaxFillJobs {
-					f.Skipped["limit"]++
+					f.Skipped[SkipLimit]++
 					continue
 				}
 				total++

@@ -261,6 +261,9 @@ type Store interface {
 	// queued again. It returns the stored job and whether it is new or
 	// requeued.
 	EnqueueJob(ctx context.Context, j domain.Job, requeue bool) (domain.Job, bool, error)
+	// JobStates returns, by message ID, the state of each job that
+	// exists with one of jobs' idempotency keys (jobs share one locale).
+	JobStates(ctx context.Context, jobs []domain.Job) (map[uuid.UUID]domain.JobState, error)
 	Job(ctx context.Context, id uuid.UUID) (JobView, error)
 	Jobs(ctx context.Context, f JobFilter, before *Cursor, limit int) ([]domain.Job, error)
 	CancelJob(ctx context.Context, id uuid.UUID, by string, at time.Time) (bool, error)

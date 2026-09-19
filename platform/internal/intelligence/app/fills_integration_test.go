@@ -4,12 +4,15 @@ package app_test
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
+	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
+	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
@@ -96,5 +99,124 @@ func TestWiringFillSelectsByState(t *testing.T) {
 		if _, _, err := w.svc.RequestFill(w.developer(), p, app.FillRequest{Locales: []string{"de"}, Filter: bad}, ""); !errors.Is(err, app.ErrInvalidQuery) {
 			t.Errorf("filter %+v: err = %v, want ErrInvalidQuery", bad, err)
 		}
+	}
+}
+
+// previewProject has order.save (an exact TM hit of cart.save's
+// approved de text), home.title (needs a provider) and terms.body in a
+// sensitive namespace.
+func previewProject(t *testing.T, w *wiring) uuid.UUID {
+	t.Helper()
+	p := w.project(t, []string{"de"}, map[string]string{
+		"cart.save": "Save your changes", "order.save": "Save your changes", "home.title": "Welcome home",
+	})
+	if _, _, err := w.localization.PutTranslation(w.reviewer(), p, "cart.save", "de", localizationapp.TranslationInput{Text: "Änderungen speichern"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	legal := "legal"
+	if _, err := w.catalog.UpsertMessages(w.developer(), catalogdomain.ProjectID(p), []catalogapp.UpsertItem{
+		{Key: "terms.body", Namespace: &legal, Text: "You agree to the terms"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	tags := domain.NamespaceTags{"legal": {domain.TagSensitive}}
+	if _, err := w.svc.PutProjectSettings(w.admin(), p, app.ProjectSettingsInput{NamespaceTags: &tags}, nil); err != nil {
+		t.Fatal(err)
+	}
+	w.drain(t) // Knowledge derives the TM unit
+	return p
+}
+
+// sideEffects counts every row a fill, a job, a TM hit, a call or an
+// event would leave.
+func sideEffects(t *testing.T) string {
+	t.Helper()
+	return fmt.Sprintf("fills=%d jobs=%d spend=%d disclosures=%d events=%d hits=%d",
+		wcount(t, "SELECT count(*) FROM intelligence_fills"), wcount(t, "SELECT count(*) FROM intelligence_jobs"),
+		wcount(t, "SELECT count(*) FROM intelligence_spend"), wcount(t, "SELECT count(*) FROM intelligence_disclosures"),
+		wcount(t, "SELECT count(*) FROM outbox_events"), wcount(t, "SELECT coalesce(sum(hit_count), 0)::int FROM knowledge_tm_units"))
+}
+
+func preview(t *testing.T, w *wiring, p uuid.UUID, f app.FillFilter) app.LocalePreview {
+	t.Helper()
+	before := sideEffects(t)
+	pv, err := w.svc.PreviewFill(w.developer(), p, app.FillRequest{Locales: []string{"de"}, Filter: f})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after := sideEffects(t); after != before {
+		t.Fatalf("a preview wrote something: %s → %s", before, after)
+	}
+	if len(pv.Locales) != 1 || pv.Locales[0].Locale != "de" || pv.Select == "" {
+		t.Fatalf("preview = %+v", pv)
+	}
+	return pv.Locales[0]
+}
+
+// A preview says what a fill would queue and what would happen to each
+// job — without writing anything.
+func TestWiringFillPreviewWritesNothing(t *testing.T) {
+	w := newWiring(t, nil)
+	w.configure(t, false, 5_000_000)
+	p := previewProject(t, w)
+
+	// Consent off: the TM hit is still reused, the rest is refused.
+	lp := preview(t, w, p, app.FillFilter{})
+	if strings.Join(lp.Keys, ",") != "home.title,order.save" || lp.TMExact != 1 || lp.Provider != 0 ||
+		lp.Refused[app.RefusedProviderConsent] != 1 || lp.Refused[app.RefusedSensitive] != 1 || lp.Cost.Estimated != 0 {
+		t.Errorf("consent off = %+v", lp)
+	}
+
+	// Consent on: home.title would call the provider, at a price.
+	consent := true
+	if _, err := w.svc.PutSettings(w.admin(), app.SettingsInput{ProviderConsent: &consent}, nil); err != nil {
+		t.Fatal(err)
+	}
+	lp = preview(t, w, p, app.FillFilter{})
+	if lp.Provider != 1 || lp.TMExact != 1 || len(lp.Refused) != 1 || lp.Cost.Estimated <= 0 || lp.Cost.Max < lp.Cost.Estimated || lp.Cost.Unpriced {
+		t.Errorf("consent on = %+v", lp)
+	}
+
+	// Too little budget for one call's upper bound.
+	budget := domain.MicroUSD(1_000)
+	if _, err := w.svc.PutSettings(w.admin(), app.SettingsInput{MonthlyBudget: &budget}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if lp = preview(t, w, p, app.FillFilter{}); lp.Refused[app.RefusedBudgetExceeded] != 1 || lp.Provider != 0 {
+		t.Errorf("small budget = %+v", lp)
+	}
+
+	// No route: the only provider is disabled.
+	budget = 5_000_000
+	if _, err := w.svc.PutSettings(w.admin(), app.SettingsInput{MonthlyBudget: &budget}, nil); err != nil {
+		t.Fatal(err)
+	}
+	providers, _, err := w.svc.ListProviders(w.admin(), firstPageW())
+	if err != nil || len(providers) != 1 {
+		t.Fatalf("providers = %+v, %v", providers, err)
+	}
+	off := false
+	v := providers[0].Version
+	if _, err := w.svc.UpdateProvider(w.admin(), providers[0].ID, &v, app.ProviderPatch{Enabled: &off}); err != nil {
+		t.Fatal(err)
+	}
+	if lp = preview(t, w, p, app.FillFilter{}); lp.Refused[app.RefusedNoRoute] != 1 {
+		t.Errorf("no route = %+v", lp)
+	}
+
+	// A fill's jobs exist afterwards: a preview counts them as reused.
+	if _, _, err := w.svc.RequestFill(w.developer(), p, app.FillRequest{Locales: []string{"de"}}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if lp = preview(t, w, p, app.FillFilter{}); lp.Existing != 2 || lp.TMExact != 0 || len(lp.Keys) != 2 {
+		t.Errorf("after the fill = %+v", lp)
+	}
+
+	// The same checks as a fill.
+	if _, err := w.svc.PreviewFill(w.developer(), p, app.FillRequest{Locales: []string{"fr"}}); !errors.Is(err, app.ErrLocaleNotFound) {
+		t.Errorf("unknown locale: %v", err)
+	}
+	if _, err := w.svc.PreviewFill(w.as([]string{"translator"}, "fr"), p, app.FillRequest{Locales: []string{"de"}}); err == nil {
+		t.Error("a translator for fr previewed a de fill")
 	}
 }

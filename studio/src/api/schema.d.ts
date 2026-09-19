@@ -2495,13 +2495,58 @@ export interface paths {
          *     existing one is reused (`jobs_existing`), a failed, dead or
          *     cancelled one queued again. `warnings` say when jobs will do
          *     little: consent off (only exact translation-memory matches are
-         *     reused), no budget, no provider. Needs
+         *     reused), no budget, no provider. `POST …/ai-fill-previews`
+         *     answers what a fill would do without queueing anything. Needs
          *     `intelligence.translate` for every locale. Problem codes:
          *     `too_many_locales`, `too_many_keys`, `invalid_locale`,
          *     `invalid_query` (an unknown `select`, or one `include_outdated`
          *     contradicts) (400), `locale_not_found` (404).
          */
         post: operations["createAIFill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/ai-fill-previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a fill would do, without doing it (`glossa translate --dry-run`)
+         * @description Takes a fill request and answers, per locale, what `POST
+         *     …/ai-fills` would do with it, writing nothing — no fill, no job,
+         *     no translation-memory hit count, no spend, no event. The same
+         *     checks, selection and limits apply; then each message is decided
+         *     the way its job would be: `existing` jobs (queued, running or
+         *     finished) are reused, `tm_exact` messages have an exact
+         *     translation-memory match that is reused without a provider call
+         *     (when it validates), and the rest either call a provider
+         *     (`provider`, priced in `cost`) or are `refused` —
+         *     `sensitive` (never queued), `provider_consent`, `no_route` (no
+         *     route to an enabled provider allowing the model) or
+         *     `budget_exceeded` (this month's spend plus the calls before it
+         *     leave no room for the call's upper bound). `cost` uses the price
+         *     table in effect: `estimated_micro_usd` expects one draft and one
+         *     self-assessment per message (prompts at about three characters a
+         *     token, a draft twice its source); `max_micro_usd` is the bound
+         *     the budget guard reserves (every repair, each call's whole
+         *     `max_tokens`); `unpriced` flags a model without a price. Needs
+         *     `intelligence.translate` for every locale. Problem codes: those
+         *     of `createAIFill`.
+         */
+        post: operations["previewAIFill"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4616,6 +4661,41 @@ export interface components {
             warnings: string[];
             requested_by: string;
             created_at: components["schemas"]["Timestamp"];
+        };
+        AICostEstimate: {
+            estimated_micro_usd: components["schemas"]["MicroUSD"];
+            max_micro_usd: components["schemas"]["MicroUSD"];
+            /** @description A route's model has no price; its calls count as 0. */
+            unpriced: boolean;
+        };
+        AIFillPreviewLocale: {
+            locale: components["schemas"]["Locale"];
+            /** @description The messages a fill would queue (or reuse) a job for, in key order. */
+            keys: components["schemas"]["MessageKey"][];
+            /** @description Jobs that exist and would be reused, not run again. */
+            existing: number;
+            /** @description Messages an exact translation-memory match covers: no provider call. */
+            tm_exact: number;
+            /** @description Messages that would call a provider. */
+            provider: number;
+            /** @description Messages that would not reach a provider, by reason: `sensitive` (never queued), `provider_consent`, `no_route`, `budget_exceeded` (queued, then failing). */
+            refused: {
+                [key: string]: number;
+            };
+            /** @description Messages left out, by reason: `up_to_date`, `not_selected`, `limit`. */
+            skipped: {
+                [key: string]: number;
+            };
+            cost: components["schemas"]["AICostEstimate"];
+        };
+        AIFillPreview: {
+            project_id: components["schemas"]["Id"];
+            /** @description The effective selection. */
+            select: components["schemas"]["AIFillSelect"];
+            locales: components["schemas"]["AIFillPreviewLocale"][];
+            /** @description As a fill's: `provider_consent_off`, `no_budget`, `no_provider`. */
+            warnings: string[];
+            cost: components["schemas"]["AICostEstimate"];
         };
         AIAuditEntry: {
             /** @description `tm_lookup`, `term_lookup`, `style_rules`, `message_context`, `validate`, `draft`, `assess`. */
@@ -9135,6 +9215,39 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    previewAIFill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAIFill"];
+            };
+        };
+        responses: {
+            /** @description What the fill would do. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIFillPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getAIFill: {

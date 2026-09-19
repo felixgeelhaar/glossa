@@ -725,6 +725,23 @@ default; `outdated`; `missing_or_outdated`), among listed keys or all of
 them, so a client re-translates outdated text without listing keys
 (failed, dead or cancelled jobs are queued again). A duplicate event finds the existing job.
 
+**Previews.** `POST …/projects/{project}/ai-fill-previews`
+(`PreviewFill`, `glossa translate --dry-run`) takes a fill request and
+answers what the fill would do, writing nothing (no fill, job, TM hit
+count, spend or event; `TestWiringFillPreviewWritesNothing` counts the
+rows). Per locale it lists the keys, then decides each message the way
+its job would: an existing job is reused (`existing`, one query per page
+of 100), an exact TM match covers it (`tm_exact`, an exact-only lookup
+that isn't counted as a hit), or it would call a provider (`provider`)
+unless refused — `sensitive`, `provider_consent`, `no_route` (no route
+to an enabled provider allowing the model), `budget_exceeded` (this
+month's spend plus the calls before it leave no room for the call's
+upper bound). `cost` prices the provider calls with the effective price
+table: `estimated_micro_usd` (a draft and a self-assessment, prompts at
+about three characters a token, drafts twice their source) and
+`max_micro_usd` (what the budget guard reserves: every repair, the whole
+`max_tokens`), with `unpriced` for models without a price.
+
 Workers run in glossa-server (`GLOSSA_AI_*`). A claim is one statement in
 the system scope `intelligence.jobs`, serialized by an advisory lock and
 taken `FOR UPDATE SKIP LOCKED`: the next due job (queued, or running
