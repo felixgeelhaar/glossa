@@ -2,7 +2,7 @@
 
 # Go modules of the rewrite (RFC 0002). apps/api is v0.3 and keeps its
 # own targets until it's retired.
-PLATFORM_MODULES := messageformat platform
+PLATFORM_MODULES := messageformat platform runtimes/go
 
 help: ## Show this help.
 	@awk 'BEGIN{FS=":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
