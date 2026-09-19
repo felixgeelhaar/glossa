@@ -190,6 +190,99 @@ export const MessageUpsertResult = z.object({
   ),
 });
 
+export const Member = z.object({
+  id,
+  email: z.string(),
+  person_id: id.optional(),
+  display_name: z.string().optional(),
+  status: z.enum(["invited", "active"]),
+  roles: z.array(Role),
+  locales: z.array(z.string()),
+  created_at: timestamp,
+  updated_at: timestamp,
+});
+
+// ── release ───────────────────────────────────────────────────────────
+/** The review states an environment may ship; `rejected` never does. */
+export const ShippableState = z.enum(["draft", "needs_review", "approved"]);
+
+export const EnvironmentPolicy = z.object({
+  states: z.array(ShippableState).min(1),
+  include_outdated: z.boolean(),
+});
+
+export const Environment = z.object({
+  name: z.string().min(1),
+  policy: EnvironmentPolicy,
+  current_release_id: id.optional(),
+  created_at: timestamp,
+  updated_at: timestamp,
+});
+
+export const DeploymentAction = z.enum(["publish", "promote", "rollback"]);
+export const Deployment = z.object({
+  number: z.number().int().min(1),
+  release_id: id,
+  previous_release_id: id.optional(),
+  action: DeploymentAction,
+  author: z.string(),
+  created_at: timestamp,
+});
+
+export const ReleaseLocale = z.object({ code: z.string(), direction: Direction });
+export const ReleaseLocaleCounts = z.object({ messages: z.number().int().min(0), outdated: z.number().int().min(0) });
+export const ReleaseCounts = z.object({
+  messages: z.number().int().min(0),
+  artifacts: z.number().int().min(0),
+  bytes: z.number().int().min(0),
+  new_artifacts: z.number().int().min(0),
+  locales: z.record(z.string(), ReleaseLocaleCounts),
+});
+
+export const Release = z.object({
+  id,
+  version: z.number().int().min(1),
+  parent_id: id.optional(),
+  environment: z.string().min(1),
+  policy: EnvironmentPolicy,
+  manifest_digest: z.string().regex(/^[0-9a-f]{64}$/),
+  source_locale: z.string(),
+  locales: z.array(ReleaseLocale),
+  counts: ReleaseCounts,
+  note: z.string().optional(),
+  author: z.string(),
+  created_at: timestamp,
+});
+
+export const LocaleDiff = z.object({
+  locale: z.string(),
+  added: z.array(z.string()),
+  changed: z.array(z.string()),
+  removed: z.array(z.string()),
+});
+export const ReleaseDiff = z.object({
+  release_id: id,
+  base_release_id: id.optional(),
+  locales: z.array(LocaleDiff),
+});
+
+export const SigningKey = z.object({
+  key_id: z.string().min(1),
+  algorithm: z.enum(["Ed25519"]),
+  public_key: z.string().min(1),
+  active: z.boolean(),
+});
+export const SigningKeys = z.object({ keys: z.array(SigningKey) });
+
+export const DeliveryKey = z.object({
+  id,
+  name: z.string(),
+  key: z.string().regex(/^glossa_pk_[A-Za-z0-9_-]{32}$/),
+  created_by: z.string(),
+  created_at: timestamp,
+  revoked_at: timestamp.optional(),
+});
+
 /** A page of a list operation. */
 export const page = <T extends z.ZodType>(item: T) =>
   z.object({ items: z.array(item), next_page_token: z.string().optional() });
@@ -219,6 +312,18 @@ export type Translation = z.infer<typeof Translation>;
 export type TranslationRevision = z.infer<typeof TranslationRevision>;
 export type MessageUpsertResult = z.infer<typeof MessageUpsertResult>;
 export type Platform = z.infer<typeof Platform>;
+export type Member = z.infer<typeof Member>;
+export type SigningKeys = z.infer<typeof SigningKeys>;
+export type ShippableState = z.infer<typeof ShippableState>;
+export type EnvironmentPolicy = z.infer<typeof EnvironmentPolicy>;
+export type Environment = z.infer<typeof Environment>;
+export type Deployment = z.infer<typeof Deployment>;
+export type Release = z.infer<typeof Release>;
+export type ReleaseCounts = z.infer<typeof ReleaseCounts>;
+export type LocaleDiff = z.infer<typeof LocaleDiff>;
+export type ReleaseDiff = z.infer<typeof ReleaseDiff>;
+export type SigningKey = z.infer<typeof SigningKey>;
+export type DeliveryKey = z.infer<typeof DeliveryKey>;
 
 // ── contract alignment (compile time only) ─────────────────────────────
 type S = components["schemas"];
@@ -240,4 +345,11 @@ export type ContractAlignment = [
   Assert<Fits<MessageUpsertResult, S["MessageUpsertResult"]>>,
   Assert<Fits<Passkey, S["Passkey"]>>,
   Assert<Fits<TotpEnrollment, S["TotpEnrollment"]>>,
+  Assert<Fits<Member, S["Member"]>>,
+  Assert<Fits<Environment, S["Environment"]>>,
+  Assert<Fits<Deployment, S["Deployment"]>>,
+  Assert<Fits<Release, S["Release"]>>,
+  Assert<Fits<ReleaseDiff, S["ReleaseDiff"]>>,
+  Assert<Fits<SigningKeys, S["SigningKeys"]>>,
+  Assert<Fits<DeliveryKey, S["DeliveryKey"]>>,
 ];
