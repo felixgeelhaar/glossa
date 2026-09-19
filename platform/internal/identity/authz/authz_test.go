@@ -51,6 +51,31 @@ func TestRequire(t *testing.T) {
 	}
 }
 
+func TestScopeOfSnapshotsWhereAPermissionHolds(t *testing.T) {
+	tenant := tenancy.NewID()
+	ctx := tenancy.ContextWithTenant(context.Background(), tenant)
+	translator := authz.WithPrincipal(ctx, principal(t, tenant, []string{"translator"}, []string{"de"}))
+	s, err := authz.ScopeOf(translator, authz.IntegrationImport)
+	if err != nil || !s.Granted || s.All() {
+		t.Fatalf("translator scope = %+v, %v", s, err)
+	}
+	deAT, _ := authz.ParseLocale("de-AT")
+	ja, _ := authz.ParseLocale("ja")
+	if !s.Covers(deAT) || s.Covers(ja) {
+		t.Errorf("scope %v: de-AT %t, ja %t", s.Locales, s.Covers(deAT), s.Covers(ja))
+	}
+	if s, _ := authz.ScopeOf(translator, authz.IntegrationManage); s.Granted || s.Covers(deAT) {
+		t.Errorf("ungranted permission scope = %+v", s)
+	}
+	owner := authz.WithPrincipal(ctx, principal(t, tenant, []string{"owner"}, nil))
+	if s, _ := authz.ScopeOf(owner, authz.TranslationsReview); !s.All() || !s.Covers(ja) {
+		t.Errorf("owner scope = %+v", s)
+	}
+	if _, err := authz.ScopeOf(ctx, authz.TranslationsRead); !errors.Is(err, authz.ErrUnauthenticated) {
+		t.Errorf("no principal: %v", err)
+	}
+}
+
 func TestRequireWithoutPrincipal(t *testing.T) {
 	ctx := tenancy.ContextWithTenant(context.Background(), tenancy.NewID())
 	if err := authz.Require(ctx, authz.TenantRead); !errors.Is(err, authz.ErrUnauthenticated) {

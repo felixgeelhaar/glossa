@@ -196,6 +196,43 @@ func RequireFor(ctx context.Context, perm Permission, locale domain.Locale) erro
 	return nil
 }
 
+// Scope says where a principal holds a permission, as data: what a
+// queued job keeps to act within its requester's rights later (an
+// import job's worker writes only the locales its requester could).
+type Scope struct {
+	// Granted is false when the permission isn't held at all.
+	Granted bool `json:"granted"`
+	// Locales limit a locale-scoped permission; empty means every locale.
+	Locales []string `json:"locales,omitempty"`
+}
+
+// ScopeOf returns where the principal on ctx holds perm in the context's
+// tenant.
+func ScopeOf(ctx context.Context, perm Permission) (Scope, error) {
+	p, err := inTenant(ctx)
+	if err != nil {
+		return Scope{}, err
+	}
+	scope, ok := p.Grant.Locales(perm)
+	if !ok {
+		return Scope{}, nil
+	}
+	return Scope{Granted: true, Locales: scope.Strings()}, nil
+}
+
+// All reports whether s grants its permission for every locale.
+func (s Scope) All() bool { return s.Granted && len(s.Locales) == 0 }
+
+// Covers reports whether s grants its permission for locale (a scope's
+// locale covers its CLDR descendants, as RequireFor does).
+func (s Scope) Covers(locale Locale) bool {
+	if !s.Granted {
+		return false
+	}
+	scope, err := domain.ParseLocaleScope(s.Locales)
+	return err == nil && scope.Covers(locale)
+}
+
 // inTenant returns the principal, refusing one whose grant belongs to a
 // different tenant than the one the context (and so the database
 // transaction) is scoped to.
