@@ -191,3 +191,5 @@ export const rememberFile = (jobId: string, file: File): void => {
   dryRunFiles.set(jobId, file);
 };
 export const rememberedFile = (jobId: string): File | undefined => dryRunFiles.get(jobId);
+/** Forget every kept file (tests; nothing in the app needs it). */
+export const forgetFiles = (): void => dryRunFiles.clear();

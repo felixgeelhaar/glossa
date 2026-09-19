@@ -24,7 +24,9 @@ export type ShortcutId =
   | "queueReject"
   | "queueAcceptEdit"
   | "queueCancelEdit"
-  | "publish";
+  | "publish"
+  | "importFile"
+  | "exportFile";
 
 export interface Shortcut {
   id: ShortcutId;
@@ -32,7 +34,7 @@ export interface Shortcut {
   keys: string[];
   description: string;
   /** Where it applies. */
-  context: "Everywhere" | "Translator workspace" | "Translation editor" | "Review queue" | "Releases";
+  context: "Everywhere" | "Translator workspace" | "Translation editor" | "Review queue" | "Releases" | "Import & export";
   /** Fires while focus is in a text field (only chords with a modifier or Escape do). */
   inText: boolean;
   match: (e: KeyboardEvent) => boolean;
@@ -127,6 +129,14 @@ export const SHORTCUTS: readonly Shortcut[] = [
   {
     id: "publish", keys: ["p"], description: "Publish a release", context: "Releases", inText: false,
     match: (e) => e.key === "p" && plain(e) && !e.shiftKey,
+  },
+  {
+    id: "importFile", keys: ["i"], description: "Import a file", context: "Import & export", inText: false,
+    match: (e) => letter(e, "i"),
+  },
+  {
+    id: "exportFile", keys: ["x"], description: "Export files", context: "Import & export", inText: false,
+    match: (e) => letter(e, "x"),
   },
 ];
 

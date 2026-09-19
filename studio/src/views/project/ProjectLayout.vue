@@ -60,6 +60,7 @@ const tabs = [
   { name: "style", label: strings.nav.style },
   { name: "locales", label: strings.nav.locales },
   { name: "releases", label: strings.nav.releases },
+  { name: "files", label: strings.nav.files },
   { name: "ai", label: strings.nav.ai },
   { name: "settings", label: strings.nav.settings },
 ] as const;
@@ -79,7 +80,7 @@ const tabs = [
           :key="t.name"
           :to="{ name: t.name, params: { tenant, project: projectId } }"
           class="tab"
-          :class="{ 'router-link-active': t.name === 'releases' && route.name === 'release' }"
+          :class="{ 'router-link-active': (t.name === 'releases' && route.name === 'release') || (t.name === 'files' && (route.name === 'import' || route.name === 'import-job')) }"
         >
           {{ t.label }}
         </RouterLink>

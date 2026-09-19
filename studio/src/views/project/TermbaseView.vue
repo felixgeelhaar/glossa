@@ -7,8 +7,10 @@
 import { computed, ref, shallowRef, watch } from "vue";
 import type { Versioned } from "../../api/errors";
 import type { TermConcept, TermConceptRevision } from "../../api/knowledge-schemas";
+import { useIntegration } from "../../api/integration";
 import { useKnowledge } from "../../api/knowledge";
 import ErrorAlert from "../../components/ErrorAlert.vue";
+import ExportDialog from "../../components/integration/ExportDialog.vue";
 import ConceptDialog from "../../components/knowledge/ConceptDialog.vue";
 import ModalDialog from "../../components/ModalDialog.vue";
 import { byStatus, statusTone } from "../../lib/terms";
@@ -18,8 +20,10 @@ import { useSession } from "../../session/session";
 import { principalLabel, strings } from "../../strings";
 import { useProject } from "./context";
 
-const { tenant, projectId, locales, grant } = useProject();
+const { tenant, projectId, project, locales, grant } = useProject();
 const { person } = useSession();
+const integration = useIntegration();
+const exportOpen = ref(false);
 const s = strings.termbase;
 const port = useKnowledge();
 const canWrite = computed(() => allows(grant.value, "knowledge.write"));
@@ -119,7 +123,10 @@ async function confirmDelete(): Promise<void> {
         <h1>{{ s.title }}</h1>
         <p class="muted lead">{{ s.lead }}</p>
       </div>
-      <button v-if="canWrite" type="button" class="btn btn-primary" @click="openNew">{{ s.newConcept }}</button>
+      <div class="row">
+        <button type="button" class="btn" @click="exportOpen = true">{{ strings.integration.exportTbx }}</button>
+        <button v-if="canWrite" type="button" class="btn btn-primary" @click="openNew">{{ s.newConcept }}</button>
+      </div>
     </div>
     <p v-if="!canWrite" class="alert">{{ s.readOnly }}</p>
     <form class="row filters" role="search" :aria-label="s.search" @submit.prevent="load">
@@ -170,6 +177,17 @@ async function confirmDelete(): Promise<void> {
         </dl>
       </li>
     </ul>
+
+    <ExportDialog
+      :open="exportOpen"
+      :port="integration"
+      :tenant="tenant"
+      :project-id="projectId"
+      :project="project"
+      :locales="locales"
+      preset="tbx"
+      @close="exportOpen = false"
+    />
 
     <ConceptDialog :open="dialogOpen" :tenant="tenant" :project-id="projectId" :locales="sortedLocales" :concept="editing" @close="dialogOpen = false" @saved="onSaved" />
 

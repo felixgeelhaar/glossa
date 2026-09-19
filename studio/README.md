@@ -14,7 +14,10 @@ publish, promote, rollback and delivery keys.
 
 **M2** (RFC 0003 §6) adds knowledge and AI: translation-memory, terms,
 style and AI-suggestion panes in the editor, a review queue, termbase and
-style-guide editors, and AI settings. See *Knowledge and AI* below.
+style-guide editors, and AI settings. See *Knowledge and AI* below. It
+also brings files in and out: an import wizard (XLIFF, JSON, PO, TMX,
+TBX) with a dry run first, exports with an authenticated download, and
+the jobs' history. See *Import and export* below.
 
 ## Screens
 
@@ -32,6 +35,9 @@ style-guide editors, and AI settings. See *Knowledge and AI* below.
 | `…/p/:project/settings` | Name, slug, syntax, review requirement, applications, delivery keys, delete. |
 | `…/p/:project/releases` | Environments, publish, promote, rollback, release list (see below). |
 | `…/p/:project/releases/:release` | One release: per-locale counts and the diff to its parent, promote. |
+| `…/p/:project/files` | Import & export: import and export history (state, requester, counts; cancel, download) for the project or the whole workspace; export a catalog, the translation memory (TMX) or the termbase (TBX). |
+| `…/p/:project/files/import` | The import wizard: file (drop or choose; format recognized, can be changed), options per format, mode, upload with progress. |
+| `…/p/:project/files/imports/:job` | One import: summary, per-item results with line and column, conflicts explained, “Apply this import” after a dry run. |
 | `/account` | Every passkey of the person on any device (from `GET /v1/me/passkeys`: name, added, last used), removable after confirming; adding one where the server has passkeys; authenticator app (TOTP); sign out everywhere. While the person has no passkey and the server has passkeys, a banner promotes them. |
 
 The app shell carries the persistent **Public Beta** badge (Klarlabs
@@ -63,6 +69,8 @@ from `src/lib/shortcuts.ts`, and a unit test keeps this table in step.
 | `⌘ Enter` / `Ctrl Enter` | Accept your edit | Review queue |
 | `Esc` | Cancel the edit | Review queue |
 | `p` | Publish a release | Releases |
+| `i` | Import a file | Import & export |
+| `x` | Export files | Import & export |
 
 The message list is a WAI-ARIA listbox, so `↑`, `↓`, `Home`, `End`,
 `PageUp` and `PageDown` work in it too. Single-key shortcuts never fire
@@ -386,15 +394,67 @@ Settings the server hasn't saved yet come at version 0 with the ETag
 `"0"`, which the server doesn't accept back in `If-Match` (it only parses
 versions ≥ 1), so the adapter sends those writes unconditionally.
 
+## Import and export
+
+Everything goes through `IntegrationPort` (`src/api/integration.ts`, zod
+schemas in `integration-schemas.ts`), loaded with the screens that use it.
+
+- **Import wizard** (`i` on Import & export): drop or choose a file. The
+  format is recognized by its extension, else by its first bytes, and can
+  be changed. Options per format: **XLIFF** shows the target locale the
+  file names (`trgLang`; none means the source only) and can read units
+  from other tools as ICU MessageFormat; **JSON** the file's locale (the
+  source locale makes it a source catalog; guessed from names like
+  `de.json`), syntax and namespace (flat and nested files are both read);
+  **PO** the target locale (default: the file's `Language` header), the
+  review state for entries without `fuzzy`, namespace and plural variable;
+  **TMX/TBX** this project or the whole workspace. Then the mode, each
+  with what it does: **dry run** (the default: every check of a merge,
+  nothing changes), **merge** (never replaces an approved translation, a
+  differing source or concept: those are conflicts) and **overwrite**
+  (only with `integration.manage`, after a confirmation that says what it
+  replaces). The file is created as a job, `PUT` to its `upload_url` with
+  progress (XMLHttpRequest, since fetch reports none; same origin only,
+  with the CSRF token), and followed until it ends; it can be cancelled on
+  the way.
+- **Permissions** are mirrored: `integration.import` is locale-scoped
+  like `translations.write`, so a translator's other locales (and the
+  source locale, which needs `integration.manage`) are disabled with the
+  reason, and a file in one of them can't be sent; TMX and TBX need
+  `integration.manage` and `knowledge.write`. The server decides again,
+  with the access the requester had when they asked.
+- **Results**: counts by status (created, updated, unchanged, conflict,
+  invalid) and by kind, then every item in file order — filterable by
+  status and kind, paged — with line and column where the file has them
+  and why a conflict or an invalid item is one (“An approved translation
+  differs; the approved one is kept.”). After a **dry run**, *Apply this
+  import* runs the same file with the same options as a merge: the file
+  the wizard sent is kept in memory for that; after a reload, you choose
+  it again and Studio checks it's the same by its SHA-256. An import the
+  server **reused** (`reused_job_id`: the same file and options imported
+  before) says nothing was applied again and links the earlier one.
+- **Export** (`x`; *Export translation memory (TMX)* on Import & export,
+  *Export termbase (TBX)* on the termbase): format (`po` is import only),
+  locales (several make a zip), namespaces, review states, JSON layout and
+  syntax, TMX source and target locales, this project or the workspace.
+  The job is followed until it's written; **Download** fetches the file
+  with the session (never a bare link: it needs the cookie), names it from
+  `Content-Disposition` and hands the blob to the browser.
+- **Jobs**: imports and exports newest first, for this project or the
+  whole workspace, with format, mode, state, counts, requester and when;
+  they refresh while any job is running. Running imports (they stop after
+  the current batch) and queued exports can be cancelled; finished exports
+  downloaded until retention deletes their file.
+
 ## Layout
 
 ```text
-src/api/        generated contract types, client, zod schemas, endpoints, errors; the Releases, Knowledge and Intelligence ports and their API adapters
+src/api/        generated contract types, client, zod schemas, endpoints, errors; the Releases, Knowledge, Intelligence and Integration ports and their API adapters
 src/session/    session store, deployment facts (GET /v1/meta), permission mirror, names for principals
-src/lib/        pure logic: bcp47, fallback, diff, samples, preview, shortcuts, virtual, webauthn, releases, snippets, terms, confidence, money, style, …
-src/components/ app shell, message list, editor, preview, QA, history, modal dialog, releases/*, assist/* (editor panes), knowledge/*, ai/*, …
-src/views/      auth, projects, account, project/* (workspace, review queue, termbase, style guides, AI, locales, settings, releases, release detail)
+src/lib/        pure logic: bcp47, fallback, diff, samples, preview, shortcuts, virtual, webauthn, releases, snippets, terms, confidence, money, style, integration, …
+src/components/ app shell, message list, editor, preview, QA, history, modal dialog, releases/*, assist/* (editor panes), knowledge/*, ai/*, integration/*, …
+src/views/      auth, projects, account, project/* (workspace, review queue, termbase, style guides, AI, locales, settings, releases, release detail, import & export, import wizard, import results)
 src/strings.ts  every user-facing string, ready to become Glossa messages
-src/test/       component-test helpers: in-memory Releases, Knowledge and Intelligence ports, mounting a project screen
+src/test/       component-test helpers: in-memory Releases, Knowledge, Intelligence and Integration ports, mounting a project screen
 e2e/            Playwright specs, the server harness and the fake AI provider with its cassette
 ```
