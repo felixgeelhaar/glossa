@@ -1,7 +1,13 @@
 /**
  * Source of `messageformat/testdata/glossa/runtime-format.json`: real-world
- * German and English UI strings (plus Arabic and Hebrew for bidi), compiled to
+ * German and English UI strings, Spanish, French and Japanese ones for wider
+ * CLDR coverage (RFC 0004 §7.2), plus Arabic and Hebrew for bidi, compiled to
  * the canonical data model and formatted with the reference implementation.
+ *
+ * The committed outputs come from one ICU/CLDR version (`generatedWith`), but
+ * the runtimes compare against them under whatever ICU they run on (CI:
+ * Node 22, CLDR 47). So only add cases whose output is the same in CLDR 47
+ * and 48: regenerate with both and diff before committing.
  *
  * Regenerate with `pnpm --filter @glossa/messageformat generate:runtime-format`.
  * This module has no runtime imports so the generator (plain Node) and the
@@ -45,6 +51,8 @@ interface Case {
 }
 
 const at = "2026-09-19T14:05:00Z";
+/** 22:30 in Madrid and Paris, but already 05:30 on the 20th in Tokyo. */
+const late = "2026-09-19T20:30:00Z";
 
 export const cases: Case[] = [
   // ── plurals with exact keys ──────────────────────────────────────
@@ -347,6 +355,279 @@ export const cases: Case[] = [
     src: "שם הקובץ: {$file :string u:dir=ltr}",
     params: [{ file: "report.pdf" }],
     parts: true,
+  },
+  // ── es (RFC 0004 §7.2) ───────────────────────────────────────────
+  {
+    // CLDR: es `many` is a compact-exponent category, i.e. whole millions.
+    description: "es plural with many",
+    locale: "es",
+    src:
+      ".input {$count :number} .match $count one {{Tienes {$count} mensaje nuevo}} " +
+      "many {{Tienes {$count} de mensajes nuevos}} * {{Tienes {$count} mensajes nuevos}}",
+    params: [{ count: 1 }, { count: 2 }, { count: 1000000 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "es EUR total",
+    locale: "es",
+    src: "Total: {$total :currency currency=EUR}",
+    params: [{ total: 1234.5 }, { total: 12345.5 }, { total: -12 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "es JPY without fraction digits",
+    locale: "es",
+    src: "Total: {$total :currency currency=JPY}",
+    params: [{ total: 98765.4 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "es long date in Madrid",
+    locale: "es",
+    src: "Pedido el {$d :date length=long timeZone=|Europe/Madrid|}",
+    params: [{ d: late }],
+    dates: ["d"],
+    bidiIsolation: "none",
+  },
+  {
+    description: "es short date in Madrid",
+    locale: "es",
+    src: "{$d :date length=short timeZone=|Europe/Madrid|}",
+    params: [{ d: late }],
+    dates: ["d"],
+    bidiIsolation: "none",
+  },
+  {
+    description: "es time in Madrid",
+    locale: "es",
+    src: "a las {$d :time timeZone=|Europe/Madrid|}",
+    params: [{ d: late }],
+    dates: ["d"],
+    bidiIsolation: "none",
+  },
+  {
+    description: "es percent",
+    locale: "es",
+    src: "{$p :percent} completado",
+    params: [{ p: 0.256 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "es kilometers, long",
+    locale: "es",
+    src: "Faltan {$km :unit unit=kilometer unitDisplay=long}",
+    params: [{ km: 12.5 }],
+    bidiIsolation: "none",
+  },
+  {
+    // CLDR: es groups only from five integer digits (minimumGroupingDigits 2).
+    description: "es grouping and negative numbers",
+    locale: "es",
+    src: "{$n :number}",
+    params: [{ n: 1234 }, { n: 12345 }, { n: 1234567.891 }, { n: -1234.5 }],
+    bidiIsolation: "none",
+  },
+  {
+    // 1000000 is `many`, which has no variant here and falls back to `*`.
+    description: "es gender × plural",
+    locale: "es",
+    src:
+      ".input {$gender :string} .input {$count :number} .match $gender $count " +
+      "female one {{Ella compartió un archivo.}} female * {{Ella compartió {$count} archivos.}} " +
+      "male one {{Él compartió un archivo.}} male * {{Él compartió {$count} archivos.}} " +
+      "* one {{Se compartió un archivo.}} * * {{Se compartieron {$count} archivos.}}",
+    params: [
+      { gender: "female", count: 1 },
+      { gender: "male", count: 1000000 },
+      { gender: "other", count: 2 },
+    ],
+    bidiIsolation: "none",
+  },
+  // ── fr (RFC 0004 §7.2) ───────────────────────────────────────────
+  {
+    // CLDR: fr `one` covers 0 and 1.5; `many` is whole millions.
+    description: "fr plural with one and many",
+    locale: "fr",
+    src:
+      ".input {$count :number} .match $count one {{{$count} fichier sélectionné}} " +
+      "many {{{$count} de fichiers sélectionnés}} * {{{$count} fichiers sélectionnés}}",
+    params: [{ count: 0 }, { count: 1 }, { count: 1.5 }, { count: 2 }, { count: 1000000 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "fr EUR total",
+    locale: "fr",
+    src: "Montant : {$total :currency currency=EUR}",
+    params: [{ total: 1234.5 }, { total: -12 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "fr JPY without fraction digits",
+    locale: "fr",
+    src: "Montant : {$total :currency currency=JPY}",
+    params: [{ total: 98765.4 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "fr long date in Paris",
+    locale: "fr",
+    src: "Commandé le {$d :date length=long timeZone=|Europe/Paris|}",
+    params: [{ d: late }],
+    dates: ["d"],
+    bidiIsolation: "none",
+  },
+  {
+    description: "fr short date in Paris",
+    locale: "fr",
+    src: "{$d :date length=short timeZone=|Europe/Paris|}",
+    params: [{ d: late }],
+    dates: ["d"],
+    bidiIsolation: "none",
+  },
+  {
+    description: "fr time in Paris",
+    locale: "fr",
+    src: "à {$d :time timeZone=|Europe/Paris|}",
+    params: [{ d: late }],
+    dates: ["d"],
+    bidiIsolation: "none",
+  },
+  {
+    description: "fr percent",
+    locale: "fr",
+    src: "{$p :percent} terminé",
+    params: [{ p: 0.256 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "fr kilometers",
+    locale: "fr",
+    src: "Encore {$km :unit unit=kilometer}",
+    params: [{ km: 12.5 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "fr kilometers, long",
+    locale: "fr",
+    src: "Encore {$km :unit unit=kilometer unitDisplay=long}",
+    params: [{ km: 12.5 }],
+    bidiIsolation: "none",
+  },
+  {
+    // CLDR: the fr group separator is U+202F (narrow no-break space).
+    description: "fr grouping and negative numbers",
+    locale: "fr",
+    src: "{$n :number}",
+    params: [{ n: 1234 }, { n: 1234567.891 }, { n: -1234.5 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "fr gender × plural",
+    locale: "fr",
+    src:
+      ".input {$gender :string} .input {$count :number} .match $gender $count " +
+      "female one {{Elle a partagé {$count} fichier.}} female * {{Elle a partagé {$count} fichiers.}} " +
+      "male one {{Il a partagé {$count} fichier.}} male * {{Il a partagé {$count} fichiers.}} " +
+      "* one {{{$count} fichier a été partagé.}} * * {{{$count} fichiers ont été partagés.}}",
+    params: [
+      { gender: "female", count: 0 },
+      { gender: "male", count: 3 },
+      { gender: "other", count: 1 },
+    ],
+    bidiIsolation: "none",
+  },
+  // ── ja (RFC 0004 §7.2) ───────────────────────────────────────────
+  {
+    // CLDR: ja has only `other`, so the `one` variant never matches.
+    description: "ja plural: 1 is other",
+    locale: "ja",
+    src:
+      ".input {$count :number} .match $count 0 {{新しいメッセージはありません}} " +
+      "one {{新しいメッセージが1件}} * {{新しいメッセージが{$count}件あります}}",
+    params: [{ count: 0 }, { count: 1 }, { count: 1250 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "ja JPY without fraction digits",
+    locale: "ja",
+    src: "合計: {$total :currency currency=JPY}",
+    params: [{ total: 1234 }, { total: 1234567.4 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "ja EUR total",
+    locale: "ja",
+    src: "合計: {$total :currency currency=EUR}",
+    params: [{ total: 1234.5 }],
+    bidiIsolation: "none",
+  },
+  {
+    // In Tokyo the instant is already the next day.
+    description: "ja long date in Tokyo",
+    locale: "ja",
+    src: "{$d :date length=long timeZone=|Asia/Tokyo|}に注文",
+    params: [{ d: late }],
+    dates: ["d"],
+    bidiIsolation: "none",
+  },
+  {
+    description: "ja short date in Tokyo",
+    locale: "ja",
+    src: "{$d :date length=short timeZone=|Asia/Tokyo|}",
+    params: [{ d: late }],
+    dates: ["d"],
+    bidiIsolation: "none",
+  },
+  {
+    description: "ja time in Tokyo",
+    locale: "ja",
+    src: "{$d :time timeZone=|Asia/Tokyo|}に発送",
+    params: [{ d: late }],
+    dates: ["d"],
+    bidiIsolation: "none",
+  },
+  {
+    description: "ja percent",
+    locale: "ja",
+    src: "{$p :percent}完了",
+    params: [{ p: 0.256 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "ja kilometers",
+    locale: "ja",
+    src: "残り{$km :unit unit=kilometer}",
+    params: [{ km: 12.5 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "ja kilometers, long",
+    locale: "ja",
+    src: "残り{$km :unit unit=kilometer unitDisplay=long}",
+    params: [{ km: 12.5 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "ja grouping and negative numbers",
+    locale: "ja",
+    src: "{$n :number}",
+    params: [{ n: 1234567.891 }, { n: -1234.5 }],
+    bidiIsolation: "none",
+  },
+  {
+    description: "ja gender × plural",
+    locale: "ja",
+    src:
+      ".input {$gender :string} .input {$count :number} .match $gender $count " +
+      "female * {{彼女が{$count}件のファイルを共有しました。}} " +
+      "male * {{彼が{$count}件のファイルを共有しました。}} " +
+      "* * {{{$count}件のファイルが共有されました。}}",
+    params: [
+      { gender: "female", count: 1 },
+      { gender: "male", count: 3 },
+      { gender: "other", count: 1250 },
+    ],
+    bidiIsolation: "none",
   },
   // ── fallbacks ────────────────────────────────────────────────────
   {

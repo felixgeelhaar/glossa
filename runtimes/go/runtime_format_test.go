@@ -18,14 +18,26 @@ import (
 const runtimeFormatFixture = "../../messageformat/testdata/glossa/runtime-format.json"
 
 // runtimeFormatSkips lists cases whose expected output the Go formatter
-// (messageformat.Format) doesn't reproduce because of CLDR data gaps in
-// its engine, keyed by "<description> <params>", with the reason. Keep it
-// short; the stale-entry check keeps it honest.
+// (messageformat.Format) doesn't reproduce because of gaps in its CLDR
+// layer, keyed by "<description> <params>", with the reason. These are
+// engine gaps, not CLDR-version drift: go-intl bundles CLDR 48, and every
+// output in the fixture is the same in CLDR 47 and 48. They get fixed
+// upstream, not worked around here. Keep the list short: an entry whose
+// case is gone, or whose case passes now, fails the test.
 var runtimeFormatSkips = map[string]string{
 	// The same gap messageformat's glossaFormatSkips records for its MF1
-	// fixture: go-intl v0.2.17 drops the no-break space of the German
-	// percent pattern "#,##0 %".
-	"de percent [p=0.256]": "go-intl: German percent lacks the CLDR no-break space (26% vs 26 %)",
+	// fixture: go-intl v0.2.17 (and still v0.4.10) appends the percent
+	// sign instead of applying the locale's percent pattern, so the
+	// no-break space of "#,##0\u00a0%" (de, es, fr) is lost.
+	"de percent [p=0.256]": "go-intl: percent ignores the CLDR pattern #,##0\u00a0% (26% vs 26\u00a0%)",
+	"es percent [p=0.256]": "go-intl: percent ignores the CLDR pattern #,##0\u00a0% (26% vs 26\u00a0%)",
+	"fr percent [p=0.256]": "go-intl: percent ignores the CLDR pattern #,##0\u00a0% (26% vs 26\u00a0%)",
+	// go-intl v0.2.17 (and still v0.4.10) ignores the locale's
+	// minimumGroupingDigits under useGrouping "auto": es sets it to 2, so a
+	// four-digit integer part stays ungrouped (1234, but 12.345).
+	"es grouping and negative numbers [n=1234]":    "go-intl: ignores CLDR minimumGroupingDigits=2 for es (1.234 vs 1234)",
+	"es grouping and negative numbers [n=-1234.5]": "go-intl: ignores CLDR minimumGroupingDigits=2 for es (-1.234,5 vs -1234,5)",
+	"es EUR total [total=1234.5]":                  "go-intl: ignores CLDR minimumGroupingDigits=2 for es (1.234,50 vs 1234,50)",
 }
 
 type runtimeFormatCase struct {
@@ -85,6 +97,10 @@ func TestRuntimeFormatFixture(t *testing.T) {
 	for _, tc := range fixture.Tests {
 		if reason, ok := runtimeFormatSkips[tc.key()]; ok {
 			used[tc.key()] = true
+			if renderRuntimeFormat(t, tc) == tc.Exp {
+				t.Errorf("runtimeFormatSkips entry %q passes now: remove it", tc.key())
+				continue
+			}
 			t.Logf("skip %s: %s", tc.key(), reason)
 			continue
 		}
@@ -98,6 +114,15 @@ func TestRuntimeFormatFixture(t *testing.T) {
 		}
 	}
 	t.Logf("runtime-format.json: %d passed, %d skipped", passed, len(runtimeFormatSkips))
+}
+
+// renderRuntimeFormat renders a skipped case through Localizer.T, so a
+// skip whose upstream gap is fixed shows up.
+func renderRuntimeFormat(t *testing.T, tc runtimeFormatCase) string {
+	t.Helper()
+	rel := buildReleaseModels(t, "rel_fmt", 1, map[string]map[string]any{tc.Locale: {"m": tc.Message}})
+	c := newTestClient(t, Config{Bundled: rel.fs(), OnError: (&errorLog{}).handle})
+	return c.For(tc.Locale).T("m", tc.args(t), BidiIsolation(tc.BidiIsolation != "none"))
 }
 
 func checkRuntimeFormat(t *testing.T, tc runtimeFormatCase) bool {

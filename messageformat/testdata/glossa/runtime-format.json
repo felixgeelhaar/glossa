@@ -6750,6 +6750,3847 @@
       ]
     },
     {
+      "description": "es plural with many",
+      "locale": "es",
+      "src": ".input {$count :number} .match $count one {{Tienes {$count} mensaje nuevo}} many {{Tienes {$count} de mensajes nuevos}} * {{Tienes {$count} mensajes nuevos}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Tienes ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " mensaje nuevo"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "many"
+              }
+            ],
+            "value": [
+              "Tienes ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " de mensajes nuevos"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Tienes ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " mensajes nuevos"
+            ]
+          }
+        ]
+      },
+      "exp": "Tienes 1 mensaje nuevo",
+      "params": [
+        {
+          "name": "count",
+          "value": 1
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es plural with many",
+      "locale": "es",
+      "src": ".input {$count :number} .match $count one {{Tienes {$count} mensaje nuevo}} many {{Tienes {$count} de mensajes nuevos}} * {{Tienes {$count} mensajes nuevos}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Tienes ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " mensaje nuevo"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "many"
+              }
+            ],
+            "value": [
+              "Tienes ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " de mensajes nuevos"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Tienes ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " mensajes nuevos"
+            ]
+          }
+        ]
+      },
+      "exp": "Tienes 2 mensajes nuevos",
+      "params": [
+        {
+          "name": "count",
+          "value": 2
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es plural with many",
+      "locale": "es",
+      "src": ".input {$count :number} .match $count one {{Tienes {$count} mensaje nuevo}} many {{Tienes {$count} de mensajes nuevos}} * {{Tienes {$count} mensajes nuevos}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Tienes ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " mensaje nuevo"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "many"
+              }
+            ],
+            "value": [
+              "Tienes ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " de mensajes nuevos"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Tienes ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " mensajes nuevos"
+            ]
+          }
+        ]
+      },
+      "exp": "Tienes 1.000.000 de mensajes nuevos",
+      "params": [
+        {
+          "name": "count",
+          "value": 1000000
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es EUR total",
+      "locale": "es",
+      "src": "Total: {$total :currency currency=EUR}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Total: ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "total"
+            },
+            "function": {
+              "type": "function",
+              "name": "currency",
+              "options": {
+                "currency": {
+                  "type": "literal",
+                  "value": "EUR"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Total: 1234,50\u00a0\u20ac",
+      "params": [
+        {
+          "name": "total",
+          "value": 1234.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es EUR total",
+      "locale": "es",
+      "src": "Total: {$total :currency currency=EUR}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Total: ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "total"
+            },
+            "function": {
+              "type": "function",
+              "name": "currency",
+              "options": {
+                "currency": {
+                  "type": "literal",
+                  "value": "EUR"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Total: 12.345,50\u00a0\u20ac",
+      "params": [
+        {
+          "name": "total",
+          "value": 12345.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es EUR total",
+      "locale": "es",
+      "src": "Total: {$total :currency currency=EUR}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Total: ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "total"
+            },
+            "function": {
+              "type": "function",
+              "name": "currency",
+              "options": {
+                "currency": {
+                  "type": "literal",
+                  "value": "EUR"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Total: -12,00\u00a0\u20ac",
+      "params": [
+        {
+          "name": "total",
+          "value": -12
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es JPY without fraction digits",
+      "locale": "es",
+      "src": "Total: {$total :currency currency=JPY}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Total: ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "total"
+            },
+            "function": {
+              "type": "function",
+              "name": "currency",
+              "options": {
+                "currency": {
+                  "type": "literal",
+                  "value": "JPY"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Total: 98.765\u00a0JPY",
+      "params": [
+        {
+          "name": "total",
+          "value": 98765.4
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es long date in Madrid",
+      "locale": "es",
+      "src": "Pedido el {$d :date length=long timeZone=|Europe/Madrid|}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Pedido el ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "d"
+            },
+            "function": {
+              "type": "function",
+              "name": "date",
+              "options": {
+                "length": {
+                  "type": "literal",
+                  "value": "long"
+                },
+                "timeZone": {
+                  "type": "literal",
+                  "value": "Europe/Madrid"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Pedido el 19 de septiembre de 2026",
+      "params": [
+        {
+          "name": "d",
+          "type": "datetime",
+          "value": "2026-09-19T20:30:00Z"
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es short date in Madrid",
+      "locale": "es",
+      "src": "{$d :date length=short timeZone=|Europe/Madrid|}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "d"
+            },
+            "function": {
+              "type": "function",
+              "name": "date",
+              "options": {
+                "length": {
+                  "type": "literal",
+                  "value": "short"
+                },
+                "timeZone": {
+                  "type": "literal",
+                  "value": "Europe/Madrid"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "19/9/2026",
+      "params": [
+        {
+          "name": "d",
+          "type": "datetime",
+          "value": "2026-09-19T20:30:00Z"
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es time in Madrid",
+      "locale": "es",
+      "src": "a las {$d :time timeZone=|Europe/Madrid|}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "a las ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "d"
+            },
+            "function": {
+              "type": "function",
+              "name": "time",
+              "options": {
+                "timeZone": {
+                  "type": "literal",
+                  "value": "Europe/Madrid"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "a las 22:30",
+      "params": [
+        {
+          "name": "d",
+          "type": "datetime",
+          "value": "2026-09-19T20:30:00Z"
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es percent",
+      "locale": "es",
+      "src": "{$p :percent} completado",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "p"
+            },
+            "function": {
+              "type": "function",
+              "name": "percent"
+            }
+          },
+          " completado"
+        ]
+      },
+      "exp": "26\u00a0% completado",
+      "params": [
+        {
+          "name": "p",
+          "value": 0.256
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es kilometers, long",
+      "locale": "es",
+      "src": "Faltan {$km :unit unit=kilometer unitDisplay=long}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Faltan ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "km"
+            },
+            "function": {
+              "type": "function",
+              "name": "unit",
+              "options": {
+                "unit": {
+                  "type": "literal",
+                  "value": "kilometer"
+                },
+                "unitDisplay": {
+                  "type": "literal",
+                  "value": "long"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Faltan 12,5 kilómetros",
+      "params": [
+        {
+          "name": "km",
+          "value": 12.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es grouping and negative numbers",
+      "locale": "es",
+      "src": "{$n :number}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "n"
+            },
+            "function": {
+              "type": "function",
+              "name": "number"
+            }
+          }
+        ]
+      },
+      "exp": "1234",
+      "params": [
+        {
+          "name": "n",
+          "value": 1234
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es grouping and negative numbers",
+      "locale": "es",
+      "src": "{$n :number}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "n"
+            },
+            "function": {
+              "type": "function",
+              "name": "number"
+            }
+          }
+        ]
+      },
+      "exp": "12.345",
+      "params": [
+        {
+          "name": "n",
+          "value": 12345
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es grouping and negative numbers",
+      "locale": "es",
+      "src": "{$n :number}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "n"
+            },
+            "function": {
+              "type": "function",
+              "name": "number"
+            }
+          }
+        ]
+      },
+      "exp": "1.234.567,891",
+      "params": [
+        {
+          "name": "n",
+          "value": 1234567.891
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es grouping and negative numbers",
+      "locale": "es",
+      "src": "{$n :number}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "n"
+            },
+            "function": {
+              "type": "function",
+              "name": "number"
+            }
+          }
+        ]
+      },
+      "exp": "-1234,5",
+      "params": [
+        {
+          "name": "n",
+          "value": -1234.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es gender \u00d7 plural",
+      "locale": "es",
+      "src": ".input {$gender :string} .input {$count :number} .match $gender $count female one {{Ella compartió un archivo.}} female * {{Ella compartió {$count} archivos.}} male one {{Él compartió un archivo.}} male * {{Él compartió {$count} archivos.}} * one {{Se compartió un archivo.}} * * {{Se compartieron {$count} archivos.}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "gender",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "gender"
+              },
+              "function": {
+                "type": "function",
+                "name": "string"
+              }
+            }
+          },
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "gender"
+          },
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Ella compartió un archivo."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Ella compartió ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " archivos."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Él compartió un archivo."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Él compartió ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " archivos."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Se compartió un archivo."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Se compartieron ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " archivos."
+            ]
+          }
+        ]
+      },
+      "exp": "Ella compartió un archivo.",
+      "params": [
+        {
+          "name": "gender",
+          "value": "female"
+        },
+        {
+          "name": "count",
+          "value": 1
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es gender \u00d7 plural",
+      "locale": "es",
+      "src": ".input {$gender :string} .input {$count :number} .match $gender $count female one {{Ella compartió un archivo.}} female * {{Ella compartió {$count} archivos.}} male one {{Él compartió un archivo.}} male * {{Él compartió {$count} archivos.}} * one {{Se compartió un archivo.}} * * {{Se compartieron {$count} archivos.}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "gender",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "gender"
+              },
+              "function": {
+                "type": "function",
+                "name": "string"
+              }
+            }
+          },
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "gender"
+          },
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Ella compartió un archivo."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Ella compartió ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " archivos."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Él compartió un archivo."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Él compartió ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " archivos."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Se compartió un archivo."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Se compartieron ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " archivos."
+            ]
+          }
+        ]
+      },
+      "exp": "Él compartió 1.000.000 archivos.",
+      "params": [
+        {
+          "name": "gender",
+          "value": "male"
+        },
+        {
+          "name": "count",
+          "value": 1000000
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "es gender \u00d7 plural",
+      "locale": "es",
+      "src": ".input {$gender :string} .input {$count :number} .match $gender $count female one {{Ella compartió un archivo.}} female * {{Ella compartió {$count} archivos.}} male one {{Él compartió un archivo.}} male * {{Él compartió {$count} archivos.}} * one {{Se compartió un archivo.}} * * {{Se compartieron {$count} archivos.}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "gender",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "gender"
+              },
+              "function": {
+                "type": "function",
+                "name": "string"
+              }
+            }
+          },
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "gender"
+          },
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Ella compartió un archivo."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Ella compartió ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " archivos."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Él compartió un archivo."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Él compartió ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " archivos."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Se compartió un archivo."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Se compartieron ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " archivos."
+            ]
+          }
+        ]
+      },
+      "exp": "Se compartieron 2 archivos.",
+      "params": [
+        {
+          "name": "gender",
+          "value": "other"
+        },
+        {
+          "name": "count",
+          "value": 2
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr plural with one and many",
+      "locale": "fr",
+      "src": ".input {$count :number} .match $count one {{{$count} fichier sélectionné}} many {{{$count} de fichiers sélectionnés}} * {{{$count} fichiers sélectionnés}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier sélectionné"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "many"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " de fichiers sélectionnés"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers sélectionnés"
+            ]
+          }
+        ]
+      },
+      "exp": "0 fichier sélectionné",
+      "params": [
+        {
+          "name": "count",
+          "value": 0
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr plural with one and many",
+      "locale": "fr",
+      "src": ".input {$count :number} .match $count one {{{$count} fichier sélectionné}} many {{{$count} de fichiers sélectionnés}} * {{{$count} fichiers sélectionnés}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier sélectionné"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "many"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " de fichiers sélectionnés"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers sélectionnés"
+            ]
+          }
+        ]
+      },
+      "exp": "1 fichier sélectionné",
+      "params": [
+        {
+          "name": "count",
+          "value": 1
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr plural with one and many",
+      "locale": "fr",
+      "src": ".input {$count :number} .match $count one {{{$count} fichier sélectionné}} many {{{$count} de fichiers sélectionnés}} * {{{$count} fichiers sélectionnés}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier sélectionné"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "many"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " de fichiers sélectionnés"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers sélectionnés"
+            ]
+          }
+        ]
+      },
+      "exp": "1,5 fichier sélectionné",
+      "params": [
+        {
+          "name": "count",
+          "value": 1.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr plural with one and many",
+      "locale": "fr",
+      "src": ".input {$count :number} .match $count one {{{$count} fichier sélectionné}} many {{{$count} de fichiers sélectionnés}} * {{{$count} fichiers sélectionnés}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier sélectionné"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "many"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " de fichiers sélectionnés"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers sélectionnés"
+            ]
+          }
+        ]
+      },
+      "exp": "2 fichiers sélectionnés",
+      "params": [
+        {
+          "name": "count",
+          "value": 2
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr plural with one and many",
+      "locale": "fr",
+      "src": ".input {$count :number} .match $count one {{{$count} fichier sélectionné}} many {{{$count} de fichiers sélectionnés}} * {{{$count} fichiers sélectionnés}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier sélectionné"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "many"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " de fichiers sélectionnés"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers sélectionnés"
+            ]
+          }
+        ]
+      },
+      "exp": "1\u202f000\u202f000 de fichiers sélectionnés",
+      "params": [
+        {
+          "name": "count",
+          "value": 1000000
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr EUR total",
+      "locale": "fr",
+      "src": "Montant : {$total :currency currency=EUR}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Montant : ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "total"
+            },
+            "function": {
+              "type": "function",
+              "name": "currency",
+              "options": {
+                "currency": {
+                  "type": "literal",
+                  "value": "EUR"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Montant : 1\u202f234,50\u00a0\u20ac",
+      "params": [
+        {
+          "name": "total",
+          "value": 1234.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr EUR total",
+      "locale": "fr",
+      "src": "Montant : {$total :currency currency=EUR}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Montant : ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "total"
+            },
+            "function": {
+              "type": "function",
+              "name": "currency",
+              "options": {
+                "currency": {
+                  "type": "literal",
+                  "value": "EUR"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Montant : -12,00\u00a0\u20ac",
+      "params": [
+        {
+          "name": "total",
+          "value": -12
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr JPY without fraction digits",
+      "locale": "fr",
+      "src": "Montant : {$total :currency currency=JPY}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Montant : ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "total"
+            },
+            "function": {
+              "type": "function",
+              "name": "currency",
+              "options": {
+                "currency": {
+                  "type": "literal",
+                  "value": "JPY"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Montant : 98\u202f765\u00a0JPY",
+      "params": [
+        {
+          "name": "total",
+          "value": 98765.4
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr long date in Paris",
+      "locale": "fr",
+      "src": "Commandé le {$d :date length=long timeZone=|Europe/Paris|}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Commandé le ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "d"
+            },
+            "function": {
+              "type": "function",
+              "name": "date",
+              "options": {
+                "length": {
+                  "type": "literal",
+                  "value": "long"
+                },
+                "timeZone": {
+                  "type": "literal",
+                  "value": "Europe/Paris"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Commandé le 19 septembre 2026",
+      "params": [
+        {
+          "name": "d",
+          "type": "datetime",
+          "value": "2026-09-19T20:30:00Z"
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr short date in Paris",
+      "locale": "fr",
+      "src": "{$d :date length=short timeZone=|Europe/Paris|}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "d"
+            },
+            "function": {
+              "type": "function",
+              "name": "date",
+              "options": {
+                "length": {
+                  "type": "literal",
+                  "value": "short"
+                },
+                "timeZone": {
+                  "type": "literal",
+                  "value": "Europe/Paris"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "19/09/2026",
+      "params": [
+        {
+          "name": "d",
+          "type": "datetime",
+          "value": "2026-09-19T20:30:00Z"
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr time in Paris",
+      "locale": "fr",
+      "src": "à {$d :time timeZone=|Europe/Paris|}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "à ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "d"
+            },
+            "function": {
+              "type": "function",
+              "name": "time",
+              "options": {
+                "timeZone": {
+                  "type": "literal",
+                  "value": "Europe/Paris"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "à 22:30",
+      "params": [
+        {
+          "name": "d",
+          "type": "datetime",
+          "value": "2026-09-19T20:30:00Z"
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr percent",
+      "locale": "fr",
+      "src": "{$p :percent} terminé",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "p"
+            },
+            "function": {
+              "type": "function",
+              "name": "percent"
+            }
+          },
+          " terminé"
+        ]
+      },
+      "exp": "26\u00a0% terminé",
+      "params": [
+        {
+          "name": "p",
+          "value": 0.256
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr kilometers",
+      "locale": "fr",
+      "src": "Encore {$km :unit unit=kilometer}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Encore ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "km"
+            },
+            "function": {
+              "type": "function",
+              "name": "unit",
+              "options": {
+                "unit": {
+                  "type": "literal",
+                  "value": "kilometer"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Encore 12,5\u202fkm",
+      "params": [
+        {
+          "name": "km",
+          "value": 12.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr kilometers, long",
+      "locale": "fr",
+      "src": "Encore {$km :unit unit=kilometer unitDisplay=long}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "Encore ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "km"
+            },
+            "function": {
+              "type": "function",
+              "name": "unit",
+              "options": {
+                "unit": {
+                  "type": "literal",
+                  "value": "kilometer"
+                },
+                "unitDisplay": {
+                  "type": "literal",
+                  "value": "long"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "Encore 12,5\u00a0kilomètres",
+      "params": [
+        {
+          "name": "km",
+          "value": 12.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr grouping and negative numbers",
+      "locale": "fr",
+      "src": "{$n :number}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "n"
+            },
+            "function": {
+              "type": "function",
+              "name": "number"
+            }
+          }
+        ]
+      },
+      "exp": "1\u202f234",
+      "params": [
+        {
+          "name": "n",
+          "value": 1234
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr grouping and negative numbers",
+      "locale": "fr",
+      "src": "{$n :number}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "n"
+            },
+            "function": {
+              "type": "function",
+              "name": "number"
+            }
+          }
+        ]
+      },
+      "exp": "1\u202f234\u202f567,891",
+      "params": [
+        {
+          "name": "n",
+          "value": 1234567.891
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr grouping and negative numbers",
+      "locale": "fr",
+      "src": "{$n :number}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "n"
+            },
+            "function": {
+              "type": "function",
+              "name": "number"
+            }
+          }
+        ]
+      },
+      "exp": "-1\u202f234,5",
+      "params": [
+        {
+          "name": "n",
+          "value": -1234.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr gender \u00d7 plural",
+      "locale": "fr",
+      "src": ".input {$gender :string} .input {$count :number} .match $gender $count female one {{Elle a partagé {$count} fichier.}} female * {{Elle a partagé {$count} fichiers.}} male one {{Il a partagé {$count} fichier.}} male * {{Il a partagé {$count} fichiers.}} * one {{{$count} fichier a été partagé.}} * * {{{$count} fichiers ont été partagés.}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "gender",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "gender"
+              },
+              "function": {
+                "type": "function",
+                "name": "string"
+              }
+            }
+          },
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "gender"
+          },
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Elle a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Elle a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Il a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Il a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier a été partagé."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers ont été partagés."
+            ]
+          }
+        ]
+      },
+      "exp": "Elle a partagé 0 fichier.",
+      "params": [
+        {
+          "name": "gender",
+          "value": "female"
+        },
+        {
+          "name": "count",
+          "value": 0
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr gender \u00d7 plural",
+      "locale": "fr",
+      "src": ".input {$gender :string} .input {$count :number} .match $gender $count female one {{Elle a partagé {$count} fichier.}} female * {{Elle a partagé {$count} fichiers.}} male one {{Il a partagé {$count} fichier.}} male * {{Il a partagé {$count} fichiers.}} * one {{{$count} fichier a été partagé.}} * * {{{$count} fichiers ont été partagés.}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "gender",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "gender"
+              },
+              "function": {
+                "type": "function",
+                "name": "string"
+              }
+            }
+          },
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "gender"
+          },
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Elle a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Elle a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Il a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Il a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier a été partagé."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers ont été partagés."
+            ]
+          }
+        ]
+      },
+      "exp": "Il a partagé 3 fichiers.",
+      "params": [
+        {
+          "name": "gender",
+          "value": "male"
+        },
+        {
+          "name": "count",
+          "value": 3
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "fr gender \u00d7 plural",
+      "locale": "fr",
+      "src": ".input {$gender :string} .input {$count :number} .match $gender $count female one {{Elle a partagé {$count} fichier.}} female * {{Elle a partagé {$count} fichiers.}} male one {{Il a partagé {$count} fichier.}} male * {{Il a partagé {$count} fichiers.}} * one {{{$count} fichier a été partagé.}} * * {{{$count} fichiers ont été partagés.}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "gender",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "gender"
+              },
+              "function": {
+                "type": "function",
+                "name": "string"
+              }
+            }
+          },
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "gender"
+          },
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Elle a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Elle a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "Il a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "Il a partagé ",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichier a été partagé."
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              " fichiers ont été partagés."
+            ]
+          }
+        ]
+      },
+      "exp": "1 fichier a été partagé.",
+      "params": [
+        {
+          "name": "gender",
+          "value": "other"
+        },
+        {
+          "name": "count",
+          "value": 1
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja plural: 1 is other",
+      "locale": "ja",
+      "src": ".input {$count :number} .match $count 0 {{新しいメッセージはありません}} one {{新しいメッセージが1件}} * {{新しいメッセージが{$count}件あります}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "0"
+              }
+            ],
+            "value": [
+              "新しいメッセージはありません"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "新しいメッセージが1件"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "新しいメッセージが",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件あります"
+            ]
+          }
+        ]
+      },
+      "exp": "新しいメッセージはありません",
+      "params": [
+        {
+          "name": "count",
+          "value": 0
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja plural: 1 is other",
+      "locale": "ja",
+      "src": ".input {$count :number} .match $count 0 {{新しいメッセージはありません}} one {{新しいメッセージが1件}} * {{新しいメッセージが{$count}件あります}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "0"
+              }
+            ],
+            "value": [
+              "新しいメッセージはありません"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "新しいメッセージが1件"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "新しいメッセージが",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件あります"
+            ]
+          }
+        ]
+      },
+      "exp": "新しいメッセージが1件あります",
+      "params": [
+        {
+          "name": "count",
+          "value": 1
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja plural: 1 is other",
+      "locale": "ja",
+      "src": ".input {$count :number} .match $count 0 {{新しいメッセージはありません}} one {{新しいメッセージが1件}} * {{新しいメッセージが{$count}件あります}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "0"
+              }
+            ],
+            "value": [
+              "新しいメッセージはありません"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "one"
+              }
+            ],
+            "value": [
+              "新しいメッセージが1件"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "新しいメッセージが",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件あります"
+            ]
+          }
+        ]
+      },
+      "exp": "新しいメッセージが1,250件あります",
+      "params": [
+        {
+          "name": "count",
+          "value": 1250
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja JPY without fraction digits",
+      "locale": "ja",
+      "src": "合計: {$total :currency currency=JPY}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "合計: ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "total"
+            },
+            "function": {
+              "type": "function",
+              "name": "currency",
+              "options": {
+                "currency": {
+                  "type": "literal",
+                  "value": "JPY"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "合計: \uffe51,234",
+      "params": [
+        {
+          "name": "total",
+          "value": 1234
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja JPY without fraction digits",
+      "locale": "ja",
+      "src": "合計: {$total :currency currency=JPY}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "合計: ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "total"
+            },
+            "function": {
+              "type": "function",
+              "name": "currency",
+              "options": {
+                "currency": {
+                  "type": "literal",
+                  "value": "JPY"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "合計: \uffe51,234,567",
+      "params": [
+        {
+          "name": "total",
+          "value": 1234567.4
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja EUR total",
+      "locale": "ja",
+      "src": "合計: {$total :currency currency=EUR}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "合計: ",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "total"
+            },
+            "function": {
+              "type": "function",
+              "name": "currency",
+              "options": {
+                "currency": {
+                  "type": "literal",
+                  "value": "EUR"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "合計: \u20ac1,234.50",
+      "params": [
+        {
+          "name": "total",
+          "value": 1234.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja long date in Tokyo",
+      "locale": "ja",
+      "src": "{$d :date length=long timeZone=|Asia/Tokyo|}に注文",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "d"
+            },
+            "function": {
+              "type": "function",
+              "name": "date",
+              "options": {
+                "length": {
+                  "type": "literal",
+                  "value": "long"
+                },
+                "timeZone": {
+                  "type": "literal",
+                  "value": "Asia/Tokyo"
+                }
+              }
+            }
+          },
+          "に注文"
+        ]
+      },
+      "exp": "2026年9月20日に注文",
+      "params": [
+        {
+          "name": "d",
+          "type": "datetime",
+          "value": "2026-09-19T20:30:00Z"
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja short date in Tokyo",
+      "locale": "ja",
+      "src": "{$d :date length=short timeZone=|Asia/Tokyo|}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "d"
+            },
+            "function": {
+              "type": "function",
+              "name": "date",
+              "options": {
+                "length": {
+                  "type": "literal",
+                  "value": "short"
+                },
+                "timeZone": {
+                  "type": "literal",
+                  "value": "Asia/Tokyo"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "2026/9/20",
+      "params": [
+        {
+          "name": "d",
+          "type": "datetime",
+          "value": "2026-09-19T20:30:00Z"
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja time in Tokyo",
+      "locale": "ja",
+      "src": "{$d :time timeZone=|Asia/Tokyo|}に発送",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "d"
+            },
+            "function": {
+              "type": "function",
+              "name": "time",
+              "options": {
+                "timeZone": {
+                  "type": "literal",
+                  "value": "Asia/Tokyo"
+                }
+              }
+            }
+          },
+          "に発送"
+        ]
+      },
+      "exp": "5:30に発送",
+      "params": [
+        {
+          "name": "d",
+          "type": "datetime",
+          "value": "2026-09-19T20:30:00Z"
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja percent",
+      "locale": "ja",
+      "src": "{$p :percent}完了",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "p"
+            },
+            "function": {
+              "type": "function",
+              "name": "percent"
+            }
+          },
+          "完了"
+        ]
+      },
+      "exp": "26%完了",
+      "params": [
+        {
+          "name": "p",
+          "value": 0.256
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja kilometers",
+      "locale": "ja",
+      "src": "残り{$km :unit unit=kilometer}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "残り",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "km"
+            },
+            "function": {
+              "type": "function",
+              "name": "unit",
+              "options": {
+                "unit": {
+                  "type": "literal",
+                  "value": "kilometer"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "残り12.5 km",
+      "params": [
+        {
+          "name": "km",
+          "value": 12.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja kilometers, long",
+      "locale": "ja",
+      "src": "残り{$km :unit unit=kilometer unitDisplay=long}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          "残り",
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "km"
+            },
+            "function": {
+              "type": "function",
+              "name": "unit",
+              "options": {
+                "unit": {
+                  "type": "literal",
+                  "value": "kilometer"
+                },
+                "unitDisplay": {
+                  "type": "literal",
+                  "value": "long"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exp": "残り12.5 キロメートル",
+      "params": [
+        {
+          "name": "km",
+          "value": 12.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja grouping and negative numbers",
+      "locale": "ja",
+      "src": "{$n :number}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "n"
+            },
+            "function": {
+              "type": "function",
+              "name": "number"
+            }
+          }
+        ]
+      },
+      "exp": "1,234,567.891",
+      "params": [
+        {
+          "name": "n",
+          "value": 1234567.891
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja grouping and negative numbers",
+      "locale": "ja",
+      "src": "{$n :number}",
+      "syntax": "mf2",
+      "message": {
+        "type": "message",
+        "declarations": [],
+        "pattern": [
+          {
+            "type": "expression",
+            "arg": {
+              "type": "variable",
+              "name": "n"
+            },
+            "function": {
+              "type": "function",
+              "name": "number"
+            }
+          }
+        ]
+      },
+      "exp": "-1,234.5",
+      "params": [
+        {
+          "name": "n",
+          "value": -1234.5
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja gender \u00d7 plural",
+      "locale": "ja",
+      "src": ".input {$gender :string} .input {$count :number} .match $gender $count female * {{彼女が{$count}件のファイルを共有しました\u3002}} male * {{彼が{$count}件のファイルを共有しました\u3002}} * * {{{$count}件のファイルが共有されました\u3002}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "gender",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "gender"
+              },
+              "function": {
+                "type": "function",
+                "name": "string"
+              }
+            }
+          },
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "gender"
+          },
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "彼女が",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件のファイルを共有しました\u3002"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "彼が",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件のファイルを共有しました\u3002"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件のファイルが共有されました\u3002"
+            ]
+          }
+        ]
+      },
+      "exp": "彼女が1件のファイルを共有しました\u3002",
+      "params": [
+        {
+          "name": "gender",
+          "value": "female"
+        },
+        {
+          "name": "count",
+          "value": 1
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja gender \u00d7 plural",
+      "locale": "ja",
+      "src": ".input {$gender :string} .input {$count :number} .match $gender $count female * {{彼女が{$count}件のファイルを共有しました\u3002}} male * {{彼が{$count}件のファイルを共有しました\u3002}} * * {{{$count}件のファイルが共有されました\u3002}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "gender",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "gender"
+              },
+              "function": {
+                "type": "function",
+                "name": "string"
+              }
+            }
+          },
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "gender"
+          },
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "彼女が",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件のファイルを共有しました\u3002"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "彼が",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件のファイルを共有しました\u3002"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件のファイルが共有されました\u3002"
+            ]
+          }
+        ]
+      },
+      "exp": "彼が3件のファイルを共有しました\u3002",
+      "params": [
+        {
+          "name": "gender",
+          "value": "male"
+        },
+        {
+          "name": "count",
+          "value": 3
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
+      "description": "ja gender \u00d7 plural",
+      "locale": "ja",
+      "src": ".input {$gender :string} .input {$count :number} .match $gender $count female * {{彼女が{$count}件のファイルを共有しました\u3002}} male * {{彼が{$count}件のファイルを共有しました\u3002}} * * {{{$count}件のファイルが共有されました\u3002}}",
+      "syntax": "mf2",
+      "message": {
+        "type": "select",
+        "declarations": [
+          {
+            "type": "input",
+            "name": "gender",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "gender"
+              },
+              "function": {
+                "type": "function",
+                "name": "string"
+              }
+            }
+          },
+          {
+            "type": "input",
+            "name": "count",
+            "value": {
+              "type": "expression",
+              "arg": {
+                "type": "variable",
+                "name": "count"
+              },
+              "function": {
+                "type": "function",
+                "name": "number"
+              }
+            }
+          }
+        ],
+        "selectors": [
+          {
+            "type": "variable",
+            "name": "gender"
+          },
+          {
+            "type": "variable",
+            "name": "count"
+          }
+        ],
+        "variants": [
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "female"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "彼女が",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件のファイルを共有しました\u3002"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "literal",
+                "value": "male"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              "彼が",
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件のファイルを共有しました\u3002"
+            ]
+          },
+          {
+            "keys": [
+              {
+                "type": "*"
+              },
+              {
+                "type": "*"
+              }
+            ],
+            "value": [
+              {
+                "type": "expression",
+                "arg": {
+                  "type": "variable",
+                  "name": "count"
+                }
+              },
+              "件のファイルが共有されました\u3002"
+            ]
+          }
+        ]
+      },
+      "exp": "1,250件のファイルが共有されました\u3002",
+      "params": [
+        {
+          "name": "gender",
+          "value": "other"
+        },
+        {
+          "name": "count",
+          "value": 1250
+        }
+      ],
+      "bidiIsolation": "none"
+    },
+    {
       "description": "de missing variable falls back to {$name}",
       "locale": "de",
       "src": "Hallo {$name}!",
