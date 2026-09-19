@@ -136,7 +136,7 @@ func withEngineFunctions(fns map[string]functions.MessageFunction) FormatOption 
 // *Error and no parts for an invalid message or locale.
 func FormatToParts(msg Message, locale string, values map[string]any, opts ...FormatOption) (parts []Part, err error) {
 	defer containEngineFailure(&err)
-	formatter, err := compile(msg, locale, opts)
+	formatter, err := compile(annotateExactValues(msg, values), locale, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func FormatToParts(msg Message, locale string, values map[string]any, opts ...Fo
 }
 
 func format(msg Message, locale string, values map[string]any, opts []FormatOption) (string, error) {
-	formatter, err := compile(msg, locale, opts)
+	formatter, err := compile(annotateExactValues(msg, values), locale, opts)
 	if err != nil {
 		return "", err
 	}
@@ -169,6 +169,7 @@ func compile(msg Message, locale string, opts []FormatOption) (*mf2.MessageForma
 	for _, opt := range opts {
 		opt(&cfg)
 	}
+	withExactNumbers(cfg.functions)
 	em, err := toEngineValidated(msg)
 	if err != nil {
 		return nil, err

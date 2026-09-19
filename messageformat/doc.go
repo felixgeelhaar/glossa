@@ -19,6 +19,8 @@
 //   - formats messages for the Go runtime with the required and draft MF2
 //     functions, to a string ([Format]) or to formatted parts
 //     ([FormatToParts]) that keep markup and placeholder boundaries.
+//     [Decimal] and [Money] values format and select exactly, without
+//     ever passing through a float.
 //
 // Errors are *[Error] values with stable codes ([ErrorCode]); formatting
 // problems come as a *[FormatError] next to a usable fallback string. No

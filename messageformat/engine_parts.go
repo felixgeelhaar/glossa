@@ -45,6 +45,8 @@ func fromEnginePart(p messagevalue.MessagePart) Part {
 		part.Value, part.Parts = p.Text(), subParts(p.Parts())
 	case *messagevalue.DateTimePart:
 		part.Value, part.Parts = p.Text(), subParts(p.Parts())
+	case *exactNumberPart:
+		part.Value, part.Parts = p.Text(), p.parts
 	case *messagevalue.UnknownPart:
 		part.Value = unknownText(p.Value())
 	case interface{ Text() string }:
