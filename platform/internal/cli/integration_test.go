@@ -126,6 +126,7 @@ type call struct {
 	method, path string
 	body         any
 	cookie, csrf string
+	headers      map[string]string
 }
 
 func (s *server) do(c call, wantStatus int, out any) http.Header {
@@ -147,6 +148,9 @@ func (s *server) do(c call, wantStatus int, out any) http.Header {
 	}
 	if c.csrf != "" {
 		req.Header.Set("X-CSRF-Token", c.csrf)
+	}
+	for k, v := range c.headers {
+		req.Header.Set(k, v)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -246,9 +250,13 @@ func (r runner) run(want cli.ExitCode, out any, args ...string) string {
 // translations from Glossa v0.3 → check passes → generate. Re-running
 // push and import changes nothing. Then the release half, on MinIO:
 // publish → pull --release → the Go runtime loads the bundle offline →
-// promote → rollback → delivery keys.
+// promote → rollback → delivery keys. Then M2's knowledge and AI loop
+// (knowledgeLoop).
 func TestCLIAgainstGlossaServer(t *testing.T) {
-	s := startServer(t, objectStorage(t))
+	vars := objectStorage(t)
+	vars["GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS"] = "true" // the fake provider listens on loopback
+	vars["GLOSSA_AI_POLL_INTERVAL"] = "100ms"
+	s := startServer(t, vars)
 	cookie, csrf := s.signIn("ada@example.com")
 	var org struct{ ID string }
 	s.do(call{method: "POST", path: "/v1/tenants", cookie: cookie, csrf: csrf,
@@ -384,6 +392,7 @@ func TestCLIAgainstGlossaServer(t *testing.T) {
 	r.run(cli.ExitOK, nil, "diff", "--exit-code")
 
 	releaseLoop(t, r)
+	knowledgeLoop(t, r, s, session{cookie: cookie, csrf: csrf}, base, project.ID)
 }
 
 // objectStorage starts MinIO with a bucket and returns glossa-server's
