@@ -525,4 +525,4 @@ func (a *API) RevokeToken(ctx context.Context, req apiv1.RevokeTokenRequestObjec
 	return apiv1.RevokeToken204Response{}, nil
 }
 
-var _ apiv1.StrictServerInterface = (*API)(nil)
+// The composition root asserts that every context's handlers together implement apiv1.StrictServerInterface.

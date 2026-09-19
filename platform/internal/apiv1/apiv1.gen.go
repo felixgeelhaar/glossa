@@ -24,18 +24,267 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for ArgumentSelectorKind.
+const (
+	ArgumentSelectorKindExact   ArgumentSelectorKind = "exact"
+	ArgumentSelectorKindOrdinal ArgumentSelectorKind = "ordinal"
+	ArgumentSelectorKindPlural  ArgumentSelectorKind = "plural"
+	ArgumentSelectorKindString  ArgumentSelectorKind = "string"
+)
+
+// Valid indicates whether the value is a known member of the ArgumentSelectorKind enum.
+func (e ArgumentSelectorKind) Valid() bool {
+	switch e {
+	case ArgumentSelectorKindExact:
+		return true
+	case ArgumentSelectorKindOrdinal:
+		return true
+	case ArgumentSelectorKindPlural:
+		return true
+	case ArgumentSelectorKindString:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ArgumentType.
+const (
+	ArgumentTypeCurrency ArgumentType = "currency"
+	ArgumentTypeDate     ArgumentType = "date"
+	ArgumentTypeDatetime ArgumentType = "datetime"
+	ArgumentTypeInteger  ArgumentType = "integer"
+	ArgumentTypeNumber   ArgumentType = "number"
+	ArgumentTypePercent  ArgumentType = "percent"
+	ArgumentTypeSelect   ArgumentType = "select"
+	ArgumentTypeString   ArgumentType = "string"
+	ArgumentTypeTime     ArgumentType = "time"
+	ArgumentTypeUnit     ArgumentType = "unit"
+)
+
+// Valid indicates whether the value is a known member of the ArgumentType enum.
+func (e ArgumentType) Valid() bool {
+	switch e {
+	case ArgumentTypeCurrency:
+		return true
+	case ArgumentTypeDate:
+		return true
+	case ArgumentTypeDatetime:
+		return true
+	case ArgumentTypeInteger:
+		return true
+	case ArgumentTypeNumber:
+		return true
+	case ArgumentTypePercent:
+		return true
+	case ArgumentTypeSelect:
+		return true
+	case ArgumentTypeString:
+		return true
+	case ArgumentTypeTime:
+		return true
+	case ArgumentTypeUnit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Direction.
+const (
+	Ltr Direction = "ltr"
+	Rtl Direction = "rtl"
+)
+
+// Valid indicates whether the value is a known member of the Direction enum.
+func (e Direction) Valid() bool {
+	switch e {
+	case Ltr:
+		return true
+	case Rtl:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MarkupElementKind.
+const (
+	Close      MarkupElementKind = "close"
+	Open       MarkupElementKind = "open"
+	Standalone MarkupElementKind = "standalone"
+)
+
+// Valid indicates whether the value is a known member of the MarkupElementKind enum.
+func (e MarkupElementKind) Valid() bool {
+	switch e {
+	case Close:
+		return true
+	case Open:
+		return true
+	case Standalone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MemberStatus.
 const (
-	Active  MemberStatus = "active"
-	Invited MemberStatus = "invited"
+	MemberStatusActive  MemberStatus = "active"
+	MemberStatusInvited MemberStatus = "invited"
 )
 
 // Valid indicates whether the value is a known member of the MemberStatus enum.
 func (e MemberStatus) Valid() bool {
 	switch e {
-	case Active:
+	case MemberStatusActive:
 		return true
-	case Invited:
+	case MemberStatusInvited:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MessageState.
+const (
+	MessageStateActive   MessageState = "active"
+	MessageStateObsolete MessageState = "obsolete"
+)
+
+// Valid indicates whether the value is a known member of the MessageState enum.
+func (e MessageState) Valid() bool {
+	switch e {
+	case MessageStateActive:
+		return true
+	case MessageStateObsolete:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MessageUpsertItemResultStatus.
+const (
+	MessageUpsertItemResultStatusCreated   MessageUpsertItemResultStatus = "created"
+	MessageUpsertItemResultStatusFailed    MessageUpsertItemResultStatus = "failed"
+	MessageUpsertItemResultStatusRevised   MessageUpsertItemResultStatus = "revised"
+	MessageUpsertItemResultStatusUnchanged MessageUpsertItemResultStatus = "unchanged"
+	MessageUpsertItemResultStatusUpdated   MessageUpsertItemResultStatus = "updated"
+)
+
+// Valid indicates whether the value is a known member of the MessageUpsertItemResultStatus enum.
+func (e MessageUpsertItemResultStatus) Valid() bool {
+	switch e {
+	case MessageUpsertItemResultStatusCreated:
+		return true
+	case MessageUpsertItemResultStatusFailed:
+		return true
+	case MessageUpsertItemResultStatusRevised:
+		return true
+	case MessageUpsertItemResultStatusUnchanged:
+		return true
+	case MessageUpsertItemResultStatusUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Origin.
+const (
+	Adaptation         Origin = "adaptation"
+	Ai                 Origin = "ai"
+	Human              Origin = "human"
+	Import             Origin = "import"
+	MachineTranslation Origin = "machine_translation"
+	TranslationMemory  Origin = "translation_memory"
+)
+
+// Valid indicates whether the value is a known member of the Origin enum.
+func (e Origin) Valid() bool {
+	switch e {
+	case Adaptation:
+		return true
+	case Ai:
+		return true
+	case Human:
+		return true
+	case Import:
+		return true
+	case MachineTranslation:
+		return true
+	case TranslationMemory:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Platform.
+const (
+	Android Platform = "android"
+	Api     Platform = "api"
+	Ios     Platform = "ios"
+	Other   Platform = "other"
+	Web     Platform = "web"
+)
+
+// Valid indicates whether the value is a known member of the Platform enum.
+func (e Platform) Valid() bool {
+	switch e {
+	case Android:
+		return true
+	case Api:
+		return true
+	case Ios:
+		return true
+	case Other:
+		return true
+	case Web:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QAFindingSeverity.
+const (
+	Error   QAFindingSeverity = "error"
+	Warning QAFindingSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the QAFindingSeverity enum.
+func (e QAFindingSeverity) Valid() bool {
+	switch e {
+	case Error:
+		return true
+	case Warning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReviewState.
+const (
+	Approved    ReviewState = "approved"
+	Draft       ReviewState = "draft"
+	NeedsReview ReviewState = "needs_review"
+	Rejected    ReviewState = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ReviewState enum.
+func (e ReviewState) Valid() bool {
+	switch e {
+	case Approved:
+		return true
+	case Draft:
+		return true
+	case NeedsReview:
+		return true
+	case Rejected:
 		return true
 	default:
 		return false
@@ -93,6 +342,24 @@ func (e Scope) Valid() bool {
 	}
 }
 
+// Defines values for Syntax.
+const (
+	Mf1 Syntax = "mf1"
+	Mf2 Syntax = "mf2"
+)
+
+// Valid indicates whether the value is a known member of the Syntax enum.
+func (e Syntax) Valid() bool {
+	switch e {
+	case Mf1:
+		return true
+	case Mf2:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TenantKind.
 const (
 	Individual   TenantKind = "individual"
@@ -111,11 +378,142 @@ func (e TenantKind) Valid() bool {
 	}
 }
 
+// Defines values for TranslationImportItemResultStatus.
+const (
+	TranslationImportItemResultStatusCreated   TranslationImportItemResultStatus = "created"
+	TranslationImportItemResultStatusReviewed  TranslationImportItemResultStatus = "reviewed"
+	TranslationImportItemResultStatusRevised   TranslationImportItemResultStatus = "revised"
+	TranslationImportItemResultStatusUnchanged TranslationImportItemResultStatus = "unchanged"
+)
+
+// Valid indicates whether the value is a known member of the TranslationImportItemResultStatus enum.
+func (e TranslationImportItemResultStatus) Valid() bool {
+	switch e {
+	case TranslationImportItemResultStatusCreated:
+		return true
+	case TranslationImportItemResultStatusReviewed:
+		return true
+	case TranslationImportItemResultStatusRevised:
+		return true
+	case TranslationImportItemResultStatusUnchanged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TranslationRevisionKind.
+const (
+	Content TranslationRevisionKind = "content"
+	Review  TranslationRevisionKind = "review"
+)
+
+// Valid indicates whether the value is a known member of the TranslationRevisionKind enum.
+func (e TranslationRevisionKind) Valid() bool {
+	switch e {
+	case Content:
+		return true
+	case Review:
+		return true
+	default:
+		return false
+	}
+}
+
+// AddLocale defines model for AddLocale.
+type AddLocale struct {
+	// Code A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Code Locale `json:"code"`
+}
+
 // AddMember defines model for AddMember.
 type AddMember struct {
 	Email   Email     `json:"email"`
 	Locales *[]Locale `json:"locales,omitempty"`
 	Roles   []Role    `json:"roles"`
+}
+
+// Application defines model for Application.
+type Application struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Id An opaque identifier.
+	Id       Id       `json:"id"`
+	Name     string   `json:"name"`
+	Platform Platform `json:"platform"`
+	Slug     Slug     `json:"slug"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// ApplicationList defines model for ApplicationList.
+type ApplicationList struct {
+	Items         []Application `json:"items"`
+	NextPageToken *string       `json:"next_page_token,omitempty"`
+}
+
+// Argument defines model for Argument.
+type Argument struct {
+	// Function The annotating function, if any.
+	Function *string `json:"function,omitempty"`
+	Name     string  `json:"name"`
+	Selector *struct {
+		// Keys Literal variant keys; the catch-all `*` always exists.
+		Keys []string             `json:"keys"`
+		Kind ArgumentSelectorKind `json:"kind"`
+	} `json:"selector,omitempty"`
+	Type ArgumentType `json:"type"`
+}
+
+// ArgumentSelectorKind defines model for Argument.Selector.Kind.
+type ArgumentSelectorKind string
+
+// ArgumentType defines model for Argument.Type.
+type ArgumentType string
+
+// CreateApplication defines model for CreateApplication.
+type CreateApplication struct {
+	Name     string   `json:"name"`
+	Platform Platform `json:"platform"`
+	Slug     Slug     `json:"slug"`
+}
+
+// CreateMessage defines model for CreateMessage.
+type CreateMessage struct {
+	Description *string `json:"description,omitempty"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key       MessageKey `json:"key"`
+	MaxLength *int       `json:"max_length,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax *Syntax `json:"syntax,omitempty"`
+	Text   string  `json:"text"`
+}
+
+// CreateProject defines model for CreateProject.
+type CreateProject struct {
+	Name     string           `json:"name"`
+	Settings *ProjectSettings `json:"settings,omitempty"`
+	Slug     Slug             `json:"slug"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale Locale `json:"source_locale"`
 }
 
 // CreateTenant defines model for CreateTenant.
@@ -139,12 +537,21 @@ type CreatedToken struct {
 	Token  Token   `json:"token"`
 }
 
+// Direction Derived from the locale's (likely) script.
+type Direction string
+
 // Email defines model for Email.
 type Email = openapi_types.Email
 
 // EmailRequest defines model for EmailRequest.
 type EmailRequest struct {
 	Email Email `json:"email"`
+}
+
+// FallbackGraph defines model for FallbackGraph.
+type FallbackGraph struct {
+	// Fallback A locale (or `*`) to its ordered fallback locales: `{"de-AT": ["de"], "*": ["en"]}`.
+	Fallback map[string][]Locale `json:"fallback"`
 }
 
 // FieldError defines model for FieldError.
@@ -158,11 +565,39 @@ type FieldError struct {
 // Id An opaque identifier.
 type Id = string
 
+// ItemError defines model for ItemError.
+type ItemError struct {
+	// Code Stable machine code.
+	Code     string       `json:"code"`
+	Detail   string       `json:"detail"`
+	Findings *[]QAFinding `json:"findings,omitempty"`
+}
+
 // Locale A BCP 47 language tag. Stored and returned canonicalized
 // (`en_us` → `en-US`, `iw` → `he`).
 //
 // Examples: de, pt-BR, zh-Hant-TW
 type Locale = string
+
+// LocaleList defines model for LocaleList.
+type LocaleList struct {
+	Items         []ProjectLocale `json:"items"`
+	NextPageToken *string         `json:"next_page_token,omitempty"`
+}
+
+// MF2Message A message in the Unicode MessageFormat 2 data model, exactly as
+// messageformat/testdata/unicode/data-model/message.schema.json
+// defines it — the canonical form releases ship.
+type MF2Message map[string]interface{}
+
+// MarkupElement defines model for MarkupElement.
+type MarkupElement struct {
+	Kind MarkupElementKind `json:"kind"`
+	Name string            `json:"name"`
+}
+
+// MarkupElementKind defines model for MarkupElement.Kind.
+type MarkupElementKind string
 
 // Me defines model for Me.
 type Me struct {
@@ -211,6 +646,116 @@ type Membership struct {
 	Roles    []Role `json:"roles"`
 	Tenant   Tenant `json:"tenant"`
 }
+
+// Message defines model for Message.
+type Message struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt   Timestamp `json:"created_at"`
+	Description string    `json:"description"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
+
+	// MaxLength Rendered length limit that translation QA checks.
+	MaxLength *int `json:"max_length,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace Namespace      `json:"namespace"`
+	Source    MessageContent `json:"source"`
+
+	// SourceRevision The current source revision.
+	SourceRevision int          `json:"source_revision"`
+	State          MessageState `json:"state"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// MessageContent defines model for MessageContent.
+type MessageContent struct {
+	// Arguments Derived from the model on every change.
+	Arguments []Argument      `json:"arguments"`
+	Markup    []MarkupElement `json:"markup"`
+
+	// Model A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	Model MF2Message `json:"model"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax Syntax `json:"syntax"`
+
+	// Text What the author wrote.
+	Text string `json:"text"`
+}
+
+// MessageKey A dotted path of `[a-z0-9_-]` segments, unique in the project.
+//
+// Examples: checkout.payment.submit
+type MessageKey = string
+
+// MessageList defines model for MessageList.
+type MessageList struct {
+	Items         []Message `json:"items"`
+	NextPageToken *string   `json:"next_page_token,omitempty"`
+}
+
+// MessageState defines model for MessageState.
+type MessageState string
+
+// MessageUpsert defines model for MessageUpsert.
+type MessageUpsert struct {
+	Items []MessageUpsertItem `json:"items"`
+}
+
+// MessageUpsertItem defines model for MessageUpsertItem.
+type MessageUpsertItem struct {
+	// BaseRevision The source revision the client last saw (0: the message must
+	// not exist yet). A stale one fails the item with
+	// `source_revision_conflict` instead of overwriting.
+	BaseRevision *int `json:"base_revision,omitempty"`
+
+	// Description Omitted: keep.
+	Description *string `json:"description,omitempty"`
+	Key         string  `json:"key"`
+
+	// MaxLength Omitted: keep.
+	MaxLength *int `json:"max_length,omitempty"`
+
+	// Namespace Omitted: keep (new messages: `default`).
+	Namespace *string `json:"namespace,omitempty"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax *Syntax `json:"syntax,omitempty"`
+	Text   string  `json:"text"`
+}
+
+// MessageUpsertItemResult defines model for MessageUpsertItemResult.
+type MessageUpsertItemResult struct {
+	Error   *ItemError                    `json:"error,omitempty"`
+	Key     string                        `json:"key"`
+	Message *Message                      `json:"message,omitempty"`
+	Status  MessageUpsertItemResultStatus `json:"status"`
+}
+
+// MessageUpsertItemResultStatus defines model for MessageUpsertItemResult.Status.
+type MessageUpsertItemResultStatus string
+
+// MessageUpsertResult defines model for MessageUpsertResult.
+type MessageUpsertResult struct {
+	Results []MessageUpsertItemResult `json:"results"`
+}
+
+// Namespace Groups messages into separately loadable bundles. Default `default`.
+type Namespace = string
+
+// Origin defines model for Origin.
+type Origin string
 
 // Passkey defines model for Passkey.
 type Passkey struct {
@@ -266,6 +811,9 @@ type Person struct {
 	TotpEnabled        bool `json:"totp_enabled"`
 }
 
+// Platform defines model for Platform.
+type Platform string
+
 // Problem RFC 9457 problem details.
 type Problem struct {
 	// Code Stable machine-readable code.
@@ -280,11 +828,141 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
+// Project defines model for Project.
+type Project struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Id An opaque identifier.
+	Id       Id              `json:"id"`
+	Name     string          `json:"name"`
+	Settings ProjectSettings `json:"settings"`
+	Slug     Slug            `json:"slug"`
+
+	// SourceLocale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	SourceLocale Locale `json:"source_locale"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// ProjectList defines model for ProjectList.
+type ProjectList struct {
+	Items         []Project `json:"items"`
+	NextPageToken *string   `json:"next_page_token,omitempty"`
+}
+
+// ProjectLocale defines model for ProjectLocale.
+type ProjectLocale struct {
+	// Code A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Code Locale `json:"code"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Direction Derived from the locale's (likely) script.
+	Direction Direction `json:"direction"`
+	IsSource  bool      `json:"is_source"`
+}
+
+// ProjectSettings defines model for ProjectSettings.
+type ProjectSettings struct {
+	// DefaultSyntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	DefaultSyntax Syntax `json:"default_syntax"`
+
+	// ReviewRequired New translations wait for review (`needs_review`) unless a
+	// reviewer approves them as they write. When false, new text is
+	// `approved` on write.
+	ReviewRequired bool `json:"review_required"`
+}
+
+// PutFallbackGraph defines model for PutFallbackGraph.
+type PutFallbackGraph struct {
+	Fallback map[string][]Locale `json:"fallback"`
+}
+
+// PutTranslation defines model for PutTranslation.
+type PutTranslation struct {
+	Origin *Origin `json:"origin,omitempty"`
+
+	// OriginDetail Provenance specifics — model, prompt version, TM match, source job…
+	OriginDetail   *map[string]interface{} `json:"origin_detail,omitempty"`
+	SourceRevision *int                    `json:"source_revision,omitempty"`
+	State          *ReviewState            `json:"state,omitempty"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax *Syntax `json:"syntax,omitempty"`
+	Text   string  `json:"text"`
+}
+
+// QAFinding defines model for QAFinding.
+type QAFinding struct {
+	// Code Stable finding code, e.g. `missing-argument`, `max-length-exceeded`.
+	Code   string  `json:"code"`
+	Detail *string `json:"detail,omitempty"`
+
+	// Message For humans; wording may change.
+	Message  string            `json:"message"`
+	Severity QAFindingSeverity `json:"severity"`
+
+	// Subject The argument or markup element concerned.
+	Subject *string `json:"subject,omitempty"`
+}
+
+// QAFindingSeverity defines model for QAFinding.Severity.
+type QAFindingSeverity string
+
+// QAProblem defines model for QAProblem.
+type QAProblem struct {
+	// Code Stable machine-readable code.
+	Code     string        `json:"code"`
+	Detail   *string       `json:"detail,omitempty"`
+	Errors   *[]FieldError `json:"errors,omitempty"`
+	Findings *[]QAFinding  `json:"findings,omitempty"`
+	Instance *string       `json:"instance,omitempty"`
+	Status   int           `json:"status"`
+	Title    string        `json:"title"`
+
+	// Type Examples: urn:glossa:problem:slug_taken
+	Type string `json:"type"`
+}
+
 // Registration defines model for Registration.
 type Registration struct {
 	DisplayName *string `json:"display_name,omitempty"`
 	Email       Email   `json:"email"`
 	Password    string  `json:"password"`
+}
+
+// RenameMessage defines model for RenameMessage.
+type RenameMessage struct {
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
+}
+
+// ReviewState defines model for ReviewState.
+type ReviewState string
+
+// ReviewTranslation defines model for ReviewTranslation.
+type ReviewTranslation struct {
+	State ReviewState `json:"state"`
+}
+
+// ReviseSource defines model for ReviseSource.
+type ReviseSource struct {
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax *Syntax `json:"syntax,omitempty"`
+	Text   string  `json:"text"`
 }
 
 // Role `owner` everything; `admin` everything except owner changes;
@@ -308,6 +986,37 @@ type Session struct {
 	ExpiresAt Timestamp `json:"expires_at"`
 	Person    Person    `json:"person"`
 }
+
+// Slug defines model for Slug.
+type Slug = string
+
+// SourceRevision defines model for SourceRevision.
+type SourceRevision struct {
+	// Author `person:<id>` or `token:<id>`.
+	Author string `json:"author"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Model A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	Model    MF2Message `json:"model"`
+	Revision int        `json:"revision"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax Syntax `json:"syntax"`
+	Text   string `json:"text"`
+}
+
+// SourceRevisionList defines model for SourceRevisionList.
+type SourceRevisionList struct {
+	Items         []SourceRevision `json:"items"`
+	NextPageToken *string          `json:"next_page_token,omitempty"`
+}
+
+// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+type Syntax string
 
 // Tenant defines model for Tenant.
 type Tenant struct {
@@ -385,14 +1094,158 @@ type TotpEnrollment struct {
 	Secret string `json:"secret"`
 }
 
+// Translation defines model for Translation.
+type Translation struct {
+	// Author Who wrote the current text.
+	Author string `json:"author"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CurrentSourceRevision The message's current source revision as Localization knows it.
+	CurrentSourceRevision int `json:"current_source_revision"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// MessageId An opaque identifier.
+	MessageId Id `json:"message_id"`
+
+	// Model A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	Model  MF2Message `json:"model"`
+	Origin Origin     `json:"origin"`
+
+	// Outdated `source_revision < current_source_revision`.
+	Outdated bool `json:"outdated"`
+	Revision int  `json:"revision"`
+
+	// SourceRevision The source revision the text was made against.
+	SourceRevision int         `json:"source_revision"`
+	State          ReviewState `json:"state"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax Syntax `json:"syntax"`
+	Text   string `json:"text"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp   `json:"updated_at"`
+	Warnings  []QAFinding `json:"warnings"`
+}
+
+// TranslationImport defines model for TranslationImport.
+type TranslationImport struct {
+	Items []TranslationImportItem `json:"items"`
+}
+
+// TranslationImportItem defines model for TranslationImportItem.
+type TranslationImportItem struct {
+	Key            string                  `json:"key"`
+	Locale         string                  `json:"locale"`
+	OriginDetail   *map[string]interface{} `json:"origin_detail,omitempty"`
+	SourceRevision *int                    `json:"source_revision,omitempty"`
+	State          *ReviewState            `json:"state,omitempty"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax *Syntax `json:"syntax,omitempty"`
+	Text   string  `json:"text"`
+}
+
+// TranslationImportItemResult defines model for TranslationImportItemResult.
+type TranslationImportItemResult struct {
+	Error       *ItemError                         `json:"error,omitempty"`
+	Key         string                             `json:"key"`
+	Locale      string                             `json:"locale"`
+	Status      *TranslationImportItemResultStatus `json:"status,omitempty"`
+	Translation *Translation                       `json:"translation,omitempty"`
+}
+
+// TranslationImportItemResultStatus defines model for TranslationImportItemResult.Status.
+type TranslationImportItemResultStatus string
+
+// TranslationImportResult defines model for TranslationImportResult.
+type TranslationImportResult struct {
+	Results []TranslationImportItemResult `json:"results"`
+}
+
+// TranslationList defines model for TranslationList.
+type TranslationList struct {
+	Items         []Translation `json:"items"`
+	NextPageToken *string       `json:"next_page_token,omitempty"`
+}
+
+// TranslationRevision defines model for TranslationRevision.
+type TranslationRevision struct {
+	Author string `json:"author"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt      Timestamp               `json:"created_at"`
+	Findings       []QAFinding             `json:"findings"`
+	Kind           TranslationRevisionKind `json:"kind"`
+	Origin         Origin                  `json:"origin"`
+	OriginDetail   map[string]interface{}  `json:"origin_detail"`
+	Revision       int                     `json:"revision"`
+	SourceRevision int                     `json:"source_revision"`
+	State          ReviewState             `json:"state"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax Syntax `json:"syntax"`
+	Text   string `json:"text"`
+}
+
+// TranslationRevisionKind defines model for TranslationRevision.Kind.
+type TranslationRevisionKind string
+
+// TranslationRevisionList defines model for TranslationRevisionList.
+type TranslationRevisionList struct {
+	Items         []TranslationRevision `json:"items"`
+	NextPageToken *string               `json:"next_page_token,omitempty"`
+}
+
+// UpdateApplication defines model for UpdateApplication.
+type UpdateApplication struct {
+	Name     *string   `json:"name,omitempty"`
+	Platform *Platform `json:"platform,omitempty"`
+	Slug     *Slug     `json:"slug,omitempty"`
+}
+
 // UpdateMember defines model for UpdateMember.
 type UpdateMember struct {
 	Locales *[]Locale `json:"locales,omitempty"`
 	Roles   *[]Role   `json:"roles,omitempty"`
 }
 
+// UpdateMessage defines model for UpdateMessage.
+type UpdateMessage struct {
+	Description *string `json:"description,omitempty"`
+
+	// MaxLength `0` removes the limit.
+	MaxLength *int `json:"max_length,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+}
+
+// UpdateProject defines model for UpdateProject.
+type UpdateProject struct {
+	Name     *string          `json:"name,omitempty"`
+	Settings *ProjectSettings `json:"settings,omitempty"`
+	Slug     *Slug            `json:"slug,omitempty"`
+}
+
 // WebAuthnResponse The `PublicKeyCredential` from the browser, serialized as JSON.
 type WebAuthnResponse map[string]interface{}
+
+// ApplicationPath An opaque identifier.
+type ApplicationPath = Id
 
 // CeremonyCookie defines model for CeremonyCookie.
 type CeremonyCookie = string
@@ -406,14 +1259,28 @@ type IfMatch = string
 // IfMatchOptional defines model for IfMatchOptional.
 type IfMatchOptional = string
 
+// LocalePath A BCP 47 language tag. Stored and returned canonicalized
+// (`en_us` → `en-US`, `iw` → `he`).
+//
+// Examples: de, pt-BR, zh-Hant-TW
+type LocalePath = Locale
+
 // MemberPath An opaque identifier.
 type MemberPath = Id
+
+// MessagePath A dotted path of `[a-z0-9_-]` segments, unique in the project.
+//
+// Examples: checkout.payment.submit
+type MessagePath = MessageKey
 
 // PageSize defines model for PageSize.
 type PageSize = int
 
 // PageToken defines model for PageToken.
 type PageToken = string
+
+// ProjectPath An opaque identifier.
+type ProjectPath = Id
 
 // TenantPath An opaque identifier.
 type TenantPath = Id
@@ -441,6 +1308,9 @@ type PreconditionRequired = Problem
 
 // SessionStarted defines model for SessionStarted.
 type SessionStarted = Session
+
+// StructuralQAFailed defines model for StructuralQAFailed.
+type StructuralQAFailed = QAProblem
 
 // TooManyRequests RFC 9457 problem details.
 type TooManyRequests = Problem
@@ -501,6 +1371,154 @@ type UpdateMemberParams struct {
 	IfMatch IfMatch `json:"If-Match"`
 }
 
+// ListProjectsParams defines parameters for ListProjects.
+type ListProjectsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// CreateProjectParams defines parameters for CreateProject.
+type CreateProjectParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// DeleteProjectParams defines parameters for DeleteProject.
+type DeleteProjectParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// UpdateProjectParams defines parameters for UpdateProject.
+type UpdateProjectParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListApplicationsParams defines parameters for ListApplications.
+type ListApplicationsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// CreateApplicationParams defines parameters for CreateApplication.
+type CreateApplicationParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// DeleteApplicationParams defines parameters for DeleteApplication.
+type DeleteApplicationParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// UpdateApplicationParams defines parameters for UpdateApplication.
+type UpdateApplicationParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// PutFallbackGraphParams defines parameters for PutFallbackGraph.
+type PutFallbackGraphParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ListLocalesParams defines parameters for ListLocales.
+type ListLocalesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// ListMessagesParams defines parameters for ListMessages.
+type ListMessagesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken    `form:"page_token,omitempty" json:"page_token,omitempty"`
+	Namespace *Namespace    `form:"namespace,omitempty" json:"namespace,omitempty"`
+	State     *MessageState `form:"state,omitempty" json:"state,omitempty"`
+
+	// KeyPrefix Keys starting with this, e.g. `checkout.`.
+	KeyPrefix *string `form:"key_prefix,omitempty" json:"key_prefix,omitempty"`
+
+	// MissingIn Only messages without a translation in this locale.
+	MissingIn *Locale `form:"missing_in,omitempty" json:"missing_in,omitempty"`
+
+	// OutdatedIn Only messages whose translation in this locale is outdated.
+	OutdatedIn *Locale `form:"outdated_in,omitempty" json:"outdated_in,omitempty"`
+}
+
+// CreateMessageParams defines parameters for CreateMessage.
+type CreateMessageParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// UpdateMessageParams defines parameters for UpdateMessage.
+type UpdateMessageParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ObsoleteMessageParams defines parameters for ObsoleteMessage.
+type ObsoleteMessageParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// RenameMessageParams defines parameters for RenameMessage.
+type RenameMessageParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ReviseMessageSourceParams defines parameters for ReviseMessageSource.
+type ReviseMessageSourceParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListSourceRevisionsParams defines parameters for ListSourceRevisions.
+type ListSourceRevisionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// ListMessageTranslationsParams defines parameters for ListMessageTranslations.
+type ListMessageTranslationsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// PutTranslationParams defines parameters for PutTranslation.
+type PutTranslationParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ReviewTranslationParams defines parameters for ReviewTranslation.
+type ReviewTranslationParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListTranslationRevisionsParams defines parameters for ListTranslationRevisions.
+type ListTranslationRevisionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
 // ListTokensParams defines parameters for ListTokens.
 type ListTokensParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -555,6 +1573,48 @@ type AddMemberJSONRequestBody = AddMember
 
 // UpdateMemberJSONRequestBody defines body for UpdateMember for application/json ContentType.
 type UpdateMemberJSONRequestBody = UpdateMember
+
+// CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
+type CreateProjectJSONRequestBody = CreateProject
+
+// UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
+type UpdateProjectJSONRequestBody = UpdateProject
+
+// CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.
+type CreateApplicationJSONRequestBody = CreateApplication
+
+// UpdateApplicationJSONRequestBody defines body for UpdateApplication for application/json ContentType.
+type UpdateApplicationJSONRequestBody = UpdateApplication
+
+// PutFallbackGraphJSONRequestBody defines body for PutFallbackGraph for application/json ContentType.
+type PutFallbackGraphJSONRequestBody = PutFallbackGraph
+
+// AddLocaleJSONRequestBody defines body for AddLocale for application/json ContentType.
+type AddLocaleJSONRequestBody = AddLocale
+
+// UpsertMessagesJSONRequestBody defines body for UpsertMessages for application/json ContentType.
+type UpsertMessagesJSONRequestBody = MessageUpsert
+
+// CreateMessageJSONRequestBody defines body for CreateMessage for application/json ContentType.
+type CreateMessageJSONRequestBody = CreateMessage
+
+// UpdateMessageJSONRequestBody defines body for UpdateMessage for application/json ContentType.
+type UpdateMessageJSONRequestBody = UpdateMessage
+
+// RenameMessageJSONRequestBody defines body for RenameMessage for application/json ContentType.
+type RenameMessageJSONRequestBody = RenameMessage
+
+// ReviseMessageSourceJSONRequestBody defines body for ReviseMessageSource for application/json ContentType.
+type ReviseMessageSourceJSONRequestBody = ReviseSource
+
+// PutTranslationJSONRequestBody defines body for PutTranslation for application/json ContentType.
+type PutTranslationJSONRequestBody = PutTranslation
+
+// ReviewTranslationJSONRequestBody defines body for ReviewTranslation for application/json ContentType.
+type ReviewTranslationJSONRequestBody = ReviewTranslation
+
+// ImportTranslationsJSONRequestBody defines body for ImportTranslations for application/json ContentType.
+type ImportTranslationsJSONRequestBody = TranslationImport
 
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateToken
@@ -633,6 +1693,99 @@ type ServerInterface interface {
 	// UpdateMember Change a member's roles or locales
 	// (PATCH /v1/tenants/{tenant}/members/{member})
 	UpdateMember(w http.ResponseWriter, r *http.Request, tenant TenantPath, member MemberPath, params UpdateMemberParams)
+	// ListProjects Projects of the tenant
+	// (GET /v1/tenants/{tenant}/projects)
+	ListProjects(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListProjectsParams)
+	// CreateProject Create a project
+	// (POST /v1/tenants/{tenant}/projects)
+	CreateProject(w http.ResponseWriter, r *http.Request, tenant TenantPath, params CreateProjectParams)
+	// DeleteProject Delete a project and everything in it
+	// (DELETE /v1/tenants/{tenant}/projects/{project})
+	DeleteProject(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params DeleteProjectParams)
+	// GetProject A project
+	// (GET /v1/tenants/{tenant}/projects/{project})
+	GetProject(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath)
+	// UpdateProject Rename a project or change its settings
+	// (PATCH /v1/tenants/{tenant}/projects/{project})
+	UpdateProject(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params UpdateProjectParams)
+	// ListApplications Applications of a project
+	// (GET /v1/tenants/{tenant}/projects/{project}/applications)
+	ListApplications(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListApplicationsParams)
+	// CreateApplication Add an application to a project
+	// (POST /v1/tenants/{tenant}/projects/{project}/applications)
+	CreateApplication(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params CreateApplicationParams)
+	// DeleteApplication Remove an application
+	// (DELETE /v1/tenants/{tenant}/projects/{project}/applications/{application})
+	DeleteApplication(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, application ApplicationPath, params DeleteApplicationParams)
+	// GetApplication An application
+	// (GET /v1/tenants/{tenant}/projects/{project}/applications/{application})
+	GetApplication(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, application ApplicationPath)
+	// UpdateApplication Change an application
+	// (PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application})
+	UpdateApplication(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, application ApplicationPath, params UpdateApplicationParams)
+	// GetFallbackGraph A project's fallback graph
+	// (GET /v1/tenants/{tenant}/projects/{project}/fallback-graph)
+	GetFallbackGraph(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath)
+	// PutFallbackGraph Replace a project's fallback graph
+	// (PUT /v1/tenants/{tenant}/projects/{project}/fallback-graph)
+	PutFallbackGraph(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params PutFallbackGraphParams)
+	// ListLocales A project's locales, the source locale included
+	// (GET /v1/tenants/{tenant}/projects/{project}/locales)
+	ListLocales(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListLocalesParams)
+	// AddLocale Add a locale to a project
+	// (POST /v1/tenants/{tenant}/projects/{project}/locales)
+	AddLocale(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath)
+	// RemoveLocale Remove a locale from a project
+	// (DELETE /v1/tenants/{tenant}/projects/{project}/locales/{locale})
+	RemoveLocale(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, locale LocalePath)
+	// GetLocale A locale of a project
+	// (GET /v1/tenants/{tenant}/projects/{project}/locales/{locale})
+	GetLocale(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, locale LocalePath)
+	// UpsertMessages Create or revise messages in bulk (CLI push)
+	// (POST /v1/tenants/{tenant}/projects/{project}/message-upserts)
+	UpsertMessages(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath)
+	// ListMessages Messages of a project, by key
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages)
+	ListMessages(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListMessagesParams)
+	// CreateMessage Create a message
+	// (POST /v1/tenants/{tenant}/projects/{project}/messages)
+	CreateMessage(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params CreateMessageParams)
+	// GetMessage A message
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message})
+	GetMessage(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath)
+	// UpdateMessage Change a message's namespace, description or length limit
+	// (PATCH /v1/tenants/{tenant}/projects/{project}/messages/{message})
+	UpdateMessage(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params UpdateMessageParams)
+	// ObsoleteMessage Retire a message
+	// (POST /v1/tenants/{tenant}/projects/{project}/messages/{message}/obsoletion)
+	ObsoleteMessage(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params ObsoleteMessageParams)
+	// RenameMessage Give a message a new key
+	// (POST /v1/tenants/{tenant}/projects/{project}/messages/{message}/renames)
+	RenameMessage(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params RenameMessageParams)
+	// ReviseMessageSource Revise a message's source text
+	// (PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/source)
+	ReviseMessageSource(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params ReviseMessageSourceParams)
+	// ListSourceRevisions A message's source log, newest first
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/source-revisions)
+	ListSourceRevisions(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params ListSourceRevisionsParams)
+	// ListMessageTranslations A message's translations, by locale
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations)
+	ListMessageTranslations(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params ListMessageTranslationsParams)
+	// GetTranslation A message's translation in a locale
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale})
+	GetTranslation(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath)
+	// PutTranslation Write a message's translation in a locale
+	// (PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale})
+	PutTranslation(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params PutTranslationParams)
+	// ReviewTranslation Record a review decision
+	// (POST /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/reviews)
+	ReviewTranslation(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params ReviewTranslationParams)
+	// ListTranslationRevisions A translation's history with provenance, newest first
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions)
+	ListTranslationRevisions(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params ListTranslationRevisionsParams)
+	// ImportTranslations Import translations in bulk
+	// (POST /v1/tenants/{tenant}/projects/{project}/translation-imports)
+	ImportTranslations(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath)
 	// ListTokens API tokens, including revoked ones
 	// (GET /v1/tenants/{tenant}/tokens)
 	ListTokens(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListTokensParams)
@@ -1297,6 +2450,1877 @@ func (siw *ServerInterfaceWrapper) UpdateMember(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ListProjects operation middleware
+func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProjectsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjects(w, r, tenant, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProject operation middleware
+func (siw *ServerInterfaceWrapper) CreateProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateProjectParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProject(w, r, tenant, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProject operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteProjectParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatchOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProject(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProject operation middleware
+func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProject(w, r, tenant, project)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProject operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateProjectParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProject(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListApplications operation middleware
+func (siw *ServerInterfaceWrapper) ListApplications(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListApplicationsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListApplications(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateApplication operation middleware
+func (siw *ServerInterfaceWrapper) CreateApplication(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateApplicationParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateApplication(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteApplication operation middleware
+func (siw *ServerInterfaceWrapper) DeleteApplication(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "application" -------------
+	var application ApplicationPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "application", r.PathValue("application"), &application, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "application", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteApplicationParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatchOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteApplication(w, r, tenant, project, application, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetApplication operation middleware
+func (siw *ServerInterfaceWrapper) GetApplication(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "application" -------------
+	var application ApplicationPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "application", r.PathValue("application"), &application, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "application", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApplication(w, r, tenant, project, application)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateApplication operation middleware
+func (siw *ServerInterfaceWrapper) UpdateApplication(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "application" -------------
+	var application ApplicationPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "application", r.PathValue("application"), &application, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "application", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateApplicationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateApplication(w, r, tenant, project, application, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFallbackGraph operation middleware
+func (siw *ServerInterfaceWrapper) GetFallbackGraph(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFallbackGraph(w, r, tenant, project)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutFallbackGraph operation middleware
+func (siw *ServerInterfaceWrapper) PutFallbackGraph(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutFallbackGraphParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatchOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutFallbackGraph(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListLocales operation middleware
+func (siw *ServerInterfaceWrapper) ListLocales(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListLocalesParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListLocales(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddLocale operation middleware
+func (siw *ServerInterfaceWrapper) AddLocale(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddLocale(w, r, tenant, project)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveLocale operation middleware
+func (siw *ServerInterfaceWrapper) RemoveLocale(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "locale" -------------
+	var locale LocalePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "locale", r.PathValue("locale"), &locale, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveLocale(w, r, tenant, project, locale)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLocale operation middleware
+func (siw *ServerInterfaceWrapper) GetLocale(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "locale" -------------
+	var locale LocalePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "locale", r.PathValue("locale"), &locale, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLocale(w, r, tenant, project, locale)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpsertMessages operation middleware
+func (siw *ServerInterfaceWrapper) UpsertMessages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpsertMessages(w, r, tenant, project)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMessages operation middleware
+func (siw *ServerInterfaceWrapper) ListMessages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMessagesParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "namespace" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "namespace", r.URL.Query(), &params.Namespace, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "namespace"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespace", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "key_prefix" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "key_prefix", r.URL.Query(), &params.KeyPrefix, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "key_prefix"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key_prefix", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "missing_in" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "missing_in", r.URL.Query(), &params.MissingIn, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "missing_in"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "missing_in", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "outdated_in" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outdated_in", r.URL.Query(), &params.OutdatedIn, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outdated_in"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outdated_in", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMessages(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateMessage operation middleware
+func (siw *ServerInterfaceWrapper) CreateMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateMessageParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateMessage(w, r, tenant, project, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMessage operation middleware
+func (siw *ServerInterfaceWrapper) GetMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMessage(w, r, tenant, project, message)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMessage operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateMessageParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMessage(w, r, tenant, project, message, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ObsoleteMessage operation middleware
+func (siw *ServerInterfaceWrapper) ObsoleteMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ObsoleteMessageParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatchOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ObsoleteMessage(w, r, tenant, project, message, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RenameMessage operation middleware
+func (siw *ServerInterfaceWrapper) RenameMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RenameMessageParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatchOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RenameMessage(w, r, tenant, project, message, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReviseMessageSource operation middleware
+func (siw *ServerInterfaceWrapper) ReviseMessageSource(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReviseMessageSourceParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReviseMessageSource(w, r, tenant, project, message, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSourceRevisions operation middleware
+func (siw *ServerInterfaceWrapper) ListSourceRevisions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSourceRevisionsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSourceRevisions(w, r, tenant, project, message, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMessageTranslations operation middleware
+func (siw *ServerInterfaceWrapper) ListMessageTranslations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMessageTranslationsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMessageTranslations(w, r, tenant, project, message, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTranslation operation middleware
+func (siw *ServerInterfaceWrapper) GetTranslation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "locale" -------------
+	var locale LocalePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "locale", r.PathValue("locale"), &locale, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTranslation(w, r, tenant, project, message, locale)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutTranslation operation middleware
+func (siw *ServerInterfaceWrapper) PutTranslation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "locale" -------------
+	var locale LocalePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "locale", r.PathValue("locale"), &locale, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutTranslationParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatchOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutTranslation(w, r, tenant, project, message, locale, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReviewTranslation operation middleware
+func (siw *ServerInterfaceWrapper) ReviewTranslation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "locale" -------------
+	var locale LocalePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "locale", r.PathValue("locale"), &locale, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReviewTranslationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReviewTranslation(w, r, tenant, project, message, locale, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTranslationRevisions operation middleware
+func (siw *ServerInterfaceWrapper) ListTranslationRevisions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "message" -------------
+	var message MessagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "message", r.PathValue("message"), &message, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "locale" -------------
+	var locale LocalePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "locale", r.PathValue("locale"), &locale, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTranslationRevisionsParams
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_token", r.URL.Query(), &params.PageToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTranslationRevisions(w, r, tenant, project, message, locale, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ImportTranslations operation middleware
+func (siw *ServerInterfaceWrapper) ImportTranslations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant TenantPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant", r.PathValue("tenant"), &tenant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", r.PathValue("project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportTranslations(w, r, tenant, project)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListTokens operation middleware
 func (siw *ServerInterfaceWrapper) ListTokens(w http.ResponseWriter, r *http.Request) {
 
@@ -1620,6 +4644,37 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/tokens", wrapper.CreateToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/tenants/{tenant}/tokens/{token}", wrapper.RevokeToken)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/tokens/{token}", wrapper.GetToken)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects", wrapper.ListProjects)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects", wrapper.CreateProject)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}", wrapper.DeleteProject)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}", wrapper.GetProject)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}", wrapper.UpdateProject)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/applications", wrapper.ListApplications)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/applications", wrapper.CreateApplication)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/applications/{application}", wrapper.DeleteApplication)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/applications/{application}", wrapper.GetApplication)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/applications/{application}", wrapper.UpdateApplication)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages", wrapper.ListMessages)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages", wrapper.CreateMessage)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/message-upserts", wrapper.UpsertMessages)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}", wrapper.GetMessage)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}", wrapper.UpdateMessage)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/source", wrapper.ReviseMessageSource)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/obsoletion", wrapper.ObsoleteMessage)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/renames", wrapper.RenameMessage)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/source-revisions", wrapper.ListSourceRevisions)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/locales", wrapper.ListLocales)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/locales", wrapper.AddLocale)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/locales/{locale}", wrapper.RemoveLocale)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/locales/{locale}", wrapper.GetLocale)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/fallback-graph", wrapper.GetFallbackGraph)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/fallback-graph", wrapper.PutFallbackGraph)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations", wrapper.ListMessageTranslations)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}", wrapper.GetTranslation)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}", wrapper.PutTranslation)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions", wrapper.ListTranslationRevisions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/reviews", wrapper.ReviewTranslation)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/tenants/{tenant}/projects/{project}/translation-imports", wrapper.ImportTranslations)
 
 	return m
 }
@@ -1644,6 +4699,8 @@ type SessionStartedJSONResponse struct {
 
 	Headers SessionStartedResponseHeaders
 }
+
+type StructuralQAFailedApplicationProblemPlusJSONResponse QAProblem
 
 type TooManyRequestsApplicationProblemPlusJSONResponse Problem
 
@@ -3381,6 +6438,3308 @@ func (response UpdateMember428ApplicationProblemPlusJSONResponse) VisitUpdateMem
 	return err
 }
 
+type ListProjectsRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Params ListProjectsParams
+}
+
+type ListProjectsResponseObject interface {
+	VisitListProjectsResponse(w http.ResponseWriter) error
+}
+
+type ListProjects200JSONResponse ProjectList
+
+func (response ListProjects200JSONResponse) VisitListProjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProjects400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListProjects400ApplicationProblemPlusJSONResponse) VisitListProjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProjects401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListProjects401ApplicationProblemPlusJSONResponse) VisitListProjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProjects403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListProjects403ApplicationProblemPlusJSONResponse) VisitListProjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProjectRequestObject struct {
+	Tenant TenantPath `json:"tenant"`
+	Params CreateProjectParams
+	Body   *CreateProjectJSONRequestBody
+}
+
+type CreateProjectResponseObject interface {
+	VisitCreateProjectResponse(w http.ResponseWriter) error
+}
+
+type CreateProject201ResponseHeaders struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateProject201JSONResponse struct {
+	Body    Project
+	Headers CreateProject201ResponseHeaders
+}
+
+func (response CreateProject201JSONResponse) VisitCreateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	if response.Headers.IdempotentReplayed != nil {
+		w.Header().Set("Idempotent-Replayed", fmt.Sprint(*response.Headers.IdempotentReplayed))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProject400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CreateProject400ApplicationProblemPlusJSONResponse) VisitCreateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProject401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateProject401ApplicationProblemPlusJSONResponse) VisitCreateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProject403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CreateProject403ApplicationProblemPlusJSONResponse) VisitCreateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProject409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CreateProject409ApplicationProblemPlusJSONResponse) VisitCreateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProject422ApplicationProblemPlusJSONResponse struct {
+	UnprocessableEntityApplicationProblemPlusJSONResponse
+}
+
+func (response CreateProject422ApplicationProblemPlusJSONResponse) VisitCreateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteProjectRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  DeleteProjectParams
+}
+
+type DeleteProjectResponseObject interface {
+	VisitDeleteProjectResponse(w http.ResponseWriter) error
+}
+
+type DeleteProject204Response struct {
+}
+
+func (response DeleteProject204Response) VisitDeleteProjectResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteProject401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteProject401ApplicationProblemPlusJSONResponse) VisitDeleteProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteProject403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteProject403ApplicationProblemPlusJSONResponse) VisitDeleteProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteProject404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteProject404ApplicationProblemPlusJSONResponse) VisitDeleteProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteProject412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteProject412ApplicationProblemPlusJSONResponse) VisitDeleteProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProjectRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+}
+
+type GetProjectResponseObject interface {
+	VisitGetProjectResponse(w http.ResponseWriter) error
+}
+
+type GetProject200ResponseHeaders struct {
+	ETag *string
+}
+
+type GetProject200JSONResponse struct {
+	Body    Project
+	Headers GetProject200ResponseHeaders
+}
+
+func (response GetProject200JSONResponse) VisitGetProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProject401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetProject401ApplicationProblemPlusJSONResponse) VisitGetProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProject403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetProject403ApplicationProblemPlusJSONResponse) VisitGetProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProject404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetProject404ApplicationProblemPlusJSONResponse) VisitGetProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProjectRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  UpdateProjectParams
+	Body    *UpdateProjectJSONRequestBody
+}
+
+type UpdateProjectResponseObject interface {
+	VisitUpdateProjectResponse(w http.ResponseWriter) error
+}
+
+type UpdateProject200ResponseHeaders struct {
+	ETag *string
+}
+
+type UpdateProject200JSONResponse struct {
+	Body    Project
+	Headers UpdateProject200ResponseHeaders
+}
+
+func (response UpdateProject200JSONResponse) VisitUpdateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProject400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateProject400ApplicationProblemPlusJSONResponse) VisitUpdateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProject401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateProject401ApplicationProblemPlusJSONResponse) VisitUpdateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProject403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateProject403ApplicationProblemPlusJSONResponse) VisitUpdateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProject404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateProject404ApplicationProblemPlusJSONResponse) VisitUpdateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProject409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateProject409ApplicationProblemPlusJSONResponse) VisitUpdateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProject412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateProject412ApplicationProblemPlusJSONResponse) VisitUpdateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProject428ApplicationProblemPlusJSONResponse struct {
+	PreconditionRequiredApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateProject428ApplicationProblemPlusJSONResponse) VisitUpdateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApplicationsRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  ListApplicationsParams
+}
+
+type ListApplicationsResponseObject interface {
+	VisitListApplicationsResponse(w http.ResponseWriter) error
+}
+
+type ListApplications200JSONResponse ApplicationList
+
+func (response ListApplications200JSONResponse) VisitListApplicationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApplications400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListApplications400ApplicationProblemPlusJSONResponse) VisitListApplicationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApplications401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListApplications401ApplicationProblemPlusJSONResponse) VisitListApplicationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApplications403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListApplications403ApplicationProblemPlusJSONResponse) VisitListApplicationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApplications404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListApplications404ApplicationProblemPlusJSONResponse) VisitListApplicationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApplicationRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  CreateApplicationParams
+	Body    *CreateApplicationJSONRequestBody
+}
+
+type CreateApplicationResponseObject interface {
+	VisitCreateApplicationResponse(w http.ResponseWriter) error
+}
+
+type CreateApplication201ResponseHeaders struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateApplication201JSONResponse struct {
+	Body    Application
+	Headers CreateApplication201ResponseHeaders
+}
+
+func (response CreateApplication201JSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	if response.Headers.IdempotentReplayed != nil {
+		w.Header().Set("Idempotent-Replayed", fmt.Sprint(*response.Headers.IdempotentReplayed))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApplication400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CreateApplication400ApplicationProblemPlusJSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApplication401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateApplication401ApplicationProblemPlusJSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApplication403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CreateApplication403ApplicationProblemPlusJSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApplication404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CreateApplication404ApplicationProblemPlusJSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApplication409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CreateApplication409ApplicationProblemPlusJSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApplication422ApplicationProblemPlusJSONResponse struct {
+	UnprocessableEntityApplicationProblemPlusJSONResponse
+}
+
+func (response CreateApplication422ApplicationProblemPlusJSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteApplicationRequestObject struct {
+	Tenant      TenantPath      `json:"tenant"`
+	Project     ProjectPath     `json:"project"`
+	Application ApplicationPath `json:"application"`
+	Params      DeleteApplicationParams
+}
+
+type DeleteApplicationResponseObject interface {
+	VisitDeleteApplicationResponse(w http.ResponseWriter) error
+}
+
+type DeleteApplication204Response struct {
+}
+
+func (response DeleteApplication204Response) VisitDeleteApplicationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteApplication401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteApplication401ApplicationProblemPlusJSONResponse) VisitDeleteApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteApplication403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteApplication403ApplicationProblemPlusJSONResponse) VisitDeleteApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteApplication404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteApplication404ApplicationProblemPlusJSONResponse) VisitDeleteApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteApplication412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteApplication412ApplicationProblemPlusJSONResponse) VisitDeleteApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetApplicationRequestObject struct {
+	Tenant      TenantPath      `json:"tenant"`
+	Project     ProjectPath     `json:"project"`
+	Application ApplicationPath `json:"application"`
+}
+
+type GetApplicationResponseObject interface {
+	VisitGetApplicationResponse(w http.ResponseWriter) error
+}
+
+type GetApplication200ResponseHeaders struct {
+	ETag *string
+}
+
+type GetApplication200JSONResponse struct {
+	Body    Application
+	Headers GetApplication200ResponseHeaders
+}
+
+func (response GetApplication200JSONResponse) VisitGetApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetApplication401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetApplication401ApplicationProblemPlusJSONResponse) VisitGetApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetApplication403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetApplication403ApplicationProblemPlusJSONResponse) VisitGetApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetApplication404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetApplication404ApplicationProblemPlusJSONResponse) VisitGetApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateApplicationRequestObject struct {
+	Tenant      TenantPath      `json:"tenant"`
+	Project     ProjectPath     `json:"project"`
+	Application ApplicationPath `json:"application"`
+	Params      UpdateApplicationParams
+	Body        *UpdateApplicationJSONRequestBody
+}
+
+type UpdateApplicationResponseObject interface {
+	VisitUpdateApplicationResponse(w http.ResponseWriter) error
+}
+
+type UpdateApplication200ResponseHeaders struct {
+	ETag *string
+}
+
+type UpdateApplication200JSONResponse struct {
+	Body    Application
+	Headers UpdateApplication200ResponseHeaders
+}
+
+func (response UpdateApplication200JSONResponse) VisitUpdateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateApplication400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateApplication400ApplicationProblemPlusJSONResponse) VisitUpdateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateApplication401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateApplication401ApplicationProblemPlusJSONResponse) VisitUpdateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateApplication403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateApplication403ApplicationProblemPlusJSONResponse) VisitUpdateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateApplication404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateApplication404ApplicationProblemPlusJSONResponse) VisitUpdateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateApplication409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateApplication409ApplicationProblemPlusJSONResponse) VisitUpdateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateApplication412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateApplication412ApplicationProblemPlusJSONResponse) VisitUpdateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateApplication428ApplicationProblemPlusJSONResponse struct {
+	PreconditionRequiredApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateApplication428ApplicationProblemPlusJSONResponse) VisitUpdateApplicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFallbackGraphRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+}
+
+type GetFallbackGraphResponseObject interface {
+	VisitGetFallbackGraphResponse(w http.ResponseWriter) error
+}
+
+type GetFallbackGraph200ResponseHeaders struct {
+	ETag *string
+}
+
+type GetFallbackGraph200JSONResponse struct {
+	Body    FallbackGraph
+	Headers GetFallbackGraph200ResponseHeaders
+}
+
+func (response GetFallbackGraph200JSONResponse) VisitGetFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFallbackGraph401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetFallbackGraph401ApplicationProblemPlusJSONResponse) VisitGetFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFallbackGraph403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetFallbackGraph403ApplicationProblemPlusJSONResponse) VisitGetFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFallbackGraph404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetFallbackGraph404ApplicationProblemPlusJSONResponse) VisitGetFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFallbackGraphRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  PutFallbackGraphParams
+	Body    *PutFallbackGraphJSONRequestBody
+}
+
+type PutFallbackGraphResponseObject interface {
+	VisitPutFallbackGraphResponse(w http.ResponseWriter) error
+}
+
+type PutFallbackGraph200ResponseHeaders struct {
+	ETag *string
+}
+
+type PutFallbackGraph200JSONResponse struct {
+	Body    FallbackGraph
+	Headers PutFallbackGraph200ResponseHeaders
+}
+
+func (response PutFallbackGraph200JSONResponse) VisitPutFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFallbackGraph400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response PutFallbackGraph400ApplicationProblemPlusJSONResponse) VisitPutFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFallbackGraph401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response PutFallbackGraph401ApplicationProblemPlusJSONResponse) VisitPutFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFallbackGraph403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response PutFallbackGraph403ApplicationProblemPlusJSONResponse) VisitPutFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFallbackGraph404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response PutFallbackGraph404ApplicationProblemPlusJSONResponse) VisitPutFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFallbackGraph412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response PutFallbackGraph412ApplicationProblemPlusJSONResponse) VisitPutFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFallbackGraph428ApplicationProblemPlusJSONResponse struct {
+	PreconditionRequiredApplicationProblemPlusJSONResponse
+}
+
+func (response PutFallbackGraph428ApplicationProblemPlusJSONResponse) VisitPutFallbackGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLocalesRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  ListLocalesParams
+}
+
+type ListLocalesResponseObject interface {
+	VisitListLocalesResponse(w http.ResponseWriter) error
+}
+
+type ListLocales200JSONResponse LocaleList
+
+func (response ListLocales200JSONResponse) VisitListLocalesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLocales400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListLocales400ApplicationProblemPlusJSONResponse) VisitListLocalesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLocales401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListLocales401ApplicationProblemPlusJSONResponse) VisitListLocalesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLocales403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListLocales403ApplicationProblemPlusJSONResponse) VisitListLocalesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLocales404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListLocales404ApplicationProblemPlusJSONResponse) VisitListLocalesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddLocaleRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Body    *AddLocaleJSONRequestBody
+}
+
+type AddLocaleResponseObject interface {
+	VisitAddLocaleResponse(w http.ResponseWriter) error
+}
+
+type AddLocale200JSONResponse ProjectLocale
+
+func (response AddLocale200JSONResponse) VisitAddLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddLocale201ResponseHeaders struct {
+	Location *string
+}
+
+type AddLocale201JSONResponse struct {
+	Body    ProjectLocale
+	Headers AddLocale201ResponseHeaders
+}
+
+func (response AddLocale201JSONResponse) VisitAddLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddLocale400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response AddLocale400ApplicationProblemPlusJSONResponse) VisitAddLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddLocale401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response AddLocale401ApplicationProblemPlusJSONResponse) VisitAddLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddLocale403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response AddLocale403ApplicationProblemPlusJSONResponse) VisitAddLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddLocale404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response AddLocale404ApplicationProblemPlusJSONResponse) VisitAddLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveLocaleRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Locale  LocalePath  `json:"locale"`
+}
+
+type RemoveLocaleResponseObject interface {
+	VisitRemoveLocaleResponse(w http.ResponseWriter) error
+}
+
+type RemoveLocale204Response struct {
+}
+
+func (response RemoveLocale204Response) VisitRemoveLocaleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RemoveLocale401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveLocale401ApplicationProblemPlusJSONResponse) VisitRemoveLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveLocale403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveLocale403ApplicationProblemPlusJSONResponse) VisitRemoveLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveLocale404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveLocale404ApplicationProblemPlusJSONResponse) VisitRemoveLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveLocale409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveLocale409ApplicationProblemPlusJSONResponse) VisitRemoveLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocaleRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Locale  LocalePath  `json:"locale"`
+}
+
+type GetLocaleResponseObject interface {
+	VisitGetLocaleResponse(w http.ResponseWriter) error
+}
+
+type GetLocale200JSONResponse ProjectLocale
+
+func (response GetLocale200JSONResponse) VisitGetLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocale401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetLocale401ApplicationProblemPlusJSONResponse) VisitGetLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocale403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetLocale403ApplicationProblemPlusJSONResponse) VisitGetLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocale404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetLocale404ApplicationProblemPlusJSONResponse) VisitGetLocaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpsertMessagesRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Body    *UpsertMessagesJSONRequestBody
+}
+
+type UpsertMessagesResponseObject interface {
+	VisitUpsertMessagesResponse(w http.ResponseWriter) error
+}
+
+type UpsertMessages200JSONResponse MessageUpsertResult
+
+func (response UpsertMessages200JSONResponse) VisitUpsertMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpsertMessages400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpsertMessages400ApplicationProblemPlusJSONResponse) VisitUpsertMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpsertMessages401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response UpsertMessages401ApplicationProblemPlusJSONResponse) VisitUpsertMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpsertMessages403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpsertMessages403ApplicationProblemPlusJSONResponse) VisitUpsertMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpsertMessages404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response UpsertMessages404ApplicationProblemPlusJSONResponse) VisitUpsertMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessagesRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  ListMessagesParams
+}
+
+type ListMessagesResponseObject interface {
+	VisitListMessagesResponse(w http.ResponseWriter) error
+}
+
+type ListMessages200JSONResponse MessageList
+
+func (response ListMessages200JSONResponse) VisitListMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessages400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListMessages400ApplicationProblemPlusJSONResponse) VisitListMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessages401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListMessages401ApplicationProblemPlusJSONResponse) VisitListMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessages403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListMessages403ApplicationProblemPlusJSONResponse) VisitListMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessages404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListMessages404ApplicationProblemPlusJSONResponse) VisitListMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMessageRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Params  CreateMessageParams
+	Body    *CreateMessageJSONRequestBody
+}
+
+type CreateMessageResponseObject interface {
+	VisitCreateMessageResponse(w http.ResponseWriter) error
+}
+
+type CreateMessage201ResponseHeaders struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateMessage201JSONResponse struct {
+	Body    Message
+	Headers CreateMessage201ResponseHeaders
+}
+
+func (response CreateMessage201JSONResponse) VisitCreateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	if response.Headers.IdempotentReplayed != nil {
+		w.Header().Set("Idempotent-Replayed", fmt.Sprint(*response.Headers.IdempotentReplayed))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMessage400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CreateMessage400ApplicationProblemPlusJSONResponse) VisitCreateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMessage401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateMessage401ApplicationProblemPlusJSONResponse) VisitCreateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMessage403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CreateMessage403ApplicationProblemPlusJSONResponse) VisitCreateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMessage404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CreateMessage404ApplicationProblemPlusJSONResponse) VisitCreateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMessage409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CreateMessage409ApplicationProblemPlusJSONResponse) VisitCreateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMessage422ApplicationProblemPlusJSONResponse struct {
+	UnprocessableEntityApplicationProblemPlusJSONResponse
+}
+
+func (response CreateMessage422ApplicationProblemPlusJSONResponse) VisitCreateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMessageRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+}
+
+type GetMessageResponseObject interface {
+	VisitGetMessageResponse(w http.ResponseWriter) error
+}
+
+type GetMessage200ResponseHeaders struct {
+	ETag *string
+}
+
+type GetMessage200JSONResponse struct {
+	Body    Message
+	Headers GetMessage200ResponseHeaders
+}
+
+func (response GetMessage200JSONResponse) VisitGetMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMessage401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetMessage401ApplicationProblemPlusJSONResponse) VisitGetMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMessage403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetMessage403ApplicationProblemPlusJSONResponse) VisitGetMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMessage404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetMessage404ApplicationProblemPlusJSONResponse) VisitGetMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMessageRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+	Params  UpdateMessageParams
+	Body    *UpdateMessageJSONRequestBody
+}
+
+type UpdateMessageResponseObject interface {
+	VisitUpdateMessageResponse(w http.ResponseWriter) error
+}
+
+type UpdateMessage200ResponseHeaders struct {
+	ETag *string
+}
+
+type UpdateMessage200JSONResponse struct {
+	Body    Message
+	Headers UpdateMessage200ResponseHeaders
+}
+
+func (response UpdateMessage200JSONResponse) VisitUpdateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMessage400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateMessage400ApplicationProblemPlusJSONResponse) VisitUpdateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMessage401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateMessage401ApplicationProblemPlusJSONResponse) VisitUpdateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMessage403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateMessage403ApplicationProblemPlusJSONResponse) VisitUpdateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMessage404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateMessage404ApplicationProblemPlusJSONResponse) VisitUpdateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMessage412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateMessage412ApplicationProblemPlusJSONResponse) VisitUpdateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMessage428ApplicationProblemPlusJSONResponse struct {
+	PreconditionRequiredApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateMessage428ApplicationProblemPlusJSONResponse) VisitUpdateMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ObsoleteMessageRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+	Params  ObsoleteMessageParams
+}
+
+type ObsoleteMessageResponseObject interface {
+	VisitObsoleteMessageResponse(w http.ResponseWriter) error
+}
+
+type ObsoleteMessage200ResponseHeaders struct {
+	ETag *string
+}
+
+type ObsoleteMessage200JSONResponse struct {
+	Body    Message
+	Headers ObsoleteMessage200ResponseHeaders
+}
+
+func (response ObsoleteMessage200JSONResponse) VisitObsoleteMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ObsoleteMessage401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ObsoleteMessage401ApplicationProblemPlusJSONResponse) VisitObsoleteMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ObsoleteMessage403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ObsoleteMessage403ApplicationProblemPlusJSONResponse) VisitObsoleteMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ObsoleteMessage404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ObsoleteMessage404ApplicationProblemPlusJSONResponse) VisitObsoleteMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ObsoleteMessage412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response ObsoleteMessage412ApplicationProblemPlusJSONResponse) VisitObsoleteMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameMessageRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+	Params  RenameMessageParams
+	Body    *RenameMessageJSONRequestBody
+}
+
+type RenameMessageResponseObject interface {
+	VisitRenameMessageResponse(w http.ResponseWriter) error
+}
+
+type RenameMessage200ResponseHeaders struct {
+	ETag     *string
+	Location *string
+}
+
+type RenameMessage200JSONResponse struct {
+	Body    Message
+	Headers RenameMessage200ResponseHeaders
+}
+
+func (response RenameMessage200JSONResponse) VisitRenameMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameMessage400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response RenameMessage400ApplicationProblemPlusJSONResponse) VisitRenameMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameMessage401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response RenameMessage401ApplicationProblemPlusJSONResponse) VisitRenameMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameMessage403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response RenameMessage403ApplicationProblemPlusJSONResponse) VisitRenameMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameMessage404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RenameMessage404ApplicationProblemPlusJSONResponse) VisitRenameMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameMessage409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response RenameMessage409ApplicationProblemPlusJSONResponse) VisitRenameMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameMessage412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response RenameMessage412ApplicationProblemPlusJSONResponse) VisitRenameMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviseMessageSourceRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+	Params  ReviseMessageSourceParams
+	Body    *ReviseMessageSourceJSONRequestBody
+}
+
+type ReviseMessageSourceResponseObject interface {
+	VisitReviseMessageSourceResponse(w http.ResponseWriter) error
+}
+
+type ReviseMessageSource200ResponseHeaders struct {
+	ETag *string
+}
+
+type ReviseMessageSource200JSONResponse struct {
+	Body    Message
+	Headers ReviseMessageSource200ResponseHeaders
+}
+
+func (response ReviseMessageSource200JSONResponse) VisitReviseMessageSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviseMessageSource400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ReviseMessageSource400ApplicationProblemPlusJSONResponse) VisitReviseMessageSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviseMessageSource401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ReviseMessageSource401ApplicationProblemPlusJSONResponse) VisitReviseMessageSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviseMessageSource403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ReviseMessageSource403ApplicationProblemPlusJSONResponse) VisitReviseMessageSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviseMessageSource404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ReviseMessageSource404ApplicationProblemPlusJSONResponse) VisitReviseMessageSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviseMessageSource409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response ReviseMessageSource409ApplicationProblemPlusJSONResponse) VisitReviseMessageSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviseMessageSource412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response ReviseMessageSource412ApplicationProblemPlusJSONResponse) VisitReviseMessageSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviseMessageSource428ApplicationProblemPlusJSONResponse struct {
+	PreconditionRequiredApplicationProblemPlusJSONResponse
+}
+
+func (response ReviseMessageSource428ApplicationProblemPlusJSONResponse) VisitReviseMessageSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSourceRevisionsRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+	Params  ListSourceRevisionsParams
+}
+
+type ListSourceRevisionsResponseObject interface {
+	VisitListSourceRevisionsResponse(w http.ResponseWriter) error
+}
+
+type ListSourceRevisions200JSONResponse SourceRevisionList
+
+func (response ListSourceRevisions200JSONResponse) VisitListSourceRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSourceRevisions400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListSourceRevisions400ApplicationProblemPlusJSONResponse) VisitListSourceRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSourceRevisions401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListSourceRevisions401ApplicationProblemPlusJSONResponse) VisitListSourceRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSourceRevisions403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListSourceRevisions403ApplicationProblemPlusJSONResponse) VisitListSourceRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSourceRevisions404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListSourceRevisions404ApplicationProblemPlusJSONResponse) VisitListSourceRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessageTranslationsRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+	Params  ListMessageTranslationsParams
+}
+
+type ListMessageTranslationsResponseObject interface {
+	VisitListMessageTranslationsResponse(w http.ResponseWriter) error
+}
+
+type ListMessageTranslations200JSONResponse TranslationList
+
+func (response ListMessageTranslations200JSONResponse) VisitListMessageTranslationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessageTranslations400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListMessageTranslations400ApplicationProblemPlusJSONResponse) VisitListMessageTranslationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessageTranslations401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListMessageTranslations401ApplicationProblemPlusJSONResponse) VisitListMessageTranslationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessageTranslations403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListMessageTranslations403ApplicationProblemPlusJSONResponse) VisitListMessageTranslationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessageTranslations404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListMessageTranslations404ApplicationProblemPlusJSONResponse) VisitListMessageTranslationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTranslationRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+	Locale  LocalePath  `json:"locale"`
+}
+
+type GetTranslationResponseObject interface {
+	VisitGetTranslationResponse(w http.ResponseWriter) error
+}
+
+type GetTranslation200ResponseHeaders struct {
+	ETag *string
+}
+
+type GetTranslation200JSONResponse struct {
+	Body    Translation
+	Headers GetTranslation200ResponseHeaders
+}
+
+func (response GetTranslation200JSONResponse) VisitGetTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTranslation401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response GetTranslation401ApplicationProblemPlusJSONResponse) VisitGetTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTranslation403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetTranslation403ApplicationProblemPlusJSONResponse) VisitGetTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTranslation404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetTranslation404ApplicationProblemPlusJSONResponse) VisitGetTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutTranslationRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+	Locale  LocalePath  `json:"locale"`
+	Params  PutTranslationParams
+	Body    *PutTranslationJSONRequestBody
+}
+
+type PutTranslationResponseObject interface {
+	VisitPutTranslationResponse(w http.ResponseWriter) error
+}
+
+type PutTranslation200ResponseHeaders struct {
+	ETag *string
+}
+
+type PutTranslation200JSONResponse struct {
+	Body    Translation
+	Headers PutTranslation200ResponseHeaders
+}
+
+func (response PutTranslation200JSONResponse) VisitPutTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutTranslation201ResponseHeaders struct {
+	ETag     *string
+	Location *string
+}
+
+type PutTranslation201JSONResponse struct {
+	Body    Translation
+	Headers PutTranslation201ResponseHeaders
+}
+
+func (response PutTranslation201JSONResponse) VisitPutTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutTranslation400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response PutTranslation400ApplicationProblemPlusJSONResponse) VisitPutTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutTranslation401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response PutTranslation401ApplicationProblemPlusJSONResponse) VisitPutTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutTranslation403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response PutTranslation403ApplicationProblemPlusJSONResponse) VisitPutTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutTranslation404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response PutTranslation404ApplicationProblemPlusJSONResponse) VisitPutTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutTranslation409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response PutTranslation409ApplicationProblemPlusJSONResponse) VisitPutTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutTranslation412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response PutTranslation412ApplicationProblemPlusJSONResponse) VisitPutTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutTranslation422ApplicationProblemPlusJSONResponse struct {
+	StructuralQAFailedApplicationProblemPlusJSONResponse
+}
+
+func (response PutTranslation422ApplicationProblemPlusJSONResponse) VisitPutTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutTranslation428ApplicationProblemPlusJSONResponse struct {
+	PreconditionRequiredApplicationProblemPlusJSONResponse
+}
+
+func (response PutTranslation428ApplicationProblemPlusJSONResponse) VisitPutTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewTranslationRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+	Locale  LocalePath  `json:"locale"`
+	Params  ReviewTranslationParams
+	Body    *ReviewTranslationJSONRequestBody
+}
+
+type ReviewTranslationResponseObject interface {
+	VisitReviewTranslationResponse(w http.ResponseWriter) error
+}
+
+type ReviewTranslation200ResponseHeaders struct {
+	ETag *string
+}
+
+type ReviewTranslation200JSONResponse struct {
+	Body    Translation
+	Headers ReviewTranslation200ResponseHeaders
+}
+
+func (response ReviewTranslation200JSONResponse) VisitReviewTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewTranslation400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ReviewTranslation400ApplicationProblemPlusJSONResponse) VisitReviewTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewTranslation401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ReviewTranslation401ApplicationProblemPlusJSONResponse) VisitReviewTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewTranslation403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ReviewTranslation403ApplicationProblemPlusJSONResponse) VisitReviewTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewTranslation404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ReviewTranslation404ApplicationProblemPlusJSONResponse) VisitReviewTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewTranslation409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response ReviewTranslation409ApplicationProblemPlusJSONResponse) VisitReviewTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewTranslation412ApplicationProblemPlusJSONResponse struct {
+	PreconditionFailedApplicationProblemPlusJSONResponse
+}
+
+func (response ReviewTranslation412ApplicationProblemPlusJSONResponse) VisitReviewTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewTranslation428ApplicationProblemPlusJSONResponse struct {
+	PreconditionRequiredApplicationProblemPlusJSONResponse
+}
+
+func (response ReviewTranslation428ApplicationProblemPlusJSONResponse) VisitReviewTranslationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTranslationRevisionsRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Message MessagePath `json:"message"`
+	Locale  LocalePath  `json:"locale"`
+	Params  ListTranslationRevisionsParams
+}
+
+type ListTranslationRevisionsResponseObject interface {
+	VisitListTranslationRevisionsResponse(w http.ResponseWriter) error
+}
+
+type ListTranslationRevisions200JSONResponse TranslationRevisionList
+
+func (response ListTranslationRevisions200JSONResponse) VisitListTranslationRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTranslationRevisions400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListTranslationRevisions400ApplicationProblemPlusJSONResponse) VisitListTranslationRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTranslationRevisions401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ListTranslationRevisions401ApplicationProblemPlusJSONResponse) VisitListTranslationRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTranslationRevisions403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListTranslationRevisions403ApplicationProblemPlusJSONResponse) VisitListTranslationRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTranslationRevisions404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListTranslationRevisions404ApplicationProblemPlusJSONResponse) VisitListTranslationRevisionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportTranslationsRequestObject struct {
+	Tenant  TenantPath  `json:"tenant"`
+	Project ProjectPath `json:"project"`
+	Body    *ImportTranslationsJSONRequestBody
+}
+
+type ImportTranslationsResponseObject interface {
+	VisitImportTranslationsResponse(w http.ResponseWriter) error
+}
+
+type ImportTranslations200JSONResponse TranslationImportResult
+
+func (response ImportTranslations200JSONResponse) VisitImportTranslationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportTranslations400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ImportTranslations400ApplicationProblemPlusJSONResponse) VisitImportTranslationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportTranslations401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedApplicationProblemPlusJSONResponse
+}
+
+func (response ImportTranslations401ApplicationProblemPlusJSONResponse) VisitImportTranslationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportTranslations403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ImportTranslations403ApplicationProblemPlusJSONResponse) VisitImportTranslationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportTranslations404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ImportTranslations404ApplicationProblemPlusJSONResponse) VisitImportTranslationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListTokensRequestObject struct {
 	Tenant TenantPath `json:"tenant"`
 	Params ListTokensParams
@@ -3780,6 +10139,99 @@ type StrictServerInterface interface {
 	// UpdateMember Change a member's roles or locales
 	// (PATCH /v1/tenants/{tenant}/members/{member})
 	UpdateMember(ctx context.Context, request UpdateMemberRequestObject) (UpdateMemberResponseObject, error)
+	// ListProjects Projects of the tenant
+	// (GET /v1/tenants/{tenant}/projects)
+	ListProjects(ctx context.Context, request ListProjectsRequestObject) (ListProjectsResponseObject, error)
+	// CreateProject Create a project
+	// (POST /v1/tenants/{tenant}/projects)
+	CreateProject(ctx context.Context, request CreateProjectRequestObject) (CreateProjectResponseObject, error)
+	// DeleteProject Delete a project and everything in it
+	// (DELETE /v1/tenants/{tenant}/projects/{project})
+	DeleteProject(ctx context.Context, request DeleteProjectRequestObject) (DeleteProjectResponseObject, error)
+	// GetProject A project
+	// (GET /v1/tenants/{tenant}/projects/{project})
+	GetProject(ctx context.Context, request GetProjectRequestObject) (GetProjectResponseObject, error)
+	// UpdateProject Rename a project or change its settings
+	// (PATCH /v1/tenants/{tenant}/projects/{project})
+	UpdateProject(ctx context.Context, request UpdateProjectRequestObject) (UpdateProjectResponseObject, error)
+	// ListApplications Applications of a project
+	// (GET /v1/tenants/{tenant}/projects/{project}/applications)
+	ListApplications(ctx context.Context, request ListApplicationsRequestObject) (ListApplicationsResponseObject, error)
+	// CreateApplication Add an application to a project
+	// (POST /v1/tenants/{tenant}/projects/{project}/applications)
+	CreateApplication(ctx context.Context, request CreateApplicationRequestObject) (CreateApplicationResponseObject, error)
+	// DeleteApplication Remove an application
+	// (DELETE /v1/tenants/{tenant}/projects/{project}/applications/{application})
+	DeleteApplication(ctx context.Context, request DeleteApplicationRequestObject) (DeleteApplicationResponseObject, error)
+	// GetApplication An application
+	// (GET /v1/tenants/{tenant}/projects/{project}/applications/{application})
+	GetApplication(ctx context.Context, request GetApplicationRequestObject) (GetApplicationResponseObject, error)
+	// UpdateApplication Change an application
+	// (PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application})
+	UpdateApplication(ctx context.Context, request UpdateApplicationRequestObject) (UpdateApplicationResponseObject, error)
+	// GetFallbackGraph A project's fallback graph
+	// (GET /v1/tenants/{tenant}/projects/{project}/fallback-graph)
+	GetFallbackGraph(ctx context.Context, request GetFallbackGraphRequestObject) (GetFallbackGraphResponseObject, error)
+	// PutFallbackGraph Replace a project's fallback graph
+	// (PUT /v1/tenants/{tenant}/projects/{project}/fallback-graph)
+	PutFallbackGraph(ctx context.Context, request PutFallbackGraphRequestObject) (PutFallbackGraphResponseObject, error)
+	// ListLocales A project's locales, the source locale included
+	// (GET /v1/tenants/{tenant}/projects/{project}/locales)
+	ListLocales(ctx context.Context, request ListLocalesRequestObject) (ListLocalesResponseObject, error)
+	// AddLocale Add a locale to a project
+	// (POST /v1/tenants/{tenant}/projects/{project}/locales)
+	AddLocale(ctx context.Context, request AddLocaleRequestObject) (AddLocaleResponseObject, error)
+	// RemoveLocale Remove a locale from a project
+	// (DELETE /v1/tenants/{tenant}/projects/{project}/locales/{locale})
+	RemoveLocale(ctx context.Context, request RemoveLocaleRequestObject) (RemoveLocaleResponseObject, error)
+	// GetLocale A locale of a project
+	// (GET /v1/tenants/{tenant}/projects/{project}/locales/{locale})
+	GetLocale(ctx context.Context, request GetLocaleRequestObject) (GetLocaleResponseObject, error)
+	// UpsertMessages Create or revise messages in bulk (CLI push)
+	// (POST /v1/tenants/{tenant}/projects/{project}/message-upserts)
+	UpsertMessages(ctx context.Context, request UpsertMessagesRequestObject) (UpsertMessagesResponseObject, error)
+	// ListMessages Messages of a project, by key
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages)
+	ListMessages(ctx context.Context, request ListMessagesRequestObject) (ListMessagesResponseObject, error)
+	// CreateMessage Create a message
+	// (POST /v1/tenants/{tenant}/projects/{project}/messages)
+	CreateMessage(ctx context.Context, request CreateMessageRequestObject) (CreateMessageResponseObject, error)
+	// GetMessage A message
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message})
+	GetMessage(ctx context.Context, request GetMessageRequestObject) (GetMessageResponseObject, error)
+	// UpdateMessage Change a message's namespace, description or length limit
+	// (PATCH /v1/tenants/{tenant}/projects/{project}/messages/{message})
+	UpdateMessage(ctx context.Context, request UpdateMessageRequestObject) (UpdateMessageResponseObject, error)
+	// ObsoleteMessage Retire a message
+	// (POST /v1/tenants/{tenant}/projects/{project}/messages/{message}/obsoletion)
+	ObsoleteMessage(ctx context.Context, request ObsoleteMessageRequestObject) (ObsoleteMessageResponseObject, error)
+	// RenameMessage Give a message a new key
+	// (POST /v1/tenants/{tenant}/projects/{project}/messages/{message}/renames)
+	RenameMessage(ctx context.Context, request RenameMessageRequestObject) (RenameMessageResponseObject, error)
+	// ReviseMessageSource Revise a message's source text
+	// (PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/source)
+	ReviseMessageSource(ctx context.Context, request ReviseMessageSourceRequestObject) (ReviseMessageSourceResponseObject, error)
+	// ListSourceRevisions A message's source log, newest first
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/source-revisions)
+	ListSourceRevisions(ctx context.Context, request ListSourceRevisionsRequestObject) (ListSourceRevisionsResponseObject, error)
+	// ListMessageTranslations A message's translations, by locale
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations)
+	ListMessageTranslations(ctx context.Context, request ListMessageTranslationsRequestObject) (ListMessageTranslationsResponseObject, error)
+	// GetTranslation A message's translation in a locale
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale})
+	GetTranslation(ctx context.Context, request GetTranslationRequestObject) (GetTranslationResponseObject, error)
+	// PutTranslation Write a message's translation in a locale
+	// (PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale})
+	PutTranslation(ctx context.Context, request PutTranslationRequestObject) (PutTranslationResponseObject, error)
+	// ReviewTranslation Record a review decision
+	// (POST /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/reviews)
+	ReviewTranslation(ctx context.Context, request ReviewTranslationRequestObject) (ReviewTranslationResponseObject, error)
+	// ListTranslationRevisions A translation's history with provenance, newest first
+	// (GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions)
+	ListTranslationRevisions(ctx context.Context, request ListTranslationRevisionsRequestObject) (ListTranslationRevisionsResponseObject, error)
+	// ImportTranslations Import translations in bulk
+	// (POST /v1/tenants/{tenant}/projects/{project}/translation-imports)
+	ImportTranslations(ctx context.Context, request ImportTranslationsRequestObject) (ImportTranslationsResponseObject, error)
 	// ListTokens API tokens, including revoked ones
 	// (GET /v1/tenants/{tenant}/tokens)
 	ListTokens(ctx context.Context, request ListTokensRequestObject) (ListTokensResponseObject, error)
@@ -4534,6 +10986,980 @@ func (sh *strictHandler) UpdateMember(w http.ResponseWriter, r *http.Request, te
 	}
 }
 
+// ListProjects operation middleware
+func (sh *strictHandler) ListProjects(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListProjectsParams) {
+	var request ListProjectsRequestObject
+
+	request.Tenant = tenant
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProjects(ctx, request.(ListProjectsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProjects")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProjectsResponseObject); ok {
+		if err := validResponse.VisitListProjectsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateProject operation middleware
+func (sh *strictHandler) CreateProject(w http.ResponseWriter, r *http.Request, tenant TenantPath, params CreateProjectParams) {
+	var request CreateProjectRequestObject
+
+	request.Tenant = tenant
+	request.Params = params
+
+	var body CreateProjectJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProject(ctx, request.(CreateProjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateProjectResponseObject); ok {
+		if err := validResponse.VisitCreateProjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteProject operation middleware
+func (sh *strictHandler) DeleteProject(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params DeleteProjectParams) {
+	var request DeleteProjectRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteProject(ctx, request.(DeleteProjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteProject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteProjectResponseObject); ok {
+		if err := validResponse.VisitDeleteProjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetProject operation middleware
+func (sh *strictHandler) GetProject(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath) {
+	var request GetProjectRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetProject(ctx, request.(GetProjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetProject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetProjectResponseObject); ok {
+		if err := validResponse.VisitGetProjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateProject operation middleware
+func (sh *strictHandler) UpdateProject(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params UpdateProjectParams) {
+	var request UpdateProjectRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	var body UpdateProjectJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateProject(ctx, request.(UpdateProjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateProject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateProjectResponseObject); ok {
+		if err := validResponse.VisitUpdateProjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListApplications operation middleware
+func (sh *strictHandler) ListApplications(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListApplicationsParams) {
+	var request ListApplicationsRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListApplications(ctx, request.(ListApplicationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListApplications")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListApplicationsResponseObject); ok {
+		if err := validResponse.VisitListApplicationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateApplication operation middleware
+func (sh *strictHandler) CreateApplication(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params CreateApplicationParams) {
+	var request CreateApplicationRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	var body CreateApplicationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateApplication(ctx, request.(CreateApplicationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateApplication")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateApplicationResponseObject); ok {
+		if err := validResponse.VisitCreateApplicationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteApplication operation middleware
+func (sh *strictHandler) DeleteApplication(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, application ApplicationPath, params DeleteApplicationParams) {
+	var request DeleteApplicationRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Application = application
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteApplication(ctx, request.(DeleteApplicationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteApplication")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteApplicationResponseObject); ok {
+		if err := validResponse.VisitDeleteApplicationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetApplication operation middleware
+func (sh *strictHandler) GetApplication(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, application ApplicationPath) {
+	var request GetApplicationRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Application = application
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetApplication(ctx, request.(GetApplicationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetApplication")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetApplicationResponseObject); ok {
+		if err := validResponse.VisitGetApplicationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateApplication operation middleware
+func (sh *strictHandler) UpdateApplication(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, application ApplicationPath, params UpdateApplicationParams) {
+	var request UpdateApplicationRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Application = application
+	request.Params = params
+
+	var body UpdateApplicationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateApplication(ctx, request.(UpdateApplicationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateApplication")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateApplicationResponseObject); ok {
+		if err := validResponse.VisitUpdateApplicationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetFallbackGraph operation middleware
+func (sh *strictHandler) GetFallbackGraph(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath) {
+	var request GetFallbackGraphRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetFallbackGraph(ctx, request.(GetFallbackGraphRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetFallbackGraph")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetFallbackGraphResponseObject); ok {
+		if err := validResponse.VisitGetFallbackGraphResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutFallbackGraph operation middleware
+func (sh *strictHandler) PutFallbackGraph(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params PutFallbackGraphParams) {
+	var request PutFallbackGraphRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	var body PutFallbackGraphJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutFallbackGraph(ctx, request.(PutFallbackGraphRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutFallbackGraph")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutFallbackGraphResponseObject); ok {
+		if err := validResponse.VisitPutFallbackGraphResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListLocales operation middleware
+func (sh *strictHandler) ListLocales(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListLocalesParams) {
+	var request ListLocalesRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListLocales(ctx, request.(ListLocalesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListLocales")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListLocalesResponseObject); ok {
+		if err := validResponse.VisitListLocalesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddLocale operation middleware
+func (sh *strictHandler) AddLocale(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath) {
+	var request AddLocaleRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+
+	var body AddLocaleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddLocale(ctx, request.(AddLocaleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddLocale")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddLocaleResponseObject); ok {
+		if err := validResponse.VisitAddLocaleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveLocale operation middleware
+func (sh *strictHandler) RemoveLocale(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, locale LocalePath) {
+	var request RemoveLocaleRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Locale = locale
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveLocale(ctx, request.(RemoveLocaleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveLocale")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveLocaleResponseObject); ok {
+		if err := validResponse.VisitRemoveLocaleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLocale operation middleware
+func (sh *strictHandler) GetLocale(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, locale LocalePath) {
+	var request GetLocaleRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Locale = locale
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLocale(ctx, request.(GetLocaleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLocale")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLocaleResponseObject); ok {
+		if err := validResponse.VisitGetLocaleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpsertMessages operation middleware
+func (sh *strictHandler) UpsertMessages(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath) {
+	var request UpsertMessagesRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+
+	var body UpsertMessagesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpsertMessages(ctx, request.(UpsertMessagesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpsertMessages")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpsertMessagesResponseObject); ok {
+		if err := validResponse.VisitUpsertMessagesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMessages operation middleware
+func (sh *strictHandler) ListMessages(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params ListMessagesParams) {
+	var request ListMessagesRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMessages(ctx, request.(ListMessagesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMessages")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMessagesResponseObject); ok {
+		if err := validResponse.VisitListMessagesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateMessage operation middleware
+func (sh *strictHandler) CreateMessage(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, params CreateMessageParams) {
+	var request CreateMessageRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Params = params
+
+	var body CreateMessageJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateMessage(ctx, request.(CreateMessageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateMessage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateMessageResponseObject); ok {
+		if err := validResponse.VisitCreateMessageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMessage operation middleware
+func (sh *strictHandler) GetMessage(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath) {
+	var request GetMessageRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMessage(ctx, request.(GetMessageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMessage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMessageResponseObject); ok {
+		if err := validResponse.VisitGetMessageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateMessage operation middleware
+func (sh *strictHandler) UpdateMessage(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params UpdateMessageParams) {
+	var request UpdateMessageRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+	request.Params = params
+
+	var body UpdateMessageJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateMessage(ctx, request.(UpdateMessageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateMessage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateMessageResponseObject); ok {
+		if err := validResponse.VisitUpdateMessageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ObsoleteMessage operation middleware
+func (sh *strictHandler) ObsoleteMessage(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params ObsoleteMessageParams) {
+	var request ObsoleteMessageRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ObsoleteMessage(ctx, request.(ObsoleteMessageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ObsoleteMessage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ObsoleteMessageResponseObject); ok {
+		if err := validResponse.VisitObsoleteMessageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RenameMessage operation middleware
+func (sh *strictHandler) RenameMessage(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params RenameMessageParams) {
+	var request RenameMessageRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+	request.Params = params
+
+	var body RenameMessageJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RenameMessage(ctx, request.(RenameMessageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RenameMessage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RenameMessageResponseObject); ok {
+		if err := validResponse.VisitRenameMessageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReviseMessageSource operation middleware
+func (sh *strictHandler) ReviseMessageSource(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params ReviseMessageSourceParams) {
+	var request ReviseMessageSourceRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+	request.Params = params
+
+	var body ReviseMessageSourceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReviseMessageSource(ctx, request.(ReviseMessageSourceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReviseMessageSource")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReviseMessageSourceResponseObject); ok {
+		if err := validResponse.VisitReviseMessageSourceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListSourceRevisions operation middleware
+func (sh *strictHandler) ListSourceRevisions(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params ListSourceRevisionsParams) {
+	var request ListSourceRevisionsRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListSourceRevisions(ctx, request.(ListSourceRevisionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListSourceRevisions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListSourceRevisionsResponseObject); ok {
+		if err := validResponse.VisitListSourceRevisionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMessageTranslations operation middleware
+func (sh *strictHandler) ListMessageTranslations(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, params ListMessageTranslationsParams) {
+	var request ListMessageTranslationsRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMessageTranslations(ctx, request.(ListMessageTranslationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMessageTranslations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMessageTranslationsResponseObject); ok {
+		if err := validResponse.VisitListMessageTranslationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTranslation operation middleware
+func (sh *strictHandler) GetTranslation(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath) {
+	var request GetTranslationRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+	request.Locale = locale
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTranslation(ctx, request.(GetTranslationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTranslation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTranslationResponseObject); ok {
+		if err := validResponse.VisitGetTranslationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutTranslation operation middleware
+func (sh *strictHandler) PutTranslation(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params PutTranslationParams) {
+	var request PutTranslationRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+	request.Locale = locale
+	request.Params = params
+
+	var body PutTranslationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutTranslation(ctx, request.(PutTranslationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutTranslation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutTranslationResponseObject); ok {
+		if err := validResponse.VisitPutTranslationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReviewTranslation operation middleware
+func (sh *strictHandler) ReviewTranslation(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params ReviewTranslationParams) {
+	var request ReviewTranslationRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+	request.Locale = locale
+	request.Params = params
+
+	var body ReviewTranslationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReviewTranslation(ctx, request.(ReviewTranslationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReviewTranslation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReviewTranslationResponseObject); ok {
+		if err := validResponse.VisitReviewTranslationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTranslationRevisions operation middleware
+func (sh *strictHandler) ListTranslationRevisions(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params ListTranslationRevisionsParams) {
+	var request ListTranslationRevisionsRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+	request.Message = message
+	request.Locale = locale
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTranslationRevisions(ctx, request.(ListTranslationRevisionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTranslationRevisions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTranslationRevisionsResponseObject); ok {
+		if err := validResponse.VisitListTranslationRevisionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ImportTranslations operation middleware
+func (sh *strictHandler) ImportTranslations(w http.ResponseWriter, r *http.Request, tenant TenantPath, project ProjectPath) {
+	var request ImportTranslationsRequestObject
+
+	request.Tenant = tenant
+	request.Project = project
+
+	var body ImportTranslationsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ImportTranslations(ctx, request.(ImportTranslationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ImportTranslations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ImportTranslationsResponseObject); ok {
+		if err := validResponse.VisitImportTranslationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListTokens operation middleware
 func (sh *strictHandler) ListTokens(w http.ResponseWriter, r *http.Request, tenant TenantPath, params ListTokensParams) {
 	var request ListTokensRequestObject
@@ -4654,127 +12080,232 @@ func (sh *strictHandler) GetToken(w http.ResponseWriter, r *http.Request, tenant
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"69x0DLRxI7cq7n3Ei+RI7R65Kp2mLE7y/w4A",
+	"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",
+	"9sP/GwA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
