@@ -5,11 +5,22 @@
  * server, review actions and the revision history.
  */
 import type { Message as MF2 } from "@glossa/messageformat";
-import { computed, ref, shallowRef, useTemplateRef, watch } from "vue";
-import { messages as messagesApi, translations } from "../api/endpoints";
+import { computed, onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } from "vue";
+import { messages as messagesApi, preview as previewApi, translations } from "../api/endpoints";
 import { ApiError, isApiError } from "../api/errors";
-import type { Message, Project, ProjectLocale, QAFinding, ReviewState, SourceRevision, Syntax, Translation, TranslationRevision } from "../api/schemas";
-import { loadFormatter, parseMF2 } from "../lib/preview";
+import type {
+  Message,
+  MessagePreviewError,
+  Project,
+  ProjectLocale,
+  QAFinding,
+  ReviewState,
+  SourceRevision,
+  Syntax,
+  Translation,
+  TranslationRevision,
+} from "../api/schemas";
+import { loadFormatter, MF1_PREVIEW_DELAY_MS, MF1_PREVIEW_RETRY_MS, parseMF2 } from "../lib/preview";
 import { reviewActions, stateTone } from "../lib/review";
 import { keyLabel } from "../lib/shortcuts";
 import { allowsFor, type Grant } from "../session/permissions";
@@ -186,17 +197,57 @@ async function handleWriteError(e: unknown): Promise<void> {
 }
 
 // ── live preview ────────────────────────────────────────────────────
+// MF2 is parsed here; MF1 by the server's kernel (the one MF1 converter),
+// debounced, the latest request winning. Parse errors show inline as the
+// translator types; a rate limit pauses the preview and retries.
 const liveModel = shallowRef<MF2>();
+const liveErrors = ref<MessagePreviewError[]>([]);
+const livePreview = ref<"live" | "paused" | "unavailable">("live");
 let parseTimer: ReturnType<typeof setTimeout> | undefined;
+let previewSeq = 0;
+let previewAbort: AbortController | undefined;
+
+async function previewMf1(): Promise<void> {
+  const text = draft.value;
+  const seq = ++previewSeq;
+  previewAbort?.abort();
+  if (text.trim() === "" || (!dirty.value && translation.value?.syntax === "mf1")) {
+    // Nothing typed, or the saved text: its model came with the translation.
+    liveModel.value = text.trim() === "" ? undefined : (translation.value?.model as MF2 | undefined);
+    liveErrors.value = [];
+    livePreview.value = "live";
+    return;
+  }
+  const abort = (previewAbort = new AbortController());
+  try {
+    const r = await previewApi.message({ source: text, syntax: "mf1", locale: props.locale.code }, abort.signal);
+    if (seq !== previewSeq) return;
+    liveModel.value = r.valid ? (r.message as unknown as MF2 | undefined) : undefined;
+    liveErrors.value = r.errors.filter((e) => e.stage === "parse");
+    livePreview.value = "live";
+  } catch (e) {
+    if (seq !== previewSeq || abort.signal.aborted) return;
+    if (isApiError(e, "rate_limited")) {
+      livePreview.value = "paused";
+      parseTimer = setTimeout(() => void previewMf1(), MF1_PREVIEW_RETRY_MS);
+      return;
+    }
+    livePreview.value = "unavailable";
+  }
+}
+
 watch(
   [draft, syntax],
   () => {
     clearTimeout(parseTimer);
-    if (syntax.value !== "mf2") {
-      // A server parse error refers to text that has since changed.
-      parseError.value = "";
+    // A server parse error from a save refers to text that has since changed.
+    if (syntax.value === "mf1") parseError.value = "";
+    if (syntax.value === "mf1") {
+      parseTimer = setTimeout(() => void previewMf1(), MF1_PREVIEW_DELAY_MS);
       return;
     }
+    liveErrors.value = [];
+    livePreview.value = "live";
     parseTimer = setTimeout(async () => {
       const mf = await loadFormatter();
       const r = draft.value.trim() === "" ? undefined : parseMF2(mf, draft.value);
@@ -206,14 +257,27 @@ watch(
   },
   { immediate: true },
 );
-const targetModel = computed<MF2 | undefined>(() => {
-  if (syntax.value === "mf2") return liveModel.value;
-  return translation.value?.model as MF2 | undefined;
+onBeforeUnmount(() => {
+  clearTimeout(parseTimer);
+  previewAbort?.abort();
 });
-const previewNotice = computed(() => (syntax.value === "mf1" && (dirty.value || !translation.value) ? s.previewMf1Stale : undefined));
+const targetModel = computed<MF2 | undefined>(() => {
+  if (syntax.value === "mf1" && livePreview.value === "unavailable") return translation.value?.model as MF2 | undefined;
+  return liveModel.value;
+});
+const previewNotice = computed(() => {
+  if (syntax.value !== "mf1") return undefined;
+  if (livePreview.value === "paused") return s.previewPaused;
+  if (livePreview.value === "unavailable") return s.previewMf1Stale;
+  return undefined;
+});
 
 const actions = computed(() => reviewActions(translation.value?.state, canWrite.value, canReview.value));
-const errorIds = computed(() => [findings.value.length ? "qa-errors" : "", parseError.value ? "parse-error" : "", "target-hint"].filter(Boolean).join(" "));
+const errorIds = computed(() =>
+  [findings.value.length ? "qa-errors" : "", parseError.value ? "parse-error" : "", liveErrors.value.length ? "preview-errors" : "", "target-hint"]
+    .filter(Boolean)
+    .join(" "),
+);
 
 /** The source as canonical MF2 syntax — what releases ship — for developers. */
 const canonical = ref("");
@@ -336,6 +400,12 @@ defineExpose({ save, focusEditor, blurEditor, isEditing: () => document.activeEl
 
         <QaFindings v-if="findings.length" id="qa-errors" :title="s.qaFailed" :findings="findings" tone="error" data-testid="qa-findings" />
         <p v-if="parseError" id="parse-error" class="alert alert-error" role="alert">{{ s.invalidText }} <code>{{ parseError }}</code></p>
+        <div v-if="liveErrors.length" id="preview-errors" class="alert alert-warn" role="status" data-testid="preview-errors">
+          <span>{{ s.previewInvalid }}</span>
+          <ul class="preview-errors">
+            <li v-for="(e, i) in liveErrors" :key="i"><code>{{ e.code }}</code> {{ e.message }}</li>
+          </ul>
+        </div>
         <QaFindings v-if="translation?.warnings.length && !dirty" id="qa-warnings" :title="s.qaWarnings" :findings="translation.warnings" tone="warn" />
 
         <div class="row actions">
@@ -476,6 +546,10 @@ defineExpose({ save, focusEditor, blurEditor, isEditing: () => document.activeEl
 .over {
   color: var(--gs-err);
   font-weight: var(--kl-weight-semibold);
+}
+.preview-errors {
+  margin: var(--kl-space-1) 0 0;
+  padding-inline-start: var(--kl-space-4);
 }
 .notice {
   color: var(--gs-ok);

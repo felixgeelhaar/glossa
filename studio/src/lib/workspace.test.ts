@@ -1,14 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { matches, namespacesOf, statusOf } from "./workspace";
+import type { ProjectTranslation } from "../api/schemas";
+import { coverageOf, matches, namespacesOf, statusOf } from "./workspace";
+
+describe("coverageOf", () => {
+  const t = (message_id: string, state: ProjectTranslation["state"], outdated = false) => ({ message_id, state, outdated }) as ProjectTranslation;
+  it("counts usable translations by message ID; rejected ones are missing", () => {
+    const c = coverageOf([t("m1", "approved"), t("m2", "draft", true), t("m3", "rejected", true)]);
+    expect([...c.translated].sort()).toEqual(["m1", "m2"]);
+    expect([...c.outdated]).toEqual(["m2"]);
+  });
+});
 
 describe("statusOf", () => {
-  const missing = new Set(["a"]);
-  const outdated = new Set(["b"]);
-  it("derives the row status", () => {
-    expect(statusOf("a", missing, outdated)).toBe("missing");
-    expect(statusOf("b", missing, outdated)).toBe("outdated");
-    expect(statusOf("c", missing, outdated)).toBe("translated");
-    expect(statusOf("c", undefined, outdated)).toBe("unknown");
+  const coverage = { translated: new Set(["b", "c"]), outdated: new Set(["b"]) };
+  it("derives the row status from one listing of the locale", () => {
+    expect(statusOf("a", coverage)).toBe("missing");
+    expect(statusOf("b", coverage)).toBe("outdated");
+    expect(statusOf("c", coverage)).toBe("translated");
+    expect(statusOf("c", undefined)).toBe("unknown");
   });
 });
 

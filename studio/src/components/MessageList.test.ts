@@ -4,6 +4,7 @@ import type { MessageRow } from "../lib/workspace";
 import MessageList from "./MessageList.vue";
 
 const rows: MessageRow[] = Array.from({ length: 10_000 }, (_, i) => ({
+  id: `m${i}`,
   key: `screen.item_${String(i).padStart(5, "0")}`,
   text: `Item ${i}`,
   namespace: "default",

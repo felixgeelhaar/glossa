@@ -3,8 +3,13 @@
  * (`@glossa/messageformat`, RFC 0002 §5). It is loaded on demand, so it
  * stays out of the initial bundle. MF2 text is parsed here as the
  * translator types; MF1 is parsed only by the server (there is exactly one
- * MF1 converter, in Go), so MF1 previews show the last saved model.
+ * MF1 converter, in Go), through POST /v1/message-previews, debounced.
  */
+
+/** Quiet time after the last keystroke before MF1 text goes to the server. */
+export const MF1_PREVIEW_DELAY_MS = 250;
+/** Wait before asking again after the server's rate limit (429). */
+export const MF1_PREVIEW_RETRY_MS = 1500;
 import type { FormatError, Message, MessagePart } from "@glossa/messageformat";
 
 type MessageFormatModule = typeof import("@glossa/messageformat");

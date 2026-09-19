@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../api/errors";
 import type { Message, Project, ProjectLocale, Translation } from "../api/schemas";
 import { grantFor } from "../session/permissions";
+import { MF1_PREVIEW_DELAY_MS, MF1_PREVIEW_RETRY_MS } from "../lib/preview";
 import TranslationEditor from "./TranslationEditor.vue";
 
 const api = vi.hoisted(() => ({
@@ -11,11 +12,21 @@ const api = vi.hoisted(() => ({
   review: vi.fn(),
   revisions: vi.fn(),
   sourceRevisions: vi.fn(),
+  preview: vi.fn(),
 }));
 vi.mock("../api/endpoints", () => ({
   translations: { get: api.get, put: api.put, review: api.review, revisions: api.revisions },
   messages: { sourceRevisions: api.sourceRevisions },
+  preview: { message: api.preview },
 }));
+
+/** Past the MF1 preview's debounce. */
+const debounce = () => new Promise((r) => setTimeout(r, MF1_PREVIEW_DELAY_MS + 30));
+const hallo = (name: string) => ({
+  type: "message",
+  declarations: [],
+  pattern: ["Hallo, ", { type: "expression", arg: { type: "variable", name } }, "!"],
+});
 
 const now = "2026-09-19T12:00:00Z";
 const project: Project = {
@@ -151,6 +162,67 @@ describe("TranslationEditor", () => {
     expect(w.find("textarea").attributes("readonly")).toBeDefined();
     expect(w.findAll("button").map((b) => b.text())).not.toContain("Approve");
     expect(w.text()).toContain("You can't write de translations");
+    w.unmount();
+  });
+
+  it("previews MF1 as you type, through the server's kernel", async () => {
+    api.get.mockResolvedValue({ value: translation(), etag: '"e1"' });
+    api.preview.mockResolvedValue({ valid: true, message: hallo("name"), arguments: [{ name: "name", type: "string" }], markup: [], errors: [] });
+    const w = mountEditor();
+    await flushPromises();
+    // The saved text needs no request: its model came with the translation.
+    await debounce();
+    expect(api.preview).not.toHaveBeenCalled();
+    await w.get("textarea").setValue("Servus, {name}");
+    await w.get("textarea").setValue("Servus, {name}!");
+    await debounce();
+    await flushPromises();
+    // Debounced: one request for the last text.
+    expect(api.preview).toHaveBeenCalledTimes(1);
+    expect(api.preview.mock.calls[0]![0]).toEqual({ source: "Servus, {name}!", syntax: "mf1", locale: "de" });
+    expect(w.get("[data-testid=preview-target]").text()).toBe("Hallo, Ada!");
+    expect(w.text()).not.toContain("the preview shows the last saved text");
+    w.unmount();
+  });
+
+  it("shows the kernel's errors inline for text that doesn't parse, before saving", async () => {
+    api.get.mockResolvedValue({ value: translation(), etag: '"e1"' });
+    api.preview.mockResolvedValue({
+      valid: false,
+      arguments: [],
+      markup: [],
+      errors: [{ stage: "parse", code: "mf1-syntax-error", message: "unclosed placeholder at 7" }],
+    });
+    const w = mountEditor();
+    await flushPromises();
+    await w.get("textarea").setValue("Hallo, {name");
+    await debounce();
+    await flushPromises();
+    const errors = w.get("[data-testid=preview-errors]");
+    expect(errors.text()).toContain("mf1-syntax-error");
+    expect(errors.text()).toContain("unclosed placeholder at 7");
+    expect(w.get("textarea").attributes("aria-describedby")).toContain("preview-errors");
+    expect(w.get("[data-testid=preview-target]").text()).toBe("Nothing to preview yet.");
+    expect(api.put).not.toHaveBeenCalled();
+    w.unmount();
+  });
+
+  it("pauses the preview when rate limited, then retries", async () => {
+    api.get.mockResolvedValue({ value: translation(), etag: '"e1"' });
+    api.preview
+      .mockRejectedValueOnce(new ApiError(429, "rate_limited", "slow down", { type: "x", title: "t", status: 429, code: "rate_limited" }))
+      .mockResolvedValue({ valid: true, message: hallo("name"), arguments: [], markup: [], errors: [] });
+    const w = mountEditor();
+    await flushPromises();
+    await w.get("textarea").setValue("Servus, {name}!");
+    await debounce();
+    await flushPromises();
+    expect(w.text()).toContain("Preview paused");
+    await new Promise((r) => setTimeout(r, MF1_PREVIEW_RETRY_MS + 50));
+    await flushPromises();
+    expect(api.preview).toHaveBeenCalledTimes(2);
+    expect(w.text()).not.toContain("Preview paused");
+    expect(w.get("[data-testid=preview-target]").text()).toBe("Hallo, Ada!");
     w.unmount();
   });
 

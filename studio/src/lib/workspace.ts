@@ -1,22 +1,40 @@
 /** Pure helpers for the translator workspace's message list. */
-import type { Message } from "../api/schemas";
+import type { Message, ProjectTranslation } from "../api/schemas";
 
 export type RowStatus = "missing" | "outdated" | "translated" | "unknown";
 
 export interface MessageRow {
+  id: string;
   key: string;
   text: string;
   namespace: string;
   status: RowStatus;
 }
 
-export type Coverage = "all" | "missing" | "outdated";
+export type CoverageFilter = "all" | "missing" | "outdated";
 
-/** Status of a message in the target locale, from the missing/outdated key sets (unknown until they load). */
-export function statusOf(key: string, missing: ReadonlySet<string> | undefined, outdated: ReadonlySet<string> | undefined): RowStatus {
-  if (!missing || !outdated) return "unknown";
-  if (missing.has(key)) return "missing";
-  if (outdated.has(key)) return "outdated";
+/** Which messages have a usable translation in a locale, and which of those are outdated, by message ID. */
+export interface Coverage {
+  translated: Set<string>;
+  outdated: Set<string>;
+}
+
+/** Coverage from the locale's translations (one bulk listing): rejected text counts as missing. */
+export function coverageOf(translations: Iterable<Pick<ProjectTranslation, "message_id" | "state" | "outdated">>): Coverage {
+  const c: Coverage = { translated: new Set(), outdated: new Set() };
+  for (const t of translations) {
+    if (t.state === "rejected") continue;
+    c.translated.add(t.message_id);
+    if (t.outdated) c.outdated.add(t.message_id);
+  }
+  return c;
+}
+
+/** Status of a message in the target locale (unknown until coverage loads). */
+export function statusOf(messageId: string, coverage: Coverage | undefined): RowStatus {
+  if (!coverage) return "unknown";
+  if (!coverage.translated.has(messageId)) return "missing";
+  if (coverage.outdated.has(messageId)) return "outdated";
   return "translated";
 }
 

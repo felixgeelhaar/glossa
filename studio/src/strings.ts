@@ -222,6 +222,10 @@ export const strings = {
     count: (shown: number, loaded: number, done: boolean) =>
       `${shown.toLocaleString()} of ${loaded.toLocaleString()}${done ? "" : "+"} messages`,
     loadingMore: "Loading more…",
+    localeStats: (code: string, translated: number, total: number, outdated: number, review: number) =>
+      [`${code}: ${translated.toLocaleString()} of ${total.toLocaleString()} translated`, outdated ? `${outdated.toLocaleString()} outdated` : "", review ? `${review.toLocaleString()} need review` : ""]
+        .filter(Boolean)
+        .join(" · "),
     empty: "No messages match these filters.",
     noMessages: "This project has no messages yet. Push them with the CLI or the API.",
     selectMessage: "Select a message to translate it.",
@@ -269,7 +273,9 @@ export const strings = {
     preview: "Live preview",
     previewSource: "Source",
     previewTarget: "Translation",
-    previewMf1Stale: "MF1 is parsed on the server: the preview shows the last saved text and updates when you save.",
+    previewMf1Stale: "The live preview is unavailable right now: it shows the last saved text and updates when you save.",
+    previewPaused: "Preview paused: too many previews in a short time. It resumes in a moment.",
+    previewInvalid: "This text doesn't parse yet:",
     previewEmpty: "Nothing to preview yet.",
     samples: "Sample values",
     sampleFor: (name: string) => `Sample value for ${name}`,

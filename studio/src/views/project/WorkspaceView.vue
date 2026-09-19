@@ -7,15 +7,15 @@
  */
 import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
-import { messages as messagesApi, type MessageFilters } from "../../api/endpoints";
-import type { Message, Translation } from "../../api/schemas";
+import { messages as messagesApi, translations as translationsApi, type MessageFilters } from "../../api/endpoints";
+import type { LocaleStats, Message, Translation } from "../../api/schemas";
 import ErrorAlert from "../../components/ErrorAlert.vue";
 import MessageList from "../../components/MessageList.vue";
 import TranslationEditor from "../../components/TranslationEditor.vue";
 import { localeName } from "../../lib/bcp47";
 import { getPref, setPref } from "../../lib/prefs";
 import { useShortcuts } from "../../lib/shortcuts";
-import { matches, namespacesOf, statusOf, type Coverage, type MessageRow } from "../../lib/workspace";
+import { coverageOf, matches, namespacesOf, statusOf, type Coverage, type CoverageFilter, type MessageRow } from "../../lib/workspace";
 import { useSession } from "../../session/session";
 import { strings } from "../../strings";
 import { useProject } from "./context";
@@ -42,7 +42,7 @@ watch(localeCode, (code) => code && setPref(`locale:${projectId.value}`, code), 
 const target = computed(() => locales.value.find((l) => l.code === localeCode.value));
 const source = computed(() => locales.value.find((l) => l.is_source));
 const namespace = computed(() => q("ns"));
-const coverage = computed<Coverage>(() => (["missing", "outdated"].includes(q("show")) ? (q("show") as Coverage) : "all"));
+const coverage = computed<CoverageFilter>(() => (["missing", "outdated"].includes(q("show")) ? (q("show") as CoverageFilter) : "all"));
 const state = computed(() => (q("state") === "obsolete" ? "obsolete" : q("state") === "all" ? "all" : "active"));
 const search = ref(q("q"));
 watch(search, (v) => setQuery({ q: v || undefined }));
@@ -51,8 +51,10 @@ watch(search, (v) => setQuery({ q: v || undefined }));
 const loaded = shallowRef<Message[]>([]);
 const done = ref(false);
 const loadError = ref<unknown>(null);
-const missing = shallowRef<Set<string>>();
-const outdated = shallowRef<Set<string>>();
+/** The target locale's coverage by message ID, for the row badges. */
+const localeCoverage = shallowRef<Coverage>();
+/** The target locale's counts (translation-stats). */
+const localeStats = shallowRef<LocaleStats>();
 const seenNamespaces = ref<string[]>([]);
 let controller: AbortController | undefined;
 
@@ -90,28 +92,42 @@ async function loadMessages(): Promise<void> {
   }
 }
 
-/** Which keys are missing / outdated in the target locale, for the row badges. */
+let statusController: AbortController | undefined;
+
+/**
+ * The row badges and counts for the target locale: its translations in
+ * one bulk listing (a page per request, whatever the list's filters) and
+ * the server's per-locale stats.
+ */
 async function loadStatus(): Promise<void> {
-  missing.value = undefined;
-  outdated.value = undefined;
+  statusController?.abort();
+  const c = (statusController = new AbortController());
+  localeCoverage.value = undefined;
+  localeStats.value = undefined;
   const code = localeCode.value;
   if (!code) return;
-  const signal = controller?.signal ?? new AbortController().signal;
-  const keys = async (f: MessageFilters) => {
-    const out = new Set<string>();
-    await pages(f, signal, (items) => items.forEach((m) => out.add(m.key)));
-    return out;
+  const p = { tenant: tenant.value, project: projectId.value };
+  const translations = async () => {
+    const items = [];
+    let token: string | undefined;
+    do {
+      const page = await translationsApi.projectPage(p, code, token, c.signal);
+      items.push(...page.items);
+      token = page.next_page_token;
+    } while (token && !c.signal.aborted);
+    return coverageOf(items);
   };
-  try {
-    const base = { state: "active" as const };
-    const [m, o] = await Promise.all([keys({ ...base, missing_in: code }), keys({ ...base, outdated_in: code })]);
-    if (code === localeCode.value && !signal.aborted) {
-      missing.value = m;
-      outdated.value = o;
-    }
-  } catch {
-    // badges are a convenience; the list still works without them
-  }
+  const [cov, stats] = await Promise.allSettled([translations(), loadStats(c.signal)]);
+  if (c.signal.aborted || code !== localeCode.value) return;
+  // Badges and counts are a convenience; the list works without them.
+  if (cov.status === "fulfilled") localeCoverage.value = cov.value;
+  if (stats.status === "fulfilled") localeStats.value = stats.value;
+}
+
+async function loadStats(signal?: AbortSignal): Promise<LocaleStats | undefined> {
+  const code = localeCode.value;
+  const st = await translationsApi.stats({ tenant: tenant.value, project: projectId.value }, signal);
+  return st.locales.find((l) => l.code === code);
 }
 
 watch(
@@ -126,11 +142,14 @@ watch(loaded, (list) => {
   const merged = namespacesOf(list, seenNamespaces.value);
   if (merged.length !== seenNamespaces.value.length) seenNamespaces.value = merged;
 });
-onBeforeUnmount(() => controller?.abort());
+onBeforeUnmount(() => {
+  controller?.abort();
+  statusController?.abort();
+});
 
 const visible = computed(() => loaded.value.filter((m) => matches(m, search.value)));
 const rows = computed<MessageRow[]>(() =>
-  visible.value.map((m) => ({ key: m.key, text: m.source.text, namespace: m.namespace, status: statusOf(m.key, missing.value, outdated.value) })),
+  visible.value.map((m) => ({ id: m.id, key: m.key, text: m.source.text, namespace: m.namespace, status: statusOf(m.id, localeCoverage.value) })),
 );
 
 // ── selection ───────────────────────────────────────────────────────
@@ -152,13 +171,17 @@ function select(index: number): void {
 }
 
 function onChanged(t: Translation): void {
-  const key = selected.value?.key;
-  if (!key || !missing.value || !outdated.value) return;
-  missing.value.delete(key);
-  if (t.outdated) outdated.value.add(key);
-  else outdated.value.delete(key);
-  triggerRef(missing);
-  triggerRef(outdated);
+  const cov = localeCoverage.value;
+  if (cov) {
+    if (t.state === "rejected") cov.translated.delete(t.message_id);
+    else cov.translated.add(t.message_id);
+    if (t.outdated && t.state !== "rejected") cov.outdated.add(t.message_id);
+    else cov.outdated.delete(t.message_id);
+    triggerRef(localeCoverage);
+  }
+  void loadStats()
+    .then((st) => (localeStats.value = st))
+    .catch(() => undefined);
 }
 
 // ── keyboard ────────────────────────────────────────────────────────
@@ -225,8 +248,8 @@ function onSearchKey(e: KeyboardEvent): void {
             <label for="ws-show">{{ s.coverage }}</label>
             <select id="ws-show" :value="coverage" @change="setQuery({ show: ($event.target as HTMLSelectElement).value === 'all' ? undefined : ($event.target as HTMLSelectElement).value })">
               <option value="all">{{ s.coverageAll }}</option>
-              <option value="missing">{{ s.coverageMissing(localeCode ?? "") }}</option>
-              <option value="outdated">{{ s.coverageOutdated(localeCode ?? "") }}</option>
+              <option value="missing">{{ s.coverageMissing(localeCode ?? "") }}{{ localeStats ? ` (${localeStats.missing.toLocaleString()})` : "" }}</option>
+              <option value="outdated">{{ s.coverageOutdated(localeCode ?? "") }}{{ localeStats ? ` (${localeStats.outdated.toLocaleString()})` : "" }}</option>
             </select>
           </div>
           <div class="field">
@@ -246,6 +269,9 @@ function onSearchKey(e: KeyboardEvent): void {
           </div>
         </div>
         <p class="count" role="status">{{ s.count(visible.length, loaded.length, done) }}</p>
+        <p v-if="localeStats" class="count" data-testid="locale-stats">
+          {{ s.localeStats(localeStats.code, localeStats.translated, localeStats.translated + localeStats.missing, localeStats.outdated, localeStats.states.needs_review) }}
+        </p>
       </div>
       <ErrorAlert :error="loadError" />
       <MessageList
