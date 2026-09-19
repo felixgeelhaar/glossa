@@ -1,6 +1,6 @@
 # Glossa runtime and delivery contract (v1)
 
-**Status:** Accepted — 2026-09-19 · **Implements:** RFC 0002 §7–§8, intent §13, §33–§39, §51
+**Status:** Accepted — 2026-09-19, clarified after the first two implementations (JS, Go) · **Implements:** RFC 0002 §7–§8, intent §13, §33–§39, §51
 
 This is the contract between the delivery plane (the Release context and `glossa-edge`) and every runtime (JS, Go, and later Dart, Swift, Kotlin). A runtime is conformant when it passes the scenarios in [`testdata/`](./testdata) and follows the MUST rules below. The words MUST, SHOULD and MAY are used as in RFC 2119.
 
@@ -33,7 +33,7 @@ One manifest per (project, environment). It names the release currently served a
 
 - `locales[].code` MUST be canonical BCP 47 (RFC 5646 §4.5, extensions and private use excluded), exactly as the platform stores it.
 - `fallback` maps a locale to its ordered fallback locales. `"*"` is the default chain for any locale without its own entry. Fallback is a graph (intent §39): entries MAY chain (`de-AT → de-CH → de`), and runtimes MUST detect cycles and stop at the first repeat.
-- `artifacts[locale][namespace]` names one artifact by the SHA-256 of its exact bytes. The `default` namespace always exists for every listed locale, even if empty. More namespaces arrive with bundle splitting (RFC 0002 §8).
+- `artifacts[locale][namespace]` names one artifact by the SHA-256 of its exact bytes. The `default` namespace always exists for every listed locale, even if empty. More namespaces arrive with bundle splitting (RFC 0002 §8). Until namespace routing is specified, runtimes load and merge **all** namespaces of each locale in the chain.
 - Unknown top-level fields MUST be ignored. A different `schema` major version MUST be rejected, keeping the last good release (§3).
 
 ### 1.2 Artifact
@@ -82,9 +82,16 @@ A runtime resolves the content it renders from the first available source (inten
 4. **Bundled**: artifacts shipped with the build (`glossa pull --release`), for offline-first apps and cold starts.
 5. **Inline default**: the text the developer wrote at the call site (`<glossa-text key="…">Zur Kasse</glossa-text>`, or the Go `glossa.Default("…")` option). If there's none, the message ID itself, so a missing string is visible and never blank.
 
+**Artifacts are content-addressed**, so any source holding bytes with the manifest's hash is equivalent. Runtimes look for an artifact in memory → persisted cache → bundled → network, and only go to the network for hashes they have nowhere else.
+
+**Bundled vs persisted releases.** When both exist at startup, the one with the higher `release.version` wins, because an app update may ship a newer catalog than the one persisted. Bundled artifacts and manifests are trusted like application code and aren't re-hashed or signature-checked. Persisted ones are verified again when loaded.
+
 Rules:
 - A new release becomes active **atomically**: only after its manifest has verified and every artifact needed for the active chain has loaded and verified. Until then, the previous release keeps serving. A half-updated release MUST never be visible.
 - A failure at any step falls through to the next step. It never throws into application code and never renders an empty string. Errors go to an observable error channel (§6).
+- A manifest whose `environment` differs from the configured environment MUST be rejected (`schema` error).
+- One message that can't be read (not a valid data-model message) is reported as a `schema` error with its `messageId` and resolves as missing. It doesn't block the release.
+- A rendered result that is the empty string falls through to the inline default or the message ID; runtimes never render `""` for a message that isn't intentionally empty in the source locale.
 - Runtimes SHOULD refresh the manifest in the background (default every 5 minutes, and on page visibility or app resume). Long-lived clients MAY also react to the control plane's `release.published` event where they're connected to it (development and preview only).
 
 ## 4. Locale resolution and fallback
@@ -136,8 +143,10 @@ Every runtime exposes:
   }
   ```
   - `resolvedFrom` is `null` when the inline default was used.
-  - `source` is one of `memory | persisted | network | bundled | inline`.
-- An **error channel** for load, verification and format errors. Each error is `{ type, detail, messageId?, locale?, releaseId? }`, with types `network`, `integrity`, `signature`, `schema`, `format` and `missing-message`. Runtimes MUST rate-limit repeats of the same error.
+  - `source` is where the **active release** was loaded from: `network`, `persisted` or `bundled`. It becomes `memory` once a later refresh brings nothing new (a `304` or a failure). The startup load (construction plus the first refresh) keeps its original source. It's `inline` whenever the inline default or the message ID is rendered.
+  - `steps[].outcome` is `found`, `missing` or `not-loaded` (the locale's artifacts aren't loaded, e.g. `explain` for locales other than the active chain).
+  - Fallback targets that aren't in `manifest.locales` stay in the chain and resolve as `missing`.
+- An **error channel** for load, verification and format errors. Each error is `{ type, detail, messageId?, locale?, releaseId? }`, with types `network`, `integrity`, `signature`, `schema`, `format` and `missing-message`. Runtimes MUST rate-limit repeats of the same error: errors are the same when all five fields are equal, and a repeat within 60 s is dropped. `missing-message` is reported only while a release is active; a cold start without any release reports `network` once, not one error per message.
 - Runtimes MUST NOT send telemetry anywhere unless the application explicitly enables it (intent §17).
 
 ## 7. Conformance fixtures
