@@ -42,16 +42,18 @@ describe("the data model is plain JSON", () => {
     expect(msg).toEqual({
       type: "message",
       declarations: [],
-      pattern: [{
-        type: "expression",
-        arg: { type: "variable", name: "n" },
-        function: {
-          type: "function",
-          name: "number",
-          options: { minimumFractionDigits: { type: "literal", value: "2" } },
+      pattern: [
+        {
+          type: "expression",
+          arg: { type: "variable", name: "n" },
+          function: {
+            type: "function",
+            name: "number",
+            options: { minimumFractionDigits: { type: "literal", value: "2" } },
+          },
+          attributes: { translate: { type: "literal", value: "no" } },
         },
-        attributes: { translate: { type: "literal", value: "no" } },
-      }],
+      ],
     });
     expect(JSON.parse(JSON.stringify(msg))).toEqual(msg);
   });
@@ -60,15 +62,17 @@ describe("the data model is plain JSON", () => {
     const msg = parseMF2(".input {$x :string} .match $x |a| {{A}} * {{B}}");
     expect(msg).toEqual({
       type: "select",
-      declarations: [{
-        type: "input",
-        name: "x",
-        value: {
-          type: "expression",
-          arg: { type: "variable", name: "x" },
-          function: { type: "function", name: "string" },
+      declarations: [
+        {
+          type: "input",
+          name: "x",
+          value: {
+            type: "expression",
+            arg: { type: "variable", name: "x" },
+            function: { type: "function", name: "string" },
+          },
         },
-      }],
+      ],
       selectors: [{ type: "variable", name: "x" }],
       variants: [
         { keys: [{ type: "literal", value: "a" }], value: ["A"] },
@@ -92,13 +96,15 @@ describe("the data model is plain JSON", () => {
 describe("format via the reference formatter", () => {
   it("enables the draft functions", () => {
     const msg = parseMF2("{$amount :currency currency=EUR} ({$share :percent})");
-    expect(format(msg, "de-DE", { amount: 1234.5, share: 0.25 })).toBe("1.234,50 € (25 %)");
+    expect(format(msg, "de-DE", { amount: 1234.5, share: 0.25 })).toBe(
+      "1.234,50\u00a0€ (25\u00a0%)",
+    );
   });
 
   it("reports errors through onError and falls back instead of throwing", () => {
     const errors: string[] = [];
     const out = format(parseMF2("Hi {$name}"), "en", {}, { onError: (e) => errors.push(e.type) });
-    expect(out).toBe("Hi ⁨{$name}⁩");
+    expect(out).toBe("Hi \u2068{$name}\u2069");
     expect(errors).toEqual(["unresolved-variable"]);
   });
 

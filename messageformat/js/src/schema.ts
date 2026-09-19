@@ -80,4 +80,5 @@ export const messageSchema: z.ZodType<Message> = z.discriminatedUnion("type", [
 ]) as z.ZodType<Message>;
 
 /** Type guard: `value` is a well-formed canonical message. */
-export const isMessage = (value: unknown): value is Message => messageSchema.safeParse(value).success;
+export const isMessage = (value: unknown): value is Message =>
+  messageSchema.safeParse(value).success;

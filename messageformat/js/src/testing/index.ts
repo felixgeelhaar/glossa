@@ -42,7 +42,11 @@ export function suiteCases(): SuiteCase[] {
     const path = join(unicodeTestsDir, f);
     const suite = JSON.parse(readFileSync(path, "utf8")) as SuiteFile;
     for (const t of suite.tests) {
-      cases.push({ ...suite.defaultTestProperties, ...t, file: relative(unicodeTestsDir, path) } as SuiteCase);
+      cases.push({
+        ...suite.defaultTestProperties,
+        ...t,
+        file: relative(unicodeTestsDir, path),
+      } as SuiteCase);
     }
   }
   return cases;

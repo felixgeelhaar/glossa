@@ -19,8 +19,10 @@ describe("parseMF1 maps ICU MessageFormat 1 onto standard MF2 functions", () => 
     ["{n, number}", "{$n :number}"],
     ["{n, number, integer}", "{$n :integer}"],
     ["{n, number, percent}", "{$n :percent}"],
-    ["{n, number, ::percent scale/100 .0}",
-      "{$n :percent minimumFractionDigits=1 maximumFractionDigits=1}"],
+    [
+      "{n, number, ::percent scale/100 .0}",
+      "{$n :percent minimumFractionDigits=1 maximumFractionDigits=1}",
+    ],
     ["{n, number, ::currency/EUR}", "{$n :currency currency=EUR}"],
     ["{n, number, ::.00}", "{$n :number minimumFractionDigits=2 maximumFractionDigits=2}"],
     ["{n, number, ::measure-unit/length-kilometer}", "{$n :unit unit=kilometer}"],
@@ -31,12 +33,18 @@ describe("parseMF1 maps ICU MessageFormat 1 onto standard MF2 functions", () => 
     ["{t, time}", "{$t :time precision=second}"],
     ["{t, time, short}", "{$t :time precision=minute}"],
     ["{t, time, full}", "{$t :time precision=second timeZoneStyle=long}"],
-    ["{g, select, female {She} male {He} other {They}}",
-      ".input {$g :string} .match $g female {{She}} male {{He}} * {{They}}"],
-    ["{c, plural, =0 {none} one {# item} other {# items}}",
-      ".input {$c :number} .match $c 0 {{none}} one {{{$c} item}} * {{{$c} items}}"],
-    ["{c, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}",
-      ".input {$c :number select=ordinal} .match $c one {{{$c}st}} two {{{$c}nd}} few {{{$c}rd}} * {{{$c}th}}"],
+    [
+      "{g, select, female {She} male {He} other {They}}",
+      ".input {$g :string} .match $g female {{She}} male {{He}} * {{They}}",
+    ],
+    [
+      "{c, plural, =0 {none} one {# item} other {# items}}",
+      ".input {$c :number} .match $c 0 {{none}} one {{{$c} item}} * {{{$c} items}}",
+    ],
+    [
+      "{c, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}",
+      ".input {$c :number select=ordinal} .match $c one {{{$c}st}} two {{{$c}nd}} few {{{$c}rd}} * {{{$c}th}}",
+    ],
   ])("%s → %s", (src, exp) => {
     expect(mf2(src)).toBe(exp);
   });
@@ -83,12 +91,14 @@ describe("parseMF1 maps ICU MessageFormat 1 onto standard MF2 functions", () => 
   it("keeps the MF1 argument type and style as attributes for export", () => {
     const msg = parseMF1("{n, number, percent}", "en");
     expect(msg).toMatchObject({
-      pattern: [{
-        attributes: {
-          "mf1:argType": { type: "literal", value: "number" },
-          "mf1:argStyle": { type: "literal", value: "percent" },
+      pattern: [
+        {
+          attributes: {
+            "mf1:argType": { type: "literal", value: "number" },
+            "mf1:argStyle": { type: "literal", value: "percent" },
+          },
         },
-      }],
+      ],
     });
   });
 
@@ -126,7 +136,12 @@ describe("parseMF1 maps ICU MessageFormat 1 onto standard MF2 functions", () => 
 const sharedFixture = join(testdataDir, "glossa/mf1-to-mf2.json");
 
 describe.skipIf(!existsSync(sharedFixture))("shared fixture glossa/mf1-to-mf2.json", () => {
-  interface Case { description?: string; src: string; locale?: string; exp: unknown }
+  interface Case {
+    description?: string;
+    src: string;
+    locale?: string;
+    exp: unknown;
+  }
   const load = (): Case[] => {
     const file = JSON.parse(readFileSync(sharedFixture, "utf8")) as {
       defaultTestProperties?: Partial<Case>;
