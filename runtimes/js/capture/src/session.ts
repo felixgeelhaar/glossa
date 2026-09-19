@@ -21,6 +21,8 @@ export interface CaptureSession {
   readonly renders: readonly LoggedRender[];
   /** Regions under `root` (default: the document), with the log entries they refer to. */
   collect(root?: Document | Element | ShadowRoot): Capture;
+  /** Hook one more runtime into this session's log (one created after the session started). */
+  add(runtime: Runtime): void;
   /**
    * End the session: remove the hook (so the page re-renders without
    * markers) and strip the markers still in the document.
@@ -66,6 +68,9 @@ export function startCapture(runtimes: Runtime | readonly Runtime[]): CaptureSes
   return {
     renders,
     collect: (root) => collectRegions(renders, root),
+    add(rt) {
+      if (active) offs.push(rt.onRender(hook));
+    },
     stop() {
       if (!active) return;
       active = false;

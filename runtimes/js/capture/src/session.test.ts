@@ -81,6 +81,21 @@ describe("startCapture", () => {
     expect([de.hooked, ar.hooked]).toEqual([false, false]);
     expect(hasMarkers(de.t("profile.save"))).toBe(false);
   });
+
+  it("adds runtimes created after it started to the same log; not after stop", () => {
+    const de = runtime("de");
+    session = startCapture([]);
+    session.add(de);
+    const ar = runtime("ar");
+    session.add(ar);
+    de.t("profile.save");
+    ar.t("profile.save");
+    expect(session.renders.map((r) => r.locale)).toEqual(["de", "ar"]);
+    session.stop();
+    const late = runtime("de");
+    session.add(late);
+    expect([de.hooked, ar.hooked, late.hooked]).toEqual([false, false, false]);
+  });
 });
 
 describe("collectRegions (structure; geometry is in e2e/)", () => {

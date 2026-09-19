@@ -99,6 +99,28 @@ Vue and Go-template usage.
 | `stripMarkers(root?)`, `strip(s)` | Remove markers from a DOM tree or a string. |
 | `mark(index, text)`, `ranges(s)`, `digest(values)` | The marker format and the values digest. |
 
+## In `glossa capture`
+
+`glossa capture` (RFC 0004 §3.2) can't import this package into the pages it
+screenshots, so it injects a bundle of `src/agent.ts` before the page's own
+scripts run:
+
+- `install()` defines `globalThis.__glossaRuntimes`. Every `createRuntime()`
+  pushes itself onto it, so the agent's session hooks each runtime from its
+  first render, whatever framework renders the page.
+- The CLI then calls `__glossaCapture.settle()` (fonts loaded, no DOM mutation
+  for 300 ms), `status()` (every runtime's active manifest environment and
+  locale: the CLI refuses `production` and a page without an active release)
+  and `collect()`: the regions, the document's size, and the boxes of the
+  `data-glossa-redact` elements it blacked out. Their content is painted black
+  and covered, and regions under them are `visible: false`.
+
+`pnpm build:cli` (after `pnpm -r build`) writes the bundle to
+`platform/internal/cli/capture/agent.js`, which the Go binary embeds, and the
+CLI integration test's fixture app (`src/testing/cli-fixture.ts`) to
+`platform/internal/cli/capture/testdata/app/app.js`. Both are checked in;
+`src/cli-bundles.test.ts` fails when either differs from a fresh build.
+
 ## Tests
 
 - `pnpm test`: markers, the session and the capture script's structure in
