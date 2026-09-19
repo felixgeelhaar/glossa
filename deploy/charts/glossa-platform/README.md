@@ -156,6 +156,28 @@ to `release.retiredKeys` (platform/README.md, "Release").
 Uninstall leaves the migration NetworkPolicy (a hook resource) and never
 touches the database, the bucket or the Secrets.
 
+## Deploying with RollOps
+
+Klarlabs rolls Glossa out with RollOps, as it does v0.3 (`.rollops/*.yaml`
+at the repository root); the chart carries no Keel or other rollout-tool
+annotations. RollOps RolloutConfigs are **generated from `helm template`
+output**, one per rendered resource, each embedding the manifest as
+`spec.target.spec.manifest` (and `spec.target.spec.image` for workloads),
+with every image **pinned by digest** once it exists in GHCR:
+
+```sh
+helm template glossa-platform deploy/charts/glossa-platform \
+  --namespace glossa-platform -f my-values.yaml --skip-tests \
+  --set server.image.digest=sha256:… \
+  --set edge.image.digest=sha256:… \
+  --set studio.image.digest=sha256:…
+```
+
+The chart's Helm hooks are plain resources in that output and do not run
+by themselves: the migration Job (`<fullname>-migrate`, with its
+NetworkPolicy) must complete before the server Deployment rolls, and a
+Job is immutable, so it is deleted and re-created per rollout.
+
 ## Mail
 
 SMTP is optional. With `mail.smtp.addr` set (and optionally
@@ -209,7 +231,7 @@ the value until it is set.
 | `<component>.image.tag` | `""` → `appVersion` | |
 | `<component>.image.digest` | `""` | `sha256:…`; appended as `@digest`. |
 | `commonLabels` | `{}` | Labels on every resource. |
-| `deploymentAnnotations` | `{}` | Annotations on every Deployment (Keel: `keel.sh/policy: minor`, …). |
+| `deploymentAnnotations` | `{}` | Annotations on every Deployment. |
 | `podAnnotations` | `{}` | Annotations on every pod. |
 
 ### Per component (`server`, `edge`, `studio`)

@@ -6,9 +6,7 @@ hosts:
   api: api.example.com
   cdn: cdn.example.com
 deploymentAnnotations:
-  keel.sh/policy: minor
-  keel.sh/trigger: poll
-  keel.sh/pollSchedule: "@every 5m"
+  example.com/owner: platform
 commonLabels:
   klarlabs.de/product: glossa
 server:

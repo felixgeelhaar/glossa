@@ -29,7 +29,7 @@ image:
 ## ── Common pod settings ───────────────────────────────────────────
 # -- Labels added to every resource.
 commonLabels: {}
-# -- Annotations on every Deployment (e.g. Keel's keel.sh/policy).
+# -- Annotations on every Deployment.
 deploymentAnnotations: {}
 # -- Annotations on every pod.
 podAnnotations: {}

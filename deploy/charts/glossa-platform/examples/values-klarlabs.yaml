@@ -26,19 +26,13 @@ hosts:
   api: api.todo-domain.invalid
   cdn: cdn.todo-domain.invalid
 
-# TODO(infra): rollout driver. Standard §1 names Keel (below); v0.3 is
-# rolled by RollOps (.rollops/). Pick one; drop the other's config.
-deploymentAnnotations:
-  keel.sh/policy: minor
-  keel.sh/trigger: poll
-  keel.sh/pollSchedule: "@every 5m"
-
 commonLabels:
   klarlabs.de/product: glossa
 
 server:
+  # Rolled out by RollOps (README.md, "Deploying with RollOps").
   # TODO(infra): pin each image by digest once the first release is pushed
-  # (release.yml prints it); with Keel, leave digests empty.
+  # to GHCR (release.yml prints it); the RolloutConfigs carry the same pins.
   image:
     tag: ""
     digest: ""
