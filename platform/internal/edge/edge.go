@@ -243,7 +243,17 @@ func (h *Handler) load(ctx context.Context, kind, path string, limit int64, ttl 
 		return cached, nil
 	}
 	flightCtx := context.WithoutCancel(ctx)
+	var until time.Time
+	if ttl > 0 {
+		until = now.Add(ttl)
+	}
 	v, err, _ := h.flights.Do(path, func() (any, error) {
+		// A request that missed the cache just as the previous flight for
+		// this path finished starts a new flight; the object is in the
+		// cache by then, so check again before going to storage.
+		if again, fresh, ok := h.blobs.get(path, h.cfg.Now()); ok && fresh {
+			return again, nil
+		}
 		body, err := h.store.Get(flightCtx, path, limit)
 		switch {
 		case errors.Is(err, objectstore.ErrNotFound):
@@ -257,7 +267,11 @@ func (h *Handler) load(ctx context.Context, kind, path string, limit int64, ttl 
 		if err != nil {
 			return nil, err
 		}
-		return blob{body: body, etag: `"` + etag + `"`, at: now}, nil
+		b := blob{body: body, etag: `"` + etag + `"`, at: now}
+		// Cache before the flight ends, so no request can miss both the
+		// flight and the cache and read storage a second time.
+		h.blobs.put(path, b, until)
+		return b, nil
 	})
 	if err != nil {
 		if !errors.Is(err, errNotFound) {
@@ -272,13 +286,7 @@ func (h *Handler) load(ctx context.Context, kind, path string, limit int64, ttl 
 		return blob{}, err
 	}
 	h.metrics.cache.WithLabelValues(kind, "miss").Inc()
-	b := v.(blob)
-	var until time.Time
-	if ttl > 0 {
-		until = now.Add(ttl)
-	}
-	h.blobs.put(path, b, until)
-	return b, nil
+	return v.(blob), nil
 }
 
 func respond(w http.ResponseWriter, r *http.Request, b blob, caching string) {

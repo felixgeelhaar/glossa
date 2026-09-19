@@ -304,7 +304,9 @@ func TestConcurrentMissesReadStorageOnce(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	if n := f.store.reads.Load() - reads; n > 2 {
-		t.Errorf("%d storage reads for one artifact", n)
+	// Exactly one: a request that misses the cache just after a flight
+	// ends must find the flight's result in the cache, not read again.
+	if n := f.store.reads.Load() - reads; n != 1 {
+		t.Errorf("%d storage reads for one artifact, want 1", n)
 	}
 }
