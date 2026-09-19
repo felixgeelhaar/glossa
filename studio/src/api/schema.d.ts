@@ -267,7 +267,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * The signed-in person's passkeys
+         * @description Every passkey registered to the person, oldest first, on any
+         *     device — not only this browser's. Listed even while passkeys are
+         *     not configured on the server.
+         */
+        get: operations["listPasskeys"];
         put?: never;
         /**
          * Add a passkey
@@ -275,6 +281,31 @@ export interface paths {
          */
         post: operations["finishPasskeyRegistration"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/passkeys/{passkey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A passkey `id` (its credential ID, base64url). */
+                passkey: components["parameters"]["PasskeyPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove one of the signed-in person's passkeys
+         * @description The passkey can't sign in any more. Sessions it started stay
+         *     signed in (sign out everywhere to end them). Another person's
+         *     passkey is `404`, like an unknown one.
+         */
+        delete: operations["deletePasskey"];
         options?: never;
         head?: never;
         patch?: never;
@@ -336,6 +367,42 @@ export interface paths {
          * @description Problem codes: `totp_invalid` (400), `totp_not_enabled` (409).
          */
         post: operations["disableTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/message-previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Parse, convert and format a message without storing it
+         * @description Runs the server's MessageFormat kernel — the one ICU MF1
+         *     converter (RFC 0002 §5) — on `source`: parses it in `syntax`
+         *     (default `mf1`) for `locale` into the canonical MF2 data model
+         *     (`message`), serializes that as MF2 (`mf2`), derives `arguments`
+         *     and `markup`, and, when `values` are sent, formats it
+         *     (`formatted`, with MF2 fallbacks for placeholders that failed).
+         *     Source that doesn't parse is still `200`, with `valid: false`
+         *     and the kernel's error codes in `errors`, so editors can show
+         *     them inline; formatting problems are `errors` with stage
+         *     `format`. Nothing is stored and no tenant data is read, but the
+         *     caller must be signed in or send an API token. Limits: `source`
+         *     at most 20 000 bytes; `values` at most 100 names of at most 64
+         *     characters, each a string (at most 1 000 bytes), number or
+         *     boolean; 10 requests a second per person or token, bursts of up
+         *     to 120 (per server instance). Problem codes: `message_too_long`,
+         *     `invalid_locale`, `invalid_syntax`, `invalid_values` (400),
+         *     `rate_limited` (429).
+         */
+        post: operations["previewMessage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1113,6 +1180,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/translations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A project's translations in one or more locales, by key
+         * @description Every translation in the given locales (`locale`, repeatable, 1
+         *     to 20), across messages, ordered by message key and then locale,
+         *     with the message's `key`, `namespace` and `message_state`, the
+         *     `source_revision` it was made against and the derived `outdated`.
+         *     Filters combine: `state` (repeatable review states), `outdated`,
+         *     `namespace`, `key_prefix` and `message_state`. Locales the
+         *     project no longer has list nothing. Keys and namespaces come
+         *     from Localization's view of the catalog, current once Catalog's
+         *     events are processed (usually within a second). One query per
+         *     page. Needs `translations.read`. Problem codes: `invalid_locale`,
+         *     `too_many_locales`, `invalid_state`, `invalid_message_state`
+         *     (400).
+         */
+        get: operations["listProjectTranslations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/translation-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Per-locale status of a project's translations
+         * @description For every locale of the project (the source included, by code):
+         *     how many of its active messages are translated (a usable — not
+         *     rejected — translation exists), missing (none, or rejected) and
+         *     outdated (usable but made against an older source revision), and
+         *     its translations of active messages per review state. The source
+         *     locale counts every active message as translated and approved.
+         *     Computed in one query on each request, from Localization's view
+         *     of the catalog. Needs `translations.read`.
+         */
+        get: operations["getTranslationStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/translation-imports": {
         parameters: {
             query?: never;
@@ -1650,6 +1785,12 @@ export interface components {
             id: string;
             name: string;
             created_at: components["schemas"]["Timestamp"];
+            /** @description The last sign-in with it; absent until it signs in. */
+            last_used_at?: components["schemas"]["Timestamp"];
+        };
+        PasskeyList: {
+            items: components["schemas"]["Passkey"][];
+            next_page_token?: string;
         };
         TotpEnrollment: {
             /** @description Base32 secret, for manual entry. */
@@ -1915,6 +2056,42 @@ export interface components {
             items: components["schemas"]["SourceRevision"][];
             next_page_token?: string;
         };
+        MessagePreviewRequest: {
+            /** @description The message as authored. */
+            source: string;
+            syntax?: components["schemas"]["Syntax"];
+            /** @description Decides which plural keys MF1 accepts, and formatting. */
+            locale: components["schemas"]["Locale"];
+            /**
+             * @description Argument values to format with, by name (without `$`): strings,
+             *     numbers or booleans. Omit to only parse.
+             */
+            values?: {
+                [key: string]: unknown;
+            };
+            /** @description Isolate placeholders with Unicode bidi marks (the MF2 default, `true`). */
+            bidi_isolation?: boolean;
+        };
+        MessagePreviewError: {
+            /** @enum {string} */
+            stage: "parse" | "format";
+            /** @description The MessageFormat kernel's stable error code: `mf1-syntax-error`, `syntax-error`, `unresolved-variable`, … */
+            code: string;
+            /** @description For humans; wording may change. */
+            message: string;
+        };
+        MessagePreview: {
+            /** @description Whether the source parsed into a valid message. */
+            valid: boolean;
+            message?: components["schemas"]["MF2Message"];
+            /** @description The canonical model in MF2 syntax. */
+            mf2?: string;
+            arguments: components["schemas"]["Argument"][];
+            markup: components["schemas"]["MarkupElement"][];
+            /** @description The message formatted with `values`, when they were sent and it is valid. */
+            formatted?: string;
+            errors: components["schemas"]["MessagePreviewError"][];
+        };
         ItemError: {
             /** @description Stable machine code. */
             code: string;
@@ -2023,6 +2200,40 @@ export interface components {
         TranslationList: {
             items: components["schemas"]["Translation"][];
             next_page_token?: string;
+        };
+        /** @description A translation with the message it belongs to. */
+        ProjectTranslation: components["schemas"]["Translation"] & {
+            key: components["schemas"]["MessageKey"];
+            namespace: components["schemas"]["Namespace"];
+            message_state: components["schemas"]["MessageState"];
+        };
+        ProjectTranslationList: {
+            items: components["schemas"]["ProjectTranslation"][];
+            next_page_token?: string;
+        };
+        ReviewStateCounts: {
+            draft: number;
+            needs_review: number;
+            approved: number;
+            rejected: number;
+        };
+        LocaleStats: {
+            code: components["schemas"]["Locale"];
+            direction: components["schemas"]["Direction"];
+            is_source: boolean;
+            /** @description Active messages with a usable (not rejected) translation. */
+            translated: number;
+            /** @description Active messages without one: untranslated or rejected. */
+            missing: number;
+            /** @description Usable translations made against an older source revision. */
+            outdated: number;
+            /** @description Translations of active messages per review state. */
+            states: components["schemas"]["ReviewStateCounts"];
+        };
+        TranslationStats: {
+            /** @description The project's active messages. */
+            messages: number;
+            locales: components["schemas"]["LocaleStats"][];
         };
         PutTranslation: {
             text: string;
@@ -2370,6 +2581,8 @@ export interface components {
         EnvironmentPath: components["schemas"]["EnvironmentName"];
         /** @description A release `id`. */
         ReleasePath: components["schemas"]["Id"];
+        /** @description A passkey `id` (its credential ID, base64url). */
+        PasskeyPath: string;
         /** @description A delivery key `id` (not the key itself). */
         DeliveryKeyPath: components["schemas"]["Id"];
         PageSize: number;
@@ -2671,6 +2884,32 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listPasskeys: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of passkeys. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
     finishPasskeyRegistration: {
         parameters: {
             query?: never;
@@ -2699,6 +2938,30 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    deletePasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A passkey `id` (its credential ID, base64url). */
+                passkey: components["parameters"]["PasskeyPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     beginTotpEnrollment: {
@@ -2774,6 +3037,34 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    previewMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessagePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description What the kernel made of the source. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listTenants: {
@@ -4240,6 +4531,78 @@ export interface operations {
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
             428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    listProjectTranslations: {
+        parameters: {
+            query: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A locale to list; repeat for several (`locale=de&locale=fr`). */
+                locale: components["schemas"]["Locale"][];
+                /** @description Only translations in these review states; repeatable. */
+                state?: components["schemas"]["ReviewState"][];
+                /** @description `true`: only outdated translations; `false`: only current ones. */
+                outdated?: boolean;
+                namespace?: components["schemas"]["Namespace"];
+                /** @description Keys starting with this, e.g. `checkout.`. */
+                key_prefix?: string;
+                /** @description Only translations of `active` (or `obsolete`) messages. */
+                message_state?: components["schemas"]["MessageState"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of translations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectTranslationList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTranslationStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The summary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationStats"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     importTranslations: {
