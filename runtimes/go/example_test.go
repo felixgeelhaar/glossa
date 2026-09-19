@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"time"
 
 	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
 )
@@ -218,4 +219,30 @@ func ExampleLocalizer_Runs() {
 	//    " Ask "
 	// U  "us"
 	//    "."
+}
+
+// Table cells and totals: exact amounts, formatted like the same value in
+// a sentence, in the recipient's locale and time zone.
+func ExampleLocalizer_Currency() {
+	client := newExampleClient()
+	defer client.Close()
+
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		log.Fatal(err)
+	}
+	de := client.For("de").WithTimeZone(berlin)
+	tax := glossa.Money{Amount: glossa.MustParseDecimal("12345678901234.56"), Currency: "EUR"}
+	fee := glossa.Money{Amount: glossa.NewDecimal(123456, 0), Currency: "JPY"}
+	issued := time.Date(2026, 9, 19, 22, 30, 0, 0, time.UTC)
+
+	fmt.Println(de.Currency(tax))
+	fmt.Println(de.Currency(fee))
+	fmt.Println(de.Number(glossa.MustParseDecimal("0.5"), glossa.Opt("minimumFractionDigits", "2")))
+	fmt.Println(de.Date(issued, glossa.Opt("length", "long")))
+	// Output:
+	// 12.345.678.901.234,56 €
+	// 123.456 ¥
+	// 0,50
+	// 20. September 2026
 }

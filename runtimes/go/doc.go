@@ -18,7 +18,8 @@
 //	})
 //	defer client.Close()
 //
-//	subject := client.T(ctx, "invoice.payment_received", glossa.Args{"amount": 42.5})
+//	amount := glossa.Money{Amount: glossa.MustParseDecimal("42.50"), Currency: "EUR"}
+//	subject := client.T(ctx, "invoice.payment_received", glossa.Args{"amount": amount})
 //	body := client.For(user.Locale).T("invoice.body", args, glossa.Default("Thanks!"))
 //
 // A message resolves through the release's fallback graph and is formatted
@@ -51,7 +52,8 @@
 // # Templates
 //
 // [Localizer.FuncMap] provides t, td, th, lang and dir for html/template
-// and text/template. Parse email templates once with [TemplateFuncs], then
+// and text/template, and the formatters num, percent, money, unit, date,
+// time and datetime. Parse email templates once with [TemplateFuncs], then
 // bind the recipient's locale on a clone:
 //
 //	var welcome = template.Must(template.New("welcome").Funcs(glossa.TemplateFuncs()).Parse(`
@@ -78,6 +80,57 @@
 // markup keeps only its text. [Localizer.Runs] renders text runs with
 // bold, italic and underline flags, whose [Run.Style] is fpdf's SetFont
 // style; the runtime itself has no PDF dependency.
+//
+// Documents (PDF, CSV, plain-text email) in left-to-right locales should
+// render with [BidiIsolation](false): MF2 isolates every placeholder with
+// U+2068/U+2069 by default, which a PDF font has no glyph for and a
+// text export would carry along. Keep isolation on, the default, for HTML
+// and for right-to-left locales, where it keeps a Latin name or a number
+// from reordering the sentence around it.
+//
+//	for _, r := range l.Runs("invoice.note", args, glossa.BidiIsolation(false)) { … }
+//
+// Correct output contains U+00A0 and U+202F (German and French spacing)
+// and CJK text, which the PDF core fonts (CP1252) can't draw: embed UTF-8
+// TrueType fonts, such as Noto Sans and Noto Sans JP.
+//
+// # Numbers, money and dates
+//
+// Pass amounts as [Decimal] or [Money], never float64: a Decimal keeps
+// its literal and formats to exactly its digits, so a tax amount of
+// 12345678901234.56 renders as "12.345.678.901.234,56 €" and not with a
+// float's rounding. Money carries its ISO 4217 currency, whose CLDR
+// fraction digits apply (JPY 0, EUR 2) unless the message sets its own.
+// An unannotated {$total} whose argument is Money formats as :currency,
+// and one whose argument is a Decimal as :number.
+//
+//	total := glossa.Money{Amount: glossa.MustParseDecimal("1234.50"), Currency: "EUR"}
+//	l.T("invoice.total", glossa.Args{"total": total}) // "Summe: 1.234,50 €"
+//
+// For table cells and totals outside a sentence, [Localizer.Number],
+// [Localizer.Percent], [Localizer.Currency], [Localizer.Unit],
+// [Localizer.Date], [Localizer.Time] and [Localizer.DateTime] format one
+// value in the active locale, with the MF2 function's options ([Opt]).
+// Each formats the one-placeholder message {$value :number …} through the
+// same engine as T, so a cell and a sentence never disagree. In templates
+// they are num, percent, money, unit, date, time and datetime.
+//
+//	l.Currency(total)                                       // "1.234,50 €"
+//	l.Number(glossa.MustParseDecimal("0.5"), glossa.Opt("minimumFractionDigits", "2")) // "0,50"
+//	l.Date(issuedAt, glossa.Opt("length", "long"))          // "19. September 2026"
+//
+// # Time zones
+//
+// Dates and times render in UTC by default, whatever the time.Time's
+// location and the server's TZ, so output never depends on where a value
+// came from. [Localizer.WithTimeZone] sets a Localizer's zone, the
+// [TimeZone] option one call's; both apply to the :date, :time and
+// :datetime placeholders (and formatters) that don't set a timeZone
+// option, which always wins.
+//
+//	berlin, _ := time.LoadLocation("Europe/Berlin")
+//	l := client.For(customer.Locale).WithTimeZone(berlin)
+//	l.T("invoice.due", glossa.Args{"due": dueAt}) // "Fällig am 19. September 2026 um 16:05"
 //
 // For CLI output, [EnvLocales] reads the user's locale from the POSIX
 // environment and [BidiIsolation](false) keeps isolation marks out of the
