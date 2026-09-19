@@ -11,7 +11,9 @@
 #
 # The build fetches @klarlabs-studio/ui from its public repository at the
 # commit pinned in studio/package.json#klarlabsUi (studio/README.md,
-# "Design system"), so it needs network access and git.
+# "Design system"), so it needs network access and git. It also builds
+# @glossa/overlay (with @glossa/runtime and @glossa/capture), whose bundle
+# Studio serves at /overlay/v1/overlay.js (RFC 0004 §5.1).
 #
 # Runtime configuration (no rebuild): GLOSSA_STUDIO_* variables are
 # rendered into /config.json and the CSP at container start; see
@@ -36,14 +38,20 @@ WORKDIR /repo
 # Manifests first, so the dependency install caches across source edits.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY messageformat/js/package.json messageformat/js/
+COPY runtimes/js/runtime/package.json runtimes/js/runtime/
+COPY runtimes/js/capture/package.json runtimes/js/capture/
+COPY runtimes/js/overlay/package.json runtimes/js/overlay/
 COPY studio/package.json studio/
 RUN --mount=type=cache,id=glossa-pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && \
     pnpm install --frozen-lockfile --filter "@glossa/studio..."
 
 COPY messageformat/js/ messageformat/js/
+COPY runtimes/js/runtime/ runtimes/js/runtime/
+COPY runtimes/js/capture/ runtimes/js/capture/
+COPY runtimes/js/overlay/ runtimes/js/overlay/
 COPY studio/ studio/
-RUN pnpm --filter @glossa/messageformat build
+RUN pnpm --filter @glossa/messageformat build && pnpm --filter "@glossa/overlay..." build
 # `build` links the design system first (scripts/klarlabs-ui.mjs), then runs
 # vite build. The Vite manifest is tooling, not something to serve.
 RUN --mount=type=cache,id=glossa-pnpm-store,target=/pnpm/store \

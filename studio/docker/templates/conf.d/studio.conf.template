@@ -34,6 +34,36 @@ server {
     return 502 '{"type":"about:blank","title":"Bad Gateway","status":502,"detail":"/v1 is served by glossa-server; route it there at the ingress"}';
   }
 
+  # The in-product editor (RFC 0004 §5.1): one script that preview
+  # deployments of other products load cross-origin, pinned by the SRI hash
+  # they read from overlay.json at build time. `crossorigin="anonymous"`
+  # makes it a CORS request, so it needs Access-Control-Allow-Origin, and
+  # Cross-Origin-Resource-Policy must allow other origins — which is why the
+  # security-headers snippet (same-origin CORP) is not included here. It is
+  # public, read-only JavaScript; nothing about a tenant is in it.
+  location = /overlay/v1/overlay.js {
+    types { } default_type text/javascript;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "same-origin" always;
+    add_header Cross-Origin-Resource-Policy "cross-origin" always;
+    add_header Access-Control-Allow-Origin "*" always;
+    # A new Studio deploy changes these bytes and their hash, so it can't be
+    # cached for long: a build pinned the old hash and the new one has to
+    # reach browsers quickly.
+    add_header Cache-Control "public, max-age=300" always;
+    try_files $uri =404;
+  }
+
+  # What a build reads to pin the hash: never cached.
+  location = /overlay/v1/overlay.json {
+    types { } default_type application/json;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Cross-Origin-Resource-Policy "cross-origin" always;
+    add_header Access-Control-Allow-Origin "*" always;
+    add_header Cache-Control "no-store" always;
+    try_files $uri =404;
+  }
+
   # Vite fingerprints everything under /assets/, so it can be cached forever.
   location ^~ /assets/ {
     include /tmp/nginx/snippets/security-headers.conf;

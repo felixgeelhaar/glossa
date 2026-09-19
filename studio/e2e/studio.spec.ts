@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { keyIndexed, servedManifest, signInLink } from "./harness";
 import { expectAccessible, expectAccessibleInBothThemes } from "./support";
@@ -300,4 +301,16 @@ test("dark theme stays accessible", async ({ page }) => {
   await page.goto("/auth/sign-in");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expectAccessible(page, "sign-in (dark)");
+});
+
+test("serves the in-product editor with the hash a build pins", async ({ request }) => {
+  // RFC 0004 §5.1: preview deployments load /overlay/v1/overlay.js with the
+  // integrity from overlay.json, so the two must agree byte for byte.
+  const script = await request.get("/overlay/v1/overlay.js");
+  expect(script.ok()).toBe(true);
+  const body = await script.body();
+  const release = await (await request.get("/overlay/v1/overlay.json")).json();
+  expect(release.integrity).toBe(`sha384-${createHash("sha384").update(body).digest("base64")}`);
+  expect(release.version).toMatch(/^\d+\.\d+\.\d+/);
+  expect(body.toString("utf8")).toContain("glossa-overlay");
 });

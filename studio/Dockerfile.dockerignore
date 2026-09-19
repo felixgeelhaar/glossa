@@ -6,6 +6,9 @@
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !messageformat/js/
+!runtimes/js/runtime/
+!runtimes/js/capture/
+!runtimes/js/overlay/
 !studio/
 **/node_modules/
 **/dist/
@@ -15,4 +18,6 @@ studio/.klarlabs-ui-src/
 studio/e2e/
 studio/test-results/
 studio/playwright-report/
+runtimes/js/*/e2e/
+runtimes/js/*/.fixtures/
 **/.DS_Store

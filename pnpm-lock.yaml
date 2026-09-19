@@ -585,6 +585,9 @@ importers:
       '@axe-core/playwright':
         specifier: 4.13.0
         version: 4.13.0(playwright-core@1.63.0)
+      '@glossa/overlay':
+        specifier: workspace:*
+        version: link:../runtimes/js/overlay
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0

@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
+    "@glossa/overlay": "workspace:*",
     "@playwright/test": "1.63.0",
     "@testcontainers/postgresql": "12.1.0",
     "@types/node": "22.20.4",

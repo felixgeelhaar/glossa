@@ -142,7 +142,32 @@ requests carry `X-CSRF-Token` from the session.
 | `test` | Vitest unit and component tests (happy-dom). |
 | `test:e2e` | Playwright against a real server (below). |
 | `gen:api` | Regenerate `src/api/schema.d.ts` from `platform/api/openapi.yaml`. |
-| `size` | Report the initial JS bundle (gzip) from the build; fails over 250 kB. |
+| `size` | Report the initial JS bundle (gzip) from the build; fails over 250 kB. The overlay isn't part of it: it's served, never imported. |
+
+### The in-product editor Studio serves
+
+Studio publishes [`@glossa/overlay`](../runtimes/js/overlay/README.md) at
+**`/overlay/v1/overlay.js`**, with **`/overlay/v1/overlay.json`**
+(`{ version, integrity }`) beside it ([RFC 0004
+§5.1](../docs/rfcs/0004-context.md)). `build/overlay.ts` is the Vite plugin
+that copies the package's bundle and hashes it; `vite dev` and `vite preview`
+serve the same two files, so a preview deployment can point at a local Studio.
+
+A preview deployment of a product pins that `integrity` in its own build
+(`@glossa/unplugin`'s `studio` option) and loads the script cross-origin with
+`crossorigin="anonymous"`, so the image's nginx answers this path — and only
+this path — with `Access-Control-Allow-Origin: *` and
+`Cross-Origin-Resource-Policy: cross-origin`, without the same-origin headers
+the rest of Studio sends. `overlay.js` is cached for five minutes (a new
+Studio deploy changes its bytes and its hash, and builds pinned the old one),
+`overlay.json` never (`no-store`), because that's what a build reads to pin.
+The script is public, read-only JavaScript: nothing about a tenant is in it.
+
+Updating the overlay is therefore a two-step deploy: Studio ships the new
+bundle, then the products' builds pin the new hash from `overlay.json`. Until
+they do, their pinned hash keeps matching the cached old script for up to five
+minutes and then the browser refuses the new one, and the loader says so on
+the console — the editor stops working, nothing else does.
 
 ### API client
 
@@ -210,6 +235,9 @@ are in `src/styles/studio.css`.
   miniature, write-only provider keys, version-0 settings, fills that
   settle into given suggestions, a risk-ordered queue, decided suggestions
   that can't be decided twice).
+- **The overlay Studio serves** (`build/overlay.test.ts`): a real `vite build`
+  with the delivery plugin writes `/overlay/v1/overlay.js` and an
+  `overlay.json` whose `integrity` is the hash of exactly those bytes.
 - **End to end** (`pnpm test:e2e`, `e2e/`): the global setup starts
   Postgres 16 with testcontainers, provisions it like production (a
   `CREATEROLE` owner migrates, the server runs as `glossa_app`), builds and
