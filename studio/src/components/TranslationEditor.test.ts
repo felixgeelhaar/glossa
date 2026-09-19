@@ -1,9 +1,9 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../api/errors";
 import type { Message, Project, ProjectLocale, Translation } from "../api/schemas";
 import { grantFor } from "../session/permissions";
-import { MF1_PREVIEW_DELAY_MS, MF1_PREVIEW_RETRY_MS } from "../lib/preview";
+import { loadFormatter, MF1_PREVIEW_DELAY_MS, MF1_PREVIEW_RETRY_MS } from "../lib/preview";
 import TranslationEditor from "./TranslationEditor.vue";
 
 const api = vi.hoisted(() => ({
@@ -83,6 +83,10 @@ const mountEditor = (roles: Array<"owner" | "translator"> = ["owner"], locales: 
     props: { tenant: "t", project, message, locale: de, source: en, grant: grantFor({ roles, locales }) },
     attachTo: document.body,
   });
+
+// The preview panel imports the formatter on demand. Load it first, so a
+// preview assertion never races that import (slow on a cold, busy run).
+beforeAll(() => loadFormatter());
 
 beforeEach(() => {
   for (const f of Object.values(api)) f.mockReset();
