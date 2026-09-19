@@ -134,7 +134,7 @@ func parseDateTimeParam(s string) (time.Time, error) {
 }
 
 type conformanceStats struct {
-	pass, skip, partsUnchecked int
+	pass, skip int
 }
 
 func TestUnicodeConformance(t *testing.T) {
@@ -157,9 +157,7 @@ func TestUnicodeConformance(t *testing.T) {
 						st.skip++
 						t.Skipf("%s — %s", key, reason)
 					}
-					if runUnicodeCase(t, tc) {
-						st.partsUnchecked++
-					}
+					runUnicodeCase(t, tc)
 					if !t.Failed() {
 						st.pass++
 					}
@@ -175,15 +173,14 @@ func TestUnicodeConformance(t *testing.T) {
 	logConformanceStats(t, stats)
 }
 
-// runUnicodeCase runs one case and reports whether it carried expParts
-// that the string API cannot check.
-func runUnicodeCase(t *testing.T, tc unicodeTest) (partsUnchecked bool) {
+// runUnicodeCase runs one case through Format and FormatToParts.
+func runUnicodeCase(t *testing.T, tc unicodeTest) {
 	t.Helper()
 	want := tc.expErrorCodes()
 	msg, err := ParseMF2(tc.srcOrEmpty())
 	if slices.Contains(want, CodeSyntaxError) || slices.ContainsFunc(want, ErrorCode.IsDataModelError) {
 		assertParseError(t, tc, err, want)
-		return false
+		return
 	}
 	if err != nil {
 		t.Fatalf("%s: ParseMF2(%q): %v", tc.name(), tc.srcOrEmpty(), err)
@@ -202,7 +199,13 @@ func runUnicodeCase(t *testing.T, tc unicodeTest) (partsUnchecked bool) {
 		t.Errorf("%s: Format(%q) = %q, want %q", tc.name(), tc.srcOrEmpty(), got, *tc.Exp)
 	}
 	assertFormatErrors(t, tc, err, want)
-	return tc.ExpParts != nil && tc.Exp == nil
+	parts, _ := FormatToParts(msg, locale, values, WithBidiIsolation(bidi), withEngineFunctions(enginetests.TestFunctions()))
+	if joined := PartsText(parts); joined != got {
+		t.Errorf("%s: FormatToParts(%q) joins to %q, Format = %q", tc.name(), tc.srcOrEmpty(), joined, got)
+	}
+	if tc.ExpParts != nil {
+		assertParts(t, tc.name(), parts, *tc.ExpParts)
+	}
 }
 
 func assertParseError(t *testing.T, tc unicodeTest, err error, want []ErrorCode) {
@@ -285,6 +288,6 @@ func logConformanceStats(t *testing.T, stats map[string]*conformanceStats) {
 	sort.Strings(names)
 	for _, name := range names {
 		s := stats[name]
-		t.Logf("%-28s pass %3d  skip %2d  (expParts-only, string checked: %d)", name, s.pass, s.skip, s.partsUnchecked)
+		t.Logf("%-28s pass %3d  skip %2d", name, s.pass, s.skip)
 	}
 }

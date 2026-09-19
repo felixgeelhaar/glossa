@@ -54,7 +54,12 @@ func FuzzParseMF2(f *testing.F) {
 		if _, err := ParseMF2(out); err != nil {
 			t.Fatalf("Stringify output %q does not parse: %v", out, err)
 		}
-		_, _ = Format(msg, "de", map[string]any{"n": 1, "name": "x"})
+		values := map[string]any{"n": 1, "name": "x"}
+		str, _ := Format(msg, "de", values)
+		parts, _ := FormatToParts(msg, "de", values)
+		if joined := PartsText(parts); joined != str {
+			t.Fatalf("FormatToParts(%q) joins to %q, Format = %q", src, joined, str)
+		}
 		_ = CheckCompat(msg, msg, "de")
 	})
 }

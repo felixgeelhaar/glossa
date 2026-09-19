@@ -10,9 +10,10 @@ type Parser interface {
 	ParseMF1(src, locale string) (Message, error)
 }
 
-// Formatter formats canonical messages.
+// Formatter formats canonical messages, to a string or to formatted parts.
 type Formatter interface {
 	Format(msg Message, locale string, values map[string]any, opts ...FormatOption) (string, error)
+	FormatToParts(msg Message, locale string, values map[string]any, opts ...FormatOption) ([]Part, error)
 }
 
 // Engine is the default Parser and Formatter, backed by
@@ -33,4 +34,9 @@ func (Engine) ParseMF1(src, locale string) (Message, error) { return ParseMF1(sr
 // Format implements Formatter; see the package-level Format.
 func (Engine) Format(msg Message, locale string, values map[string]any, opts ...FormatOption) (string, error) {
 	return Format(msg, locale, values, opts...)
+}
+
+// FormatToParts implements Formatter; see the package-level FormatToParts.
+func (Engine) FormatToParts(msg Message, locale string, values map[string]any, opts ...FormatOption) ([]Part, error) {
+	return FormatToParts(msg, locale, values, opts...)
 }

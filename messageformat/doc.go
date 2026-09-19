@@ -16,8 +16,9 @@
 //     types and selector cases, and [MarkupElements];
 //   - checks that a translation is structurally compatible with its source
 //     ([CheckCompat]), with stable finding codes;
-//   - formats messages for the Go runtime ([Format]) with the required and
-//     draft MF2 functions.
+//   - formats messages for the Go runtime with the required and draft MF2
+//     functions, to a string ([Format]) or to formatted parts
+//     ([FormatToParts]) that keep markup and placeholder boundaries.
 //
 // Errors are *[Error] values with stable codes ([ErrorCode]); formatting
 // problems come as a *[FormatError] next to a usable fallback string. No

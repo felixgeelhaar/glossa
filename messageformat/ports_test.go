@@ -18,6 +18,13 @@ func TestEngineImplementsPorts(t *testing.T) {
 	if got != "2 Brote" {
 		t.Errorf("Format = %q, want %q", got, "2 Brote")
 	}
+	parts, err := f.FormatToParts(msg, "de", map[string]any{"count": 2}, WithBidiIsolation(false))
+	if err != nil {
+		t.Fatalf("FormatToParts: %v", err)
+	}
+	if len(parts) != 2 || parts[0].Type != PartNumber || PartsText(parts) != "2 Brote" {
+		t.Errorf("FormatToParts = %+v, want a number part and text joining to %q", parts, "2 Brote")
+	}
 	again, err := p.ParseMF2(".input {$count :number}\n.match $count\none {{{$count} Brot}}\n* {{{$count} Brote}}")
 	if err != nil {
 		t.Fatalf("ParseMF2: %v", err)

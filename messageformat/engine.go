@@ -129,9 +129,41 @@ func withEngineFunctions(fns map[string]functions.MessageFunction) FormatOption 
 	return func(c *formatConfig) { maps.Copy(c.functions, fns) }
 }
 
+// FormatToParts formats msg like [Format], but returns the formatted
+// parts: text, markup, bidi isolation, placeholder values and fallbacks.
+// The parts' text joins ([PartsText]) to exactly what Format returns, and
+// errors follow the same model: a *FormatError next to usable parts, or an
+// *Error and no parts for an invalid message or locale.
+func FormatToParts(msg Message, locale string, values map[string]any, opts ...FormatOption) (parts []Part, err error) {
+	defer containEngineFailure(&err)
+	formatter, err := compile(msg, locale, opts)
+	if err != nil {
+		return nil, err
+	}
+	engineParts, err := formatter.FormatToParts(values)
+	parts = fromEngineParts(engineParts)
+	if err != nil {
+		return parts, formatErrors(err)
+	}
+	return parts, nil
+}
+
 func format(msg Message, locale string, values map[string]any, opts []FormatOption) (string, error) {
+	formatter, err := compile(msg, locale, opts)
+	if err != nil {
+		return "", err
+	}
+	out, err := formatter.Format(values)
+	if err != nil {
+		return out, formatErrors(err)
+	}
+	return out, nil
+}
+
+// compile validates msg and locale and builds the engine formatter.
+func compile(msg Message, locale string, opts []FormatOption) (*mf2.MessageFormat, error) {
 	if _, err := language.Parse(locale); err != nil {
-		return "", &Error{Code: CodeInvalidLocale, Message: fmt.Sprintf("%q: %v", locale, err)}
+		return nil, &Error{Code: CodeInvalidLocale, Message: fmt.Sprintf("%q: %v", locale, err)}
 	}
 	cfg := formatConfig{bidiIsolation: true, functions: standardFunctions()}
 	for _, opt := range opts {
@@ -139,7 +171,7 @@ func format(msg Message, locale string, values map[string]any, opts []FormatOpti
 	}
 	em, err := toEngineValidated(msg)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	bidi := mf2.BidiNone
 	if cfg.bidiIsolation {
@@ -147,13 +179,9 @@ func format(msg Message, locale string, values map[string]any, opts []FormatOpti
 	}
 	formatter, err := mf2.Compile([]string{locale}, em, mf2.WithBidiIsolation(bidi), mf2.WithFunctions(cfg.functions))
 	if err != nil {
-		return "", engineError(err)
+		return nil, engineError(err)
 	}
-	out, err := formatter.Format(values)
-	if err != nil {
-		return out, formatErrors(err)
-	}
-	return out, nil
+	return formatter, nil
 }
 
 // standardFunctions returns the MF2 required and draft functions.
