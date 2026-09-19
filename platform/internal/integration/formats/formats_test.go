@@ -63,7 +63,7 @@ func TestErrorMessage(t *testing.T) {
 }
 
 func TestPlainTextKeepsSyntaxCharactersLiteral(t *testing.T) {
-	for _, s := range []string{"", "Hello", "{$x} {{y}} \\ | .match", ".input", " lead and trail ", "'quoted' #"} {
+	for _, s := range []string{"", "Hello", "{$x} {{y}} \\ | .match", ".input", "\t. after whitespace", " lead and trail ", "'quoted' #"} {
 		c, err := formats.PlainText(s)
 		if err != nil {
 			t.Fatalf("PlainText(%q): %v", s, err)
