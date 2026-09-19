@@ -170,8 +170,11 @@ What it implements:
   only checks that the reference parser rejects them.
 - Glossa's **`messageformat/testdata/glossa/runtime-format.json`**: German and
   English UI strings (plurals with exact keys, ordinals, EUR, dates, nested
-  selectors, MF1 offsets, markup) plus Arabic and Hebrew bidi cases, with
-  expected output from the reference formatter.
+  selectors, MF1 offsets, markup), Spanish, French and Japanese ones (`many`
+  and `other`-only plurals, EUR and JPY, dates in a named time zone, percent,
+  units, grouping, negative numbers) plus Arabic and Hebrew bidi cases, with
+  expected output from the reference formatter. No skips, on the CLDR of every
+  supported Node version.
 
 The tests need `@glossa/messageformat` built first
 (`pnpm -r --filter "./messageformat/js" --filter "./runtimes/js/*" build`).

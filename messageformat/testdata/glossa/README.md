@@ -7,11 +7,21 @@ implementation must pass as well:
 - `arguments.json`: message → extracted arguments (name, type, selector cases, markup).
 - `compat.json`: (source, translation) pairs → structural compatibility findings.
 - `runtime-format.json`: precompiled data model + values + locale → formatted output,
-  for runtimes that interpret the data model without a parser.
+  for runtimes that interpret the data model without a parser. It covers de, en,
+  es, fr and ja (plus ar and he for bidi).
 
 Each file follows the shape documented at its top (`"$comment"`). Cases are
 added whenever a bug is found in any implementation, so the fix is proven
 everywhere.
+
+`runtime-format.json` is generated from the reference formatter on one ICU/CLDR
+version (`generatedWith`), but runtimes check it on whatever version they ship.
+Its cases are therefore chosen so the output is the same in CLDR 47 (Node 22,
+CI) and 48: regenerate with both before committing a new case. An
+implementation that can't reproduce a case keeps a skip list with the reason
+and the upstream gap, never a workaround: the Go runtime's is
+`runtimeFormatSkips` in `runtimes/go/runtime_format_test.go` (go-intl's percent
+pattern and `minimumGroupingDigits` gaps); `@glossa/runtime` has none.
 
 ## MF1 → MF2 conversion rules
 
