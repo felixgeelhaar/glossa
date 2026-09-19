@@ -268,9 +268,9 @@ input[type="checkbox"] {
   min-block-size: 2.25rem;
   padding: 0;
 }
+/* Full ink: dimmed text on a primary button fails WCAG contrast. */
 .kbd-hint {
   font-size: var(--kl-text-sm);
-  opacity: 0.85;
 }
 
 /* ── feedback ──────────────────────────────────────────────────────── */
