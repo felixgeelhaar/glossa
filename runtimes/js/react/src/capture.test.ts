@@ -27,7 +27,7 @@ const marks = (root: Element) =>
 
 const marked = [
   ["SPAN", "terms.hint", "de", "contents", "Lies die AGB."],
-  ["SPAN", "athlete.greeting", "de", "contents", "Hallo, ⁨Lina⁩!"],
+  ["SPAN", "athlete.greeting", "de", "contents", "Hallo, \u2068Lina\u2069!"],
   ["SPAN", "no.such.key", null, "contents", "Standard"],
 ];
 

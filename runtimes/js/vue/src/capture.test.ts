@@ -32,7 +32,7 @@ describe("capture mode (RFC 0004 §3.1)", () => {
     await nextTick();
     expect(marks(container)).toEqual([
       ["SPAN", "terms.hint", "de", "contents", "Lies die AGB."],
-      ["SPAN", "athlete.greeting", "de", "contents", "Hallo, ⁨Lina⁩!"],
+      ["SPAN", "athlete.greeting", "de", "contents", "Hallo, \u2068Lina\u2069!"],
       ["SPAN", "no.such.key", null, "contents", "Standard"],
     ]);
     expect(container.querySelector("h1")!.textContent).toBe("[Zur Kasse]");
