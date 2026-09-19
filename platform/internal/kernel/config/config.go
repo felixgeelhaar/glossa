@@ -101,6 +101,28 @@ type Config struct {
 	Identity             Identity
 	Storage              Storage
 	Release              Release
+	Intelligence         Intelligence
+}
+
+// Intelligence configures the AI translation job workers that run in
+// glossa-server and the providers they call (RFC 0003 §3).
+type Intelligence struct {
+	// WorkersEnabled runs job workers in this process.
+	WorkersEnabled bool
+	// Workers is the number of jobs this process runs at once.
+	Workers      int
+	PollInterval time.Duration
+	// JobTimeout bounds one job, model calls and retries included; Lease
+	// (longer) is how long a claimed job is reserved before another
+	// worker may take it over.
+	JobTimeout time.Duration
+	Lease      time.Duration
+	// AllowPrivateEndpoints lets tenants point providers at loopback and
+	// private addresses (self-hosted models in the cluster).
+	AllowPrivateEndpoints bool
+	// ProviderConcurrency caps the calls in flight per configured
+	// provider in this process.
+	ProviderConcurrency int
 }
 
 // Identity configures authentication (the Identity context).
@@ -166,10 +188,17 @@ func decodeKey(s string) ([]byte, error) {
 // String renders the configuration with secrets redacted.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"database=%s migrate=%s http=%s log=%s shutdown=%s otel=%q outbox=%t storage=%s",
+		"database=%s migrate=%s http=%s log=%s shutdown=%s otel=%q outbox=%t storage=%s ai_workers=%d",
 		c.DatabaseURL, c.Migrate, c.HTTP.Addr, c.LogLevel, c.ShutdownTimeout,
-		c.OTel.Endpoint, c.Outbox.Enabled, c.Storage.Driver,
+		c.OTel.Endpoint, c.Outbox.Enabled, c.Storage.Driver, c.aiWorkers(),
 	)
+}
+
+func (c Config) aiWorkers() int {
+	if !c.Intelligence.WorkersEnabled {
+		return 0
+	}
+	return c.Intelligence.Workers
 }
 
 // Load reads and validates the configuration.
@@ -198,6 +227,15 @@ func Load(lookup LookupFunc) (Config, error) {
 	cfg.Identity = r.identity()
 	cfg.Storage = r.storage()
 	cfg.Release = r.release()
+	cfg.Intelligence = Intelligence{
+		WorkersEnabled:        r.boolean("GLOSSA_AI_WORKERS_ENABLED", true),
+		Workers:               r.intRange("GLOSSA_AI_WORKERS", 2, 1, 64),
+		PollInterval:          r.duration("GLOSSA_AI_POLL_INTERVAL", time.Second),
+		JobTimeout:            r.duration("GLOSSA_AI_JOB_TIMEOUT", 10*time.Minute),
+		Lease:                 r.duration("GLOSSA_AI_JOB_LEASE", 15*time.Minute),
+		AllowPrivateEndpoints: r.boolean("GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS", false),
+		ProviderConcurrency:   r.intRange("GLOSSA_AI_PROVIDER_CONCURRENCY", 4, 1, 256),
+	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %w", errors.Join(r.errs...))
@@ -212,6 +250,9 @@ func (c Config) validate(r *reader) {
 	}
 	if c.Outbox.Lease <= c.Outbox.HandlerTimeout {
 		r.fail("GLOSSA_OUTBOX_LEASE", "must be longer than GLOSSA_OUTBOX_HANDLER_TIMEOUT")
+	}
+	if c.Intelligence.Lease <= c.Intelligence.JobTimeout {
+		r.fail("GLOSSA_AI_JOB_LEASE", "must be longer than GLOSSA_AI_JOB_TIMEOUT")
 	}
 }
 

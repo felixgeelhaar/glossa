@@ -164,6 +164,40 @@ func TestLoadOverrides(t *testing.T) {
 	}
 }
 
+func TestIntelligenceConfig(t *testing.T) {
+	cfg, err := config.Load(env(map[string]string{
+		"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ai := cfg.Intelligence
+	if !ai.WorkersEnabled || ai.Workers != 2 || ai.PollInterval != time.Second || ai.JobTimeout != 10*time.Minute ||
+		ai.Lease != 15*time.Minute || ai.AllowPrivateEndpoints || ai.ProviderConcurrency != 4 {
+		t.Errorf("defaults = %+v", ai)
+	}
+	cfg, err = config.Load(env(map[string]string{
+		"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret,
+		"GLOSSA_AI_WORKERS_ENABLED": "false", "GLOSSA_AI_WORKERS": "8", "GLOSSA_AI_JOB_TIMEOUT": "2m",
+		"GLOSSA_AI_JOB_LEASE": "5m", "GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS": "true", "GLOSSA_AI_PROVIDER_CONCURRENCY": "16",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ai = cfg.Intelligence
+	if ai.WorkersEnabled || ai.Workers != 8 || ai.JobTimeout != 2*time.Minute || ai.Lease != 5*time.Minute ||
+		!ai.AllowPrivateEndpoints || ai.ProviderConcurrency != 16 {
+		t.Errorf("overrides = %+v", ai)
+	}
+	_, err = config.Load(env(map[string]string{
+		"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret,
+		"GLOSSA_AI_JOB_TIMEOUT": "10m", "GLOSSA_AI_JOB_LEASE": "10m",
+	}))
+	if err == nil || !strings.Contains(err.Error(), "GLOSSA_AI_JOB_LEASE") {
+		t.Errorf("a lease no longer than the job timeout: %v", err)
+	}
+}
+
 func TestLoadValidation(t *testing.T) {
 	tests := []struct {
 		name    string
