@@ -411,6 +411,42 @@ func (e ArgumentType) Valid() bool {
 	}
 }
 
+// Defines values for CaptureRegionKind.
+const (
+	CaptureRegionKindAttribute CaptureRegionKind = "attribute"
+	CaptureRegionKindElement   CaptureRegionKind = "element"
+	CaptureRegionKindText      CaptureRegionKind = "text"
+)
+
+// Valid indicates whether the value is a known member of the CaptureRegionKind enum.
+func (e CaptureRegionKind) Valid() bool {
+	switch e {
+	case CaptureRegionKindAttribute:
+		return true
+	case CaptureRegionKindElement:
+		return true
+	case CaptureRegionKindText:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CapturesManifestSchema.
+const (
+	GlossaCapturesv1 CapturesManifestSchema = "glossa.captures/v1"
+)
+
+// Valid indicates whether the value is a known member of the CapturesManifestSchema enum.
+func (e CapturesManifestSchema) Valid() bool {
+	switch e {
+	case GlossaCapturesv1:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContextSource.
 const (
 	Capture ContextSource = "capture"
@@ -1304,25 +1340,25 @@ func (e TranslationRevisionKind) Valid() bool {
 
 // Defines values for UsageKind.
 const (
-	Accessor  UsageKind = "accessor"
-	Component UsageKind = "component"
-	Element   UsageKind = "element"
-	T         UsageKind = "t"
-	Template  UsageKind = "template"
+	UsageKindAccessor  UsageKind = "accessor"
+	UsageKindComponent UsageKind = "component"
+	UsageKindElement   UsageKind = "element"
+	UsageKindT         UsageKind = "t"
+	UsageKindTemplate  UsageKind = "template"
 )
 
 // Valid indicates whether the value is a known member of the UsageKind enum.
 func (e UsageKind) Valid() bool {
 	switch e {
-	case Accessor:
+	case UsageKindAccessor:
 		return true
-	case Component:
+	case UsageKindComponent:
 		return true
-	case Element:
+	case UsageKindElement:
 		return true
-	case T:
+	case UsageKindT:
 		return true
-	case Template:
+	case UsageKindTemplate:
 		return true
 	default:
 		return false
@@ -2163,6 +2199,169 @@ type ArgumentSelectorKind string
 // ArgumentType defines model for Argument.Type.
 type ArgumentType string
 
+// CaptureBox Whole CSS pixels from the page's top left (covering the measured box); off-screen boxes may be negative.
+type CaptureBox struct {
+	Height int `json:"height"`
+	Width  int `json:"width"`
+	X      int `json:"x"`
+	Y      int `json:"y"`
+}
+
+// CaptureImage defines model for CaptureImage.
+type CaptureImage struct {
+	// Digest SHA-256 (hex) of the stored (re-encoded) PNG; its `ETag`.
+	Digest string `json:"digest"`
+
+	// Height Pixels.
+	Height int `json:"height"`
+
+	// Url The image's API path (`getCaptureImage`), relative to the server.
+	Url string `json:"url"`
+
+	// Width Pixels.
+	Width int `json:"width"`
+}
+
+// CaptureRegion defines model for CaptureRegion.
+type CaptureRegion struct {
+	// Box Whole CSS pixels from the page's top left (covering the measured box); off-screen boxes may be negative.
+	Box CaptureBox `json:"box"`
+
+	// Kind How the box was found: `element` (a component-rendered message:
+	// its host element), `text` (a marked t() string: its text's
+	// rects), `attribute` (a message in an attribute: its element).
+	Kind CaptureRegionKind `json:"kind"`
+
+	// Visible false when the message rendered zero-size or off-screen.
+	Visible bool `json:"visible"`
+}
+
+// CaptureRegionKind How the box was found: `element` (a component-rendered message:
+// its host element), `text` (a marked t() string: its text's
+// rects), `attribute` (a message in an attribute: its element).
+type CaptureRegionKind string
+
+// CaptureUpload What a capture upload stored.
+type CaptureUpload struct {
+	// Build One upload of usages for one application at one commit.
+	Build ContextBuild `json:"build"`
+
+	// Captures The build's captures.
+	Captures int `json:"captures"`
+
+	// ImagesDeduplicated Images whose pixels the project had stored already (0 on a replay).
+	ImagesDeduplicated int `json:"images_deduplicated"`
+
+	// ImagesStored Images written to storage (0 on a replay).
+	ImagesStored int `json:"images_stored"`
+
+	// UnknownKeys The region keys the catalog doesn't know, in order (stored without a message).
+	UnknownKeys []string `json:"unknown_keys"`
+}
+
+// CaptureViewport defines model for CaptureViewport.
+type CaptureViewport struct {
+	// Height CSS pixels.
+	Height int `json:"height"`
+
+	// Width CSS pixels.
+	Width int `json:"width"`
+}
+
+// CapturesManifest A `glossa.captures/v1` manifest (RFC 0004 §3.1–§3.3), the
+// `manifest` part of a capture upload: one application at one
+// commit, one capture per route, viewport and locale. Its JSON
+// Schema, `runtimes/testdata/schemas/captures.v1.schema.json`, has
+// every rule and is the published contract, so its member names
+// are kept as they are (`deviceScaleFactor`).
+type CapturesManifest struct {
+	// Application The application's slug in the project.
+	Application string `json:"application"`
+
+	// Branch The short branch name.
+	Branch   string                    `json:"branch"`
+	Captures []CapturesManifestCapture `json:"captures"`
+
+	// Commit The full commit ID in lowercase hex (SHA-1 or SHA-256).
+	Commit string                 `json:"commit"`
+	Schema CapturesManifestSchema `json:"schema"`
+	Tool   UsagesTool             `json:"tool"`
+}
+
+// CapturesManifestSchema defines model for CapturesManifest.Schema.
+type CapturesManifestSchema string
+
+// CapturesManifestCapture defines model for CapturesManifestCapture.
+type CapturesManifestCapture struct {
+	Image struct {
+		Height int `json:"height"`
+
+		// Sha256 Lowercase hex SHA-256 of the uploaded PNG; the name of its part.
+		Sha256 string `json:"sha256"`
+		Width  int    `json:"width"`
+	} `json:"image"`
+
+	// Locale The locale the page was rendered in (BCP 47).
+	Locale  string                   `json:"locale"`
+	Regions []CapturesManifestRegion `json:"regions"`
+
+	// Renders The session's render log; every region `index` names one entry.
+	Renders []CapturesManifestRender `json:"renders"`
+
+	// Route The route pattern from the capture plan: `/checkout/[step]`.
+	Route string `json:"route"`
+
+	// Url The concrete URL navigated to; informational, never fetched.
+	Url      string `json:"url"`
+	Viewport struct {
+		// DeviceScaleFactor Defaults to 1.
+		DeviceScaleFactor *float32 `json:"deviceScaleFactor,omitempty"`
+		Height            int      `json:"height"`
+		Width             int      `json:"width"`
+	} `json:"viewport"`
+}
+
+// CapturesManifestRegion Where a rendered message is, by `key` (a component's host element) or by `index` into `renders` (a marked t() string); exactly one of them.
+type CapturesManifestRegion struct {
+	// Attribute For kind `attribute`: the attribute's name (`placeholder`, `title`, `aria-label`).
+	Attribute *string `json:"attribute,omitempty"`
+
+	// Box CSS pixels from the page's top left, fractional as measured.
+	Box struct {
+		Height float32 `json:"height"`
+		Width  float32 `json:"width"`
+		X      float32 `json:"x"`
+		Y      float32 `json:"y"`
+	} `json:"box"`
+	Index *int `json:"index,omitempty"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key *MessageKey `json:"key,omitempty"`
+
+	// Kind How the box was found: `element` (a component-rendered message:
+	// its host element), `text` (a marked t() string: its text's
+	// rects), `attribute` (a message in an attribute: its element).
+	Kind CaptureRegionKind `json:"kind"`
+
+	// Visible false when the message rendered zero-size or off-screen.
+	Visible bool `json:"visible"`
+}
+
+// CapturesManifestRender defines model for CapturesManifestRender.
+type CapturesManifestRender struct {
+	Index int `json:"index"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
+
+	// Locale The locale the message resolved from.
+	Locale string `json:"locale"`
+}
+
 // ContextBuild One upload of usages for one application at one commit.
 type ContextBuild struct {
 	// ApplicationId An opaque identifier.
@@ -2991,6 +3190,45 @@ type Message struct {
 
 	// UpdatedAt RFC 3339, UTC.
 	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// MessageCapture A capture that shows a message, with the message's regions on it.
+type MessageCapture struct {
+	// ApplicationId An opaque identifier.
+	ApplicationId Id     `json:"application_id"`
+	Branch        string `json:"branch"`
+
+	// BuildId An opaque identifier.
+	BuildId Id     `json:"build_id"`
+	Commit  string `json:"commit"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Id An opaque identifier.
+	Id              Id              `json:"id"`
+	Image           CaptureImage    `json:"image"`
+	Locale          string          `json:"locale"`
+	OnDefaultBranch bool            `json:"on_default_branch"`
+	Regions         []CaptureRegion `json:"regions"`
+	Route           string          `json:"route"`
+	Viewport        CaptureViewport `json:"viewport"`
+}
+
+// MessageCaptures defines model for MessageCaptures.
+type MessageCaptures struct {
+	Captures []MessageCapture `json:"captures"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
+
+	// MessageId An opaque identifier.
+	MessageId Id `json:"message_id"`
+
+	// Truncated More captures exist than `limit`.
+	Truncated bool `json:"truncated"`
 }
 
 // MessageContent defines model for MessageContent.
@@ -4708,6 +4946,9 @@ type AISuggestionPath = Id
 // ApplicationPath An opaque identifier.
 type ApplicationPath = Id
 
+// CapturePath An opaque identifier.
+type CapturePath = Id
+
 // CeremonyCookie defines model for CeremonyCookie.
 type CeremonyCookie = string
 
@@ -5129,6 +5370,24 @@ type UpdateApplicationParams struct {
 	IfMatch IfMatch `json:"If-Match"`
 }
 
+// CreateCapturesMultipartBody defines parameters for CreateCaptures.
+type CreateCapturesMultipartBody struct {
+	// Manifest A `glossa.captures/v1` manifest (RFC 0004 §3.1–§3.3), the
+	// `manifest` part of a capture upload: one application at one
+	// commit, one capture per route, viewport and locale. Its JSON
+	// Schema, `runtimes/testdata/schemas/captures.v1.schema.json`, has
+	// every rule and is the published contract, so its member names
+	// are kept as they are (`deviceScaleFactor`).
+	Manifest             CapturesManifest              `json:"manifest"`
+	AdditionalProperties map[string]openapi_types.File `json:"-"`
+}
+
+// GetCaptureImageParams defines parameters for GetCaptureImage.
+type GetCaptureImageParams struct {
+	// IfNoneMatch The `ETag` of a cached copy.
+	IfNoneMatch *string `json:"If-None-Match,omitempty"`
+}
+
 // ListContextBuildsParams defines parameters for ListContextBuilds.
 type ListContextBuildsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -5223,6 +5482,13 @@ type CreateMessageParams struct {
 type UpdateMessageParams struct {
 	// IfMatch The `ETag` the change is based on.
 	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListMessageCapturesParams defines parameters for ListMessageCaptures.
+type ListMessageCapturesParams struct {
+	// Branch A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's.
+	Branch *ContextBranch `form:"branch,omitempty" json:"branch,omitempty"`
+	Limit  *int           `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ObsoleteMessageParams defines parameters for ObsoleteMessage.
@@ -5669,6 +5935,9 @@ type CreateApplicationJSONRequestBody = CreateApplication
 // UpdateApplicationJSONRequestBody defines body for UpdateApplication for application/json ContentType.
 type UpdateApplicationJSONRequestBody = UpdateApplication
 
+// CreateCapturesMultipartRequestBody defines body for CreateCaptures for multipart/form-data ContentType.
+type CreateCapturesMultipartRequestBody CreateCapturesMultipartBody
+
 // CreateContextBuildJSONRequestBody defines body for CreateContextBuild for application/json ContentType.
 type CreateContextBuildJSONRequestBody = UsagesDocument
 
@@ -5755,6 +6024,72 @@ type LookupTranslationMemoryJSONRequestBody = TMLookup
 
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateToken
+
+// Getter for additional properties for CreateCapturesMultipartBody. Returns the specified
+// element and whether it was found
+func (a CreateCapturesMultipartBody) Get(fieldName string) (value openapi_types.File, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for CreateCapturesMultipartBody
+func (a *CreateCapturesMultipartBody) Set(fieldName string, value openapi_types.File) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]openapi_types.File)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for CreateCapturesMultipartBody to handle AdditionalProperties
+func (a *CreateCapturesMultipartBody) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["manifest"]; found {
+		err = json.Unmarshal(raw, &a.Manifest)
+		if err != nil {
+			return fmt.Errorf("error reading 'manifest': %w", err)
+		}
+		delete(object, "manifest")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]openapi_types.File)
+		for fieldName, fieldBuf := range object {
+			var fieldVal openapi_types.File
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for CreateCapturesMultipartBody to handle AdditionalProperties
+func (a CreateCapturesMultipartBody) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["manifest"], err = json.Marshal(a.Manifest)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'manifest': %w", err)
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // RequestEditorFn is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -7279,6 +7614,65 @@ type ClientInterface interface {
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 	UpdateApplication(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateCapturesWithBody Upload a build's captures (glossa capture --upload)
+	//
+	// A `multipart/form-data` body: first a part named `manifest`
+	// (`application/json`), one `glossa.captures/v1` manifest as
+	// `glossa capture` writes it (schema:
+	// `runtimes/testdata/schemas/captures.v1.schema.json`), then one
+	// part per distinct image, named by the lowercase hex SHA-256 of
+	// its bytes as `captures[].image.sha256` references it, with
+	// `Content-Type: image/png`. Every referenced image has exactly one
+	// part and every part is referenced.
+	//
+	// The manifest is validated by the schema's rules like a usages
+	// document (members it doesn't define are ignored within v1) and
+	// the server's: at most 500 captures, one per route, viewport and
+	// locale; at most 10 000 regions each; viewports of at most
+	// 10 000 CSS pixels a side; every region `index` names an entry of
+	// its `renders`. Region boxes are stored as the whole CSS pixels
+	// that cover them. Each image must be the PNG its part name and
+	// manifest entry say — at most 10 MB and 40 megapixels — and is
+	// re-encoded without metadata before it is stored; the same pixels
+	// are stored once per project (`images_deduplicated`). The whole
+	// body is at most 200 MB: split a larger capture plan over several
+	// uploads (one per application, or per locale).
+	//
+	// The upload records a build with `source` `capture`: whether it is
+	// of the default branch is the project's `settings.default_branch`.
+	// Region keys are resolved to message IDs now; the keys the catalog
+	// doesn't know are stored and listed in `unknown_keys`. An upload is
+	// idempotent by application, commit and the SHA-256 of the
+	// manifest's RFC 8785 canonical form (without undefined members):
+	// the same manifest again answers `200` with the first upload's
+	// build and `Idempotent-Replayed: true`, without reading its images.
+	//
+	// Uploads share the per-tenant limit of usage uploads (10 a minute,
+	// bursts of 60). Needs `catalog.write` (developers, `write` tokens:
+	// CI). Problem codes: `invalid_request` (not a multipart body),
+	// `invalid_captures` (a malformed body or manifest, or parts that
+	// don't match it), `too_many_captures`, `too_many_regions`,
+	// `invalid_image`, `unknown_application` (400),
+	// `payload_too_large`, `image_too_large` (413), `rate_limited`
+	// (429), `storage_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/captures (the `CreateCaptures` operationId).
+	CreateCapturesWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCaptureImage A capture's image
+	//
+	// The re-encoded PNG, read through the API (the object store never
+	// hands out a URL). It is content-addressed and never changes:
+	// `ETag` is its SHA-256 and it may be cached privately for a year;
+	// `If-None-Match` with that `ETag` answers `304`. Needs
+	// `catalog.read`. Problem codes: `not_found` (404; also when
+	// retention deleted the image), `storage_unavailable` (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image (the `GetCaptureImage` operationId).
+	GetCaptureImage(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *GetCaptureImageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListContextBuilds A project's usage uploads (builds), newest first
 	//
 	// With how many usages each holds and how many of those name a key
@@ -7741,6 +8135,23 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/messages/{message} (the `UpdateMessage` operationId).
 	UpdateMessage(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *UpdateMessageParams, body UpdateMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListMessageCaptures Where a message appears on screen (its current captures)
+	//
+	// The captures in the current builds (see `listMessageUsages`;
+	// `branch` selects a branch view with the default branch's
+	// fallback) that show the message the key names now, each with the
+	// message's regions on it (`visible` false: it rendered zero-size
+	// or off-screen) and the API path of its image. The default
+	// branch's captures come first, then by application, route, locale
+	// and the widest viewport; `truncated` says more than `limit`
+	// exist. Boxes are CSS pixels from the page's top left; the image
+	// is `image.width / viewport.width` times larger (the device scale
+	// factor). Needs `catalog.read`. Problem codes: `invalid_branch`
+	// (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/captures (the `ListMessageCaptures` operationId).
+	ListMessageCaptures(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *ListMessageCapturesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ObsoleteMessage Retire a message
 	//
@@ -11238,6 +11649,85 @@ func (c *Client) UpdateApplication(ctx context.Context, tenant TenantPath, proje
 	return c.Client.Do(req)
 }
 
+// CreateCapturesWithBody Upload a build's captures (glossa capture --upload)
+//
+// A `multipart/form-data` body: first a part named `manifest`
+// (`application/json`), one `glossa.captures/v1` manifest as
+// `glossa capture` writes it (schema:
+// `runtimes/testdata/schemas/captures.v1.schema.json`), then one
+// part per distinct image, named by the lowercase hex SHA-256 of
+// its bytes as `captures[].image.sha256` references it, with
+// `Content-Type: image/png`. Every referenced image has exactly one
+// part and every part is referenced.
+//
+// The manifest is validated by the schema's rules like a usages
+// document (members it doesn't define are ignored within v1) and
+// the server's: at most 500 captures, one per route, viewport and
+// locale; at most 10 000 regions each; viewports of at most
+// 10 000 CSS pixels a side; every region `index` names an entry of
+// its `renders`. Region boxes are stored as the whole CSS pixels
+// that cover them. Each image must be the PNG its part name and
+// manifest entry say — at most 10 MB and 40 megapixels — and is
+// re-encoded without metadata before it is stored; the same pixels
+// are stored once per project (`images_deduplicated`). The whole
+// body is at most 200 MB: split a larger capture plan over several
+// uploads (one per application, or per locale).
+//
+// The upload records a build with `source` `capture`: whether it is
+// of the default branch is the project's `settings.default_branch`.
+// Region keys are resolved to message IDs now; the keys the catalog
+// doesn't know are stored and listed in `unknown_keys`. An upload is
+// idempotent by application, commit and the SHA-256 of the
+// manifest's RFC 8785 canonical form (without undefined members):
+// the same manifest again answers `200` with the first upload's
+// build and `Idempotent-Replayed: true`, without reading its images.
+//
+// Uploads share the per-tenant limit of usage uploads (10 a minute,
+// bursts of 60). Needs `catalog.write` (developers, `write` tokens:
+// CI). Problem codes: `invalid_request` (not a multipart body),
+// `invalid_captures` (a malformed body or manifest, or parts that
+// don't match it), `too_many_captures`, `too_many_regions`,
+// `invalid_image`, `unknown_application` (400),
+// `payload_too_large`, `image_too_large` (413), `rate_limited`
+// (429), `storage_unavailable` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/captures (the `CreateCaptures` operationId).
+func (c *Client) CreateCapturesWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCapturesRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetCaptureImage A capture's image
+//
+// The re-encoded PNG, read through the API (the object store never
+// hands out a URL). It is content-addressed and never changes:
+// `ETag` is its SHA-256 and it may be cached privately for a year;
+// `If-None-Match` with that `ETag` answers `304`. Needs
+// `catalog.read`. Problem codes: `not_found` (404; also when
+// retention deleted the image), `storage_unavailable` (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image (the `GetCaptureImage` operationId).
+func (c *Client) GetCaptureImage(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *GetCaptureImageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCaptureImageRequest(c.Server, tenant, project, capture, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListContextBuilds A project's usage uploads (builds), newest first
 //
 // With how many usages each holds and how many of those name a key
@@ -12041,6 +12531,33 @@ func (c *Client) UpdateMessageWithBody(ctx context.Context, tenant TenantPath, p
 // Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/messages/{message} (the `UpdateMessage` operationId).
 func (c *Client) UpdateMessage(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *UpdateMessageParams, body UpdateMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMessageRequest(c.Server, tenant, project, message, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListMessageCaptures Where a message appears on screen (its current captures)
+//
+// The captures in the current builds (see `listMessageUsages`;
+// `branch` selects a branch view with the default branch's
+// fallback) that show the message the key names now, each with the
+// message's regions on it (`visible` false: it rendered zero-size
+// or off-screen) and the API path of its image. The default
+// branch's captures come first, then by application, route, locale
+// and the widest viewport; `truncated` says more than `limit`
+// exist. Boxes are CSS pixels from the page's top left; the image
+// is `image.width / viewport.width` times larger (the device scale
+// factor). Needs `catalog.read`. Problem codes: `invalid_branch`
+// (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/captures (the `ListMessageCaptures` operationId).
+func (c *Client) ListMessageCaptures(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *ListMessageCapturesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMessageCapturesRequest(c.Server, tenant, project, message, params)
 	if err != nil {
 		return nil, err
 	}
@@ -18294,6 +18811,112 @@ func NewUpdateApplicationRequestWithBody(server string, tenant TenantPath, proje
 	return req, nil
 }
 
+// NewCreateCapturesRequestWithBody constructs an http.Request for the CreateCaptures method, with any body, and a specified content type
+func NewCreateCapturesRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/captures", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetCaptureImageRequest constructs an http.Request for the GetCaptureImage method
+func NewGetCaptureImageRequest(server string, tenant TenantPath, project ProjectPath, capture CapturePath, params *GetCaptureImageParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "capture", capture, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/captures/%s/image", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IfNoneMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-None-Match", *params.IfNoneMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-None-Match", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListContextBuildsRequest constructs an http.Request for the ListContextBuilds method
 func NewListContextBuildsRequest(server string, tenant TenantPath, project ProjectPath, params *ListContextBuildsParams) (*http.Request, error) {
 	var err error
@@ -19893,6 +20516,93 @@ func NewUpdateMessageRequestWithBody(server string, tenant TenantPath, project P
 
 		req.Header.Set("If-Match", headerParam0)
 
+	}
+
+	return req, nil
+}
+
+// NewListMessageCapturesRequest constructs an http.Request for the ListMessageCaptures method
+func NewListMessageCapturesRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, params *ListMessageCapturesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "message", message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/messages/%s/captures", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -25524,6 +26234,67 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 	UpdateApplicationWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApplicationResponse, error)
 
+	// CreateCapturesWithBodyWithResponse Upload a build's captures (glossa capture --upload)
+	//
+	// A `multipart/form-data` body: first a part named `manifest`
+	// (`application/json`), one `glossa.captures/v1` manifest as
+	// `glossa capture` writes it (schema:
+	// `runtimes/testdata/schemas/captures.v1.schema.json`), then one
+	// part per distinct image, named by the lowercase hex SHA-256 of
+	// its bytes as `captures[].image.sha256` references it, with
+	// `Content-Type: image/png`. Every referenced image has exactly one
+	// part and every part is referenced.
+	//
+	// The manifest is validated by the schema's rules like a usages
+	// document (members it doesn't define are ignored within v1) and
+	// the server's: at most 500 captures, one per route, viewport and
+	// locale; at most 10 000 regions each; viewports of at most
+	// 10 000 CSS pixels a side; every region `index` names an entry of
+	// its `renders`. Region boxes are stored as the whole CSS pixels
+	// that cover them. Each image must be the PNG its part name and
+	// manifest entry say — at most 10 MB and 40 megapixels — and is
+	// re-encoded without metadata before it is stored; the same pixels
+	// are stored once per project (`images_deduplicated`). The whole
+	// body is at most 200 MB: split a larger capture plan over several
+	// uploads (one per application, or per locale).
+	//
+	// The upload records a build with `source` `capture`: whether it is
+	// of the default branch is the project's `settings.default_branch`.
+	// Region keys are resolved to message IDs now; the keys the catalog
+	// doesn't know are stored and listed in `unknown_keys`. An upload is
+	// idempotent by application, commit and the SHA-256 of the
+	// manifest's RFC 8785 canonical form (without undefined members):
+	// the same manifest again answers `200` with the first upload's
+	// build and `Idempotent-Replayed: true`, without reading its images.
+	//
+	// Uploads share the per-tenant limit of usage uploads (10 a minute,
+	// bursts of 60). Needs `catalog.write` (developers, `write` tokens:
+	// CI). Problem codes: `invalid_request` (not a multipart body),
+	// `invalid_captures` (a malformed body or manifest, or parts that
+	// don't match it), `too_many_captures`, `too_many_regions`,
+	// `invalid_image`, `unknown_application` (400),
+	// `payload_too_large`, `image_too_large` (413), `rate_limited`
+	// (429), `storage_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/captures (the `CreateCaptures` operationId).
+	CreateCapturesWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCapturesResponse, error)
+
+	// GetCaptureImageWithResponse A capture's image
+	//
+	// The re-encoded PNG, read through the API (the object store never
+	// hands out a URL). It is content-addressed and never changes:
+	// `ETag` is its SHA-256 and it may be cached privately for a year;
+	// `If-None-Match` with that `ETag` answers `304`. Needs
+	// `catalog.read`. Problem codes: `not_found` (404; also when
+	// retention deleted the image), `storage_unavailable` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image (the `GetCaptureImage` operationId).
+	GetCaptureImageWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *GetCaptureImageParams, reqEditors ...RequestEditorFn) (*GetCaptureImageResponse, error)
+
 	// ListContextBuildsWithResponse A project's usage uploads (builds), newest first
 	//
 	// With how many usages each holds and how many of those name a key
@@ -26012,6 +26783,25 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/messages/{message} (the `UpdateMessage` operationId).
 	UpdateMessageWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *UpdateMessageParams, body UpdateMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMessageResponse, error)
+
+	// ListMessageCapturesWithResponse Where a message appears on screen (its current captures)
+	//
+	// The captures in the current builds (see `listMessageUsages`;
+	// `branch` selects a branch view with the default branch's
+	// fallback) that show the message the key names now, each with the
+	// message's regions on it (`visible` false: it rendered zero-size
+	// or off-screen) and the API path of its image. The default
+	// branch's captures come first, then by application, route, locale
+	// and the widest viewport; `truncated` says more than `limit`
+	// exist. Boxes are CSS pixels from the page's top left; the image
+	// is `image.width / viewport.width` times larger (the device scale
+	// factor). Needs `catalog.read`. Problem codes: `invalid_branch`
+	// (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/captures (the `ListMessageCaptures` operationId).
+	ListMessageCapturesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *ListMessageCapturesParams, reqEditors ...RequestEditorFn) (*ListMessageCapturesResponse, error)
 
 	// ObsoleteMessageWithResponse Retire a message
 	//
@@ -32675,6 +33465,188 @@ func (r UpdateApplicationResponse) ContentType() string {
 	return ""
 }
 
+// CreateCapturesResponse200Headers the declared response headers of an HTTP 200 response for CreateCaptures
+type CreateCapturesResponse200Headers struct {
+	IdempotentReplayed *string
+}
+
+type CreateCapturesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CaptureUpload
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *CaptureUpload
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON413 the response for an HTTP 413 `application/problem+json` response
+	ApplicationproblemJSON413 *PayloadTooLarge
+	// ApplicationproblemJSON429 the response for an HTTP 429 `application/problem+json` response
+	ApplicationproblemJSON429 *TooManyRequests
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *CreateCapturesResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CreateCapturesResponse) GetJSON200() *CaptureUpload {
+	return r.JSON200
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateCapturesResponse) GetJSON201() *CaptureUpload {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateCapturesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateCapturesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateCapturesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateCapturesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON413 returns the response for an HTTP 413 `application/problem+json` response
+func (r CreateCapturesResponse) GetApplicationproblemJSON413() *PayloadTooLarge {
+	return r.ApplicationproblemJSON413
+}
+
+// GetApplicationproblemJSON429 returns the response for an HTTP 429 `application/problem+json` response
+func (r CreateCapturesResponse) GetApplicationproblemJSON429() *TooManyRequests {
+	return r.ApplicationproblemJSON429
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r CreateCapturesResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateCapturesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateCapturesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateCapturesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateCapturesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetCaptureImageResponse200Headers the declared response headers of an HTTP 200 response for GetCaptureImage
+type GetCaptureImageResponse200Headers struct {
+	CacheControl *string
+	ETag         *string
+}
+
+// GetCaptureImageResponse304Headers the declared response headers of an HTTP 304 response for GetCaptureImage
+type GetCaptureImageResponse304Headers struct {
+	CacheControl *string
+	ETag         *string
+}
+
+type GetCaptureImageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetCaptureImageResponse200Headers
+	// Headers304 the parsed response headers for an HTTP 304 response
+	Headers304 *GetCaptureImageResponse304Headers
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetCaptureImageResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetCaptureImageResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetCaptureImageResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r GetCaptureImageResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r GetCaptureImageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCaptureImageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCaptureImageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetCaptureImageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListContextBuildsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -34497,6 +35469,75 @@ func (r UpdateMessageResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListMessageCapturesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MessageCaptures
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListMessageCapturesResponse) GetJSON200() *MessageCaptures {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListMessageCapturesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListMessageCapturesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListMessageCapturesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListMessageCapturesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListMessageCapturesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListMessageCapturesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListMessageCapturesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListMessageCapturesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -40668,6 +41709,79 @@ func (c *ClientWithResponses) UpdateApplicationWithResponse(ctx context.Context,
 	return ParseUpdateApplicationResponse(rsp)
 }
 
+// CreateCapturesWithBodyWithResponse Upload a build's captures (glossa capture --upload)
+//
+// A `multipart/form-data` body: first a part named `manifest`
+// (`application/json`), one `glossa.captures/v1` manifest as
+// `glossa capture` writes it (schema:
+// `runtimes/testdata/schemas/captures.v1.schema.json`), then one
+// part per distinct image, named by the lowercase hex SHA-256 of
+// its bytes as `captures[].image.sha256` references it, with
+// `Content-Type: image/png`. Every referenced image has exactly one
+// part and every part is referenced.
+//
+// The manifest is validated by the schema's rules like a usages
+// document (members it doesn't define are ignored within v1) and
+// the server's: at most 500 captures, one per route, viewport and
+// locale; at most 10 000 regions each; viewports of at most
+// 10 000 CSS pixels a side; every region `index` names an entry of
+// its `renders`. Region boxes are stored as the whole CSS pixels
+// that cover them. Each image must be the PNG its part name and
+// manifest entry say — at most 10 MB and 40 megapixels — and is
+// re-encoded without metadata before it is stored; the same pixels
+// are stored once per project (`images_deduplicated`). The whole
+// body is at most 200 MB: split a larger capture plan over several
+// uploads (one per application, or per locale).
+//
+// The upload records a build with `source` `capture`: whether it is
+// of the default branch is the project's `settings.default_branch`.
+// Region keys are resolved to message IDs now; the keys the catalog
+// doesn't know are stored and listed in `unknown_keys`. An upload is
+// idempotent by application, commit and the SHA-256 of the
+// manifest's RFC 8785 canonical form (without undefined members):
+// the same manifest again answers `200` with the first upload's
+// build and `Idempotent-Replayed: true`, without reading its images.
+//
+// Uploads share the per-tenant limit of usage uploads (10 a minute,
+// bursts of 60). Needs `catalog.write` (developers, `write` tokens:
+// CI). Problem codes: `invalid_request` (not a multipart body),
+// `invalid_captures` (a malformed body or manifest, or parts that
+// don't match it), `too_many_captures`, `too_many_regions`,
+// `invalid_image`, `unknown_application` (400),
+// `payload_too_large`, `image_too_large` (413), `rate_limited`
+// (429), `storage_unavailable` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/captures (the `CreateCaptures` operationId).
+func (c *ClientWithResponses) CreateCapturesWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCapturesResponse, error) {
+	rsp, err := c.CreateCapturesWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCapturesResponse(rsp)
+}
+
+// GetCaptureImageWithResponse A capture's image
+//
+// The re-encoded PNG, read through the API (the object store never
+// hands out a URL). It is content-addressed and never changes:
+// `ETag` is its SHA-256 and it may be cached privately for a year;
+// `If-None-Match` with that `ETag` answers `304`. Needs
+// `catalog.read`. Problem codes: `not_found` (404; also when
+// retention deleted the image), `storage_unavailable` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image (the `GetCaptureImage` operationId).
+func (c *ClientWithResponses) GetCaptureImageWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *GetCaptureImageParams, reqEditors ...RequestEditorFn) (*GetCaptureImageResponse, error) {
+	rsp, err := c.GetCaptureImage(ctx, tenant, project, capture, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCaptureImageResponse(rsp)
+}
+
 // ListContextBuildsWithResponse A project's usage uploads (builds), newest first
 //
 // With how many usages each holds and how many of those name a key
@@ -41365,6 +42479,31 @@ func (c *ClientWithResponses) UpdateMessageWithResponse(ctx context.Context, ten
 		return nil, err
 	}
 	return ParseUpdateMessageResponse(rsp)
+}
+
+// ListMessageCapturesWithResponse Where a message appears on screen (its current captures)
+//
+// The captures in the current builds (see `listMessageUsages`;
+// `branch` selects a branch view with the default branch's
+// fallback) that show the message the key names now, each with the
+// message's regions on it (`visible` false: it rendered zero-size
+// or off-screen) and the API path of its image. The default
+// branch's captures come first, then by application, route, locale
+// and the widest viewport; `truncated` says more than `limit`
+// exist. Boxes are CSS pixels from the page's top left; the image
+// is `image.width / viewport.width` times larger (the device scale
+// factor). Needs `catalog.read`. Problem codes: `invalid_branch`
+// (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/captures (the `ListMessageCaptures` operationId).
+func (c *ClientWithResponses) ListMessageCapturesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, params *ListMessageCapturesParams, reqEditors ...RequestEditorFn) (*ListMessageCapturesResponse, error) {
+	rsp, err := c.ListMessageCaptures(ctx, tenant, project, message, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListMessageCapturesResponse(rsp)
 }
 
 // ObsoleteMessageWithResponse Retire a message
@@ -47563,6 +48702,188 @@ func ParseUpdateApplicationResponse(rsp *http.Response) (*UpdateApplicationRespo
 	return response, nil
 }
 
+// ParseCreateCapturesResponse parses an HTTP response from a CreateCapturesWithResponse call
+func ParseCreateCapturesResponse(rsp *http.Response) (*CreateCapturesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateCapturesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CaptureUpload
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CaptureUpload
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest PayloadTooLarge
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest TooManyRequests
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers CreateCapturesResponse200Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetCaptureImageResponse parses an HTTP response from a GetCaptureImageWithResponse call
+func ParseGetCaptureImageResponse(rsp *http.Response) (*GetCaptureImageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCaptureImageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 304:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetCaptureImageResponse200Headers
+		if values := rsp.Header.Values("Cache-Control"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Cache-Control", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.CacheControl = &value
+		}
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode == 304:
+		var headers GetCaptureImageResponse304Headers
+		if values := rsp.Header.Values("Cache-Control"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Cache-Control", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.CacheControl = &value
+		}
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers304 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseListContextBuildsResponse parses an HTTP response from a ListContextBuildsWithResponse call
 func ParseListContextBuildsResponse(rsp *http.Response) (*ListContextBuildsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -49134,6 +50455,60 @@ func ParseUpdateMessageResponse(rsp *http.Response) (*UpdateMessageResponse, err
 			headers.ETag = &value
 		}
 		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListMessageCapturesResponse parses an HTTP response from a ListMessageCapturesWithResponse call
+func ParseListMessageCapturesResponse(rsp *http.Response) (*ListMessageCapturesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListMessageCapturesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MessageCaptures
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
 	}
 
 	return response, nil

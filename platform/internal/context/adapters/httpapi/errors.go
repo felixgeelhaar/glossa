@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
@@ -21,13 +22,21 @@ var problems = []struct {
 	{app.ErrProjectNotFound, http.StatusNotFound, problem.CodeNotFound, "no such project"},
 	{app.ErrMessageNotFound, http.StatusNotFound, problem.CodeNotFound, "no such message"},
 	{app.ErrBuildNotFound, http.StatusNotFound, problem.CodeNotFound, "no such build"},
+	{app.ErrCaptureNotFound, http.StatusNotFound, problem.CodeNotFound, "no such capture"},
 	{app.ErrNotFound, http.StatusNotFound, problem.CodeNotFound, "no such resource"},
+	{app.ErrStorageUnavailable, http.StatusServiceUnavailable, "storage_unavailable", ""},
 	{app.ErrApplicationNotFound, http.StatusBadRequest, "unknown_application", "the project has no application with that slug"},
 	{app.ErrRateLimited, http.StatusTooManyRequests, problem.CodeRateLimited, ""},
 	{app.ErrInvalidQuery, http.StatusBadRequest, "invalid_query", ""},
 	{domain.ErrUploadTooLarge, http.StatusRequestEntityTooLarge, problem.CodePayloadTooLarge, ""},
 	{domain.ErrTooManyUsages, http.StatusBadRequest, "too_many_usages", ""},
 	{domain.ErrInvalidUpload, http.StatusBadRequest, "invalid_usages", ""},
+	{domain.ErrManifestTooLarge, http.StatusRequestEntityTooLarge, problem.CodePayloadTooLarge, ""},
+	{domain.ErrTooManyCaptures, http.StatusBadRequest, "too_many_captures", ""},
+	{domain.ErrTooManyRegions, http.StatusBadRequest, "too_many_regions", ""},
+	{domain.ErrInvalidCaptures, http.StatusBadRequest, "invalid_captures", ""},
+	{domain.ErrImageTooLarge, http.StatusRequestEntityTooLarge, "image_too_large", ""},
+	{domain.ErrInvalidImage, http.StatusBadRequest, "invalid_image", ""},
 	{domain.ErrInvalidSource, http.StatusBadRequest, "invalid_source", ""},
 	{domain.ErrInvalidBranch, http.StatusBadRequest, "invalid_branch", ""},
 }
@@ -35,6 +44,11 @@ var problems = []struct {
 // mapError turns Context's errors into problem details; anything else
 // (authorization, unexpected failures) passes through.
 func mapError(err error) error {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) { // a capture upload ran past its body limit
+		return problem.New(http.StatusRequestEntityTooLarge, problem.CodePayloadTooLarge,
+			fmt.Sprintf("request body exceeds %d bytes", tooLarge.Limit))
+	}
 	for _, p := range problems {
 		if errors.Is(err, p.err) {
 			detail := p.detail

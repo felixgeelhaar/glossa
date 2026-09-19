@@ -63,3 +63,35 @@ glossa_context_builds_total{outcome="stored",source="plugin"} 1
 		t.Errorf("coverage = %v", ratios)
 	}
 }
+
+func TestPrometheusRecordsCaptureUploadsAndCaptureCoverage(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	m := metrics.New(reg)
+	tenant, project := tenancy.NewID(), uuid.New()
+	m.CapturesIngested(tenant, 3, 40, 2, 1, 5000)
+	m.CapturesIngested(tenant, 1, 2, 0, 1, 0)
+	m.CaptureCoverage(tenant, project, 4, 1)
+	tl := `tenant="` + tenant.String() + `"`
+	want := `
+# HELP glossa_context_capture_bytes_stored_total Bytes of re-encoded capture images written to object storage, per tenant (retention deletes some later).
+# TYPE glossa_context_capture_bytes_stored_total counter
+glossa_context_capture_bytes_stored_total{` + tl + `} 5000
+# HELP glossa_context_capture_images_total Capture images uploaded, per tenant, by outcome (stored, deduplicated: the same pixels were stored already).
+# TYPE glossa_context_capture_images_total counter
+glossa_context_capture_images_total{outcome="deduplicated",` + tl + `} 2
+glossa_context_capture_images_total{outcome="stored",` + tl + `} 2
+# HELP glossa_context_captures_ingested_total Captures stored by capture uploads, per tenant.
+# TYPE glossa_context_captures_ingested_total counter
+glossa_context_captures_ingested_total{` + tl + `} 4
+# HELP glossa_context_regions_ingested_total Regions stored by capture uploads, per tenant.
+# TYPE glossa_context_regions_ingested_total counter
+glossa_context_regions_ingested_total{` + tl + `} 42
+`
+	if err := testutil.GatherAndCompare(reg, strings.NewReader(want), "glossa_context_capture_bytes_stored_total",
+		"glossa_context_capture_images_total", "glossa_context_captures_ingested_total", "glossa_context_regions_ingested_total"); err != nil {
+		t.Error(err)
+	}
+	if n, err := testutil.GatherAndCount(reg, "glossa_context_capture_coverage_ratio"); err != nil || n != 1 {
+		t.Errorf("capture coverage series = %d, %v", n, err)
+	}
+}

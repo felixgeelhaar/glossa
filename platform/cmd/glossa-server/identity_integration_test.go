@@ -79,10 +79,13 @@ func startServerWith(t *testing.T, extra map[string]string) *server {
 	return &server{t: t, base: "http://" + addr, logs: logs, db: env, stop: stop}
 }
 
-// call is one request; cookie, csrf and bearer are optional.
+// call is one request; cookie, csrf and bearer are optional. raw is a
+// body sent as it is, with contentType, instead of body as JSON.
 type call struct {
 	method, path string
 	body         any
+	raw          []byte
+	contentType  string
 	cookie       string
 	csrf         string
 	bearer       string
@@ -109,12 +112,18 @@ func (s *server) do(c call) reply {
 		}
 		body = bytes.NewReader(b)
 	}
+	if c.raw != nil {
+		body = bytes.NewReader(c.raw)
+	}
 	req, err := http.NewRequest(c.method, s.base+c.path, body)
 	if err != nil {
 		s.t.Fatal(err)
 	}
 	if c.body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if c.raw != nil {
+		req.Header.Set("Content-Type", c.contentType)
 	}
 	if c.cookie != "" {
 		req.Header.Set("Cookie", "__Host-glossa_session="+c.cookie)

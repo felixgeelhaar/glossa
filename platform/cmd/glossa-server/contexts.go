@@ -19,6 +19,7 @@ import (
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	contextcatalog "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/catalog"
 	contextapi "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/httpapi"
+	"github.com/felixgeelhaar/glossa/platform/internal/context/adapters/imaging"
 	contextmetrics "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/metrics"
 	contextpg "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/postgres"
 	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
@@ -96,6 +97,10 @@ type contexts struct {
 // in bursts of up to 60 (a CI run uploads a few per application).
 const contextUploadTimeout = 2 * time.Minute
 
+// captureUploadTimeout bounds reading a capture upload: up to
+// contextdomain.MaxCaptureUploadBytes (200 MB) of images from CI.
+const captureUploadTimeout = 10 * time.Minute
+
 func contextUploadLimit() ratelimit.Config {
 	return ratelimit.Config{Rate: 10, Interval: time.Minute, Burst: 60}
 }
@@ -158,7 +163,8 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	usageContext := contextapp.New(contextpg.NewTransactor(uow), contextcatalog.New(catalog),
 		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger),
-		contextapp.WithLimiter(ratelimit.New(contextUploadLimit())), contextapp.WithMetrics(contextmetrics.New(deps.registerer)))
+		contextapp.WithLimiter(ratelimit.New(contextUploadLimit())), contextapp.WithMetrics(contextmetrics.New(deps.registerer)),
+		contextapp.WithImages(deps.objects, imaging.New("", imaging.DefaultConcurrency)))
 	if err := usageContext.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
@@ -206,13 +212,16 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 }
 
 // largeBodies lets import uploads and export downloads stream files
-// larger and longer than the API's default body limit and timeouts, and
-// usage uploads reach the 20 MB of a usages document.
+// larger and longer than the API's default body limit and timeouts,
+// usage uploads reach the 20 MB of a usages document, and capture
+// uploads the 200 MB of a manifest with its images.
 func largeBodies(cfg config.Integration) func(*http.Request) (httpserver.BodyPolicy, bool) {
 	return func(r *http.Request) (httpserver.BodyPolicy, bool) {
 		switch {
 		case contextapi.UploadPath(r.Method, r.URL.Path):
 			return httpserver.BodyPolicy{MaxBytes: contextdomain.MaxUploadBytes, Timeout: contextUploadTimeout}, true
+		case contextapi.CaptureUploadPath(r.Method, r.URL.Path):
+			return httpserver.BodyPolicy{MaxBytes: contextdomain.MaxCaptureUploadBytes, Timeout: captureUploadTimeout}, true
 		case integrationapi.UploadPath(r.Method, r.URL.Path):
 			// The service enforces GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES
 			// while it streams, with its own problem code.

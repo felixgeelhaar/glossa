@@ -5240,6 +5240,182 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenants/{tenant}/projects/{project}/captures:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    post:
+      operationId: createCaptures
+      tags: [context]
+      summary: Upload a build's captures (glossa capture --upload)
+      description: |
+        A `multipart/form-data` body: first a part named `manifest`
+        (`application/json`), one `glossa.captures/v1` manifest as
+        `glossa capture` writes it (schema:
+        `runtimes/testdata/schemas/captures.v1.schema.json`), then one
+        part per distinct image, named by the lowercase hex SHA-256 of
+        its bytes as `captures[].image.sha256` references it, with
+        `Content-Type: image/png`. Every referenced image has exactly one
+        part and every part is referenced.
+
+        The manifest is validated by the schema's rules like a usages
+        document (members it doesn't define are ignored within v1) and
+        the server's: at most 500 captures, one per route, viewport and
+        locale; at most 10 000 regions each; viewports of at most
+        10 000 CSS pixels a side; every region `index` names an entry of
+        its `renders`. Region boxes are stored as the whole CSS pixels
+        that cover them. Each image must be the PNG its part name and
+        manifest entry say — at most 10 MB and 40 megapixels — and is
+        re-encoded without metadata before it is stored; the same pixels
+        are stored once per project (`images_deduplicated`). The whole
+        body is at most 200 MB: split a larger capture plan over several
+        uploads (one per application, or per locale).
+
+        The upload records a build with `source` `capture`: whether it is
+        of the default branch is the project's `settings.default_branch`.
+        Region keys are resolved to message IDs now; the keys the catalog
+        doesn't know are stored and listed in `unknown_keys`. An upload is
+        idempotent by application, commit and the SHA-256 of the
+        manifest's RFC 8785 canonical form (without undefined members):
+        the same manifest again answers `200` with the first upload's
+        build and `Idempotent-Replayed: true`, without reading its images.
+
+        Uploads share the per-tenant limit of usage uploads (10 a minute,
+        bursts of 60). Needs `catalog.write` (developers, `write` tokens:
+        CI). Problem codes: `invalid_request` (not a multipart body),
+        `invalid_captures` (a malformed body or manifest, or parts that
+        don't match it), `too_many_captures`, `too_many_regions`,
+        `invalid_image`, `unknown_application` (400),
+        `payload_too_large`, `image_too_large` (413), `rate_limited`
+        (429), `storage_unavailable` (503).
+      x-glossa-idempotency: >-
+        An upload is identified by its application, commit, source (capture) and manifest digest; repeating one
+        returns the first build (200, Idempotent-Replayed) instead of storing a second.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [manifest]
+              properties:
+                manifest: { $ref: "#/components/schemas/CapturesManifest" }
+              additionalProperties:
+                description: One PNG per distinct image, the part named by its lowercase hex SHA-256.
+                type: string
+                format: binary
+            encoding:
+              manifest: { contentType: application/json }
+      responses:
+        "200":
+          description: The same manifest was uploaded before; its build.
+          headers:
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaptureUpload" }
+        "201":
+          description: The build with its captures, stored.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaptureUpload" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/CapturePath"
+    get:
+      operationId: getCaptureImage
+      tags: [context]
+      summary: A capture's image
+      description: |
+        The re-encoded PNG, read through the API (the object store never
+        hands out a URL). It is content-addressed and never changes:
+        `ETag` is its SHA-256 and it may be cached privately for a year;
+        `If-None-Match` with that `ETag` answers `304`. Needs
+        `catalog.read`. Problem codes: `not_found` (404; also when
+        retention deleted the image), `storage_unavailable` (503).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - name: If-None-Match
+          in: header
+          required: false
+          description: The `ETag` of a cached copy.
+          schema: { type: string, maxLength: 256 }
+      responses:
+        "200":
+          description: The image.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Cache-Control: { $ref: "#/components/headers/ImmutableCacheControl" }
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        "304":
+          description: The cached copy is the image.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Cache-Control: { $ref: "#/components/headers/ImmutableCacheControl" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/captures:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+    get:
+      operationId: listMessageCaptures
+      tags: [context]
+      summary: Where a message appears on screen (its current captures)
+      description: |
+        The captures in the current builds (see `listMessageUsages`;
+        `branch` selects a branch view with the default branch's
+        fallback) that show the message the key names now, each with the
+        message's regions on it (`visible` false: it rendered zero-size
+        or off-screen) and the API path of its image. The default
+        branch's captures come first, then by application, route, locale
+        and the widest viewport; `truncated` says more than `limit`
+        exist. Boxes are CSS pixels from the page's top left; the image
+        is `image.width / viewport.width` times larger (the device scale
+        factor). Needs `catalog.read`. Problem codes: `invalid_branch`
+        (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/ContextBranch"
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+      responses:
+        "200":
+          description: The message's current captures.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageCaptures" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     session:
@@ -5385,6 +5561,12 @@ components:
       required: true
       description: An export job `id`.
       schema: { $ref: "#/components/schemas/Id" }
+    CapturePath:
+      name: capture
+      in: path
+      required: true
+      description: A capture `id`.
+      schema: { $ref: "#/components/schemas/Id" }
     ContextBranch:
       name: branch
       in: query
@@ -5442,6 +5624,9 @@ components:
       schema: { type: string }
     Location:
       description: URL of the created resource.
+      schema: { type: string }
+    ImmutableCacheControl:
+      description: "`private, max-age=31536000, immutable`: content-addressed, never changes."
       schema: { type: string }
     IdempotentReplayed:
       description: "`true` when this response replays an earlier request with the same `Idempotency-Key`."
@@ -8090,3 +8275,178 @@ components:
           description: The builds considered; 0 means nothing was uploaded yet.
         active_messages: { type: integer, minimum: 0 }
         unused_messages: { type: integer, minimum: 0 }
+    CapturesManifest:
+      type: object
+      description: |
+        A `glossa.captures/v1` manifest (RFC 0004 §3.1–§3.3), the
+        `manifest` part of a capture upload: one application at one
+        commit, one capture per route, viewport and locale. Its JSON
+        Schema, `runtimes/testdata/schemas/captures.v1.schema.json`, has
+        every rule and is the published contract, so its member names
+        are kept as they are (`deviceScaleFactor`).
+      required: [schema, application, commit, branch, tool, captures]
+      properties:
+        schema: { type: string, enum: [glossa.captures/v1] }
+        application:
+          type: string
+          description: The application's slug in the project.
+          pattern: "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+        commit:
+          type: string
+          description: The full commit ID in lowercase hex (SHA-1 or SHA-256).
+          pattern: "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        branch: { type: string, minLength: 1, maxLength: 255, description: The short branch name. }
+        tool: { $ref: "#/components/schemas/UsagesTool" }
+        captures:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: "#/components/schemas/CapturesManifestCapture" }
+    CapturesManifestCapture:
+      type: object
+      required: [route, url, viewport, locale, image, renders, regions]
+      properties:
+        route: { type: string, maxLength: 1024, description: "The route pattern from the capture plan: `/checkout/[step]`." }
+        url: { type: string, maxLength: 2048, description: "The concrete URL navigated to; informational, never fetched." }
+        viewport:
+          type: object
+          required: [width, height]
+          properties:
+            width: { type: integer, minimum: 1, maximum: 10000 }
+            height: { type: integer, minimum: 1, maximum: 10000 }
+            deviceScaleFactor: { type: number, exclusiveMinimum: 0, maximum: 4, description: Defaults to 1. }
+        locale: { type: string, maxLength: 35, description: The locale the page was rendered in (BCP 47). }
+        image:
+          type: object
+          required: [sha256, width, height]
+          properties:
+            sha256:
+              type: string
+              pattern: "^[0-9a-f]{64}$"
+              description: Lowercase hex SHA-256 of the uploaded PNG; the name of its part.
+            width: { type: integer, minimum: 1, maximum: 65535 }
+            height: { type: integer, minimum: 1, maximum: 65535 }
+        renders:
+          type: array
+          description: The session's render log; every region `index` names one entry.
+          items: { $ref: "#/components/schemas/CapturesManifestRender" }
+        regions:
+          type: array
+          maxItems: 10000
+          items: { $ref: "#/components/schemas/CapturesManifestRegion" }
+    CapturesManifestRender:
+      type: object
+      required: [index, key, locale]
+      properties:
+        index: { type: integer, minimum: 0 }
+        key: { $ref: "#/components/schemas/MessageKey" }
+        locale: { type: string, maxLength: 35, description: The locale the message resolved from. }
+    CapturesManifestRegion:
+      type: object
+      description: Where a rendered message is, by `key` (a component's host element) or by `index` into `renders` (a marked t() string); exactly one of them.
+      required: [kind, box, visible]
+      properties:
+        key: { $ref: "#/components/schemas/MessageKey" }
+        index: { type: integer, minimum: 0 }
+        kind: { $ref: "#/components/schemas/CaptureRegionKind" }
+        attribute: { type: string, maxLength: 64, description: "For kind `attribute`: the attribute's name (`placeholder`, `title`, `aria-label`)." }
+        box:
+          type: object
+          description: CSS pixels from the page's top left, fractional as measured.
+          required: [x, y, width, height]
+          properties:
+            x: { type: number }
+            y: { type: number }
+            width: { type: number, minimum: 0 }
+            height: { type: number, minimum: 0 }
+        visible: { type: boolean, description: false when the message rendered zero-size or off-screen. }
+    CaptureRegionKind:
+      type: string
+      description: |
+        How the box was found: `element` (a component-rendered message:
+        its host element), `text` (a marked t() string: its text's
+        rects), `attribute` (a message in an attribute: its element).
+      enum: [element, text, attribute]
+    CaptureUpload:
+      type: object
+      description: What a capture upload stored.
+      required: [build, captures, images_stored, images_deduplicated, unknown_keys]
+      properties:
+        build: { $ref: "#/components/schemas/ContextBuild" }
+        captures: { type: integer, minimum: 0, description: The build's captures. }
+        images_stored:
+          type: integer
+          minimum: 0
+          description: Images written to storage (0 on a replay).
+        images_deduplicated:
+          type: integer
+          minimum: 0
+          description: Images whose pixels the project had stored already (0 on a replay).
+        unknown_keys:
+          type: array
+          description: The region keys the catalog doesn't know, in order (stored without a message).
+          items: { type: string }
+    CaptureViewport:
+      type: object
+      required: [width, height]
+      properties:
+        width: { type: integer, description: CSS pixels. }
+        height: { type: integer, description: CSS pixels. }
+    CaptureImage:
+      type: object
+      required: [digest, width, height, url]
+      properties:
+        digest: { type: string, description: SHA-256 (hex) of the stored (re-encoded) PNG; its `ETag`. }
+        width: { type: integer, description: Pixels. }
+        height: { type: integer, description: Pixels. }
+        url: { type: string, description: "The image's API path (`getCaptureImage`), relative to the server." }
+    CaptureBox:
+      type: object
+      description: Whole CSS pixels from the page's top left (covering the measured box); off-screen boxes may be negative.
+      required: [x, y, width, height]
+      properties:
+        x: { type: integer }
+        y: { type: integer }
+        width: { type: integer, minimum: 0 }
+        height: { type: integer, minimum: 0 }
+    CaptureRegion:
+      type: object
+      required: [kind, box, visible]
+      properties:
+        kind: { $ref: "#/components/schemas/CaptureRegionKind" }
+        box: { $ref: "#/components/schemas/CaptureBox" }
+        visible:
+          type: boolean
+          description: false when the message rendered zero-size or off-screen.
+    MessageCapture:
+      type: object
+      description: A capture that shows a message, with the message's regions on it.
+      required: [id, build_id, application_id, commit, branch, on_default_branch, route, viewport, locale, image,
+                 regions, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        build_id: { $ref: "#/components/schemas/Id" }
+        application_id: { $ref: "#/components/schemas/Id" }
+        commit: { type: string }
+        branch: { type: string }
+        on_default_branch: { type: boolean }
+        route: { type: string }
+        viewport: { $ref: "#/components/schemas/CaptureViewport" }
+        locale: { type: string }
+        image: { $ref: "#/components/schemas/CaptureImage" }
+        regions:
+          type: array
+          items: { $ref: "#/components/schemas/CaptureRegion" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    MessageCaptures:
+      type: object
+      required: [message_id, key, captures, truncated]
+      properties:
+        message_id: { $ref: "#/components/schemas/Id" }
+        key: { $ref: "#/components/schemas/MessageKey" }
+        captures:
+          type: array
+          items: { $ref: "#/components/schemas/MessageCapture" }
+        truncated:
+          type: boolean
+          description: More captures exist than `limit`.
