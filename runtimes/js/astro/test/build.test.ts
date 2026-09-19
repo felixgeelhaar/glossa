@@ -2,8 +2,10 @@
  * Builds test/fixture with `astro build` (static output, Vue islands,
  * i18n routing) and checks what ships: translated HTML from the build-time
  * release, islands rendered on the server with the page's runtime, and the
- * inline release slice they hydrate from. Needs `pnpm build` first (the
- * fixture uses ../../dist, like an installed package).
+ * inline release slice they hydrate from. The same site built for a
+ * preview environment gets the overlay loader; the production build has
+ * none of it (RFC 0004 §5.1). Needs `pnpm build` first (the fixture uses
+ * ../../dist, like an installed package).
  */
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -13,6 +15,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { beforeAll, describe, expect, it } from "vitest";
+
+import { LOADER_ATTRIBUTE, OVERLAY_PATH } from "@glossa/runtime/dev";
 
 import { INLINE_ID } from "../src/page.js";
 import type { InlineRelease } from "../src/page.js";
@@ -46,6 +50,14 @@ const r = release("rel_42", 42, {
 
 const page = (path: string) => readFile(join(fixture, "dist", path), "utf8");
 
+async function files(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const nested = await Promise.all(
+    entries.map((e) => (e.isDirectory() ? files(join(dir, e.name)) : [join(dir, e.name)])),
+  );
+  return nested.flat();
+}
+
 const inlined = (html: string): InlineRelease | undefined => {
   const m = new RegExp(`<script type="application/json" id="${INLINE_ID}">(.*?)</script>`).exec(
     html,
@@ -53,25 +65,38 @@ const inlined = (html: string): InlineRelease | undefined => {
   return m ? (JSON.parse(m[1]!) as InlineRelease) : undefined;
 };
 
-beforeAll(async () => {
-  const dir = join(fixture, ".glossa-release");
+async function writeRelease(dir: string, rel: ReturnType<typeof release>) {
   await rm(dir, { recursive: true, force: true });
   await mkdir(join(dir, "a"), { recursive: true });
-  await writeFile(join(dir, "manifest.json"), JSON.stringify(r.manifest));
-  for (const [sha, bytes] of Object.entries(r.bytes)) {
+  await writeFile(join(dir, "manifest.json"), JSON.stringify(rel.manifest));
+  for (const [sha, bytes] of Object.entries(rel.bytes)) {
     await writeFile(join(dir, "a", `${sha}.json`), bytes);
   }
-  await rm(join(fixture, ".glossa"), { recursive: true, force: true });
-  await promisify(execFile)(process.execPath, [astro, "build", "--root", fixture], {
+}
+
+const build = (environment?: string) =>
+  promisify(execFile)(process.execPath, [astro, "build", "--root", fixture], {
     env: {
       ...process.env,
       ASTRO_TELEMETRY_DISABLED: "1",
       // What names the build in CI (@glossa/unplugin reads them).
       GITHUB_SHA: COMMIT,
       GITHUB_HEAD_REF: "feat/astro-usages",
+      ...(environment ? { GLOSSA_FIXTURE_ENVIRONMENT: environment } : {}),
     },
   });
-}, 60_000);
+
+beforeAll(async () => {
+  await writeRelease(join(fixture, ".glossa-release"), r);
+  await writeRelease(join(fixture, ".glossa-release-preview"), {
+    ...r,
+    manifest: { ...r.manifest, environment: "preview" },
+  });
+  await rm(join(fixture, ".glossa"), { recursive: true, force: true });
+  // One after the other: both builds share the fixture's caches.
+  await build();
+  await build("preview");
+}, 120_000);
 
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 
@@ -144,6 +169,29 @@ describe("astro build with glossa()", () => {
       "terms src/components/Greeting.vue:11:34 component Greeting -",
     ]);
     expect(await readdir(join(fixture, "dist"))).not.toContain(".glossa");
+  });
+
+  it("the production build has no overlay loader and no overlay URL", async () => {
+    for (const f of await files(join(fixture, "dist"))) {
+      const code = await readFile(f, "utf8");
+      expect(code).not.toContain(LOADER_ATTRIBUTE);
+      expect(code).not.toContain(OVERLAY_PATH);
+    }
+  });
+
+  it("a preview build loads the overlay loader on every page, from a module script", async () => {
+    const out = join(fixture, "dist-preview");
+    const assets = await files(join(out, "_astro"));
+    const loaders = [];
+    for (const f of assets.filter((a) => a.endsWith(".js"))) {
+      if ((await readFile(f, "utf8")).includes(LOADER_ATTRIBUTE)) loaders.push(f.slice(out.length));
+    }
+    expect(loaders).toHaveLength(1);
+    for (const html of ["index.html", "en/index.html", "plain/index.html"]) {
+      const doc = await readFile(join(out, html), "utf8");
+      expect(doc).toContain(`<script type="module" src="${loaders[0]}"></script>`);
+      expect(doc).not.toContain(OVERLAY_PATH);
+    }
   });
 
   it("keeps the release out of client JavaScript", async () => {

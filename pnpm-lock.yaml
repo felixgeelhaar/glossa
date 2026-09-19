@@ -474,6 +474,9 @@ importers:
 
   runtimes/js/unplugin:
     dependencies:
+      '@glossa/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@jridgewell/trace-mapping':
         specifier: 0.3.31
         version: 0.3.31

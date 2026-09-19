@@ -8,8 +8,10 @@ serves Vite, Rollup, webpack and esbuild; Astro gets it from
 `glossa context push .glossa/usages.json` uploads it. That's how a
 translator learns where a string appears.
 
-The plugin **never makes network calls** and never changes your code. It
-needs no credentials, and builds stay reproducible.
+The plugin **never makes network calls** and never changes your code, except
+to add the in-product editor's loader to builds for a non-production Glossa
+environment ([below](#the-in-product-editors-loader)). It needs no
+credentials, and builds stay reproducible.
 
 ```ts
 // vite.config.ts
@@ -57,6 +59,10 @@ The other bundlers import from `@glossa/unplugin/rollup`,
 | `root` | Vite's `root`, webpack's `context`, esbuild's `absWorkingDir`, else the working directory | `file` paths are relative to it. Files outside it and in `node_modules` aren't reported. |
 | `keys` | none | The catalog's message keys, or a function returning them. They name the typed accessors from `glossa generate`; without them accessor calls aren't reported, every other shape is. |
 | `routes` | none | Route pattern → root-relative globs (`**` crosses directories, `*` doesn't). The first matching entry names a usage's route. Astro's `src/pages/**` routes need no entry. |
+| `usages` | `true` | `false` writes no `usages.json`, for a build that only wants the overlay loader. |
+| `environment` | none | The Glossa environment the build is deployed to (`production`, `preview`, `pr-7`…). The overlay loader needs it. |
+| `overlay` | on when `environment` is set and isn't `production` | Add the in-product editor's loader. `true` with `environment: "production"` fails the build; `false` leaves it out. |
+| `studio` | none; required while `overlay` is on | `{ origin, integrity, tenant, project, api? }`: Studio's origin, the overlay script's SRI hash from Studio's `/overlay/v1/overlay.json`, the tenant and project IDs, and the API origin when it isn't Studio's. |
 
 When the build can't be named (no application, commit or branch, say in a
 tarball without git), the plugin warns and writes nothing: the document
@@ -115,10 +121,59 @@ document, which is rewritten after each bundle is written. Separate
 `vite build` processes (say, client then `--ssr`) don't share one: the
 last overwrites it, so give each its own `outDir` and push both.
 
-## Not in this package yet
+## The in-product editor's loader
 
-The in-product editor's overlay loader (RFC 0004 §5.1) joins this plugin
-later, behind an `environment` option that is never `production`.
+Translators edit a running preview of the product through the overlay
+([RFC 0004 §5](../../../docs/rfcs/0004-context.md)), which Studio serves.
+A build for a preview environment gets a small loader for it
+([`@glossa/runtime/dev`](../runtime/README.md#glossaruntimedev-the-overlay-loader));
+a production build never does. Three layers keep it out of production:
+
+1. **Build time (this plugin).** The loader is added only when
+   `environment` is set and isn't `production`, whatever Vite's `mode` (static
+   previews are built in production mode too). `overlay: true` with
+   `environment: "production"` throws before the build starts, and so does an
+   overlay without `environment` or `studio`.
+2. **Runtime.** The loader does nothing until `?glossa=edit` or Alt+Shift+E,
+   and then only if every runtime on the page has loaded a release whose
+   (signed) manifest `environment` isn't `production`.
+3. **Delivery.** The overlay itself comes from Studio
+   (`/overlay/v1/overlay.js`), pinned by the SRI hash you give here, so a
+   production page's CSP never allows it.
+
+```ts
+// vite.config.ts of a preview deployment
+glossa({
+  environment: process.env.GLOSSA_ENVIRONMENT, // "preview", "pr-7"… or "production"
+  studio: {
+    origin: "https://studio.example.com",
+    integrity: "sha384-…", // from https://studio.example.com/overlay/v1/overlay.json
+    tenant: "ten_…",
+    project: "prj_…",
+  },
+});
+```
+
+The hash is an option, not fetched: the build stays offline and
+deterministic. When Studio ships a new overlay (its `overlay.json` has a new
+`version` and `integrity`), update the pin; until then the browser refuses the
+new script and the loader says so on the console.
+
+How the loader gets into the build (it needs no particular order: runtimes
+list themselves on the page, so it finds them whenever it runs):
+
+| Bundler | How |
+|---|---|
+| Vite | A `<script type="module">` for `virtual:glossa/overlay-loader` at the top of every HTML entry, bundled like your own scripts: no inline code for a CSP to allow. Works in `vite dev` too. |
+| Astro | [`@glossa/astro`](../astro/README.md) imports it in a page script. |
+| Rollup, Rolldown | An import appended to every entry module (appended, so no line moves). |
+| webpack | A global entry, which webpack adds to every entrypoint. |
+| esbuild | `inject`. |
+
+webpack and esbuild take the loader as a file: it's written to
+`node_modules/.cache/glossa/`, beside a `package.json` that marks it as having
+side effects.
+
 Per-route chunking waits for namespace routing in the SPEC.
 
 ## Development
@@ -131,3 +186,7 @@ pnpm --filter @glossa/unplugin test
 through a real `vite build` (and `vite build --ssr` for Vue, `astro build`
 for Astro), the TS/TSX cases also through Rollup, esbuild and webpack, and
 checks each `usages.json` against the JSON Schema and `expected.json`.
+`test/overlay.test.ts` builds a small app with Vite, Rollup, webpack and
+esbuild and scans the output: a preview build has the loader, a production
+build (or one without `environment`) has neither the loader nor the Studio
+overlay URL, and `overlay: true` in production fails.

@@ -2,3 +2,5 @@
 .astro/
 .glossa-release/
 .glossa/
+.glossa-release-preview/
+dist-preview/

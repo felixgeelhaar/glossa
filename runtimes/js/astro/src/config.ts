@@ -1,6 +1,6 @@
 /** Options of the `glossa()` integration, and what reaches the site's code. */
 import type { BundledRelease, PublicKey } from "@glossa/runtime";
-import type { GlossaPluginOptions } from "@glossa/unplugin";
+import type { GlossaPluginOptions, StudioOptions } from "@glossa/unplugin";
 
 import type { Routing } from "./routing.js";
 
@@ -44,6 +44,14 @@ export interface GlossaAstroOptions {
    * (`keys` defaults to the release's message keys). `false` turns it off.
    */
   usages?: false | GlossaPluginOptions;
+  /**
+   * The in-product editor's loader on every page (RFC 0004 §5.1). Default:
+   * on when `environment` isn't `production`, which then needs `studio`.
+   * `true` with `environment: "production"` fails the build.
+   */
+  overlay?: boolean;
+  /** What the overlay loader loads and edits; see `@glossa/unplugin`. */
+  studio?: StudioOptions;
 }
 
 /** `virtual:glossa/config`: public, so it's safe in client bundles. */

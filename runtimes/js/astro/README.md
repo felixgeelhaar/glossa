@@ -36,6 +36,8 @@ export default defineConfig({
 | `inline` | `"auto"` | Controls inlining of the page locale's release slice, the manifest plus that locale's fallback-chain artifacts, as `<script type="application/json" id="glossa-release">`: `"auto"` inlines it on pages that have islands or providers, `"always"` on every page, `"never"` nowhere. |
 | `elements` | `false` | Defines the elements on every page and makes `<glossa-provider>` without `edge` use the page runtime. |
 | `usages` | on | Where messages are used. `astro build` runs [`@glossa/unplugin`](../unplugin), which writes `.glossa/usages.json` beside `outDir` (not inside it, so it's never deployed) for `glossa context push`. The object goes to the plugin (`application`, `commit`, `branch`, `routes`, `keys`, which defaults to the release's message keys); `false` turns it off. Components are the `.astro`/`.vue` file names; routes come from `src/pages/**`. |
+| `overlay` | on when `environment` isn't `production` | The in-product editor's loader ([RFC 0004 §5.1](../../../docs/rfcs/0004-context.md)), imported by a page script on every page. `true` with `environment: "production"` fails the build; `false` leaves it out. See [`@glossa/unplugin`](../unplugin/README.md#the-in-product-editors-loader). |
+| `studio` | none; required while `overlay` is on | `{ origin, integrity, tenant, project, api? }`: where the overlay comes from (Studio's origin and the script's SRI hash from its `/overlay/v1/overlay.json`) and what it edits. |
 
 The release is loaded through `@glossa/runtime`, so the build verifies it the
 same way a browser would: schema, environment, the signature when keys are
@@ -96,10 +98,13 @@ const { t, locale, dir } = getGlossa(Astro);
 `pnpm test` runs the pure parts (routing, page rendering, streaming inline,
 release loading, the integration hooks) and one real `astro build` of
 `test/fixture`: a static site with i18n routing, a Vue island, elements, and a
-page without islands. The build takes about 15 s. It checks the translated HTML
+page without islands. The builds take about 25 s. It checks the translated HTML
 per locale, the islands' server rendering, the inline slice, that no
-client chunk contains the catalog, and the usages `@glossa/unplugin` wrote. Run `pnpm build` first, because the fixture
-uses `dist/` the way an installed package would.
+client chunk contains the catalog, and the usages `@glossa/unplugin` wrote. A second build of the same site for a
+`preview` environment checks that every page loads the overlay loader from a
+module script, and the production build that none of it is there. Run `pnpm
+build` first, because the fixture uses `dist/` the way an installed package
+would.
 
 ## Size
 

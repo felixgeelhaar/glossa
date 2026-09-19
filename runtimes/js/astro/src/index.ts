@@ -26,6 +26,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AstroConfig, AstroIntegration } from "astro";
 import type { BundledRelease } from "@glossa/runtime";
+import { LOADER_ID, overlayConfig } from "@glossa/unplugin";
+import type { GlossaPluginOptions } from "@glossa/unplugin";
 import glossaUsages from "@glossa/unplugin/vite";
 
 import type { GlossaAstroOptions, PublicConfig } from "./config.js";
@@ -75,14 +77,16 @@ export function usagesPlugin(
   options: GlossaAstroOptions["usages"],
   config: Pick<AstroConfig, "root" | "outDir">,
   release: BundledRelease | undefined,
+  overlay: Pick<GlossaPluginOptions, "environment" | "overlay" | "studio"> = {},
 ): VitePlugins {
-  if (options === false) return [];
+  if (options === false && !overlayConfig(overlay)) return [];
   return [
     glossaUsages({
       root: fileURLToPath(config.root),
       outDir: join(dirname(fileURLToPath(config.outDir)), ".glossa"),
       keys: releaseKeys(release),
-      ...options,
+      ...(options === false ? { usages: false } : options),
+      ...overlay,
     }),
   ];
 }
@@ -111,6 +115,9 @@ export default function glossa(options: GlossaAstroOptions = {}): AstroIntegrati
         logger,
       }) => {
         const environment = options.environment ?? "production";
+        // The overlay's build-time guard first: in production it throws.
+        const editor = { environment, overlay: options.overlay, studio: options.studio };
+        const loader = overlayConfig(editor);
         const src =
           typeof options.release === "string"
             ? resolve(fileURLToPath(config.root), options.release)
@@ -145,7 +152,7 @@ export default function glossa(options: GlossaAstroOptions = {}): AstroIntegrati
                 "virtual:glossa/config": pub,
                 "virtual:glossa/release": release ?? null,
               }),
-              ...usagesPlugin(options.usages, config, release),
+              ...usagesPlugin(options.usages, config, release, editor),
             ],
             // The package imports virtual modules, so Vite has to process it, not pre-bundle or externalize it.
             optimizeDeps: { exclude: ["@glossa/astro"] },
@@ -157,6 +164,7 @@ export default function glossa(options: GlossaAstroOptions = {}): AstroIntegrati
           const elements = fileURLToPath(new URL("./elements.js", import.meta.url));
           injectScript("page", `import ${JSON.stringify(elements)};`);
         }
+        if (loader) injectScript("page", `import ${JSON.stringify(LOADER_ID)};`);
       },
     },
   };

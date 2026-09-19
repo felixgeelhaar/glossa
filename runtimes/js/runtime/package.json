@@ -20,7 +20,8 @@
     "./dev": {
       "types": "./dist/dev.d.ts",
       "import": "./dist/dev.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"

@@ -106,6 +106,44 @@ describe("glossa()", () => {
     expect(names(off)).toEqual(["@glossa/astro:virtual"]);
   });
 
+  describe("the overlay loader (RFC 0004 §5.1)", () => {
+    const studio = {
+      origin: "https://studio.glossa.test",
+      integrity: `sha384-${"Q".repeat(64)}`,
+      tenant: "ten_1",
+      project: "prj_1",
+    };
+    const preview = { ...r, manifest: { ...r.manifest, environment: "preview" } };
+    const LOADER = 'import "virtual:glossa/overlay-loader";';
+
+    it("is on every page of a preview site, even with usages: false", async () => {
+      const calls = await setup({ release: preview, environment: "preview", studio, usages: false });
+      expect(calls.injectScript).toHaveBeenCalledWith("page", LOADER);
+      const plugins = calls.updateConfig.mock.calls[0]![0].vite.plugins as unknown[];
+      const names = plugins.flat().map((p) => (p as { name: string }).name);
+      expect(names).toEqual(["@glossa/astro:virtual", "@glossa/unplugin:overlay"]);
+    });
+
+    it("is never on a production site", async () => {
+      const calls = await setup({ release: r, studio });
+      expect(calls.injectScript).not.toHaveBeenCalled();
+    });
+
+    it("fails the build for overlay: true in production, before loading anything", async () => {
+      await expect(setup({ release: r, overlay: true, studio })).rejects.toThrow(
+        /never in a production build/,
+      );
+    });
+
+    it("needs studio on a preview site unless overlay: false", async () => {
+      await expect(setup({ release: preview, environment: "preview" })).rejects.toThrow(
+        /needs `studio`/,
+      );
+      const off = await setup({ release: preview, environment: "preview", overlay: false });
+      expect(off.injectScript).not.toHaveBeenCalled();
+    });
+  });
+
   it("warns and renders inline defaults when no release is configured", async () => {
     const calls = await setup({});
     expect(calls.logger.warn).toHaveBeenCalledWith(expect.stringContaining("inline defaults"));

@@ -14,6 +14,7 @@
  * output; `glossa context push .glossa/usages.json` uploads it.
  */
 export { glossa, glossa as default, unpluginFactory, PLUGIN_NAME } from "./plugin.js";
-export type { GlossaPluginOptions } from "./options.js";
+export type { GlossaPluginOptions, StudioOptions } from "./options.js";
+export { LOADER_ID, overlayConfig } from "./overlay.js";
 export type { Routes, Usage, UsageKind, UsagesDocument } from "./usage.js";
 export { accessorPaths } from "./keys.js";

@@ -19,6 +19,7 @@ import { Collector } from "./collector.js";
 import { stripQuery } from "./locate.js";
 import { accessorPaths } from "./keys.js";
 import type { GlossaPluginOptions } from "./options.js";
+import { overlayConfig, overlayPlugin } from "./overlay.js";
 import type { Node } from "./scan.js";
 import type { UsagesDocument } from "./usage.js";
 
@@ -211,11 +212,17 @@ function usagesPlugin(options: GlossaPluginOptions, meta: UnpluginContextMeta): 
 
 /**
  * The factory behind every bundler's plugin. Features are separate
- * plugins: the usage collector today; the in-product editor's overlay
- * loader (RFC 0004 §5.1, keyed on an `environment` option, never in
- * production) joins this list later.
+ * plugins: the usage collector (unless `usages: false`) and the in-product
+ * editor's overlay loader, which only a build for a non-production Glossa
+ * `environment` gets (RFC 0004 §5.1). Options that ask for the overlay in a
+ * production build throw here, so the build fails before it starts.
  */
-export const unpluginFactory: UnpluginFactory<GlossaPluginOptions | undefined, false> = (options = {}, meta) =>
-  usagesPlugin(options, meta);
+export const unpluginFactory: UnpluginFactory<GlossaPluginOptions | undefined> = (options = {}, meta) => {
+  const overlay = overlayConfig(options);
+  const plugins: UnpluginOptions[] = [];
+  if (options.usages !== false) plugins.push(usagesPlugin(options, meta));
+  if (overlay) plugins.push(overlayPlugin(overlay, meta));
+  return plugins.length === 1 ? plugins[0]! : plugins;
+};
 
 export const glossa = createUnplugin(unpluginFactory);
