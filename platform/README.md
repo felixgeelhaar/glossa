@@ -413,6 +413,18 @@ rename them): `localization.track_message` on every
 revision leaves behind, the trigger for re-translation (M2) and review
 routing.
 
+**Bulk reads.** `GET …/projects/{project}/translations?locale=de&locale=fr`
+lists translations across messages for 1–20 locales, ordered by
+message key, message ID and locale, each with the message's `key`,
+`namespace` and `message_state`, its `source_revision` and the derived
+`outdated`; filters: `state` (repeatable), `outdated`, `namespace`,
+`key_prefix`, `message_state`. It is one query per page: keyset
+pagination on `(key, message_id, locale)`, driven by the
+`localization_messages_project_order` index (0006; `(project_id, key,
+message_id) INCLUDE (namespace, state, source_revision)`) and the
+translations' `UNIQUE (message_id, locale)`, so a page costs the same
+at any depth. Translations of removed locales are not listed.
+
 Permissions: reads need `translations.read`; locales and the fallback
 graph `catalog.write`; writing a translation `translations.write` for
 its locale (translators and reviewers are limited to their locale scope,

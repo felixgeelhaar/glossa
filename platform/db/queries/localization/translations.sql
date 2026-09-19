@@ -105,6 +105,31 @@ LEFT JOIN localization_messages m ON m.message_id = t.message_id
 WHERE t.project_id = sqlc.arg(project_id) AND t.state = ANY (sqlc.arg(states)::text[])
 ORDER BY t.locale, t.message_id;
 
+-- name: PageProjectTranslations :many
+-- A project's translations in some locales, across messages, in
+-- (key, message_id, locale) order after the cursor. Driven by
+-- localization_messages_project_order; translations of locales the
+-- project no longer has are left out.
+SELECT t.*, m.key, m.namespace, m.state AS message_state, m.source_revision AS current_source_revision
+FROM localization_messages m
+JOIN localization_translations t ON t.message_id = m.message_id
+JOIN localization_locales l ON l.project_id = t.project_id AND l.code = t.locale
+WHERE m.project_id = sqlc.arg(project_id)
+  AND t.project_id = sqlc.arg(project_id)
+  AND t.locale = ANY (sqlc.arg(locales)::text[])
+  -- The first comparison is implied by the second; it is the one the
+  -- index can seek to, so a deep page doesn't rescan earlier keys.
+  AND (m.key, m.message_id) >= (sqlc.arg(after_key)::text, sqlc.arg(after_message)::uuid)
+  AND (m.key, m.message_id, t.locale) > (sqlc.arg(after_key)::text, sqlc.arg(after_message)::uuid,
+                                         sqlc.arg(after_locale)::text)
+  AND (sqlc.narg(states)::text[] IS NULL OR t.state = ANY (sqlc.narg(states)::text[]))
+  AND (sqlc.narg(outdated)::boolean IS NULL OR (t.source_revision < m.source_revision) = sqlc.narg(outdated))
+  AND (sqlc.narg(namespace)::text IS NULL OR m.namespace = sqlc.narg(namespace))
+  AND (sqlc.narg(message_state)::text IS NULL OR m.state = sqlc.narg(message_state))
+  AND (sqlc.narg(key_like)::text IS NULL OR m.key LIKE sqlc.narg(key_like))
+ORDER BY m.key, m.message_id, t.locale
+LIMIT sqlc.arg(max_rows);
+
 -- name: DeleteProjectTranslations :exec
 DELETE FROM localization_translations WHERE project_id = sqlc.arg(project_id);
 

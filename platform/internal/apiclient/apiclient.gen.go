@@ -1072,6 +1072,68 @@ type ProjectSettings struct {
 	ReviewRequired bool `json:"review_required"`
 }
 
+// ProjectTranslation A translation with the message it belongs to.
+type ProjectTranslation struct {
+	// Author Who wrote the current text.
+	Author string `json:"author"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CurrentSourceRevision The message's current source revision as Localization knows it.
+	CurrentSourceRevision int `json:"current_source_revision"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key MessageKey `json:"key"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// MessageId An opaque identifier.
+	MessageId    Id           `json:"message_id"`
+	MessageState MessageState `json:"message_state"`
+
+	// Model A message in the Unicode MessageFormat 2 data model, exactly as
+	// messageformat/testdata/unicode/data-model/message.schema.json
+	// defines it — the canonical form releases ship.
+	Model MF2Message `json:"model"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace Namespace `json:"namespace"`
+	Origin    Origin    `json:"origin"`
+
+	// Outdated `source_revision < current_source_revision`.
+	Outdated bool `json:"outdated"`
+	Revision int  `json:"revision"`
+
+	// SourceRevision The source revision the text was made against.
+	SourceRevision int         `json:"source_revision"`
+	State          ReviewState `json:"state"`
+
+	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	Syntax Syntax `json:"syntax"`
+	Text   string `json:"text"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp   `json:"updated_at"`
+	Warnings  []QAFinding `json:"warnings"`
+}
+
+// ProjectTranslationList defines model for ProjectTranslationList.
+type ProjectTranslationList struct {
+	Items         []ProjectTranslation `json:"items"`
+	NextPageToken *string              `json:"next_page_token,omitempty"`
+}
+
 // Promotion defines model for Promotion.
 type Promotion struct {
 	// ReleaseId An opaque identifier.
@@ -1937,6 +1999,30 @@ type GetReleaseDiffParams struct {
 // GetReleaseManifestParams defines parameters for GetReleaseManifest.
 type GetReleaseManifestParams struct {
 	Environment string `form:"environment" json:"environment"`
+}
+
+// ListProjectTranslationsParams defines parameters for ListProjectTranslations.
+type ListProjectTranslationsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Locale A locale to list; repeat for several (`locale=de&locale=fr`).
+	Locale []Locale `form:"locale" json:"locale"`
+
+	// State Only translations in these review states; repeatable.
+	State *[]ReviewState `form:"state,omitempty" json:"state,omitempty"`
+
+	// Outdated `true`: only outdated translations; `false`: only current ones.
+	Outdated  *bool      `form:"outdated,omitempty" json:"outdated,omitempty"`
+	Namespace *Namespace `form:"namespace,omitempty" json:"namespace,omitempty"`
+
+	// KeyPrefix Keys starting with this, e.g. `checkout.`.
+	KeyPrefix *string `form:"key_prefix,omitempty" json:"key_prefix,omitempty"`
+
+	// MessageState Only translations of `active` (or `obsolete`) messages.
+	MessageState *MessageState `form:"message_state,omitempty" json:"message_state,omitempty"`
 }
 
 // ListTokensParams defines parameters for ListTokens.
@@ -3295,6 +3381,24 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/translation-imports (the `ImportTranslations` operationId).
 	ImportTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, body ImportTranslationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProjectTranslations A project's translations in one or more locales, by key
+	//
+	// Every translation in the given locales (`locale`, repeatable, 1
+	// to 20), across messages, ordered by message key and then locale,
+	// with the message's `key`, `namespace` and `message_state`, the
+	// `source_revision` it was made against and the derived `outdated`.
+	// Filters combine: `state` (repeatable review states), `outdated`,
+	// `namespace`, `key_prefix` and `message_state`. Locales the
+	// project no longer has list nothing. Keys and namespaces come
+	// from Localization's view of the catalog, current once Catalog's
+	// events are processed (usually within a second). One query per
+	// page. Needs `translations.read`. Problem codes: `invalid_locale`,
+	// `too_many_locales`, `invalid_state`, `invalid_message_state`
+	// (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
+	ListProjectTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListTokens API tokens, including revoked ones
 	//
@@ -5576,6 +5680,34 @@ func (c *Client) ImportTranslationsWithBody(ctx context.Context, tenant TenantPa
 // Corresponds with POST /v1/tenants/{tenant}/projects/{project}/translation-imports (the `ImportTranslations` operationId).
 func (c *Client) ImportTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, body ImportTranslationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewImportTranslationsRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListProjectTranslations A project's translations in one or more locales, by key
+//
+// Every translation in the given locales (`locale`, repeatable, 1
+// to 20), across messages, ordered by message key and then locale,
+// with the message's `key`, `namespace` and `message_state`, the
+// `source_revision` it was made against and the derived `outdated`.
+// Filters combine: `state` (repeatable review states), `outdated`,
+// `namespace`, `key_prefix` and `message_state`. Locales the
+// project no longer has list nothing. Keys and namespaces come
+// from Localization's view of the catalog, current once Catalog's
+// events are processed (usually within a second). One query per
+// page. Needs `translations.read`. Problem codes: `invalid_locale`,
+// `too_many_locales`, `invalid_state`, `invalid_message_state`
+// (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
+func (c *Client) ListProjectTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectTranslationsRequest(c.Server, tenant, project, params)
 	if err != nil {
 		return nil, err
 	}
@@ -10056,6 +10188,158 @@ func NewImportTranslationsRequestWithBody(server string, tenant TenantPath, proj
 	return req, nil
 }
 
+// NewListProjectTranslationsRequest constructs an http.Request for the ListProjectTranslations method
+func NewListProjectTranslationsRequest(server string, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/translations", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Outdated != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "outdated", *params.Outdated, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Namespace != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "namespace", *params.Namespace, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.KeyPrefix != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "key_prefix", *params.KeyPrefix, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.MessageState != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message_state", *params.MessageState, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListTokensRequest constructs an http.Request for the ListTokens method
 func NewListTokensRequest(server string, tenant TenantPath, params *ListTokensParams) (*http.Request, error) {
 	var err error
@@ -11561,6 +11845,26 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/translation-imports (the `ImportTranslations` operationId).
 	ImportTranslationsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body ImportTranslationsJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportTranslationsResponse, error)
+
+	// ListProjectTranslationsWithResponse A project's translations in one or more locales, by key
+	//
+	// Every translation in the given locales (`locale`, repeatable, 1
+	// to 20), across messages, ordered by message key and then locale,
+	// with the message's `key`, `namespace` and `message_state`, the
+	// `source_revision` it was made against and the derived `outdated`.
+	// Filters combine: `state` (repeatable review states), `outdated`,
+	// `namespace`, `key_prefix` and `message_state`. Locales the
+	// project no longer has list nothing. Keys and namespaces come
+	// from Localization's view of the catalog, current once Catalog's
+	// events are processed (usually within a second). One query per
+	// page. Needs `translations.read`. Problem codes: `invalid_locale`,
+	// `too_many_locales`, `invalid_state`, `invalid_message_state`
+	// (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
+	ListProjectTranslationsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*ListProjectTranslationsResponse, error)
 
 	// ListTokensWithResponse API tokens, including revoked ones
 	//
@@ -16908,6 +17212,75 @@ func (r ImportTranslationsResponse) ContentType() string {
 	return ""
 }
 
+type ListProjectTranslationsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ProjectTranslationList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListProjectTranslationsResponse) GetJSON200() *ProjectTranslationList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListProjectTranslationsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListProjectTranslationsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListProjectTranslationsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListProjectTranslationsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListProjectTranslationsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectTranslationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectTranslationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectTranslationsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListTokensResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -19062,6 +19435,32 @@ func (c *ClientWithResponses) ImportTranslationsWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseImportTranslationsResponse(rsp)
+}
+
+// ListProjectTranslationsWithResponse A project's translations in one or more locales, by key
+//
+// Every translation in the given locales (`locale`, repeatable, 1
+// to 20), across messages, ordered by message key and then locale,
+// with the message's `key`, `namespace` and `message_state`, the
+// `source_revision` it was made against and the derived `outdated`.
+// Filters combine: `state` (repeatable review states), `outdated`,
+// `namespace`, `key_prefix` and `message_state`. Locales the
+// project no longer has list nothing. Keys and namespaces come
+// from Localization's view of the catalog, current once Catalog's
+// events are processed (usually within a second). One query per
+// page. Needs `translations.read`. Problem codes: `invalid_locale`,
+// `too_many_locales`, `invalid_state`, `invalid_message_state`
+// (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
+func (c *ClientWithResponses) ListProjectTranslationsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*ListProjectTranslationsResponse, error) {
+	rsp, err := c.ListProjectTranslations(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectTranslationsResponse(rsp)
 }
 
 // ListTokensWithResponse API tokens, including revoked ones
@@ -23636,6 +24035,60 @@ func ParseImportTranslationsResponse(rsp *http.Response) (*ImportTranslationsRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest TranslationImportResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectTranslationsResponse parses an HTTP response from a ListProjectTranslationsWithResponse call
+func ParseListProjectTranslationsResponse(rsp *http.Response) (*ListProjectTranslationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectTranslationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectTranslationList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

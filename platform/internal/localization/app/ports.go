@@ -136,6 +136,9 @@ type Store interface {
 	// revision in [old, new).
 	NewlyOutdated(ctx context.Context, message uuid.UUID, old, new int) ([]domain.Translation, error)
 	SnapshotTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState) ([]TranslationRow, error)
+	// ProjectTranslations lists translations across a project's messages
+	// in (key, message ID, locale) order after q.After, in one query.
+	ProjectTranslations(ctx context.Context, project uuid.UUID, q ProjectTranslationQuery) ([]ProjectTranslationRow, error)
 
 	DeleteProjectData(ctx context.Context, project uuid.UUID) error
 

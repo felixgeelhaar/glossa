@@ -537,6 +537,122 @@ func (q *Queries) NewlyOutdatedTranslations(ctx context.Context, arg NewlyOutdat
 	return items, nil
 }
 
+const pageProjectTranslations = `-- name: PageProjectTranslations :many
+SELECT t.id, t.tenant_id, t.project_id, t.message_id, t.locale, t.syntax, t.text, t.model, t.state, t.origin, t.author, t.source_revision, t.warnings, t.revision, t.created_at, t.updated_at, m.key, m.namespace, m.state AS message_state, m.source_revision AS current_source_revision
+FROM localization_messages m
+JOIN localization_translations t ON t.message_id = m.message_id
+JOIN localization_locales l ON l.project_id = t.project_id AND l.code = t.locale
+WHERE m.project_id = $1
+  AND t.project_id = $1
+  AND t.locale = ANY ($2::text[])
+  -- The first comparison is implied by the second; it is the one the
+  -- index can seek to, so a deep page doesn't rescan earlier keys.
+  AND (m.key, m.message_id) >= ($3::text, $4::uuid)
+  AND (m.key, m.message_id, t.locale) > ($3::text, $4::uuid,
+                                         $5::text)
+  AND ($6::text[] IS NULL OR t.state = ANY ($6::text[]))
+  AND ($7::boolean IS NULL OR (t.source_revision < m.source_revision) = $7)
+  AND ($8::text IS NULL OR m.namespace = $8)
+  AND ($9::text IS NULL OR m.state = $9)
+  AND ($10::text IS NULL OR m.key LIKE $10)
+ORDER BY m.key, m.message_id, t.locale
+LIMIT $11
+`
+
+type PageProjectTranslationsParams struct {
+	ProjectID    uuid.UUID
+	Locales      []string
+	AfterKey     string
+	AfterMessage uuid.UUID
+	AfterLocale  string
+	States       []string
+	Outdated     pgtype.Bool
+	Namespace    pgtype.Text
+	MessageState pgtype.Text
+	KeyLike      pgtype.Text
+	MaxRows      int32
+}
+
+type PageProjectTranslationsRow struct {
+	ID                    uuid.UUID
+	TenantID              uuid.UUID
+	ProjectID             uuid.UUID
+	MessageID             uuid.UUID
+	Locale                string
+	Syntax                string
+	Text                  string
+	Model                 json.RawMessage
+	State                 string
+	Origin                string
+	Author                string
+	SourceRevision        int32
+	Warnings              json.RawMessage
+	Revision              int32
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	Key                   string
+	Namespace             string
+	MessageState          string
+	CurrentSourceRevision int32
+}
+
+// A project's translations in some locales, across messages, in
+// (key, message_id, locale) order after the cursor. Driven by
+// localization_messages_project_order; translations of locales the
+// project no longer has are left out.
+func (q *Queries) PageProjectTranslations(ctx context.Context, arg PageProjectTranslationsParams) ([]PageProjectTranslationsRow, error) {
+	rows, err := q.db.Query(ctx, pageProjectTranslations,
+		arg.ProjectID,
+		arg.Locales,
+		arg.AfterKey,
+		arg.AfterMessage,
+		arg.AfterLocale,
+		arg.States,
+		arg.Outdated,
+		arg.Namespace,
+		arg.MessageState,
+		arg.KeyLike,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PageProjectTranslationsRow
+	for rows.Next() {
+		var i PageProjectTranslationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ProjectID,
+			&i.MessageID,
+			&i.Locale,
+			&i.Syntax,
+			&i.Text,
+			&i.Model,
+			&i.State,
+			&i.Origin,
+			&i.Author,
+			&i.SourceRevision,
+			&i.Warnings,
+			&i.Revision,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Key,
+			&i.Namespace,
+			&i.MessageState,
+			&i.CurrentSourceRevision,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const snapshotTranslations = `-- name: SnapshotTranslations :many
 SELECT t.id, t.tenant_id, t.project_id, t.message_id, t.locale, t.syntax, t.text, t.model, t.state, t.origin, t.author, t.source_revision, t.warnings, t.revision, t.created_at, t.updated_at, coalesce(m.source_revision, 0)::integer AS current_source_revision
 FROM localization_translations t

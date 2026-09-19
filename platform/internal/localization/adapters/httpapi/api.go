@@ -184,6 +184,44 @@ func (a *API) ListMessageTranslations(ctx context.Context, req apiv1.ListMessage
 	return out, nil
 }
 
+func (a *API) ListProjectTranslations(ctx context.Context, req apiv1.ListProjectTranslationsRequestObject) (apiv1.ListProjectTranslationsResponseObject, error) {
+	project, err := projectID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	page, err := pagination.Parse(req.Params.PageSize, req.Params.PageToken)
+	if err != nil {
+		return nil, err
+	}
+	f := app.TranslationFilter{Locales: req.Params.Locale, Outdated: req.Params.Outdated, Namespace: req.Params.Namespace}
+	if req.Params.State != nil {
+		for _, st := range *req.Params.State {
+			f.States = append(f.States, string(st))
+		}
+	}
+	if req.Params.KeyPrefix != nil {
+		f.KeyPrefix = *req.Params.KeyPrefix
+	}
+	if req.Params.MessageState != nil {
+		f.MessageState = apiconv.Ptr(string(*req.Params.MessageState))
+	}
+	ts, next, err := a.svc.ListProjectTranslations(ctx, project, f, page)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := apiv1.ListProjectTranslations200JSONResponse{Items: make([]apiv1.ProjectTranslation, len(ts)), NextPageToken: next}
+	for i, t := range ts {
+		v := toTranslation(t.TranslationView)
+		out.Items[i] = apiv1.ProjectTranslation{
+			Id: v.Id, MessageId: v.MessageId, Key: t.Key, Namespace: t.Namespace, MessageState: apiv1.MessageState(t.MessageState),
+			Locale: v.Locale, Text: v.Text, Syntax: v.Syntax, Model: v.Model, State: v.State, Origin: v.Origin,
+			Author: v.Author, SourceRevision: v.SourceRevision, CurrentSourceRevision: v.CurrentSourceRevision,
+			Outdated: v.Outdated, Warnings: v.Warnings, Revision: v.Revision, CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt,
+		}
+	}
+	return out, nil
+}
+
 func (a *API) GetTranslation(ctx context.Context, req apiv1.GetTranslationRequestObject) (apiv1.GetTranslationResponseObject, error) {
 	project, err := projectID(req.Project)
 	if err != nil {

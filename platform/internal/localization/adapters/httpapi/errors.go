@@ -31,6 +31,8 @@ var problems = []struct {
 	{app.ErrPreconditionRequired, 428, problem.CodePreconditionRequired, "send If-Match with the resource's ETag"},
 	{domain.ErrReviewForbidden, 403, "review_forbidden", ""},
 	{app.ErrTooManyItems, 400, "too_many_items", "send 1 to 500 items"},
+	{app.ErrLocaleCount, 400, "too_many_locales", "list 1 to 20 locales"},
+	{app.ErrInvalidMessageState, 400, "invalid_message_state", ""},
 	{bcp47.ErrInvalid, 400, "invalid_locale", ""},
 	{mfcontent.ErrInvalidSyntax, 400, "invalid_syntax", ""},
 	{mfcontent.ErrTooLong, 400, "message_too_long", ""},

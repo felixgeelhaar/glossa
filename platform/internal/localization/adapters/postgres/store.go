@@ -431,6 +431,44 @@ func (s *store) SnapshotTranslations(ctx context.Context, project uuid.UUID, sta
 	return out, nil
 }
 
+func (s *store) ProjectTranslations(ctx context.Context, project uuid.UUID, q app.ProjectTranslationQuery) ([]app.ProjectTranslationRow, error) {
+	locales := make([]string, len(q.Locales))
+	for i, l := range q.Locales {
+		locales[i] = l.String()
+	}
+	var states []string // nil: any state
+	for _, st := range q.States {
+		states = append(states, string(st))
+	}
+	outdated := pgtype.Bool{}
+	if q.Outdated != nil {
+		outdated = pgtype.Bool{Bool: *q.Outdated, Valid: true}
+	}
+	rows, err := s.q.PageProjectTranslations(ctx, localizationsql.PageProjectTranslationsParams{
+		ProjectID: project, Locales: locales,
+		AfterKey: q.After.Key, AfterMessage: q.After.Message, AfterLocale: q.After.Locale,
+		States: states, Outdated: outdated, Namespace: optText(q.Namespace), MessageState: optText(q.MessageState),
+		KeyLike: likePattern(q.KeyPrefix), MaxRows: int32Of(q.Limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.ProjectTranslationRow, 0, len(rows))
+	for _, r := range rows {
+		tr, err := row(localizationsql.LocalizationTranslation{
+			ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, MessageID: r.MessageID, Locale: r.Locale,
+			Syntax: r.Syntax, Text: r.Text, Model: r.Model, State: r.State, Origin: r.Origin, Author: r.Author,
+			SourceRevision: r.SourceRevision, Warnings: r.Warnings, Revision: r.Revision,
+			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		}, r.CurrentSourceRevision)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, app.ProjectTranslationRow{TranslationRow: tr, Key: r.Key, Namespace: r.Namespace, MessageState: r.MessageState})
+	}
+	return out, nil
+}
+
 func (s *store) DeleteProjectData(ctx context.Context, project uuid.UUID) error {
 	for _, del := range []func(context.Context, uuid.UUID) error{
 		s.q.DeleteProjectTranslations, s.q.DeleteProjectMessages, s.q.DeleteProjectFallbackGraph, s.q.DeleteProjectLocales,

@@ -1763,6 +1763,84 @@ paths:
         "412": { $ref: "#/components/responses/PreconditionFailed" }
         "428": { $ref: "#/components/responses/PreconditionRequired" }
 
+  /v1/tenants/{tenant}/projects/{project}/translations:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listProjectTranslations
+      tags: [translations]
+      summary: A project's translations in one or more locales, by key
+      description: |
+        Every translation in the given locales (`locale`, repeatable, 1
+        to 20), across messages, ordered by message key and then locale,
+        with the message's `key`, `namespace` and `message_state`, the
+        `source_revision` it was made against and the derived `outdated`.
+        Filters combine: `state` (repeatable review states), `outdated`,
+        `namespace`, `key_prefix` and `message_state`. Locales the
+        project no longer has list nothing. Keys and namespaces come
+        from Localization's view of the catalog, current once Catalog's
+        events are processed (usually within a second). One query per
+        page. Needs `translations.read`. Problem codes: `invalid_locale`,
+        `too_many_locales`, `invalid_state`, `invalid_message_state`
+        (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - name: locale
+          in: query
+          required: true
+          description: A locale to list; repeat for several (`locale=de&locale=fr`).
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 20
+            items: { $ref: "#/components/schemas/Locale" }
+        - name: state
+          in: query
+          required: false
+          description: Only translations in these review states; repeatable.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 4
+            items: { $ref: "#/components/schemas/ReviewState" }
+        - name: outdated
+          in: query
+          required: false
+          description: "`true`: only outdated translations; `false`: only current ones."
+          schema: { type: boolean }
+        - name: namespace
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Namespace" }
+        - name: key_prefix
+          in: query
+          required: false
+          description: Keys starting with this, e.g. `checkout.`.
+          schema: { type: string, maxLength: 200 }
+        - name: message_state
+          in: query
+          required: false
+          description: Only translations of `active` (or `obsolete`) messages.
+          schema: { $ref: "#/components/schemas/MessageState" }
+      responses:
+        "200":
+          description: A page of translations.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectTranslationList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/tenants/{tenant}/projects/{project}/translation-imports:
     parameters:
       - $ref: "#/components/parameters/TenantPath"
@@ -3206,6 +3284,24 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/Translation" }
+        next_page_token: { type: string }
+    ProjectTranslation:
+      description: A translation with the message it belongs to.
+      allOf:
+        - $ref: "#/components/schemas/Translation"
+        - type: object
+          required: [key, namespace, message_state]
+          properties:
+            key: { $ref: "#/components/schemas/MessageKey" }
+            namespace: { $ref: "#/components/schemas/Namespace" }
+            message_state: { $ref: "#/components/schemas/MessageState" }
+    ProjectTranslationList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ProjectTranslation" }
         next_page_token: { type: string }
     PutTranslation:
       type: object
