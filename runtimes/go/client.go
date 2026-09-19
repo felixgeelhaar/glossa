@@ -37,8 +37,10 @@ type Config struct {
 	Environment string
 
 	// PublicKeys are the release signing keys to trust. With keys, a
-	// manifest without a valid signature from one of them is rejected
-	// (SPEC §1.3). Server-side clients should configure them.
+	// manifest from the edge or the cache directory without a valid
+	// signature from one of them is rejected (SPEC §1.3). Bundled catalogs
+	// ship with the binary and are trusted like its code. Server-side
+	// clients should configure keys.
 	PublicKeys []PublicKey
 
 	// CacheDir is where the last-good release is persisted. Empty means
@@ -218,7 +220,7 @@ func (c *Client) loadPersisted() *release {
 	}
 	if err == nil {
 		var rel *release
-		if rel, err = c.assemble(context.Background(), []byte(st.Manifest), st.ETag, c.localSources(), nil); err == nil {
+		if rel, err = c.assemble(context.Background(), []byte(st.Manifest), st.ETag, SourcePersisted, nil); err == nil {
 			return rel
 		}
 	}
@@ -235,20 +237,12 @@ func (c *Client) loadBundled() *release {
 		c.reportLoad(fmt.Errorf("%w: bundled catalogs: %v", errSchema, err))
 		return nil
 	}
-	rel, err := c.assemble(context.Background(), raw, "", c.localSources(), nil)
+	rel, err := c.assemble(context.Background(), raw, "", SourceBundled, nil)
 	if err != nil {
 		c.reportLoad(fmt.Errorf("bundled release unusable: %w", err))
 		return nil
 	}
 	return rel
-}
-
-func (c *Client) localSources() []blobSource {
-	sources := []blobSource{storeSource(c.store)}
-	if c.cfg.Bundled != nil {
-		sources = append(sources, fsSource(c.cfg.Bundled))
-	}
-	return sources
 }
 
 // Refresh revalidates the manifest with the edge and, when a new release
@@ -285,7 +279,7 @@ func (c *Client) refresh(ctx context.Context) (bool, error) {
 		}
 		return false, nil
 	}
-	rel, err := c.assemble(ctx, res.body, res.etag, append(c.localSources(), edgeSource(c.edge)), cur)
+	rel, err := c.assemble(ctx, res.body, res.etag, SourceNetwork, cur)
 	if err != nil {
 		return false, err
 	}
