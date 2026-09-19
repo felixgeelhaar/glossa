@@ -592,11 +592,12 @@ func (g *generator) validate() {
 				SourceLength: idomain.TextLength(it.source), TextLength: idomain.TextLength(ref), MaxLength: maxLen(it.d.maxLength),
 				SourceLocale: sourceLocale, TargetLocale: l, MarkupCount: idomain.MarkupCount(it.source),
 			})
-			// The length heuristic compares the length ratio with norms
-			// relative to English; natural translations of short German UI
-			// text miss them now and then. Those are flagged, not failed:
-			// the test expects them in the review queue unless TM supports
-			// the draft.
+			// The length heuristic compares the length ratio with one
+			// expansion factor per language; natural translations of
+			// sentence-length German text miss it now and then (short
+			// labels are only judged by the severe band). Those are
+			// flagged, not failed: the test expects them in the review
+			// queue unless TM supports the draft.
 			t.LengthFlagged = c.Has(idomain.FactorLengthRatio)
 			if !t.LengthFlagged && policy.Route(c) != idomain.ActionApproveRecommended {
 				g.fail("%s %s: reference %q scores %.3f %v", it.d.key, l, t.MF2, c.Score, c.Explanation)

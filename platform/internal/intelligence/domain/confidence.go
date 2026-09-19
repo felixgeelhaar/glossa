@@ -119,14 +119,19 @@ type ScoringConfig struct {
 	// ExpansionFactors are typical text lengths relative to English, by
 	// language; a length ratio far from the expected one adds risk.
 	ExpansionFactors map[string]float64
-	LengthMinChars   int
-	LengthMildRisk   float64
-	LengthSevereRisk float64
-	TagRisk          map[string]float64
-	MarkupFreeCount  int
-	MarkupEach       float64
-	MarkupCap        float64
-	MaxScore         float64
+	// LengthMinChars is the shortest source judged by length at all;
+	// sources shorter than LengthMildMinChars (UI labels, whose length
+	// ratio varies too much for one factor per language) are only
+	// judged by the severe band.
+	LengthMinChars     int
+	LengthMildMinChars int
+	LengthMildRisk     float64
+	LengthSevereRisk   float64
+	TagRisk            map[string]float64
+	MarkupFreeCount    int
+	MarkupEach         float64
+	MarkupCap          float64
+	MaxScore           float64
 	// MissingPluralRisk is added when the translation lacks plural
 	// categories of the target locale: enough to make it low confidence.
 	MissingPluralRisk float64
@@ -157,17 +162,18 @@ func DefaultScoring() ScoringConfig {
 			"pl": 1.2, "ru": 1.15, "sv": 1.1, "da": 1.1, "fi": 1.2, "tr": 1.15,
 			"ja": 0.55, "zh": 0.5, "ko": 0.6,
 		},
-		LengthMinChars:    12,
-		LengthMildRisk:    0.07,
-		LengthSevereRisk:  0.15,
-		LengthMildBand:    [2]float64{0.67, 1.5},
-		LengthSevereBand:  [2]float64{0.5, 2.0},
-		TagRisk:           map[string]float64{TagLegal: 0.30, TagMarketing: 0.15},
-		MarkupFreeCount:   2,
-		MarkupEach:        0.02,
-		MarkupCap:         0.10,
-		MissingPluralRisk: 0.60,
-		MaxScore:          0.99,
+		LengthMinChars:     12,
+		LengthMildMinChars: 40,
+		LengthMildRisk:     0.07,
+		LengthSevereRisk:   0.15,
+		LengthMildBand:     [2]float64{0.67, 1.5},
+		LengthSevereBand:   [2]float64{0.5, 2.0},
+		TagRisk:            map[string]float64{TagLegal: 0.30, TagMarketing: 0.15},
+		MarkupFreeCount:    2,
+		MarkupEach:         0.02,
+		MarkupCap:          0.10,
+		MissingPluralRisk:  0.60,
+		MaxScore:           0.99,
 	}
 }
 
@@ -257,6 +263,7 @@ func (c ScoringConfig) length(b *riskBuilder, s Signals) {
 	switch {
 	case dev < c.LengthSevereBand[0] || dev > c.LengthSevereBand[1]:
 		b.add(FactorLengthRatio, round3(dev), c.LengthSevereRisk, "the length is far from the target locale's norm")
+	case s.SourceLength < c.LengthMildMinChars:
 	case dev < c.LengthMildBand[0] || dev > c.LengthMildBand[1]:
 		b.add(FactorLengthRatio, round3(dev), c.LengthMildRisk, "the length is unusual for the target locale")
 	}

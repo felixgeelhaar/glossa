@@ -26,22 +26,22 @@ AI translated                            151
   after a structural repair                5
 Invalid output, not suggested              2
 Refused: sensitive namespace               0
-Human review required                     13
-  length heuristic (clean draft)           3
+Human review required                     11
+  length heuristic (clean draft)           1
   slip: forbidden_term                     3
   slip: formality                          2
   slip: plural_missing                     3
   slip: too_long                           2
 
-Structural QA        ✓ 153 of 153 recommended valid
+Structural QA        ✓ 155 of 155 recommended valid
 Terminology QA       ✓ no forbidden term recommended
 Slips caught         ✓ 10 of 10
 
-Coverage (approved)                   72.0 % → 97.5 %
-High-confidence (approve_recommended)  92.2 %
+Coverage (approved)                   72.0 % → 97.8 %
+High-confidence (approve_recommended)  93.4 %
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-13 messages need review.
+11 messages need review.
 ```
 
 ```text
@@ -56,22 +56,21 @@ AI translated                            253
   after a structural repair                9
 Invalid output, not suggested              3
 Refused: sensitive namespace              20
-Human review required                     21
-  length heuristic (clean draft)           4
+Human review required                     17
   slip: forbidden_term                     5
   slip: formality                          4
   slip: plural_missing                     5
   slip: too_long                           3
 
-Structural QA        ✓ 256 of 256 recommended valid
+Structural QA        ✓ 260 of 260 recommended valid
 Terminology QA       ✓ no forbidden term recommended
 Slips caught         ✓ 17 of 17
 
-Coverage (approved)                   50.0 % → 92.7 %
-High-confidence (approve_recommended)  92.4 %
+Coverage (approved)                   50.0 % → 93.3 %
+High-confidence (approve_recommended)  93.9 %
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-21 messages need review.
+17 messages need review.
 ```
 
 ```text
@@ -86,35 +85,35 @@ AI translated                            501
   after a structural repair                7
 Invalid output, not suggested              5
 Refused: sensitive namespace              40
-Human review required                     55
-  length heuristic (clean draft)          30
+Human review required                     33
+  length heuristic (clean draft)           8
   slip: forbidden_term                    10
   slip: formality                          7
   slip: too_long                           5
   structural repair                        3
 
-Structural QA        ✓ 500 of 500 recommended valid
+Structural QA        ✓ 522 of 522 recommended valid
 Terminology QA       ✓ no forbidden term recommended
 Slips caught         ✓ 22 of 22
 
-Coverage (approved)                    0.0 % → 83.3 %
-High-confidence (approve_recommended)  90.1 %
+Coverage (approved)                    0.0 % → 87.0 %
+High-confidence (approve_recommended)  94.1 %
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-55 messages need review.
+33 messages need review.
 ```
 
 ## Exit criteria
 
 | Criterion | es | fr | ja | Bar |
 |---|---|---|---|---|
-| Human review required, share of filled | 13 / 166 = 7.8 % | 21 / 277 = 7.6 % | 55 / 555 = 9.9 % | ≤ 15 % |
-| Review ≤ slips + repairs + length-flagged | 13 ≤ 17 | 21 ≤ 27 | 55 ≤ 79 | holds |
+| Human review required, share of filled | 11 / 166 = 6.6 % | 17 / 277 = 6.1 % | 33 / 555 = 5.9 % | ≤ 15 % |
+| Review ≤ slips + repairs + length-flagged | 11 ≤ 13 | 17 ≤ 21 | 33 ≤ 44 | holds |
 | Surviving slips routed review_required | 10 / 10 | 17 / 17 | 22 / 22 | all |
-| Structural defects in approve_recommended | 0 of 153 | 0 of 256 | 0 of 500 | 0 |
+| Structural defects in approve_recommended | 0 of 155 | 0 of 260 | 0 of 522 | 0 |
 | Forbidden terms in approve_recommended | 0 | 0 | 0 | 0 |
 | Sensitive (legal) messages sent to the provider | 0 (0 refused) | 0 (20 refused) | 0 (40 refused) | 0 |
-| Accepted revisions with full provenance | 153 / 153 | 256 / 256 | 500 / 500 | all |
+| Accepted revisions with full provenance | 155 / 155 | 260 / 260 | 522 / 522 | all |
 | Invalid output kept out of the queue | 2 / 2 | 3 / 3 | 5 / 5 | all |
 
 The bar on review follows from the script: every slip that reaches a suggestion must be reviewed, a draft that
@@ -137,26 +136,26 @@ may need review, and the total stays under 15 % of what the platform filled.
 
 ## Review queue
 
-998 suggestions were pending after the fill: 89 `review_required` first, then 909 `approve_recommended`
+998 suggestions were pending after the fill: 61 `review_required` first, then 937 `approve_recommended`
 (accepted as is by the test). The head of the queue:
 
 | # | Locale | Key | Score | Risk tags | Why |
 |---|---|---|---|---|---|
-| 1 | es | `billing.discount_code.selected` | 0.000 | missing_plural_categories | plural_missing |
-| 2 | es | `billing.plan.total` | 0.000 | term_forbidden | forbidden_term |
-| 3 | fr | `billing.discount_code.selected` | 0.000 | term_forbidden | forbidden_term |
-| 4 | fr | `billing.invoice.selected` | 0.000 | term_forbidden | forbidden_term |
-| 5 | fr | `notifications.file.selected` | 0.000 | term_forbidden | forbidden_term |
-| 6 | fr | `auth.passkey.count` | 0.014 | missing_plural_categories | plural_missing |
-| 7 | es | `auth.password.selected` | 0.065 | missing_plural_categories | plural_missing |
+| 1 | es | `billing.plan.total` | 0.000 | term_forbidden | forbidden_term |
+| 2 | fr | `billing.discount_code.selected` | 0.000 | term_forbidden | forbidden_term |
+| 3 | fr | `billing.invoice.selected` | 0.000 | term_forbidden | forbidden_term |
+| 4 | fr | `notifications.file.selected` | 0.000 | term_forbidden | forbidden_term |
+| 5 | fr | `auth.passkey.count` | 0.014 | missing_plural_categories | plural_missing |
+| 6 | es | `auth.password.selected` | 0.065 | missing_plural_categories | plural_missing |
+| 7 | es | `billing.discount_code.selected` | 0.065 | missing_plural_categories | plural_missing |
 | 8 | es | `notifications.notification.count` | 0.065 | missing_plural_categories | plural_missing |
 | 9 | fr | `auth.api_key.selected` | 0.065 | missing_plural_categories | plural_missing |
 | 10 | fr | `billing.subscription.selected` | 0.065 | missing_plural_categories | plural_missing |
 | 11 | fr | `dashboard.chart.selected` | 0.065 | missing_plural_categories | plural_missing |
 | 12 | fr | `settings.workspace.selected` | 0.065 | missing_plural_categories | plural_missing |
-| 13 | ja | `settings.member.all` | 0.194 | term_forbidden | forbidden_term |
-| 14 | es | `dashboard.project.delete` | 0.264 | term_forbidden | forbidden_term |
-| 15 | es | `notifications.reminder.all` | 0.264 | max_length | too_long |
+| 13 | es | `dashboard.project.delete` | 0.264 | term_forbidden | forbidden_term |
+| 14 | es | `notifications.reminder.all` | 0.264 | max_length | too_long |
+| 15 | fr | `auth.password.new` | 0.264 | max_length | too_long |
 
 ## Provider calls and spend
 
@@ -172,7 +171,7 @@ Spent $3.5479 of the $200.0000 monthly budget (the preview estimated $6.5868, at
 
 ## Release and runtime
 
-Staging release v1 ships approved text only: es 585, fr 556, ja 500 of 600 messages. The Go runtime loaded it from glossa-edge, verified the signature, and rendered:
+Staging release v1 ships approved text only: es 587, fr 560, ja 522 of 600 messages. The Go runtime loaded it from glossa-edge, verified the signature, and rendered:
 
 | Locale | Key | Args | Rendered | |
 |---|---|---|---|---|
@@ -190,6 +189,6 @@ Staging release v1 ships approved text only: es 585, fr 556, ja 500 of 600 messa
 | fr | `auth.invitation.delete_success` |  | Die Einladung wurde gelöscht. | forbidden-term slip in review: falls back to de |
 | ja | `billing.invoice.count` | map[count:1] | 1件の請求書 | AI, accepted |
 | ja | `billing.invoice.count` | map[count:3] | 3件の請求書 | AI, accepted |
-| ja | `billing.payment_method.create_activity` | map[name:Ada] | Adaさんが支払い方法を作成しました。 | AI, accepted |
+| ja | `billing.subscription.renew_activity` | map[name:Ada] | Adaさんがサブスクリプションを更新しました。 | AI, accepted |
 | ja | `billing.invoice.download_permission` | map[role:admin] | 管理者は請求書をダウンロードできます。 | AI, accepted |
 | ja | `billing.plan.edit_success` |  | Der Tarif wurde bearbeitet. | forbidden-term slip in review: falls back to de |

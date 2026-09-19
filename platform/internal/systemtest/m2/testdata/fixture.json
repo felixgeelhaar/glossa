@@ -1079,8 +1079,7 @@
           "syntax": "mf1",
           "text": "サブスクリプションをアーカイブ",
           "mf2": "サブスクリプションをアーカイブ",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -1157,8 +1156,7 @@
           "syntax": "mf1",
           "text": "サブスクリプションを削除",
           "mf2": "サブスクリプションを削除",
-          "route": "tm",
-          "length_flagged": true
+          "route": "tm"
         }
       }
     },
@@ -1358,8 +1356,7 @@
           "syntax": "mf1",
           "text": "{name}さんがサブスクリプションを更新しました。",
           "mf2": "{$name}さんがサブスクリプションを更新しました。",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -1402,8 +1399,7 @@
           "syntax": "mf1",
           "text": "{name}さんがサブスクリプションを編集しました。",
           "mf2": "{$name}さんがサブスクリプションを編集しました。",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -1558,8 +1554,7 @@
           "syntax": "mf1",
           "text": "新しいサブスクリプション",
           "mf2": "新しいサブスクリプション",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -1598,8 +1593,7 @@
           "syntax": "mf1",
           "text": "サブスクリプションを名前で検索",
           "mf2": "サブスクリプションを名前で検索",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -1637,8 +1631,7 @@
           "syntax": "mf1",
           "text": "サブスクリプション一覧",
           "mf2": "サブスクリプション一覧",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -1682,8 +1675,7 @@
           "syntax": "mf1",
           "text": "{count, plural, other {#件のサブスクリプションを選択中}}",
           "mf2": ".input {$count :number}\n.match $count\n* {{{$count}件のサブスクリプションを選択中}}",
-          "route": "tm",
-          "length_flagged": true
+          "route": "tm"
         }
       }
     },
@@ -1951,8 +1943,7 @@
           "syntax": "mf1",
           "text": "支払い方法を更新",
           "mf2": "支払い方法を更新",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -2805,8 +2796,7 @@
           "text": "Compartir código de descuento",
           "mf2": "Compartir código de descuento",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "fr": {
           "syntax": "mf1",
@@ -2883,8 +2873,7 @@
           "syntax": "mf1",
           "text": "Eliminar código de descuento",
           "mf2": "Eliminar código de descuento",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         },
         "fr": {
           "syntax": "mf1",
@@ -3276,8 +3265,7 @@
           "text": "Nuevo código de descuento",
           "mf2": "Nuevo código de descuento",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "fr": {
           "syntax": "mf1",
@@ -3356,8 +3344,7 @@
           "text": "Todos los códigos de descuento",
           "mf2": "Todos los códigos de descuento",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "fr": {
           "syntax": "mf1",
@@ -3397,7 +3384,6 @@
           "mf2": ".input {$count :number}\n.match $count\none {{{$count} código de descuento seleccionado}}\nmany {{{$count} de códigos de descuento seleccionados}}\n* {{{$count} códigos de descuento seleccionados}}",
           "route": "ai",
           "slip": "plural_missing",
-          "length_flagged": true,
           "drafts": [
             {
               "mf2": ".input {$count :number}\n.match $count\none {{{$count} código de descuento seleccionado}}\n* {{{$count} códigos de descuento seleccionados}}"
@@ -3615,8 +3601,7 @@
           "text": "Partager le forfait",
           "mf2": "Partager le forfait",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "ja": {
           "syntax": "mf1",
@@ -4289,8 +4274,7 @@
           "text": "{count, plural, one {# forfait sélectionné} many {# de forfaits sélectionnés} other {# forfaits sélectionnés}}",
           "mf2": ".input {$count :number}\n.match $count\none {{{$count} forfait sélectionné}}\nmany {{{$count} de forfaits sélectionnés}}\n* {{{$count} forfaits sélectionnés}}",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "ja": {
           "syntax": "mf1",
@@ -4648,8 +4632,7 @@
           "syntax": "mf1",
           "text": "Supprimer le mot de passe",
           "mf2": "Supprimer le mot de passe",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         },
         "ja": {
           "syntax": "mf1",
@@ -5037,7 +5020,6 @@
           "mf2": "Nouveau mot de passe",
           "route": "ai",
           "slip": "too_long",
-          "length_flagged": true,
           "drafts": [
             {
               "mf2": "Nouveau mot de passe (cliquez ici pour poursuivre l’action sélectionnée)"
@@ -5120,8 +5102,7 @@
           "text": "Tous les mots de passe",
           "mf2": "Tous les mots de passe",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "ja": {
           "syntax": "mf1",
@@ -5713,8 +5694,7 @@
           "syntax": "mf1",
           "text": "{name}さんがセッションを終了しました。",
           "mf2": "{$name}さんがセッションを終了しました。",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -5919,8 +5899,7 @@
           "text": "新しいセッション",
           "mf2": "新しいセッション",
           "route": "ai",
-          "tm_blocked": true,
-          "length_flagged": true
+          "tm_blocked": true
         }
       }
     },
@@ -6590,8 +6569,7 @@
           "text": "{name} a créé la clé API.",
           "mf2": "{$name} a créé la clé API.",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "ja": {
           "syntax": "mf1",
@@ -7168,16 +7146,14 @@
           "text": "Eliminar llave de acceso",
           "mf2": "Eliminar llave de acceso",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "fr": {
           "syntax": "mf1",
           "text": "Supprimer la clé d’accès",
           "mf2": "Supprimer la clé d’accès",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "ja": {
           "syntax": "mf1",
@@ -7559,15 +7535,13 @@
           "text": "Nueva llave de acceso",
           "mf2": "Nueva llave de acceso",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "fr": {
           "syntax": "mf1",
           "text": "Nouvelle clé d’accès",
           "mf2": "Nouvelle clé d’accès",
-          "route": "tm",
-          "length_flagged": true
+          "route": "tm"
         },
         "ja": {
           "syntax": "mf1",
@@ -7645,8 +7619,7 @@
           "syntax": "mf1",
           "text": "Toutes les clés d’accès",
           "mf2": "Toutes les clés d’accès",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         },
         "ja": {
           "syntax": "mf1",
@@ -7678,15 +7651,13 @@
           "text": "{count, plural, one {# llave de acceso seleccionada} many {# de llaves de acceso seleccionadas} other {# llaves de acceso seleccionadas}}",
           "mf2": ".input {$count :number}\n.match $count\none {{{$count} llave de acceso seleccionada}}\nmany {{{$count} de llaves de acceso seleccionadas}}\n* {{{$count} llaves de acceso seleccionadas}}",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "fr": {
           "syntax": "mf1",
           "text": "{count, plural, one {# clé d’accès sélectionnée} many {# de clés d’accès sélectionnées} other {# clés d’accès sélectionnées}}",
           "mf2": ".input {$count :number}\n.match $count\none {{{$count} clé d’accès sélectionnée}}\nmany {{{$count} de clés d’accès sélectionnées}}\n* {{{$count} clés d’accès sélectionnées}}",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         },
         "ja": {
           "syntax": "mf1",
@@ -7807,8 +7778,7 @@
           "syntax": "mf1",
           "text": "招待を再送信",
           "mf2": "招待を再送信",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -7975,8 +7945,7 @@
           "syntax": "mf1",
           "text": "招待を作成",
           "mf2": "招待を作成",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -8404,8 +8373,7 @@
           "syntax": "mf1",
           "text": "招待の数: {total, number}",
           "mf2": "招待の数: {$total :number}",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -8529,8 +8497,7 @@
           "syntax": "mf1",
           "text": "招待一覧",
           "mf2": "招待一覧",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -9155,8 +9122,7 @@
           "syntax": "mf1",
           "text": "{name}さんがレポートをエクスポートしました。",
           "mf2": "{$name}さんがレポートをエクスポートしました。",
-          "route": "tm",
-          "length_flagged": true
+          "route": "tm"
         }
       }
     },
@@ -9733,8 +9699,7 @@
           "syntax": "mf1",
           "text": "ウィジェットを削除",
           "mf2": "ウィジェットを削除",
-          "route": "tm",
-          "length_flagged": true
+          "route": "tm"
         }
       }
     },
@@ -9926,8 +9891,7 @@
           "syntax": "mf1",
           "text": "{name}さんがウィジェットを作成しました。",
           "mf2": "{$name}さんがウィジェットを作成しました。",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -10129,8 +10093,7 @@
           "syntax": "mf1",
           "text": "新しいウィジェット",
           "mf2": "新しいウィジェット",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -10208,8 +10171,7 @@
           "syntax": "mf1",
           "text": "ウィジェット一覧",
           "mf2": "ウィジェット一覧",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -10521,8 +10483,7 @@
           "syntax": "mf1",
           "text": "プロジェクトを共有",
           "mf2": "プロジェクトを共有",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -10777,7 +10738,6 @@
           "mf2": "{$name}さんがプロジェクトを作成しました。",
           "route": "ai",
           "slip": "placeholder_persistent",
-          "length_flagged": true,
           "drafts": [
             {
               "mf2": "さんがプロジェクトを作成しました。"
@@ -10823,7 +10783,6 @@
           "mf2": "{$name}さんがプロジェクトをアーカイブしました。",
           "route": "ai",
           "slip": "placeholder_repaired",
-          "length_flagged": true,
           "drafts": [
             {
               "mf2": "さんがプロジェクトをアーカイブしました。"
@@ -10986,8 +10945,7 @@
           "syntax": "mf1",
           "text": "新しいプロジェクト",
           "mf2": "新しいプロジェクト",
-          "route": "tm",
-          "length_flagged": true
+          "route": "tm"
         }
       }
     },
@@ -11052,8 +11010,7 @@
           "text": "Todos los proyectos",
           "mf2": "Todos los proyectos",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "fr": {
           "syntax": "mf1",
@@ -11409,8 +11366,7 @@
           "syntax": "mf1",
           "text": "Partager le graphique",
           "mf2": "Partager le graphique",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         },
         "ja": {
           "syntax": "mf1",
@@ -12459,8 +12415,7 @@
           "syntax": "mf1",
           "text": "{name}さんがフィルターを作成しました。",
           "mf2": "{$name}さんがフィルターを作成しました。",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -12654,8 +12609,7 @@
           "syntax": "mf1",
           "text": "新しいフィルター",
           "mf2": "新しいフィルター",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -13593,8 +13547,7 @@
           "text": "Todos los espacios de trabajo",
           "mf2": "Todos los espacios de trabajo",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "fr": {
           "syntax": "mf1",
@@ -14537,8 +14490,7 @@
           "syntax": "mf1",
           "text": "Crear rol",
           "mf2": "Crear rol",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         },
         "fr": {
           "syntax": "mf1",
@@ -14616,8 +14568,7 @@
           "text": "Editar rol",
           "mf2": "Editar rol",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "fr": {
           "syntax": "mf1",
@@ -15307,8 +15258,7 @@
           "syntax": "mf1",
           "text": "No se pudo crear el rol.",
           "mf2": "No se pudo crear el rol.",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         },
         "fr": {
           "syntax": "mf1",
@@ -15361,8 +15311,7 @@
           "text": "連携を作成",
           "mf2": "連携を作成",
           "route": "ai",
-          "tm_blocked": true,
-          "length_flagged": true
+          "tm_blocked": true
         }
       }
     },
@@ -15448,8 +15397,7 @@
           "syntax": "mf1",
           "text": "連携を編集",
           "mf2": "連携を編集",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -15525,8 +15473,7 @@
           "syntax": "mf1",
           "text": "連携を削除",
           "mf2": "連携を削除",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -15881,8 +15828,7 @@
           "syntax": "mf1",
           "text": "連携の数: {total, number}",
           "mf2": "連携の数: {$total :number}",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -15997,8 +15943,7 @@
           "syntax": "mf1",
           "text": "連携一覧",
           "mf2": "連携一覧",
-          "route": "tm",
-          "length_flagged": true
+          "route": "tm"
         }
       }
     },
@@ -16343,8 +16288,7 @@
           "syntax": "mf1",
           "text": "Webhookを削除",
           "mf2": "Webhookを削除",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -16564,8 +16508,7 @@
           "syntax": "mf1",
           "text": "{name}さんがWebhookを作成しました。",
           "mf2": "{$name}さんがWebhookを作成しました。",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -16604,8 +16547,7 @@
           "syntax": "mf1",
           "text": "{name}さんがWebhookを編集しました。",
           "mf2": "{$name}さんがWebhookを編集しました。",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -16760,8 +16702,7 @@
           "syntax": "mf1",
           "text": "新しいWebhook",
           "mf2": "新しいWebhook",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -16799,8 +16740,7 @@
           "syntax": "mf1",
           "text": "Webhookを名前で検索",
           "mf2": "Webhookを名前で検索",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -16839,8 +16779,7 @@
           "syntax": "mf1",
           "text": "Webhook一覧",
           "mf2": "Webhook一覧",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -16878,8 +16817,7 @@
           "syntax": "mf1",
           "text": "{count, plural, other {#件のWebhookを選択中}}",
           "mf2": ".input {$count :number}\n.match $count\n* {{{$count}件のWebhookを選択中}}",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -16995,8 +16933,7 @@
           "syntax": "mf1",
           "text": "通知をミュート",
           "mf2": "通知をミュート",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -17193,8 +17130,7 @@
           "syntax": "mf1",
           "text": "通知を削除しました。",
           "mf2": "通知を削除しました。",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -17552,7 +17488,6 @@
           "mf2": "新しい通知",
           "route": "ai",
           "slip": "forbidden_term",
-          "length_flagged": true,
           "drafts": [
             {
               "mf2": "新しいお知らせ"
@@ -17597,8 +17532,7 @@
           "syntax": "mf1",
           "text": "通知を名前で検索",
           "mf2": "通知を名前で検索",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -17676,8 +17610,7 @@
           "syntax": "mf1",
           "text": "{count, plural, other {#件の通知を選択中}}",
           "mf2": ".input {$count :number}\n.match $count\n* {{{$count}件の通知を選択中}}",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         }
       }
     },
@@ -17942,8 +17875,7 @@
           "text": "Supprimer le commentaire",
           "mf2": "Supprimer le commentaire",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "ja": {
           "syntax": "mf1",
@@ -18415,8 +18347,7 @@
           "syntax": "mf1",
           "text": "Tous les commentaires",
           "mf2": "Tous les commentaires",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         },
         "ja": {
           "syntax": "mf1",
@@ -18647,8 +18578,7 @@
           "text": "Partager le fichier",
           "mf2": "Partager le fichier",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "ja": {
           "syntax": "mf1",
@@ -18802,8 +18732,7 @@
           "syntax": "mf1",
           "text": "Supprimer le fichier",
           "mf2": "Supprimer le fichier",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         },
         "ja": {
           "syntax": "mf1",
@@ -19053,8 +18982,7 @@
           "text": "{name}さんがファイルを共有しました。",
           "mf2": "{$name}さんがファイルを共有しました。",
           "route": "ai",
-          "tm_blocked": true,
-          "length_flagged": true
+          "tm_blocked": true
         }
       }
     },
@@ -19280,16 +19208,14 @@
           "syntax": "mf1",
           "text": "Todos los archivos",
           "mf2": "Todos los archivos",
-          "route": "ai",
-          "length_flagged": true
+          "route": "ai"
         },
         "fr": {
           "syntax": "mf1",
           "text": "Tous les fichiers",
           "mf2": "Tous les fichiers",
           "existing": true,
-          "route": "existing",
-          "length_flagged": true
+          "route": "existing"
         },
         "ja": {
           "syntax": "mf1",
@@ -26147,7 +26073,7 @@
         "plural_missing": 3,
         "too_long": 2
       },
-      "length_flagged": 5
+      "length_flagged": 1
     },
     "fr": {
       "messages": 600,
@@ -26166,7 +26092,7 @@
         "plural_missing": 5,
         "too_long": 3
       },
-      "length_flagged": 6
+      "length_flagged": 0
     },
     "ja": {
       "messages": 600,
@@ -26184,7 +26110,7 @@
         "placeholder_repaired": 7,
         "too_long": 5
       },
-      "length_flagged": 50
+      "length_flagged": 15
     }
   }
 }

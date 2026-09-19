@@ -106,6 +106,31 @@ func TestScore(t *testing.T) {
 			factors: map[string]float64{domain.FactorLengthRatio: -0.07},
 		},
 		{
+			// "Alle Arbeitsbereiche" → "Todos los espacios de trabajo":
+			// labels vary too much for the mild band.
+			name: "a short label somewhat long is fine",
+			signals: with(clean, func(s *domain.Signals) {
+				s.SourceLocale, s.TargetLocale, s.SourceLength, s.TextLength = "de", "es", 20, 29
+			}),
+			want: 0.75,
+		},
+		{
+			// "Alle Einladungen" → "招待一覧".
+			name: "a short label somewhat short is fine",
+			signals: with(clean, func(s *domain.Signals) {
+				s.SourceLocale, s.TargetLocale, s.SourceLength, s.TextLength = "de", "ja", 16, 4
+			}),
+			want: 0.75,
+		},
+		{
+			name: "a short label far too short",
+			signals: with(clean, func(s *domain.Signals) {
+				s.SourceLocale, s.TargetLocale, s.SourceLength, s.TextLength = "de", "ja", 16, 2
+			}),
+			want:    0.6,
+			factors: map[string]float64{domain.FactorLengthRatio: -0.15},
+		},
+		{
 			name:    "short sources are not length-judged",
 			signals: with(clean, func(s *domain.Signals) { s.SourceLength, s.TextLength = 5, 20 }),
 			want:    0.75,
