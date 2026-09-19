@@ -47,8 +47,9 @@ func (p *Port) CheckProject(ctx context.Context, project uuid.UUID) error {
 
 // Snapshot implements app.Source: Catalog's active messages joined with
 // Localization's translations in states, by message ID. Translations of
-// messages the catalog doesn't release (obsolete, or not yet known) are
-// left out by the build.
+// messages the catalog doesn't release (obsolete, proposed on a branch,
+// or not yet known) are left out by the build, and so is every branch's
+// overlay: a source proposal is never a message's source.
 func (p *Port) Snapshot(ctx context.Context, project uuid.UUID, states []string) (domain.Snapshot, error) {
 	reviewStates := make([]localizationdomain.ReviewState, 0, len(states))
 	for _, s := range states {
@@ -77,6 +78,7 @@ func (p *Port) Snapshot(ctx context.Context, project uuid.UUID, states []string)
 	for _, m := range src.Messages {
 		snap.Messages = append(snap.Messages, domain.SourceMessage{
 			ID: m.ID.UUID(), Key: string(m.Key), Namespace: string(m.Namespace), Model: m.Source.ModelJSON(),
+			Proposed: m.State == catalogdomain.MessageProposed,
 		})
 	}
 	for locale, byMessage := range tr.Translations {

@@ -107,6 +107,39 @@ func TestBuildShipsWhatEachLocaleHas(t *testing.T) {
 	}
 }
 
+// RFC 0004 §4.2: every environment but a branch's excludes proposed
+// messages and source proposals. That keeps release eligibility intact:
+// no text that exists only on a branch reaches a release.
+func TestBuildExcludesTheBranchOverlay(t *testing.T) {
+	s := shop(t)
+	idTip := uuid.MustParse("0192f5a0-0000-7000-8000-000000000004")
+	s.Messages = append(s.Messages, domain.SourceMessage{
+		ID: idTip, Key: "checkout.tip", Namespace: "default", Model: model(t, "en", "Add a tip"), Proposed: true,
+	})
+	s.Translations["de"][idTip] = domain.Translation{Model: model(t, "de", "Trinkgeld geben")}
+	s.Messages[1].Proposal = model(t, "en", "Pay securely {amount, number}")
+	b, err := domain.Build(s, domain.DefaultPolicy("preview"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := artifactsByPath(b)
+	for path, body := range got {
+		if strings.Contains(body, "checkout.tip") || strings.Contains(body, "Trinkgeld") {
+			t.Errorf("%s ships a proposed message: %s", path, body)
+		}
+		if strings.Contains(body, "securely") {
+			t.Errorf("%s ships a source proposal: %s", path, body)
+		}
+	}
+	if !strings.Contains(got["en/default"], "checkout.pay") || b.Stats.Messages != 3 || b.Stats.Locales["de"].Messages != 2 {
+		t.Errorf("live messages: stats %+v, en %s", b.Stats, got["en/default"])
+	}
+	want, _ := domain.Build(shop(t), domain.DefaultPolicy("preview"))
+	if b.Content.Artifacts["en"]["default"] != want.Content.Artifacts["en"]["default"] {
+		t.Error("the overlay changed the live catalog's artifact")
+	}
+}
+
 func TestBuildPolicyDropsOutdated(t *testing.T) {
 	b, err := domain.Build(shop(t), domain.Policy{States: []string{"approved"}, IncludeOutdated: false})
 	if err != nil {

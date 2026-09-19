@@ -42,6 +42,12 @@ type SourceMessage struct {
 	Key       string
 	Namespace string
 	Model     json.RawMessage
+	// Proposed marks a message that exists only on branches (RFC 0004
+	// §4.1). Build leaves it out.
+	Proposed bool
+	// Proposal is a branch's proposed source for the message, if the
+	// snapshot carries one. Build ships Model, never the proposal.
+	Proposal json.RawMessage
 }
 
 // Translation is an eligible translation as a release takes it from
@@ -136,6 +142,11 @@ type Built struct {
 // {"schema","locale","namespace","messages"}, where each message is its
 // MF2 data model (runtimes/SPEC.md §1.2).
 //
+// Build excludes the branch overlay — proposed messages and source
+// proposals (RFC 0004 §4.2) — so no text that exists only on a branch
+// reaches a release: that is what keeps release eligibility intact.
+// Only a branch environment's build (a later change) adds its overlay.
+//
 // A snapshot artifacts can't carry fails with a *NotReleasableError
 // listing every problem found, not only the first.
 func Build(s Snapshot, p Policy) (Built, error) {
@@ -221,6 +232,10 @@ func groupMessages(s Snapshot, locales []Locale, p Policy, ps *problems) (map[st
 	}
 	keys := map[string]bool{}
 	for _, m := range s.Messages {
+		if m.Proposed {
+			continue
+		}
+		stats.Messages++
 		if !checkMessage(m, keys, ps) {
 			continue
 		}
@@ -247,7 +262,6 @@ func groupMessages(s Snapshot, locales []Locale, p Policy, ps *problems) (map[st
 			stats.Locales[l.Code] = ls
 		}
 	}
-	stats.Messages = len(s.Messages)
 	for _, l := range locales {
 		if _, ok := stats.Locales[l.Code]; !ok {
 			stats.Locales[l.Code] = LocaleStats{}
