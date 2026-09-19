@@ -8,14 +8,17 @@ type Source string
 
 // Sources, in the SPEC §3 reliability order.
 const (
-	// SourceMemory: the release was already active when the latest load
-	// cycle began.
+	// SourceMemory: a later refresh brought nothing new (304 or a
+	// failure), so the active release is served from memory.
 	SourceMemory Source = "memory"
-	// SourcePersisted: restored from the cache directory at startup.
+	// SourcePersisted: the active release was restored from the cache
+	// directory at startup. The startup load spans New and the first
+	// refresh, so a first refresh that fails keeps this source.
 	SourcePersisted Source = "persisted"
-	// SourceNetwork: activated from the edge by the latest load cycle.
+	// SourceNetwork: the active release was loaded from the edge.
 	SourceNetwork Source = "network"
-	// SourceBundled: restored from Config.Bundled at startup.
+	// SourceBundled: the active release was restored from Config.Bundled
+	// at startup (like SourcePersisted).
 	SourceBundled Source = "bundled"
 	// SourceInline: no loaded locale had the message; the inline default
 	// or the message ID was rendered.

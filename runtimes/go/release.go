@@ -27,10 +27,12 @@ type release struct {
 
 // blobSource yields artifact bytes by reference. remote sources are the
 // edge: their failures are real errors, while a local source that lacks
-// or has corrupted an artifact just defers to the next source.
+// or has corrupted an artifact just defers to the next source. trusted
+// sources ship with the application, like its code, and aren't re-hashed.
 type blobSource struct {
-	remote bool
-	get    func(ctx context.Context, ref artifactRef) ([]byte, error)
+	remote  bool
+	trusted bool
+	get     func(ctx context.Context, ref artifactRef) ([]byte, error)
 }
 
 // loadError attaches the release a load failure belongs to.
@@ -91,7 +93,7 @@ func neededLocales(m *manifest, configured []string) []string {
 	var out []string
 	for _, tag := range canonicalizeAll(configured) {
 		for _, l := range m.chain(m.negotiate([]string{tag})) {
-			if !slices.Contains(out, l) {
+			if m.hasLocale(l) && !slices.Contains(out, l) {
 				out = append(out, l)
 			}
 		}
@@ -144,7 +146,7 @@ func (c *Client) loadArtifact(ctx context.Context, releaseID string, ref artifac
 func fetchVerified(ctx context.Context, ref artifactRef, sources []blobSource) ([]byte, bool, error) {
 	for _, src := range sources {
 		body, err := src.get(ctx, ref)
-		if err == nil {
+		if err == nil && !src.trusted {
 			err = verifyArtifact(body, ref)
 		}
 		switch {
@@ -183,7 +185,7 @@ func (rel *release) resolve(id string, requested []string) resolution {
 		cat, loaded := rel.catalogs[l]
 		msg, ok := cat[id]
 		switch {
-		case !loaded:
+		case !loaded && rel.manifest.hasLocale(l):
 			res.steps = append(res.steps, Step{Locale: l, Outcome: OutcomeNotLoaded})
 		case !ok:
 			res.steps = append(res.steps, Step{Locale: l, Outcome: OutcomeMissing})
@@ -197,9 +199,10 @@ func (rel *release) resolve(id string, requested []string) resolution {
 }
 
 // fsSource reads artifacts from a bundled file system, laid out like the
-// edge: a/<sha256>.json.
+// edge: a/<sha256>.json. Bundled artifacts are trusted like application
+// code, so they aren't re-hashed.
 func fsSource(fsys fs.FS) blobSource {
-	return blobSource{get: func(_ context.Context, ref artifactRef) ([]byte, error) {
+	return blobSource{trusted: true, get: func(_ context.Context, ref artifactRef) ([]byte, error) {
 		return fs.ReadFile(fsys, "a/"+ref.SHA256+".json")
 	}}
 }
