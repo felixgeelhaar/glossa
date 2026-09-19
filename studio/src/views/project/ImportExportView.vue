@@ -182,6 +182,9 @@ const importsProgress = (j: ImportJob) => (j.total_items ? `${j.processed_items}
     <div class="row">
       <button type="button" class="btn btn-sm" @click="openExport('tmx')">{{ s.exportTmx }}</button>
       <button type="button" class="btn btn-sm" @click="openExport('tbx')">{{ s.exportTbx }}</button>
+      <RouterLink class="btn btn-sm btn-ghost" :to="{ name: 'workspace-knowledge', params: { tenant } }">
+        {{ strings.nav.workspaceSettings }}: {{ strings.tenantSettings.knowledgeLink }}
+      </RouterLink>
       <span class="spacer" />
       <div class="field inline">
         <label for="jobs-scope">{{ s.show }}</label>

@@ -56,6 +56,9 @@ export function xliffLanguages(head: string): { source?: string; target?: string
   return { ...(source ? { source } : {}), ...(target ? { target } : {}) };
 }
 
+/** Whether an XLIFF file carries translations (a `<target>` element) in the part that was read. */
+export const xliffHasTargets = (head: string): boolean => /<target[\s>/]/.test(head);
+
 /** A PO file's `Language:` header, as a BCP 47 tag (`pt_BR` → `pt-BR`). */
 export function poLanguage(head: string): string | undefined {
   const m = /"Language:\s*([A-Za-z0-9_@-]+)\s*(\\n)?"/.exec(head);

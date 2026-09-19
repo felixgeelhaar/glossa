@@ -33,12 +33,13 @@ import {
   poLanguage,
   projectLocale,
   readHead,
+  xliffHasTargets,
   xliffLanguages,
 } from "../../lib/integration";
 import { strings } from "../../strings";
 import { useProject } from "./context";
 
-const { tenant, projectId, project, locales, grant } = useProject();
+const { tenant, projectId, project, locales, targets, grant } = useProject();
 const router = useRouter();
 const port = useIntegration();
 const s = strings.integration;
@@ -65,7 +66,8 @@ const syntax = ref<Syntax>("mf1");
 const state = ref<ReviewState>("needs_review");
 const pluralVariable = ref("");
 const xliffIcu = ref(false);
-const scope = ref<"project" | "tenant">("project");
+/** The locale an XLIFF file's translations are imported as (`options.locale`). */
+const xliffLocale = ref("");
 const mode = ref<ImportMode>("dry_run");
 
 /** A target the member may import, for a sensible default. */
@@ -84,7 +86,7 @@ async function choose(f: File | undefined): Promise<void> {
   namespace.value = "";
   pluralVariable.value = "";
   xliffIcu.value = false;
-  scope.value = "project";
+  xliffLocale.value = projectLocale(xliffLanguages(head.value).target, targets.value.map((l) => l.code)) ?? "";
 }
 function onPick(e: Event): void {
   void choose((e.target as HTMLInputElement).files?.[0]);
@@ -100,12 +102,19 @@ watch(format, (f) => {
 
 // ── what the file says, and whether the member may import it ────────────
 const xliffTarget = computed(() => xliffLanguages(head.value).target);
+/** An XLIFF file with translations, or naming a target locale, is imported as a locale the member chooses (default: its trgLang). */
+const xliffNeedsLocale = computed(() => !!xliffTarget.value || xliffHasTargets(head.value));
+const xliffHint = computed(() => {
+  const t = xliffTarget.value;
+  if (!t) return w.xliffNoTrgLang;
+  return projectLocale(t, targets.value.map((l) => l.code)) ? w.xliffTargetFrom(t) : w.xliffTargetUnknown(t);
+});
 const poHeader = computed(() => poLanguage(head.value));
 /** The catalog locale this import writes, as the project names it (or as the file does when the project lacks it). */
 const targetLocale = computed<string | undefined>(() => {
   switch (format.value) {
     case "xliff":
-      return xliffTarget.value && (projectLocale(xliffTarget.value, codes.value) ?? xliffTarget.value);
+      return xliffLocale.value || undefined;
     case "json":
       return jsonLocale.value || source.value;
     case "po": {
@@ -125,7 +134,8 @@ const problem = computed<string | undefined>(() => {
   if (!allowed.value.includes(f)) return `${s.format[f]}${w.needsManage}`;
   if (mode.value === "overwrite" && !canOverwrite(grant.value)) return w.modes.overwrite;
   if (!isCatalog(f)) return undefined;
-  if (f === "xliff" && !xliffTarget.value) return canOverwrite(grant.value) ? undefined : w.cannotImportSource;
+  if (f === "xliff" && !xliffNeedsLocale.value) return canOverwrite(grant.value) ? undefined : w.cannotImportSource;
+  if (f === "xliff" && !xliffLocale.value) return w.xliffChoose;
   const l = targetLocale.value;
   if (!l) return undefined;
   if (notInProject.value) return w.notInProject(l);
@@ -142,6 +152,7 @@ function request(): ImportRequest {
   const f = format.value as IntegrationFormat;
   const options: ImportOptions = {};
   if (f === "xliff" && xliffIcu.value) options.syntax = "mf1";
+  if (f === "xliff" && xliffNeedsLocale.value && xliffLocale.value) options.locale = xliffLocale.value;
   if (f === "json") {
     options.locale = jsonLocale.value || source.value;
     options.syntax = syntax.value;
@@ -157,7 +168,7 @@ function request(): ImportRequest {
     format: f,
     mode: mode.value,
     file_name: file.value!.name,
-    ...(isCatalog(f) || scope.value === "project" ? { project_id: projectId.value } : {}),
+    project_id: projectId.value,
     ...(Object.keys(options).length ? { options } : {}),
   };
 }
@@ -225,10 +236,15 @@ async function start(confirmed = false): Promise<void> {
         <legend><span class="num" aria-hidden="true">2</span> {{ w.stepOptions }}</legend>
 
         <template v-if="format === 'xliff'">
-          <div class="stack-sm">
-            <span class="label">{{ w.xliffTarget }}</span>
-            <p data-testid="xliff-target">{{ xliffTarget ? w.xliffTargetFrom(xliffTarget) : w.xliffNoTarget }}</p>
+          <div v-if="xliffNeedsLocale" class="field narrow">
+            <label for="imp-xliff-locale">{{ w.xliffTarget }}</label>
+            <select id="imp-xliff-locale" v-model="xliffLocale" aria-describedby="imp-xliff-locale-hint">
+              <option value="" disabled>{{ w.chooseLocale }}</option>
+              <option v-for="l in targets" :key="l.code" :value="l.code" :disabled="!!localeNote(l.code)">{{ l.code }}{{ localeNote(l.code) }}</option>
+            </select>
+            <p id="imp-xliff-locale-hint" class="hint" data-testid="xliff-target">{{ xliffHint }}</p>
           </div>
+          <p v-else data-testid="xliff-target">{{ w.xliffNoTarget }}</p>
           <label class="check"><input v-model="xliffIcu" type="checkbox" /> {{ w.xliffIcu }}</label>
         </template>
 
@@ -280,11 +296,10 @@ async function start(confirmed = false): Promise<void> {
           </div>
         </template>
 
-        <fieldset v-if="format === 'tmx' || format === 'tbx'" class="stack-sm plain">
-          <legend class="label">{{ w.scope }}</legend>
-          <label class="check"><input v-model="scope" type="radio" name="imp-scope" value="project" /> {{ w.scopeProject }}</label>
-          <label class="check"><input v-model="scope" type="radio" name="imp-scope" value="tenant" /> {{ w.scopeTenant }}</label>
-        </fieldset>
+        <p v-if="format === 'tmx' || format === 'tbx'" class="hint" data-testid="knowledge-scope">
+          {{ w.projectKnowledge(s.kind[format === "tmx" ? "tm" : "termbase"]!) }}
+          <RouterLink :to="{ name: 'workspace-knowledge', params: { tenant } }">{{ strings.tenantSettings.knowledgeLink }}</RouterLink>
+        </p>
       </fieldset>
 
       <fieldset v-if="file && format" class="card stack step" :disabled="runner.phase.value !== 'idle'">

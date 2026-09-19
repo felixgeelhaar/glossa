@@ -76,7 +76,12 @@ async function create(): Promise<void> {
         <p class="muted">{{ tenantName }}</p>
         <h1>{{ strings.projects.title }}</h1>
       </div>
-      <button v-if="canCreate && !creating" type="button" class="btn btn-primary" @click="creating = true">{{ strings.projects.create }}</button>
+      <div class="row">
+        <RouterLink class="btn" :to="{ name: 'workspace-knowledge', params: { tenant } }" :title="strings.tenantSettings.settingsLead">
+          {{ strings.nav.workspaceSettings }}: {{ strings.tenantSettings.knowledgeLink }}
+        </RouterLink>
+        <button v-if="canCreate && !creating" type="button" class="btn btn-primary" @click="creating = true">{{ strings.projects.create }}</button>
+      </div>
     </div>
 
     <section v-if="creating" class="card stack create" aria-labelledby="create-h">

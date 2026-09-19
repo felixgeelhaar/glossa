@@ -1,15 +1,18 @@
 <script setup lang="ts">
 /**
- * Export (RFC 0003 §6): a catalog (XLIFF or JSON: locales, namespaces,
- * review states, JSON layout and syntax), the translation memory (TMX:
- * source and target locales) or the termbase (TBX), for this project or
- * the whole workspace. The job is queued, followed until it's written,
- * and the file is downloaded with the session (several locales come as
- * one zip). `po` is import only.
+ * Export (RFC 0003 §6): a catalog (XLIFF or JSON: locales, namespaces
+ * chosen from the project's own — `GET …/namespaces`, with their message
+ * counts —, review states, JSON layout and syntax), the project's
+ * translation memory (TMX: source and target locales) or termbase (TBX).
+ * The whole workspace's memory and termbase are exported from workspace
+ * settings. The job is queued, followed until it's written, and the file
+ * is downloaded with the session (several locales come as one zip). `po`
+ * is import only.
  */
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import { RouterLink } from "vue-router";
 import type { ExportRequest, IntegrationPort } from "../../api/integration";
-import type { ExportJob, ExportOptions, IntegrationFormat } from "../../api/integration-schemas";
+import type { ExportJob, ExportOptions, IntegrationFormat, NamespaceSummary } from "../../api/integration-schemas";
 import type { Project, ProjectLocale, ReviewState, Syntax } from "../../api/schemas";
 import { bytes, canCancelExport, EXPORT_FORMATS, isCatalog, isTerminal, polling, pollUntil, saveBlob } from "../../lib/integration";
 import { strings } from "../../strings";
@@ -34,10 +37,13 @@ const d = s.exportDialog;
 const STATES: ReviewState[] = ["draft", "needs_review", "approved", "rejected"];
 
 const format = ref<IntegrationFormat>("json");
-const scope = ref<"project" | "tenant">("project");
 const chosen = ref<string[]>([]);
 const sourceLocale = ref("");
-const namespaces = ref("");
+/** Chosen namespaces; none means every namespace. */
+const namespaces = ref<string[]>([]);
+const namespaceList = shallowRef<NamespaceSummary[]>([]);
+const namespacesNext = ref<string>();
+const namespacesLoading = ref(false);
 const states = ref<ReviewState[]>(["approved"]);
 const layout = ref<"flat" | "nested">("flat");
 const syntax = ref<Syntax>("mf1");
@@ -56,7 +62,20 @@ const title = computed(() => (props.preset === "tmx" ? d.titleTmx : props.preset
 function defaults(): void {
   chosen.value = format.value === "tmx" ? [] : choosable.value.map((l) => l.code);
   sourceLocale.value = "";
-  scope.value = "project";
+}
+
+/** The project's namespaces, a page at a time. */
+async function loadNamespaces(more = false): Promise<void> {
+  namespacesLoading.value = true;
+  try {
+    const p = await props.port.namespaces(props.tenant, props.projectId, more ? namespacesNext.value : undefined);
+    namespaceList.value = more ? [...namespaceList.value, ...p.items] : p.items;
+    namespacesNext.value = p.next;
+  } catch (e) {
+    error.value = e;
+  } finally {
+    namespacesLoading.value = false;
+  }
 }
 
 watch(
@@ -67,7 +86,9 @@ watch(
       return;
     }
     format.value = props.preset ?? "json";
-    namespaces.value = "";
+    namespaces.value = [];
+    namespaceList.value = [];
+    namespacesNext.value = undefined;
     states.value = ["approved"];
     layout.value = "flat";
     syntax.value = props.project?.settings.default_syntax ?? "mf1";
@@ -75,11 +96,13 @@ watch(
     error.value = null;
     saved.value = "";
     defaults();
+    if (isCatalog(format.value)) void loadNamespaces();
   },
   { immediate: true },
 );
-watch(format, () => {
+watch(format, (f) => {
   if (props.open && !job.value) defaults();
+  if (props.open && isCatalog(f) && !namespaceList.value.length && !namespacesLoading.value) void loadNamespaces();
 });
 onBeforeUnmount(() => poller?.abort());
 
@@ -90,8 +113,7 @@ function request(): ExportRequest {
   const options: ExportOptions = {};
   if (isCatalog(f)) {
     if (chosen.value.length) options.locales = [...chosen.value];
-    const ns = namespaces.value.split(",").map((x) => x.trim()).filter(Boolean);
-    if (ns.length) options.namespaces = ns;
+    if (namespaces.value.length) options.namespaces = [...namespaces.value];
     options.states = [...states.value];
   }
   if (f === "json") {
@@ -104,7 +126,7 @@ function request(): ExportRequest {
   }
   return {
     format: f,
-    ...(isCatalog(f) || scope.value === "project" ? { project_id: props.projectId } : {}),
+    project_id: props.projectId,
     ...(Object.keys(options).length ? { options } : {}),
   };
 }
@@ -169,11 +191,10 @@ const localesHint = computed(() => (format.value === "xliff" ? d.localesHintXlif
         <p id="exp-format-hint" class="hint">{{ d.poImportOnly }}</p>
       </div>
 
-      <fieldset v-if="!isCatalog(format)" class="stack-sm plain">
-        <legend class="label">{{ d.scope }}</legend>
-        <label class="check"><input v-model="scope" type="radio" name="exp-scope" value="project" /> {{ d.scopeProject }}</label>
-        <label class="check"><input v-model="scope" type="radio" name="exp-scope" value="tenant" /> {{ d.scopeTenant }}</label>
-      </fieldset>
+      <p v-if="!isCatalog(format)" class="hint" data-testid="knowledge-scope">
+        {{ d.projectKnowledge }}
+        <RouterLink :to="{ name: 'workspace-knowledge', params: { tenant } }">{{ strings.tenantSettings.knowledgeLink }}</RouterLink>
+      </p>
 
       <div v-if="format === 'tmx'" class="field narrow">
         <label for="exp-source">{{ d.sourceLocale }}</label>
@@ -195,11 +216,19 @@ const localesHint = computed(() => (format.value === "xliff" ? d.localesHintXlif
       </fieldset>
 
       <template v-if="isCatalog(format)">
-        <div class="field narrow">
-          <label for="exp-ns">{{ d.namespaces }}</label>
-          <input id="exp-ns" v-model="namespaces" autocomplete="off" aria-describedby="exp-ns-hint" />
+        <fieldset class="stack-sm plain" aria-describedby="exp-ns-hint" data-testid="export-namespaces">
+          <legend class="label">{{ d.namespaces }}</legend>
           <p id="exp-ns-hint" class="hint">{{ d.namespacesHint }}</p>
-        </div>
+          <p v-if="namespacesLoading && !namespaceList.length" class="muted">{{ strings.app.loading }}</p>
+          <p v-else-if="!namespaceList.length" class="muted">{{ d.noNamespaces }}</p>
+          <div v-else class="row">
+            <label v-for="n in namespaceList" :key="n.name" class="check">
+              <input v-model="namespaces" type="checkbox" :value="n.name" />
+              <span class="mono">{{ n.name }}</span><span class="hint">{{ d.namespaceCount(n.active_messages) }}</span>
+            </label>
+          </div>
+          <button v-if="namespacesNext" type="button" class="btn btn-sm more" :disabled="namespacesLoading" @click="loadNamespaces(true)">{{ s.loadMore }}</button>
+        </fieldset>
         <fieldset class="stack-sm plain" aria-describedby="exp-states-hint">
           <legend class="label">{{ d.states }}</legend>
           <p id="exp-states-hint" class="hint">{{ d.statesHint }}</p>
@@ -259,6 +288,9 @@ const localesHint = computed(() => (format.value === "xliff" ? d.localesHintXlif
 }
 .narrow {
   max-inline-size: 28rem;
+}
+.more {
+  align-self: flex-start;
 }
 .options {
   align-items: flex-start;

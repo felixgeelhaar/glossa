@@ -22,6 +22,18 @@ export const routes: RouteRecordRaw[] = [
       { path: "organizations/new", name: "new-organization", component: () => import("./views/NewOrganizationView.vue"), meta: { title: "New organization" } },
       { path: "t/:tenant", name: "projects", component: () => import("./views/ProjectsView.vue"), meta: { title: "Projects" } },
       {
+        path: "t/:tenant/settings/knowledge",
+        name: "workspace-knowledge",
+        component: () => import("./views/workspace/KnowledgeFilesView.vue"),
+        meta: { title: "Translation memory & termbase" },
+      },
+      {
+        path: "t/:tenant/settings/knowledge/imports/:job",
+        name: "workspace-import-job",
+        component: () => import("./views/workspace/KnowledgeImportJobView.vue"),
+        meta: { title: "Import" },
+      },
+      {
         path: "t/:tenant/p/:project",
         component: () => import("./views/project/ProjectLayout.vue"),
         children: [

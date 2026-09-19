@@ -77,13 +77,59 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
     history: createMemoryHistory(),
     routes: ["releases", "releases/:release", "settings", "translate", "review", "terms", "style", "ai", "files", "files/import", "files/imports/:job"]
       .map((p) => ({ path: `/t/:tenant/p/:project/${p}`, name: ROUTE_NAMES[p] ?? p, component: Empty }))
-      .concat([{ path: "/t/:tenant", name: "projects", component: Empty }]),
+      .concat([
+        { path: "/t/:tenant", name: "projects", component: Empty },
+        { path: "/t/:tenant/settings/knowledge", name: "workspace-knowledge", component: Empty },
+      ]),
   });
   await router.push(options.path ?? "/t/t/p/p/releases");
   const provide: Record<symbol, unknown> = { [PROJECT as symbol]: projectContext(options.roles, options.locales, options.memberLocales) };
   if (options.port) provide[RELEASES as symbol] = options.port;
   if (options.knowledge) provide[KNOWLEDGE as symbol] = options.knowledge;
   if (options.intelligence) provide[INTELLIGENCE as symbol] = options.intelligence;
+  if (options.integration) provide[INTEGRATION as symbol] = options.integration;
+  const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
+  await flushPromises();
+  return w;
+}
+
+export interface TenantScreenOptions {
+  integration?: IntegrationPort;
+  roles?: Role[];
+  path: string;
+}
+
+/** Mount a workspace (tenant-level) screen: the member's grant comes from the session, as in the app. */
+export async function mountTenantScreen(component: Component, options: TenantScreenOptions): Promise<VueWrapper> {
+  const me = {
+    ...ME,
+    memberships: [
+      {
+        member_id: "m",
+        tenant: { id: "t", kind: "organization", slug: "acme", name: "Acme", created_at: NOW },
+        roles: options.roles ?? ["developer"],
+        locales: [],
+      },
+    ],
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (req: Request) => {
+      const path = new URL(req.url).pathname;
+      return new Response(JSON.stringify(path === "/v1/me" ? me : { items: [] }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }),
+  );
+  await refreshSession();
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: "/t/:tenant", name: "projects", component: Empty },
+      { path: "/t/:tenant/settings/knowledge", name: "workspace-knowledge", component: Empty },
+      { path: "/t/:tenant/settings/knowledge/imports/:job", name: "workspace-import-job", component: Empty },
+    ],
+  });
+  await router.push(options.path);
+  const provide: Record<symbol, unknown> = {};
   if (options.integration) provide[INTEGRATION as symbol] = options.integration;
   const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
   await flushPromises();

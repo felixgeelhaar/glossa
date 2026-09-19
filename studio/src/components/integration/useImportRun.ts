@@ -1,7 +1,10 @@
 /**
  * One import from start to end: create the job, upload the file with
- * progress, then read the job until it ends. Used by the wizard and by
- * "Apply" on a dry run's results; both then show the finished job.
+ * progress, then read the job until it ends. Used by the wizard, the
+ * workspace's memory and termbase screen, and "Apply" on a dry run's
+ * results; they then show the finished job. A TMX or TBX file without a
+ * project goes to the workspace's own routes (`tm-import-jobs`,
+ * `termbase-import-jobs`).
  */
 import { computed, onBeforeUnmount, ref, shallowRef, type Ref } from "vue";
 import type { ImportRequest, IntegrationPort } from "../../api/integration";
@@ -27,7 +30,11 @@ export function useImportRun(port: IntegrationPort, tenant: Ref<string>) {
     job.value = undefined;
     phase.value = "uploading";
     try {
-      let j = await port.createImport(tenant.value, body, globalThis.crypto.randomUUID());
+      const key = globalThis.crypto.randomUUID();
+      const workspace = !body.project_id && (body.format === "tmx" || body.format === "tbx");
+      let j = workspace
+        ? await port.createKnowledgeImport(tenant.value, body.format === "tmx" ? "tm" : "termbase", { ...(body.mode ? { mode: body.mode } : {}), ...(body.file_name ? { file_name: body.file_name } : {}) }, key)
+        : await port.createImport(tenant.value, body, key);
       job.value = j;
       if (j.mode === "dry_run") rememberFile(j.id, file);
       j = await port.upload(tenant.value, j, file, (loaded, total) => (sent.value = total ? loaded / total : 0), ctrl.signal);
