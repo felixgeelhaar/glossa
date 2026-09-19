@@ -26,3 +26,10 @@ closes a gap, remove the kernel fix and its entry here.
 | Parser panics on some malformed input (found by fuzzing). | `containEngineFailure` turns them into `CodeInternalError`; `engine_panic_test.go` lists the known inputs. | Issues to file, one per entry. |
 | go-intl: the German percent pattern lacks CLDR's no-break space (`20%` instead of `20 %`). | None possible at the boundary (CLDR data); the affected fixture cases are skipped with their reason (`conformance_glossa_test.go`, `runtimes/go/runtime_format_test.go`). | Fixed upstream (RFC 0004 §7.2); remove the skips with the go-intl upgrade. |
 | go-intl: the short zone name of UTC is `GMT` where ICU says `UTC`. | None possible at the boundary; skipped with its reason in `conformance_glossa_test.go`. | Issue to file. |
+
+## Time zones
+
+The engine formats a `time.Time` in its own location, or in the zone a
+placeholder's `timeZone` option names. `WithTimeZone` sets the zone for the
+date and time placeholders that don't name one (`engine_timezone.go`), so a
+server's output doesn't depend on where its `time.Time` values came from.

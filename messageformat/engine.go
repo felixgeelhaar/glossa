@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"time"
 	"unicode/utf8"
 
 	mf2 "github.com/kaptinlin/messageformat-go"
@@ -112,6 +113,7 @@ type FormatOption func(*formatConfig)
 
 type formatConfig struct {
 	bidiIsolation bool
+	timeZone      *time.Location
 	functions     map[string]functions.MessageFunction
 }
 
@@ -170,6 +172,7 @@ func compile(msg Message, locale string, opts []FormatOption) (*mf2.MessageForma
 		opt(&cfg)
 	}
 	withExactNumbers(cfg.functions)
+	withTimeZone(cfg.functions, cfg.timeZone)
 	em, err := toEngineValidated(msg)
 	if err != nil {
 		return nil, err

@@ -20,7 +20,8 @@
 //     functions, to a string ([Format]) or to formatted parts
 //     ([FormatToParts]) that keep markup and placeholder boundaries.
 //     [Decimal] and [Money] values format and select exactly, without
-//     ever passing through a float.
+//     ever passing through a float, and [WithTimeZone] sets the zone of
+//     the date and time placeholders that don't name one.
 //
 // Errors are *[Error] values with stable codes ([ErrorCode]); formatting
 // problems come as a *[FormatError] next to a usable fallback string. No
