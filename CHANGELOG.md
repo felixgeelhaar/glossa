@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · SemVer.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`<glossa-*>` elements inside Vue templates always showed their
+  fallback.** Vue reserves `key` for its own list reconciliation and never
+  renders it as a DOM attribute, so `<glossa-text key="…">` in a `.vue`
+  file reached the element with no message ID and rendered the slot content
+  in every locale. The elements now also accept `message="…"`; use it in
+  Vue templates. `key` keeps working in plain HTML and `.astro` files.
+
 ## 0.3.1 — 2026-08-12
 
 ### Fixed

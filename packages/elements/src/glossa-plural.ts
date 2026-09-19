@@ -24,11 +24,20 @@ export class GlossaPlural extends LitElement {
 
   static override properties = {
     key: { type: String },
+    // Same as `key`. Vue reserves `key` and never renders it as an
+    // attribute, so use `message` inside .vue templates.
+    message: { type: String },
     count: { type: Number },
     vars: { converter: { fromAttribute: (v: string | null) => parseVars(v) } },
   };
 
   public key = "";
+  public message = "";
+
+  /** The message ID: `message` when set, else `key`. */
+  private get messageId(): string {
+    return this.message || this.key;
+  }
   public count = 0;
   public vars: Vars = {};
 
@@ -43,8 +52,8 @@ export class GlossaPlural extends LitElement {
   }
 
   private lookup(ctx: GlossaContextValue | undefined): string | undefined {
-    if (!ctx || !this.key) return undefined;
-    const raw = ctx.get(this.key);
+    if (!ctx || !this.messageId) return undefined;
+    const raw = ctx.get(this.messageId);
     if (raw === undefined) return undefined;
     try {
       return format(raw, ctx.locale, { ...this.vars, count: this.count });
