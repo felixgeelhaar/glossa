@@ -59,7 +59,7 @@ jobs:
       matrix:
         # Go modules of the rewrite (RFC 0002). Keep in sync with
         # PLATFORM_MODULES in the Makefile.
-        module: [messageformat, platform, runtimes/go]
+        module: [messageformat, platform, runtimes/go, runtimes/go/examples/pdf]
     defaults:
       run:
         working-directory: ${{ matrix.module }}
