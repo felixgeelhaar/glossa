@@ -61,10 +61,19 @@ beforeAll(async () => {
   for (const [sha, bytes] of Object.entries(r.bytes)) {
     await writeFile(join(dir, "a", `${sha}.json`), bytes);
   }
+  await rm(join(fixture, ".glossa"), { recursive: true, force: true });
   await promisify(execFile)(process.execPath, [astro, "build", "--root", fixture], {
-    env: { ...process.env, ASTRO_TELEMETRY_DISABLED: "1" },
+    env: {
+      ...process.env,
+      ASTRO_TELEMETRY_DISABLED: "1",
+      // What names the build in CI (@glossa/unplugin reads them).
+      GITHUB_SHA: COMMIT,
+      GITHUB_HEAD_REF: "feat/astro-usages",
+    },
   });
 }, 60_000);
+
+const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 
 describe("astro build with glossa()", () => {
   it("renders .astro pages and <glossa-*> elements with the release, per locale", async () => {
@@ -110,6 +119,31 @@ describe("astro build with glossa()", () => {
     expect(plain).toContain('<p id="t">Willkommen</p>');
     expect(plain).toContain(">Willkommen</glossa-text>");
     expect(inlined(plain)).toBeUndefined();
+  });
+
+  it("writes .glossa/usages.json beside dist with @glossa/unplugin, across the server and island builds", async () => {
+    const doc = JSON.parse(await readFile(join(fixture, ".glossa", "usages.json"), "utf8"));
+    expect(doc).toMatchObject({
+      schema: "glossa.usages/v1",
+      application: "astro-fixture",
+      commit: COMMIT,
+      branch: "feat/astro-usages",
+      tool: { name: "@glossa/unplugin" },
+    });
+    const at = (u: { key: string; file: string; line: number; column: number; kind: string; route?: string; component?: string }) =>
+      `${u.key} ${u.file}:${u.line}:${u.column} ${u.kind} ${u.component ?? "-"} ${u.route ?? "-"}`;
+    expect(doc.usages.map(at)).toEqual([
+      "cart.items src/components/Page.astro:17:42 element Page -",
+      "greeting src/components/Greeting.vue:10:24 t Greeting -",
+      "home.title src/components/Greeting.vue:12:40 element Greeting -",
+      "home.title src/components/Page.astro:11:16 t Page -",
+      "home.title src/components/Page.astro:16:41 element Page -",
+      "home.title src/pages/plain.astro:10:19 t plain /plain",
+      "home.title src/pages/plain.astro:11:33 element plain /plain",
+      "only.inline src/components/Page.astro:18:40 element Page -",
+      "terms src/components/Greeting.vue:11:34 component Greeting -",
+    ]);
+    expect(await readdir(join(fixture, "dist"))).not.toContain(".glossa");
   });
 
   it("keeps the release out of client JavaScript", async () => {

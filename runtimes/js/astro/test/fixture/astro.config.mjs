@@ -14,7 +14,7 @@ export default defineConfig({
       appEntrypoint: "@glossa/astro/vue",
       template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith("glossa-") } },
     }),
-    glossa({ release: "./.glossa-release", elements: true }),
+    glossa({ release: "./.glossa-release", elements: true, usages: { application: "astro-fixture" } }),
   ],
   vite: {
     // What installing @glossa/astro from npm would resolve to.

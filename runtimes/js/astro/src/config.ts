@@ -1,5 +1,6 @@
 /** Options of the `glossa()` integration, and what reaches the site's code. */
 import type { BundledRelease, PublicKey } from "@glossa/runtime";
+import type { GlossaPluginOptions } from "@glossa/unplugin";
 
 import type { Routing } from "./routing.js";
 
@@ -36,6 +37,13 @@ export interface GlossaAstroOptions {
   inline?: "auto" | "always" | "never";
   /** Define the `<glossa-*>` elements on every page, sharing the page's runtime with islands. */
   elements?: boolean;
+  /**
+   * Where messages are used: `astro build` writes `.glossa/usages.json`
+   * beside `outDir` through `@glossa/unplugin` (RFC 0004 §2.1), for
+   * `glossa context push`. On by default; these options go to the plugin
+   * (`keys` defaults to the release's message keys). `false` turns it off.
+   */
+  usages?: false | GlossaPluginOptions;
 }
 
 /** `virtual:glossa/config`: public, so it's safe in client bundles. */

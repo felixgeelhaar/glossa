@@ -212,6 +212,9 @@ importers:
       '@glossa/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@glossa/unplugin':
+        specifier: workspace:*
+        version: link:../unplugin
       '@glossa/vue':
         specifier: workspace:*
         version: link:../vue

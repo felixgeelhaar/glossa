@@ -60,6 +60,7 @@
   "dependencies": {
     "@glossa/elements": "workspace:*",
     "@glossa/runtime": "workspace:*",
+    "@glossa/unplugin": "workspace:*",
     "@glossa/vue": "workspace:*"
   },
   "devDependencies": {

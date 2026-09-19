@@ -22,15 +22,18 @@
  * translated HTML; islands and elements hydrate from the inlined slice of the
  * same release, then refresh from the edge.
  */
-import { resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AstroConfig, AstroIntegration } from "astro";
 import type { BundledRelease } from "@glossa/runtime";
+import glossaUsages from "@glossa/unplugin/vite";
 
 import type { GlossaAstroOptions, PublicConfig } from "./config.js";
 import { loadRelease } from "./release.js";
 import { siteLocales } from "./routing.js";
 import type { Routing } from "./routing.js";
+
+type VitePlugins = NonNullable<NonNullable<AstroConfig["vite"]>["plugins"]>;
 
 export type { GlossaAstroOptions, PublicConfig } from "./config.js";
 export { fetchRelease, loadRelease, readRelease } from "./release.js";
@@ -56,6 +59,32 @@ export function resolveRouting(
   const r = i18n?.routing;
   const prefixDefaultLocale = typeof r === "object" && !!r.prefixDefaultLocale;
   return { locales, defaultLocale, prefixDefaultLocale, base: config.base };
+}
+
+/** Every message key in the release: what the typed accessors are named after. */
+function releaseKeys(release: BundledRelease | undefined): string[] | undefined {
+  if (!release) return undefined;
+  return [...new Set(Object.values(release.artifacts).flatMap((a) => Object.keys(a.messages)))];
+}
+
+/**
+ * `@glossa/unplugin` for this site: file paths relative to Astro's root,
+ * `.glossa/usages.json` beside `outDir` (never inside what gets deployed).
+ */
+export function usagesPlugin(
+  options: GlossaAstroOptions["usages"],
+  config: Pick<AstroConfig, "root" | "outDir">,
+  release: BundledRelease | undefined,
+): VitePlugins {
+  if (options === false) return [];
+  return [
+    glossaUsages({
+      root: fileURLToPath(config.root),
+      outDir: join(dirname(fileURLToPath(config.outDir)), ".glossa"),
+      keys: releaseKeys(release),
+      ...options,
+    }),
+  ];
 }
 
 /** Serves `virtual:glossa/config` (public) and `virtual:glossa/release` (server-only). */
@@ -116,6 +145,7 @@ export default function glossa(options: GlossaAstroOptions = {}): AstroIntegrati
                 "virtual:glossa/config": pub,
                 "virtual:glossa/release": release ?? null,
               }),
+              ...usagesPlugin(options.usages, config, release),
             ],
             // The package imports virtual modules, so Vite has to process it, not pre-bundle or externalize it.
             optimizeDeps: { exclude: ["@glossa/astro"] },

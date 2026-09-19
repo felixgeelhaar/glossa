@@ -18,7 +18,7 @@ async function setup(options: Parameters<typeof glossa>[0], i18n?: unknown) {
   const hook = glossa(options).hooks["astro:config:setup"] as Setup;
   await hook({
     ...calls,
-    config: { root: new URL("file:///site/"), base: "/", i18n },
+    config: { root: new URL("file:///site/"), outDir: new URL("file:///site/dist/"), base: "/", i18n },
   } as unknown as Parameters<Setup>[0]);
   return calls;
 }
@@ -93,6 +93,17 @@ describe("glossa()", () => {
       "page",
       expect.stringMatching(/^import ".*elements\.js";$/),
     );
+  });
+
+  it("adds @glossa/unplugin to Vite for usages, unless usages: false", async () => {
+    const names = (calls: Awaited<ReturnType<typeof setup>>) =>
+      (calls.updateConfig.mock.calls[0]![0].vite.plugins as Array<{ name: string }>).map((p) => p.name);
+    const on = await setup({ release: r });
+    expect(names(on)).toEqual(["@glossa/astro:virtual", "@glossa/unplugin"]);
+    const plugin = on.updateConfig.mock.calls[0]![0].vite.plugins[1];
+    expect(plugin).toMatchObject({ enforce: "post", apply: "build" });
+    const off = await setup({ release: r, usages: false });
+    expect(names(off)).toEqual(["@glossa/astro:virtual"]);
   });
 
   it("warns and renders inline defaults when no release is configured", async () => {

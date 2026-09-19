@@ -35,6 +35,7 @@ export default defineConfig({
 | `prerender` | `"static"` | Controls rendering of `<glossa-*>` elements into the HTML: `"static"` does it on prerendered pages; `"all"` also does it on on-demand pages, which buffers them instead of streaming; `false` turns it off. |
 | `inline` | `"auto"` | Controls inlining of the page locale's release slice, the manifest plus that locale's fallback-chain artifacts, as `<script type="application/json" id="glossa-release">`: `"auto"` inlines it on pages that have islands or providers, `"always"` on every page, `"never"` nowhere. |
 | `elements` | `false` | Defines the elements on every page and makes `<glossa-provider>` without `edge` use the page runtime. |
+| `usages` | on | Where messages are used. `astro build` runs [`@glossa/unplugin`](../unplugin), which writes `.glossa/usages.json` beside `outDir` (not inside it, so it's never deployed) for `glossa context push`. The object goes to the plugin (`application`, `commit`, `branch`, `routes`, `keys`, which defaults to the release's message keys); `false` turns it off. Components are the `.astro`/`.vue` file names; routes come from `src/pages/**`. |
 
 The release is loaded through `@glossa/runtime`, so the build verifies it the
 same way a browser would: schema, environment, the signature when keys are
@@ -96,8 +97,8 @@ const { t, locale, dir } = getGlossa(Astro);
 release loading, the integration hooks) and one real `astro build` of
 `test/fixture`: a static site with i18n routing, a Vue island, elements, and a
 page without islands. The build takes about 15 s. It checks the translated HTML
-per locale, the islands' server rendering, the inline slice, and that no
-client chunk contains the catalog. Run `pnpm build` first, because the fixture
+per locale, the islands' server rendering, the inline slice, that no
+client chunk contains the catalog, and the usages `@glossa/unplugin` wrote. Run `pnpm build` first, because the fixture
 uses `dist/` the way an installed package would.
 
 ## Size
