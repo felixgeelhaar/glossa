@@ -7,9 +7,11 @@ package app
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
 // Store errors. Adapters translate their storage errors into these.
@@ -34,6 +36,13 @@ var (
 // don't nest.
 type Transactor interface {
 	InTenant(ctx context.Context, fn func(context.Context, Store) error) error
+}
+
+// Sweeper lists, across tenants (system scope), the tenants holding a
+// closed or merged branch: what the daily proposal sweep visits. It
+// learns nothing else about them.
+type Sweeper interface {
+	TenantsWithClosedBranches(ctx context.Context) ([]tenancy.ID, error)
 }
 
 // NamespaceSummary is a namespace of a project with how many of its
@@ -103,6 +112,9 @@ type Store interface {
 	Branch(ctx context.Context, project domain.ProjectID, name domain.BranchName) (domain.Branch, error)
 	LockBranch(ctx context.Context, project domain.ProjectID, name domain.BranchName) (domain.Branch, error)
 	BranchesByIDs(ctx context.Context, ids []domain.BranchID) (map[domain.BranchID]domain.Branch, error)
+	// ClosedBranches reports when each of the project's closed and
+	// merged branches closed.
+	ClosedBranches(ctx context.Context, project domain.ProjectID) (map[domain.BranchName]time.Time, error)
 	// UpdateBranch saves b if the stored version is still expected.
 	UpdateBranch(ctx context.Context, b domain.Branch, expected int) error
 

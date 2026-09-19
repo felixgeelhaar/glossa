@@ -47,6 +47,7 @@ type clock struct{ t time.Time }
 func newClock() *clock                   { return &clock{t: time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)} }
 func (c *clock) now() time.Time          { return c.t }
 func (c *clock) advance(d time.Duration) { c.t = c.t.Add(d) }
+func (c *clock) set(t time.Time)         { c.t = t }
 
 // harness wires Catalog and Context the way the composition root does,
 // plus an outbox dispatcher the test drives.
@@ -74,8 +75,10 @@ func harnessFor(t *testing.T, slug string, opts ...app.Option) *harness {
 		t.Fatal(err)
 	}
 	uow := db.NewUnitOfWork(env.App)
-	cat := catalogapp.New(catalogpg.NewTransactor(uow))
 	clk := newClock()
+	// Catalog shares the clock, so a test can close a branch at a chosen
+	// moment and watch retention's grace period run out.
+	cat := catalogapp.New(catalogpg.NewTransactor(uow), catalogapp.WithClock(clk.now))
 	opts = append([]app.Option{app.WithClock(clk.now), app.WithSweeper(contextpg.NewSweeper(uow))}, opts...)
 	svc := app.New(contextpg.NewTransactor(uow), catalogport.New(cat), opts...)
 	reg := outbox.NewRegistry()

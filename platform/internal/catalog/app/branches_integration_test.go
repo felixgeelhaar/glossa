@@ -49,7 +49,8 @@ func newBranchHarness(t *testing.T) *branchHarness {
 	}
 	h := &branchHarness{tenant: tenant, now: time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)}
 	uow := db.NewUnitOfWork(env.App)
-	h.svc = app.New(postgres.NewTransactor(uow), app.WithClock(func() time.Time { return h.now }))
+	h.svc = app.New(postgres.NewTransactor(uow), app.WithClock(func() time.Time { return h.now }),
+		app.WithSweeper(postgres.NewSweeper(uow)))
 	h.loc = localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(h.svc))
 	h.svc.SetCoverage(coverage.New(h.loc))
 	h.svc.SetImpact(coverage.New(h.loc))
@@ -523,5 +524,91 @@ func TestBranchesAreAuthorizedAndTenantIsolated(t *testing.T) {
 	}
 	if n, err := h.svc.SweepProposals(intruder); err != nil || n != 0 {
 		t.Errorf("intruder's sweep: %d %v", n, err)
+	}
+}
+
+func TestClosedBranchesReportsWhenEachClosed(t *testing.T) {
+	h := newBranchHarness(t)
+	h.pushBranch(t, "feature/open", map[string]string{"a.open": "A"}, false)
+	h.pushBranch(t, "feature/closed", map[string]string{"a.closed": "B"}, false)
+	h.pushBranch(t, "feature/merged", map[string]string{"a.merged": "C"}, false)
+
+	// An open branch is not in the map at any time.
+	if got, err := h.svc.ClosedBranches(h.owner(), h.project); err != nil || len(got) != 0 {
+		t.Fatalf("with no closed branch = %v, %v", got, err)
+	}
+	closedAt := h.now
+	if _, err := h.svc.CloseBranch(h.owner(), h.project, "feature/closed"); err != nil {
+		t.Fatal(err)
+	}
+	h.now = closedAt.Add(time.Hour)
+	mergedAt := h.now
+	if _, err := h.svc.MergeBranch(h.owner(), h.project, "feature/merged"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := h.svc.ClosedBranches(h.owner(), h.project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[domain.BranchName]time.Time{"feature/closed": closedAt.UTC(), "feature/merged": mergedAt.UTC()}
+	if len(got) != len(want) {
+		t.Fatalf("ClosedBranches = %v, want %v", got, want)
+	}
+	for name, at := range want {
+		if !got[name].Equal(at) {
+			t.Errorf("%s closed at %v, want %v", name, got[name], at)
+		}
+	}
+
+	// Reopening takes the branch out again: its builds stop expiring.
+	if _, err := h.svc.ReopenBranch(h.owner(), h.project, "feature/closed"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := h.svc.ClosedBranches(h.owner(), h.project); len(got) != 1 {
+		t.Errorf("after reopening = %v, want only the merged branch", got)
+	}
+	// A translator may read them; another tenant sees nothing.
+	translator := authztest.Member(context.Background(), h.tenant, []string{"translator"}, "de")
+	if _, err := h.svc.ClosedBranches(translator, h.project); err != nil {
+		t.Errorf("translator: %v", err)
+	}
+	other, err := env.SeedTenant(context.Background(), "bolt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	intruder := authztest.Member(context.Background(), other, []string{"owner"})
+	if got, err := h.svc.ClosedBranches(intruder, h.project); err != nil || len(got) != 0 {
+		t.Errorf("intruder: %v, %v", got, err)
+	}
+}
+
+func TestSweepAllProposalsVisitsEveryTenantWithAClosedBranch(t *testing.T) {
+	h := newBranchHarness(t)
+	h.pushBranch(t, "feature/tip", map[string]string{"checkout.tip": "Add a tip"}, false)
+	closedAt := h.now
+	if _, err := h.svc.CloseBranch(h.owner(), h.project, "feature/tip"); err != nil {
+		t.Fatal(err)
+	}
+
+	// The sweep runs outside any tenant, like the daily purge job.
+	if n, err := h.svc.SweepAllProposals(context.Background()); err != nil || n != 0 {
+		t.Fatalf("before the retention period: %d %v", n, err)
+	}
+	h.now = closedAt.Add(domain.ProposalRetention)
+	n, err := h.svc.SweepAllProposals(context.Background())
+	if err != nil || n != 1 {
+		t.Fatalf("SweepAllProposals = %d, %v; want the tenant's one proposal", n, err)
+	}
+	if m := h.message(t, "checkout.tip"); m.State != domain.MessageObsolete {
+		t.Errorf("after the sweep %+v", m)
+	}
+	// Idempotent: nothing is left to obsolete.
+	if n, err := h.svc.SweepAllProposals(context.Background()); err != nil || n != 0 {
+		t.Errorf("second run = %d, %v", n, err)
+	}
+	// A request context carries a tenant; the sweep refuses it.
+	if _, err := h.svc.SweepAllProposals(h.owner()); err == nil {
+		t.Error("SweepAllProposals ran in a tenant's request context")
 	}
 }

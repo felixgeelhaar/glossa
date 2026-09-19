@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/context/adapters/metrics"
+	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
@@ -93,5 +94,30 @@ glossa_context_regions_ingested_total{` + tl + `} 42
 	}
 	if n, err := testutil.GatherAndCount(reg, "glossa_context_capture_coverage_ratio"); err != nil || n != 1 {
 		t.Errorf("capture coverage series = %d, %v", n, err)
+	}
+}
+
+func TestPrometheusCountsPurgeDeletionsByKind(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	m := metrics.New(reg)
+	m.Purged(app.Purged{
+		Builds:         []uuid.UUID{uuid.New(), uuid.New()},
+		Captures:       5,
+		OrphanedImages: []domain.Digest{"a", "b", "c"},
+		// One delete failed, so only two images actually went.
+		ImagesDeleted: 2,
+	})
+	// A run that deleted nothing keeps the series and adds nothing.
+	m.Purged(app.Purged{})
+
+	want := `
+# HELP glossa_context_purge_deletions_total What the daily retention run deleted, by kind (build, capture, image: an image no capture referenced any more, gone from object storage).
+# TYPE glossa_context_purge_deletions_total counter
+glossa_context_purge_deletions_total{kind="build"} 2
+glossa_context_purge_deletions_total{kind="capture"} 5
+glossa_context_purge_deletions_total{kind="image"} 2
+`
+	if err := testutil.GatherAndCompare(reg, strings.NewReader(want), "glossa_context_purge_deletions_total"); err != nil {
+		t.Error(err)
 	}
 }

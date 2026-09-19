@@ -246,6 +246,14 @@ type metrics struct {
 	coverage map[uuid.UUID][2]int
 	captured map[uuid.UUID][2]int
 	captures []string
+	purges   []string
+}
+
+func (m *metrics) Purged(p app.Purged) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.purges = append(m.purges, fmt.Sprintf("%d builds, %d captures, %d images",
+		len(p.Builds), p.Captures, p.ImagesDeleted))
 }
 
 func (m *metrics) CapturesIngested(_ tenancy.ID, captures, regions, stored, deduplicated int, bytes int64) {

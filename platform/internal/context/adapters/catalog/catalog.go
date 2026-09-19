@@ -106,9 +106,17 @@ func (p *Port) ActiveMessages(ctx context.Context, project uuid.UUID) ([]app.Mes
 	return out, nil
 }
 
-// ClosedBranches implements app.Catalog. Catalog has no branches until
-// the branch overlay (RFC 0004 §4.1) adds them, so no branch is closed
-// yet and retention keeps the latest builds of every branch.
-func (p *Port) ClosedBranches(context.Context, uuid.UUID) (map[domain.Branch]time.Time, error) {
-	return nil, nil
+// ClosedBranches implements app.Catalog with the branch overlay's
+// closed and merged branches (RFC 0004 §4.1), so retention deletes
+// their builds once the grace period has passed.
+func (p *Port) ClosedBranches(ctx context.Context, project uuid.UUID) (map[domain.Branch]time.Time, error) {
+	closed, err := p.svc.ClosedBranches(ctx, catalogdomain.ProjectID(project))
+	if err != nil {
+		return nil, projectNotFound(err)
+	}
+	out := make(map[domain.Branch]time.Time, len(closed))
+	for name, at := range closed {
+		out[domain.Branch(name)] = at
+	}
+	return out, nil
 }

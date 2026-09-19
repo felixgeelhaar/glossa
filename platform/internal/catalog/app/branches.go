@@ -3,12 +3,14 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
 // The branch overlay (RFC 0004 §4.1). A branch push proposes; only the
@@ -758,6 +760,61 @@ func (s *Service) SweepProposals(ctx context.Context) (int, error) {
 		return nil
 	})
 	return n, err
+}
+
+// sweepPrincipal is the background principal of the proposal sweep.
+// Its name is stable: it appears as the actor in logs and audits.
+const sweepPrincipal = "catalog.sweep"
+
+// SweepAllProposals runs the proposal sweep over every tenant holding a
+// closed branch, each in its own tenant scope as the background
+// principal catalog.sweep, and reports how many messages it obsoleted.
+// It runs outside any tenant (the daily purge job) and needs a Sweeper.
+// A failing tenant doesn't stop the others; their errors are joined.
+func (s *Service) SweepAllProposals(ctx context.Context) (int, error) {
+	if s.sweeper == nil {
+		return 0, errors.New("catalog: SweepAllProposals needs a Sweeper")
+	}
+	tenants, err := s.sweeper.TenantsWithClosedBranches(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var (
+		total int
+		errs  []error
+	)
+	for _, t := range tenants {
+		bg, err := authz.Background(tenancy.ContextWithTenant(ctx, t), sweepPrincipal, authz.CatalogWrite)
+		if err != nil {
+			return total, err
+		}
+		n, err := s.SweepProposals(bg)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("catalog: sweep proposals of tenant %s: %w", t, err))
+			continue
+		}
+		total += n
+	}
+	return total, errors.Join(errs...)
+}
+
+// ClosedBranches reports when each of the project's closed and merged
+// branches closed. Context's retention deletes a closed branch's builds
+// once the grace period has passed (RFC 0004 §2.3). Needs catalog.read.
+func (s *Service) ClosedBranches(ctx context.Context, project domain.ProjectID) (map[domain.BranchName]time.Time, error) {
+	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+		return nil, err
+	}
+	var out map[domain.BranchName]time.Time
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		var err error
+		out, err = st.ClosedBranches(ctx, project)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // expired reports whether every branch proposing m let its proposals

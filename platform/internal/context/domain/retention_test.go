@@ -96,6 +96,34 @@ func TestRetentionPurgesClosedBranchesAfterTheGracePeriod(t *testing.T) {
 	sameIDs(t, "expired", got, ids(closedLongAgo))
 }
 
+func TestRetentionClosedBranchGraceIsExactlyFourteenDays(t *testing.T) {
+	// The clock is the test's: the boundary is checked to the second,
+	// not with a slack of hours.
+	closedAt := now.Add(-20 * 24 * time.Hour)
+	builds := history("feat", application, domain.SourcePlugin, "feat/x", false, 2, closedAt.Add(-time.Hour))
+	closed := map[domain.Branch]time.Time{"feat/x": closedAt}
+	grace := domain.DefaultRetention.ClosedBranchGrace
+
+	for _, tc := range []struct {
+		name string
+		at   time.Time
+		want []uuid.UUID
+	}{
+		// A closed branch's latest build is current in its branch's view
+		// and within the five-build window, so nothing goes early.
+		{"a second before the grace ends", closedAt.Add(grace - time.Second), nil},
+		{"exactly when it ends", closedAt.Add(grace), ids(builds)},
+		{"a second after", closedAt.Add(grace + time.Second), ids(builds)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sameIDs(t, "expired", domain.DefaultRetention.Expired(builds, closed, tc.at), tc.want)
+		})
+	}
+	if grace != 14*24*time.Hour {
+		t.Errorf("ClosedBranchGrace = %v, want 14 days (RFC 0004 §2.3)", grace)
+	}
+}
+
 func TestRetentionOfNothingIsNothing(t *testing.T) {
 	if got := domain.DefaultRetention.Expired(nil, nil, now); len(got) != 0 {
 		t.Errorf("expired = %v", got)

@@ -23,9 +23,14 @@ type Purged struct {
 	// Builds are the deleted builds (their usages, captures and regions
 	// went with them).
 	Builds []uuid.UUID
+	// Captures counts the captures the deleted builds held.
+	Captures int
 	// OrphanedImages are the images no capture of the project references
 	// any more, deleted from object storage with the builds.
 	OrphanedImages []domain.Digest
+	// ImagesDeleted counts the orphaned images object storage confirmed
+	// gone. It is below len(OrphanedImages) only when a delete failed.
+	ImagesDeleted int
 }
 
 // PurgeProject applies the retention policy to a project's builds
@@ -55,6 +60,9 @@ func (s *Service) PurgeProject(ctx context.Context, project uuid.UUID) (Purged, 
 		if err != nil {
 			return err
 		}
+		if out.Captures, err = st.CountCapturesOfBuilds(ctx, expired); err != nil {
+			return err
+		}
 		if _, err := st.DeleteBuilds(ctx, expired); err != nil {
 			return err
 		}
@@ -67,8 +75,10 @@ func (s *Service) PurgeProject(ctx context.Context, project uuid.UUID) (Purged, 
 	}
 	// The builds are gone, so a later purge wouldn't find these images:
 	// a failure to delete one is reported and logged, the rest go on.
-	err = s.deleteImages(ctx, project, out.OrphanedImages)
+	deleted, err := s.deleteImages(ctx, project, out.OrphanedImages)
+	out.ImagesDeleted = deleted
 	s.logImageErrors(ctx, project, err)
+	s.metrics.Purged(out)
 	return out, err
 }
 
@@ -93,19 +103,25 @@ func orphaned(ctx context.Context, st Store, project uuid.UUID, images []domain.
 
 // deleteImages deletes a project's images from object storage (none
 // without WithImages), all of them whatever fails; the failures are
-// joined.
-func (s *Service) deleteImages(ctx context.Context, project uuid.UUID, images []domain.Digest) error {
+// joined. Deletes are idempotent: the port answers nil for an object
+// that is already gone, so a re-run after a partial failure is safe.
+func (s *Service) deleteImages(ctx context.Context, project uuid.UUID, images []domain.Digest) (int, error) {
 	if s.objects == nil {
-		return nil
+		return 0, nil
 	}
 	t, _ := tenancy.FromContext(ctx)
-	var errs []error
+	var (
+		deleted int
+		errs    []error
+	)
 	for _, d := range images {
 		if err := s.objects.Delete(ctx, domain.ImageKey(t, project, d)); err != nil {
 			errs = append(errs, fmt.Errorf("%w: delete image %s: %v", ErrStorageUnavailable, d, err))
+			continue
 		}
+		deleted++
 	}
-	return errors.Join(errs...)
+	return deleted, errors.Join(errs...)
 }
 
 func (s *Service) logImageErrors(ctx context.Context, project uuid.UUID, err error) {

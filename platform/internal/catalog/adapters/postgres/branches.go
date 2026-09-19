@@ -84,6 +84,20 @@ func (s *store) BranchesByIDs(ctx context.Context, ids []domain.BranchID) (map[d
 	return out, nil
 }
 
+func (s *store) ClosedBranches(ctx context.Context, project domain.ProjectID) (map[domain.BranchName]time.Time, error) {
+	rows, err := s.q.ListClosedBranches(ctx, project.UUID())
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make(map[domain.BranchName]time.Time, len(rows))
+	for _, r := range rows {
+		if r.ClosedAt.Valid {
+			out[domain.BranchName(r.Name)] = r.ClosedAt.Time.UTC()
+		}
+	}
+	return out, nil
+}
+
 func (s *store) UpdateBranch(ctx context.Context, b domain.Branch, expected int) error {
 	n, err := s.q.UpdateBranch(ctx, catalogsql.UpdateBranchParams{
 		ID: b.ID.UUID(), PrNumber: maxLength(b.PR), HeadCommit: b.HeadCommit, State: string(b.State),

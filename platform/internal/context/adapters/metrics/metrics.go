@@ -29,6 +29,7 @@ type Prometheus struct {
 	images   *prometheus.CounterVec
 	bytes    *prometheus.CounterVec
 	captured *prometheus.GaugeVec
+	purged   *prometheus.CounterVec
 }
 
 var _ app.Metrics = (*Prometheus)(nil)
@@ -76,6 +77,10 @@ func New(reg prometheus.Registerer) *Prometheus {
 			Name: "glossa_context_capture_coverage_ratio",
 			Help: "Share of a project's active messages with a visible region on a current default-branch capture (1 with none active), measured after each default-branch upload. Each instance reports what it measured last; take the max across instances.",
 		}, []string{"tenant", "project"})),
+		purged: register(reg, prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "glossa_context_purge_deletions_total",
+			Help: "What the daily retention run deleted, by kind (build, capture, image: an image no capture referenced any more, gone from object storage).",
+		}, []string{"kind"})),
 	}
 }
 
@@ -108,6 +113,14 @@ func (p *Prometheus) CapturesIngested(tenant tenancy.ID, captures, regions, stor
 // CaptureCoverage implements app.Metrics.
 func (p *Prometheus) CaptureCoverage(tenant tenancy.ID, project uuid.UUID, active, captured int) {
 	p.captured.WithLabelValues(tenant.String(), project.String()).Set(ratio(active, captured))
+}
+
+// Purged implements app.Metrics. A run that deleted nothing still
+// touches the series, so the counters exist before the first purge.
+func (p *Prometheus) Purged(got app.Purged) {
+	p.purged.WithLabelValues("build").Add(float64(len(got.Builds)))
+	p.purged.WithLabelValues("capture").Add(float64(got.Captures))
+	p.purged.WithLabelValues("image").Add(float64(got.ImagesDeleted))
 }
 
 func ratio(active, n int) float64 {

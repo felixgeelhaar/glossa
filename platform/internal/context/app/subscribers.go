@@ -97,7 +97,7 @@ func (s *Service) handleProjectDeleted(ctx context.Context, d outbox.Delivery) e
 	}); err != nil {
 		return err
 	}
-	if err := s.deleteImages(ctx, project, images); err != nil {
+	if _, err := s.deleteImages(ctx, project, images); err != nil {
 		return err
 	}
 	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
@@ -144,6 +144,7 @@ func (s *Service) handleApplicationDeleted(ctx context.Context, d outbox.Deliver
 	}
 	// The captures are gone: a redelivery would find no images, so a
 	// failure to delete one is logged, not retried.
-	s.logImageErrors(ctx, project, s.deleteImages(ctx, project, orphans))
+	_, delErr := s.deleteImages(ctx, project, orphans)
+	s.logImageErrors(ctx, project, delErr)
 	return nil
 }

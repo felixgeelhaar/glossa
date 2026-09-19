@@ -60,6 +60,10 @@ type Metrics interface {
 	// CaptureCoverage is the share of a project's active messages with a
 	// visible region on a current capture (default branch).
 	CaptureCoverage(tenant tenancy.ID, project uuid.UUID, active, captured int)
+	// Purged counts one project's retention deletions by kind: the
+	// builds, the captures that went with them, and the images object
+	// storage no longer holds.
+	Purged(p Purged)
 }
 
 // NoMetrics records nothing.
@@ -76,6 +80,9 @@ func (NoMetrics) CapturesIngested(tenancy.ID, int, int, int, int, int64) {}
 
 // CaptureCoverage implements Metrics.
 func (NoMetrics) CaptureCoverage(tenancy.ID, uuid.UUID, int, int) {}
+
+// Purged implements Metrics.
+func (NoMetrics) Purged(Purged) {}
 
 // MessageRef names a Catalog message.
 type MessageRef struct {
@@ -259,6 +266,9 @@ type Store interface {
 	// builds' captures.
 	CapturedMessages(ctx context.Context, builds []uuid.UUID) ([]uuid.UUID, error)
 
+	// CountCapturesOfBuilds counts the captures the builds hold: what a
+	// purge deletes with them.
+	CountCapturesOfBuilds(ctx context.Context, builds []uuid.UUID) (int, error)
 	// BuildImages returns the images the builds' captures reference;
 	// ReferencedImages which of digests the project's captures still do;
 	// ProjectImages every image the project's captures reference.

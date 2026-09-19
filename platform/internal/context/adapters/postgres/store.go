@@ -426,6 +426,14 @@ func digests(ss []string) []domain.Digest {
 	return out
 }
 
+func (s *store) CountCapturesOfBuilds(ctx context.Context, builds []uuid.UUID) (int, error) {
+	if len(builds) == 0 {
+		return 0, nil
+	}
+	n, err := s.q.CountCapturesOfBuilds(ctx, builds)
+	return int(n), storeError(err)
+}
+
 func (s *store) BuildImages(ctx context.Context, builds []uuid.UUID) ([]domain.Digest, error) {
 	rows, err := s.q.ListBuildImages(ctx, builds)
 	return digests(rows), storeError(err)

@@ -133,7 +133,14 @@ func (p *parts) Next() (string, io.Reader, error) {
 func withImages(t *testing.T, opts ...app.Option) (*harness, *objectstore.Memory) {
 	t.Helper()
 	objects := objectstore.NewMemory()
-	return newHarness(t, append(opts, app.WithImages(objects, imaging.New(t.TempDir(), 0)))...), objects
+	return withObjects(t, objects, opts...), objects
+}
+
+// withObjects is a harness whose service stores images in objects (the
+// retention tests point it at a real MinIO).
+func withObjects(t *testing.T, objects app.Objects, opts ...app.Option) *harness {
+	t.Helper()
+	return newHarness(t, append(opts, app.WithImages(objects, imaging.New(t.TempDir(), 0)))...)
 }
 
 func (h *harness) uploadCaptures(t *testing.T, f fixture, manifest []byte, p *parts) app.CapturesIngested {

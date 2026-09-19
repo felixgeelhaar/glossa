@@ -479,3 +479,33 @@ func (s *store) Publish(ctx context.Context, e outbox.Event) error {
 	_, err := outbox.Publish(ctx, s.tx, e)
 	return err
 }
+
+// ── system scope ────────────────────────────────────────────────────
+
+// Sweeper implements app.Sweeper in the system scope catalog.proposals,
+// which migration 0017 opens to reading catalog_branches' tenant_id and
+// closed_at only.
+type Sweeper struct {
+	uow   *db.UnitOfWork
+	scope db.SystemScope
+}
+
+// NewSweeper returns a sweeper on uow.
+func NewSweeper(uow *db.UnitOfWork) *Sweeper {
+	return &Sweeper{uow: uow, scope: db.NewSystemScope("catalog.proposals")}
+}
+
+var _ app.Sweeper = (*Sweeper)(nil)
+
+// TenantsWithClosedBranches implements app.Sweeper.
+func (s *Sweeper) TenantsWithClosedBranches(ctx context.Context) ([]tenancy.ID, error) {
+	var out []tenancy.ID
+	err := s.uow.InSystemTx(ctx, s.scope, func(ctx context.Context, tx *db.SystemTx) error {
+		rows, err := catalogsql.New(tx).ListTenantsWithClosedBranches(ctx)
+		for _, id := range rows {
+			out = append(out, tenancy.ID(id))
+		}
+		return err
+	})
+	return out, err
+}
