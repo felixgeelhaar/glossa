@@ -657,6 +657,46 @@ func TestMemberAccessChanges(t *testing.T) {
 	}
 }
 
+// Passkey ceremonies live server-side: single-use, and bound to the
+// person who started them.
+func TestPasskeyCeremonies(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	ada, bob := h.signUp(t, "ada@example.com"), h.signUp(t, "bob@example.com")
+
+	if _, err := h.svc.BeginPasskeySignIn(ctx, "ada@example.com"); !errors.Is(err, app.ErrNoPasskeys) {
+		t.Errorf("sign-in without passkeys err = %v", err)
+	}
+	if _, err := h.svc.BeginPasskeySignIn(ctx, "nobody@example.com"); !errors.Is(err, app.ErrNoPasskeys) {
+		t.Errorf("sign-in for an unknown address err = %v", err)
+	}
+	ch, err := h.svc.BeginPasskeyRegistration(ctx, ada.Person.ID)
+	if err != nil || len(ch.Options) == 0 || ch.Key == "" {
+		t.Fatalf("challenge = %+v, %v", ch, err)
+	}
+	if n := count(t, "SELECT count(*) FROM identity_webauthn_ceremonies"); n != 1 {
+		t.Fatalf("ceremonies = %d", n)
+	}
+	if _, err := h.svc.FinishPasskeyRegistration(ctx, bob.Person.ID, ch.Key, []byte(`{}`), "stolen"); !errors.Is(err, app.ErrPasskeyInvalid) {
+		t.Errorf("finishing someone else's ceremony err = %v", err)
+	}
+	if n := count(t, "SELECT count(*) FROM identity_webauthn_ceremonies"); n != 0 {
+		t.Errorf("a ceremony survived an attempt to answer it")
+	}
+	if _, err := h.svc.FinishPasskeyRegistration(ctx, ada.Person.ID, ch.Key, []byte(`{}`), "mac"); !errors.Is(err, app.ErrPasskeyInvalid) {
+		t.Errorf("reusing a spent ceremony err = %v", err)
+	}
+
+	ch, err = h.svc.BeginPasskeyRegistration(ctx, ada.Person.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.clock.Advance(app.CeremonyTTL + time.Second)
+	if _, err := h.svc.FinishPasskeyRegistration(ctx, ada.Person.ID, ch.Key, []byte(`{}`), "mac"); !errors.Is(err, app.ErrPasskeyInvalid) {
+		t.Errorf("expired ceremony err = %v", err)
+	}
+}
+
 func TestPaginatedMembers(t *testing.T) {
 	h := newHarness(t)
 	ada := h.signUp(t, "ada@example.com")

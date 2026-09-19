@@ -16,6 +16,7 @@ import (
 	"github.com/klarlabs-studio/auth-go/aesgcm"
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/passkey"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/postgres"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
@@ -111,7 +112,15 @@ func newHarness(t *testing.T) *harness {
 	h := &harness{mail: &outbox{}, clock: &clock{now: time.Now().UTC()}, uow: uow}
 	cfg := app.DefaultConfig("https://studio.test")
 	cfg.Argon2 = fastArgon
+	passkeys, err := passkey.New(passkey.Config{
+		RPID: "studio.test", RPName: "Glossa", Origins: []string{"https://studio.test"},
+		StateKey: []byte(strings.Repeat("s", 32)),
+	}, postgres.NewPasskeyRepo(uow))
+	if err != nil {
+		t.Fatal(err)
+	}
 	h.svc, err = app.New(cfg, app.Deps{
+		Passkeys:      passkeys,
 		Tx:            postgres.NewTransactor(uow, cipher),
 		Sessions:      postgres.NewSessionRepo(uow),
 		SignInLinks:   postgres.NewLinkRepo(uow, postgres.PurposeSignIn),

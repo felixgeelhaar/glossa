@@ -6,6 +6,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -97,6 +98,62 @@ type Config struct {
 	ShutdownTimeout      time.Duration
 	OTel                 OTel
 	Outbox               Outbox
+	Identity             Identity
+}
+
+// Identity configures authentication (the Identity context).
+type Identity struct {
+	// AuthSecret is the root key (base64, ≥ 32 bytes) from which the CSRF,
+	// TOTP-sealing and passkey-state keys are derived. Rotating it signs
+	// everyone's CSRF tokens anew, drops in-flight passkey ceremonies and
+	// makes enrolled TOTP secrets unreadable (people re-enroll).
+	AuthSecret Secret
+	// StudioURL is Studio's origin; emailed links point into it.
+	StudioURL string
+	// SessionTTL is a session's lifetime.
+	SessionTTL time.Duration
+	Mail       Mail
+	WebAuthn   WebAuthn
+}
+
+// AuthKey returns the decoded AuthSecret (validated by Load).
+func (i Identity) AuthKey() []byte {
+	k, _ := decodeKey(i.AuthSecret.Reveal())
+	return k
+}
+
+// Mail configures outbound email.
+type Mail struct {
+	// Driver is "log" (development: mail goes to the log) or "smtp".
+	Driver string
+	From   string
+	// SMTPAddr is host:port of the submission server.
+	SMTPAddr           string
+	SMTPUsername       string
+	SMTPPassword       Secret
+	SMTPAllowPlaintext bool
+}
+
+// WebAuthn configures the passkey relying party. Passkeys are off while
+// RPID is empty.
+type WebAuthn struct {
+	RPID    string
+	RPName  string
+	Origins []string
+}
+
+// Enabled reports whether passkeys are configured.
+func (w WebAuthn) Enabled() bool { return w.RPID != "" }
+
+const minAuthKeyLen = 32
+
+func decodeKey(s string) ([]byte, error) {
+	for _, enc := range []*base64.Encoding{base64.StdEncoding, base64.RawStdEncoding, base64.URLEncoding, base64.RawURLEncoding} {
+		if b, err := enc.DecodeString(s); err == nil {
+			return b, nil
+		}
+	}
+	return nil, errors.New("not base64")
 }
 
 // String renders the configuration with secrets redacted.
@@ -138,6 +195,7 @@ func Load(lookup LookupFunc) (Config, error) {
 			HandlerTimeout: r.duration("GLOSSA_OUTBOX_HANDLER_TIMEOUT", 30*time.Second),
 		},
 	}
+	cfg.Identity = r.identity()
 	cfg.validate(&r)
 	if len(r.errs) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %w", errors.Join(r.errs...))
@@ -153,6 +211,57 @@ func (c Config) validate(r *reader) {
 	if c.Outbox.Lease <= c.Outbox.HandlerTimeout {
 		r.fail("GLOSSA_OUTBOX_LEASE", "must be longer than GLOSSA_OUTBOX_HANDLER_TIMEOUT")
 	}
+}
+
+func (r *reader) identity() Identity {
+	id := Identity{
+		AuthSecret: Secret{r.required("GLOSSA_AUTH_SECRET")},
+		StudioURL:  r.absoluteURL("GLOSSA_STUDIO_URL", "http://localhost:5173"),
+		SessionTTL: r.duration("GLOSSA_SESSION_TTL", 14*24*time.Hour),
+		Mail: Mail{
+			Driver:             r.str("GLOSSA_MAIL_DRIVER", "log"),
+			From:               r.str("GLOSSA_MAIL_FROM", "Glossa <no-reply@localhost>"),
+			SMTPAddr:           r.str("GLOSSA_SMTP_ADDR", ""),
+			SMTPUsername:       r.str("GLOSSA_SMTP_USERNAME", ""),
+			SMTPPassword:       Secret{r.str("GLOSSA_SMTP_PASSWORD", "")},
+			SMTPAllowPlaintext: r.boolean("GLOSSA_SMTP_ALLOW_PLAINTEXT", false),
+		},
+		WebAuthn: WebAuthn{
+			RPID:   r.str("GLOSSA_WEBAUTHN_RP_ID", ""),
+			RPName: r.str("GLOSSA_WEBAUTHN_RP_NAME", "Glossa"),
+		},
+	}
+	if s := id.AuthSecret.Reveal(); s != "" {
+		if k, err := decodeKey(s); err != nil || len(k) < minAuthKeyLen {
+			r.fail("GLOSSA_AUTH_SECRET", "must be base64 of at least %d random bytes (openssl rand -base64 32)", minAuthKeyLen)
+		}
+	}
+	switch id.Mail.Driver {
+	case "log":
+	case "smtp":
+		if id.Mail.SMTPAddr == "" {
+			r.fail("GLOSSA_SMTP_ADDR", "required when GLOSSA_MAIL_DRIVER is smtp")
+		}
+	default:
+		r.fail("GLOSSA_MAIL_DRIVER", "must be log or smtp (got %q)", id.Mail.Driver)
+	}
+	if id.WebAuthn.Enabled() {
+		for _, o := range strings.Split(r.str("GLOSSA_WEBAUTHN_ORIGINS", id.StudioURL), ",") {
+			if o = strings.TrimSpace(o); o != "" {
+				id.WebAuthn.Origins = append(id.WebAuthn.Origins, o)
+			}
+		}
+	}
+	return id
+}
+
+func (r *reader) absoluteURL(key, def string) string {
+	raw := r.str(key, def)
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		r.fail(key, "must be an absolute http(s) URL (got %q)", raw)
+	}
+	return strings.TrimRight(raw, "/")
 }
 
 // reader accumulates parse errors so Load can report all of them.

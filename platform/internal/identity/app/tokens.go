@@ -31,6 +31,20 @@ func (s *Service) ListTokens(ctx context.Context, page pagination.Page) ([]domai
 	return items, next, nil
 }
 
+// GetToken returns one token of the context's tenant.
+func (s *Service) GetToken(ctx context.Context, id domain.TokenID) (domain.APIToken, error) {
+	if err := authz.Require(ctx, authz.TokensRead); err != nil {
+		return domain.APIToken{}, err
+	}
+	var t domain.APIToken
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st TenantStore) error {
+		var err error
+		t, err = st.Token(ctx, id)
+		return err
+	})
+	return t, err
+}
+
 // CreatedToken is a new token; Secret is nil when the create was a
 // replay of an earlier request, because secrets are shown once.
 type CreatedToken struct {

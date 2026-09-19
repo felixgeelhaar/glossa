@@ -152,8 +152,9 @@ paths:
       summary: Sign in with email and password
       description: |
         Problem codes: `invalid_credentials` (401), `totp_required` (401,
-        send `totp_code`), `email_unverified` (403), `account_locked` (429
-        after repeated failures; the lock lifts after 15 minutes).
+        send `totp_code`), `totp_invalid` (401), `email_unverified` (403),
+        `account_locked` (429 after repeated failures; the lock lifts after
+        15 minutes).
       security: []
       requestBody:
         required: true
@@ -695,6 +696,23 @@ paths:
     parameters:
       - $ref: "#/components/parameters/TenantPath"
       - $ref: "#/components/parameters/TokenPath"
+    get:
+      operationId: getToken
+      tags: [tokens]
+      summary: An API token (never its secret)
+      description: Needs `tokens.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The token.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Token" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       operationId: revokeToken
       tags: [tokens]
