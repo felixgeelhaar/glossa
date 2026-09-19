@@ -7,7 +7,7 @@ import { computed, ref, watch } from "vue";
 import { newIdempotencyKey, useReleases } from "../../api/releases";
 import type { DeliveryKey, SigningKey } from "../../api/schemas";
 import { DEFAULT_ENVIRONMENTS } from "../../lib/releases";
-import { configuredEdge, EDGE_PLACEHOLDER, maskKey, snippets } from "../../lib/snippets";
+import { configuredEdge, EDGE_PLACEHOLDER, edgeOrigin, maskKey, snippets } from "../../lib/snippets";
 import { absoluteTime, relativeTime } from "../../lib/time";
 import { allows } from "../../session/permissions";
 import { usePeople } from "../../session/people";
@@ -68,11 +68,14 @@ async function create(): Promise<void> {
   }
 }
 
-const edge = configuredEdge();
+const edge = ref(configuredEdge());
+void edgeOrigin().then((e) => {
+  edge.value = e;
+});
 const codeSnippets = computed(() =>
   created.value
     ? snippets({
-        edge: edge ?? EDGE_PLACEHOLDER,
+        edge: edge.value ?? EDGE_PLACEHOLDER,
         deliveryKey: created.value.key,
         environment: snippetEnv.value,
         publicKeys: signing.value.filter((k) => k.active).map((k) => ({ keyId: k.key_id, key: k.public_key })),

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { configuredEdge, maskKey, snippets } from "./snippets";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { configuredEdge, edgeOrigin, maskKey, resetEdgeOrigin, snippets } from "./snippets";
 
 const key = "glossa_pk_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
 const base = { edge: "https://edge.example.com", deliveryKey: key, environment: "production", publicKeys: [] };
@@ -40,9 +40,31 @@ describe("snippets", () => {
   });
 });
 
-it("reads the edge origin from the build", () => {
-  expect(configuredEdge({ VITE_GLOSSA_EDGE_URL: "https://edge.acme.dev/ " })).toBe("https://edge.acme.dev");
-  expect(configuredEdge({})).toBeUndefined();
+describe("the edge origin", () => {
+  afterEach(resetEdgeOrigin);
+  const config = (body: unknown, status = 200) => async () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status });
+
+  it("comes from the image's /config.json first", async () => {
+    expect(await edgeOrigin(config({ apiBaseUrl: "", edgeUrl: "https://edge.acme.dev/", environment: "production" }))).toBe("https://edge.acme.dev");
+  });
+
+  it("falls back to the build when the runtime configuration has none", async () => {
+    vi.stubEnv("VITE_GLOSSA_EDGE_URL", "https://edge.build.dev");
+    expect(await edgeOrigin(config({ edgeUrl: "" }))).toBe("https://edge.build.dev");
+    resetEdgeOrigin();
+    // A dev server answers /config.json with the SPA's HTML.
+    expect(await edgeOrigin(config("<!doctype html>"))).toBe("https://edge.build.dev");
+    resetEdgeOrigin();
+    expect(await edgeOrigin(config({}, 404))).toBe("https://edge.build.dev");
+    vi.unstubAllEnvs();
+  });
+
+  it("accepts only absolute http(s) origins", () => {
+    expect(configuredEdge({ VITE_GLOSSA_EDGE_URL: "https://edge.acme.dev/ " })).toBe("https://edge.acme.dev");
+    expect(configuredEdge({ VITE_GLOSSA_EDGE_URL: "javascript:alert(1)" })).toBeUndefined();
+    expect(configuredEdge({ VITE_GLOSSA_EDGE_URL: "edge.acme.dev" })).toBeUndefined();
+    expect(configuredEdge({})).toBeUndefined();
+  });
 });
 
 it("masks a key to its recognisable start", () => {

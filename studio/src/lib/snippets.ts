@@ -25,12 +25,44 @@ export interface Snippet {
   code: string;
 }
 
-/** Placeholder when Studio wasn't built with VITE_GLOSSA_EDGE_URL. */
+/** Placeholder when neither the runtime configuration nor the build names glossa-edge. */
 export const EDGE_PLACEHOLDER = "https://edge.example.com";
 
+/** An absolute http(s) origin without a trailing slash, or undefined. */
+function origin(v: unknown): string | undefined {
+  if (typeof v !== "string" || !v.trim()) return undefined;
+  try {
+    const u = new URL(v.trim());
+    return u.protocol === "https:" || u.protocol === "http:" ? u.href.replace(/\/+$/, "") : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The edge origin Studio was built with (VITE_GLOSSA_EDGE_URL). */
 export function configuredEdge(env: Record<string, unknown> = import.meta.env): string | undefined {
-  const v = env.VITE_GLOSSA_EDGE_URL;
-  return typeof v === "string" && v.trim() ? v.trim().replace(/\/+$/, "") : undefined;
+  return origin(env.VITE_GLOSSA_EDGE_URL);
+}
+
+let runtimeEdge: Promise<string | undefined> | undefined;
+
+/**
+ * glossa-edge's origin: `edgeUrl` from the runtime configuration the
+ * Studio image serves at /config.json (GLOSSA_STUDIO_EDGE_URL), else the
+ * build's VITE_GLOSSA_EDGE_URL. Undefined when neither names one (dev
+ * servers answer /config.json with the SPA, which isn't JSON).
+ */
+export function edgeOrigin(fetchConfig: () => Promise<Response> = () => globalThis.fetch("/config.json", { cache: "no-store" })): Promise<string | undefined> {
+  runtimeEdge ??= fetchConfig()
+    .then(async (r) => (r.ok ? origin(((await r.json()) as { edgeUrl?: unknown }).edgeUrl) : undefined))
+    .catch(() => undefined)
+    .then((edge) => edge ?? configuredEdge());
+  return runtimeEdge;
+}
+
+/** Tests only: forget the cached origin. */
+export function resetEdgeOrigin(): void {
+  runtimeEdge = undefined;
 }
 
 const q = JSON.stringify;

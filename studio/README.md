@@ -237,8 +237,9 @@ Publishing, promoting, rolling back, policy changes and key changes need
 are read-only.
 
 The snippets need glossa-edge's public origin, which the API doesn't
-expose: build Studio with `VITE_GLOSSA_EDGE_URL=https://edge.example.com`
-to fill it in. Without it they show a placeholder and say so.
+expose. Studio reads `edgeUrl` from the runtime configuration its image
+serves at `/config.json` (`GLOSSA_STUDIO_EDGE_URL`), else the build's
+`VITE_GLOSSA_EDGE_URL`; without either they show a placeholder and say so.
 
 ## Layout
 

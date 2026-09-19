@@ -407,7 +407,7 @@ export const strings = {
     snippets: "Integration snippets",
     snippetOf: (runtime: string) => `${runtime} snippet`,
     install: "Install",
-    edgePlaceholder: (edge: string) => `Replace ${edge} with your glossa-edge origin. Build Studio with VITE_GLOSSA_EDGE_URL to fill it in.`,
+    edgePlaceholder: (edge: string) => `Replace ${edge} with your glossa-edge origin. Set GLOSSA_STUDIO_EDGE_URL on the Studio container to fill it in.`,
     signed: "The snippets pin this project's signing keys, so a manifest without a valid signature is rejected.",
   },
   shortcuts: {
