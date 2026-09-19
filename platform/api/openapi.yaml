@@ -1,0 +1,1151 @@
+openapi: 3.1.0
+info:
+  title: Glossa API
+  version: 1.0.0-alpha.1
+  license:
+    name: MIT
+    identifier: MIT
+  description: |
+    The `/v1` contract of `glossa-server` (RFC 0002 §9). Studio, the CLI,
+    CI and agents (MCP) all use this API; nothing they do is private to a
+    client. The Go server is generated from this file, so the file is the
+    source of truth.
+
+    # Conventions
+
+    Every bounded context follows these. A change to one is a change to
+    this section first.
+
+    **Base path and resources.** Everything lives under `/v1`. Resources
+    are plural nouns in kebab-case (`/v1/tenants/{tenant}/members`).
+    Tenant-owned resources sit under `/v1/tenants/{tenant}/…`; the path
+    parameter is always named `tenant` and holds the tenant's `id`. The
+    server checks it against the caller's membership (sessions) or the
+    token's tenant (API tokens); a tenant is never taken from a header.
+    Actions that are not CRUD become resources too
+    (`POST /v1/auth/magic-link-redemptions`). JSON members are snake_case.
+
+    **IDs** are opaque strings. Don't parse them, don't sort by them.
+
+    **Timestamps** are RFC 3339 in UTC (`2026-09-19T12:00:00Z`).
+
+    **Absent vs null.** Optional members are omitted when unset. The API
+    never sends `null`.
+
+    **Errors** are RFC 9457 problem details (`application/problem+json`)
+    with two extension members: `code`, a stable snake_case machine code
+    to branch on, and `errors`, per-field problems with a JSON Pointer
+    into the request body. `type` is `urn:glossa:problem:<code>`. Titles
+    and details are for humans and may change; codes never do. Every
+    status has a generic code (`invalid_request`, `unauthenticated`,
+    `forbidden`, `not_found`, `conflict`, `precondition_failed`,
+    `unprocessable`, `precondition_required`, `rate_limited`,
+    `internal`); operations document the specific codes they add.
+
+    **Pagination** is cursor-based. List operations take `page_size`
+    (1–100, default 50) and `page_token`, and return `items` plus
+    `next_page_token` while more items follow. Tokens are opaque and
+    only valid for the same list.
+
+    **Optimistic concurrency.** Mutable resources return an `ETag`.
+    `PATCH` requires `If-Match` with it: a stale tag fails with `412
+    precondition_failed`, a missing one with `428 precondition_required`.
+
+    **Idempotency.** `POST`s that create a resource accept an
+    `Idempotency-Key` (1–255 printable ASCII characters, e.g. a UUID).
+    Retrying with the same key returns the resource the first request
+    created, with `Idempotent-Replayed: true`, instead of creating a
+    second one; reusing a key for a different request fails with `422
+    idempotency_key_reused`. Keys are scoped to the caller and the
+    tenant. Secrets (API token values) are never replayed.
+
+    **Authentication.** Browsers (Studio) use the `__Host-glossa_session`
+    cookie (HttpOnly, Secure, SameSite=Lax) set by a sign-in operation;
+    every unsafe request made with it must also send `X-CSRF-Token` with
+    the `csrf_token` from the sign-in response or `GET /v1/me`. The CLI,
+    CI and agents send `Authorization: Bearer glossa_api_…` API tokens,
+    which need no CSRF token.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: auth
+    description: Sign-in, sign-out and credential recovery. Public.
+  - name: me
+    description: The signed-in person and their credentials.
+  - name: tenants
+    description: Individual and organization tenants.
+  - name: members
+    description: People in an organization, their roles and locales.
+  - name: tokens
+    description: Tenant API tokens for the CLI, CI and agents.
+
+paths:
+  # ── auth ────────────────────────────────────────────────────────────
+  /v1/auth/magic-links:
+    post:
+      operationId: requestMagicLink
+      tags: [auth]
+      summary: Email a sign-in link
+      description: |
+        Sends a single-use link valid for 15 minutes. Signing in with it
+        creates the account (and the person's individual tenant) if the
+        address is new, and verifies the address. Always `202`, so the
+        response never reveals whether an account exists.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmailRequest" }
+      responses:
+        "202": { description: Accepted; a link is on its way if the address can receive one. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/magic-link-redemptions:
+    post:
+      operationId: redeemMagicLink
+      tags: [auth]
+      summary: Sign in with an emailed link
+      description: |
+        Spends the link's token and starts a session. Problem codes:
+        `link_invalid` (unknown, expired or already used).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TokenRedemption" }
+      responses:
+        "200": { $ref: "#/components/responses/SessionStarted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /v1/auth/registrations:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register with a password
+      description: |
+        Creates the account and its individual tenant, then emails a
+        verification link (a sign-in link). Password sign-in works once
+        the address is verified. Always `202`: an existing address gets
+        a sign-in link instead, so registration can't be used to probe
+        for accounts.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Registration" }
+      responses:
+        "202": { description: Accepted; a verification link is on its way. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/password-sessions:
+    post:
+      operationId: signInWithPassword
+      tags: [auth]
+      summary: Sign in with email and password
+      description: |
+        Problem codes: `invalid_credentials` (401), `totp_required` (401,
+        send `totp_code`), `email_unverified` (403), `account_locked` (429
+        after repeated failures; the lock lifts after 15 minutes).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordSignIn" }
+      responses:
+        "200": { $ref: "#/components/responses/SessionStarted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/password-resets:
+    post:
+      operationId: requestPasswordReset
+      tags: [auth]
+      summary: Email a password reset link
+      description: Always `202`, whether or not the address has an account.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmailRequest" }
+      responses:
+        "202": { description: Accepted. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/password-reset-redemptions:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Set a new password with a reset link
+      description: |
+        Sets the password, verifies the address and signs the person out
+        everywhere. Problem codes: `link_invalid` (401), `weak_password`
+        (400).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordReset" }
+      responses:
+        "204": { description: Password changed; every session was revoked. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /v1/auth/passkey-challenges:
+    post:
+      operationId: beginPasskeySignIn
+      tags: [auth]
+      summary: Start a passkey sign-in
+      description: |
+        Returns WebAuthn request options for `navigator.credentials.get`
+        and sets a short-lived, HttpOnly ceremony cookie that
+        `POST /v1/auth/passkey-sessions` consumes. Problem codes:
+        `passkeys_disabled` (404), `no_passkeys` (404).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmailRequest" }
+      responses:
+        "200":
+          description: Request options.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/CeremonyCookie" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasskeyOptions" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/auth/passkey-sessions:
+    post:
+      operationId: finishPasskeySignIn
+      tags: [auth]
+      summary: Sign in with a passkey assertion
+      description: "Problem codes: `passkey_invalid` (401)."
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CeremonyCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebAuthnResponse" }
+      responses:
+        "200": { $ref: "#/components/responses/SessionStarted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /v1/auth/session:
+    delete:
+      operationId: signOut
+      tags: [auth]
+      summary: Sign out of this session
+      security:
+        - session: []
+          csrf: []
+      responses:
+        "204":
+          description: Signed out.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/ClearedSessionCookie" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/auth/sessions:
+    delete:
+      operationId: signOutEverywhere
+      tags: [auth]
+      summary: Sign out of every session
+      description: Revokes all of the person's sessions on every device.
+      security:
+        - session: []
+          csrf: []
+      responses:
+        "204":
+          description: Signed out everywhere.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/ClearedSessionCookie" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ── me ──────────────────────────────────────────────────────────────
+  /v1/me:
+    get:
+      operationId: getMe
+      tags: [me]
+      summary: The signed-in person and their tenants
+      description: |
+        Also accepts any open invitations addressed to the person's
+        verified email.
+      security:
+        - session: []
+      responses:
+        "200":
+          description: The person.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /v1/me/passkey-challenges:
+    post:
+      operationId: beginPasskeyRegistration
+      tags: [me]
+      summary: Start adding a passkey
+      description: |
+        Returns WebAuthn creation options for
+        `navigator.credentials.create` and sets the ceremony cookie.
+        Problem codes: `passkeys_disabled` (404).
+      security:
+        - session: []
+          csrf: []
+      responses:
+        "200":
+          description: Creation options.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/CeremonyCookie" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasskeyOptions" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/me/passkeys:
+    post:
+      operationId: finishPasskeyRegistration
+      tags: [me]
+      summary: Add a passkey
+      description: "Problem codes: `passkey_invalid` (400)."
+      x-glossa-idempotency: The ceremony cookie is single-use, so a retry is refused rather than duplicated.
+      security:
+        - session: []
+          csrf: []
+      parameters:
+        - $ref: "#/components/parameters/CeremonyCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasskeyRegistration" }
+      responses:
+        "201":
+          description: The passkey was added.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Passkey" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/me/totp:
+    put:
+      operationId: beginTotpEnrollment
+      tags: [me]
+      summary: Start enrolling an authenticator app
+      description: |
+        Creates a pending TOTP secret (replacing any earlier pending
+        one). It takes effect once confirmed with a code. Problem codes:
+        `totp_already_enabled` (409).
+      security:
+        - session: []
+          csrf: []
+      responses:
+        "200":
+          description: The secret to add to an authenticator app.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TotpEnrollment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/me/totp/confirmation:
+    post:
+      operationId: confirmTotpEnrollment
+      tags: [me]
+      summary: Confirm the authenticator app with a code
+      description: "Problem codes: `totp_invalid` (400), `totp_not_pending` (409)."
+      security:
+        - session: []
+          csrf: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TotpCode" }
+      responses:
+        "204": { description: TOTP is now required for password sign-in. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/me/totp/deactivation:
+    post:
+      operationId: disableTotp
+      tags: [me]
+      summary: Turn TOTP off with a current code
+      description: "Problem codes: `totp_invalid` (400), `totp_not_enabled` (409)."
+      security:
+        - session: []
+          csrf: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TotpCode" }
+      responses:
+        "204": { description: TOTP is off. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ── tenants ─────────────────────────────────────────────────────────
+  /v1/tenants:
+    get:
+      operationId: listTenants
+      tags: [tenants]
+      summary: Tenants the caller can act in
+      description: |
+        A person's active memberships; an API token's own tenant.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of tenants.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TenantList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+    post:
+      operationId: createTenant
+      tags: [tenants]
+      summary: Create an organization
+      description: |
+        The caller becomes its owner. Only people create organizations.
+        Problem codes: `slug_taken` (409).
+      security:
+        - session: []
+          csrf: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTenant" }
+      responses:
+        "201":
+          description: The organization.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tenant" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: getTenant
+      tags: [tenants]
+      summary: A tenant
+      description: Needs `tenant.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The tenant.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tenant" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ── members ─────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/members:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listMembers
+      tags: [members]
+      summary: Members and open invitations
+      description: Needs `members.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of members.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemberList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: addMember
+      tags: [members]
+      summary: Invite someone by email
+      description: |
+        Opens an invitation that becomes an active membership when the
+        address's owner signs in. Needs `members.manage`; the `owner`
+        role needs `owners.manage`. Problem codes: `already_member`
+        (409), `individual_tenant` (409), `owner_change_forbidden`
+        (403), `locales_need_locale_role` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddMember" }
+      responses:
+        "201":
+          description: The invitation.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/members/{member}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/MemberPath"
+    get:
+      operationId: getMember
+      tags: [members]
+      summary: A member
+      description: Needs `members.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The member.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateMember
+      tags: [members]
+      summary: Change a member's roles or locales
+      description: |
+        Members omitted from the body keep their value. Needs
+        `members.manage`; anything touching the `owner` role needs
+        `owners.manage`. Problem codes: `last_owner` (409),
+        `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateMember" }
+      responses:
+        "200":
+          description: The updated member.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+    delete:
+      operationId: removeMember
+      tags: [members]
+      summary: Remove a member or withdraw an invitation
+      description: |
+        Needs `members.manage` (`owners.manage` for an owner).
+        `If-Match` is optional here; when sent it must match. Problem
+        codes: `last_owner` (409), `owner_change_forbidden` (403).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  # ── tokens ──────────────────────────────────────────────────────────
+  /v1/tenants/{tenant}/tokens:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listTokens
+      tags: [tokens]
+      summary: API tokens, including revoked ones
+      description: Needs `tokens.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of tokens.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createToken
+      tags: [tokens]
+      summary: Create an API token
+      description: |
+        The response is the only time the secret is shown. A token's
+        scopes can't exceed what its creator may do. Needs
+        `tokens.manage`. Problem codes: `scope_exceeds_grant` (403).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateToken" }
+      responses:
+        "201":
+          description: |
+            The token and its secret. A replayed request returns the token
+            without `secret`.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatedToken" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/tokens/{token}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/TokenPath"
+    delete:
+      operationId: revokeToken
+      tags: [tokens]
+      summary: Revoke an API token
+      description: |
+        The token stops working at once and stays listed as revoked.
+        Needs `tokens.manage`. Problem codes: `token_revoked` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Revoked. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: __Host-glossa_session
+      description: |
+        Session cookie set by the sign-in operations: HttpOnly, Secure,
+        SameSite=Lax, Path=/. Revocable server-side.
+    csrf:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: |
+        Required with the session cookie on unsafe methods. Its value is
+        the `csrf_token` of the session.
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: glossa_api_…
+      description: |
+        A tenant API token, `glossa_api_` followed by 43 base64url
+        characters. Acts only in its own tenant, within its scopes.
+
+  parameters:
+    TenantPath:
+      name: tenant
+      in: path
+      required: true
+      description: A tenant `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    MemberPath:
+      name: member
+      in: path
+      required: true
+      description: A member `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    TokenPath:
+      name: token
+      in: path
+      required: true
+      description: An API token `id` (never its secret).
+      schema: { $ref: "#/components/schemas/Id" }
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    PageToken:
+      name: page_token
+      in: query
+      required: false
+      description: The `next_page_token` of the previous page.
+      schema: { type: string, maxLength: 512 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: The `ETag` the change is based on.
+      schema: { type: string, maxLength: 64 }
+    IfMatchOptional:
+      name: If-Match
+      in: header
+      required: false
+      description: When sent, the `ETag` the change is based on.
+      schema: { type: string, maxLength: 64 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 255, pattern: "^[\\x21-\\x7E]+$" }
+    CeremonyCookie:
+      name: __Host-glossa_webauthn
+      in: cookie
+      required: false
+      description: WebAuthn ceremony state set by the matching challenge operation.
+      schema: { type: string, maxLength: 8192 }
+
+  headers:
+    ETag:
+      description: Opaque version of the resource, for `If-Match`.
+      schema: { type: string }
+    Location:
+      description: URL of the created resource.
+      schema: { type: string }
+    IdempotentReplayed:
+      description: "`true` when this response replays an earlier request with the same `Idempotency-Key`."
+      schema: { type: string, enum: ["true"] }
+    SessionCookie:
+      description: "`__Host-glossa_session=…; Path=/; HttpOnly; Secure; SameSite=Lax`"
+      schema: { type: string }
+    ClearedSessionCookie:
+      description: Expires the session cookie.
+      schema: { type: string }
+    CeremonyCookie:
+      description: "`__Host-glossa_webauthn=…; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=300`"
+      schema: { type: string }
+
+  responses:
+    SessionStarted:
+      description: Signed in. The session cookie is set.
+      headers:
+        Set-Cookie: { $ref: "#/components/headers/SessionCookie" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Session" }
+    BadRequest:
+      description: The request is malformed or invalid.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthenticated:
+      description: No valid credentials.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Forbidden:
+      description: Authenticated, but not allowed (or missing the CSRF token).
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: No such resource in this tenant.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Conflict:
+      description: The request conflicts with the resource's state.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    PreconditionFailed:
+      description: "`If-Match` doesn't match the current `ETag`."
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    PreconditionRequired:
+      description: "`If-Match` is required."
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    UnprocessableEntity:
+      description: The `Idempotency-Key` was used for a different request.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    TooManyRequests:
+      description: Slow down.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    Id:
+      type: string
+      description: An opaque identifier.
+      minLength: 1
+      maxLength: 64
+    Timestamp:
+      type: string
+      format: date-time
+      description: RFC 3339, UTC.
+    Email:
+      type: string
+      format: email
+      maxLength: 254
+    Locale:
+      type: string
+      description: |
+        A BCP 47 language tag. Stored and returned canonicalized
+        (`en_us` → `en-US`, `iw` → `he`).
+      minLength: 2
+      maxLength: 64
+      examples: [de, pt-BR, zh-Hant-TW]
+    Role:
+      type: string
+      enum: [owner, admin, developer, translator, reviewer]
+      description: |
+        `owner` everything; `admin` everything except owner changes;
+        `developer` catalog, translations, releases, tokens;
+        `translator` translates; `reviewer` translates and reviews.
+        Translators and reviewers can be limited to `locales`.
+    Scope:
+      type: string
+      enum: [read, write, publish, admin]
+      description: |
+        `read` reads the tenant; `write` pushes messages and
+        translations; `publish` creates releases; `admin` manages the
+        tenant, members and tokens (never owners). Every scope implies
+        `read`.
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri, examples: ["urn:glossa:problem:slug_taken"] }
+        title: { type: string }
+        status: { type: integer }
+        code: { type: string, pattern: "^[a-z][a-z0-9_]*$", description: Stable machine-readable code. }
+        detail: { type: string }
+        instance: { type: string }
+        errors:
+          type: array
+          items: { $ref: "#/components/schemas/FieldError" }
+    FieldError:
+      type: object
+      required: [pointer, detail]
+      properties:
+        pointer: { type: string, description: JSON Pointer into the request body. }
+        detail: { type: string }
+
+    EmailRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { $ref: "#/components/schemas/Email" }
+    TokenRedemption:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 256, description: The token from the emailed link. }
+    Registration:
+      type: object
+      required: [email, password]
+      properties:
+        email: { $ref: "#/components/schemas/Email" }
+        password: { type: string, minLength: 12, maxLength: 1024 }
+        display_name: { type: string, maxLength: 200 }
+    PasswordSignIn:
+      type: object
+      required: [email, password]
+      properties:
+        email: { $ref: "#/components/schemas/Email" }
+        password: { type: string, minLength: 1, maxLength: 1024 }
+        totp_code: { type: string, pattern: "^[0-9]{6}$" }
+    PasswordReset:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 256 }
+        password: { type: string, minLength: 12, maxLength: 1024 }
+    WebAuthnResponse:
+      type: object
+      description: The `PublicKeyCredential` from the browser, serialized as JSON.
+      additionalProperties: true
+    PasskeyRegistration:
+      type: object
+      required: [credential]
+      properties:
+        name: { type: string, maxLength: 100, description: A label such as "MacBook Touch ID". }
+        credential: { $ref: "#/components/schemas/WebAuthnResponse" }
+    PasskeyOptions:
+      type: object
+      required: [options]
+      properties:
+        options:
+          type: object
+          description: WebAuthn options to pass to `navigator.credentials`.
+          additionalProperties: true
+    Passkey:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id: { type: string, description: "The credential ID, base64url." }
+        name: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    TotpEnrollment:
+      type: object
+      required: [secret, otpauth_uri]
+      properties:
+        secret: { type: string, description: "Base32 secret, for manual entry." }
+        otpauth_uri: { type: string, description: "`otpauth://` URI, for a QR code." }
+    TotpCode:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, pattern: "^[0-9]{6}$" }
+
+    Person:
+      type: object
+      required: [id, email, email_verified, totp_enabled, individual_tenant_id, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        email: { $ref: "#/components/schemas/Email" }
+        display_name: { type: string }
+        email_verified: { type: boolean }
+        totp_enabled: { type: boolean }
+        individual_tenant_id: { $ref: "#/components/schemas/Id" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    Session:
+      type: object
+      required: [person, csrf_token, expires_at]
+      properties:
+        person: { $ref: "#/components/schemas/Person" }
+        csrf_token: { type: string, description: Send as `X-CSRF-Token` on unsafe requests. }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+    Me:
+      type: object
+      required: [person, memberships, csrf_token]
+      properties:
+        person: { $ref: "#/components/schemas/Person" }
+        csrf_token: { type: string }
+        memberships:
+          type: array
+          items: { $ref: "#/components/schemas/Membership" }
+    Membership:
+      type: object
+      required: [member_id, tenant, roles, locales]
+      properties:
+        member_id: { $ref: "#/components/schemas/Id" }
+        tenant: { $ref: "#/components/schemas/Tenant" }
+        roles:
+          type: array
+          items: { $ref: "#/components/schemas/Role" }
+        locales:
+          type: array
+          items: { $ref: "#/components/schemas/Locale" }
+
+    Tenant:
+      type: object
+      required: [id, kind, slug, name, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        kind: { type: string, enum: [individual, organization] }
+        slug: { type: string, pattern: "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$" }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    TenantList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Tenant" }
+        next_page_token: { type: string }
+    CreateTenant:
+      type: object
+      required: [slug, name]
+      properties:
+        slug: { type: string, pattern: "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$" }
+        name: { type: string, minLength: 1, maxLength: 200 }
+
+    Member:
+      type: object
+      required: [id, email, status, roles, locales, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        email: { $ref: "#/components/schemas/Email" }
+        person_id:
+          $ref: "#/components/schemas/Id"
+          description: Set once the invitation is accepted.
+        display_name: { type: string }
+        status: { type: string, enum: [invited, active] }
+        roles:
+          type: array
+          items: { $ref: "#/components/schemas/Role" }
+        locales:
+          type: array
+          description: Locales a translator or reviewer works on; empty means all.
+          items: { $ref: "#/components/schemas/Locale" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    MemberList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Member" }
+        next_page_token: { type: string }
+    AddMember:
+      type: object
+      required: [email, roles]
+      properties:
+        email: { $ref: "#/components/schemas/Email" }
+        roles:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/Role" }
+        locales:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/Locale" }
+    UpdateMember:
+      type: object
+      properties:
+        roles:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/Role" }
+        locales:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/Locale" }
+
+    Token:
+      type: object
+      required: [id, name, hint, scopes, created_by, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { type: string }
+        hint: { type: string, description: "The first characters of the secret, e.g. `glossa_api_Ab3x`." }
+        scopes:
+          type: array
+          items: { $ref: "#/components/schemas/Scope" }
+        created_by: { type: string, description: "`person:<id>` or `token:<id>`." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        last_used_at: { $ref: "#/components/schemas/Timestamp" }
+        revoked_at: { $ref: "#/components/schemas/Timestamp" }
+    TokenList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Token" }
+        next_page_token: { type: string }
+    CreateToken:
+      type: object
+      required: [name, scopes]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        scopes:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/Scope" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+    CreatedToken:
+      type: object
+      required: [token]
+      properties:
+        token: { $ref: "#/components/schemas/Token" }
+        secret:
+          type: string
+          description: "The token value (`glossa_api_…`). Shown only in the first response."
