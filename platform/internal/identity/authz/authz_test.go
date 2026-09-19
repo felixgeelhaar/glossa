@@ -84,3 +84,48 @@ func TestAuthenticated(t *testing.T) {
 		t.Errorf("person: %+v, %v", got, err)
 	}
 }
+
+func TestBackgroundActsInTheContextTenantWithExactlyItsPermissions(t *testing.T) {
+	tenant := tenancy.NewID()
+	ctx := tenancy.ContextWithTenant(context.Background(), tenant)
+	bg, err := authz.Background(ctx, "knowledge.derive_tm", authz.TranslationsRead, authz.CatalogRead)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := authz.Require(bg, authz.TranslationsRead); err != nil {
+		t.Errorf("granted permission refused: %v", err)
+	}
+	if err := authz.Require(bg, authz.TranslationsWrite); !errors.Is(err, authz.ErrForbidden) {
+		t.Errorf("ungranted permission: %v", err)
+	}
+	p, _ := authz.From(bg)
+	if p.Actor.Kind != domain.ActorSystem || p.Actor != domain.SystemActor("knowledge.derive_tm") {
+		t.Errorf("actor = %s", p.Actor)
+	}
+	if p.Actor == domain.SystemActor("release.sync") {
+		t.Error("different background processes must be different actors")
+	}
+	if !p.Person.IsZero() {
+		t.Error("a background principal is not a person")
+	}
+}
+
+func TestBackgroundRefusals(t *testing.T) {
+	tenant := tenancy.NewID()
+	scoped := tenancy.ContextWithTenant(context.Background(), tenant)
+	if _, err := authz.Background(context.Background(), "x", authz.CatalogRead); err == nil {
+		t.Error("no tenant on the context: must refuse")
+	}
+	member := authz.WithPrincipal(scoped, principal(t, tenant, []string{"translator"}, nil))
+	if _, err := authz.Background(member, "x", authz.CatalogRead); err == nil {
+		t.Error("a request's principal must never be swapped for a background one")
+	}
+	for _, p := range []authz.Permission{authz.TenantManage, authz.MembersManage, authz.OwnersManage, authz.TokensManage} {
+		if _, err := authz.Background(scoped, "x", p); err == nil {
+			t.Errorf("background work must not administer identity (%s)", p)
+		}
+	}
+	if _, err := authz.Background(scoped, "", authz.CatalogRead); err == nil {
+		t.Error("a background principal needs a name")
+	}
+}

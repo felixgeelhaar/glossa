@@ -78,9 +78,14 @@ type ActorKind string
 const (
 	ActorPerson ActorKind = "person"
 	ActorToken  ActorKind = "token"
+	// ActorSystem is a bounded context's background process (an outbox
+	// subscriber, a job) acting through another context's authorized
+	// application ports. It never signs in and never holds a token.
+	ActorSystem ActorKind = "system"
 )
 
-// Actor identifies who did something: a person or an API token.
+// Actor identifies who did something: a person, an API token or a
+// background process.
 type Actor struct {
 	Kind ActorKind
 	ID   uuid.UUID
@@ -92,7 +97,16 @@ func PersonActor(id PersonID) Actor { return Actor{Kind: ActorPerson, ID: id.UUI
 // TokenActor names an API token.
 func TokenActor(id TokenID) Actor { return Actor{Kind: ActorToken, ID: id.UUID()} }
 
-// String renders "person:<id>" or "token:<id>".
+// systemActors namespaces the stable IDs of background processes.
+var systemActors = uuid.MustParse("5d0f6f64-2f8e-4c61-9c55-3f7d7a2b9e10")
+
+// SystemActor names a background process by its stable name
+// ("knowledge.derive_tm"); the same name is always the same actor.
+func SystemActor(name string) Actor {
+	return Actor{Kind: ActorSystem, ID: uuid.NewSHA1(systemActors, []byte(name))}
+}
+
+// String renders "person:<id>", "token:<id>" or "system:<id>".
 func (a Actor) String() string { return string(a.Kind) + ":" + a.ID.String() }
 
 // ParseActor parses Actor.String's output.

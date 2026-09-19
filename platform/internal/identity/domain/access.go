@@ -22,6 +22,8 @@ const (
 	PermTokensManage       Permission = "tokens.manage"
 	PermCatalogRead        Permission = "catalog.read"
 	PermCatalogWrite       Permission = "catalog.write"
+	PermKnowledgeRead      Permission = "knowledge.read"
+	PermKnowledgeWrite     Permission = "knowledge.write"
 	PermTranslationsRead   Permission = "translations.read"
 	PermTranslationsWrite  Permission = "translations.write"
 	PermTranslationsReview Permission = "translations.review"
@@ -33,6 +35,7 @@ const (
 func AllPermissions() []Permission {
 	return []Permission{
 		PermCatalogRead, PermCatalogWrite,
+		PermKnowledgeRead, PermKnowledgeWrite,
 		PermMembersManage, PermMembersRead,
 		PermOwnersManage,
 		PermReleasesPublish, PermReleasesRead,
@@ -60,7 +63,7 @@ const (
 )
 
 var readAll = []Permission{
-	PermTenantRead, PermMembersRead, PermCatalogRead, PermTranslationsRead, PermReleasesRead,
+	PermTenantRead, PermMembersRead, PermCatalogRead, PermTranslationsRead, PermReleasesRead, PermKnowledgeRead,
 }
 
 // rolePermissions is the role matrix; TestRolePermissionMatrix pins it.
@@ -68,7 +71,8 @@ var rolePermissions = map[Role][]Permission{
 	RoleOwner: AllPermissions(),
 	RoleAdmin: slices.DeleteFunc(AllPermissions(), func(p Permission) bool { return p == PermOwnersManage }),
 	RoleDeveloper: append(slices.Clone(readAll),
-		PermTokensRead, PermTokensManage, PermCatalogWrite, PermTranslationsWrite, PermReleasesPublish),
+		PermTokensRead, PermTokensManage, PermCatalogWrite, PermTranslationsWrite, PermReleasesPublish,
+		PermKnowledgeWrite),
 	RoleTranslator: append(slices.Clone(readAll), PermTranslationsWrite),
 	RoleReviewer:   append(slices.Clone(readAll), PermTranslationsWrite, PermTranslationsReview),
 }
@@ -130,7 +134,8 @@ const (
 	// ScopeRead reads the tenant's catalog, translations, releases,
 	// members and tokens.
 	ScopeRead Scope = "read"
-	// ScopeWrite pushes source messages and translations (CLI push, CI
+	// ScopeWrite pushes source messages, translations and linguistic
+	// knowledge — terms, style guides, TM retirement (CLI push, CI
 	// import, agents). Review is a human decision and no scope grants it.
 	ScopeWrite Scope = "write"
 	// ScopePublish creates releases.
@@ -142,7 +147,7 @@ const (
 
 var scopePermissions = map[Scope][]Permission{
 	ScopeRead:    append(slices.Clone(readAll), PermTokensRead),
-	ScopeWrite:   {PermCatalogWrite, PermTranslationsWrite},
+	ScopeWrite:   {PermCatalogWrite, PermTranslationsWrite, PermKnowledgeWrite},
 	ScopePublish: {PermReleasesPublish},
 	ScopeAdmin:   {PermTenantManage, PermMembersManage, PermTokensManage},
 }
@@ -210,6 +215,16 @@ func GrantForScopes(scopes Scopes) Grant {
 		for _, p := range slices.Concat(scopePermissions[ScopeRead], scopePermissions[s]) {
 			g.add(p, LocaleScope{})
 		}
+	}
+	return g
+}
+
+// GrantOf grants exactly perms, for every locale: a background
+// process's grant (authz.Background), which no role or scope derives.
+func GrantOf(perms ...Permission) Grant {
+	g := Grant{perms: map[Permission]LocaleScope{}}
+	for _, p := range perms {
+		g.add(p, LocaleScope{})
 	}
 	return g
 }

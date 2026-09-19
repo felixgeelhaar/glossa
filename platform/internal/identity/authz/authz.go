@@ -45,6 +45,8 @@ const (
 	TokensManage       = domain.PermTokensManage
 	CatalogRead        = domain.PermCatalogRead
 	CatalogWrite       = domain.PermCatalogWrite
+	KnowledgeRead      = domain.PermKnowledgeRead
+	KnowledgeWrite     = domain.PermKnowledgeWrite
 	TranslationsRead   = domain.PermTranslationsRead
 	TranslationsWrite  = domain.PermTranslationsWrite
 	TranslationsReview = domain.PermTranslationsReview
@@ -117,6 +119,43 @@ func Authenticated(ctx context.Context) (Principal, error) {
 		return Principal{}, ErrUnauthenticated
 	}
 	return p, nil
+}
+
+// identityAdministration are permissions background work never holds.
+var identityAdministration = []Permission{
+	domain.PermTenantManage, domain.PermMembersManage, domain.PermOwnersManage, domain.PermTokensManage,
+}
+
+// Background returns ctx acting as a bounded context's background
+// process — an outbox subscriber or a job, named stably
+// ("knowledge.derive_tm") — in the tenant already on ctx, holding
+// exactly perms. It is how such work reads (or writes) another context
+// through that context's authorized application ports instead of
+// around them: the ports keep checking permissions, and the grant
+// states what the process may do. It refuses a context without a
+// tenant, one that already carries a principal (a request's caller is
+// never swapped for a broader one) and identity administration.
+func Background(ctx context.Context, name string, perms ...Permission) (context.Context, error) {
+	if name == "" {
+		return nil, errors.New("authz: a background principal needs a name")
+	}
+	tenant, ok := tenancy.FromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("authz: background %s: no tenant on the context", name)
+	}
+	if _, ok := From(ctx); ok {
+		return nil, fmt.Errorf("authz: background %s: the context already carries a principal", name)
+	}
+	for _, p := range perms {
+		for _, admin := range identityAdministration {
+			if p == admin {
+				return nil, fmt.Errorf("authz: background %s: %s is never granted to background work", name, p)
+			}
+		}
+	}
+	return WithPrincipal(ctx, Principal{
+		Actor: domain.SystemActor(name), Tenant: tenant, Grant: domain.GrantOf(perms...),
+	}), nil
 }
 
 // Require returns nil if the principal holds perm for every locale in

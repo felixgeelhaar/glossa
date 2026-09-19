@@ -65,15 +65,17 @@ func TestRolePermissionMatrix(t *testing.T) {
 			domain.PermTenantRead, domain.PermMembersRead, domain.PermTokensRead, domain.PermTokensManage,
 			domain.PermCatalogRead, domain.PermCatalogWrite, domain.PermTranslationsRead,
 			domain.PermTranslationsWrite, domain.PermReleasesRead, domain.PermReleasesPublish,
+			domain.PermKnowledgeRead, domain.PermKnowledgeWrite,
 		}},
 		"translator": {allowed: perms{
 			domain.PermTenantRead, domain.PermMembersRead, domain.PermCatalogRead,
 			domain.PermTranslationsRead, domain.PermTranslationsWrite, domain.PermReleasesRead,
+			domain.PermKnowledgeRead,
 		}},
 		"reviewer": {allowed: perms{
 			domain.PermTenantRead, domain.PermMembersRead, domain.PermCatalogRead,
 			domain.PermTranslationsRead, domain.PermTranslationsWrite, domain.PermTranslationsReview,
-			domain.PermReleasesRead,
+			domain.PermReleasesRead, domain.PermKnowledgeRead,
 		}},
 	}
 	for role, tc := range tests {
@@ -149,6 +151,9 @@ func TestScopeGrants(t *testing.T) {
 	write := grant("write")
 	if !write.Allows(domain.PermCatalogRead) || !write.Allows(domain.PermTranslationsWrite) || write.Allows(domain.PermReleasesPublish) {
 		t.Error("write implies read, grants writes, and does not publish")
+	}
+	if !read.Allows(domain.PermKnowledgeRead) || read.Allows(domain.PermKnowledgeWrite) || !write.Allows(domain.PermKnowledgeWrite) {
+		t.Error("read reads knowledge; write curates it (term and style-guide imports from CI)")
 	}
 	if write.Allows(domain.PermTranslationsReview) {
 		t.Error("review is a human decision; no token scope grants it")
