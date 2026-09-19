@@ -190,27 +190,64 @@ func assertMF1SampleFormats(t *testing.T, tc mf1Case, msg Message, sample mf1Sam
 
 // usesMF1Functions reports whether msg calls any mf1: fallback function.
 func usesMF1Functions(msg Message) bool {
-	for _, expr := range expressions(msg) {
-		if expr.Function != nil && strings.HasPrefix(expr.Function.Name, "mf1:") {
+	for _, arg := range Arguments(msg) {
+		if strings.HasPrefix(arg.Function, "mf1:") {
 			return true
 		}
 	}
 	return false
 }
 
-// expressions returns every expression of msg: declarations first, then
-// pattern placeholders in order.
-func expressions(msg Message) []Expression {
-	var out []Expression
-	for _, d := range msg.Declarations {
-		out = append(out, d.Value)
+type argumentsFixture struct {
+	Tests []struct {
+		Description string          `json:"description"`
+		Src         *string         `json:"src"`
+		MF1         *string         `json:"mf1"`
+		Locale      string          `json:"locale"`
+		Arguments   json.RawMessage `json:"arguments"`
+		Markup      json.RawMessage `json:"markup"`
+	} `json:"tests"`
+}
+
+func TestGlossaArguments(t *testing.T) {
+	fixture := loadJSON[argumentsFixture](t, "testdata/glossa/arguments.json")
+	for _, tc := range fixture.Tests {
+		t.Run(tc.Description, func(t *testing.T) {
+			msg := fixtureMessage(t, tc.Src, tc.MF1, tc.Locale)
+			assertJSON(t, "Arguments", Arguments(msg), tc.Arguments)
+			assertJSON(t, "MarkupElements", MarkupElements(msg), tc.Markup)
+		})
 	}
-	for _, p := range msg.Patterns() {
-		for _, el := range p {
-			if e, ok := el.(Expression); ok {
-				out = append(out, e)
-			}
-		}
+}
+
+// fixtureMessage parses a fixture message given as MF2 or as MF1 source.
+func fixtureMessage(t *testing.T, mf2Src, mf1Src *string, locale string) Message {
+	t.Helper()
+	var (
+		msg Message
+		err error
+	)
+	switch {
+	case mf2Src != nil:
+		msg, err = ParseMF2(*mf2Src)
+	case mf1Src != nil:
+		msg, err = ParseMF1(*mf1Src, locale)
+	default:
+		t.Fatal("fixture message needs src or mf1")
 	}
-	return out
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	return msg
+}
+
+func assertJSON(t *testing.T, label string, got any, want json.RawMessage) {
+	t.Helper()
+	gotJSON, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("%s: marshal: %v", label, err)
+	}
+	if !jsonEqual(t, gotJSON, want) {
+		t.Errorf("%s mismatch\n got: %s\nwant: %s", label, gotJSON, want)
+	}
 }
