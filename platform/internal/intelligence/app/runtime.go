@@ -2,8 +2,11 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -157,30 +160,131 @@ type jobKnowledge struct {
 
 var _ domain.Knowledge = (*jobKnowledge)(nil)
 
-// neighbourLimit is how many neighbouring messages the context shows.
-const neighbourLimit = 5
+// What the context shows: at most usageLimit usages and neighbourLimit
+// neighbouring messages (RFC 0004 §2.2).
+const (
+	usageLimit     = 10
+	neighbourLimit = 5
+)
 
-// MessageContext implements domain.MessageContexts: description, max
-// length and neighbours by key prefix with their translations. The
-// namespace's policy tags travel on the request (not here), so they are
-// counted once.
+// MessageContext implements domain.MessageContexts.
 func (k *jobKnowledge) MessageContext(ctx context.Context, _ domain.Scope, _ string, targetLocale string) (domain.MessageContext, error) {
+	return k.s.messageContext(ctx, k.msg, targetLocale)
+}
+
+// messageContext is a message's context for the agent: description, max
+// length, where it is used (`file:line (component, route)`, the default
+// branch first) and its neighbours with their translations — the
+// messages shown together with it (sharing a route or a capture, RFC
+// 0004 §8) first, then those sharing its key prefix. The namespace's
+// policy tags travel on the request (not here), so they are counted
+// once.
+func (s *Service) messageContext(ctx context.Context, msg SourceMessage, locale string) (domain.MessageContext, error) {
 	c := domain.MessageContext{
-		MessageID: k.msg.ID.String(), Key: k.msg.Key, Namespace: k.msg.Namespace,
-		Description: k.msg.Description, MaxLength: k.msg.MaxLength,
+		MessageID: msg.ID.String(), Key: msg.Key, Namespace: msg.Namespace,
+		Description: msg.Description, MaxLength: msg.MaxLength,
 	}
-	prefix, _, ok := cutLast(k.msg.Key, ".")
-	if !ok {
+	var err error
+	if c.Usages, err = s.usagesOf(ctx, msg); err != nil {
+		return domain.MessageContext{}, err
+	}
+	if c.Neighbours, err = s.coLocated(ctx, msg, locale); err != nil {
+		return domain.MessageContext{}, err
+	}
+	prefix, _, ok := cutLast(msg.Key, ".")
+	if !ok || len(c.Neighbours) == neighbourLimit {
 		return c, nil
 	}
-	ns, err := k.s.Localization.Neighbours(ctx, k.msg.ProjectID, prefix+".", k.msg.Key, targetLocale, neighbourLimit)
+	ns, err := s.Localization.Neighbours(ctx, msg.ProjectID, prefix+".", msg.Key, locale, neighbourLimit+len(c.Neighbours))
 	if err != nil {
 		return domain.MessageContext{}, err
 	}
 	for _, n := range ns {
-		c.Neighbours = append(c.Neighbours, domain.Neighbour{Key: n.Key, Source: n.SourceMF2, Translation: n.Translation})
+		if len(c.Neighbours) == neighbourLimit {
+			break
+		}
+		if !slices.ContainsFunc(c.Neighbours, func(have domain.Neighbour) bool { return have.Key == n.Key }) {
+			c.Neighbours = append(c.Neighbours, domain.Neighbour{Key: n.Key, Source: n.SourceMF2, Translation: n.Translation})
+		}
 	}
 	return c, nil
+}
+
+// usagesOf formats the message's current usages, without repeats (two
+// collectors can report the same place).
+func (s *Service) usagesOf(ctx context.Context, msg SourceMessage) ([]string, error) {
+	if s.Usages == nil {
+		return nil, nil
+	}
+	us, err := s.Usages.Usages(ctx, msg.ProjectID, msg.ID, usageLimit)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, u := range us {
+		if line := u.String(); !slices.Contains(out, line) {
+			out = append(out, line)
+		}
+	}
+	return out, nil
+}
+
+// coLocated returns the active messages shown together with msg, in
+// the port's order, with their translations in locale (a rejected one
+// is left out, as for key-prefix neighbours).
+func (s *Service) coLocated(ctx context.Context, msg SourceMessage, locale string) ([]domain.Neighbour, error) {
+	if s.Usages == nil {
+		return nil, nil
+	}
+	ids, err := s.Usages.CoLocated(ctx, msg.ProjectID, msg.ID, neighbourLimit)
+	if err != nil || len(ids) == 0 {
+		return nil, err
+	}
+	found, err := s.Catalog.MessagesByIDs(ctx, msg.ProjectID, ids)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[uuid.UUID]SourceMessage, len(found))
+	for _, m := range found {
+		byID[m.ID] = m
+	}
+	var out []domain.Neighbour
+	for _, id := range ids {
+		m, ok := byID[id]
+		if !ok || !m.Active {
+			continue
+		}
+		text, err := sourceText(m.Source)
+		if err != nil {
+			continue
+		}
+		n := domain.Neighbour{Key: m.Key, Source: text}
+		tr, err := s.Localization.Translation(ctx, msg.ProjectID, m.Key, locale)
+		switch {
+		case err == nil && tr.Exists && tr.State != "rejected":
+			n.Translation = tr.Text
+		case err != nil && !errors.Is(err, ErrNotFound):
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, nil
+}
+
+// String is the usage as message_context shows it:
+// `file:line (component, route)`, leaving out what is unknown.
+func (u Usage) String() string {
+	var where []string
+	for _, s := range []string{u.Component, u.Route} {
+		if s != "" {
+			where = append(where, s)
+		}
+	}
+	out := u.File + ":" + strconv.Itoa(u.Line)
+	if len(where) > 0 {
+		out += " (" + strings.Join(where, ", ") + ")"
+	}
+	return out
 }
 
 func cutLast(s, sep string) (before, after string, found bool) {

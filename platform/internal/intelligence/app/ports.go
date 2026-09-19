@@ -365,6 +365,29 @@ type TranslationState struct {
 	Text string
 }
 
+// Usage is where a message appears in the product's code (RFC 0004
+// §2.2).
+type Usage struct {
+	File string
+	Line int
+	// Component and Route are empty where the collector didn't know them.
+	Component string
+	Route     string
+}
+
+// UsageContext is the Context context's application service, as
+// Intelligence reads it: a message's current usages and the messages
+// shown together with it (RFC 0004 §8). Unknown projects answer
+// ErrProjectNotFound.
+type UsageContext interface {
+	// Usages returns up to limit of the message's current usages, the
+	// default branch's first.
+	Usages(ctx context.Context, project, message uuid.UUID, limit int) ([]Usage, error)
+	// CoLocated returns up to limit messages that share a route or a
+	// capture with message, most shared first.
+	CoLocated(ctx context.Context, project, message uuid.UUID, limit int) ([]uuid.UUID, error)
+}
+
 // Neighbour is a message near another, with its translation.
 type Neighbour struct {
 	Key         string

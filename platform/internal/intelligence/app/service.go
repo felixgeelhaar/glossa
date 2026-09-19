@@ -22,10 +22,14 @@ type Deps struct {
 	Localization Localization
 	Environments Environments
 	Knowledge    Knowledge
-	Providers    ProviderFactory
-	Sealer       Sealer
-	Metrics      Metrics
-	Logger       *slog.Logger
+	// Usages is the Context context, for message_context's usages and
+	// co-located neighbours; nil leaves usages empty and neighbours to
+	// the key prefix.
+	Usages    UsageContext
+	Providers ProviderFactory
+	Sealer    Sealer
+	Metrics   Metrics
+	Logger    *slog.Logger
 	// Prices are the deployment's default prices (DefaultPrices when nil);
 	// tenants override them.
 	Prices domain.PriceTable
