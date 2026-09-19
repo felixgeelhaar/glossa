@@ -117,7 +117,7 @@ resolve locale (RFC 4647 lookup over a pluggable resolver chain)
 
 | Runtime | Package | Shape |
 |---|---|---|
-| **JS core** | `@glossa/runtime` | Framework-agnostic. Formatter, loader, cache, resolver, `explain`. Budgets (brotli): interpreter only 4 kB (3.1 kB measured), full runtime 6.5 kB (5.85 kB measured), IndexedDB storage 0.5 kB. For comparison, intl-messageformat alone is about 8 kB. |
+| **JS core** | `@glossa/runtime` | Framework-agnostic. Formatter, loader, cache, resolver, `explain`. Budgets (brotli): interpreter only 4 kB (3.1 kB measured), full runtime 6.5 kB (5.99 kB measured), IndexedDB storage 0.5 kB. For comparison, intl-messageformat alone is about 8 kB. |
 | **Vue** | `@glossa/vue` | Plugin + `useMessages()` + typed accessors. SSR-safe. |
 | **Astro** | `@glossa/astro` | Integration: build-time catalogs for static pages, runtime for islands. |
 | **Web components** | `@glossa/elements` | `<glossa-text>` and friends on top of the core. Continues v0.3 elements. |
