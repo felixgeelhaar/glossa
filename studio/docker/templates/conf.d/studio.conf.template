@@ -2,8 +2,8 @@
 # the GLOSSA_STUDIO_* variables; nginx's own $variables are untouched).
 
 server {
+  # IPv4 only: a [::] listener fails to start on nodes with IPv6 disabled.
   listen 8080;
-  listen [::]:8080;
   server_name _;
   root /usr/share/nginx/html;
   absolute_redirect off;
