@@ -10,7 +10,7 @@ import (
 
 // BranchName is a Git branch name, unique per project. It follows
 // git check-ref-format closely enough that every name Git accepts for a
-// pushed branch is accepted here.
+// pushed branch is accepted here, and none it refuses.
 type BranchName string
 
 // MaxBranchNameLen bounds a branch name.
@@ -18,10 +18,13 @@ const MaxBranchNameLen = 255
 
 // ParseBranchName validates s.
 func ParseBranchName(s string) (BranchName, error) {
-	bad := s == "" || len(s) > MaxBranchNameLen ||
+	bad := s == "" || len(s) > MaxBranchNameLen || s == "@" ||
 		strings.ContainsAny(s, " ~^:?*[\\\x7f") || strings.Contains(s, "..") || strings.Contains(s, "//") ||
 		strings.Contains(s, "@{") || strings.HasPrefix(s, "/") || strings.HasSuffix(s, "/") ||
-		strings.HasSuffix(s, ".") || strings.HasSuffix(s, ".lock") || strings.HasPrefix(s, "-")
+		strings.HasSuffix(s, ".") || strings.HasPrefix(s, "-")
+	for component := range strings.SplitSeq(s, "/") {
+		bad = bad || strings.HasPrefix(component, ".") || strings.HasSuffix(component, ".lock")
+	}
 	for _, r := range s {
 		if r < 0x20 {
 			bad = true

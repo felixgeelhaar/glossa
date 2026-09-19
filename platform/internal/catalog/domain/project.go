@@ -47,11 +47,19 @@ type Settings struct {
 	// approving them on write. It is the whole review policy until the
 	// workflow engine (Phase 4) owns it.
 	ReviewRequired bool `json:"review_required"`
+	// DefaultBranch is the repository's default branch (RFC 0004 §2.2):
+	// the Context context's builds of it are what every view of the
+	// current usages falls back to. main unless the project says
+	// otherwise; a Git connection will set it.
+	DefaultBranch BranchName `json:"default_branch"`
 }
+
+// DefaultBranch is a new project's default branch.
+const DefaultBranch BranchName = "main"
 
 // DefaultSettings are a new project's settings.
 func DefaultSettings() Settings {
-	return Settings{DefaultSyntax: mfcontent.MF1, ReviewRequired: true}
+	return Settings{DefaultSyntax: mfcontent.MF1, ReviewRequired: true, DefaultBranch: DefaultBranch}
 }
 
 // Validate checks every member.
@@ -60,7 +68,19 @@ func (s Settings) Validate() error {
 	if err != nil || s.DefaultSyntax == "" {
 		return fmt.Errorf("%w: default_syntax", mfcontent.ErrInvalidSyntax)
 	}
+	if _, err := ParseBranchName(string(s.DefaultBranch)); err != nil {
+		return fmt.Errorf("default_branch: %w", err)
+	}
 	return nil
+}
+
+// orDefaultBranch fills an unset default branch with current: settings
+// written without one keep the project's.
+func (s Settings) orDefaultBranch(current BranchName) Settings {
+	if s.DefaultBranch == "" {
+		s.DefaultBranch = current
+	}
+	return s
 }
 
 // Project is a product's localizable surface as a whole: its source
@@ -87,6 +107,7 @@ func NewProject(tenant tenancy.ID, slug Slug, name string, source bcp47.Tag, set
 	if source.IsZero() {
 		return Project{}, bcp47.ErrInvalid
 	}
+	settings = settings.orDefaultBranch(DefaultBranch)
 	if err := settings.Validate(); err != nil {
 		return Project{}, err
 	}
@@ -116,10 +137,11 @@ func (p *Project) Change(c ProjectChange, now time.Time) (bool, error) {
 		next.Name = *c.Name
 	}
 	if c.Settings != nil {
-		if err := c.Settings.Validate(); err != nil {
+		settings := c.Settings.orDefaultBranch(p.Settings.DefaultBranch)
+		if err := settings.Validate(); err != nil {
 			return false, err
 		}
-		next.Settings = *c.Settings
+		next.Settings = settings
 	}
 	if next.Slug == p.Slug && next.Name == p.Name && next.Settings == p.Settings {
 		return false, nil

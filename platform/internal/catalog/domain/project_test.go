@@ -42,6 +42,34 @@ func TestProjectChange(t *testing.T) {
 	}
 }
 
+func TestProjectDefaultBranch(t *testing.T) {
+	p, err := domain.NewProject(tenancy.NewID(), "brotwerk", "Brotwerk", en, domain.Settings{DefaultSyntax: mfcontent.MF1}, t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Settings.DefaultBranch != domain.DefaultBranch {
+		t.Errorf("default branch of a new project = %q, want %q", p.Settings.DefaultBranch, domain.DefaultBranch)
+	}
+	// Settings without a default branch keep the current one.
+	trunk := domain.Settings{DefaultSyntax: mfcontent.MF1, DefaultBranch: "trunk"}
+	if changed, err := p.Change(domain.ProjectChange{Settings: &trunk}, t0); err != nil || !changed || p.Settings.DefaultBranch != "trunk" {
+		t.Fatalf("set trunk: %v %v %+v", changed, err, p.Settings)
+	}
+	keep := domain.Settings{DefaultSyntax: mfcontent.MF1}
+	if changed, err := p.Change(domain.ProjectChange{Settings: &keep}, t0); err != nil || changed || p.Settings.DefaultBranch != "trunk" {
+		t.Errorf("settings without default_branch: %v %v %+v", changed, err, p.Settings)
+	}
+	for _, bad := range []string{"feat/.hidden", "a b", "x..y", "@", "main.lock"} {
+		s := domain.Settings{DefaultSyntax: mfcontent.MF1, DefaultBranch: domain.BranchName(bad)}
+		if _, err := p.Change(domain.ProjectChange{Settings: &s}, t0); !errors.Is(err, domain.ErrInvalidBranchName) {
+			t.Errorf("default branch %q: %v, want ErrInvalidBranchName", bad, err)
+		}
+		if _, err := domain.NewProject(tenancy.NewID(), "x", "X", en, s, t0); !errors.Is(err, domain.ErrInvalidBranchName) {
+			t.Errorf("new project with default branch %q: %v", bad, err)
+		}
+	}
+}
+
 func TestSlugs(t *testing.T) {
 	for _, bad := range []string{"", "-a", "a-", "A", "a_b"} {
 		if _, err := domain.ParseSlug(bad); !errors.Is(err, domain.ErrInvalidSlug) {

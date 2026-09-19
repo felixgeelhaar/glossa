@@ -25,6 +25,7 @@ func TestBranchNames(t *testing.T) {
 		}
 	}
 	for _, bad := range []string{"", "a b", "a\tb", "x..y", "a~1", "a^", "a:b", "a?", "a*", "a[", `a\b`, "/a", "a/", "a.lock",
+		"@", ".hidden", "feat/.hidden", "a/b.lock/c", "a@{1}", "a//b",
 		strings.Repeat("a", domain.MaxBranchNameLen+1)} {
 		if _, err := domain.ParseBranchName(bad); !errors.Is(err, domain.ErrInvalidBranchName) {
 			t.Errorf("ParseBranchName(%q) = %v, want ErrInvalidBranchName", bad, err)
