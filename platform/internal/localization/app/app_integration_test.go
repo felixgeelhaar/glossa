@@ -341,6 +341,58 @@ func TestBulkImport(t *testing.T) {
 	}
 }
 
+// Import jobs merge without losing approvals and preview without
+// writing.
+func TestImportKeepsApprovalsAndDryRunsWriteNothing(t *testing.T) {
+	h := newHarness(t)
+	p := h.setup(t, false, []string{"de"}, shop)
+	owner := h.as([]string{"owner"})
+	approved, needsReview := "approved", "needs_review"
+	if _, err := h.svc.ImportTranslations(owner, p, []app.ImportItem{
+		{Key: "home.title", Locale: "de", Text: "Willkommen", State: &approved},
+		{Key: "cart.items", Locale: "de", Text: "{count, plural, one {# Artikel} other {# Artikel}}", State: &needsReview},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	keep := app.ImportOptions{KeepApproved: true}
+	res, err := h.svc.ImportTranslationsWith(owner, p, []app.ImportItem{
+		{Key: "home.title", Locale: "de", Text: "Hallo", State: &approved},          // other text: conflict
+		{Key: "cart.items", Locale: "de", Text: "{count, plural, other {# Stück}}"}, // not approved: revised
+		{Key: "home.title", Locale: "de", Text: "Willkommen", State: &needsReview},  // duplicate slot
+	}, keep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res[0].Error == nil || res[0].Error.Code != "approved_translation_conflict" || res[1].Status != app.WriteRevised {
+		t.Errorf("merge: %+v %+v", res[0], res[1])
+	}
+	lower, err := h.svc.ImportTranslationsWith(owner, p, []app.ImportItem{
+		{Key: "home.title", Locale: "de", Text: "Willkommen", State: &needsReview}, // same text, lower state
+	}, keep)
+	if err != nil || lower[0].Status != app.WriteUnchanged || lower[0].Error != nil {
+		t.Errorf("same text in a lower state must keep the approval: %+v %v", lower[0], err)
+	}
+	if tr, _ := h.svc.GetTranslation(owner, p, "home.title", "de"); tr.State != domain.StateApproved || tr.Content.Text != "Willkommen" {
+		t.Errorf("approved translation changed: %+v", tr.Translation)
+	}
+
+	events := count(t, "SELECT count(*) FROM outbox_events")
+	revisions := count(t, "SELECT count(*) FROM localization_translation_revisions")
+	dry, err := h.svc.ImportTranslationsWith(owner, p, []app.ImportItem{
+		{Key: "checkout.pay", Locale: "de", Text: "{amount, number} zahlen"},
+		{Key: "home.title", Locale: "de", Text: "Hallo"},
+	}, app.ImportOptions{DryRun: true})
+	if err != nil || dry[0].Status != app.WriteCreated || dry[1].Status != app.WriteRevised {
+		t.Fatalf("dry run: %+v %v", dry, err)
+	}
+	if _, err := h.svc.GetTranslation(owner, p, "checkout.pay", "de"); !errors.Is(err, app.ErrNotFound) {
+		t.Errorf("a dry run wrote a translation: %v", err)
+	}
+	if count(t, "SELECT count(*) FROM outbox_events") != events || count(t, "SELECT count(*) FROM localization_translation_revisions") != revisions {
+		t.Error("a dry run published events or appended revisions")
+	}
+}
+
 func TestReleaseSnapshot(t *testing.T) {
 	h := newHarness(t)
 	p := h.setup(t, true, []string{"de", "ar"}, shop)

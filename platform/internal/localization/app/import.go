@@ -47,12 +47,35 @@ type ImportResult struct {
 	Error       *ItemError
 }
 
+// ImportOptions tune a bulk import (the Integration context's jobs).
+type ImportOptions struct {
+	// KeepApproved never lowers an approved translation: other text for
+	// it fails the item with approved_translation_conflict, the same
+	// text in a lower review state is left unchanged. Decided under the
+	// translation's row lock, so a concurrent approval is honoured.
+	KeepApproved bool
+	// DryRun runs every check and write, reports what would happen, and
+	// rolls the transaction back: nothing is stored or published.
+	DryRun bool
+}
+
+// ErrApprovedConflict is the item error of KeepApproved.
+var ErrApprovedConflict = errors.New("localization: an approved translation has other text; the import keeps it")
+
+// errDryRun rolls a dry run's transaction back.
+var errDryRun = errors.New("localization: dry run")
+
 // ImportTranslations writes translations with provenance "import", one
 // transaction for the batch. Items fail on their own (unknown message or
 // locale, no permission for the locale, invalid text, structural QA
 // errors) without failing the batch. Importing the same text twice
 // leaves the translation unchanged.
 func (s *Service) ImportTranslations(ctx context.Context, project uuid.UUID, items []ImportItem) ([]ImportResult, error) {
+	return s.ImportTranslationsWith(ctx, project, items, ImportOptions{})
+}
+
+// ImportTranslationsWith is ImportTranslations with options.
+func (s *Service) ImportTranslationsWith(ctx context.Context, project uuid.UUID, items []ImportItem, opts ImportOptions) ([]ImportResult, error) {
 	by, err := actor(ctx, authz.TranslationsRead)
 	if err != nil {
 		return nil, err
@@ -85,6 +108,7 @@ func (s *Service) ImportTranslations(ctx context.Context, project uuid.UUID, ite
 			continue
 		}
 		results[i].Locale = cmd.locale.String()
+		cmd.keepApproved = opts.KeepApproved
 		cmds[i] = &cmd
 	}
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
@@ -122,8 +146,14 @@ func (s *Service) ImportTranslations(ctx context.Context, project uuid.UUID, ite
 			results[i].Status = status
 			results[i].Translation = &TranslationView{Translation: t, CurrentSourceRevision: cmd.msg.Revision}
 		}
+		if opts.DryRun {
+			return errDryRun
+		}
 		return nil
 	})
+	if errors.Is(err, errDryRun) {
+		err = nil
+	}
 	return results, err
 }
 
@@ -172,15 +202,16 @@ func importError(err error) *ItemError {
 		return &ItemError{Code: "invalid_message", Detail: string(invalid.Code) + ": " + invalid.Message}
 	}
 	for code, target := range map[string]error{
-		"source_locale":           domain.ErrSourceLocale,
-		"invalid_source_revision": domain.ErrInvalidSourceRev,
-		"invalid_state":           domain.ErrInvalidReviewState,
-		"write_cannot_reject":     domain.ErrWriteCannotReject,
-		"review_forbidden":        domain.ErrReviewForbidden,
-		"invalid_origin_detail":   domain.ErrInvalidOriginInfo,
-		"invalid_syntax":          mfcontent.ErrInvalidSyntax,
-		"message_too_long":        mfcontent.ErrTooLong,
-		"invalid_transition":      domain.ErrTransition,
+		"approved_translation_conflict": ErrApprovedConflict,
+		"source_locale":                 domain.ErrSourceLocale,
+		"invalid_source_revision":       domain.ErrInvalidSourceRev,
+		"invalid_state":                 domain.ErrInvalidReviewState,
+		"write_cannot_reject":           domain.ErrWriteCannotReject,
+		"review_forbidden":              domain.ErrReviewForbidden,
+		"invalid_origin_detail":         domain.ErrInvalidOriginInfo,
+		"invalid_syntax":                mfcontent.ErrInvalidSyntax,
+		"message_too_long":              mfcontent.ErrTooLong,
+		"invalid_transition":            domain.ErrTransition,
 	} {
 		if errors.Is(err, target) {
 			return &ItemError{Code: code, Detail: err.Error()}

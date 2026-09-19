@@ -113,6 +113,8 @@ type writeCmd struct {
 	// ifMatch applies the create-or-replace rule when enforce is set.
 	ifMatch *int
 	enforce bool
+	// keepApproved never lowers an approved translation (ImportOptions).
+	keepApproved bool
 }
 
 // prepare validates a write outside any transaction: it reads the
@@ -255,6 +257,14 @@ func (s *Service) write(ctx context.Context, st Store, cmd writeCmd) (domain.Tra
 			return domain.Translation{}, "", err
 		}
 		return t, WriteCreated, s.record(ctx, st, t, rev)
+	}
+	if cmd.keepApproved && t.State == domain.StateApproved {
+		if !t.Content.SameModel(cmd.write.Content) {
+			return t, "", ErrApprovedConflict
+		}
+		if cmd.write.State != nil && *cmd.write.State != domain.StateApproved {
+			return t, WriteUnchanged, nil
+		}
 	}
 	expected := t.Revision
 	rev, changed, err := t.Revise(cmd.write, policy, cmd.canReview, s.now())
