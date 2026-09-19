@@ -83,6 +83,7 @@ func commands() []command {
 		{"release", "Publish, promote and roll back releases", runRelease},
 		{"tm", "Search the translation memory; list and retire units", runTM},
 		{"terms", "Manage the termbase; check translations against it", runTerms},
+		{"style", "Show the effective style guide; edit one from YAML", runStyle},
 	}
 }
 
