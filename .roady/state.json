@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 74,
+  "version": 77,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -250,11 +250,15 @@
       "elapsed_minutes": 54
     },
     "task-m1-catalog": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "Catalog + Localization contexts: messages with source revisions (MF1/MF2 in, canonical MF2), locales/fallback graph, translations with append-only revisions + provenance, derived outdated, structural QA gate, 31 endpoints incl. bulk upsert/import, release read ports; unit + 21 integration tests"
+      ],
       "started_at": "2026-09-19T11:38:12.843278+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-09-19T12:28:38.320077+02:00",
+      "elapsed_minutes": 50
     },
     "task-m1-cli": {
       "status": "pending",
@@ -294,15 +298,21 @@
       "elapsed_minutes": 22
     },
     "task-m1-js-runtime": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "@glossa/runtime createRuntime (5.99 kB, 18/18 scenarios + 5/5 loading), @glossa/elements (v0.3-compatible, 3.2 kB own), @glossa/vue (SSR/hydration tested), @glossa/astro (astro build fixture, translated static HTML)"
+      ],
+      "started_at": "2026-09-19T11:22:58.431953+02:00",
+      "completed_at": "2026-09-19T12:28:40.499381+02:00",
+      "elapsed_minutes": 65
+    },
+    "task-m1-release": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-09-19T11:22:58.431953+02:00",
-      "elapsed_minutes": 0
-    },
-    "task-m1-release": {
-      "status": "pending",
-      "path": "",
+      "started_at": "2026-09-19T12:28:42.004644+02:00",
       "elapsed_minutes": 0
     },
     "task-m1-studio": {
@@ -424,5 +434,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T12:00:26.280696+02:00"
+  "updated_at": "2026-09-19T12:28:42.004644+02:00"
 }
