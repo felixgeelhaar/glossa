@@ -30,6 +30,7 @@ internal/kernel/
   etag/, idempotency/       ETag/If-Match and Idempotency-Key helpers
   jcs/                      RFC 8785 canonical JSON (artifacts, manifests, signatures)
   sealing/                  AES-256-GCM secrets at rest, bound to their tenant and row
+  ratelimit/                in-process token bucket per key (fortify)
   objectstore/              object storage port; dir, memory and S3 (minio-go) adapters
 internal/apiv1/apiconv/     message content, QA findings and If-Match on the wire
 internal/catalog/           projects, applications, messages, source revisions
@@ -54,7 +55,8 @@ internal/integration/       interchange (RFC 0003 §5–§6)
 internal/context/           where messages appear (RFC 0004 §2–§3)
   domain/                   usages documents, builds, captures and regions, current views, retention
   app/                      ingest, current and unused usages, purge, the outbox subscribers
-  adapters/                 postgres (sqlc; the system-scope Sweeper), catalog (Catalog's port)
+  adapters/                 postgres (sqlc; the system-scope Sweeper), catalog (Catalog's port),
+                            httpapi (the Context API), metrics (Prometheus)
 internal/preview/           stateless message preview (parse, MF2, format), rate-limited per caller
 internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
@@ -480,6 +482,15 @@ and obsolete message counts (what Studio's export offers to choose
 from): one grouped read per page, served by the
 `catalog_messages_namespaces` index (migration 0010).
 
+Project settings: `default_syntax`, `review_required` and
+`default_branch` — the repository's default branch (`main` unless set;
+a Git connection will set it), validated as a Git branch name
+(`invalid_branch`). Settings written without it keep the project's.
+The Context context decides by it which uploads are of the default
+branch. Settings live in `catalog_projects.settings` (jsonb); a project
+saved before `default_branch` existed reads as `main`, and migration
+0014 only bounds the stored value.
+
 ## Localization
 
 What each locale says. **Locales** are canonical BCP 47 (no extensions
@@ -859,6 +870,19 @@ and job. An edit records its structured diff: character edit distance
 and ratio, terms added and removed, style fields whose use changed.
 Rejecting writes nothing.
 
+**Message context (RFC 0004 §2.2, §8).** The agent's `message_context`
+tool gives the description, max length, where the message is used —
+`file:line (component, route)`, at most 10, the default branch's first,
+without repeats — and up to 5 neighbours with their translations (a
+rejected one left out): first the messages shown together with it,
+sharing a route or a capture in the default branch's current builds
+(most shared first, active only), then those sharing its key prefix.
+Usages and co-located messages come from the Context context through the
+`UsageContext` port (`sources.Usages`, over `contextapp.Service`, as the
+worker's principal with `catalog.read`); without it (`Deps.Usages` nil)
+usages are empty and neighbours come from the key prefix alone. The
+tool's output shape is unchanged, so prompts and eval cassettes are too.
+
 **Plural categories (policy).** A draft lacking a CLDR plural category
 the *target* locale needs (Polish `few`/`many`) goes back to the model
 for repair like a structural error, even though `CheckCompat` calls it
@@ -1049,9 +1073,9 @@ Where every message appears (RFC 0004 §2–§3, intent §16–§18, §68). The
 Go packages live in `internal/context/`; their names (`domain`, `app`,
 `postgres`, `catalog`) never clash with the standard library's
 `context`, and callers alias them `contextapp`, `contextpg` and so on.
-It is a library and tables so far: the Context API (RFC 0004 §13,
-wave 2) adds routes, and the server only composes it for its
-subscribers.
+Its HTTP edge is `adapters/httpapi` (the Context API below), its
+Prometheus metrics `adapters/metrics`; Intelligence reads it through
+its own port (`sources.Usages`).
 
 - A **build** is one upload for one application at one commit: branch,
   whether that branch is the repository's default, source (`plugin`,
@@ -1072,15 +1096,27 @@ subscribers.
   captures per build (held under an advisory lock on the build); 10 000
   regions per capture; images of at most 40 megapixels.
 
-`IngestUsages` takes the raw `glossa.usages/v1` document
-(`domain.UsagesDocument`; field names exactly as RFC 0004 §2.2, the JSON
-Schema lives with the usage fixtures in `runtimes/testdata/usages/`), the
-source and the repository's default branch as the uploader knows it.
-Unknown fields are ignored within v1. `IngestCapture` adds a capture to
-a build of the project. Both need `catalog.write` (developers, `write`
-tokens) and publish `context.build.ingested` (`build_id`, `project_id`,
-`application_id`, `commit`, `branch`, `on_default_branch`, `source`,
-`usages`, `unknown_keys`, `by`) and `context.capture.ingested`.
+`IngestUsages` takes a `glossa.usages/v1` document
+(`domain.UsagesDocument`; field names exactly as RFC 0004 §2.2) and the
+source. `domain.ParseUpload` validates it by the schema's rules
+(`runtimes/testdata/schemas/usages.v1.schema.json`: full lowercase
+commit IDs, slugs, keys, relative POSIX paths, `\S+` components, route
+patterns, the five kinds, a semver tool version); `schema_test.go`
+holds it to the schema itself (santhosh-tekuri) over the example,
+every usage fixture and the checker's variants. The deliberate
+deviations are listed there: members the schema doesn't define are
+ignored within v1, so a newer collector's optional field doesn't break
+an older server, and branch names Git refuses (`@`, `-x`, a `.lock`
+component) are refused. Whether a build is of the default branch is
+Catalog's `settings.default_branch` (`main` unless set), read through
+the port at ingest — never the uploader's say; a later change of the
+setting leaves existing builds as they were. Uploads go through a
+per-tenant `Limiter` (the kernel's token bucket: 10 a minute, bursts of
+60). `IngestCapture` adds a capture to a build of the project. Both need
+`catalog.write` (developers, `write` tokens: CI) and publish
+`context.build.ingested` (`build_id`, `project_id`, `application_id`,
+`commit`, `branch`, `on_default_branch`, `source`, `usages`,
+`unknown_keys`, `by`) and `context.capture.ingested`.
 
 **Current usages.** Collectors are independent, so "the latest build of
 each application" is taken per application **and source**: the Go
@@ -1090,10 +1126,35 @@ default view is the latest default-branch build per (application,
 source); a branch view uses the branch's latest build per (application,
 source) and falls back to the default branch's where the branch didn't
 rebuild (`domain.CurrentBuilds`, a pure function over the project's
-build summaries). `MessageUsages`/`KeyUsages` list a message's current
-usages, default branch first; `UnusedMessages` lists the active
-messages without one — reported, never obsoleted. Reads need
-`catalog.read`.
+build summaries). `MessageUsages`/`KeyUsages`/`UsagesOfKey` list a
+message's current usages, default branch first; `ListUsages` pages
+through the current usages on a route, in a component or in a file (the
+messages a screen shows, §8); `CoLocated` returns the messages sharing a
+route or a capture with one, most shared first (the agent's
+neighbours); `ListBuilds` pages through a project's builds, newest
+first, with their unknown keys; `UnusedMessages` lists the active
+messages without a current usage — reported, never obsoleted. Reads
+need `catalog.read`.
+
+**The Context API** (`api/openapi.yaml`, tag `context`):
+
+| Operation | What |
+|---|---|
+| `POST …/projects/{project}/context-builds?source=` | Upload a `glossa.usages/v1` document (≤ 20 MB; the route lifts the body limit): `201` with the build, or `200` + `Idempotent-Replayed` for the same document again. The generated server decodes the body into the contract's shape (dropping undefined members); the digest is the SHA-256 of its RFC 8785 canonical form. `invalid_usages`, `too_many_usages`, `invalid_source`, `unknown_application` (400), `payload_too_large` (413), `rate_limited` (429). `glossa context push` and `glossa extract --upload` call it. |
+| `GET …/context-builds[?application=]` | The builds, newest first, with `usages` and `unknown_keys`. |
+| `GET …/messages/{message}/usages[?branch=&limit=]` | A message's current usages (`truncated` past `limit`, 1–1000). |
+| `GET …/usages[?route=&component=&file=&branch=]` | The current usages matching, by build and position. |
+| `GET …/unused-messages[?branch=]` | The active messages without a usage, by key, with `current_builds`, `active_messages` and `unused_messages`. |
+
+**Metrics** (RFC 0004 §11): `glossa_context_builds_total{source,
+outcome}` (stored, replayed), `glossa_context_usages_ingested_total`
+and `glossa_context_unknown_keys_total{source}`, and
+`glossa_context_coverage_ratio{tenant, project}`: the share of active
+messages with a current default-branch usage, measured by the
+subscriber `context.measure_coverage` (background principal, catalog
+read) after every default-branch build and by every default-view
+`UnusedMessages` read. Each instance reports what it measured last;
+take the max across instances.
 
 **Retention** (`domain.RetentionPolicy`, §2.3): per (application,
 branch, source) the latest 5 builds are kept, plus every current one; a
@@ -1111,18 +1172,23 @@ overlay (§4.1); until then the port reports none.
 | Table | Scope | Why |
 |---|---|---|
 | `context_builds` | tenant | Keyed by Catalog's project and application IDs (no cross-context foreign keys). SELECT, INSERT, DELETE: immutable. System scope reads `tenant_id` and `project_id` only. |
-| `context_usages` | tenant | A build's usages by position, with the message ID resolved at ingest; cascade with their build. |
+| `context_usages` | tenant | A build's usages by position, with the message ID resolved at ingest; cascade with their build. Indexed by message and (migration 0014) by route, for the co-located messages. |
 | `context_captures` | tenant | One per (build, route, viewport, locale); cascade with their build. |
 | `context_regions` | tenant | A capture's regions by position; cascade with their capture. |
 
 Subscribers: `context.drop_project` on `catalog.project.deleted` and
 `context.drop_application` on `catalog.application.deleted` erase what
-they held. **Tests**: `internal/context/domain` (documents, limits,
-current views, retention) and `internal/context/app` on Postgres (app
-role): ingest, replay, batches, unknown keys, renames, branch views,
-unused messages, captures and their limit, retention with orphaned
-images, the cross-tenant sweep and tenant isolation;
-`cmd/glossa-server` checks the composition.
+they held; `context.measure_coverage` on `context.build.ingested`
+measures coverage. **Tests**: `internal/context/domain` (documents and
+the schema, limits, current views, retention) and `internal/context/app`
+on Postgres (app role): ingest, replay, batches, unknown keys, the
+project's default branch, renames, branch views, builds and usages
+pages, co-located messages, unused messages, the upload limit, metrics
+and coverage, captures and their limit, retention with orphaned images,
+the cross-tenant sweep and tenant isolation; `adapters/httpapi` (routes,
+problem codes); `cmd/glossa-server` runs the API over HTTP with a write
+token (uploads, replays, refusals, reads, the coverage metric) and
+checks the composition.
 
 ## Message preview
 
@@ -1143,7 +1209,8 @@ string, number or boolean).
 `internal/preview` has no domain state and no tables: `app` checks the
 caller with `authz.Authenticated` (any person or API token; no tenant
 data, so no permission) and asks its `Limiter` port, which
-`adapters/ratelimit` implements with a fortify token bucket per
+`adapters/ratelimit` implements with the kernel's fortify token bucket
+(`kernel/ratelimit`, which Context's upload limit uses too) per
 principal (`person:<id>` / `token:<id>`): **10 a second, bursts of
 120**, in process — each instance enforces it on its own, which bounds
 the CPU one caller can take from any instance; idle buckets expire
