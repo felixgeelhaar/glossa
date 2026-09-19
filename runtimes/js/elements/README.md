@@ -25,7 +25,7 @@ provider's attributes and nothing else. See [MIGRATION.md](./MIGRATION.md).
 | Element | |
 |---|---|
 | `<glossa-provider>` | Owns one runtime and shares it with its subtree through a Lit context. Sets `lang` and `dir` on itself after every activation. |
-| `<glossa-text key>` | Renders message `key`. The slot content is the inline default: it shows while the first load is pending and whenever no locale of the active fallback chain has the message. |
+| `<glossa-text key>` | Renders message `key`. The slot content is the inline default: it shows while the first load is pending and whenever no locale of the active fallback chain has the message. `message="…"` is an alias for templates that reserve `key` (Vue, see below). |
 | `<glossa-rich key vars>` | With values: `vars` is a JSON object in markup, or any object through the `.vars` property. |
 | `<glossa-plural key count>` | Passes `count` (and `vars`) for messages that select on `$count`. |
 | `<glossa-select key value name?>` | Passes `value` as `$value`, or under the variable `name` names. |
@@ -69,6 +69,16 @@ Events, all bubbling and composed:
   renders.
 - Formatting never throws: a missing value renders as its MF2 fallback
   (`{$name}`) and is reported as a `format` error.
+
+### Inside Vue templates
+
+Vue reserves `key` for its own diffing and never renders it as an attribute,
+so `<glossa-text key="…">` inside a `.vue` template reaches the DOM without
+its message ID and always shows the inline default (this was already true
+with v0.3). Write `message="…"` there, or use `<GlossaText id>` from
+`@glossa/vue`, and tell Vue the tags are custom elements
+(`compilerOptions.isCustomElement: (tag) => tag.startsWith("glossa-")`).
+`key` keeps working in `.astro` files and plain HTML.
 
 ### `<glossa-selector>`
 

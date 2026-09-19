@@ -254,11 +254,11 @@ export class GlossaProvider extends LitElement {
           n instanceof HTMLElement &&
           n !== this &&
           n.localName.startsWith("glossa-") &&
-          n.hasAttribute("key"),
+          (n.hasAttribute("key") || n.hasAttribute("message")),
       );
     if (!el) return;
     e.preventDefault();
-    const id = el.getAttribute("key")!;
+    const id = el.getAttribute("key") || el.getAttribute("message")!;
     this.emit("glossa-inspect", { id, element: el, explanation: rt.explain(id) });
   }
 }
