@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 85,
+  "version": 89,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -347,7 +347,38 @@
       "completed_at": "2026-09-19T14:08:44.173248+02:00",
       "elapsed_minutes": 43
     },
+    "task-m2-formats": {
+      "status": "in_progress",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-09-19T15:09:55.346506+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-m2-intelligence-core": {
+      "status": "in_progress",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-09-19T15:09:44.185034+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-m2-intelligence-wiring": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m2-knowledge": {
+      "status": "in_progress",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-09-19T15:09:42.738352+02:00",
+      "elapsed_minutes": 0
+    },
     "task-m2-knowledge-ai": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m2-surfaces": {
       "status": "pending",
       "path": "",
       "elapsed_minutes": 0
@@ -461,5 +492,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-19T14:08:44.173249+02:00"
+  "updated_at": "2026-09-19T15:09:55.346506+02:00"
 }
