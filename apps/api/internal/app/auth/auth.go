@@ -66,6 +66,9 @@ func NewHMACIssuer(key []byte, issuer string, ttl time.Duration) (*HMACIssuer, e
 			jwt.WithValidMethods([]string{"HS256"}),
 			jwt.WithIssuer(issuer),
 			jwt.WithExpirationRequired(),
+			// Only the canonical base64url encoding verifies: a lenient
+			// decoder ignores the signature's padding bits.
+			jwt.WithStrictDecoding(),
 		),
 	}, nil
 }
