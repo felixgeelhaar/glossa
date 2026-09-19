@@ -12,6 +12,9 @@ type tmMatch struct {
 	Score            int    `json:"score"`
 	Kind             string `json:"kind"`
 	Target           string `json:"target"`
+	TargetText       string `json:"target_text"`
+	TargetSyntax     string `json:"target_syntax"`
+	Fallback         bool   `json:"target_syntax_fallback"`
 	VariablesAdapted bool   `json:"variables_adapted"`
 	Unit             struct {
 		ID             string `json:"id"`
@@ -52,6 +55,15 @@ func TestKnowledgeOverHTTP(t *testing.T) {
 	if res.SourceNormalized != "Pay {1}" || len(res.Matches) != 1 || res.Matches[0].Score != 101 ||
 		res.Matches[0].Target != "Payer {$total :number}" || !res.Matches[0].VariablesAdapted {
 		t.Fatalf("lookup = %+v", res)
+	}
+	// An MF1 query gets its targets in MF1 too, unless it asks for MF2.
+	if m := res.Matches[0]; m.TargetText != "Payer {total, number}" || m.TargetSyntax != "mf1" || m.Fallback {
+		t.Errorf("mf1 target = %+v", m)
+	}
+	lookup["target_syntax"] = "mf2"
+	s.do(call{method: "POST", path: base + "/tm-lookups", bearer: tp.token, body: lookup}).decode(t, &res)
+	if m := res.Matches[0]; m.TargetText != "Payer {$total :number}" || m.TargetSyntax != "mf2" {
+		t.Errorf("mf2 target = %+v", m)
 	}
 	// Bad input is a problem, not a 500.
 	s.do(call{method: "POST", path: base + "/tm-lookups", bearer: tp.token, body: map[string]any{

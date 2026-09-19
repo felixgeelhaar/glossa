@@ -1782,7 +1782,10 @@ export interface paths {
          *     to the query's variable names. By default a lookup sees
          *     tenant-wide units and `project_id`'s; `all_projects` widens it to
          *     the tenant. `count_hits` records the lookup in each returned
-         *     unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+         *     unit's `hit_count`. Each match carries its target in MF2
+         *     (`target`) and in the syntax asked for (`target_text`: MF1 by
+         *     default for an MF1 query, falling back to MF2 with
+         *     `target_syntax_fallback` when MF1 can't express it). Needs `knowledge.read`. Problem codes:
          *     `invalid_query`, `invalid_locale`, `invalid_syntax`,
          *     `invalid_message`, `message_too_long` (400).
          */
@@ -4061,6 +4064,8 @@ export interface components {
             min_score: number;
             /** @default false */
             count_hits: boolean;
+            /** @description The syntax of each match's `target_text`; by default the query's `syntax`. */
+            target_syntax?: components["schemas"]["Syntax"];
         };
         TMMatch: {
             score: number;
@@ -4068,6 +4073,12 @@ export interface components {
             kind: "context" | "exact" | "fuzzy";
             /** @description The unit's target in MF2, its variables renamed to the query's by position. */
             target: string;
+            /** @description The same target in the syntax the lookup asked for (`target_syntax`, by default the query's `syntax`), written from its model by the MessageFormat kernel. When MF1 was asked for but can't express the target (markup, MF2-only options), this is its MF2 and `target_syntax_fallback` is true. */
+            target_text: string;
+            /** @description The syntax `target_text` is in. */
+            target_syntax: components["schemas"]["Syntax"];
+            /** @description True when `target_text` is MF2 because MF1 can't express the target. */
+            target_syntax_fallback: boolean;
             target_model: components["schemas"]["MF2Message"];
             /** @description False when a target variable had no counterpart and kept its name. */
             variables_adapted: boolean;

@@ -614,7 +614,12 @@ A lookup sees tenant-wide units and the query's project's
 first, then the most recently confirmed unit, and each target appears
 once. Targets come back with their variables renamed to the query's
 (`domain.AdaptVariables`), so `Pay {$total}` reuses `{$amount} zahlen`
-as `{$total} zahlen`. `TestFuzzyMatchingQuality` pins quality on a
+as `{$total} zahlen` — in MF2 (`target`) and in the syntax asked for
+(`target_text` in `target_syntax`; by default the query's own syntax,
+so an MF1 query reads `{total, number} zahlen`). MF1 is written by
+`mfcontent.RenderMF1`, the inverse of the MF1 conversion, and proven by
+parsing it back to the same model; what MF1 can't express (markup,
+MF2-only options) comes back as MF2 with `target_syntax_fallback`. `TestFuzzyMatchingQuality` pins quality on a
 seeded 40-unit en→de memory: 30 near-misses (rewording, plurals,
 renamed variables) find the intended unit first 30/30 times, and 0 of 8
 unrelated messages match at all. Concordance (`GET …/tm-concordance`)

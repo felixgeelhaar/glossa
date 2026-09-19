@@ -14,6 +14,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
 )
@@ -47,6 +48,10 @@ type TMQuery struct {
 	MinScore int
 	// CountHits records the lookup in each returned unit's usage.
 	CountHits bool
+	// TargetSyntax is the syntax of each match's TargetText: MF1 when it
+	// can express the target (MF2 with SyntaxFallback otherwise), or MF2
+	// ("" too).
+	TargetSyntax mfcontent.Syntax
 }
 
 // TMMatch is one translation-memory match.
@@ -60,6 +65,11 @@ type TMMatch struct {
 	Target    mf.Message
 	TargetMF2 string
 	Adapted   bool
+	// TargetText is Target in TargetSyntax: the syntax the query asked
+	// for, or MF2 with SyntaxFallback when MF1 can't express it.
+	TargetText     string
+	TargetSyntax   mfcontent.Syntax
+	SyntaxFallback bool
 }
 
 func (q *TMQuery) normalize() error {
@@ -78,7 +88,9 @@ func (q *TMQuery) normalize() error {
 	if q.MinScore < domain.MinFuzzyScore || q.MinScore > domain.ScoreContext {
 		return fmt.Errorf("%w: min_score must be %d to %d", ErrInvalidQuery, domain.MinFuzzyScore, domain.ScoreContext)
 	}
-	return nil
+	var err error
+	q.TargetSyntax, err = mfcontent.ParseSyntax(string(q.TargetSyntax), mfcontent.MF2)
+	return err
 }
 
 // LookupTM finds exact (100, or 101 in context) and fuzzy (50–99,
@@ -136,7 +148,7 @@ func (s *Service) LookupTM(ctx context.Context, q TMQuery) ([]TMMatch, error) {
 		return nil, err
 	}
 	for i := range matches {
-		if err := adapt(&matches[i], norm); err != nil {
+		if err := adapt(&matches[i], norm, q.TargetSyntax, q.TargetLocale); err != nil {
 			return nil, err
 		}
 	}
@@ -186,14 +198,23 @@ func best(ms []TMMatch, q TMQuery) []TMMatch {
 	return out
 }
 
-// adapt renames the match's target variables to the query's.
-func adapt(m *TMMatch, query domain.Normalized) error {
+// adapt renames the match's target variables to the query's and writes
+// it in the syntax asked for.
+func adapt(m *TMMatch, query domain.Normalized, syntax mfcontent.Syntax, locale bcp47.Tag) error {
 	target, complete := domain.AdaptVariables(m.Unit.Target, m.Unit.SourceNorm.Vars, query.Vars)
 	text, err := mf.Stringify(target)
 	if err != nil {
 		return fmt.Errorf("knowledge: adapt unit %s: %w", m.Unit.ID, err)
 	}
 	m.Target, m.TargetMF2, m.Adapted = target, text, complete
+	m.TargetText, m.TargetSyntax = text, mfcontent.MF2
+	if syntax == mfcontent.MF1 {
+		if mf1, err := mfcontent.RenderMF1(target, locale); err == nil {
+			m.TargetText, m.TargetSyntax = mf1, mfcontent.MF1
+		} else {
+			m.SyntaxFallback = true
+		}
+	}
 	return nil
 }
 

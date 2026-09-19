@@ -2627,7 +2627,10 @@ paths:
         to the query's variable names. By default a lookup sees
         tenant-wide units and `project_id`'s; `all_projects` widens it to
         the tenant. `count_hits` records the lookup in each returned
-        unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+        unit's `hit_count`. Each match carries its target in MF2
+        (`target`) and in the syntax asked for (`target_text`: MF1 by
+        default for an MF1 query, falling back to MF2 with
+        `target_syntax_fallback` when MF1 can't express it). Needs `knowledge.read`. Problem codes:
         `invalid_query`, `invalid_locale`, `invalid_syntax`,
         `invalid_message`, `message_too_long` (400).
       security:
@@ -6017,13 +6020,24 @@ components:
         limit: { type: integer, minimum: 1, maximum: 50, default: 5 }
         min_score: { type: integer, minimum: 50, maximum: 101, default: 50 }
         count_hits: { type: boolean, default: false }
+        target_syntax:
+          $ref: "#/components/schemas/Syntax"
+          description: "The syntax of each match's `target_text`; by default the query's `syntax`."
     TMMatch:
       type: object
-      required: [score, kind, target, target_model, variables_adapted, unit]
+      required: [score, kind, target, target_text, target_syntax, target_syntax_fallback, target_model, variables_adapted, unit]
       properties:
         score: { type: integer, minimum: 50, maximum: 101 }
         kind: { type: string, enum: [context, exact, fuzzy] }
         target: { type: string, description: "The unit's target in MF2, its variables renamed to the query's by position." }
+        target_text:
+          type: string
+          description: >-
+            The same target in the syntax the lookup asked for (`target_syntax`, by default the query's
+            `syntax`), written from its model by the MessageFormat kernel. When MF1 was asked for but can't
+            express the target (markup, MF2-only options), this is its MF2 and `target_syntax_fallback` is true.
+        target_syntax: { $ref: "#/components/schemas/Syntax", description: "The syntax `target_text` is in." }
+        target_syntax_fallback: { type: boolean, description: "True when `target_text` is MF2 because MF1 can't express the target." }
         target_model: { $ref: "#/components/schemas/MF2Message" }
         variables_adapted: { type: boolean, description: False when a target variable had no counterpart and kept its name. }
         unit: { $ref: "#/components/schemas/TMUnit" }

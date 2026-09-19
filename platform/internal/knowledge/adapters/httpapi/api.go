@@ -107,6 +107,13 @@ func model(m mf.Message) apiv1.MF2Message {
 	return out
 }
 
+func orSyntax(s *apiv1.Syntax, def apiv1.Syntax) apiv1.Syntax {
+	if s == nil {
+		return def
+	}
+	return *s
+}
+
 // parseMessage parses text in syntax (default MF1) for locale.
 func parseMessage(text string, syntax *apiv1.Syntax, loc bcp47.Tag) (mf.Message, error) {
 	s, err := mfcontent.ParseSyntax(string(deref(syntax)), mfcontent.MF1)
@@ -178,10 +185,12 @@ func (a *API) LookupTranslationMemory(ctx context.Context, req apiv1.LookupTrans
 	if err != nil {
 		return nil, err
 	}
+	// The targets come in the query's syntax unless another is asked for.
+	targetSyntax := orSyntax(b.TargetSyntax, orSyntax(b.Syntax, apiv1.Mf1))
 	ms, err := a.svc.LookupTM(ctx, app.TMQuery{
 		ProjectID: project, AllProjects: deref(b.AllProjects), SourceLocale: src, TargetLocale: tgt, Source: source,
 		MessageKey: deref(b.MessageKey), Namespace: deref(b.Namespace), Limit: deref(b.Limit),
-		MinScore: deref(b.MinScore), CountHits: deref(b.CountHits),
+		MinScore: deref(b.MinScore), CountHits: deref(b.CountHits), TargetSyntax: mfcontent.Syntax(targetSyntax),
 	})
 	if err != nil {
 		return nil, mapError(err)
@@ -192,6 +201,7 @@ func (a *API) LookupTranslationMemory(ctx context.Context, req apiv1.LookupTrans
 	for i, m := range ms {
 		out.Matches[i] = apiv1.TMMatch{
 			Score: m.Score, Kind: apiv1.TMMatchKind(m.Kind), Target: m.TargetMF2, TargetModel: model(m.Target),
+			TargetText: m.TargetText, TargetSyntax: apiv1.Syntax(m.TargetSyntax), TargetSyntaxFallback: m.SyntaxFallback,
 			VariablesAdapted: m.Adapted, Unit: toUnit(m.Unit),
 		}
 	}

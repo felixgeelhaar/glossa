@@ -3602,6 +3602,9 @@ type TMLookup struct {
 	//
 	// Examples: de, pt-BR, zh-Hant-TW
 	TargetLocale Locale `json:"target_locale"`
+
+	// TargetSyntax The syntax of each match's `target_text`; by default the query's `syntax`.
+	TargetSyntax *Syntax `json:"target_syntax,omitempty"`
 }
 
 // TMLookupResult defines model for TMLookupResult.
@@ -3622,6 +3625,15 @@ type TMMatch struct {
 	// messageformat/testdata/unicode/data-model/message.schema.json
 	// defines it — the canonical form releases ship.
 	TargetModel MF2Message `json:"target_model"`
+
+	// TargetSyntax The syntax `target_text` is in.
+	TargetSyntax Syntax `json:"target_syntax"`
+
+	// TargetSyntaxFallback True when `target_text` is MF2 because MF1 can't express the target.
+	TargetSyntaxFallback bool `json:"target_syntax_fallback"`
+
+	// TargetText The same target in the syntax the lookup asked for (`target_syntax`, by default the query's `syntax`), written from its model by the MessageFormat kernel. When MF1 was asked for but can't express the target (markup, MF2-only options), this is its MF2 and `target_syntax_fallback` is true.
+	TargetText string `json:"target_text"`
 
 	// Unit A translation-memory unit, derived from an approved translation.
 	// `source` and `target` are canonical MF2; `source_normalized` is
@@ -7488,7 +7500,10 @@ type ClientInterface interface {
 	// to the query's variable names. By default a lookup sees
 	// tenant-wide units and `project_id`'s; `all_projects` widens it to
 	// the tenant. `count_hits` records the lookup in each returned
-	// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+	// unit's `hit_count`. Each match carries its target in MF2
+	// (`target`) and in the syntax asked for (`target_text`: MF1 by
+	// default for an MF1 query, falling back to MF2 with
+	// `target_syntax_fallback` when MF1 can't express it). Needs `knowledge.read`. Problem codes:
 	// `invalid_query`, `invalid_locale`, `invalid_syntax`,
 	// `invalid_message`, `message_too_long` (400).
 	//
@@ -7508,7 +7523,10 @@ type ClientInterface interface {
 	// to the query's variable names. By default a lookup sees
 	// tenant-wide units and `project_id`'s; `all_projects` widens it to
 	// the tenant. `count_hits` records the lookup in each returned
-	// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+	// unit's `hit_count`. Each match carries its target in MF2
+	// (`target`) and in the syntax asked for (`target_text`: MF1 by
+	// default for an MF1 query, falling back to MF2 with
+	// `target_syntax_fallback` when MF1 can't express it). Needs `knowledge.read`. Problem codes:
 	// `invalid_query`, `invalid_locale`, `invalid_syntax`,
 	// `invalid_message`, `message_too_long` (400).
 	//
@@ -11808,7 +11826,10 @@ func (c *Client) SearchTranslationMemory(ctx context.Context, tenant TenantPath,
 // to the query's variable names. By default a lookup sees
 // tenant-wide units and `project_id`'s; `all_projects` widens it to
 // the tenant. `count_hits` records the lookup in each returned
-// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+// unit's `hit_count`. Each match carries its target in MF2
+// (`target`) and in the syntax asked for (`target_text`: MF1 by
+// default for an MF1 query, falling back to MF2 with
+// `target_syntax_fallback` when MF1 can't express it). Needs `knowledge.read`. Problem codes:
 // `invalid_query`, `invalid_locale`, `invalid_syntax`,
 // `invalid_message`, `message_too_long` (400).
 //
@@ -11838,7 +11859,10 @@ func (c *Client) LookupTranslationMemoryWithBody(ctx context.Context, tenant Ten
 // to the query's variable names. By default a lookup sees
 // tenant-wide units and `project_id`'s; `all_projects` widens it to
 // the tenant. `count_hits` records the lookup in each returned
-// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+// unit's `hit_count`. Each match carries its target in MF2
+// (`target`) and in the syntax asked for (`target_text`: MF1 by
+// default for an MF1 query, falling back to MF2 with
+// `target_syntax_fallback` when MF1 can't express it). Needs `knowledge.read`. Problem codes:
 // `invalid_query`, `invalid_locale`, `invalid_syntax`,
 // `invalid_message`, `message_too_long` (400).
 //
@@ -23457,7 +23481,10 @@ type ClientWithResponsesInterface interface {
 	// to the query's variable names. By default a lookup sees
 	// tenant-wide units and `project_id`'s; `all_projects` widens it to
 	// the tenant. `count_hits` records the lookup in each returned
-	// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+	// unit's `hit_count`. Each match carries its target in MF2
+	// (`target`) and in the syntax asked for (`target_text`: MF1 by
+	// default for an MF1 query, falling back to MF2 with
+	// `target_syntax_fallback` when MF1 can't express it). Needs `knowledge.read`. Problem codes:
 	// `invalid_query`, `invalid_locale`, `invalid_syntax`,
 	// `invalid_message`, `message_too_long` (400).
 	//
@@ -23477,7 +23504,10 @@ type ClientWithResponsesInterface interface {
 	// to the query's variable names. By default a lookup sees
 	// tenant-wide units and `project_id`'s; `all_projects` widens it to
 	// the tenant. `count_hits` records the lookup in each returned
-	// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+	// unit's `hit_count`. Each match carries its target in MF2
+	// (`target`) and in the syntax asked for (`target_text`: MF1 by
+	// default for an MF1 query, falling back to MF2 with
+	// `target_syntax_fallback` when MF1 can't express it). Needs `knowledge.read`. Problem codes:
 	// `invalid_query`, `invalid_locale`, `invalid_syntax`,
 	// `invalid_message`, `message_too_long` (400).
 	//
@@ -37502,7 +37532,10 @@ func (c *ClientWithResponses) SearchTranslationMemoryWithResponse(ctx context.Co
 // to the query's variable names. By default a lookup sees
 // tenant-wide units and `project_id`'s; `all_projects` widens it to
 // the tenant. `count_hits` records the lookup in each returned
-// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+// unit's `hit_count`. Each match carries its target in MF2
+// (`target`) and in the syntax asked for (`target_text`: MF1 by
+// default for an MF1 query, falling back to MF2 with
+// `target_syntax_fallback` when MF1 can't express it). Needs `knowledge.read`. Problem codes:
 // `invalid_query`, `invalid_locale`, `invalid_syntax`,
 // `invalid_message`, `message_too_long` (400).
 //
@@ -37528,7 +37561,10 @@ func (c *ClientWithResponses) LookupTranslationMemoryWithBodyWithResponse(ctx co
 // to the query's variable names. By default a lookup sees
 // tenant-wide units and `project_id`'s; `all_projects` widens it to
 // the tenant. `count_hits` records the lookup in each returned
-// unit's `hit_count`. Needs `knowledge.read`. Problem codes:
+// unit's `hit_count`. Each match carries its target in MF2
+// (`target`) and in the syntax asked for (`target_text`: MF1 by
+// default for an MF1 query, falling back to MF2 with
+// `target_syntax_fallback` when MF1 can't express it). Needs `knowledge.read`. Problem codes:
 // `invalid_query`, `invalid_locale`, `invalid_syntax`,
 // `invalid_message`, `message_too_long` (400).
 //

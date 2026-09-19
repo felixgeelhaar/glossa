@@ -183,6 +183,16 @@ func (h *harness) translate(t *testing.T, project uuid.UUID, key, locale, text s
 	return v
 }
 
+// translateMF2 writes an approved MF2 translation as a reviewer.
+func (h *harness) translateMF2(t *testing.T, project uuid.UUID, key, locale, text string) {
+	t.Helper()
+	approved := "approved"
+	if _, _, err := h.localization.PutTranslation(h.reviewer(), project, key, locale,
+		localizationapp.TranslationInput{Text: text, Syntax: "mf2", State: &approved}, nil); err != nil {
+		t.Fatalf("translate %s/%s: %v", key, locale, err)
+	}
+}
+
 func (h *harness) review(t *testing.T, project uuid.UUID, key, locale, state string) {
 	t.Helper()
 	ctx := h.reviewer()

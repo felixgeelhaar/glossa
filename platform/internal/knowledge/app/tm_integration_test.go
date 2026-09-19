@@ -7,7 +7,10 @@ import (
 	"errors"
 	"testing"
 
+	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
+	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
 )
@@ -93,6 +96,47 @@ func TestApprovedTranslationsBecomeTranslationMemory(t *testing.T) {
 	q.Source = mf1(t, "Pay {amount, number} now")
 	if ms := lookup(t, h, q); len(ms) != 0 {
 		t.Errorf("fr = %+v", ms)
+	}
+}
+
+// Matches come in the syntax asked for: MF1 when it can express the
+// target, MF2 with the fallback flag when it can't. The MF2 target and
+// model are there either way.
+func TestTMTargetsInTheSyntaxAskedFor(t *testing.T) {
+	h := newHarness(t)
+	p := h.project(t, "shop", false, []string{"de"}, map[string]string{"checkout.pay": "Pay {amount, number} now"})
+	if _, err := h.catalog.UpsertMessages(h.developer(), catalogdomain.ProjectID(p), []catalogapp.UpsertItem{
+		{Key: "legal.terms", Text: "Accept the {#b}terms{/b}", Syntax: "mf2"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	h.drain(t)
+	h.translate(t, p, "checkout.pay", "de", "Jetzt {amount, number} zahlen", nil)
+	h.translateMF2(t, p, "legal.terms", "de", "{#b}Bedingungen{/b} akzeptieren")
+	h.drain(t)
+
+	q := app.TMQuery{ProjectID: &p, SourceLocale: tag("en"), TargetLocale: tag("de"), MinScore: 100,
+		Source: mf1(t, "Pay {total, number} now"), TargetSyntax: mfcontent.MF1}
+	ms := lookup(t, h, q)
+	if len(ms) != 1 || ms[0].TargetText != "Jetzt {total, number} zahlen" || ms[0].TargetSyntax != mfcontent.MF1 ||
+		ms[0].SyntaxFallback || ms[0].TargetMF2 != "Jetzt {$total :number} zahlen" {
+		t.Fatalf("mf1 = %+v", ms)
+	}
+	q.TargetSyntax = mfcontent.MF2
+	if ms := lookup(t, h, q); len(ms) != 1 || ms[0].TargetText != "Jetzt {$total :number} zahlen" || ms[0].TargetSyntax != mfcontent.MF2 {
+		t.Errorf("mf2 = %+v", ms)
+	}
+	q.TargetSyntax = ""
+	if ms := lookup(t, h, q); len(ms) != 1 || ms[0].TargetSyntax != mfcontent.MF2 {
+		t.Errorf("default for Go callers = %+v, want MF2", ms)
+	}
+
+	// Markup has no MF1 form.
+	q.Source, q.TargetSyntax = mf2(t, "Accept the {#b}terms{/b}"), mfcontent.MF1
+	ms = lookup(t, h, q)
+	if len(ms) != 1 || ms[0].TargetSyntax != mfcontent.MF2 || !ms[0].SyntaxFallback ||
+		ms[0].TargetText != "{#b}Bedingungen{/b} akzeptieren" {
+		t.Errorf("fallback = %+v", ms)
 	}
 }
 
