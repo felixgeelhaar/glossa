@@ -32,6 +32,12 @@ const pageSize = 100
 type Client struct {
 	api    *apiclient.ClientWithResponses
 	server string
+	// transfer moves import and export files: the same transport
+	// without the client's overall timeout (a file may take longer than
+	// a request; the context bounds it).
+	transfer  *http.Client
+	editor    apiclient.RequestEditorFn
+	userAgent string
 }
 
 // Options configure a Client.
@@ -59,20 +65,22 @@ func New(server, token string, opts Options) (*Client, error) {
 	}
 	rc.IsRetryable = isRetryable
 	doer := &retryingDoer{client: hc, retry: retry.New[*http.Response](rc)}
-	api, err := apiclient.NewClientWithResponses(server, apiclient.WithHTTPClient(doer),
-		apiclient.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			if opts.UserAgent != "" {
-				req.Header.Set("User-Agent", opts.UserAgent)
-			}
-			return nil
-		}))
+	editor := func(_ context.Context, req *http.Request) error {
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		if opts.UserAgent != "" {
+			req.Header.Set("User-Agent", opts.UserAgent)
+		}
+		return nil
+	}
+	api, err := apiclient.NewClientWithResponses(server, apiclient.WithHTTPClient(doer), apiclient.WithRequestEditorFn(editor))
 	if err != nil {
 		return nil, err
 	}
-	return &Client{api: api, server: server}, nil
+	transfer := *hc
+	transfer.Timeout = 0
+	return &Client{api: api, server: server, transfer: &transfer, editor: editor, userAgent: opts.UserAgent}, nil
 }
 
 // Server is the base URL.
