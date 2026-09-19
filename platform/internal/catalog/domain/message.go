@@ -54,16 +54,20 @@ func ParseNamespace(s string) (Namespace, error) {
 type MessageState string
 
 // Message states. An obsolete message keeps its history and translations
-// but is no longer released.
+// but is no longer released. A proposed message exists only on branches
+// (RFC 0004 §4.1): it is translated like any other, but no release
+// outside a branch's preview carries it until the default branch's push
+// makes it active.
 const (
 	MessageActive   MessageState = "active"
+	MessageProposed MessageState = "proposed"
 	MessageObsolete MessageState = "obsolete"
 )
 
 // ParseMessageState validates s.
 func ParseMessageState(s string) (MessageState, error) {
 	switch MessageState(s) {
-	case MessageActive, MessageObsolete:
+	case MessageActive, MessageProposed, MessageObsolete:
 		return MessageState(s), nil
 	}
 	return "", fmt.Errorf("catalog: invalid message state %q", s)
@@ -153,6 +157,18 @@ func NewMessage(project ProjectID, key MessageKey, details Details, source mfcon
 	return m, SourceRevision{MessageID: m.ID, Number: 1, Content: source, Author: by, CreatedAt: now}, nil
 }
 
+// NewProposedMessage creates a message a branch proposes, with its first
+// source revision.
+func NewProposedMessage(project ProjectID, key MessageKey, details Details, source mfcontent.Content, by Author, now time.Time) (Message, SourceRevision, error) {
+	m, rev, err := NewMessage(project, key, details, source, by, now)
+	m.State = MessageProposed
+	return m, rev, err
+}
+
+// Translatable reports whether translators (and the AI agent) work on
+// the message: it is active or proposed.
+func (m Message) Translatable() bool { return m.State != MessageObsolete }
+
 // ReviseSource makes source the current content. Content that parses to
 // the same model is no change, however it was written, so re-pushing a
 // catalog never creates revisions (and never makes translations
@@ -193,12 +209,28 @@ func (m *Message) Obsolete(now time.Time) bool {
 	return true
 }
 
-// Reactivate brings an obsolete message back; false if it was active.
+// Reactivate brings an obsolete message back; false if it wasn't
+// obsolete.
 func (m *Message) Reactivate(now time.Time) bool {
-	if m.State == MessageActive {
+	return m.move(MessageObsolete, MessageActive, now)
+}
+
+// Activate takes a proposed message live; false if it wasn't proposed.
+func (m *Message) Activate(now time.Time) bool {
+	return m.move(MessageProposed, MessageActive, now)
+}
+
+// Repropose makes an obsolete message proposed again, with its
+// translations and history; false if it wasn't obsolete.
+func (m *Message) Repropose(now time.Time) bool {
+	return m.move(MessageObsolete, MessageProposed, now)
+}
+
+func (m *Message) move(from, to MessageState, now time.Time) bool {
+	if m.State != from {
 		return false
 	}
-	m.State = MessageActive
+	m.State = to
 	m.touch(now)
 	return true
 }

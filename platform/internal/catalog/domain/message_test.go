@@ -133,6 +133,45 @@ func TestObsoleteMessageCannotBeRevisedUntilReactivated(t *testing.T) {
 	}
 }
 
+func TestProposedMessageLifecycle(t *testing.T) {
+	m, rev, err := domain.NewProposedMessage(domain.NewProjectID(), "checkout.new",
+		domain.Details{Namespace: domain.DefaultNamespace}, content(t, mfcontent.MF1, "New"), ada, t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.State != domain.MessageProposed || m.Revision != 1 || rev.Number != 1 || !m.Translatable() {
+		t.Fatalf("proposed = %+v", m)
+	}
+	// Its source can be revised while proposed: that is its own history.
+	if _, changed, err := m.ReviseSource(content(t, mfcontent.MF1, "Newer"), ada, t0); err != nil || !changed {
+		t.Fatalf("revise proposed: %v %v", changed, err)
+	}
+	if m.Reactivate(t0) {
+		t.Error("Reactivate took a proposed message live")
+	}
+	if !m.Obsolete(t0) || m.Translatable() {
+		t.Fatal("obsolete")
+	}
+	if m.Activate(t0) {
+		t.Error("Activate took an obsolete message live")
+	}
+	if !m.Repropose(t0) || m.Repropose(t0) || m.State != domain.MessageProposed {
+		t.Fatalf("repropose: %+v", m)
+	}
+	if !m.Activate(t0) || m.Activate(t0) || m.State != domain.MessageActive {
+		t.Fatalf("activate: %+v", m)
+	}
+	if m.Repropose(t0) {
+		t.Error("an active message was proposed again")
+	}
+	if m.Version != 5 {
+		t.Errorf("version = %d, want 5 (revise, obsolete, repropose, activate)", m.Version)
+	}
+	if s, err := domain.ParseMessageState("proposed"); err != nil || s != domain.MessageProposed {
+		t.Errorf("ParseMessageState(proposed) = %q, %v", s, err)
+	}
+}
+
 func TestRenameKeepsIDAndRevisions(t *testing.T) {
 	m, _ := newMessage(t)
 	id, rev := m.ID, m.Revision

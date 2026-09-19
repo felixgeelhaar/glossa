@@ -18,6 +18,9 @@ type ApplicationID uuid.UUID
 // message stay attached to it (intent §8).
 type MessageID uuid.UUID
 
+// BranchID identifies a branch of a project.
+type BranchID uuid.UUID
+
 // NewProjectID returns a fresh, time-ordered ID.
 func NewProjectID() ProjectID { return ProjectID(newV7()) }
 
@@ -26,6 +29,9 @@ func NewApplicationID() ApplicationID { return ApplicationID(newV7()) }
 
 // NewMessageID returns a fresh, time-ordered ID.
 func NewMessageID() MessageID { return MessageID(newV7()) }
+
+// NewBranchID returns a fresh, time-ordered ID.
+func NewBranchID() BranchID { return BranchID(newV7()) }
 
 // ParseProjectID parses the canonical string form.
 func ParseProjectID(s string) (ProjectID, error) {
@@ -54,6 +60,9 @@ func (id ApplicationID) IsZero() bool    { return uuid.UUID(id) == uuid.Nil }
 func (id MessageID) String() string      { return uuid.UUID(id).String() }
 func (id MessageID) UUID() uuid.UUID     { return uuid.UUID(id) }
 func (id MessageID) IsZero() bool        { return uuid.UUID(id) == uuid.Nil }
+func (id BranchID) String() string       { return uuid.UUID(id).String() }
+func (id BranchID) UUID() uuid.UUID      { return uuid.UUID(id) }
+func (id BranchID) IsZero() bool         { return uuid.UUID(id) == uuid.Nil }
 
 func newV7() uuid.UUID { return uuid.Must(uuid.NewV7()) }
 

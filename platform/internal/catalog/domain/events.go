@@ -7,6 +7,7 @@ const (
 	AggregateProject     = "project"
 	AggregateApplication = "application"
 	AggregateMessage     = "message"
+	AggregateBranch      = "branch"
 
 	EventProjectCreated = "catalog.project.created"
 	EventProjectUpdated = "catalog.project.updated"
@@ -22,6 +23,17 @@ const (
 	EventMessageRenamed       = "catalog.message.renamed"
 	EventMessageObsoleted     = "catalog.message.obsoleted"
 	EventMessageReactivated   = "catalog.message.reactivated"
+	// EventMessageActivated: a proposed message went live (the default
+	// branch's push brought it in).
+	EventMessageActivated = "catalog.message.activated"
+	// EventMessageProposed: an obsolete message is proposed again by a
+	// branch (a reopened PR, or a later push of its key).
+	EventMessageProposed = "catalog.message.proposed"
+
+	EventBranchPushed   = "catalog.branch.pushed"
+	EventBranchClosed   = "catalog.branch.closed"
+	EventBranchReopened = "catalog.branch.reopened"
+	EventBranchMerged   = "catalog.branch.merged"
 )
 
 // ProjectEvent is the payload of every project event.
@@ -101,4 +113,36 @@ type MessageRenamed struct {
 	OldKey  string          `json:"old_key"`
 	NewKey  string          `json:"new_key"`
 	By      string          `json:"by"`
+}
+
+// BranchEvent is the payload of every branch event.
+type BranchEvent struct {
+	BranchID   string `json:"branch_id"`
+	ProjectID  string `json:"project_id"`
+	Name       string `json:"name"`
+	PR         *int   `json:"pr_number,omitempty"`
+	HeadCommit string `json:"head_commit,omitempty"`
+	State      string `json:"state"`
+	Version    int    `json:"version"`
+	By         string `json:"by"`
+}
+
+// BranchEventOf builds the payload for b.
+func BranchEventOf(b Branch, by Author) BranchEvent {
+	return BranchEvent{
+		BranchID: b.ID.String(), ProjectID: b.ProjectID.String(), Name: string(b.Name), PR: b.PR,
+		HeadCommit: b.HeadCommit, State: string(b.State), Version: b.Version, By: string(by),
+	}
+}
+
+// BranchPushed is the payload of catalog.branch.pushed: the branch and
+// what its push left it proposing. ConflictingBranches are the other
+// open branches that propose one of its new keys with different source;
+// their PR checks need running again too.
+type BranchPushed struct {
+	BranchEvent
+	NewKeys             int      `json:"new_keys"`
+	SourceProposals     int      `json:"source_proposals"`
+	Conflicts           int      `json:"conflicts"`
+	ConflictingBranches []string `json:"conflicting_branches"`
 }
