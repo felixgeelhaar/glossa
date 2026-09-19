@@ -1,13 +1,13 @@
 /**
  * Regenerates `messageformat/testdata/glossa/runtime-format.json` from the
- * reference formatter. Run through the package script (builds first):
+ * reference formatter. Run through the package script:
  *
  *   pnpm --filter @glossa/messageformat generate:runtime-format
  */
 import { writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import * as api from "../dist/index.js";
+import * as api from "../src/index.js";
 import { buildTests, fixtureComment, serialize } from "./runtime-format-cases.ts";
 
 const out = fileURLToPath(new URL("../../testdata/glossa/runtime-format.json", import.meta.url));
