@@ -323,6 +323,48 @@ func TestProviderFailures(t *testing.T) {
 	})
 }
 
+// constantProvider answers every call with the same draft or assessment.
+type constantProvider struct{}
+
+func (constantProvider) Name() string { return "anthropic" }
+
+func (constantProvider) Complete(_ context.Context, req domain.CompletionRequest) (domain.Completion, error) {
+	text := draft(deTarget)
+	if req.Task == domain.TaskAssess {
+		text = assessment(0.9, true)
+	}
+	return domain.Completion{Provider: "anthropic", Model: req.Model, Text: text, Stop: domain.StopEnd, Usage: domain.Usage{InputTokens: 10, OutputTokens: 5}}, nil
+}
+
+// One Translator serves concurrent jobs; each gets its own engine and
+// toolset (run with -race).
+func TestConcurrentJobs(t *testing.T) {
+	f := newFixture(t)
+	router := app.NewRouter(map[string]domain.Provider{"anthropic": constantProvider{}}, app.DefaultRouting(), app.DefaultPrices(), f.budget)
+	tr, err := app.NewTranslator(app.Config{Router: router, Knowledge: f.knowledge})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	errs := make(chan error, 8)
+	for range 8 {
+		wg.Go(func() {
+			res, err := tr.Translate(context.Background(), request("de", pluralSource))
+			if err == nil && res.Suggestion.Provenance.Origin != domain.OriginAI {
+				err = errors.New("unexpected origin")
+			}
+			errs <- err
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Error(err)
+		}
+	}
+}
+
 func TestForbiddenTermRequiresReview(t *testing.T) {
 	f := newFixture(t)
 	f.provider.answers[domain.TaskTranslate] = []string{draft(".input {$count :number}\n.match $count\none {{Du hast {$count} File.}}\n* {{Du hast {$count} Files.}}")}
