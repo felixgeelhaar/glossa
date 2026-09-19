@@ -1,69 +1,85 @@
 # Klarlabs k3s (Hetzner, EU) values for glossa-platform — Klarlabs product
 # standards §1 (GHCR, semver tags, one namespace per product, PodSecurity
 # restricted, cert-manager letsencrypt-prod, traefik) and §2 (non-superuser
-# app role, FORCE RLS).
+# app role, FORCE RLS), with the owner's infrastructure decisions:
 #
-# NOT READY TO INSTALL. Every "TODO(infra)" is a decision the owner still
-# has to make; every *.invalid hostname and 192.0.2.x/203.0.113.x address is
-# a placeholder (RFC 2606 / RFC 5737). No credentials live here: Secrets
-# are created out of band (README.md, "First install").
+#   namespace       glossa-platform (its own; v0.3 keeps running in "glossa")
+#   hosts           app. / api. / cdn.glossa.klarlabs.de
+#   database        a CloudNativePG cluster "glossa-pg" in glossa-platform
+#   object storage  the in-namespace MinIO on longhorn (3 replicas)
+#   mail            none for now
+#   rollout         RollOps, images pinned by digest at deploy time
+#   metrics         ServiceMonitors for the cluster-observability Prometheus,
+#                   traces to its Tempo
 #
+# No credentials live here: Secrets are created out of band (README.md,
+# "First install"). The "TODO(infra)" markers are the questions still open.
+#
+#   kubectl create namespace glossa-platform   # + the PodSecurity labels (README.md)
 #   helm upgrade --install glossa-platform deploy/charts/glossa-platform \
-#     --namespace <TODO(infra)> -f deploy/charts/glossa-platform/examples/values-klarlabs.yaml
+#     --namespace glossa-platform -f deploy/charts/glossa-platform/examples/values-klarlabs.yaml \
+#     --wait --timeout 15m
 
-# TODO(infra): namespace and names. The v0.3 chart (release "glossa",
-# namespace "glossa") already owns the names api, admin, postgres,
-# glossa-compress and glossa-https-redirect there. Either install this
-# chart into its own namespace (e.g. glossa-platform) while v0.3 runs, or
-# into "glossa" with the default prefix (the release name) so nothing
-# collides. Standard §1 wants one namespace per product in the end.
-fullnameOverride: ""
+# Resource names glossa-server, glossa-edge, glossa-studio, glossa-minio, …
+# The namespace is glossa-platform's own, so nothing collides with v0.3.
+fullnameOverride: glossa
 
-# TODO(infra): the product domain. Standard §4: app.<domain>, api.<domain>;
-# cdn.<domain> for glossa-edge. Decide whether a CDN (and which) fronts cdn.
+# Standard §4. TODO(infra): does a CDN front cdn.glossa.klarlabs.de, and
+# which one? (Without one, traefik serves the edge directly; compression
+# there stays off, ingress.compress.cdn.)
 hosts:
-  studio: app.todo-domain.invalid
-  api: api.todo-domain.invalid
-  cdn: cdn.todo-domain.invalid
+  studio: app.glossa.klarlabs.de
+  api: api.glossa.klarlabs.de
+  cdn: cdn.glossa.klarlabs.de
 
 commonLabels:
   klarlabs.de/product: glossa
 
+# Images: appVersion (0.4.0) tags. RollOps pins each by digest at deploy
+# time (README.md, "Deploying with RollOps"): --set <component>.image.digest=…
 server:
-  # Rolled out by RollOps (README.md, "Deploying with RollOps").
-  # TODO(infra): pin each image by digest once the first release is pushed
-  # to GHCR (release.yml prints it); the RolloutConfigs carry the same pins.
   image:
-    tag: ""
     digest: ""
   replicas: 2
   webauthn:
-    # TODO(infra): passkey RP ID. The Studio host (default) scopes passkeys
-    # to app.<domain>; the apex would share them across subdomains. It can't
-    # change later without re-enrolling every passkey.
-    rpId: ""
+    # Passkeys belong to the product domain, so they work on every
+    # glossa.klarlabs.de host. It can't change later without re-enrolling
+    # every passkey.
+    rpId: glossa.klarlabs.de
+    origins:
+      - https://app.glossa.klarlabs.de
   otel:
-    # TODO(infra): OTLP/HTTP collector, if the cluster runs one.
-    endpoint: ""
+    # cluster-observability's Tempo (OTLP/HTTP), in namespace observability.
+    endpoint: http://tempo.observability.svc.cluster.local:4318
 
 edge:
+  image:
+    digest: ""
   replicas: 2
   autoscaling:
     enabled: false
+  otel:
+    endpoint: http://tempo.observability.svc.cluster.local:4318
 
 studio:
+  image:
+    digest: ""
   replicas: 2
 
-# TODO(infra): database placement. Options: CloudNativePG in the cluster
-# (glossa_owner as the database owner with CREATEROLE, glossa_app as a
-# managed role with a passwordSecret) or Postgres 16 outside the cluster.
-# Either way, the two Secrets below hold full DSNs (sslmode=require or
-# verify-full outside the cluster).
+# CloudNativePG cluster "glossa-pg" in glossa-platform (README.md, "Postgres
+# with CloudNativePG"): glossa_owner is its bootstrap owner, so CNPG writes
+# the owner's DSN to glossa-pg-app (key uri); glossa_app is a managed role
+# whose basic-auth Secret glossa-db-app also carries its DSN.
+# TODO(infra): the CloudNativePG operator is not installed in the cluster
+# yet (no clusters.postgresql.cnpg.io CRD). Who installs it, which version?
+# TODO(infra): CNPG backups — Barman to which object store (not this
+# namespace's MinIO: a backup must leave the cluster)?
 database:
   app:
     secretName: glossa-db-app        # key DATABASE_URL, user glossa_app
   migration:
-    secretName: glossa-db-owner      # key MIGRATION_DATABASE_URL, user glossa_owner
+    secretName: glossa-pg-app        # CNPG-generated, user glossa_owner
+    secretKey: uri
 
 auth:
   secretName: glossa-auth            # key GLOSSA_AUTH_SECRET
@@ -79,25 +95,36 @@ release:
 # an EU submission service with STARTTLS on 587, the sender domain's
 # SPF/DKIM/DMARC, then uncomment this and networkPolicy.egress.smtp below.
 # mail:
-#   from: "Glossa <no-reply@todo-domain.invalid>"
+#   from: "Glossa <no-reply@glossa.klarlabs.de>"
 #   smtp:
 #     addr: smtp.todo-provider.invalid:587
 #     secretName: glossa-smtp        # keys GLOSSA_SMTP_USERNAME, GLOSSA_SMTP_PASSWORD
 
-# TODO(infra): object storage provider, bucket and region. Candidates:
-# Hetzner Object Storage (same region as the cluster), or MinIO in the
-# cluster (then pathStyle: true and an in-cluster NetworkPolicy peer).
-# Create two credentials: read-write for the server, read-only for the edge.
+# The in-namespace MinIO (README.md, "In-namespace MinIO"). The endpoint
+# defaults to glossa-minio:9000 (path-style, in-cluster HTTP). The
+# bootstrap Job creates the bucket and one MinIO user per Secret below.
 objectStorage:
-  endpoint: objects.todo-provider.invalid
-  bucket: todo-glossa-releases
-  region: todo-region
+  bucket: glossa
+  region: us-east-1
   prefix: ""
-  pathStyle: false
   server:
     secretName: glossa-s3-rw         # keys GLOSSA_S3_ACCESS_KEY_ID, GLOSSA_S3_SECRET_ACCESS_KEY
   edge:
-    secretName: glossa-s3-ro         # same keys, read-only credentials
+    secretName: glossa-s3-ro         # same keys; becomes the read-only user
+
+minio:
+  enabled: true
+  rootCredentials:
+    secretName: glossa-minio-root    # keys MINIO_ROOT_USER, MINIO_ROOT_PASSWORD
+  persistence:
+    # 3 replicas across edge-1..3: glossa-edge serves every published
+    # release from this bucket.
+    storageClassName: longhorn
+    size: 5Gi
+    # TODO(infra): which Longhorn recurring backup job should cover this
+    # volume? The cluster has only a filesystem-trim job today; name its
+    # group here (recurring-job-group.longhorn.io/<group>: enabled).
+    labels: {}
 
 ingress:
   certManager:
@@ -107,25 +134,41 @@ ingress:
 networkPolicy:
   enabled: true
   egress:
-    # TODO(infra): Postgres peer. In-cluster CNPG: a namespaceSelector +
-    # podSelector (cnpg.io/cluster: <name>). External: its ipBlock.
+    # The CNPG cluster's pods, in this namespace.
     postgres:
       to:
-        - ipBlock:
-            cidr: 192.0.2.10/32
-    # TODO(infra): the object storage provider's address ranges.
-    objectStorage:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: glossa-pg
+    # Object storage: with minio.enabled the chart allows only the MinIO
+    # pod on 9000; egress.objectStorage is not used.
+    # cluster-observability's Tempo.
+    otlp:
       to:
-        - ipBlock:
-            cidr: 203.0.113.0/24
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app: tempo
     # With SMTP on: the provider's address ranges.
     # smtp:
     #   to:
     #     - ipBlock:
     #         cidr: 198.51.100.0/24
 
+# cluster-observability's Prometheus (kube-prometheus-stack "kps", namespace
+# observability) discovers ServiceMonitors in every namespace; its own are
+# labelled release: kps.
 metrics:
-  # TODO(infra): where Prometheus runs, if it does.
-  allowFrom: []
+  allowFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: observability
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus
   serviceMonitor:
-    enabled: false
+    enabled: true
+    labels:
+      release: kps
