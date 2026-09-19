@@ -81,6 +81,9 @@ spec:
               value: {{ $v.outbox.enabled | quote }}
             - name: GLOSSA_STUDIO_URL
               value: {{ include "gp.studioUrl" . | quote }}
+            # Surfaced to clients by GET /v1/meta (Studio's runtime snippets).
+            - name: GLOSSA_EDGE_PUBLIC_URL
+              value: {{ .Values.studio.runtimeConfig.edgeUrl | default (printf "https://%s" (include "gp.host.cdn" .)) | quote }}
             - name: GLOSSA_SESSION_TTL
               value: {{ $v.sessionTTL | quote }}
             - name: GLOSSA_WEBAUTHN_RP_ID
