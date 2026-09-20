@@ -64,6 +64,7 @@ func TestLoadConfig(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cfg, enabled, err := github.LoadConfig(env(map[string]string{
 				github.EnvAppID:         "99001",
+				github.EnvAppSlug:       "glossa",
 				github.EnvPrivateKey:    keyText,
 				github.EnvWebhookSecret: "hook-secret",
 				github.EnvClientID:      "Iv1.abc",
@@ -78,6 +79,9 @@ func TestLoadConfig(t *testing.T) {
 			}
 			if cfg.APIURL != "https://ghe.acme.test/api/v3" || cfg.WebURL != github.DefaultWebURL {
 				t.Fatalf("urls %q %q", cfg.APIURL, cfg.WebURL)
+			}
+			if got, want := cfg.InstallURL("st te"), github.DefaultWebURL+"/apps/glossa/installations/new?state=st+te"; got != want {
+				t.Fatalf("InstallURL = %q, want %q", got, want)
 			}
 			for _, s := range []string{cfg.String(), fmt.Sprint(cfg.LogValue())} {
 				if strings.Contains(s, "hook-secret") || strings.Contains(s, "client-secret") || strings.Contains(s, "PRIVATE") {
@@ -97,7 +101,7 @@ func TestLoadConfigReportsEveryProblem(t *testing.T) {
 	if !enabled || err == nil {
 		t.Fatalf("want an error, got %v %v", enabled, err)
 	}
-	for _, want := range []string{github.EnvAppID, github.EnvPrivateKey, github.EnvWebhookSecret, github.EnvClientID, github.EnvClientSecret, github.EnvAPIURL} {
+	for _, want := range []string{github.EnvAppID, github.EnvPrivateKey, github.EnvAppSlug, github.EnvWebhookSecret, github.EnvClientID, github.EnvClientSecret, github.EnvAPIURL} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error does not mention %s: %v", want, err)
 		}

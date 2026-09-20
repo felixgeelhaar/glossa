@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -34,6 +35,7 @@ import (
 // Environment variables LoadConfig reads.
 const (
 	EnvAppID         = "GLOSSA_GITHUB_APP_ID"
+	EnvAppSlug       = "GLOSSA_GITHUB_APP_SLUG"        // the App's URL name, for the install link
 	EnvPrivateKey    = "GLOSSA_GITHUB_APP_PRIVATE_KEY" // PEM (PKCS#1 or PKCS#8)
 	EnvWebhookSecret = "GLOSSA_GITHUB_WEBHOOK_SECRET"
 	EnvClientID      = "GLOSSA_GITHUB_CLIENT_ID"
@@ -52,7 +54,10 @@ const (
 // Config is the GitHub App's platform configuration (not tenant data).
 // Its String and LogValue redact the secrets.
 type Config struct {
-	AppID         int64
+	AppID int64
+	// AppSlug is the App's name in its own URL ("glossa"), which the
+	// install link needs: <WebURL>/apps/<slug>/installations/new.
+	AppSlug       string
 	PrivateKey    *rsa.PrivateKey
 	WebhookSecret []byte
 	// ClientID and ClientSecret are the App's OAuth credentials, for the
@@ -67,14 +72,15 @@ type Config struct {
 
 // String implements fmt.Stringer without the secrets.
 func (c Config) String() string {
-	return fmt.Sprintf("github.Config{AppID: %d, ClientID: %q, APIURL: %q, WebURL: %q, secrets: [redacted]}",
-		c.AppID, c.ClientID, c.APIURL, c.WebURL)
+	return fmt.Sprintf("github.Config{AppID: %d, AppSlug: %q, ClientID: %q, APIURL: %q, WebURL: %q, secrets: [redacted]}",
+		c.AppID, c.AppSlug, c.ClientID, c.APIURL, c.WebURL)
 }
 
 // LogValue implements slog.LogValuer without the secrets.
 func (c Config) LogValue() slog.Value {
 	return slog.GroupValue(
 		slog.Int64("app_id", c.AppID),
+		slog.String("app_slug", c.AppSlug),
 		slog.String("client_id", c.ClientID),
 		slog.String("api_url", c.APIURL),
 		slog.String("web_url", c.WebURL),
@@ -86,6 +92,9 @@ func (c Config) Validate() error {
 	var errs []error
 	if c.AppID <= 0 {
 		errs = append(errs, fmt.Errorf("%s: must be a positive integer", EnvAppID))
+	}
+	if !appSlugPattern.MatchString(c.AppSlug) {
+		errs = append(errs, fmt.Errorf("%s: required; it is the App's URL name (lowercase letters, digits and hyphens)", EnvAppSlug))
 	}
 	if c.PrivateKey == nil {
 		errs = append(errs, fmt.Errorf("%s: required", EnvPrivateKey))
@@ -120,6 +129,7 @@ func LoadConfig(lookup func(string) (string, bool)) (cfg Config, enabled bool, e
 		return Config{}, false, nil
 	}
 	cfg = Config{
+		AppSlug:       strings.ToLower(get(EnvAppSlug)),
 		WebhookSecret: []byte(get(EnvWebhookSecret)),
 		ClientID:      get(EnvClientID),
 		ClientSecret:  get(EnvClientSecret),
@@ -165,6 +175,19 @@ func ParsePrivateKey(pemBytes []byte) (*rsa.PrivateKey, error) {
 		return nil, errors.New("the key is not RSA")
 	}
 	return rk, nil
+}
+
+// appSlugPattern is what GitHub allows in an App's URL name.
+var appSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,99}$`)
+
+// InstallURL is where a person authorizes the App, carrying state
+// through the round trip so the callback can prove who started it.
+func (c Config) InstallURL(state string) string {
+	u := c.WebURL + "/apps/" + url.PathEscape(c.AppSlug) + "/installations/new"
+	if state != "" {
+		u += "?" + url.Values{"state": {state}}.Encode()
+	}
+	return u
 }
 
 func orDefault(v, def string) string {

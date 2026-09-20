@@ -30,6 +30,8 @@ import (
 const (
 	RouteAccessToken       = "tokens.create"
 	RouteUserInstallations = "user.installations"
+	RouteOAuthToken        = "oauth.access_token"
+	RouteInstallationRepos = "installation.repositories"
 	RouteCheckCreate       = "checks.create"
 	RouteCheckUpdate       = "checks.update"
 	RouteCheckList         = "checks.list"
@@ -128,7 +130,10 @@ type token struct {
 type Server struct {
 	// URL is the API base URL (with Prefix), for the adapter's config.
 	URL string
-	srv *httptest.Server
+	// WebURL is the web host, where the App is authorized and OAuth
+	// codes are redeemed (Config.WebURL).
+	WebURL string
+	srv    *httptest.Server
 
 	opts Options
 
@@ -138,6 +143,8 @@ type Server struct {
 	faults        map[string][]Response
 	installations map[int64]*installation
 	users         map[string][]int64
+	codes         map[string]string
+	repos         map[int64]Repository
 	tokens        map[string]*token
 	issued        map[int64]int
 	checks        map[int64]*CheckRun
@@ -163,6 +170,8 @@ func New(t testing.TB, opts Options) *Server {
 		faults:        map[string][]Response{},
 		installations: map[int64]*installation{},
 		users:         map[string][]int64{},
+		codes:         map[string]string{},
+		repos:         map[int64]Repository{},
 		tokens:        map[string]*token{},
 		issued:        map[int64]int{},
 		checks:        map[int64]*CheckRun{},
@@ -172,6 +181,9 @@ func New(t testing.TB, opts Options) *Server {
 	p := opts.Prefix
 	s.handle(mux, "POST "+p+"/app/installations/{id}/access_tokens", RouteAccessToken, s.accessToken)
 	s.handle(mux, "GET "+p+"/user/installations", RouteUserInstallations, s.userInstallations)
+	s.handle(mux, "GET "+p+"/installation/repositories", RouteInstallationRepos, s.installationRepos)
+	// The OAuth exchange lives on the web host, not under the API prefix.
+	s.handle(mux, "POST /login/oauth/access_token", RouteOAuthToken, s.oauthToken)
 	s.handle(mux, "POST "+p+"/repositories/{repo}/check-runs", RouteCheckCreate, s.repo(s.createCheck))
 	s.handle(mux, "PATCH "+p+"/repositories/{repo}/check-runs/{id}", RouteCheckUpdate, s.repo(s.updateCheck))
 	s.handle(mux, "GET "+p+"/repositories/{repo}/commits/{sha}/check-runs", RouteCheckList, s.repo(s.listChecks))
@@ -179,7 +191,7 @@ func New(t testing.TB, opts Options) *Server {
 	s.handle(mux, "PATCH "+p+"/repositories/{repo}/issues/comments/{id}", RouteCommentUpdate, s.repo(s.updateComment))
 	s.handle(mux, "GET "+p+"/repositories/{repo}/issues/{issue}/comments", RouteCommentList, s.repo(s.listComments))
 	s.srv = httptest.NewServer(mux)
-	s.URL = s.srv.URL + p
+	s.URL, s.WebURL = s.srv.URL+p, s.srv.URL
 	t.Cleanup(s.srv.Close)
 	return s
 }
@@ -204,6 +216,33 @@ func (s *Server) AddUser(oauthToken string, installations ...int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.users[oauthToken] = append([]int64(nil), installations...)
+}
+
+// AddOAuthCode registers a one-time authorization code that redeems to
+// oauthToken, as the install flow's round trip produces one. A second
+// redemption of the same code is refused, as GitHub refuses it.
+func (s *Server) AddOAuthCode(code, oauthToken string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.codes[code] = oauthToken
+}
+
+// Repository is a repository the App can see.
+type Repository struct {
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	FullName      string `json:"full_name"`
+	Private       bool   `json:"private"`
+	DefaultBranch string `json:"default_branch"`
+}
+
+// AddRepository describes a repository, so the installation listing can
+// name it. A repository an installation holds but nothing describes is
+// listed with a generated name.
+func (s *Server) AddRepository(r Repository) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.repos[r.ID] = r
 }
 
 // Inject queues a one-shot answer for the next request to route; it is
@@ -660,6 +699,59 @@ func (s *Server) listComments(_ http.ResponseWriter, r *http.Request, repo int64
 		out = append(out, commentJSON(&all[i]))
 	}
 	return http.StatusOK, out
+}
+
+// installationRepos is GET /installation/repositories, with an
+// installation token.
+func (s *Server) installationRepos(w http.ResponseWriter, r *http.Request, _ []byte) (int, any) {
+	perPage, page := paging(r.URL.Query())
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tok, ok := s.tokens[bearer(r)]
+	if !ok || !s.opts.Now().Before(tok.expires) {
+		return http.StatusUnauthorized, message("Bad credentials")
+	}
+	w.Header().Set("X-RateLimit-Limit", strconv.Itoa(s.opts.RateLimit))
+	w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(tok.remaining))
+	in := s.installations[tok.installation]
+	if in == nil {
+		return http.StatusNotFound, message("Not Found")
+	}
+	ids := make([]int64, 0, len(in.repos))
+	for id := range in.repos {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	list := []Repository{}
+	for i := (page - 1) * perPage; i < len(ids) && i < page*perPage; i++ {
+		r, ok := s.repos[ids[i]]
+		if !ok {
+			name := "repo-" + strconv.FormatInt(ids[i], 10)
+			r = Repository{ID: ids[i], Name: name, FullName: in.account + "/" + name, DefaultBranch: "main"}
+		}
+		list = append(list, r)
+	}
+	return http.StatusOK, map[string]any{"total_count": len(ids), "repositories": list}
+}
+
+// oauthToken is POST /login/oauth/access_token: it redeems a one-time
+// code, as the install flow's round trip does.
+func (s *Server) oauthToken(_ http.ResponseWriter, _ *http.Request, body []byte) (int, any) {
+	form, err := url.ParseQuery(string(body))
+	if err != nil {
+		return http.StatusBadRequest, map[string]any{"error": "invalid_request"}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	token, ok := s.codes[form.Get("code")]
+	if !ok {
+		// GitHub answers 200 with an error body for a bad code.
+		return http.StatusOK, map[string]any{
+			"error": "bad_verification_code", "error_description": "The code passed is incorrect or expired.",
+		}
+	}
+	delete(s.codes, form.Get("code"))
+	return http.StatusOK, map[string]any{"access_token": token, "token_type": "bearer", "scope": ""}
 }
 
 func paging(q url.Values) (perPage, page int) {

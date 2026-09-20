@@ -114,7 +114,10 @@ func setup(t *testing.T, so setupOpts) *fixture {
 	if so.options != nil {
 		so.options(&opts)
 	}
-	cfg := github.Config{AppID: appID, PrivateKey: appKey(t), WebhookSecret: []byte("s"), APIURL: f.srv.URL}
+	cfg := github.Config{
+		AppID: appID, AppSlug: "glossa", PrivateKey: appKey(t), WebhookSecret: []byte("s"),
+		ClientID: "Iv1.abc", ClientSecret: "client-secret", APIURL: f.srv.URL, WebURL: f.srv.WebURL,
+	}
 	if so.key != nil {
 		so.key(&cfg)
 	}
@@ -450,6 +453,67 @@ func TestVerifyInstallationOwner(t *testing.T) {
 	}
 	if _, err := f.client.VerifyInstallationOwner(ctx, "gho_revoked", instA); !errors.Is(err, app.ErrInstallationNotVisible) {
 		t.Fatalf("bad token: err = %v", err)
+	}
+}
+
+func TestExchangeUserCodeRedeemsOnce(t *testing.T) {
+	ctx := context.Background()
+	f := setup(t, setupOpts{})
+	f.srv.AddOAuthCode("code-1", "gho_owner")
+
+	tok, err := f.client.ExchangeUserCode(ctx, "code-1")
+	if err != nil || tok != "gho_owner" {
+		t.Fatalf("exchange: %q, %v", tok, err)
+	}
+	req := f.srv.Requests(githubtest.RouteOAuthToken)
+	if len(req) != 1 {
+		t.Fatalf("%d exchanges, want 1", len(req))
+	}
+	if got := req[0].Header.Get("Accept"); got != "application/json" {
+		t.Fatalf("accept %q", got)
+	}
+	// A second redemption of the same code is refused, and nothing of
+	// the code or the credentials reaches the log.
+	if _, err := f.client.ExchangeUserCode(ctx, "code-1"); !errors.Is(err, app.ErrOAuthCodeRejected) {
+		t.Fatalf("replay: err = %v", err)
+	}
+	if _, err := f.client.ExchangeUserCode(ctx, ""); !errors.Is(err, app.ErrGitHubRejected) {
+		t.Fatalf("empty code: err = %v", err)
+	}
+	for _, s := range []string{"code-1", "client-secret", "gho_owner"} {
+		if strings.Contains(f.logs.String(), s) {
+			t.Fatalf("%q leaked into the log", s)
+		}
+	}
+}
+
+func TestRepositoriesPagesThroughTheInstallation(t *testing.T) {
+	f := setup(t, setupOpts{})
+	many := make([]int64, 0, 150)
+	for i := range 150 {
+		many = append(many, int64(700000+i))
+	}
+	f.srv.AddInstallation(instA, "acme", append(many, repoA)...)
+	f.srv.AddRepository(githubtest.Repository{ID: repoA, Name: "shop", FullName: "acme/shop", DefaultBranch: "main"})
+
+	repos, err := f.client.Repositories(context.Background(), targetA())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(repos) != 151 {
+		t.Fatalf("%d repositories, want 151", len(repos))
+	}
+	if n := len(f.srv.Requests(githubtest.RouteInstallationRepos)); n != 2 {
+		t.Fatalf("%d pages, want 2", n)
+	}
+	var found bool
+	for _, r := range repos {
+		if r.ID == repoA {
+			found = r.FullName == "acme/shop" && r.DefaultBranch == "main"
+		}
+	}
+	if !found {
+		t.Fatalf("the described repository is missing or unnamed: %+v", repos)
 	}
 }
 

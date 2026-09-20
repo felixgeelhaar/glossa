@@ -61,3 +61,48 @@ func (c *Client) VerifyInstallationOwner(ctx context.Context, userToken string, 
 	c.log.WarnContext(ctx, "github installation not visible to the user", "installation_id", installationID)
 	return app.GitHubInstallation{}, app.ErrInstallationNotVisible
 }
+
+// maxRepositoryPages bounds the repository listing (10,000 repositories
+// on one installation).
+const maxRepositoryPages = 100
+
+// Repositories implements app.GitHub: what the installation can see,
+// with an installation token. Only `metadata: read` is needed, so this
+// reveals names and default branches, never code.
+func (c *Client) Repositories(ctx context.Context, t app.GitHubTarget) ([]app.GitHubRepository, error) {
+	const op = "installation.repositories"
+	if t.InstallationID <= 0 {
+		return nil, invalid(op, "an installation ID is required")
+	}
+	var out []app.GitHubRepository
+	for page := 1; page <= maxRepositoryPages; page++ {
+		var body struct {
+			TotalCount   int `json:"total_count"`
+			Repositories []struct {
+				ID            int64  `json:"id"`
+				Name          string `json:"name"`
+				FullName      string `json:"full_name"`
+				Private       bool   `json:"private"`
+				DefaultBranch string `json:"default_branch"`
+			} `json:"repositories"`
+		}
+		err := c.do(ctx, request{
+			op: op, tenant: t.TenantID, installation: t.InstallationID,
+			method: http.MethodGet, path: "/installation/repositories",
+			query: url.Values{"per_page": {"100"}, "page": {strconv.Itoa(page)}},
+			out:   &body, idempotent: true,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range body.Repositories {
+			out = append(out, app.GitHubRepository{
+				ID: r.ID, Name: r.Name, FullName: r.FullName, Private: r.Private, DefaultBranch: r.DefaultBranch,
+			})
+		}
+		if len(body.Repositories) < 100 || len(out) >= body.TotalCount {
+			break
+		}
+	}
+	return out, nil
+}

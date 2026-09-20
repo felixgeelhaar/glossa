@@ -29,6 +29,9 @@ var (
 	// ErrInstallationNotVisible means the person's OAuth token cannot see
 	// the installation they claimed.
 	ErrInstallationNotVisible = errors.New("integration: the installation is not visible to the user")
+	// ErrOAuthCodeRejected means GitHub refused the install flow's
+	// one-time OAuth code (wrong, expired or already redeemed).
+	ErrOAuthCodeRejected = errors.New("integration: GitHub refused the authorization code")
 )
 
 // GitHubRetryAfter reports how long a rate-limited call asked to wait.
@@ -107,6 +110,17 @@ type GitHubInstallation struct {
 	AccountType  string // User or Organization
 }
 
+// GitHubRepository is a repository the App can see through an
+// installation. Glossa keys it by ID, so a rename does not break a Git
+// connection; the names are labels for Studio.
+type GitHubRepository struct {
+	ID            int64
+	Name          string
+	FullName      string
+	Private       bool
+	DefaultBranch string
+}
+
 // GitHub is the GitHub App as Integration uses it (RFC 0004 §6): checks
 // and the sticky comment on an installation's repositories, and the
 // ownership check of the install flow. Implementations mint installation
@@ -129,4 +143,16 @@ type GitHub interface {
 	// for this call only) that they can see installationID; it answers
 	// ErrInstallationNotVisible when they cannot.
 	VerifyInstallationOwner(ctx context.Context, userToken string, installationID int64) (GitHubInstallation, error)
+	// ExchangeUserCode redeems the install flow's one-time OAuth code
+	// for a user access token. The token is the caller's to use once and
+	// drop; it is never stored. ErrOAuthCodeRejected means the code was
+	// wrong, expired or already redeemed.
+	ExchangeUserCode(ctx context.Context, code string) (userToken string, err error)
+	// Repositories lists what the installation can see, paging through
+	// GitHub. It needs only the installation (uuid.Nil tenant and zero
+	// repository on the target are fine).
+	Repositories(ctx context.Context, t GitHubTarget) ([]GitHubRepository, error)
+	// InstallURL is where a person authorizes the App, carrying state
+	// through the round trip. It is configuration, not a call.
+	InstallURL(state string) string
 }
