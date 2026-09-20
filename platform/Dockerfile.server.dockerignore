@@ -9,6 +9,10 @@ messageformat/js/
 runtimes/go/examples/
 messageformat/testdata/
 **/testdata/
+# Exception: internal/intelligence/evals embeds this one fixture into the
+# binary (//go:embed testdata/baseline.json), so the build needs it in the
+# context even though nothing else under testdata/ does.
+!platform/internal/intelligence/evals/testdata/baseline.json
 **/*_test.go
 **/node_modules/
 **/.DS_Store
