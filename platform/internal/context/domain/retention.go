@@ -82,10 +82,16 @@ type RetentionPolicy struct {
 	ClosedBranchGrace time.Duration
 }
 
-// DefaultRetention keeps the latest 5 builds per application and branch
-// (and source) and purges a closed branch's builds 14 days after it
-// closed.
-var DefaultRetention = RetentionPolicy{Keep: 5, ClosedBranchGrace: 14 * 24 * time.Hour}
+// DefaultRetention keeps the latest 3 builds per application and branch
+// (and source) and purges a closed branch's builds 7 days after it
+// closed (RFC 0004 §2.3, the owner's decision of 2026-09-20).
+//
+// This is Context's retention, over builds and the captures that hang
+// off them. Catalog's catalogdomain.ProposalRetention — how long a
+// closed branch's proposed messages stay proposed — is a different rule
+// over different data and stays at 14 days: text a translator worked on
+// outlives the screenshots of it.
+var DefaultRetention = RetentionPolicy{Keep: 3, ClosedBranchGrace: 7 * 24 * time.Hour}
 
 type stream struct {
 	lineage

@@ -75,9 +75,11 @@ server:
     # -- GLOSSA_INTEGRATION_RETENTION: how long import/export files are kept.
     retention: 168h
   # The daily purge job (RFC 0004 §2.3): Context's builds beyond
-  # retention, their captures, the images no capture references any
-  # more, and Catalog's proposal sweep. A lease picks one replica per
-  # run, so this stays on with several replicas.
+  # retention — the latest 3 per application, branch and source, plus
+  # every current one, and a closed branch's after 7 days — their
+  # captures, the images no capture references any more, and Catalog's
+  # separate proposal sweep (14 days, RFC 0004 §4.1). A lease picks one
+  # replica per run, so this stays on with several replicas.
   purge:
     # -- GLOSSA_PURGE_ENABLED: run the retention jobs. Off, builds and their images accumulate.
     enabled: true

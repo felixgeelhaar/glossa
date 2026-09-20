@@ -48,6 +48,11 @@ const (
 
 // ProposalRetention is how long a closed, unmerged branch's proposed
 // messages stay proposed before they become obsolete (RFC 0004 §4.1).
+//
+// Not to be confused with Context's retention of builds and captures,
+// whose closed-branch grace is 7 days (RFC 0004 §2.3): this one is
+// about the text a translator worked on, which outlives the screenshots
+// of it, and stays at 14 days.
 const ProposalRetention = 14 * 24 * time.Hour
 
 // MaxPreviewURLLen bounds a preview URL.

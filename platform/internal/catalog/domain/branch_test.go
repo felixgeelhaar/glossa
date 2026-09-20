@@ -120,6 +120,12 @@ func TestProposalsExpire14DaysAfterClose(t *testing.T) {
 	if !b.ProposalsExpired(t0.Add(domain.ProposalRetention)) {
 		t.Error("not expired after 14 days")
 	}
+	// Distinct from Context's retention of builds and captures, whose
+	// closed-branch grace is 7 days (RFC 0004 §2.3): this one is about
+	// the text, and stays at 14.
+	if domain.ProposalRetention != 14*24*time.Hour {
+		t.Errorf("ProposalRetention = %v, want 14 days (RFC 0004 §4.1)", domain.ProposalRetention)
+	}
 }
 
 func TestPreviewURL(t *testing.T) {

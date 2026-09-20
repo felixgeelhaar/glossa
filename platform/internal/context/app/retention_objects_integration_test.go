@@ -70,13 +70,13 @@ func TestPurgeDeletesUnreferencedImagesFromObjectStorage(t *testing.T) {
 	lonely := pngOf(t, 40, 30, 3, png.BestSpeed) // only the oldest build shows it
 	shared := pngOf(t, 24, 18, 4, png.BestSpeed) // an old and a recent build share it
 
-	// Seven capture builds: retention keeps the latest five.
-	for i := range 7 {
+	// Five capture builds: retention keeps the latest three.
+	for i := range 5 {
 		var c capture
 		switch i {
 		case 0:
 			c = capture{"/checkout", "de", lonely, []string{"checkout.pay"}}
-		case 1, 5:
+		case 1, 3:
 			c = capture{"/checkout", "de", shared, []string{"checkout.pay"}}
 		default:
 			c = capture{"/checkout", "de", pngOf(t, 8, 8, uint8(i), png.BestSpeed), []string{"checkout.pay"}} //nolint:gosec // a test pattern

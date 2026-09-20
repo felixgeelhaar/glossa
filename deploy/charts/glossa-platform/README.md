@@ -658,7 +658,7 @@ the value until it is set.
 | `server.integration.workers` | `1` | `GLOSSA_INTEGRATION_WORKERS` per pod. |
 | `server.integration.maxUploadBytes` | `67108864` | `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES` (64 MiB). The upload route enforces it itself; keep any ingress body limit above it. |
 | `server.integration.retention` | `168h` | `GLOSSA_INTEGRATION_RETENTION`: import/export files are deleted after this; jobs and results stay. |
-| `server.purge.enabled` | `true` | `GLOSSA_PURGE_ENABLED`: the daily jobs — builds beyond retention with their captures, the images no capture references, and Catalog's sweep of the proposals of branches closed 14 days ago. One replica leads each run (a lease), so leave it on everywhere. |
+| `server.purge.enabled` | `true` | `GLOSSA_PURGE_ENABLED`: the daily jobs — builds beyond retention (the latest 3 per application, branch and source, and a closed branch's after 7 days) with their captures, the images no capture references, and Catalog's separate sweep of the proposals of branches closed 14 days ago. One replica leads each run (a lease), so leave it on everywhere. |
 | `server.purge.interval` | `24h` | `GLOSSA_PURGE_INTERVAL`: how often the jobs run across the deployment, not per pod. |
 | `server.purge.timeout` | `30m` | `GLOSSA_PURGE_TIMEOUT`: bounds one run of one job; it must fit inside the interval. |
 | `server.purge.lease` | `35m` | `GLOSSA_PURGE_LEASE`: how long a run reserves its job against the other replicas. Must exceed the timeout. |

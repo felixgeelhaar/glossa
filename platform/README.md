@@ -163,7 +163,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES` | `67108864` | Largest import file (64 MiB; at most 2 GiB). The upload route streams it to object storage instead of taking `GLOSSA_HTTP_MAX_BODY_BYTES`. |
 | `GLOSSA_INTEGRATION_UPLOAD_TIMEOUT` | `10m` | Read deadline of an upload and write deadline of a download, instead of the HTTP read/write timeouts. |
 | `GLOSSA_INTEGRATION_RETENTION` | `168h` | How long uploaded and exported files are kept; the sweep deletes them afterwards (jobs and results stay). |
-| `GLOSSA_PURGE_ENABLED` | `true` | Run the daily purge jobs in this process: Context's retention (builds, captures, unreferenced images) and Catalog's proposal sweep. A lease picks one replica per run, so leave it on everywhere. |
+| `GLOSSA_PURGE_ENABLED` | `true` | Run the daily purge jobs in this process: Context's retention (the latest 3 builds per application, branch and source, a closed branch's after 7 days, with their captures and unreferenced images) and Catalog's separate proposal sweep (14 days). A lease picks one replica per run, so leave it on everywhere. |
 | `GLOSSA_PURGE_INTERVAL` | `24h` | How often the jobs run across the deployment, not per pod. |
 | `GLOSSA_PURGE_TIMEOUT` / `_LEASE` | `30m` / `35m` | Budget for one run of one job (it must fit inside the interval); how long a run reserves its job against the other replicas. The lease must be longer. |
 | `GLOSSA_PURGE_POLL_INTERVAL` | `5m` | How often a replica asks whether a job is due. It must not exceed the interval. |
@@ -514,7 +514,9 @@ correctness doesn't wait for a webhook; `…/closure` and `…/merge` only
 end the branch and clean up. A closed or merged branch's proposed
 messages stay for 14 days (`ProposalRetention`) before `SweepProposals`
 obsoletes them with their translations and history intact; a reopened
-branch, or a later push of the key, proposes them again. The sweep runs
+branch, or a later push of the key, proposes them again. This is not
+Context's retention: the builds and captures of that branch go after 7
+days (RFC 0004 §2.3), while the text a translator worked on stays 14. The sweep runs
 in glossa-server as the daily `catalog.proposals` job (`GLOSSA_PURGE_*`,
 leased so one replica leads it); a system-scope query (migration 0016)
 finds the tenants that have expired proposals, and the sweep itself runs
@@ -1280,9 +1282,11 @@ check latency have no source yet: the webhook inbox and the check
 worker come with the GitHub slices.
 
 **Retention** (`domain.RetentionPolicy`, §2.3): per (application,
-branch, source) the latest 5 builds are kept, plus every current one; a
-closed branch's builds go 14 days after it closed (default-branch builds
-never do). `PurgeProject` applies it and returns the deleted builds and
+branch, source) the latest 3 builds are kept, plus every current one; a
+closed branch's builds go 7 days after it closed (default-branch builds
+never do). That is Context's clock, over builds and captures — Catalog's
+`ProposalRetention` (14 days, below) is a different rule over different
+data. `PurgeProject` applies it and returns the deleted builds and
 the images no remaining capture references, which it deletes from object
 storage in batches of `GLOSSA_PURGE_BATCH_SIZE` (a failure is logged and
 reported; the rest go on, and a delete of an object that is already gone

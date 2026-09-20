@@ -50,7 +50,7 @@ func sameIDs(t *testing.T, what string, got, want []uuid.UUID) {
 	}
 }
 
-func TestRetentionKeepsTheLatestFivePerApplicationBranchAndSource(t *testing.T) {
+func TestRetentionKeepsTheLatestThreePerApplicationBranchAndSource(t *testing.T) {
 	start := now.Add(-30 * 24 * time.Hour)
 	mainWeb := history("main-web", application, domain.SourcePlugin, "main", true, 8, start)
 	mainExtract := history("main-extract", application, domain.SourceExtract, "main", true, 7, start)
@@ -60,15 +60,18 @@ func TestRetentionKeepsTheLatestFivePerApplicationBranchAndSource(t *testing.T) 
 
 	got := domain.DefaultRetention.Expired(all, nil, now)
 
-	want := slices.Concat(ids(mainWeb[:3]), ids(mainExtract[:2]), ids(mainOther[:1]), ids(feature[:1]))
+	want := slices.Concat(ids(mainWeb[:5]), ids(mainExtract[:4]), ids(mainOther[:3]), ids(feature[:3]))
 	sameIDs(t, "expired", got, want)
+	if domain.DefaultRetention.Keep != 3 {
+		t.Errorf("Keep = %d, want 3 (RFC 0004 §2.3)", domain.DefaultRetention.Keep)
+	}
 }
 
 func TestRetentionAlwaysKeepsCurrentBuilds(t *testing.T) {
 	// Keeping no history leaves exactly the current builds: the latest
 	// default-branch build per (application, source), whatever the
 	// default branch was called then, and each open branch's latest.
-	none := domain.RetentionPolicy{Keep: 0, ClosedBranchGrace: 14 * 24 * time.Hour}
+	none := domain.RetentionPolicy{Keep: 0, ClosedBranchGrace: 7 * 24 * time.Hour}
 	start := now.Add(-30 * 24 * time.Hour)
 	master := history("master", application, domain.SourceExtract, "master", true, 3, start)
 	main := history("main", application, domain.SourcePlugin, "main", true, 3, start)
@@ -86,8 +89,8 @@ func TestRetentionPurgesClosedBranchesAfterTheGracePeriod(t *testing.T) {
 	open := history("open", application, domain.SourcePlugin, "feat/open", false, 2, start)
 	main := history("main", application, domain.SourcePlugin, "main", true, 2, start)
 	closed := map[domain.Branch]time.Time{
-		"feat/old":    now.Add(-15 * 24 * time.Hour),
-		"feat/recent": now.Add(-13 * 24 * time.Hour),
+		"feat/old":    now.Add(-8 * 24 * time.Hour),
+		"feat/recent": now.Add(-6 * 24 * time.Hour),
 		// A default-branch build never goes because a branch of the same
 		// name was closed.
 		"main": now.Add(-30 * 24 * time.Hour),
@@ -96,7 +99,7 @@ func TestRetentionPurgesClosedBranchesAfterTheGracePeriod(t *testing.T) {
 	sameIDs(t, "expired", got, ids(closedLongAgo))
 }
 
-func TestRetentionClosedBranchGraceIsExactlyFourteenDays(t *testing.T) {
+func TestRetentionClosedBranchGraceIsExactlySevenDays(t *testing.T) {
 	// The clock is the test's: the boundary is checked to the second,
 	// not with a slack of hours.
 	closedAt := now.Add(-20 * 24 * time.Hour)
@@ -110,7 +113,7 @@ func TestRetentionClosedBranchGraceIsExactlyFourteenDays(t *testing.T) {
 		want []uuid.UUID
 	}{
 		// A closed branch's latest build is current in its branch's view
-		// and within the five-build window, so nothing goes early.
+		// and within the three-build window, so nothing goes early.
 		{"a second before the grace ends", closedAt.Add(grace - time.Second), nil},
 		{"exactly when it ends", closedAt.Add(grace), ids(builds)},
 		{"a second after", closedAt.Add(grace + time.Second), ids(builds)},
@@ -119,8 +122,10 @@ func TestRetentionClosedBranchGraceIsExactlyFourteenDays(t *testing.T) {
 			sameIDs(t, "expired", domain.DefaultRetention.Expired(builds, closed, tc.at), tc.want)
 		})
 	}
-	if grace != 14*24*time.Hour {
-		t.Errorf("ClosedBranchGrace = %v, want 14 days (RFC 0004 §2.3)", grace)
+	// Catalog's proposal retention is a different rule over different
+	// data (RFC 0004 §4.1) and stays at 14 days; catalog/domain pins it.
+	if grace != 7*24*time.Hour {
+		t.Errorf("ClosedBranchGrace = %v, want 7 days (RFC 0004 §2.3)", grace)
 	}
 }
 

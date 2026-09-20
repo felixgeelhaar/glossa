@@ -18,17 +18,17 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
 )
 
-func TestPurgeProjectKeepsTheLatestFiveAndReportsOrphanedImages(t *testing.T) {
+func TestPurgeProjectKeepsTheLatestThreeAndReportsOrphanedImages(t *testing.T) {
 	h := newHarness(t)
 	f := h.project(t, "shop", []string{"web"}, "checkout.pay")
 	var builds []uuid.UUID
-	for i := range 7 {
+	for i := range 5 {
 		b := h.ingest(t, f, "plugin", "web", fmt.Sprintf("%07x", 0xabc0000+i), "main", use{"checkout.pay", "a.vue", i + 1})
 		builds = append(builds, b.Build.ID)
 	}
 	// The oldest build's capture has pixels of its own; the second's
 	// share their image with a build that stays.
-	for build, image := range map[uuid.UUID]string{builds[0]: "only-oldest", builds[1]: "shared", builds[5]: "shared"} {
+	for build, image := range map[uuid.UUID]string{builds[0]: "only-oldest", builds[1]: "shared", builds[3]: "shared"} {
 		if _, err := h.svc.IngestCapture(h.ci(), app.IngestCapture{Project: f.project, Build: build,
 			Capture: shot("/checkout", image)}); err != nil {
 			t.Fatal(err)
@@ -45,8 +45,8 @@ func TestPurgeProjectKeepsTheLatestFiveAndReportsOrphanedImages(t *testing.T) {
 	if !slices.Equal(got.OrphanedImages, []domain.Digest{digest("only-oldest")}) {
 		t.Errorf("orphaned images = %v", got.OrphanedImages)
 	}
-	if n := count(t, "SELECT count(*) FROM context_builds"); n != 5 {
-		t.Errorf("builds left = %d, want 5", n)
+	if n := count(t, "SELECT count(*) FROM context_builds"); n != 3 {
+		t.Errorf("builds left = %d, want 3", n)
 	}
 	if n := count(t, "SELECT count(*) FROM context_usages WHERE build_id = ANY($1)", builds[:2]); n != 0 {
 		t.Errorf("usages of purged builds = %d", n)
@@ -84,7 +84,7 @@ func TestPurgeRunsAcrossTenants(t *testing.T) {
 	f := h.project(t, "shop", []string{"web"}, "k")
 	other := harnessFor(t, "bolt")
 	g := other.project(t, "blog", []string{"web"}, "k")
-	for i := range 6 {
+	for i := range 4 {
 		h.ingest(t, f, "extract", "web", fmt.Sprintf("%07x", 0xa000000+i), "main", use{"k", "a.go", 1})
 		other.ingest(t, g, "extract", "web", fmt.Sprintf("%07x", 0xb000000+i), "main", use{"k", "b.go", 1})
 	}
@@ -101,8 +101,8 @@ func TestPurgeRunsAcrossTenants(t *testing.T) {
 			t.Errorf("project %s: purged %d builds, want 1", p.Project, len(p.Builds))
 		}
 	}
-	if n := count(t, "SELECT count(*) FROM context_builds"); n != 10 {
-		t.Errorf("builds left = %d, want 10", n)
+	if n := count(t, "SELECT count(*) FROM context_builds"); n != 6 {
+		t.Errorf("builds left = %d, want 6", n)
 	}
 	// A request context carries a tenant; the sweep refuses it.
 	if _, err := h.svc.Purge(h.developer()); err == nil {

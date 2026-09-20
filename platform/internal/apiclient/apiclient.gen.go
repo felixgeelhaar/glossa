@@ -8244,8 +8244,9 @@ type ClientInterface interface {
 	//
 	// With how many usages each holds and how many of those name a key
 	// the catalog didn't know at upload (`unknown_keys`). Retention
-	// keeps the latest 5 builds per application, branch and source plus
-	// every current one (RFC 0004 §2.3). Needs `catalog.read`. Problem
+	// keeps the latest 3 builds per application, branch and source plus
+	// every current one, and deletes a closed branch's builds 7 days
+	// after it closed (RFC 0004 §2.3). Needs `catalog.read`. Problem
 	// codes: `unknown_application` (400).
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/context-builds (the `ListContextBuilds` operationId).
@@ -12622,8 +12623,9 @@ func (c *Client) GetCaptureImage(ctx context.Context, tenant TenantPath, project
 //
 // With how many usages each holds and how many of those name a key
 // the catalog didn't know at upload (`unknown_keys`). Retention
-// keeps the latest 5 builds per application, branch and source plus
-// every current one (RFC 0004 §2.3). Needs `catalog.read`. Problem
+// keeps the latest 3 builds per application, branch and source plus
+// every current one, and deletes a closed branch's builds 7 days
+// after it closed (RFC 0004 §2.3). Needs `catalog.read`. Problem
 // codes: `unknown_application` (400).
 //
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/context-builds (the `ListContextBuilds` operationId).
@@ -27997,8 +27999,9 @@ type ClientWithResponsesInterface interface {
 	//
 	// With how many usages each holds and how many of those name a key
 	// the catalog didn't know at upload (`unknown_keys`). Retention
-	// keeps the latest 5 builds per application, branch and source plus
-	// every current one (RFC 0004 §2.3). Needs `catalog.read`. Problem
+	// keeps the latest 3 builds per application, branch and source plus
+	// every current one, and deletes a closed branch's builds 7 days
+	// after it closed (RFC 0004 §2.3). Needs `catalog.read`. Problem
 	// codes: `unknown_application` (400).
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -44429,8 +44432,9 @@ func (c *ClientWithResponses) GetCaptureImageWithResponse(ctx context.Context, t
 //
 // With how many usages each holds and how many of those name a key
 // the catalog didn't know at upload (`unknown_keys`). Retention
-// keeps the latest 5 builds per application, branch and source plus
-// every current one (RFC 0004 §2.3). Needs `catalog.read`. Problem
+// keeps the latest 3 builds per application, branch and source plus
+// every current one, and deletes a closed branch's builds 7 days
+// after it closed (RFC 0004 §2.3). Needs `catalog.read`. Problem
 // codes: `unknown_application` (400).
 //
 // Returns a wrapper object for the known response body format(s).
