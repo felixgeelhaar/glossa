@@ -36,7 +36,8 @@ WHERE build_id = ANY(sqlc.arg(build_ids)::uuid[]) AND message_id IS NOT NULL;
 
 -- name: ListUsagesInBuilds :many
 -- A page of the usages in the given (current) builds on a route, in a
--- component or in a file (each filter optional), by build and position.
+-- component, in a file, or only the unknown keys (each filter
+-- optional), by build and position.
 SELECT u.build_id, u.position, u.message_key, u.message_id, u.file, u.line, u.col, u.component, u.route, u.kind,
        b.application_id, b.commit_sha, b.branch, b.on_default_branch, b.source
 FROM context_usages u
@@ -45,6 +46,9 @@ WHERE u.build_id = ANY(sqlc.arg(build_ids)::uuid[])
   AND (sqlc.narg(route)::text IS NULL OR u.route = sqlc.narg(route)::text)
   AND (sqlc.narg(component)::text IS NULL OR u.component = sqlc.narg(component)::text)
   AND (sqlc.narg(file)::text IS NULL OR u.file = sqlc.narg(file)::text)
+  -- unknown: only usages of keys the catalog didn't know at ingest
+  -- (RFC 0004 §2.2), which the PR check reports with their file:line.
+  AND (NOT sqlc.arg(unknown)::boolean OR u.message_id IS NULL)
   AND (u.build_id, u.position) > (sqlc.arg(after_build)::uuid, sqlc.arg(after_position)::int)
 ORDER BY u.build_id, u.position
 LIMIT sqlc.arg(max_rows);

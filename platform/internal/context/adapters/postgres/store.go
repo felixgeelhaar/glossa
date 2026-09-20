@@ -241,7 +241,7 @@ func optionalText(s string) pgtype.Text { return pgtype.Text{String: s, Valid: s
 func (s *store) ListUsages(ctx context.Context, builds []uuid.UUID, f app.UsageFilter, after app.UsageCursor, limit int) ([]app.UsageView, error) {
 	rows, err := s.q.ListUsagesInBuilds(ctx, contextsql.ListUsagesInBuildsParams{
 		BuildIds: builds, Route: optionalText(f.Route), Component: optionalText(f.Component), File: optionalText(f.File),
-		AfterBuild: after.Build, AfterPosition: int32Of(after.Position), MaxRows: int32Of(limit),
+		Unknown: f.Unknown, AfterBuild: after.Build, AfterPosition: int32Of(after.Position), MaxRows: int32Of(limit),
 	})
 	if err != nil {
 		return nil, storeError(err)

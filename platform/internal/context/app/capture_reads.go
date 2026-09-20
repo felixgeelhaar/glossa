@@ -102,22 +102,43 @@ func (s *Service) CapturesOfKey(ctx context.Context, project uuid.UUID, key stri
 	return out, err
 }
 
-// measureCaptureCoverage records the share of a project's active
-// messages with a visible region on a current default-branch capture.
-func (s *Service) measureCaptureCoverage(ctx context.Context, project uuid.UUID) error {
+// CaptureCoverage counts the view's active messages and how many of
+// them a current capture shows (RFC 0004 §3). The pull-request comment
+// reports it as "captured / not captured", and the coverage metric is
+// the default branch's own answer. Needs catalog.read.
+type CaptureCoverage struct {
+	// Active counts the project's active messages; Captured, how many
+	// have a visible region on a current capture.
+	Active, Captured int
+	// CurrentBuilds counts the builds considered: with none, nothing is
+	// captured because nothing was uploaded yet.
+	CurrentBuilds int
+}
+
+// NotCaptured is the messages no current capture shows.
+func (c CaptureCoverage) NotCaptured() int { return c.Active - c.Captured }
+
+// CaptureCoverage measures a view's capture coverage.
+func (s *Service) CaptureCoverage(ctx context.Context, project uuid.UUID, branch string) (CaptureCoverage, error) {
 	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
-		return err
+		return CaptureCoverage{}, err
+	}
+	view, err := parseView(branch)
+	if err != nil {
+		return CaptureCoverage{}, err
 	}
 	active, err := s.catalog.ActiveMessages(ctx, project)
 	if err != nil {
-		return err
+		return CaptureCoverage{}, err
 	}
 	captured := map[uuid.UUID]bool{}
+	out := CaptureCoverage{Active: len(active)}
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		current, err := currentBuilds(ctx, st, project, "")
+		current, err := currentBuilds(ctx, st, project, view)
 		if err != nil || len(current) == 0 {
 			return err
 		}
+		out.CurrentBuilds = len(current)
 		ids, err := st.CapturedMessages(ctx, current)
 		for _, id := range ids {
 			captured[id] = true
@@ -125,15 +146,24 @@ func (s *Service) measureCaptureCoverage(ctx context.Context, project uuid.UUID)
 		return err
 	})
 	if err != nil {
-		return err
+		return CaptureCoverage{}, err
 	}
-	n := 0
 	for _, m := range active {
 		if captured[m.ID] {
-			n++
+			out.Captured++
 		}
 	}
+	return out, nil
+}
+
+// measureCaptureCoverage records the share of a project's active
+// messages with a visible region on a current default-branch capture.
+func (s *Service) measureCaptureCoverage(ctx context.Context, project uuid.UUID) error {
+	c, err := s.CaptureCoverage(ctx, project, "")
+	if err != nil {
+		return err
+	}
 	t, _ := tenancy.FromContext(ctx)
-	s.metrics.CaptureCoverage(t, project, len(active), n)
+	s.metrics.CaptureCoverage(t, project, c.Active, c.Captured)
 	return nil
 }

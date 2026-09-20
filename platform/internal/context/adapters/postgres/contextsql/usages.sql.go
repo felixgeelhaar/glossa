@@ -209,9 +209,12 @@ WHERE u.build_id = ANY($1::uuid[])
   AND ($2::text IS NULL OR u.route = $2::text)
   AND ($3::text IS NULL OR u.component = $3::text)
   AND ($4::text IS NULL OR u.file = $4::text)
-  AND (u.build_id, u.position) > ($5::uuid, $6::int)
+  -- unknown: only usages of keys the catalog didn't know at ingest
+  -- (RFC 0004 §2.2), which the PR check reports with their file:line.
+  AND (NOT $5::boolean OR u.message_id IS NULL)
+  AND (u.build_id, u.position) > ($6::uuid, $7::int)
 ORDER BY u.build_id, u.position
-LIMIT $7
+LIMIT $8
 `
 
 type ListUsagesInBuildsParams struct {
@@ -219,6 +222,7 @@ type ListUsagesInBuildsParams struct {
 	Route         pgtype.Text
 	Component     pgtype.Text
 	File          pgtype.Text
+	Unknown       bool
 	AfterBuild    uuid.UUID
 	AfterPosition int32
 	MaxRows       int32
@@ -243,13 +247,15 @@ type ListUsagesInBuildsRow struct {
 }
 
 // A page of the usages in the given (current) builds on a route, in a
-// component or in a file (each filter optional), by build and position.
+// component, in a file, or only the unknown keys (each filter
+// optional), by build and position.
 func (q *Queries) ListUsagesInBuilds(ctx context.Context, arg ListUsagesInBuildsParams) ([]ListUsagesInBuildsRow, error) {
 	rows, err := q.db.Query(ctx, listUsagesInBuilds,
 		arg.BuildIds,
 		arg.Route,
 		arg.Component,
 		arg.File,
+		arg.Unknown,
 		arg.AfterBuild,
 		arg.AfterPosition,
 		arg.MaxRows,

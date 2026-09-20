@@ -203,6 +203,11 @@ type UsageFilter struct {
 	Route     string
 	Component string
 	File      string
+	// Unknown keeps only the usages of keys the catalog didn't know at
+	// ingest (RFC 0004 §2.2). The Glossa PR check reports them with
+	// their file:line, and a branch with thousands of usages should not
+	// have to be paged through to find the handful that are unknown.
+	Unknown bool
 }
 
 // UsageView is a usage with the build it belongs to.
