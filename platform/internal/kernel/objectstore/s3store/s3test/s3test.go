@@ -56,12 +56,28 @@ func (e *Env) Config(bucket string) s3store.Config {
 }
 
 // Store returns an adapter on bucket, creating the bucket.
+//
+// MinIO answers its port before it finishes starting, and the container
+// module's wait strategy returns then — the first request can still come back
+// "Server not initialized yet". So the bucket is created with a short retry,
+// which a genuinely broken MinIO still fails.
 func (e *Env) Store(ctx context.Context, bucket string) (*s3store.Store, error) {
 	s, err := s3store.New(e.Config(bucket))
 	if err != nil {
 		return nil, err
 	}
-	return s, s.EnsureBucket(ctx)
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		err = s.EnsureBucket(ctx)
+		if err == nil || time.Now().After(deadline) || ctx.Err() != nil {
+			return s, err
+		}
+		select {
+		case <-ctx.Done():
+			return s, err
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
 }
 
 // Close stops MinIO.
