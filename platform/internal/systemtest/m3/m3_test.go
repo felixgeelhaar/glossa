@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture/capturetest"
 	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture"
 )
 
@@ -22,6 +23,10 @@ func TestM3Exit(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &scenario{t: t, f: f, phases: map[string]time.Duration{}}
+	// The browser first: without one there is nothing to prove about the
+	// captures or about the editor's guards, and finding that out before
+	// Docker starts saves two minutes. It skips here, and fails in CI.
+	s.chrome = capturetest.StartChrome(t)
 
 	s.phase("deploy", func() { s.d = deploy(t) })
 	s.phase("tenant, project and application", s.setup)
@@ -71,6 +76,7 @@ type scenario struct {
 	application string
 	ciToken     string
 	appURL      string
+	chrome      string
 
 	phases     map[string]time.Duration
 	phaseNames []string

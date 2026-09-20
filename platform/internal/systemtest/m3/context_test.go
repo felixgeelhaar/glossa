@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture/capturetest"
 	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture"
 )
 
@@ -220,10 +219,9 @@ type captureJSON struct {
 // kernel denies Chrome its own sandbox (platform/README.md).
 func (s *scenario) captureRoutes() {
 	t := s.t
-	endpoint := capturetest.StartChrome(t)
 	app := serveApp(t, filepath.Join(appDir(), fixture.DirPreview))
 	s.appURL = app.URL
-	s.ci.env["GLOSSA_CAPTURE_CDP"] = endpoint
+	s.ci.env["GLOSSA_CAPTURE_CDP"] = s.chrome
 	var out captureJSON
 	s.ci.ok(&out, "capture", "--upload", "--base-url", app.URL, "--commit", s.f.Commit, "--branch", s.f.Branch)
 	want := len(s.f.Pages) * len(s.f.CaptureLocales) * len(s.f.Viewports)

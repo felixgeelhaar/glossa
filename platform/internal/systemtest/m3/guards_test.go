@@ -14,7 +14,6 @@ import (
 
 	browse "go.klarlabs.de/scout"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture/capturetest"
 	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture"
 )
 
@@ -141,13 +140,12 @@ const probeScript = `(() => {
 // (RFC 0004 §5.1, §12.3).
 func (s *scenario) refuseOverlay() {
 	t := s.t
-	endpoint := capturetest.StartChrome(t)
 	app := serveApp(t, filepath.Join(appDir(), fixture.DirPreview))
 
 	engine := browse.New(browse.WithHeadless(true), browse.WithTimeout(30*time.Second),
-		browse.WithAllowPrivateIPs(true), browse.WithRemoteCDP(webSocketURL(t, endpoint)))
+		browse.WithAllowPrivateIPs(true), browse.WithRemoteCDP(webSocketURL(t, s.chrome)))
 	if err := engine.Launch(); err != nil {
-		t.Fatalf("attach to Chrome at %s: %v", endpoint, err)
+		t.Fatalf("attach to Chrome at %s: %v", s.chrome, err)
 	}
 	defer func() { _ = engine.Close() }()
 
