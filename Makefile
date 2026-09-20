@@ -1,4 +1,4 @@
-.PHONY: help api admin packages test lint fmt up down migrate-up migrate-down sqlc-gen platform-test platform-lint platform-integration system-m2 system-m3
+.PHONY: help api admin packages test lint fmt up down migrate-up migrate-down sqlc-gen platform-test platform-lint platform-integration system-m2 system-m3 system
 
 # Go modules of the rewrite (RFC 0002). apps/api is v0.3 and keeps its
 # own targets until it's retired.
@@ -39,6 +39,9 @@ system-m2: ## M2 exit test (Docker): fill es/fr/ja through glossa-server; writes
 
 system-m3: ## M3 exit test (Docker + Chrome): context, the PR flow, the overlay guards and the documents; writes platform/internal/systemtest/m3/REPORT.md.
 	cd platform && go test -tags=system -timeout=900s -count=1 -v ./internal/systemtest/m3/...
+
+system: ## Both exit tests, one after the other (they each want Docker and a browser to themselves).
+	cd platform && go test -tags=system -timeout=1500s -count=1 -p 1 ./internal/systemtest/...
 
 # ── Cross-cutting ───────────────────────────────────────────────────
 test: api-test platform-test web-test ## Backend + frontend tests.
