@@ -71,12 +71,10 @@ func New(cfg Config) (*Verifier, error) {
 	if audience == "" {
 		audience = domain.GitHubActionsAudience
 	}
+	// GitHubActions already pins RS256, requires sub and jti, and takes
+	// the github.com issuer; only the deployment's own settings change.
 	oc := oidc.GitHubActions(audience)
 	oc.Issuer = issuer
-	// A GitHub Actions ID token always has a subject; requiring it means
-	// a token without one is refused by the verifier rather than by a
-	// later check that forgot to look.
-	oc.RequireSubject = true
 	oc.MaxStale = cfg.MaxStale
 	oc.ClockSkew = cfg.ClockSkew
 	oc.AllowInsecureHTTPHosts = cfg.AllowInsecureHTTPHosts
