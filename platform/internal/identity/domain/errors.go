@@ -23,4 +23,18 @@ var (
 	ErrTokenRevoked       = errors.New("identity: token revoked")
 	ErrTokenExpired       = errors.New("identity: token expired")
 	ErrScopeExceedsGrant  = errors.New("identity: token scopes exceed the creator's permissions")
+
+	ErrInvalidPermission = errors.New("identity: unknown permission")
+
+	// In-context grants and the preview origins they are bound to
+	// (RFC 0004 §5.2).
+	ErrInvalidOrigin          = errors.New("identity: invalid origin")
+	ErrInvalidOriginLabel     = errors.New("identity: origin label must be at most 100 characters")
+	ErrOriginRegistered       = errors.New("identity: the origin is already registered for this project")
+	ErrTooManyPreviewOrigins  = errors.New("identity: the project has as many preview origins as it may have")
+	ErrOriginNotRegistered    = errors.New("identity: the origin is not a registered preview origin of this project")
+	ErrNoInContextPermissions = errors.New("identity: you may not edit this project's text in context")
+	ErrPersonGrantOnly        = errors.New("identity: only a signed-in person mints an in-context grant")
+	ErrOriginNotBound         = errors.New("identity: the grant was minted for another origin")
+	ErrGrantProjectMismatch   = errors.New("identity: the grant was minted for another project")
 )

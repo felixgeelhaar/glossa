@@ -33,6 +33,7 @@ const MinCSRFKeyLen = 32
 type API struct {
 	svc     *app.Service
 	reqs    map[string]apiv1.Requirement
+	cors    *corsSurface
 	csrfKey []byte
 	logger  *slog.Logger
 	errs    errorWriter
@@ -47,7 +48,14 @@ func New(svc *app.Service, csrfKey []byte, logger *slog.Logger) (*API, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &API{svc: svc, reqs: reqs, csrfKey: csrfKey, logger: logger, errs: errorWriter{logger: logger}}, nil
+	cors, err := newCORSSurface()
+	if err != nil {
+		return nil, err
+	}
+	return &API{
+		svc: svc, reqs: reqs, cors: cors, csrfKey: csrfKey, logger: logger,
+		errs: errorWriter{logger: logger},
+	}, nil
 }
 
 // ResponseError, RequestError and ParamError are the generated server's

@@ -2,6 +2,7 @@ package apiv1
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -10,6 +11,8 @@ const (
 	SchemeSession = "session"
 	SchemeCSRF    = "csrf"
 	SchemeBearer  = "bearer"
+	// SchemeInContext is the in-product editor's grant (RFC 0004 §5.2).
+	SchemeInContext = "in_context"
 )
 
 // Requirement is what one operation demands of its caller, read from the
@@ -23,6 +26,10 @@ type Requirement struct {
 	Session, CSRF bool
 	// Bearer accepts an API token.
 	Bearer bool
+	// InContext accepts the in-product editor's grant. It is also the
+	// CORS surface: an operation the overlay can't call is an operation
+	// no preview origin is answered on (RFC 0004 §5.2).
+	InContext bool
 }
 
 // Requirements maps each operation's route pattern, exactly as the
@@ -58,15 +65,45 @@ func (r *Requirement) add(alt map[string][]string) error {
 	_, session := alt[SchemeSession]
 	_, csrf := alt[SchemeCSRF]
 	_, bearer := alt[SchemeBearer]
+	_, inContext := alt[SchemeInContext]
 	switch {
 	case len(alt) == 0:
 		return fmt.Errorf("an empty security alternative makes the operation public; use security: []")
 	case bearer && len(alt) == 1:
 		r.Bearer = true
+	case inContext && len(alt) == 1:
+		r.InContext = true
 	case session && (len(alt) == 1 || csrf && len(alt) == 2):
 		r.Session, r.CSRF = true, csrf
 	default:
 		return fmt.Errorf("unsupported security alternative %v", alt)
 	}
 	return nil
+}
+
+// InContextRoutes returns the route patterns an in-context grant may be
+// used on, which is also the only surface CORS answers a registered
+// preview origin on. Both come from the contract's `security`, so the
+// editor's reach, the CORS surface and the documentation can't drift
+// apart.
+func InContextRoutes() (map[string][]string, error) {
+	reqs, err := Requirements()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string][]string{}
+	for pattern, req := range reqs {
+		if !req.InContext {
+			continue
+		}
+		method, path, ok := strings.Cut(pattern, " ")
+		if !ok {
+			return nil, fmt.Errorf("apiv1: malformed route pattern %q", pattern)
+		}
+		out[path] = append(out[path], method)
+	}
+	for path := range out {
+		slices.Sort(out[path])
+	}
+	return out, nil
 }

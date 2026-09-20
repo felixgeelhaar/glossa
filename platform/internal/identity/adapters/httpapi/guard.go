@@ -15,6 +15,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
@@ -73,6 +74,10 @@ func (a *API) Guard(next http.Handler) http.Handler {
 			a.errs.write(w, r, err)
 			return
 		}
+		if err := boundToRoute(c, r); err != nil {
+			a.errs.write(w, r, err)
+			return
+		}
 		ctx := context.WithValue(r.Context(), callerKey{}, c)
 		if r.PathValue("tenant") != "" {
 			tenantScoped.ServeHTTP(w, r.WithContext(ctx))
@@ -88,10 +93,24 @@ var errCSRF = problem.New(http.StatusForbidden, "csrf_invalid",
 func (a *API) authenticate(r *http.Request, req apiv1.Requirement) (caller, error) {
 	if h := r.Header.Get("Authorization"); h != "" {
 		scheme, cred, _ := strings.Cut(h, " ")
-		if !req.Bearer || !strings.EqualFold(scheme, "Bearer") {
+		if !strings.EqualFold(scheme, "Bearer") {
 			return caller{}, app.ErrUnauthenticated
 		}
-		authn, err := a.svc.AuthenticateToken(r.Context(), strings.TrimSpace(cred))
+		cred = strings.TrimSpace(cred)
+		// The prefix says which credential this is, so the two are never
+		// checked against the wrong table and an operation that takes
+		// only one never accidentally takes the other.
+		if domain.IsInContextSecret(cred) {
+			if !req.InContext {
+				return caller{}, app.ErrUnauthenticated
+			}
+			authn, err := a.svc.AuthenticateInContextGrant(r.Context(), cred, r.Header.Get("Origin"))
+			return caller{authn: authn}, err
+		}
+		if !req.Bearer {
+			return caller{}, app.ErrUnauthenticated
+		}
+		authn, err := a.svc.AuthenticateToken(r.Context(), cred)
 		return caller{authn: authn}, err
 	}
 	cookie, err := r.Cookie(SessionCookie)
@@ -106,6 +125,26 @@ func (a *API) authenticate(r *http.Request, req apiv1.Requirement) (caller, erro
 		return caller{}, errCSRF
 	}
 	return caller{authn: authn, session: cookie.Value}, nil
+}
+
+// boundToRoute enforces an in-context grant's project binding: a grant
+// minted for one project never reaches another's data, even though both
+// live in the same tenant. The origin binding is checked when the
+// credential is resolved; this is the other half.
+//
+// Routes with no {project} in the path — the message preview, the
+// tenant's AI suggestions — are bounded instead by the small set of
+// operations that accept a grant at all, which is the same set CORS
+// answers a preview origin on.
+func boundToRoute(c caller, r *http.Request) error {
+	g := c.authn.Grant
+	if g == nil {
+		return nil
+	}
+	if project := r.PathValue("project"); project != "" && project != g.Project.String() {
+		return domain.ErrGrantProjectMismatch
+	}
+	return nil
 }
 
 // ResolveTenant implements tenancy.Resolver. The tenant named in the

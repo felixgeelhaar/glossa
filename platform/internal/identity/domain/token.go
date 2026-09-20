@@ -30,18 +30,27 @@ type TokenSecret struct{ v string }
 
 // NewTokenSecret returns a fresh secret: the prefix plus 256 random bits
 // from auth-go's token generator.
-func NewTokenSecret() (TokenSecret, error) {
+func NewTokenSecret() (TokenSecret, error) { return newSecret(TokenPrefix) }
+
+// ParseTokenSecret validates an inbound bearer credential's shape before
+// anything is hashed or looked up. It accepts API tokens only; an
+// in-context grant (InContextGrantPrefix) has its own parser, so the two
+// credentials can never be checked against the wrong table.
+func ParseTokenSecret(s string) (TokenSecret, error) { return parseSecret(TokenPrefix, s) }
+
+// newSecret mints a secret under prefix. Every Glossa bearer credential
+// is prefix + 256 random bits, so a leaked string says what it opens.
+func newSecret(prefix string) (TokenSecret, error) {
 	raw, err := authgo.NewToken()
 	if err != nil {
 		return TokenSecret{}, fmt.Errorf("identity: generate token: %w", err)
 	}
-	return TokenSecret{v: TokenPrefix + raw.String()}, nil
+	return TokenSecret{v: prefix + raw.String()}, nil
 }
 
-// ParseTokenSecret validates an inbound bearer credential's shape before
-// anything is hashed or looked up.
-func ParseTokenSecret(s string) (TokenSecret, error) {
-	body, ok := strings.CutPrefix(s, TokenPrefix)
+// parseSecret validates a credential's shape under prefix.
+func parseSecret(prefix, s string) (TokenSecret, error) {
+	body, ok := strings.CutPrefix(s, prefix)
 	if !ok || len(body) != tokenBodyLen || strings.IndexFunc(body, notBase64URL) >= 0 {
 		return TokenSecret{}, ErrInvalidTokenSecret
 	}

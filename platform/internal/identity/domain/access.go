@@ -270,6 +270,48 @@ func (g Grant) add(p Permission, scope LocaleScope) {
 	}
 }
 
+// Intersect returns the part of g that is in perms, each permission
+// keeping the locale scope g gave it. It is how a narrower credential
+// is cut from a wider one — an in-context grant from the person's
+// grant (RFC 0004 §5.2) — without ever widening it: a translator
+// limited to de stays limited to de.
+func (g Grant) Intersect(perms ...Permission) Grant {
+	out := Grant{perms: map[Permission]LocaleScope{}}
+	for _, p := range perms {
+		if scope, ok := g.perms[p]; ok {
+			out.perms[p] = scope
+		}
+	}
+	return out
+}
+
+// LocaleScopes returns the grant as data: each granted permission with
+// the locales it holds for, empty meaning every locale. It is what a
+// stored credential keeps, so GrantFromLocaleScopes can rebuild it.
+func (g Grant) LocaleScopes() map[Permission][]string {
+	out := make(map[Permission][]string, len(g.perms))
+	for p, scope := range g.perms {
+		out[p] = scope.Strings()
+	}
+	return out
+}
+
+// GrantFromLocaleScopes rebuilds a grant LocaleScopes wrote down.
+func GrantFromLocaleScopes(m map[Permission][]string) (Grant, error) {
+	g := Grant{perms: map[Permission]LocaleScope{}}
+	for p, locales := range m {
+		if !slices.Contains(AllPermissions(), p) {
+			return Grant{}, fmt.Errorf("%w: %q", ErrInvalidPermission, p)
+		}
+		scope, err := ParseLocaleScope(locales)
+		if err != nil {
+			return Grant{}, err
+		}
+		g.perms[p] = scope
+	}
+	return g, nil
+}
+
 // Allows reports whether p is granted for every locale.
 func (g Grant) Allows(p Permission) bool {
 	scope, ok := g.perms[p]

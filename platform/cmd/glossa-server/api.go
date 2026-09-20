@@ -61,7 +61,11 @@ var _ apiv1.StrictServerInterface = apiServer{}
 
 // apiRoutes mounts the generated /v1 router. Identity's Guard enforces
 // each operation's security requirement for every context, and its
-// error hooks render every failure as problem details.
+// error hooks render every failure as problem details. Its CORS
+// middleware sits outside the Guard so a refused request still carries
+// the headers the browser needs to show the problem, and its Preflight
+// handler answers OPTIONS, which the generated router doesn't register
+// (RFC 0004 §5.2).
 func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts) func(*http.ServeMux) {
 	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
 		knowledgeAPI: c.knowledgeAPI, intelligenceAPI: c.intelligenceAPI, integrationAPI: c.integrationAPI,
@@ -71,9 +75,10 @@ func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts) func(*http.Serv
 			RequestErrorHandlerFunc:  identity.RequestError,
 			ResponseErrorHandlerFunc: identity.ResponseError,
 		})
+		mux.HandleFunc("OPTIONS /v1/", identity.Preflight)
 		apiv1.HandlerWithOptions(strict, apiv1.StdHTTPServerOptions{
 			BaseRouter:       mux,
-			Middlewares:      []apiv1.MiddlewareFunc{identity.Guard},
+			Middlewares:      []apiv1.MiddlewareFunc{identity.CORS, identity.Guard},
 			ErrorHandlerFunc: identity.ParamError,
 		})
 	}

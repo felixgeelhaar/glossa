@@ -45,7 +45,9 @@ info:
     **Pagination** is cursor-based. List operations take `page_size`
     (1–100, default 50) and `page_token`, and return `items` plus
     `next_page_token` while more items follow. Tokens are opaque and
-    only valid for the same list.
+    only valid for the same list. The exception is a list the server
+    itself caps — a hard limit is a stronger promise than a cursor —
+    which returns `items` alone and says why in `x-glossa-unpaged`.
 
     **Optimistic concurrency.** Mutable resources return an `ETag`.
     `PATCH` requires `If-Match` with it: a stale tag fails with `412
@@ -69,7 +71,18 @@ info:
     every unsafe request made with it must also send `X-CSRF-Token` with
     the `csrf_token` from the sign-in response or `GET /v1/me`. The CLI,
     CI and agents send `Authorization: Bearer glossa_api_…` API tokens,
-    which need no CSRF token.
+    which need no CSRF token. The in-product editor sends
+    `Authorization: Bearer glossa_ctx_…` in-context grants, which are
+    accepted only on the operations that list the `in_context` scheme.
+
+    **CORS.** Same-origin callers (Studio, which is served beside `/v1`)
+    need none of this. The one cross-origin caller is the in-product
+    editor: the API answers a **registered preview origin** of some
+    project (RFC 0004 §5.2), on the operations that list `in_context`
+    and nothing else, with `Authorization`, `If-Match` and
+    `Idempotency-Key` allowed, `ETag` exposed, and
+    `Access-Control-Allow-Credentials` never sent — the editor holds a
+    bearer grant and sends no cookies. There is no wildcard origin.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -135,6 +148,14 @@ tags:
     description: |
       Publishable, project-scoped, revocable keys runtimes fetch
       releases from glossa-edge with.
+  - name: in-context
+    description: |
+      The in-product editor's authorization (RFC 0004 §5.2): the
+      origins a project's preview deployments are served from, and the
+      short-lived, origin-bound grants Studio's popup mints for them.
+      The overlay runs on the product's own page, so it cannot use
+      Studio's session cookie; it holds a grant in memory instead and
+      renews it through the popup.
   - name: translation-memory
     description: |
       Knowledge: approved translations as reusable units, derived
@@ -635,6 +656,7 @@ paths:
         - session: []
           csrf: []
         - bearer: []
+        - in_context: []
       requestBody:
         required: true
         content:
@@ -1417,6 +1439,7 @@ paths:
       security:
         - session: []
         - bearer: []
+        - in_context: []
       responses:
         "200":
           description: The message.
@@ -1815,6 +1838,7 @@ paths:
       security:
         - session: []
         - bearer: []
+        - in_context: []
       responses:
         "200":
           description: The translation.
@@ -1851,6 +1875,7 @@ paths:
         - session: []
           csrf: []
         - bearer: []
+        - in_context: []
       parameters:
         - $ref: "#/components/parameters/IfMatchOptional"
       requestBody:
@@ -1897,6 +1922,7 @@ paths:
       security:
         - session: []
         - bearer: []
+        - in_context: []
       parameters:
         - $ref: "#/components/parameters/PageSize"
         - $ref: "#/components/parameters/PageToken"
@@ -2720,6 +2746,154 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  # ── in-context editing ──────────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/preview-origins:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listPreviewOrigins
+      tags: [in-context]
+      summary: Where the in-product editor may run
+      description: |
+        The origins of this project's preview deployments (RFC 0004
+        §5.2). The list is short by design and never paged. Needs
+        `catalog.read`: the authorize popup has to say where the editor
+        may run, so everyone who can see the project can see it.
+      security:
+        - session: []
+        - bearer: []
+      x-glossa-unpaged: |
+        A project keeps at most 20 preview origins, and the server
+        refuses the 21st. A cap is a stronger promise than a cursor, and
+        the authorize popup wants the whole list at once.
+      responses:
+        "200":
+          description: The registered origins, in origin order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PreviewOriginList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: registerPreviewOrigin
+      tags: [in-context]
+      summary: Register a preview origin
+      description: |
+        Says that the in-product editor may run on a page served from
+        `origin`, and that CORS may answer it on the operations the
+        overlay uses. Registering one is the decision that a person's
+        permissions may be borrowed by a page served from there, so it
+        needs `tokens.manage` — credential surface, not content — and
+        a project keeps at most 20. `http` is accepted on loopback only,
+        for a developer's own run. Problem codes: `invalid_origin` (400),
+        `origin_registered`, `too_many_preview_origins` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePreviewOrigin" }
+      responses:
+        "201":
+          description: The registration.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PreviewOrigin" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/projects/{project}/preview-origins/{preview_origin}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/PreviewOriginPath"
+    delete:
+      operationId: unregisterPreviewOrigin
+      tags: [in-context]
+      summary: Stop allowing the editor on an origin
+      description: |
+        Removes the registration and, with it, every in-context grant
+        minted for that origin: editor sessions on it end now, not when
+        the last 15-minute grant expires. CORS stops answering the
+        origin with the same request. Needs `tokens.manage`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Unregistered. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/in-context-grants:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    post:
+      operationId: createInContextGrant
+      tags: [in-context]
+      summary: Mint the in-product editor's credential
+      description: |
+        Called by Studio's `/in-context/authorize` popup, with the
+        person's session (RFC 0004 §5.2). It checks that `origin` is a
+        registered preview origin of this project and mints a bearer
+        token that:
+
+        - acts as the person, so every edit the editor makes names them;
+        - allows the person's own permissions intersected with
+          `catalog.read`, `knowledge.read`, `translations.read`,
+          `translations.write`, `intelligence.read` and
+          `intelligence.translate`, locale scopes intact, and never more;
+        - is bound to this project and to `origin`: a request from any
+          other origin is refused;
+        - lives 15 minutes and cannot be refreshed. The overlay keeps it
+          in memory and renews it by opening the popup again.
+
+        Only a signed-in person may mint one — an API token doing so
+        would launder a tenant credential into a person's — so this
+        operation takes no bearer. `token` is returned once and never
+        again. Problem codes: `invalid_origin` (400),
+        `origin_not_registered` (403), `person_grant_only` (403),
+        `no_in_context_permissions` (403).
+      security:
+        - session: []
+          csrf: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateInContextGrant" }
+      x-glossa-idempotency: |
+        A grant is a credential with a 15-minute life, like a session:
+        replaying a key would hand back a secret a second time, which
+        the API never does (see Idempotency in the conventions). Minting
+        another one is harmless and is what a retry should do.
+      responses:
+        "201":
+          description: The grant, with its secret shown once.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InContextGrant" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ── translation memory ──────────────────────────────────────────────
   /v1/tenants/{tenant}/tm-lookups:
     parameters:
@@ -3144,6 +3318,7 @@ paths:
       security:
         - session: []
         - bearer: []
+        - in_context: []
       parameters:
         - $ref: "#/components/parameters/PageSize"
         - $ref: "#/components/parameters/PageToken"
@@ -3177,6 +3352,21 @@ paths:
           required: false
           description: Keys starting with this, e.g. `checkout.`.
           schema: { type: string, maxLength: 200 }
+        - name: key
+          in: query
+          required: false
+          description: |
+            Exactly these message keys; repeatable, at most 50. For
+            asking about the messages on one screen — the in-product
+            editor asks about one — where `key_prefix` would also match
+            everything below the key. Combined with `key_prefix` and
+            `namespace` it narrows further.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 50
+            items: { $ref: "#/components/schemas/MessageKey" }
       responses:
         "200":
           description: A page of findings.
@@ -3937,6 +4127,7 @@ paths:
         - session: []
           csrf: []
         - bearer: []
+        - in_context: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -3992,6 +4183,7 @@ paths:
         - session: []
           csrf: []
         - bearer: []
+        - in_context: []
       requestBody:
         required: true
         content:
@@ -4159,6 +4351,7 @@ paths:
       security:
         - session: []
         - bearer: []
+        - in_context: []
       parameters:
         - $ref: "#/components/parameters/PageSize"
         - $ref: "#/components/parameters/PageToken"
@@ -4232,6 +4425,7 @@ paths:
         - session: []
           csrf: []
         - bearer: []
+        - in_context: []
       parameters:
         - $ref: "#/components/parameters/IfMatchOptional"
       requestBody:
@@ -6179,6 +6373,21 @@ components:
       description: |
         A tenant API token, `glossa_api_` followed by 43 base64url
         characters. Acts only in its own tenant, within its scopes.
+    in_context:
+      type: http
+      scheme: bearer
+      bearerFormat: glossa_ctx_…
+      description: |
+        An in-context grant, `glossa_ctx_` followed by 43 base64url
+        characters: the in-product editor's credential (RFC 0004 §5.2).
+        It acts as the person who minted it, lives 15 minutes, cannot be
+        refreshed, and is bound to one project and one origin — a
+        request whose `Origin` is not the bound one is `401`
+        `origin_not_bound`, whatever the credential. The operations that
+        accept it are exactly the ones the overlay calls, and exactly
+        the ones CORS allows from a registered preview origin; it is
+        refused everywhere else. It is sent without cookies
+        (`credentials: "omit"`) and so needs no CSRF token.
 
   parameters:
     TenantPath:
@@ -6267,6 +6476,12 @@ components:
       in: path
       required: true
       description: A delivery key `id` (not the key itself).
+      schema: { $ref: "#/components/schemas/Id" }
+    PreviewOriginPath:
+      name: preview_origin
+      in: path
+      required: true
+      description: A registered preview origin's `id`.
       schema: { $ref: "#/components/schemas/Id" }
     TMUnitPath:
       name: unit
@@ -7819,6 +8034,98 @@ components:
           type: array
           items: { $ref: "#/components/schemas/DeliveryKey" }
         next_page_token: { type: string }
+
+    # ── in-context editing (RFC 0004 §5.2) ────────────────────────────
+    WebOrigin:
+      type: string
+      maxLength: 255
+      description: |
+        A web origin: scheme, host and port, with the default port
+        dropped and nothing else — no path, query, fragment or
+        userinfo. `https` everywhere; `http` only on `localhost`,
+        `127.0.0.1`, `[::1]` or a `.localhost` name, which is a
+        developer's own machine and never a deployment anyone else
+        reaches. Canonicalized on write, so `HTTPS://App.Example.com:443`
+        is stored and compared as `https://app.example.com`.
+      examples: ["https://preview.example.com", "http://localhost:5173"]
+    PreviewOrigin:
+      type: object
+      required: [id, origin, label, development, created_by, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        origin: { $ref: "#/components/schemas/WebOrigin" }
+        label: { type: string, description: What people call this deployment. }
+        development:
+          type: boolean
+          description: |
+            True for a plain-http loopback origin: a developer's local
+            run, never a shared deployment.
+        created_by: { type: string, description: "`person:<id>` or `token:<id>`." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    PreviewOriginList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PreviewOrigin" }
+    CreatePreviewOrigin:
+      type: object
+      required: [origin]
+      properties:
+        origin: { $ref: "#/components/schemas/WebOrigin" }
+        label: { type: string, maxLength: 100 }
+    CreateInContextGrant:
+      type: object
+      required: [origin]
+      properties:
+        origin:
+          allOf: [{ $ref: "#/components/schemas/WebOrigin" }]
+          description: |
+            The origin the editor runs on. It must be registered for
+            this project, and it is the only origin the grant works
+            from.
+    InContextGrant:
+      type: object
+      required: [token, expires_at, project_id, origin, person_id, permissions]
+      description: |
+        The in-product editor's credential. `token` is shown exactly
+        once, here; nothing stores it but the page's memory.
+      properties:
+        token:
+          type: string
+          pattern: "^glossa_ctx_[A-Za-z0-9_-]{43}$"
+          description: The bearer credential. Never put it in `localStorage`.
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        origin: { $ref: "#/components/schemas/WebOrigin" }
+        person_id:
+          allOf: [{ $ref: "#/components/schemas/Id" }]
+          description: Who the editor acts as; every edit names them.
+        permissions:
+          type: array
+          description: |
+            What the grant allows: the person's own permissions
+            intersected with `catalog.read`, `knowledge.read`,
+            `translations.read`, `translations.write`,
+            `intelligence.read` and `intelligence.translate`, and never
+            more. Studio shows this list before minting.
+          items: { $ref: "#/components/schemas/InContextPermission" }
+    InContextPermission:
+      type: object
+      required: [permission]
+      properties:
+        permission:
+          type: string
+          enum: [catalog.read, knowledge.read, translations.read, translations.write,
+                 intelligence.read, intelligence.translate]
+        locales:
+          type: array
+          description: |
+            The locales the permission holds for; absent means every
+            locale. A translator limited to some locales in Studio is
+            limited to the same ones in the editor.
+          items: { $ref: "#/components/schemas/Locale" }
     CreateDeliveryKey:
       type: object
       required: [name]
@@ -8528,6 +8835,18 @@ components:
         select:
           $ref: "#/components/schemas/AIFillSelect"
           description: "Default `missing`; `missing_or_outdated` with `include_outdated` or listed `keys`."
+        force:
+          type: boolean
+          default: false
+          description: |
+            Translate the listed `keys` even where the translation is
+            already current, instead of skipping them as
+            `skipped.up_to_date`. Someone looking at a message in the
+            in-product editor wants a second opinion on the text that is
+            there, which is the one case a selection can't express. It
+            needs `keys` (never a whole project), queues the job again
+            when one exists for the same message, locale, source
+            revision and knowledge, and is ignored by auto-translate.
     AIJobState:
       type: string
       enum: [queued, running, succeeded, skipped, failed, dead, cancelled]
@@ -8549,6 +8868,16 @@ components:
         select: { $ref: "#/components/schemas/AIFillSelect", description: The effective selection. }
         jobs_created: { type: integer, description: "Jobs queued, new or queued again." }
         jobs_existing: { type: integer, description: "Jobs that already existed for the same message, locale, source revision and knowledge." }
+        job_ids:
+          type: array
+          maxItems: 200
+          description: |
+            The jobs this fill queued or reused, so a client can follow
+            them with `GET …/ai-jobs/{ai_job}` instead of watching the
+            whole list. Present only on the fill's own response, and
+            only for a small fill (at most 200 jobs); a bigger one is
+            followed with `GET …/ai-jobs?fill=<id>`.
+          items: { $ref: "#/components/schemas/Id" }
         skipped:
           type: object
           description: "Messages left out, by reason: `sensitive`, `up_to_date`, `not_selected`, `limit`."
@@ -8764,6 +9093,31 @@ components:
       properties:
         text: { type: string, minLength: 1, maxLength: 20000, description: An edit to accept instead of the suggestion. }
         syntax: { $ref: "#/components/schemas/Syntax" }
+        in_context:
+          allOf: [{ $ref: "#/components/schemas/InContextProvenance" }]
+          description: |
+            Where the person was looking when they accepted. Recorded
+            as `origin_detail.in_context` on the revision, beside what
+            the suggestion itself contributed, so history can say the
+            edit was made in the running product and on which route
+            (RFC 0004 §5.3). Only the in-product editor sends it.
+    InContextProvenance:
+      type: object
+      required: [route]
+      description: |
+        An edit made in the running product: the route pattern the page
+        was on and the viewport it was seen at.
+      properties:
+        route:
+          type: string
+          maxLength: 500
+          description: "The route pattern, not the URL: `/orders/:id`, never `/orders/8123`."
+        viewport:
+          type: object
+          required: [width, height]
+          properties:
+            width: { type: integer, minimum: 1, maximum: 100000 }
+            height: { type: integer, minimum: 1, maximum: 100000 }
     RejectAISuggestion:
       type: object
       properties:

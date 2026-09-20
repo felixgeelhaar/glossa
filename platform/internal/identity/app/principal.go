@@ -14,13 +14,18 @@ import (
 )
 
 // Authn is an authenticated caller before a tenant is chosen: a person
-// (from a session cookie) or an API token (from a bearer credential).
+// (from a session cookie), an API token, or an in-context grant, which
+// is a person acting through the in-product editor (RFC 0004 §5.2).
 type Authn struct {
 	Actor domain.Actor
-	// Person is set for sessions.
+	// Person is set for sessions and for in-context grants.
 	Person domain.PersonID
 	// Token is set for API tokens.
 	Token *TokenRecord
+	// Grant is set for in-context grants. It already carries the tenant,
+	// the project and the permissions, so nothing is looked up again
+	// when the tenant is resolved.
+	Grant *GrantRecord
 }
 
 // Principal returns the tenantless principal, for routes outside
@@ -29,6 +34,9 @@ func (a Authn) Principal() authz.Principal {
 	p := authz.Principal{Actor: a.Actor, Person: a.Person}
 	if a.Token != nil {
 		p.TokenTenant = a.Token.Tenant
+	}
+	if a.Grant != nil {
+		p.TokenTenant = a.Grant.Tenant
 	}
 	return p
 }
@@ -88,6 +96,17 @@ func (s *Service) AuthenticateToken(ctx context.Context, bearer string) (Authn, 
 func (s *Service) Authorize(ctx context.Context, a Authn, tenant tenancy.ID) (authz.Principal, error) {
 	p := a.Principal()
 	p.Tenant = tenant
+	if a.Grant != nil {
+		// An in-context grant carries its own permissions: the person's,
+		// already cut down when it was minted. It is never re-derived
+		// from the membership, so widening a role mid-session does not
+		// widen a grant already in a page's memory.
+		if a.Grant.Tenant != tenant {
+			return authz.Principal{}, ErrForbidden
+		}
+		p.Grant = a.Grant.Permissions
+		return p, nil
+	}
 	if a.Token != nil {
 		if a.Token.Tenant != tenant {
 			return authz.Principal{}, ErrForbidden

@@ -64,6 +64,20 @@ type TokenRecord struct {
 	LastUsedAt *time.Time
 }
 
+// GrantRecord is what bearer authentication needs about an in-context
+// grant (RFC 0004 §5.2): the person it acts as, where it may act, and
+// what it may do there. Unlike an API token it is never revoked — it
+// expires in fifteen minutes — and it is refused off its origin.
+type GrantRecord struct {
+	ID          domain.InContextGrantID
+	Tenant      tenancy.ID
+	Project     domain.ProjectRef
+	Person      domain.PersonID
+	Origin      domain.Origin
+	Permissions domain.Grant
+	ExpiresAt   time.Time
+}
+
 // TOTPRecord is a person's stored authenticator secret.
 type TOTPRecord struct {
 	Confirmed bool
@@ -85,6 +99,17 @@ type SystemStore interface {
 
 	TokenByHash(ctx context.Context, hash string) (TokenRecord, error)
 	TouchToken(ctx context.Context, id domain.TokenID, at time.Time) error
+
+	// GrantByHash resolves an in-context grant before its tenant is
+	// known, like TokenByHash (RFC 0004 §5.2).
+	GrantByHash(ctx context.Context, hash string) (GrantRecord, error)
+	TouchGrant(ctx context.Context, id domain.InContextGrantID, at time.Time) error
+	// OriginRegistered reports whether origin is a preview origin of any
+	// project. A CORS preflight carries no credentials, so the answer
+	// has to come before any tenant is known.
+	OriginRegistered(ctx context.Context, origin string) (bool, error)
+	// PurgeExpiredGrants drops grants that expired before at.
+	PurgeExpiredGrants(ctx context.Context, at time.Time) (int64, error)
 
 	PendingTOTP(ctx context.Context, person domain.PersonID, secret authgo.TOTPSecret, at time.Time) error
 	TOTP(ctx context.Context, person domain.PersonID) (TOTPRecord, error)
@@ -152,6 +177,21 @@ type TenantStore interface {
 	Token(ctx context.Context, id domain.TokenID) (domain.APIToken, error)
 	Tokens(ctx context.Context, after domain.TokenID, limit int) ([]domain.APIToken, error)
 	RevokeToken(ctx context.Context, t domain.APIToken, by domain.Actor) error
+
+	// InsertPreviewOrigin registers o; inserted is false when the same
+	// origin is already registered for the project.
+	InsertPreviewOrigin(ctx context.Context, o domain.PreviewOrigin) (inserted bool, err error)
+	PreviewOrigins(ctx context.Context, project domain.ProjectRef) ([]domain.PreviewOrigin, error)
+	PreviewOrigin(ctx context.Context, id domain.PreviewOriginID) (domain.PreviewOrigin, error)
+	// DeletePreviewOrigin removes the registration and, with it, every
+	// in-context grant minted for that origin, so access ends at once
+	// rather than when the last grant expires.
+	DeletePreviewOrigin(ctx context.Context, o domain.PreviewOrigin) error
+	// PreviewOriginFor finds a project's registration of origin
+	// (ErrNotFound when it has none).
+	PreviewOriginFor(ctx context.Context, project domain.ProjectRef, origin domain.Origin) (domain.PreviewOrigin, error)
+
+	InsertGrant(ctx context.Context, g domain.InContextGrant) error
 
 	Publish(ctx context.Context, e outbox.Event) error
 }

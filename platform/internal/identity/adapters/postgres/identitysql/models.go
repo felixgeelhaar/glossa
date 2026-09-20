@@ -66,6 +66,16 @@ type IdentityPasskey struct {
 	LastUsedAt   pgtype.Timestamptz
 }
 
+type IdentityPreviewOrigin struct {
+	ID        uuid.UUID
+	TenantID  uuid.UUID
+	ProjectID uuid.UUID
+	Origin    string
+	Label     string
+	CreatedBy string
+	CreatedAt time.Time
+}
+
 type IdentitySession struct {
 	TokenHash string
 	PersonID  uuid.UUID

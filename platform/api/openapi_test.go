@@ -164,6 +164,15 @@ func checkPagination(t *testing.T, o operation) {
 	if !isList {
 		return
 	}
+	// x-glossa-unpaged exempts a list the server itself bounds — a hard
+	// cap is a stronger promise than a cursor — and must say why.
+	if reason, _ := o.op.Extensions["x-glossa-unpaged"].(string); reason != "" {
+		return
+	}
+	if _, ok := o.op.Extensions["x-glossa-unpaged"]; ok {
+		t.Errorf("x-glossa-unpaged must say why the list needs no cursor")
+		return
+	}
 	if _, ok := schema.Properties["next_page_token"]; !ok {
 		t.Errorf("list response lacks next_page_token")
 	}

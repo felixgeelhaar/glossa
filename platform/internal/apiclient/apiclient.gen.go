@@ -726,6 +726,36 @@ func (e ImportResultStatus) Valid() bool {
 	}
 }
 
+// Defines values for InContextPermissionPermission.
+const (
+	CatalogRead           InContextPermissionPermission = "catalog.read"
+	IntelligenceRead      InContextPermissionPermission = "intelligence.read"
+	IntelligenceTranslate InContextPermissionPermission = "intelligence.translate"
+	KnowledgeRead         InContextPermissionPermission = "knowledge.read"
+	TranslationsRead      InContextPermissionPermission = "translations.read"
+	TranslationsWrite     InContextPermissionPermission = "translations.write"
+)
+
+// Valid indicates whether the value is a known member of the InContextPermissionPermission enum.
+func (e InContextPermissionPermission) Valid() bool {
+	switch e {
+	case CatalogRead:
+		return true
+	case IntelligenceRead:
+		return true
+	case IntelligenceTranslate:
+		return true
+	case KnowledgeRead:
+		return true
+	case TranslationsRead:
+		return true
+	case TranslationsWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IntegrationFormat.
 const (
 	Json  IntegrationFormat = "json"
@@ -1694,6 +1724,13 @@ type AIFill struct {
 	Id              Id    `json:"id"`
 	IncludeOutdated *bool `json:"include_outdated,omitempty"`
 
+	// JobIds The jobs this fill queued or reused, so a client can follow
+	// them with `GET …/ai-jobs/{ai_job}` instead of watching the
+	// whole list. Present only on the fill's own response, and
+	// only for a small fill (at most 200 jobs); a bigger one is
+	// followed with `GET …/ai-jobs?fill=<id>`.
+	JobIds *[]Id `json:"job_ids,omitempty"`
+
 	// JobStates The fill's jobs by state.
 	JobStates map[string]int `json:"job_states"`
 
@@ -2258,6 +2295,13 @@ type AIUsage struct {
 
 // AcceptAISuggestion defines model for AcceptAISuggestion.
 type AcceptAISuggestion struct {
+	// InContext Where the person was looking when they accepted. Recorded
+	// as `origin_detail.in_context` on the revision, beside what
+	// the suggestion itself contributed, so history can say the
+	// edit was made in the running product and on which route
+	// (RFC 0004 §5.3). Only the in-product editor sends it.
+	InContext *InContextProvenance `json:"in_context,omitempty"`
+
 	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
 	Syntax *Syntax `json:"syntax,omitempty"`
 
@@ -2706,6 +2750,16 @@ type ContextUsageList struct {
 
 // CreateAIFill defines model for CreateAIFill.
 type CreateAIFill struct {
+	// Force Translate the listed `keys` even where the translation is
+	// already current, instead of skipping them as
+	// `skipped.up_to_date`. Someone looking at a message in the
+	// in-product editor wants a second opinion on the text that is
+	// there, which is the one case a selection can't express. It
+	// needs `keys` (never a whole project), queues the job again
+	// when one exists for the same message, locale, source
+	// revision and knowledge, and is ignored by auto-translate.
+	Force *bool `json:"force,omitempty"`
+
 	// IncludeOutdated The older spelling of `select: missing_or_outdated`.
 	IncludeOutdated *bool         `json:"include_outdated,omitempty"`
 	KeyPrefix       *string       `json:"key_prefix,omitempty"`
@@ -2768,6 +2822,14 @@ type CreateEnvironment struct {
 	Policy *EnvironmentPolicy `json:"policy,omitempty"`
 }
 
+// CreateInContextGrant defines model for CreateInContextGrant.
+type CreateInContextGrant struct {
+	// Origin The origin the editor runs on. It must be registered for
+	// this project, and it is the only origin the grant works
+	// from.
+	Origin WebOrigin `json:"origin"`
+}
+
 // CreateMessage defines model for CreateMessage.
 type CreateMessage struct {
 	Description *string `json:"description,omitempty"`
@@ -2784,6 +2846,23 @@ type CreateMessage struct {
 	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
 	Syntax *Syntax `json:"syntax,omitempty"`
 	Text   string  `json:"text"`
+}
+
+// CreatePreviewOrigin defines model for CreatePreviewOrigin.
+type CreatePreviewOrigin struct {
+	Label *string `json:"label,omitempty"`
+
+	// Origin A web origin: scheme, host and port, with the default port
+	// dropped and nothing else — no path, query, fragment or
+	// userinfo. `https` everywhere; `http` only on `localhost`,
+	// `127.0.0.1`, `[::1]` or a `.localhost` name, which is a
+	// developer's own machine and never a deployment anyone else
+	// reaches. Canonicalized on write, so `HTTPS://App.Example.com:443`
+	// is stored and compared as `https://app.example.com`.
+	//
+	//
+	// Examples: https://preview.example.com, http://localhost:5173
+	Origin WebOrigin `json:"origin"`
 }
 
 // CreateProject defines model for CreateProject.
@@ -3497,6 +3576,64 @@ type ImportSummary struct {
 	Updated   int                     `json:"updated"`
 }
 
+// InContextGrant The in-product editor's credential. `token` is shown exactly
+// once, here; nothing stores it but the page's memory.
+type InContextGrant struct {
+	// ExpiresAt RFC 3339, UTC.
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// Origin A web origin: scheme, host and port, with the default port
+	// dropped and nothing else — no path, query, fragment or
+	// userinfo. `https` everywhere; `http` only on `localhost`,
+	// `127.0.0.1`, `[::1]` or a `.localhost` name, which is a
+	// developer's own machine and never a deployment anyone else
+	// reaches. Canonicalized on write, so `HTTPS://App.Example.com:443`
+	// is stored and compared as `https://app.example.com`.
+	//
+	//
+	// Examples: https://preview.example.com, http://localhost:5173
+	Origin WebOrigin `json:"origin"`
+
+	// Permissions What the grant allows: the person's own permissions
+	// intersected with `catalog.read`, `knowledge.read`,
+	// `translations.read`, `translations.write`,
+	// `intelligence.read` and `intelligence.translate`, and never
+	// more. Studio shows this list before minting.
+	Permissions []InContextPermission `json:"permissions"`
+
+	// PersonId Who the editor acts as; every edit names them.
+	PersonId Id `json:"person_id"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+
+	// Token The bearer credential. Never put it in `localStorage`.
+	Token string `json:"token"`
+}
+
+// InContextPermission defines model for InContextPermission.
+type InContextPermission struct {
+	// Locales The locales the permission holds for; absent means every
+	// locale. A translator limited to some locales in Studio is
+	// limited to the same ones in the editor.
+	Locales    *[]Locale                     `json:"locales,omitempty"`
+	Permission InContextPermissionPermission `json:"permission"`
+}
+
+// InContextPermissionPermission defines model for InContextPermission.Permission.
+type InContextPermissionPermission string
+
+// InContextProvenance An edit made in the running product: the route pattern the page
+// was on and the viewport it was seen at.
+type InContextProvenance struct {
+	// Route The route pattern, not the URL: `/orders/:id`, never `/orders/8123`.
+	Route    string `json:"route"`
+	Viewport *struct {
+		Height int `json:"height"`
+		Width  int `json:"width"`
+	} `json:"viewport,omitempty"`
+}
+
 // IntegrationFile defines model for IntegrationFile.
 type IntegrationFile struct {
 	ContentType string `json:"content_type"`
@@ -3996,6 +4133,42 @@ type Person struct {
 
 // Platform defines model for Platform.
 type Platform string
+
+// PreviewOrigin defines model for PreviewOrigin.
+type PreviewOrigin struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CreatedBy `person:<id>` or `token:<id>`.
+	CreatedBy string `json:"created_by"`
+
+	// Development True for a plain-http loopback origin: a developer's local
+	// run, never a shared deployment.
+	Development bool `json:"development"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Label What people call this deployment.
+	Label string `json:"label"`
+
+	// Origin A web origin: scheme, host and port, with the default port
+	// dropped and nothing else — no path, query, fragment or
+	// userinfo. `https` everywhere; `http` only on `localhost`,
+	// `127.0.0.1`, `[::1]` or a `.localhost` name, which is a
+	// developer's own machine and never a deployment anyone else
+	// reaches. Canonicalized on write, so `HTTPS://App.Example.com:443`
+	// is stored and compared as `https://app.example.com`.
+	//
+	//
+	// Examples: https://preview.example.com, http://localhost:5173
+	Origin WebOrigin `json:"origin"`
+}
+
+// PreviewOriginList defines model for PreviewOriginList.
+type PreviewOriginList struct {
+	Items []PreviewOrigin `json:"items"`
+}
 
 // Problem RFC 9457 problem details.
 type Problem struct {
@@ -5496,6 +5669,17 @@ type UsagesTool struct {
 // WebAuthnResponse The `PublicKeyCredential` from the browser, serialized as JSON.
 type WebAuthnResponse map[string]interface{}
 
+// WebOrigin A web origin: scheme, host and port, with the default port
+// dropped and nothing else — no path, query, fragment or
+// userinfo. `https` everywhere; `http` only on `localhost`,
+// `127.0.0.1`, `[::1]` or a `.localhost` name, which is a
+// developer's own machine and never a deployment anyone else
+// reaches. Canonicalized on write, so `HTTPS://App.Example.com:443`
+// is stored and compared as `https://app.example.com`.
+//
+// Examples: https://preview.example.com, http://localhost:5173
+type WebOrigin = string
+
 // WebhookAck defines model for WebhookAck.
 type WebhookAck struct {
 	// Accepted `false` when the delivery id was already in the inbox. The
@@ -5587,6 +5771,9 @@ type PageToken = string
 
 // PasskeyPath defines model for PasskeyPath.
 type PasskeyPath = string
+
+// PreviewOriginPath An opaque identifier.
+type PreviewOriginPath = Id
 
 // ProjectPath An opaque identifier.
 type ProjectPath = Id
@@ -6208,6 +6395,11 @@ type ListNamespacesParams struct {
 	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
+// RegisterPreviewOriginParams defines parameters for RegisterPreviewOrigin.
+type RegisterPreviewOriginParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // ListReleasesParams defines parameters for ListReleases.
 type ListReleasesParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -6248,6 +6440,13 @@ type ListProjectTerminologyFindingsParams struct {
 
 	// KeyPrefix Keys starting with this, e.g. `checkout.`.
 	KeyPrefix *string `form:"key_prefix,omitempty" json:"key_prefix,omitempty"`
+
+	// Key Exactly these message keys; repeatable, at most 50. For
+	// asking about the messages on one screen — the in-product
+	// editor asks about one — where `key_prefix` would also match
+	// everything below the key. Combined with `key_prefix` and
+	// `namespace` it narrows further.
+	Key *[]MessageKey `form:"key,omitempty" json:"key,omitempty"`
 }
 
 // ListProjectTranslationsParams defines parameters for ListProjectTranslations.
@@ -6628,6 +6827,9 @@ type RollbackEnvironmentJSONRequestBody = Rollback
 // PutFallbackGraphJSONRequestBody defines body for PutFallbackGraph for application/json ContentType.
 type PutFallbackGraphJSONRequestBody = PutFallbackGraph
 
+// CreateInContextGrantJSONRequestBody defines body for CreateInContextGrant for application/json ContentType.
+type CreateInContextGrantJSONRequestBody = CreateInContextGrant
+
 // AddLocaleJSONRequestBody defines body for AddLocale for application/json ContentType.
 type AddLocaleJSONRequestBody = AddLocale
 
@@ -6651,6 +6853,9 @@ type PutTranslationJSONRequestBody = PutTranslation
 
 // ReviewTranslationJSONRequestBody defines body for ReviewTranslation for application/json ContentType.
 type ReviewTranslationJSONRequestBody = ReviewTranslation
+
+// RegisterPreviewOriginJSONRequestBody defines body for RegisterPreviewOrigin for application/json ContentType.
+type RegisterPreviewOriginJSONRequestBody = CreatePreviewOrigin
 
 // PublishReleaseJSONRequestBody defines body for PublishRelease for application/json ContentType.
 type PublishReleaseJSONRequestBody = PublishRelease
@@ -9107,6 +9312,64 @@ type ClientInterface interface {
 	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/fallback-graph (the `PutFallbackGraph` operationId).
 	PutFallbackGraph(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutFallbackGraphParams, body PutFallbackGraphJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateInContextGrantWithBody Mint the in-product editor's credential
+	//
+	// Called by Studio's `/in-context/authorize` popup, with the
+	// person's session (RFC 0004 §5.2). It checks that `origin` is a
+	// registered preview origin of this project and mints a bearer
+	// token that:
+	//
+	// - acts as the person, so every edit the editor makes names them;
+	// - allows the person's own permissions intersected with
+	//   `catalog.read`, `knowledge.read`, `translations.read`,
+	//   `translations.write`, `intelligence.read` and
+	//   `intelligence.translate`, locale scopes intact, and never more;
+	// - is bound to this project and to `origin`: a request from any
+	//   other origin is refused;
+	// - lives 15 minutes and cannot be refreshed. The overlay keeps it
+	//   in memory and renews it by opening the popup again.
+	//
+	// Only a signed-in person may mint one — an API token doing so
+	// would launder a tenant credential into a person's — so this
+	// operation takes no bearer. `token` is returned once and never
+	// again. Problem codes: `invalid_origin` (400),
+	// `origin_not_registered` (403), `person_grant_only` (403),
+	// `no_in_context_permissions` (403).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
+	CreateInContextGrantWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateInContextGrant Mint the in-product editor's credential
+	//
+	// Called by Studio's `/in-context/authorize` popup, with the
+	// person's session (RFC 0004 §5.2). It checks that `origin` is a
+	// registered preview origin of this project and mints a bearer
+	// token that:
+	//
+	// - acts as the person, so every edit the editor makes names them;
+	// - allows the person's own permissions intersected with
+	//   `catalog.read`, `knowledge.read`, `translations.read`,
+	//   `translations.write`, `intelligence.read` and
+	//   `intelligence.translate`, locale scopes intact, and never more;
+	// - is bound to this project and to `origin`: a request from any
+	//   other origin is refused;
+	// - lives 15 minutes and cannot be refreshed. The overlay keeps it
+	//   in memory and renews it by opening the popup again.
+	//
+	// Only a signed-in person may mint one — an API token doing so
+	// would launder a tenant credential into a person's — so this
+	// operation takes no bearer. `token` is returned once and never
+	// again. Problem codes: `invalid_origin` (400),
+	// `origin_not_registered` (403), `person_grant_only` (403),
+	// `no_in_context_permissions` (403).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
+	CreateInContextGrant(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateInContextGrantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListLocales A project's locales, the source locale included
 	//
 	// Needs `translations.read`.
@@ -9470,6 +9733,58 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/namespaces (the `ListNamespaces` operationId).
 	ListNamespaces(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPreviewOrigins Where the in-product editor may run
+	//
+	// The origins of this project's preview deployments (RFC 0004
+	// §5.2). The list is short by design and never paged. Needs
+	// `catalog.read`: the authorize popup has to say where the editor
+	// may run, so everyone who can see the project can see it.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/preview-origins (the `ListPreviewOrigins` operationId).
+	ListPreviewOrigins(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RegisterPreviewOriginWithBody Register a preview origin
+	//
+	// Says that the in-product editor may run on a page served from
+	// `origin`, and that CORS may answer it on the operations the
+	// overlay uses. Registering one is the decision that a person's
+	// permissions may be borrowed by a page served from there, so it
+	// needs `tokens.manage` — credential surface, not content — and
+	// a project keeps at most 20. `http` is accepted on loopback only,
+	// for a developer's own run. Problem codes: `invalid_origin` (400),
+	// `origin_registered`, `too_many_preview_origins` (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/preview-origins (the `RegisterPreviewOrigin` operationId).
+	RegisterPreviewOriginWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *RegisterPreviewOriginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RegisterPreviewOrigin Register a preview origin
+	//
+	// Says that the in-product editor may run on a page served from
+	// `origin`, and that CORS may answer it on the operations the
+	// overlay uses. Registering one is the decision that a person's
+	// permissions may be borrowed by a page served from there, so it
+	// needs `tokens.manage` — credential surface, not content — and
+	// a project keeps at most 20. `http` is accepted on loopback only,
+	// for a developer's own run. Problem codes: `invalid_origin` (400),
+	// `origin_registered`, `too_many_preview_origins` (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/preview-origins (the `RegisterPreviewOrigin` operationId).
+	RegisterPreviewOrigin(ctx context.Context, tenant TenantPath, project ProjectPath, params *RegisterPreviewOriginParams, body RegisterPreviewOriginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnregisterPreviewOrigin Stop allowing the editor on an origin
+	//
+	// Removes the registration and, with it, every in-context grant
+	// minted for that origin: editor sessions on it end now, not when
+	// the last 15-minute grant expires. CORS stops answering the
+	// origin with the same request. Needs `tokens.manage`.
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/preview-origins/{preview_origin} (the `UnregisterPreviewOrigin` operationId).
+	UnregisterPreviewOrigin(ctx context.Context, tenant TenantPath, project ProjectPath, previewOrigin PreviewOriginPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListReleaseSigningKeys The public keys manifests are signed with
 	//
@@ -14109,6 +14424,84 @@ func (c *Client) PutFallbackGraph(ctx context.Context, tenant TenantPath, projec
 	return c.Client.Do(req)
 }
 
+// CreateInContextGrantWithBody Mint the in-product editor's credential
+//
+// Called by Studio's `/in-context/authorize` popup, with the
+// person's session (RFC 0004 §5.2). It checks that `origin` is a
+// registered preview origin of this project and mints a bearer
+// token that:
+//
+//   - acts as the person, so every edit the editor makes names them;
+//   - allows the person's own permissions intersected with
+//     `catalog.read`, `knowledge.read`, `translations.read`,
+//     `translations.write`, `intelligence.read` and
+//     `intelligence.translate`, locale scopes intact, and never more;
+//   - is bound to this project and to `origin`: a request from any
+//     other origin is refused;
+//   - lives 15 minutes and cannot be refreshed. The overlay keeps it
+//     in memory and renews it by opening the popup again.
+//
+// Only a signed-in person may mint one — an API token doing so
+// would launder a tenant credential into a person's — so this
+// operation takes no bearer. `token` is returned once and never
+// again. Problem codes: `invalid_origin` (400),
+// `origin_not_registered` (403), `person_grant_only` (403),
+// `no_in_context_permissions` (403).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
+func (c *Client) CreateInContextGrantWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateInContextGrantRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateInContextGrant Mint the in-product editor's credential
+//
+// Called by Studio's `/in-context/authorize` popup, with the
+// person's session (RFC 0004 §5.2). It checks that `origin` is a
+// registered preview origin of this project and mints a bearer
+// token that:
+//
+//   - acts as the person, so every edit the editor makes names them;
+//   - allows the person's own permissions intersected with
+//     `catalog.read`, `knowledge.read`, `translations.read`,
+//     `translations.write`, `intelligence.read` and
+//     `intelligence.translate`, locale scopes intact, and never more;
+//   - is bound to this project and to `origin`: a request from any
+//     other origin is refused;
+//   - lives 15 minutes and cannot be refreshed. The overlay keeps it
+//     in memory and renews it by opening the popup again.
+//
+// Only a signed-in person may mint one — an API token doing so
+// would launder a tenant credential into a person's — so this
+// operation takes no bearer. `token` is returned once and never
+// again. Problem codes: `invalid_origin` (400),
+// `origin_not_registered` (403), `person_grant_only` (403),
+// `no_in_context_permissions` (403).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
+func (c *Client) CreateInContextGrant(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateInContextGrantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateInContextGrantRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListLocales A project's locales, the source locale included
 //
 // Needs `translations.read`.
@@ -14753,6 +15146,98 @@ func (c *Client) ListMessageUsages(ctx context.Context, tenant TenantPath, proje
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/namespaces (the `ListNamespaces` operationId).
 func (c *Client) ListNamespaces(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListNamespacesRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPreviewOrigins Where the in-product editor may run
+//
+// The origins of this project's preview deployments (RFC 0004
+// §5.2). The list is short by design and never paged. Needs
+// `catalog.read`: the authorize popup has to say where the editor
+// may run, so everyone who can see the project can see it.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/preview-origins (the `ListPreviewOrigins` operationId).
+func (c *Client) ListPreviewOrigins(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPreviewOriginsRequest(c.Server, tenant, project)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RegisterPreviewOriginWithBody Register a preview origin
+//
+// Says that the in-product editor may run on a page served from
+// `origin`, and that CORS may answer it on the operations the
+// overlay uses. Registering one is the decision that a person's
+// permissions may be borrowed by a page served from there, so it
+// needs `tokens.manage` — credential surface, not content — and
+// a project keeps at most 20. `http` is accepted on loopback only,
+// for a developer's own run. Problem codes: `invalid_origin` (400),
+// `origin_registered`, `too_many_preview_origins` (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/preview-origins (the `RegisterPreviewOrigin` operationId).
+func (c *Client) RegisterPreviewOriginWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *RegisterPreviewOriginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterPreviewOriginRequestWithBody(c.Server, tenant, project, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RegisterPreviewOrigin Register a preview origin
+//
+// Says that the in-product editor may run on a page served from
+// `origin`, and that CORS may answer it on the operations the
+// overlay uses. Registering one is the decision that a person's
+// permissions may be borrowed by a page served from there, so it
+// needs `tokens.manage` — credential surface, not content — and
+// a project keeps at most 20. `http` is accepted on loopback only,
+// for a developer's own run. Problem codes: `invalid_origin` (400),
+// `origin_registered`, `too_many_preview_origins` (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/preview-origins (the `RegisterPreviewOrigin` operationId).
+func (c *Client) RegisterPreviewOrigin(ctx context.Context, tenant TenantPath, project ProjectPath, params *RegisterPreviewOriginParams, body RegisterPreviewOriginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterPreviewOriginRequest(c.Server, tenant, project, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UnregisterPreviewOrigin Stop allowing the editor on an origin
+//
+// Removes the registration and, with it, every in-context grant
+// minted for that origin: editor sessions on it end now, not when
+// the last 15-minute grant expires. CORS stops answering the
+// origin with the same request. Needs `tokens.manage`.
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/preview-origins/{preview_origin} (the `UnregisterPreviewOrigin` operationId).
+func (c *Client) UnregisterPreviewOrigin(ctx context.Context, tenant TenantPath, project ProjectPath, previewOrigin PreviewOriginPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnregisterPreviewOriginRequest(c.Server, tenant, project, previewOrigin)
 	if err != nil {
 		return nil, err
 	}
@@ -22897,6 +23382,60 @@ func NewPutFallbackGraphRequestWithBody(server string, tenant TenantPath, projec
 	return req, nil
 }
 
+// NewCreateInContextGrantRequest calls the generic CreateInContextGrant builder with application/json body
+func NewCreateInContextGrantRequest(server string, tenant TenantPath, project ProjectPath, body CreateInContextGrantJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateInContextGrantRequestWithBody(server, tenant, project, "application/json", bodyReader)
+}
+
+// NewCreateInContextGrantRequestWithBody constructs an http.Request for the CreateInContextGrant method, with any body, and a specified content type
+func NewCreateInContextGrantRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/in-context-grants", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListLocalesRequest constructs an http.Request for the ListLocales method
 func NewListLocalesRequest(server string, tenant TenantPath, project ProjectPath, params *ListLocalesParams) (*http.Request, error) {
 	var err error
@@ -24466,6 +25005,164 @@ func NewListNamespacesRequest(server string, tenant TenantPath, project ProjectP
 	return req, nil
 }
 
+// NewListPreviewOriginsRequest constructs an http.Request for the ListPreviewOrigins method
+func NewListPreviewOriginsRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/preview-origins", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRegisterPreviewOriginRequest calls the generic RegisterPreviewOrigin builder with application/json body
+func NewRegisterPreviewOriginRequest(server string, tenant TenantPath, project ProjectPath, params *RegisterPreviewOriginParams, body RegisterPreviewOriginJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterPreviewOriginRequestWithBody(server, tenant, project, params, "application/json", bodyReader)
+}
+
+// NewRegisterPreviewOriginRequestWithBody constructs an http.Request for the RegisterPreviewOrigin method, with any body, and a specified content type
+func NewRegisterPreviewOriginRequestWithBody(server string, tenant TenantPath, project ProjectPath, params *RegisterPreviewOriginParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/preview-origins", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewUnregisterPreviewOriginRequest constructs an http.Request for the UnregisterPreviewOrigin method
+func NewUnregisterPreviewOriginRequest(server string, tenant TenantPath, project ProjectPath, previewOrigin PreviewOriginPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "preview_origin", previewOrigin, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/preview-origins/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListReleaseSigningKeysRequest constructs an http.Request for the ListReleaseSigningKeys method
 func NewListReleaseSigningKeysRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
 	var err error
@@ -25010,6 +25707,18 @@ func NewListProjectTerminologyFindingsRequest(server string, tenant TenantPath, 
 		if params.KeyPrefix != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "key_prefix", *params.KeyPrefix, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Key != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "key", *params.Key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -30089,6 +30798,64 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/fallback-graph (the `PutFallbackGraph` operationId).
 	PutFallbackGraphWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutFallbackGraphParams, body PutFallbackGraphJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFallbackGraphResponse, error)
 
+	// CreateInContextGrantWithBodyWithResponse Mint the in-product editor's credential
+	//
+	// Called by Studio's `/in-context/authorize` popup, with the
+	// person's session (RFC 0004 §5.2). It checks that `origin` is a
+	// registered preview origin of this project and mints a bearer
+	// token that:
+	//
+	// - acts as the person, so every edit the editor makes names them;
+	// - allows the person's own permissions intersected with
+	//   `catalog.read`, `knowledge.read`, `translations.read`,
+	//   `translations.write`, `intelligence.read` and
+	//   `intelligence.translate`, locale scopes intact, and never more;
+	// - is bound to this project and to `origin`: a request from any
+	//   other origin is refused;
+	// - lives 15 minutes and cannot be refreshed. The overlay keeps it
+	//   in memory and renews it by opening the popup again.
+	//
+	// Only a signed-in person may mint one — an API token doing so
+	// would launder a tenant credential into a person's — so this
+	// operation takes no bearer. `token` is returned once and never
+	// again. Problem codes: `invalid_origin` (400),
+	// `origin_not_registered` (403), `person_grant_only` (403),
+	// `no_in_context_permissions` (403).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
+	CreateInContextGrantWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateInContextGrantResponse, error)
+
+	// CreateInContextGrantWithResponse Mint the in-product editor's credential
+	//
+	// Called by Studio's `/in-context/authorize` popup, with the
+	// person's session (RFC 0004 §5.2). It checks that `origin` is a
+	// registered preview origin of this project and mints a bearer
+	// token that:
+	//
+	// - acts as the person, so every edit the editor makes names them;
+	// - allows the person's own permissions intersected with
+	//   `catalog.read`, `knowledge.read`, `translations.read`,
+	//   `translations.write`, `intelligence.read` and
+	//   `intelligence.translate`, locale scopes intact, and never more;
+	// - is bound to this project and to `origin`: a request from any
+	//   other origin is refused;
+	// - lives 15 minutes and cannot be refreshed. The overlay keeps it
+	//   in memory and renews it by opening the popup again.
+	//
+	// Only a signed-in person may mint one — an API token doing so
+	// would launder a tenant credential into a person's — so this
+	// operation takes no bearer. `token` is returned once and never
+	// again. Problem codes: `invalid_origin` (400),
+	// `origin_not_registered` (403), `person_grant_only` (403),
+	// `no_in_context_permissions` (403).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
+	CreateInContextGrantWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateInContextGrantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateInContextGrantResponse, error)
+
 	// ListLocalesWithResponse A project's locales, the source locale included
 	//
 	// Needs `translations.read`.
@@ -30478,6 +31245,62 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/namespaces (the `ListNamespaces` operationId).
 	ListNamespacesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*ListNamespacesResponse, error)
+
+	// ListPreviewOriginsWithResponse Where the in-product editor may run
+	//
+	// The origins of this project's preview deployments (RFC 0004
+	// §5.2). The list is short by design and never paged. Needs
+	// `catalog.read`: the authorize popup has to say where the editor
+	// may run, so everyone who can see the project can see it.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/preview-origins (the `ListPreviewOrigins` operationId).
+	ListPreviewOriginsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*ListPreviewOriginsResponse, error)
+
+	// RegisterPreviewOriginWithBodyWithResponse Register a preview origin
+	//
+	// Says that the in-product editor may run on a page served from
+	// `origin`, and that CORS may answer it on the operations the
+	// overlay uses. Registering one is the decision that a person's
+	// permissions may be borrowed by a page served from there, so it
+	// needs `tokens.manage` — credential surface, not content — and
+	// a project keeps at most 20. `http` is accepted on loopback only,
+	// for a developer's own run. Problem codes: `invalid_origin` (400),
+	// `origin_registered`, `too_many_preview_origins` (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/preview-origins (the `RegisterPreviewOrigin` operationId).
+	RegisterPreviewOriginWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *RegisterPreviewOriginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterPreviewOriginResponse, error)
+
+	// RegisterPreviewOriginWithResponse Register a preview origin
+	//
+	// Says that the in-product editor may run on a page served from
+	// `origin`, and that CORS may answer it on the operations the
+	// overlay uses. Registering one is the decision that a person's
+	// permissions may be borrowed by a page served from there, so it
+	// needs `tokens.manage` — credential surface, not content — and
+	// a project keeps at most 20. `http` is accepted on loopback only,
+	// for a developer's own run. Problem codes: `invalid_origin` (400),
+	// `origin_registered`, `too_many_preview_origins` (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/preview-origins (the `RegisterPreviewOrigin` operationId).
+	RegisterPreviewOriginWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *RegisterPreviewOriginParams, body RegisterPreviewOriginJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterPreviewOriginResponse, error)
+
+	// UnregisterPreviewOriginWithResponse Stop allowing the editor on an origin
+	//
+	// Removes the registration and, with it, every in-context grant
+	// minted for that origin: editor sessions on it end now, not when
+	// the last 15-minute grant expires. CORS stops answering the
+	// origin with the same request. Needs `tokens.manage`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/preview-origins/{preview_origin} (the `UnregisterPreviewOrigin` operationId).
+	UnregisterPreviewOriginWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, previewOrigin PreviewOriginPath, reqEditors ...RequestEditorFn) (*UnregisterPreviewOriginResponse, error)
 
 	// ListReleaseSigningKeysWithResponse The public keys manifests are signed with
 	//
@@ -39678,6 +40501,75 @@ func (r PutFallbackGraphResponse) ContentType() string {
 	return ""
 }
 
+type CreateInContextGrantResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *InContextGrant
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateInContextGrantResponse) GetJSON201() *InContextGrant {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateInContextGrantResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateInContextGrantResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateInContextGrantResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateInContextGrantResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateInContextGrantResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateInContextGrantResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateInContextGrantResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateInContextGrantResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListLocalesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -41300,6 +42192,214 @@ func (r ListNamespacesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListNamespacesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPreviewOriginsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PreviewOriginList
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPreviewOriginsResponse) GetJSON200() *PreviewOriginList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListPreviewOriginsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListPreviewOriginsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListPreviewOriginsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPreviewOriginsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPreviewOriginsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPreviewOriginsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPreviewOriginsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// RegisterPreviewOriginResponse201Headers the declared response headers of an HTTP 201 response for RegisterPreviewOrigin
+type RegisterPreviewOriginResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type RegisterPreviewOriginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *PreviewOrigin
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *RegisterPreviewOriginResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r RegisterPreviewOriginResponse) GetJSON201() *PreviewOrigin {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r RegisterPreviewOriginResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RegisterPreviewOriginResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RegisterPreviewOriginResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RegisterPreviewOriginResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r RegisterPreviewOriginResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r RegisterPreviewOriginResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r RegisterPreviewOriginResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterPreviewOriginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterPreviewOriginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RegisterPreviewOriginResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UnregisterPreviewOriginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r UnregisterPreviewOriginResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r UnregisterPreviewOriginResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r UnregisterPreviewOriginResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UnregisterPreviewOriginResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UnregisterPreviewOriginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnregisterPreviewOriginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnregisterPreviewOriginResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -47741,6 +48841,76 @@ func (c *ClientWithResponses) PutFallbackGraphWithResponse(ctx context.Context, 
 	return ParsePutFallbackGraphResponse(rsp)
 }
 
+// CreateInContextGrantWithBodyWithResponse Mint the in-product editor's credential
+//
+// Called by Studio's `/in-context/authorize` popup, with the
+// person's session (RFC 0004 §5.2). It checks that `origin` is a
+// registered preview origin of this project and mints a bearer
+// token that:
+//
+//   - acts as the person, so every edit the editor makes names them;
+//   - allows the person's own permissions intersected with
+//     `catalog.read`, `knowledge.read`, `translations.read`,
+//     `translations.write`, `intelligence.read` and
+//     `intelligence.translate`, locale scopes intact, and never more;
+//   - is bound to this project and to `origin`: a request from any
+//     other origin is refused;
+//   - lives 15 minutes and cannot be refreshed. The overlay keeps it
+//     in memory and renews it by opening the popup again.
+//
+// Only a signed-in person may mint one — an API token doing so
+// would launder a tenant credential into a person's — so this
+// operation takes no bearer. `token` is returned once and never
+// again. Problem codes: `invalid_origin` (400),
+// `origin_not_registered` (403), `person_grant_only` (403),
+// `no_in_context_permissions` (403).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
+func (c *ClientWithResponses) CreateInContextGrantWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateInContextGrantResponse, error) {
+	rsp, err := c.CreateInContextGrantWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateInContextGrantResponse(rsp)
+}
+
+// CreateInContextGrantWithResponse Mint the in-product editor's credential
+//
+// Called by Studio's `/in-context/authorize` popup, with the
+// person's session (RFC 0004 §5.2). It checks that `origin` is a
+// registered preview origin of this project and mints a bearer
+// token that:
+//
+//   - acts as the person, so every edit the editor makes names them;
+//   - allows the person's own permissions intersected with
+//     `catalog.read`, `knowledge.read`, `translations.read`,
+//     `translations.write`, `intelligence.read` and
+//     `intelligence.translate`, locale scopes intact, and never more;
+//   - is bound to this project and to `origin`: a request from any
+//     other origin is refused;
+//   - lives 15 minutes and cannot be refreshed. The overlay keeps it
+//     in memory and renews it by opening the popup again.
+//
+// Only a signed-in person may mint one — an API token doing so
+// would launder a tenant credential into a person's — so this
+// operation takes no bearer. `token` is returned once and never
+// again. Problem codes: `invalid_origin` (400),
+// `origin_not_registered` (403), `person_grant_only` (403),
+// `no_in_context_permissions` (403).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
+func (c *ClientWithResponses) CreateInContextGrantWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateInContextGrantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateInContextGrantResponse, error) {
+	rsp, err := c.CreateInContextGrant(ctx, tenant, project, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateInContextGrantResponse(rsp)
+}
+
 // ListLocalesWithResponse A project's locales, the source locale included
 //
 // Needs `translations.read`.
@@ -48303,6 +49473,86 @@ func (c *ClientWithResponses) ListNamespacesWithResponse(ctx context.Context, te
 		return nil, err
 	}
 	return ParseListNamespacesResponse(rsp)
+}
+
+// ListPreviewOriginsWithResponse Where the in-product editor may run
+//
+// The origins of this project's preview deployments (RFC 0004
+// §5.2). The list is short by design and never paged. Needs
+// `catalog.read`: the authorize popup has to say where the editor
+// may run, so everyone who can see the project can see it.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/preview-origins (the `ListPreviewOrigins` operationId).
+func (c *ClientWithResponses) ListPreviewOriginsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*ListPreviewOriginsResponse, error) {
+	rsp, err := c.ListPreviewOrigins(ctx, tenant, project, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPreviewOriginsResponse(rsp)
+}
+
+// RegisterPreviewOriginWithBodyWithResponse Register a preview origin
+//
+// Says that the in-product editor may run on a page served from
+// `origin`, and that CORS may answer it on the operations the
+// overlay uses. Registering one is the decision that a person's
+// permissions may be borrowed by a page served from there, so it
+// needs `tokens.manage` — credential surface, not content — and
+// a project keeps at most 20. `http` is accepted on loopback only,
+// for a developer's own run. Problem codes: `invalid_origin` (400),
+// `origin_registered`, `too_many_preview_origins` (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/preview-origins (the `RegisterPreviewOrigin` operationId).
+func (c *ClientWithResponses) RegisterPreviewOriginWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *RegisterPreviewOriginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterPreviewOriginResponse, error) {
+	rsp, err := c.RegisterPreviewOriginWithBody(ctx, tenant, project, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterPreviewOriginResponse(rsp)
+}
+
+// RegisterPreviewOriginWithResponse Register a preview origin
+//
+// Says that the in-product editor may run on a page served from
+// `origin`, and that CORS may answer it on the operations the
+// overlay uses. Registering one is the decision that a person's
+// permissions may be borrowed by a page served from there, so it
+// needs `tokens.manage` — credential surface, not content — and
+// a project keeps at most 20. `http` is accepted on loopback only,
+// for a developer's own run. Problem codes: `invalid_origin` (400),
+// `origin_registered`, `too_many_preview_origins` (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/preview-origins (the `RegisterPreviewOrigin` operationId).
+func (c *ClientWithResponses) RegisterPreviewOriginWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *RegisterPreviewOriginParams, body RegisterPreviewOriginJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterPreviewOriginResponse, error) {
+	rsp, err := c.RegisterPreviewOrigin(ctx, tenant, project, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterPreviewOriginResponse(rsp)
+}
+
+// UnregisterPreviewOriginWithResponse Stop allowing the editor on an origin
+//
+// Removes the registration and, with it, every in-context grant
+// minted for that origin: editor sessions on it end now, not when
+// the last 15-minute grant expires. CORS stops answering the
+// origin with the same request. Needs `tokens.manage`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/preview-origins/{preview_origin} (the `UnregisterPreviewOrigin` operationId).
+func (c *ClientWithResponses) UnregisterPreviewOriginWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, previewOrigin PreviewOriginPath, reqEditors ...RequestEditorFn) (*UnregisterPreviewOriginResponse, error) {
+	rsp, err := c.UnregisterPreviewOrigin(ctx, tenant, project, previewOrigin, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnregisterPreviewOriginResponse(rsp)
 }
 
 // ListReleaseSigningKeysWithResponse The public keys manifests are signed with
@@ -56543,6 +57793,60 @@ func ParsePutFallbackGraphResponse(rsp *http.Response) (*PutFallbackGraphRespons
 	return response, nil
 }
 
+// ParseCreateInContextGrantResponse parses an HTTP response from a CreateInContextGrantWithResponse call
+func ParseCreateInContextGrantResponse(rsp *http.Response) (*CreateInContextGrantResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateInContextGrantResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest InContextGrant
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListLocalesResponse parses an HTTP response from a ListLocalesWithResponse call
 func ParseListLocalesResponse(rsp *http.Response) (*ListLocalesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -57919,6 +59223,184 @@ func ParseListNamespacesResponse(rsp *http.Response) (*ListNamespacesResponse, e
 			return nil, err
 		}
 		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPreviewOriginsResponse parses an HTTP response from a ListPreviewOriginsWithResponse call
+func ParseListPreviewOriginsResponse(rsp *http.Response) (*ListPreviewOriginsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPreviewOriginsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PreviewOriginList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRegisterPreviewOriginResponse parses an HTTP response from a RegisterPreviewOriginWithResponse call
+func ParseRegisterPreviewOriginResponse(rsp *http.Response) (*RegisterPreviewOriginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterPreviewOriginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest PreviewOrigin
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers RegisterPreviewOriginResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseUnregisterPreviewOriginResponse parses an HTTP response from a UnregisterPreviewOriginWithResponse call
+func ParseUnregisterPreviewOriginResponse(rsp *http.Response) (*UnregisterPreviewOriginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnregisterPreviewOriginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthenticated
