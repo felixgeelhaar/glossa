@@ -375,19 +375,21 @@ func (s *GitHubService) applyInstallationRepositories(ctx context.Context, ev We
 }
 
 // applyPullRequest keeps the Catalog branch of every project the
-// repository feeds in step with the pull request.
+// repository feeds in step with the pull request, and opens its check.
 //
 // It calls Catalog's branch service, which owns the branch lifecycle
 // (RFC 0004 §4.1) — this never touches Catalog's tables. And nothing
 // here is load-bearing: a merge activates messages through the default
 // branch's push, not through this event, so a webhook that never
 // arrives costs a stale branch view and nothing more.
+//
+// A pull request from a fork is the one split case. Its head lives in
+// another repository, so its branch is not ours to track and Catalog
+// never hears of it — but it still gets a check, which says plainly
+// that a fork gets no Glossa CI token (RFC 0004 §6.3). Saying nothing
+// at all would leave the pull request with a Glossa check missing
+// rather than answered.
 func (s *GitHubService) applyPullRequest(ctx context.Context, ev WebhookEvent) error {
-	if ev.FromFork {
-		// A fork's head lives in another repository; its CI gets no
-		// token and its branch is not ours to track.
-		return nil
-	}
 	var conns []domain.GitConnection
 	if err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
 		var err error
@@ -395,6 +397,21 @@ func (s *GitHubService) applyPullRequest(ctx context.Context, ev WebhookEvent) e
 		return err
 	}); err != nil {
 		return err
+	}
+	if err := s.movePullRequestBranch(ctx, ev, conns); err != nil {
+		return err
+	}
+	return s.openCheck(ctx, ev, len(conns))
+}
+
+// movePullRequestBranch tells Catalog where the pull request's branch
+// now is. A fork's head is in another repository, so there is no branch
+// of ours to move and this does nothing.
+func (s *GitHubService) movePullRequestBranch(ctx context.Context, ev WebhookEvent,
+	conns []domain.GitConnection,
+) error {
+	if ev.FromFork {
+		return nil
 	}
 	pr := ev.PullRequest
 	for _, c := range conns {
@@ -418,12 +435,16 @@ func (s *GitHubService) applyPullRequest(ctx context.Context, ev WebhookEvent) e
 			slog.String("project_id", c.ProjectID.String()), slog.String("branch", ev.HeadRef),
 			slog.Int("pull_request", pr), slog.String("action", ev.Action))
 	}
-	return s.openCheck(ctx, ev, len(conns))
+	return nil
 }
 
 // openCheck is the check's trigger (RFC 0004 §6.4): a pull request that
 // opened, was pushed to or reopened gets a Glossa check run, queued for
 // its head SHA, and thirty minutes for its CI to upload.
+//
+// A fork's pull request gets one too, marked on the row: it has no
+// Glossa CI token, so the worker concludes it `neutral` at once rather
+// than waiting out a deadline nothing can meet (RFC 0004 §6.3).
 //
 // The row is written here and the check run is created by the worker,
 // so the webhook stays a database write: GitHub's ten seconds are not
@@ -442,7 +463,8 @@ func (s *GitHubService) openCheck(ctx context.Context, ev WebhookEvent, connecti
 	c, err := s.checks.Open(ctx, domain.Check{
 		ID: uuid.Must(uuid.NewV7()), TenantID: tenantOf(ctx), InstallationID: ev.InstallationID,
 		RepositoryID: ev.RepositoryID, PullRequest: ev.PullRequest, Branch: ev.HeadRef, HeadSHA: ev.HeadSHA,
-		State: domain.CheckQueued, RequestedAt: now, AvailableAt: now, UpdatedAt: now,
+		FromFork: ev.FromFork,
+		State:    domain.CheckQueued, RequestedAt: now, AvailableAt: now, UpdatedAt: now,
 	})
 	if err != nil {
 		return err

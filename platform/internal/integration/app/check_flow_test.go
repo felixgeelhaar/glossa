@@ -298,6 +298,96 @@ func TestCheckCompletesNeutralWhenCINeverRuns(t *testing.T) {
 	}
 }
 
+// forkRepoID is the fork the pull request's head lives in: another
+// repository, which is exactly what makes it a fork.
+const forkRepoID int64 = 60660
+
+// forkEdits retargets a recorded pull_request payload so the head comes
+// from a fork of the fixture's repository.
+func forkEdits() map[string]any {
+	e := prEdits()
+	e["pull_request.head.repo.id"] = float64(forkRepoID)
+	return e
+}
+
+// TestAForkPullRequestIsNeutralAtOnce is RFC 0004 §6.3: a fork's
+// workflow gets no Glossa CI token, so there is nothing to wait for.
+// The pull request still gets a check — saying nothing leaves a
+// required check missing rather than answered — and it is neutral on
+// the first attempt, with no sweep and no advance of the clock.
+func TestAForkPullRequestIsNeutralAtOnce(t *testing.T) {
+	f := newFixture(t)
+	f.connected(t)
+	opened := f.clock
+	if _, err := f.deliverBody(t, "pull_request", "d-fork",
+		retarget(t, "pull_request.opened", forkEdits())); err != nil {
+		t.Fatal(err)
+	}
+	f.drain(t)
+	f.runCheck(t)
+
+	// The clock never moved, so this cannot have come from the wait.
+	if !f.clock.Equal(opened) {
+		t.Fatalf("the test advanced the clock; the point is that the fork check does not wait")
+	}
+	run := f.theCheck(t)
+	if run.Status != app.CheckCompleted || run.Conclusion != app.ConclusionNeutral {
+		t.Fatalf("check run = %+v, want a completed neutral conclusion straight away", run)
+	}
+	if run.Title != app.ForkCheckTitle {
+		t.Fatalf("title = %q, want the fork's own title", run.Title)
+	}
+	if strings.Contains(run.Summary, "waited") || strings.Contains(run.Summary, "30 minutes") {
+		t.Fatalf("the summary claims Glossa waited:\n%s", run.Summary)
+	}
+	for _, want := range []string{
+		"fork", "no Glossa CI token",
+		"re-run this work from a branch in this repository", "merge the pull request",
+	} {
+		if !strings.Contains(run.Summary, want) {
+			t.Fatalf("summary does not mention %q:\n%s", want, run.Summary)
+		}
+	}
+	// The row says where the head lives, so a second attempt decides the
+	// same way without reading the branch.
+	c, err := f.checks.Check(context.Background(), repoGitHubID, pullNumber)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.FromFork {
+		t.Fatal("the check row does not record that the pull request came from a fork")
+	}
+
+	// One comment, saying what the check says.
+	body := f.theComment(t).Body
+	for _, want := range []string{"no Glossa CI token", "merge the pull request", github.StickyMarker} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("comment does not mention %q:\n%s", want, body)
+		}
+	}
+	// It is not the branch report: Glossa is not tracking this branch.
+	if strings.Contains(body, "| Locale |") {
+		t.Fatalf("the fork comment reports on a branch Glossa does not track:\n%s", body)
+	}
+}
+
+// TestAForkPullRequestDoesNotMoveACatalogBranch: the head lives in
+// another repository, so there is no branch of ours to create or move.
+func TestAForkPullRequestDoesNotMoveACatalogBranch(t *testing.T) {
+	f := newFixture(t)
+	f.connected(t)
+	for i, name := range []string{"pull_request.opened", "pull_request.synchronize", "pull_request.closed"} {
+		body := retarget(t, name, forkEdits())
+		if _, err := f.deliverBody(t, "pull_request", "d-fork-"+itoa(i), body); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+	f.drain(t)
+	if calls := f.branches.seen(); len(calls) != 0 {
+		t.Fatalf("Catalog was asked to track a fork's branch: %v", calls)
+	}
+}
+
 // TestTwoJobsForOnePullRequestDoNotRaceTheComment: the queue row is the
 // pull request, so claiming it is the lock. Two workers pulling at once
 // leave one comment, not two.

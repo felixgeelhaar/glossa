@@ -302,6 +302,19 @@ func (s *GitHubService) reportConnection(ctx context.Context, c *domain.Check, t
 		// A new run: its annotation ledger starts empty.
 		t.CheckRunID, t.Annotations = run.ID, nil
 	}
+	if c.FromFork {
+		// RFC 0004 §6.3. The head is in another repository, so this
+		// commit's CI has no Glossa token and cannot upload: waiting for
+		// it would only delay the same answer by thirty minutes. The
+		// sources are not read either — Catalog never tracked the branch.
+		rep := ForkCheckReport()
+		if err := s.writeCheckRun(ctx, target, &t, rep); err != nil {
+			return "", "", err
+		}
+		t.Conclusion = rep.Conclusion
+		c.SetTarget(conn.ID, t)
+		return ForkComment(conn.RepositoryName+pathSuffix(conn.Path), rep), rep.Conclusion, nil
+	}
 	in, ready, err := s.checkInput(ctx, c, conn)
 	if err != nil {
 		return "", "", err
@@ -322,8 +335,7 @@ func (s *GitHubService) reportConnection(ctx context.Context, c *domain.Check, t
 			Title:      "No Glossa CI run for this commit",
 			Summary: "Glossa waited 30 minutes for this commit's `glossa push` and usages upload and neither " +
 				"arrived, so there is nothing to check.\n\nIf the branch has no Glossa CI job yet, see the " +
-				"composite action in `.github/actions/glossa`. A pull request from a fork gets no token, and " +
-				"so no check.\n",
+				"composite action in `.github/actions/glossa`.\n",
 		}
 		if err := s.writeCheckRun(ctx, target, &t, rep); err != nil {
 			return "", "", err

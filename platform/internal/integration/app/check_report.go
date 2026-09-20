@@ -302,6 +302,37 @@ func UnsentAnnotations(t domain.CheckTarget, all []CheckAnnotation) (send []Chec
 	return send, fingerprints
 }
 
+// ── a pull request from a fork ───────────────────────────────────────
+
+// ForkCheckTitle and forkCheckSummary are what the check says about a
+// pull request whose head lives in another repository (RFC 0004 §6.3).
+//
+// The wait for CI is not mentioned, because there is none: a fork's
+// workflow gets no OIDC token and no secrets, so `glossa push` and the
+// usages upload cannot run at all, however long anyone waits. Saying
+// only that would leave a maintainer stuck, so the summary names the
+// two ways forward.
+const ForkCheckTitle = "A pull request from a fork has no Glossa CI token"
+
+const forkCheckSummary = "A pull request from a fork gets no Glossa CI token, so its workflow cannot " +
+	"upload this commit's messages or usages and there is nothing for Glossa to check.\n\n" +
+	"A maintainer can re-run this work from a branch in this repository, where CI does get a token, " +
+	"or merge the pull request and let the default branch's push check it.\n"
+
+// ForkCheckReport is the check a fork's pull request gets: `neutral`,
+// straight away, with the explanation above.
+func ForkCheckReport() CheckReport {
+	return CheckReport{Conclusion: ConclusionNeutral, Title: ForkCheckTitle, Summary: forkCheckSummary}
+}
+
+// ForkComment is the sticky comment for a fork's pull request. It says
+// what the check run says and nothing else: the per-locale table and
+// the capture counts describe a branch Glossa is tracking, and a fork's
+// branch is not one.
+func ForkComment(project string, r CheckReport) string {
+	return "### Glossa — " + mdEscape(project) + "\n\n⚪ " + r.Title + ".\n\n" + r.Summary
+}
+
 // ── the sticky comment ───────────────────────────────────────────────
 
 // CommentLinks are the places the sticky comment points at.

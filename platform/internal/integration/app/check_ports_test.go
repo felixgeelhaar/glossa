@@ -57,6 +57,8 @@ func (m *memChecks) Open(_ context.Context, in domain.Check) (domain.Check, erro
 		row.RequestedAt = in.RequestedAt
 	}
 	row.Branch, row.TenantID, row.InstallationID = in.Branch, in.TenantID, in.InstallationID
+	// The event says where the head lives now, as the upsert does.
+	row.FromFork = in.FromFork
 	row.State, row.CompletedAt, row.Attempts, row.Failure = domain.CheckQueued, nil, 0, ""
 	row.AvailableAt, row.UpdatedAt = in.AvailableAt, in.UpdatedAt
 	return *row, nil
