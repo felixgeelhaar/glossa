@@ -23,6 +23,12 @@ hosts:
 image:
   registry: ghcr.io
   pullPolicy: IfNotPresent
+  # -- Refuse to render unless server, edge and studio are each pinned by
+  # digest. A release run emits the three digests it published as a values
+  # file that sets this and the digests together, so a deployment either
+  # pins exactly what CI built or fails loudly (README.md, "Cutting a
+  # release"). Off by default so the chart renders from a tag alone.
+  requireDigest: false
   # -- imagePullSecrets for all pods (GHCR packages are public for this repo).
   pullSecrets: []
 

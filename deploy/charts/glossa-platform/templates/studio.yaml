@@ -56,7 +56,7 @@ spec:
       {{- with (include "gp.scheduling" (dict "root" $ "values" $v) | trim) }}{{ . | nindent 6 }}{{ end }}
       containers:
         - name: studio
-          image: {{ include "gp.image" (dict "root" $ "image" $v.image) }}
+          image: {{ include "gp.image" (dict "root" $ "component" "studio" "image" $v.image) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- include "gp.containerSecurityContext" . | nindent 12 }}

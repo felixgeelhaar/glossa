@@ -60,7 +60,7 @@ spec:
       {{- with (include "gp.scheduling" (dict "root" $ "values" $v) | trim) }}{{ . | nindent 6 }}{{ end }}
       containers:
         - name: edge
-          image: {{ include "gp.image" (dict "root" $ "image" $v.image) }}
+          image: {{ include "gp.image" (dict "root" $ "component" "edge" "image" $v.image) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- include "gp.containerSecurityContext" . | nindent 12 }}

@@ -9,6 +9,12 @@ deploymentAnnotations:
   example.com/owner: platform
 commonLabels:
   klarlabs.de/product: glossa
+# The digest-pinned shape a release deploys with: every Glossa image is
+# pinned and the chart refuses to render one that is not. The digests are
+# placeholders; a real deployment gets them from the release run
+# (README.md, "Cutting a release").
+image:
+  requireDigest: true
 server:
   image:
     digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
@@ -34,11 +40,15 @@ server:
     - name: GLOSSA_OUTBOX_BATCH_SIZE
       value: "100"
 edge:
+  image:
+    digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
   autoscaling:
     enabled: true
   otel:
     endpoint: http://otel-collector.observability:4318
 studio:
+  image:
+    digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
   runtimeConfig:
     cspConnectSrc: https://cdn.example.com
 database:

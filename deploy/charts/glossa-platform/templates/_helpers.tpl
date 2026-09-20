@@ -41,12 +41,33 @@ app.kubernetes.io/component: {{ .component }}
 
 {{/* ── Images ───────────────────────────────────────────────────── */}}
 
-{{/* (dict "root" $ "image" .Values.server.image) */}}
+{{/* One of Glossa's own images.
+     (dict "root" $ "component" "server" "image" .Values.server.image)
+
+     The tag defaults to .Chart.AppVersion, which is the version
+     .github/workflows/release-platform.yml publishes. A digest, when
+     set, is appended as @sha256:… and is what actually gets pulled; the
+     tag stays for readability. With image.requireDigest the chart
+     refuses to render an unpinned Glossa image at all, so a deployment
+     that must be reproducible cannot silently fall back to a tag. */}}
 {{- define "gp.image" -}}
+{{- $c := .component -}}
+{{- $repo := required (printf "%s.image.repository is required (e.g. felixgeelhaar/glossa-%s)" $c $c) .image.repository -}}
 {{- $tag := .image.tag | default .root.Chart.AppVersion -}}
-{{- $ref := printf "%s/%s:%s" .root.Values.image.registry .image.repository $tag -}}
-{{- if .image.digest -}}
-{{- $ref = printf "%s@%s" $ref .image.digest -}}
+{{- if not $tag -}}
+{{- fail (printf "%s.image.tag is empty and the chart has no appVersion to fall back to" $c) -}}
+{{- end -}}
+{{- $digest := .image.digest | default "" -}}
+{{- if $digest -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" $digest) -}}
+{{- fail (printf "%s.image.digest must look like sha256:<64 hex chars> (got %q)" $c $digest) -}}
+{{- end -}}
+{{- else if .root.Values.image.requireDigest -}}
+{{- fail (printf "image.requireDigest is set but %s.image.digest is empty: pin %s/%s:%s by the digest the release published (deploy/charts/glossa-platform/README.md, \"Cutting a release\")" $c .root.Values.image.registry $repo $tag) -}}
+{{- end -}}
+{{- $ref := printf "%s/%s:%s" .root.Values.image.registry $repo $tag -}}
+{{- if $digest -}}
+{{- $ref = printf "%s@%s" $ref $digest -}}
 {{- end -}}
 {{- $ref -}}
 {{- end -}}
