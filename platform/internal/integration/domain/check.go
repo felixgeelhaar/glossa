@@ -137,6 +137,12 @@ type Check struct {
 	PullRequest    int
 	Branch         string
 	HeadSHA        string
+	// FromFork says the head lives in another repository (RFC 0004
+	// §6.3). Such a pull request gets no Glossa CI token and no secrets,
+	// so nothing can ever be uploaded for this commit: the check is
+	// concluded `neutral` at once rather than waiting out CheckWait for
+	// an upload that cannot arrive.
+	FromFork bool
 	// CommentID is GitHub's id for the one sticky comment; 0 until it is
 	// written. It survives a new commit — the comment is the pull
 	// request's, not the commit's.

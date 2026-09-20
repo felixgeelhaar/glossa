@@ -14,15 +14,19 @@
 -- runs, because a check run belongs to one commit.
 -- name: OpenCheck :one
 INSERT INTO integration_github_checks (id, tenant_id, installation_id, repository_id, pull_request, branch,
-                                       head_sha, state, requested_at, available_at, updated_at)
+                                       head_sha, from_fork, state, requested_at, available_at, updated_at)
 VALUES (sqlc.arg(id), sqlc.arg(tenant_id), sqlc.arg(installation_id), sqlc.arg(repository_id),
-        sqlc.arg(pull_request), sqlc.arg(branch), sqlc.arg(head_sha), 'queued',
+        sqlc.arg(pull_request), sqlc.arg(branch), sqlc.arg(head_sha), sqlc.arg(from_fork), 'queued',
         sqlc.arg(now), sqlc.arg(now), sqlc.arg(now))
 ON CONFLICT (repository_id, pull_request) DO UPDATE
 SET branch       = EXCLUDED.branch,
     installation_id = EXCLUDED.installation_id,
     tenant_id    = EXCLUDED.tenant_id,
     head_sha     = EXCLUDED.head_sha,
+    -- The event says where the head lives now; a pull request retargeted
+    -- at a branch in this repository stops being a fork's, and the check
+    -- goes back to waiting for its CI.
+    from_fork    = EXCLUDED.from_fork,
     -- A new commit is a new check: its runs, their annotations and its
     -- conclusion start again, and so does the wait for CI.
     runs         = CASE WHEN integration_github_checks.head_sha = EXCLUDED.head_sha

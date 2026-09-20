@@ -46,6 +46,7 @@ type IntegrationGithubCheck struct {
 	AvailableAt    time.Time
 	CompletedAt    pgtype.Timestamptz
 	UpdatedAt      time.Time
+	FromFork       bool
 }
 
 type IntegrationGithubInstallation struct {

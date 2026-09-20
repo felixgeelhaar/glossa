@@ -41,7 +41,7 @@ SET attempts     = e.attempts + 1,
     claim_token  = gen_random_uuid()
 FROM due
 WHERE e.id = due.id
-RETURNING e.id, e.tenant_id, e.installation_id, e.repository_id, e.pull_request, e.branch, e.head_sha, e.comment_id, e.runs, e.state, e.conclusion, e.attempts, e.failure, e.claim_token, e.requested_at, e.available_at, e.completed_at, e.updated_at
+RETURNING e.id, e.tenant_id, e.installation_id, e.repository_id, e.pull_request, e.branch, e.head_sha, e.comment_id, e.runs, e.state, e.conclusion, e.attempts, e.failure, e.claim_token, e.requested_at, e.available_at, e.completed_at, e.updated_at, e.from_fork
 `
 
 // ClaimCheck leases the oldest due check. The row is the pull request,
@@ -69,6 +69,7 @@ func (q *Queries) ClaimCheck(ctx context.Context, leaseSeconds float64) (Integra
 		&i.AvailableAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+		&i.FromFork,
 	)
 	return i, err
 }
@@ -112,7 +113,7 @@ func (q *Queries) ExpireChecks(ctx context.Context, arg ExpireChecksParams) (int
 }
 
 const getCheck = `-- name: GetCheck :one
-SELECT id, tenant_id, installation_id, repository_id, pull_request, branch, head_sha, comment_id, runs, state, conclusion, attempts, failure, claim_token, requested_at, available_at, completed_at, updated_at FROM integration_github_checks
+SELECT id, tenant_id, installation_id, repository_id, pull_request, branch, head_sha, comment_id, runs, state, conclusion, attempts, failure, claim_token, requested_at, available_at, completed_at, updated_at, from_fork FROM integration_github_checks
 WHERE repository_id = $1 AND pull_request = $2
 `
 
@@ -144,6 +145,7 @@ func (q *Queries) GetCheck(ctx context.Context, arg GetCheckParams) (Integration
 		&i.AvailableAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+		&i.FromFork,
 	)
 	return i, err
 }
@@ -151,15 +153,19 @@ func (q *Queries) GetCheck(ctx context.Context, arg GetCheckParams) (Integration
 const openCheck = `-- name: OpenCheck :one
 
 INSERT INTO integration_github_checks (id, tenant_id, installation_id, repository_id, pull_request, branch,
-                                       head_sha, state, requested_at, available_at, updated_at)
+                                       head_sha, from_fork, state, requested_at, available_at, updated_at)
 VALUES ($1, $2, $3, $4,
-        $5, $6, $7, 'queued',
-        $8, $8, $8)
+        $5, $6, $7, $8, 'queued',
+        $9, $9, $9)
 ON CONFLICT (repository_id, pull_request) DO UPDATE
 SET branch       = EXCLUDED.branch,
     installation_id = EXCLUDED.installation_id,
     tenant_id    = EXCLUDED.tenant_id,
     head_sha     = EXCLUDED.head_sha,
+    -- The event says where the head lives now; a pull request retargeted
+    -- at a branch in this repository stops being a fork's, and the check
+    -- goes back to waiting for its CI.
+    from_fork    = EXCLUDED.from_fork,
     -- A new commit is a new check: its runs, their annotations and its
     -- conclusion start again, and so does the wait for CI.
     runs         = CASE WHEN integration_github_checks.head_sha = EXCLUDED.head_sha
@@ -174,7 +180,7 @@ SET branch       = EXCLUDED.branch,
     failure      = '',
     available_at = EXCLUDED.available_at,
     updated_at   = EXCLUDED.updated_at
-RETURNING id, tenant_id, installation_id, repository_id, pull_request, branch, head_sha, comment_id, runs, state, conclusion, attempts, failure, claim_token, requested_at, available_at, completed_at, updated_at
+RETURNING id, tenant_id, installation_id, repository_id, pull_request, branch, head_sha, comment_id, runs, state, conclusion, attempts, failure, claim_token, requested_at, available_at, completed_at, updated_at, from_fork
 `
 
 type OpenCheckParams struct {
@@ -185,6 +191,7 @@ type OpenCheckParams struct {
 	PullRequest    int32
 	Branch         string
 	HeadSha        string
+	FromFork       bool
 	Now            time.Time
 }
 
@@ -210,6 +217,7 @@ func (q *Queries) OpenCheck(ctx context.Context, arg OpenCheckParams) (Integrati
 		arg.PullRequest,
 		arg.Branch,
 		arg.HeadSha,
+		arg.FromFork,
 		arg.Now,
 	)
 	var i IntegrationGithubCheck
@@ -232,6 +240,7 @@ func (q *Queries) OpenCheck(ctx context.Context, arg OpenCheckParams) (Integrati
 		&i.AvailableAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+		&i.FromFork,
 	)
 	return i, err
 }

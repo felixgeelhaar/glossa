@@ -90,6 +90,41 @@ func TestAPullRequestHasExactlyOneCheckRow(t *testing.T) {
 	}
 }
 
+// TestAForkIsRememberedOnTheRow: the worker concludes a fork's check
+// without waiting, so where the head lives has to survive the claim —
+// and stop being true if the pull request is retargeted at a branch in
+// this repository (migration 0025).
+func TestAForkIsRememberedOnTheRow(t *testing.T) {
+	q, tenant := newChecks(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	fork := aCheck(tenant, 10101, 7, shaOne, now)
+	fork.FromFork = true
+	if _, err := q.Open(ctx, fork); err != nil {
+		t.Fatal(err)
+	}
+	claimed, ok, err := q.Claim(ctx, time.Minute)
+	if err != nil || !ok {
+		t.Fatalf("claim: %v, ok=%v", err, ok)
+	}
+	if !claimed.FromFork {
+		t.Fatal("the claimed check does not say the pull request came from a fork")
+	}
+
+	// The head moves into this repository: the check waits for CI again.
+	if _, err := q.Open(ctx, aCheck(tenant, 10101, 7, shaTwo, now.Add(time.Minute))); err != nil {
+		t.Fatal(err)
+	}
+	got, err := q.Check(ctx, 10101, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.FromFork {
+		t.Fatal("the row still calls the pull request a fork's after its head moved into this repository")
+	}
+}
+
 func TestOnlyOneWorkerClaimsAPullRequestAtATime(t *testing.T) {
 	q, tenant := newChecks(t)
 	ctx := context.Background()

@@ -39,8 +39,9 @@ func NewChecks(uow *db.UnitOfWork) *Checks {
 func check(r integrationsql.IntegrationGithubCheck) domain.Check {
 	c := domain.Check{
 		ID: r.ID, TenantID: r.TenantID, InstallationID: r.InstallationID, RepositoryID: r.RepositoryID,
-		PullRequest: int(r.PullRequest), Branch: r.Branch, HeadSHA: r.HeadSha, CommentID: r.CommentID,
-		State: domain.CheckState(r.State), Conclusion: r.Conclusion, Attempts: int(r.Attempts),
+		PullRequest: int(r.PullRequest), Branch: r.Branch, HeadSHA: r.HeadSha, FromFork: r.FromFork,
+		CommentID: r.CommentID,
+		State:     domain.CheckState(r.State), Conclusion: r.Conclusion, Attempts: int(r.Attempts),
 		Failure: r.Failure, RequestedAt: r.RequestedAt.UTC(), AvailableAt: r.AvailableAt.UTC(),
 		UpdatedAt: r.UpdatedAt.UTC(),
 	}
@@ -77,7 +78,7 @@ func (c *Checks) Open(ctx context.Context, in domain.Check) (domain.Check, error
 		row, err := integrationsql.New(tx).OpenCheck(ctx, integrationsql.OpenCheckParams{
 			ID: in.ID, TenantID: in.TenantID, InstallationID: in.InstallationID,
 			RepositoryID: in.RepositoryID, PullRequest: int32(in.PullRequest), //nolint:gosec // a PR number fits
-			Branch: in.Branch, HeadSha: in.HeadSHA, Now: in.RequestedAt,
+			Branch: in.Branch, HeadSha: in.HeadSHA, FromFork: in.FromFork, Now: in.RequestedAt,
 		})
 		if err != nil {
 			return err
