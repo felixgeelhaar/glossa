@@ -23,10 +23,16 @@
 # --wait, then wait for the rollout (README.md, "Order of the database hooks").
 # Upgrades take --wait.
 #
+# This file holds the hosts, storage and backup decisions; the image
+# digests come on top of it, from the release run's values-images.yaml
+# (README.md, "Cutting a release"). It goes last so it wins, and it turns
+# image.requireDigest on, so an unpinned image fails the render.
+#
 #   kubectl create namespace glossa-platform   # + the PodSecurity labels (README.md)
+#   gh run download --repo felixgeelhaar/glossa <run-id> -n values-images
 #   helm upgrade --install glossa-platform deploy/charts/glossa-platform \
 #     --namespace glossa-platform -f deploy/charts/glossa-platform/examples/values-klarlabs.yaml \
-#     --timeout 15m
+#     -f values-images.yaml --timeout 15m
 #   kubectl -n glossa-platform rollout status deployment/glossa-server
 
 # Resource names glossa-server, glossa-edge, glossa-studio, glossa-minio,
@@ -45,8 +51,10 @@ hosts:
 commonLabels:
   klarlabs.de/product: glossa
 
-# Images: appVersion (0.4.0) tags. RollOps pins each by digest at deploy
-# time (README.md, "Deploying with RollOps"): --set <component>.image.digest=…
+# Images: appVersion (0.4.0) tags. The empty digests are placeholders so
+# this file renders on its own in CI — a deployment overlays the release
+# run's values-images.yaml, which fills all three and requires them
+# (README.md, "Cutting a release" and "Deploying with RollOps").
 server:
   image:
     digest: ""
