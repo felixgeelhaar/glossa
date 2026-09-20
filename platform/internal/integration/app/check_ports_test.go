@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"cmp"
 	"context"
 	"maps"
 	"slices"
@@ -101,7 +102,10 @@ func (m *memChecks) Claim(_ context.Context, lease time.Duration) (domain.Check,
 	defer m.mu.Unlock()
 	now := m.now()
 	for _, k := range slices.SortedFunc(maps.Keys(m.rows), func(a, b checkKey) int {
-		return int(a.repository-b.repository)*1000 + a.pullRequest - b.pullRequest
+		if a.repository != b.repository {
+			return cmp.Compare(a.repository, b.repository)
+		}
+		return cmp.Compare(a.pullRequest, b.pullRequest)
 	}) {
 		row := m.rows[k]
 		if row.State != domain.CheckQueued || row.ClaimToken != uuid.Nil || now.Before(row.AvailableAt) {
@@ -200,8 +204,6 @@ type memSources struct {
 	quality  app.BranchQuality
 	usages   app.BranchUsages
 	manifest string
-	// calls counts the reads, so a test can see a job did its work.
-	calls int
 }
 
 func newMemSources() *memSources {
@@ -226,7 +228,6 @@ func (m *memSources) Policy(context.Context, uuid.UUID) (checkpolicy.Policy, err
 func (m *memSources) BranchStatus(context.Context, uuid.UUID, string) (app.BranchStatus, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.calls++
 	return m.status, nil
 }
 

@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 )
 
@@ -137,8 +136,3 @@ func containsInt64(list []int64, v int64) bool {
 	}
 	return false
 }
-
-// CheckWait is how long a head SHA waits for its Glossa CI run before
-// the check completes `neutral`; it is the domain's constant, re-exported
-// so operators and tests do not have to reach into the domain.
-const CheckWait = domain.CheckWait
