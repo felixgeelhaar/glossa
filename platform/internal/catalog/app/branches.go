@@ -83,7 +83,12 @@ type BranchReport struct {
 	NewKeys         []domain.MessageKey
 	SourceProposals []domain.MessageKey
 	Removed         []domain.MessageKey
-	Conflicts       []KeyConflict
+	// Invalid is what the branch's last push could not accept. A status
+	// report has it too, not only the push's own answer: the Glossa PR
+	// check runs minutes later and must still be able to say what was
+	// wrong (RFC 0004 §6.4).
+	Invalid   []domain.InvalidItem
+	Conflicts []KeyConflict
 	// Outdated counts, per locale, the translations the branch's source
 	// proposals will make outdated when it merges; nil without the
 	// translation impact port.
@@ -138,6 +143,9 @@ func (s *Service) PushBranch(ctx context.Context, project domain.ProjectID, in B
 		if rep.Items, err = w.apply(ctx, p, in.Items); err != nil {
 			return err
 		}
+		// What the push could not accept is remembered on the branch, so
+		// the PR check can report it long after the push's answer is gone.
+		b.Invalid = invalidItems(rep.Items)
 		if in.Complete {
 			if err := w.withdrawMissing(ctx, in.Items); err != nil {
 				return err
@@ -720,9 +728,25 @@ func compareKeys(a, b domain.MessageKey) int {
 	return 0
 }
 
+// invalidItems keeps the push's rejected items, bounded: they are a
+// report for the pull request, not a log.
+func invalidItems(items []BranchItemResult) []domain.InvalidItem {
+	var out []domain.InvalidItem
+	for _, it := range items {
+		if it.Status != BranchItemFailed || it.Error == nil {
+			continue
+		}
+		if len(out) == domain.MaxInvalidItems {
+			break
+		}
+		out = append(out, domain.InvalidItem{Key: it.Key, Code: it.Error.Code, Detail: it.Error.Detail})
+	}
+	return out
+}
+
 // report reads a branch's status from its proposals.
 func (s *Service) report(ctx context.Context, st Store, b domain.Branch) (BranchReport, error) {
-	rep := BranchReport{Branch: b, Removed: b.RemovedKeys}
+	rep := BranchReport{Branch: b, Removed: b.RemovedKeys, Invalid: b.Invalid}
 	own, err := st.BranchProposals(ctx, b.ID)
 	if err != nil {
 		return rep, err

@@ -26,20 +26,21 @@ type CatalogApplication struct {
 }
 
 type CatalogBranch struct {
-	ID          uuid.UUID
-	TenantID    uuid.UUID
-	ProjectID   uuid.UUID
-	Name        string
-	PrNumber    pgtype.Int4
-	HeadCommit  string
-	State       string
-	PreviewUrl  string
-	ClosedAt    pgtype.Timestamptz
-	RemovedKeys []string
-	Version     int32
-	CreatedBy   string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	ProjectID    uuid.UUID
+	Name         string
+	PrNumber     pgtype.Int4
+	HeadCommit   string
+	State        string
+	PreviewUrl   string
+	ClosedAt     pgtype.Timestamptz
+	RemovedKeys  []string
+	Version      int32
+	CreatedBy    string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	InvalidItems json.RawMessage
 }
 
 type CatalogMessage struct {

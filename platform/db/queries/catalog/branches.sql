@@ -5,11 +5,11 @@
 -- Two first pushes of one branch race on (project_id, name); the loser
 -- inserts nothing and locks the winner's row.
 INSERT INTO catalog_branches (id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url,
-                              closed_at, removed_keys, version, created_by, created_at, updated_at)
+                              closed_at, removed_keys, invalid_items, version, created_by, created_at, updated_at)
 VALUES (sqlc.arg(id), app_current_tenant(), sqlc.arg(project_id), sqlc.arg(name), sqlc.narg(pr_number),
         sqlc.arg(head_commit), sqlc.arg(state), sqlc.arg(preview_url), sqlc.narg(closed_at),
-        sqlc.arg(removed_keys)::text[], sqlc.arg(version), sqlc.arg(created_by), sqlc.arg(created_at),
-        sqlc.arg(updated_at))
+        sqlc.arg(removed_keys)::text[], sqlc.arg(invalid_items), sqlc.arg(version), sqlc.arg(created_by),
+        sqlc.arg(created_at), sqlc.arg(updated_at))
 ON CONFLICT (project_id, name) DO NOTHING;
 
 -- name: GetBranch :one
@@ -40,7 +40,8 @@ LIMIT sqlc.arg(max_rows);
 UPDATE catalog_branches
 SET pr_number = sqlc.narg(pr_number), head_commit = sqlc.arg(head_commit), state = sqlc.arg(state),
     preview_url = sqlc.arg(preview_url), closed_at = sqlc.narg(closed_at),
-    removed_keys = sqlc.arg(removed_keys)::text[], version = sqlc.arg(version), updated_at = sqlc.arg(updated_at)
+    removed_keys = sqlc.arg(removed_keys)::text[], invalid_items = sqlc.arg(invalid_items),
+    version = sqlc.arg(version), updated_at = sqlc.arg(updated_at)
 WHERE id = sqlc.arg(id) AND version = sqlc.arg(expected_version);
 
 -- name: UpsertProposal :exec

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -26,7 +27,8 @@ func (s *store) InsertBranch(ctx context.Context, b domain.Branch, by domain.Aut
 	n, err := s.q.InsertBranch(ctx, catalogsql.InsertBranchParams{
 		ID: b.ID.UUID(), ProjectID: b.ProjectID.UUID(), Name: string(b.Name), PrNumber: maxLength(b.PR),
 		HeadCommit: b.HeadCommit, State: string(b.State), PreviewUrl: b.PreviewURL, ClosedAt: timestamptz(b.ClosedAt),
-		RemovedKeys: keyStrings(b.RemovedKeys), Version: int32Of(b.Version), CreatedBy: string(by),
+		RemovedKeys: keyStrings(b.RemovedKeys), InvalidItems: invalidItemsJSON(b.Invalid),
+		Version: int32Of(b.Version), CreatedBy: string(by),
 		CreatedAt: b.CreatedAt, UpdatedAt: b.UpdatedAt,
 	})
 	return n == 1, storeError(err)
@@ -48,6 +50,22 @@ func branch(r catalogsql.CatalogBranch) domain.Branch {
 	}
 	for _, k := range r.RemovedKeys {
 		b.RemovedKeys = append(b.RemovedKeys, domain.MessageKey(k))
+	}
+	// An unreadable list is a report we lost, never a branch we cannot
+	// load: the branch itself is still correct without it.
+	_ = json.Unmarshal(r.InvalidItems, &b.Invalid)
+	return b
+}
+
+// invalidItemsJSON marshals the last push's rejected items, always as an
+// array so the column's check constraint holds.
+func invalidItemsJSON(items []domain.InvalidItem) json.RawMessage {
+	if len(items) == 0 {
+		return json.RawMessage("[]")
+	}
+	b, err := json.Marshal(items)
+	if err != nil {
+		return json.RawMessage("[]")
 	}
 	return b
 }
@@ -125,7 +143,8 @@ func (s *store) UpdateBranch(ctx context.Context, b domain.Branch, expected int)
 	n, err := s.q.UpdateBranch(ctx, catalogsql.UpdateBranchParams{
 		ID: b.ID.UUID(), PrNumber: maxLength(b.PR), HeadCommit: b.HeadCommit, State: string(b.State),
 		PreviewUrl: b.PreviewURL, ClosedAt: timestamptz(b.ClosedAt), RemovedKeys: keyStrings(b.RemovedKeys),
-		Version: int32Of(b.Version), UpdatedAt: b.UpdatedAt, ExpectedVersion: int32Of(expected),
+		InvalidItems: invalidItemsJSON(b.Invalid),
+		Version:      int32Of(b.Version), UpdatedAt: b.UpdatedAt, ExpectedVersion: int32Of(expected),
 	})
 	return affected(n, err)
 }

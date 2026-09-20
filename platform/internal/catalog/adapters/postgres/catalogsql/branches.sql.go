@@ -29,7 +29,7 @@ func (q *Queries) DeleteProposal(ctx context.Context, arg DeleteProposalParams) 
 }
 
 const getBranch = `-- name: GetBranch :one
-SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at FROM catalog_branches WHERE project_id = $1 AND name = $2
+SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at, invalid_items FROM catalog_branches WHERE project_id = $1 AND name = $2
 `
 
 type GetBranchParams struct {
@@ -55,12 +55,13 @@ func (q *Queries) GetBranch(ctx context.Context, arg GetBranchParams) (CatalogBr
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InvalidItems,
 	)
 	return i, err
 }
 
 const getBranchByID = `-- name: GetBranchByID :one
-SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at FROM catalog_branches WHERE project_id = $1 AND id = $2
+SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at, invalid_items FROM catalog_branches WHERE project_id = $1 AND id = $2
 `
 
 type GetBranchByIDParams struct {
@@ -87,12 +88,13 @@ func (q *Queries) GetBranchByID(ctx context.Context, arg GetBranchByIDParams) (C
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InvalidItems,
 	)
 	return i, err
 }
 
 const getBranchesByIDs = `-- name: GetBranchesByIDs :many
-SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at FROM catalog_branches WHERE id = ANY ($1::uuid[])
+SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at, invalid_items FROM catalog_branches WHERE id = ANY ($1::uuid[])
 `
 
 func (q *Queries) GetBranchesByIDs(ctx context.Context, ids []uuid.UUID) ([]CatalogBranch, error) {
@@ -119,6 +121,7 @@ func (q *Queries) GetBranchesByIDs(ctx context.Context, ids []uuid.UUID) ([]Cata
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InvalidItems,
 		); err != nil {
 			return nil, err
 		}
@@ -133,28 +136,29 @@ func (q *Queries) GetBranchesByIDs(ctx context.Context, ids []uuid.UUID) ([]Cata
 const insertBranch = `-- name: InsertBranch :execrows
 
 INSERT INTO catalog_branches (id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url,
-                              closed_at, removed_keys, version, created_by, created_at, updated_at)
+                              closed_at, removed_keys, invalid_items, version, created_by, created_at, updated_at)
 VALUES ($1, app_current_tenant(), $2, $3, $4,
         $5, $6, $7, $8,
         $9::text[], $10, $11, $12,
-        $13)
+        $13, $14)
 ON CONFLICT (project_id, name) DO NOTHING
 `
 
 type InsertBranchParams struct {
-	ID          uuid.UUID
-	ProjectID   uuid.UUID
-	Name        string
-	PrNumber    pgtype.Int4
-	HeadCommit  string
-	State       string
-	PreviewUrl  string
-	ClosedAt    pgtype.Timestamptz
-	RemovedKeys []string
-	Version     int32
-	CreatedBy   string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           uuid.UUID
+	ProjectID    uuid.UUID
+	Name         string
+	PrNumber     pgtype.Int4
+	HeadCommit   string
+	State        string
+	PreviewUrl   string
+	ClosedAt     pgtype.Timestamptz
+	RemovedKeys  []string
+	InvalidItems json.RawMessage
+	Version      int32
+	CreatedBy    string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // Tenant scope (db.TenantTx): RLS limits every statement to the current
@@ -172,6 +176,7 @@ func (q *Queries) InsertBranch(ctx context.Context, arg InsertBranchParams) (int
 		arg.PreviewUrl,
 		arg.ClosedAt,
 		arg.RemovedKeys,
+		arg.InvalidItems,
 		arg.Version,
 		arg.CreatedBy,
 		arg.CreatedAt,
@@ -300,7 +305,7 @@ func (q *Queries) ListBranchProposalsPage(ctx context.Context, arg ListBranchPro
 }
 
 const listBranches = `-- name: ListBranches :many
-SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at FROM catalog_branches
+SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at, invalid_items FROM catalog_branches
 WHERE project_id = $1 AND name > $2
   AND ($3::text IS NULL OR state = $3)
 ORDER BY name
@@ -345,6 +350,7 @@ func (q *Queries) ListBranches(ctx context.Context, arg ListBranchesParams) ([]C
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InvalidItems,
 		); err != nil {
 			return nil, err
 		}
@@ -431,7 +437,7 @@ func (q *Queries) ListProposalsForMessages(ctx context.Context, messageIds []uui
 }
 
 const lockBranch = `-- name: LockBranch :one
-SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at FROM catalog_branches
+SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at, invalid_items FROM catalog_branches
 WHERE project_id = $1 AND name = $2
 FOR UPDATE
 `
@@ -459,6 +465,7 @@ func (q *Queries) LockBranch(ctx context.Context, arg LockBranchParams) (Catalog
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InvalidItems,
 	)
 	return i, err
 }
@@ -570,8 +577,9 @@ const updateBranch = `-- name: UpdateBranch :execrows
 UPDATE catalog_branches
 SET pr_number = $1, head_commit = $2, state = $3,
     preview_url = $4, closed_at = $5,
-    removed_keys = $6::text[], version = $7, updated_at = $8
-WHERE id = $9 AND version = $10
+    removed_keys = $6::text[], invalid_items = $7,
+    version = $8, updated_at = $9
+WHERE id = $10 AND version = $11
 `
 
 type UpdateBranchParams struct {
@@ -581,6 +589,7 @@ type UpdateBranchParams struct {
 	PreviewUrl      string
 	ClosedAt        pgtype.Timestamptz
 	RemovedKeys     []string
+	InvalidItems    json.RawMessage
 	Version         int32
 	UpdatedAt       time.Time
 	ID              uuid.UUID
@@ -595,6 +604,7 @@ func (q *Queries) UpdateBranch(ctx context.Context, arg UpdateBranchParams) (int
 		arg.PreviewUrl,
 		arg.ClosedAt,
 		arg.RemovedKeys,
+		arg.InvalidItems,
 		arg.Version,
 		arg.UpdatedAt,
 		arg.ID,

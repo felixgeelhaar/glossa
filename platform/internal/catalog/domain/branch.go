@@ -60,6 +60,19 @@ const MaxPreviewURLLen = 2000
 
 var commitPattern = regexp.MustCompile(`^[0-9a-f]{7,64}$`)
 
+// MaxInvalidItems bounds what a branch remembers of a push's rejected
+// items. A push that rejects more than this is broken in a way the
+// first hundred already explain, and the list is a report, not a log.
+const MaxInvalidItems = 100
+
+// InvalidItem is one item a branch's last push could not accept, with
+// the same code and detail the push itself reported.
+type InvalidItem struct {
+	Key    string `json:"key"`
+	Code   string `json:"code"`
+	Detail string `json:"detail"`
+}
+
 // Branch is a feature branch of a project's source (RFC 0004 §4.1): an
 // overlay on the main catalog. It proposes new messages and changes to
 // existing ones' source; nothing it proposes is released outside its
@@ -81,6 +94,13 @@ type Branch struct {
 	// complete push no longer had. A branch never obsoletes anything;
 	// they are only reported.
 	RemovedKeys []MessageKey
+	// Invalid are the items the branch's last push could not accept:
+	// source that is not a valid MessageFormat 2 message, a key or
+	// namespace that does not parse, details that do not validate. The
+	// push applied the rest, so these are what the Glossa PR check
+	// reports as invalid messages (RFC 0004 §6.4). The next push
+	// replaces the list.
+	Invalid []InvalidItem
 	// Version increments with every change; it is the branch's ETag and
 	// orders its events.
 	Version   int
