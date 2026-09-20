@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture/capturetest"
@@ -208,8 +209,17 @@ func TestCaptureLeavesAnAttachedBrowserAlone(t *testing.T) {
 	if _, err := capture.Run(context.Background(), plan, capture.Options{CDP: endpoint}); err != nil {
 		t.Fatal(err)
 	}
-	// Still answering, with no tab of the run left behind.
-	if after := pageTargets(t, endpoint); after != before {
+	// Still answering, with no tab of the run left behind. Chrome drops a
+	// closed target a moment after the close, so wait for it rather than
+	// sampling once: a tab that leaks never goes away.
+	after := before
+	for range 50 {
+		if after = pageTargets(t, endpoint); after == before {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if after != before {
 		t.Errorf("pages: %d before the run, %d after", before, after)
 	}
 	// And a second run attaches to the same browser.
