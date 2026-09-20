@@ -11,6 +11,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 )
@@ -63,6 +64,70 @@ func TestProjectUpdateNeedsCurrentVersion(t *testing.T) {
 	}
 	if _, err := h.svc.GetProject(ctx, p.ID); !errors.Is(err, app.ErrNotFound) {
 		t.Errorf("get deleted: %v", err)
+	}
+}
+
+// fakeLocales is Localization's answer, without Localization.
+type fakeLocales []string
+
+func (f fakeLocales) LocaleCodes(context.Context, domain.ProjectID) ([]string, error) { return f, nil }
+
+// TestCheckPolicyRoundTripsThroughStorage: the setting has to survive
+// the JSONB column with the one distinction that matters — no locales
+// required is not the same as every locale required.
+func TestCheckPolicyRoundTripsThroughStorage(t *testing.T) {
+	h := newHarness(t)
+	h.svc.SetLocales(fakeLocales{"en", "de"})
+	ctx := h.developer()
+	p := h.project(t, ctx)
+	if p.Settings.CheckPolicy != nil {
+		t.Fatalf("a new project stores a policy: %+v", p.Settings.CheckPolicy)
+	}
+
+	tests := []struct {
+		name   string
+		policy checkpolicy.Policy
+	}{
+		{name: "a named list", policy: checkpolicy.Policy{
+			RequireComplete: []string{"de"}, FailOn: checkpolicy.Warning, MissingTranslations: checkpolicy.Warning}},
+		{name: "no locale", policy: checkpolicy.Policy{
+			RequireComplete: []string{}, FailOn: checkpolicy.Error, MissingTranslations: checkpolicy.Error}},
+		{name: "every locale, nothing fails", policy: checkpolicy.Policy{
+			FailOn: checkpolicy.Never, MissingTranslations: checkpolicy.Error}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cur, err := h.svc.GetProject(ctx, p.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			settings := cur.Settings
+			policy := tc.policy
+			settings.CheckPolicy = &policy
+			if _, err := h.svc.UpdateProject(ctx, p.ID, cur.Version, domain.ProjectChange{Settings: &settings}); err != nil {
+				t.Fatal(err)
+			}
+			back, err := h.svc.GetProject(ctx, p.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := back.Settings.Policy()
+			if !got.Equal(tc.policy) || (got.RequireComplete == nil) != (tc.policy.RequireComplete == nil) {
+				t.Fatalf("stored policy = %+v, want %+v", got, tc.policy)
+			}
+		})
+	}
+
+	// A locale the project does not have is refused, by the project's
+	// own locales rather than by anything Catalog keeps.
+	cur, err := h.svc.GetProject(ctx, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := cur.Settings
+	settings.CheckPolicy = &checkpolicy.Policy{RequireComplete: []string{"ja"}}
+	if _, err := h.svc.UpdateProject(ctx, p.ID, cur.Version, domain.ProjectChange{Settings: &settings}); !errors.Is(err, checkpolicy.ErrUnknownLocale) {
+		t.Errorf("unknown locale: %v, want ErrUnknownLocale", err)
 	}
 }
 
