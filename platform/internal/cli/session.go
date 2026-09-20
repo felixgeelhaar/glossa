@@ -81,9 +81,10 @@ func (inv *invocation) token(server string) (tok, source string, err error) {
 		return t, store.Name(), nil
 	}
 	return "", "", &Error{Exit: ExitNetwork, Code: "no_token",
-		What:  "no API token for " + server,
-		Why:   "GLOSSA_TOKEN is unset and `glossa login` stored no token for this server",
-		Fix:   "run `glossa login`, or set GLOSSA_TOKEN (CI) to a token created in Studio",
+		What: "no credential for " + server,
+		Why:  "GLOSSA_TOKEN is unset and `glossa login` stored nothing for this server",
+		Fix: "run `glossa login` — in GitHub Actions, with `permissions: { id-token: write }`, it needs no secret; " +
+			"elsewhere set GLOSSA_TOKEN to a token created in Studio",
 		Where: server}
 }
 
@@ -183,9 +184,14 @@ func (inv *invocation) apiError(err error, what string) error {
 	case ae.Status == 401:
 		e.Why = "the server refused the API token (" + ae.Code + detail(ae) + ")"
 		e.Fix = "run `glossa login` with a valid token, or set GLOSSA_TOKEN"
+	case ae.Status == 403 && ae.Code == "grant_project_mismatch":
+		e.Why = "the credential is bound to another project (" + detail(ae) + ")"
+		e.Fix = "a GitHub Actions credential acts on the project its repository is connected to; " +
+			"run `glossa login --project <id>` for the right one, or use an API token"
 	case ae.Status == 403:
-		e.Why = "the token may not do this (" + ae.Code + detail(ae) + ")"
-		e.Fix = "use a token with the needed scope (write for push and import), created in Studio"
+		e.Why = "the credential may not do this (" + ae.Code + detail(ae) + ")"
+		e.Fix = "use a token with the needed scope (write for push and import), created in Studio. " +
+			"A GitHub Actions credential only reads and writes its project's catalog"
 	case ae.Status == 404:
 		e.Why = "not found (" + ae.Code + detail(ae) + ")"
 		e.Fix = "check tenant and project in glossa.yaml"
