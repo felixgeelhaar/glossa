@@ -103,5 +103,20 @@ spec:
               resources:
                 requests:
                   storage: 5Gi
+              # Must be stated, not inherited from the cluster default. The live
+              # StatefulSet has it (set when the cluster defaulted it at
+              # creation), so omitting it here makes every apply a request to
+              # blank it — a change to volumeClaimTemplates, which Kubernetes
+              # forbids:
+              #
+              #   The StatefulSet "postgres" is invalid: spec: Forbidden:
+              #   updates to statefulset spec for fields other than 'replicas',
+              #   'ordinals', 'template', 'updateStrategy',
+              #   'revisionHistoryLimit' and
+              #   'persistentVolumeClaimRetentionPolicy' are forbidden
+              #
+              # rollops applies a repo's targets all-or-none, so this one
+              # rejection held the other five glossa targets unapplied.
+              storageClassName: longhorn
               volumeMode: Filesystem
   strategy: { type: rolling }
