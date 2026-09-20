@@ -1,22 +1,22 @@
 // Package capturetest serves the fixture app of the `glossa capture`
 // integration tests (capture/testdata/app, built from
-// runtimes/js/capture/src/testing/cli-fixture.ts) and skips a browser test
-// where no Chrome is installed. Test-only.
+// runtimes/js/capture/src/testing/cli-fixture.ts) and starts the headless
+// Chrome they attach to. Test-only.
 package capturetest
 
 import (
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
-
-	browse "go.klarlabs.de/scout"
-
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
+	"time"
 )
 
 // Login is what a page request carried of the fixture login.
@@ -75,26 +75,133 @@ func NewApp(t testing.TB) *App {
 	return a
 }
 
-// SkipWithoutChrome skips the test when err is Chrome failing to start,
-// except in CI (CI=true), where a browser test must run.
-func SkipWithoutChrome(t testing.TB, err error) {
+// StartChrome starts a headless Chrome for the test and returns its
+// DevTools endpoint, for `glossa capture --cdp` (GLOSSA_CAPTURE_CDP).
+// It is killed and its profile removed in cleanup.
+//
+// The browser tests start Chrome themselves because scout's launcher
+// passes a fixed flag list (platform/README.md, "scout follow-ups"):
+// there is no way to add --no-sandbox and --disable-dev-shm-usage, which
+// a CI runner needs — its kernel forbids the user namespaces Chrome's
+// own sandbox wants, and Chrome then never opens a DevTools port. Local
+// and CI runs take the same path, the attach path, so what CI exercises
+// is what a developer exercises.
+//
+// Without a Chrome it skips the test, except in CI (CI=true), where a
+// browser test must run.
+func StartChrome(t testing.TB) string {
 	t.Helper()
-	var be *capture.BrowserError
-	if errors.As(err, &be) && os.Getenv("CI") != "true" {
+	bin, err := findChrome()
+	if err != nil {
+		if os.Getenv("CI") == "true" {
+			t.Fatalf("CI=true and no Chrome: %v", err)
+		}
 		t.Skipf("no Chrome here: %v", err)
 	}
+	port, err := freePort()
+	if err != nil {
+		t.Fatalf("no free port for Chrome: %v", err)
+	}
+	dir := t.TempDir()
+	cmd := exec.Command(bin, //nolint:gosec // G204: the resolved Chrome binary, in a test
+		"--headless=new",
+		// The two flags scout's launcher can't pass: a CI runner's kernel
+		// denies Chrome's sandbox, and its /dev/shm is too small.
+		"--no-sandbox",
+		"--disable-dev-shm-usage",
+		"--disable-gpu",
+		fmt.Sprintf("--remote-debugging-port=%d", port),
+		"--user-data-dir="+dir,
+		"--no-first-run",
+		"--no-default-browser-check",
+		"--disable-background-networking",
+		"--disable-default-apps",
+		"--disable-extensions",
+		"--disable-sync",
+		"--disable-translate",
+		"--disable-popup-blocking",
+		"--metrics-recording-only",
+		"about:blank",
+	)
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("can't start %s: %v", bin, err)
+	}
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	})
+	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)
+	if err := waitForDevTools(endpoint, 30*time.Second); err != nil {
+		t.Fatalf("%s started but never opened DevTools: %v", bin, err)
+	}
+	return endpoint
 }
 
-// RequireChrome skips the test when Chrome can't start, except in CI
-// (CI=true), where it fails.
-func RequireChrome(t testing.TB) {
-	t.Helper()
-	e := browse.New(browse.WithHeadless(true))
-	err := e.Launch()
-	if err == nil {
-		_ = e.Close()
-		return
+// findChrome looks where scout's launcher looks, plus GLOSSA_TEST_CHROME
+// and CHROME_PATH for a runner that keeps its browser elsewhere.
+func findChrome() (string, error) {
+	var candidates []string
+	for _, k := range []string{"GLOSSA_TEST_CHROME", "CHROME_PATH"} {
+		if v := os.Getenv(k); v != "" {
+			candidates = append(candidates, v)
+		}
 	}
-	SkipWithoutChrome(t, &capture.BrowserError{Err: err})
-	t.Fatalf("can't start Chrome: %v", err)
+	switch runtime.GOOS {
+	case "darwin":
+		candidates = append(candidates,
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+			"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+			"/Applications/Chromium.app/Contents/MacOS/Chromium",
+			"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+			"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser")
+	default:
+		candidates = append(candidates,
+			"google-chrome", "google-chrome-stable", "chromium", "chromium-browser",
+			"microsoft-edge", "microsoft-edge-stable", "brave-browser")
+	}
+	for _, c := range candidates {
+		if filepath.IsAbs(c) {
+			if _, err := os.Stat(c); err == nil {
+				return c, nil
+			}
+			continue
+		}
+		if p, err := exec.LookPath(c); err == nil {
+			return p, nil
+		}
+	}
+	return "", errors.New("no Chrome or Chromium found (set GLOSSA_TEST_CHROME)")
+}
+
+func freePort() (int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = l.Close() }()
+	addr, ok := l.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, errors.New("unexpected listener address")
+	}
+	return addr.Port, nil
+}
+
+// waitForDevTools polls the endpoint's /json/version until it answers.
+func waitForDevTools(endpoint string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	client := &http.Client{Timeout: 2 * time.Second}
+	var last error
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(endpoint + "/json/version")
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+			err = errors.New(resp.Status)
+		}
+		last = err
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("timeout waiting for %s/json/version: %w", endpoint, last)
 }

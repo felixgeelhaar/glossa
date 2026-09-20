@@ -9,6 +9,7 @@ import (
 	"errors"
 	"image"
 	"image/png"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -21,11 +22,13 @@ import (
 // for t() text, a component host, an attribute and a hidden message; a
 // message only the wide viewport shows; a playbook; the black-out; the
 // production refusal. Skipped without Chrome, except in CI.
+//
+// Every test attaches to a Chrome capturetest started (Options.CDP), so
+// the attach path CI needs is the one a developer runs too.
 
 func run(t *testing.T, plan *capture.Plan) []capture.Shot {
 	t.Helper()
-	shots, err := capture.Run(context.Background(), plan, capture.Options{})
-	capturetest.SkipWithoutChrome(t, err)
+	shots, err := capture.Run(context.Background(), plan, capture.Options{CDP: capturetest.StartChrome(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,8 +172,7 @@ func TestCaptureRefusesAProductionPage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = capture.Run(context.Background(), plan, capture.Options{})
-	capturetest.SkipWithoutChrome(t, err)
+	_, err = capture.Run(context.Background(), plan, capture.Options{CDP: capturetest.StartChrome(t)})
 	var r *capture.Refusal
 	if !errors.As(err, &r) || r.Code != "production_page" {
 		t.Fatalf("err = %v, want a production_page refusal", err)
@@ -185,12 +187,58 @@ func TestCaptureRefusesAPageInAnotherLocale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = capture.Run(context.Background(), plan, capture.Options{})
-	capturetest.SkipWithoutChrome(t, err)
+	_, err = capture.Run(context.Background(), plan, capture.Options{CDP: capturetest.StartChrome(t)})
 	var r *capture.Refusal
 	if !errors.As(err, &r) || r.Code != "locale_mismatch" || !strings.Contains(r.Reason, "renders de") {
 		t.Fatalf("err = %v, want a locale_mismatch refusal", err)
 	}
+}
+
+// Glossa attaches to a browser it didn't start, so it must leave that
+// browser running and close only the tabs it opened.
+func TestCaptureLeavesAnAttachedBrowserAlone(t *testing.T) {
+	endpoint := capturetest.StartChrome(t)
+	app := capturetest.NewApp(t)
+	cfg := load(t, "  base_url: "+app.URL+"\n  viewports: [{ width: 800, height: 600 }]\n  routes: [{ route: / }]\n", nil)
+	plan, err := capture.NewPlan(cfg, "", env(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := pageTargets(t, endpoint)
+	if _, err := capture.Run(context.Background(), plan, capture.Options{CDP: endpoint}); err != nil {
+		t.Fatal(err)
+	}
+	// Still answering, with no tab of the run left behind.
+	if after := pageTargets(t, endpoint); after != before {
+		t.Errorf("pages: %d before the run, %d after", before, after)
+	}
+	// And a second run attaches to the same browser.
+	if _, err := capture.Run(context.Background(), plan, capture.Options{CDP: endpoint}); err != nil {
+		t.Fatalf("second run: %v", err)
+	}
+}
+
+// pageTargets is how many page targets the browser has.
+func pageTargets(t *testing.T, endpoint string) int {
+	t.Helper()
+	resp, err := http.Get(endpoint + "/json/list")
+	if err != nil {
+		t.Fatalf("the attached browser is gone: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var targets []struct {
+		Type string `json:"type"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&targets); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, tg := range targets {
+		if tg.Type == "page" {
+			n++
+		}
+	}
+	return n
 }
 
 func rgb(img image.Image, x, y int) (r, g, b uint32) {

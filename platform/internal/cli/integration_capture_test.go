@@ -15,7 +15,12 @@ import (
 // (capture/testdata/app), the captures uploaded to the fake Captures API,
 // the coverage read from the fake Context API. Skipped without Chrome,
 // except in CI.
+//
+// The browser is the test's own, attached through GLOSSA_CAPTURE_CDP —
+// what a CI sandbox does, where scout's launcher can't start one
+// (platform/README.md, "scout follow-ups").
 func TestCaptureCommandInChrome(t *testing.T) {
+	endpoint := capturetest.StartChrome(t)
 	app := capturetest.NewApp(t)
 	srv := newFakeServer(t)
 	srv.ctx.usages = []map[string]any{
@@ -34,7 +39,7 @@ func TestCaptureCommandInChrome(t *testing.T) {
   routes:
     - route: /
 `)
-	capturetest.RequireChrome(t)
+	w.env["GLOSSA_CAPTURE_CDP"] = endpoint
 	var out captureDoc
 	w.json(&out, "capture", "--upload", "--commit", testCommit, "--branch", "main").want(t, ExitOK)
 
