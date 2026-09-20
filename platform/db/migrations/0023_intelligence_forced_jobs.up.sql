@@ -1,4 +1,4 @@
--- 0021 — Intelligence: a job that translates text already current.
+-- 0023 — Intelligence: a job that translates text already current.
 --
 -- Every other job exists because something is missing or stale, so both
 -- the queuer and the worker refuse a message whose translation is

@@ -1,4 +1,4 @@
--- 0020 — Identity: preview origins and in-context grants (RFC 0004 §5.2).
+-- 0022 — Identity: preview origins and in-context grants (RFC 0004 §5.2).
 --
 -- The in-product editor runs on a page the product serves, not on
 -- Studio's, so it cannot use Studio's session cookie. Instead a popup on

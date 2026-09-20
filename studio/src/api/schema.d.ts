@@ -1833,6 +1833,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/preview-origins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Where the in-product editor may run
+         * @description The origins of this project's preview deployments (RFC 0004
+         *     §5.2). The list is short by design and never paged. Needs
+         *     `catalog.read`: the authorize popup has to say where the editor
+         *     may run, so everyone who can see the project can see it.
+         */
+        get: operations["listPreviewOrigins"];
+        put?: never;
+        /**
+         * Register a preview origin
+         * @description Says that the in-product editor may run on a page served from
+         *     `origin`, and that CORS may answer it on the operations the
+         *     overlay uses. Registering one is the decision that a person's
+         *     permissions may be borrowed by a page served from there, so it
+         *     needs `tokens.manage` — credential surface, not content — and
+         *     a project keeps at most 20. `http` is accepted on loopback only,
+         *     for a developer's own run. Problem codes: `invalid_origin` (400),
+         *     `origin_registered`, `too_many_preview_origins` (409).
+         */
+        post: operations["registerPreviewOrigin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/preview-origins/{preview_origin}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A registered preview origin's `id`. */
+                preview_origin: components["parameters"]["PreviewOriginPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Stop allowing the editor on an origin
+         * @description Removes the registration and, with it, every in-context grant
+         *     minted for that origin: editor sessions on it end now, not when
+         *     the last 15-minute grant expires. CORS stops answering the
+         *     origin with the same request. Needs `tokens.manage`.
+         */
+        delete: operations["unregisterPreviewOrigin"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/in-context-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint the in-product editor's credential
+         * @description Called by Studio's `/in-context/authorize` popup, with the
+         *     person's session (RFC 0004 §5.2). It checks that `origin` is a
+         *     registered preview origin of this project and mints a bearer
+         *     token that:
+         *
+         *     - acts as the person, so every edit the editor makes names them;
+         *     - allows the person's own permissions intersected with
+         *       `catalog.read`, `knowledge.read`, `translations.read`,
+         *       `translations.write`, `intelligence.read` and
+         *       `intelligence.translate`, locale scopes intact, and never more;
+         *     - is bound to this project and to `origin`: a request from any
+         *       other origin is refused;
+         *     - lives 15 minutes and cannot be refreshed. The overlay keeps it
+         *       in memory and renews it by opening the popup again.
+         *
+         *     Only a signed-in person may mint one — an API token doing so
+         *     would launder a tenant credential into a person's — so this
+         *     operation takes no bearer. `token` is returned once and never
+         *     again. Problem codes: `invalid_origin` (400),
+         *     `origin_not_registered` (403), `person_grant_only` (403),
+         *     `no_in_context_permissions` (403).
+         */
+        post: operations["createInContextGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/tm-lookups": {
         parameters: {
             query?: never;
@@ -2144,7 +2258,7 @@ export interface paths {
          *     sources), never one per translation. Stores nothing. Needs
          *     `knowledge.read`, `translations.read` and `catalog.read`.
          *     Problem codes: `invalid_locale`, `too_many_locales`,
-         *     `invalid_state` (400).
+         *     `too_many_keys`, `invalid_state` (400).
          */
         get: operations["listProjectTerminologyFindings"];
         put?: never;
@@ -2610,14 +2724,20 @@ export interface paths {
          *     leaves out (`skipped.not_selected`). A job exists once per
          *     message, locale, source revision and knowledge fingerprint: an
          *     existing one is reused (`jobs_existing`), a failed, dead or
-         *     cancelled one queued again. `warnings` say when jobs will do
+         *     cancelled one queued again. `force` (with `keys`) also queues a
+         *     current translation, and queues an existing job again whatever
+         *     its state, so the in-product editor can ask for a second opinion
+         *     on text that is already there. The response's `job_ids` name the
+         *     jobs queued or reused, for a caller following a handful of them.
+         *     `warnings` say when jobs will do
          *     little: consent off (only exact translation-memory matches are
          *     reused), no budget, no provider. `POST …/ai-fill-previews`
          *     answers what a fill would do without queueing anything. Needs
          *     `intelligence.translate` for every locale. Problem codes:
          *     `too_many_locales`, `too_many_keys`, `invalid_locale`,
-         *     `invalid_query` (an unknown `select`, or one `include_outdated`
-         *     contradicts) (400), `locale_not_found` (404).
+         *     `invalid_query` (an unknown `select`, one `include_outdated`
+         *     contradicts, or `force` without `keys`) (400),
+         *     `locale_not_found` (404).
          */
         post: operations["createAIFill"];
         delete?: never;
@@ -5303,6 +5423,78 @@ export interface components {
             items: components["schemas"]["DeliveryKey"][];
             next_page_token?: string;
         };
+        /**
+         * @description A web origin: scheme, host and port, with the default port
+         *     dropped and nothing else — no path, query, fragment or
+         *     userinfo. `https` everywhere; `http` only on `localhost`,
+         *     `127.0.0.1`, `[::1]` or a `.localhost` name, which is a
+         *     developer's own machine and never a deployment anyone else
+         *     reaches. Canonicalized on write, so `HTTPS://App.Example.com:443`
+         *     is stored and compared as `https://app.example.com`.
+         * @example https://preview.example.com
+         * @example http://localhost:5173
+         */
+        WebOrigin: string;
+        PreviewOrigin: {
+            id: components["schemas"]["Id"];
+            origin: components["schemas"]["WebOrigin"];
+            /** @description What people call this deployment. */
+            label: string;
+            /**
+             * @description True for a plain-http loopback origin: a developer's local
+             *     run, never a shared deployment.
+             */
+            development: boolean;
+            /** @description `person:<id>` or `token:<id>`. */
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        PreviewOriginList: {
+            items: components["schemas"]["PreviewOrigin"][];
+        };
+        CreatePreviewOrigin: {
+            origin: components["schemas"]["WebOrigin"];
+            label?: string;
+        };
+        CreateInContextGrant: {
+            /**
+             * @description The origin the editor runs on. It must be registered for
+             *     this project, and it is the only origin the grant works
+             *     from.
+             */
+            origin: components["schemas"]["WebOrigin"];
+        };
+        /**
+         * @description The in-product editor's credential. `token` is shown exactly
+         *     once, here; nothing stores it but the page's memory.
+         */
+        InContextGrant: {
+            /** @description The bearer credential. Never put it in `localStorage`. */
+            token: string;
+            expires_at: components["schemas"]["Timestamp"];
+            project_id: components["schemas"]["Id"];
+            origin: components["schemas"]["WebOrigin"];
+            /** @description Who the editor acts as; every edit names them. */
+            person_id: components["schemas"]["Id"];
+            /**
+             * @description What the grant allows: the person's own permissions
+             *     intersected with `catalog.read`, `knowledge.read`,
+             *     `translations.read`, `translations.write`,
+             *     `intelligence.read` and `intelligence.translate`, and never
+             *     more. Studio shows this list before minting.
+             */
+            permissions: components["schemas"]["InContextPermission"][];
+        };
+        InContextPermission: {
+            /** @enum {string} */
+            permission: "catalog.read" | "knowledge.read" | "translations.read" | "translations.write" | "intelligence.read" | "intelligence.translate";
+            /**
+             * @description The locales the permission holds for; absent means every
+             *     locale. A translator limited to some locales in Studio is
+             *     limited to the same ones in the editor.
+             */
+            locales?: components["schemas"]["Locale"][];
+        };
         CreateDeliveryKey: {
             /** @description What uses it, e.g. "web" or "go-emails". */
             name: string;
@@ -5904,6 +6096,18 @@ export interface components {
             include_outdated: boolean;
             /** @description Default `missing`; `missing_or_outdated` with `include_outdated` or listed `keys`. */
             select?: components["schemas"]["AIFillSelect"];
+            /**
+             * @description Translate the listed `keys` even where the translation is
+             *     already current, instead of skipping them as
+             *     `skipped.up_to_date`. Someone looking at a message in the
+             *     in-product editor wants a second opinion on the text that is
+             *     there, which is the one case a selection can't express. It
+             *     needs `keys` (never a whole project), queues the job again
+             *     when one exists for the same message, locale, source
+             *     revision and knowledge, and is ignored by auto-translate.
+             * @default false
+             */
+            force: boolean;
         };
         /** @enum {string} */
         AIJobState: "queued" | "running" | "succeeded" | "skipped" | "failed" | "dead" | "cancelled";
@@ -5925,6 +6129,14 @@ export interface components {
             jobs_created: number;
             /** @description Jobs that already existed for the same message, locale, source revision and knowledge. */
             jobs_existing: number;
+            /**
+             * @description The jobs this fill queued or reused, so a client can follow
+             *     them with `GET …/ai-jobs/{ai_job}` instead of watching the
+             *     whole list. Present only on the fill's own response, and
+             *     only for a small fill (at most 200 jobs); a bigger one is
+             *     followed with `GET …/ai-jobs?fill=<id>`.
+             */
+            job_ids?: components["schemas"]["Id"][];
             /** @description Messages left out, by reason: `sensitive`, `up_to_date`, `not_selected`, `limit`. */
             skipped: {
                 [key: string]: number;
@@ -6129,6 +6341,26 @@ export interface components {
             /** @description An edit to accept instead of the suggestion. */
             text?: string;
             syntax?: components["schemas"]["Syntax"];
+            /**
+             * @description Where the person was looking when they accepted. Recorded
+             *     as `origin_detail.in_context` on the revision, beside what
+             *     the suggestion itself contributed, so history can say the
+             *     edit was made in the running product and on which route
+             *     (RFC 0004 §5.3). Only the in-product editor sends it.
+             */
+            in_context?: components["schemas"]["InContextProvenance"];
+        };
+        /**
+         * @description An edit made in the running product: the route pattern the page
+         *     was on and the viewport it was seen at.
+         */
+        InContextProvenance: {
+            /** @description The route pattern, not the URL: `/orders/:id`, never `/orders/8123`. */
+            route: string;
+            viewport?: {
+                width: number;
+                height: number;
+            };
         };
         RejectAISuggestion: {
             reason?: string;
@@ -6970,6 +7202,8 @@ export interface components {
         PasskeyPath: string;
         /** @description A delivery key `id` (not the key itself). */
         DeliveryKeyPath: components["schemas"]["Id"];
+        /** @description A registered preview origin's `id`. */
+        PreviewOriginPath: components["schemas"]["Id"];
         /** @description A translation-memory unit `id`. */
         TMUnitPath: components["schemas"]["Id"];
         /** @description A termbase concept `id`. */
@@ -9755,6 +9989,134 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    listPreviewOrigins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The registered origins, in origin order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOriginList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    registerPreviewOrigin: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePreviewOrigin"];
+            };
+        };
+        responses: {
+            /** @description The registration. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOrigin"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    unregisterPreviewOrigin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A registered preview origin's `id`. */
+                preview_origin: components["parameters"]["PreviewOriginPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unregistered. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createInContextGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInContextGrant"];
+            };
+        };
+        responses: {
+            /** @description The grant, with its secret shown once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InContextGrant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     lookupTranslationMemory: {
         parameters: {
             query?: never;
@@ -10187,6 +10549,14 @@ export interface operations {
                 namespace?: components["schemas"]["Namespace"];
                 /** @description Keys starting with this, e.g. `checkout.`. */
                 key_prefix?: string;
+                /**
+                 * @description Exactly these message keys; repeatable, at most 50. For
+                 *     asking about the messages on one screen — the in-product
+                 *     editor asks about one — where `key_prefix` would also match
+                 *     everything below the key. Combined with `key_prefix` and
+                 *     `namespace` it narrows further.
+                 */
+                key?: components["schemas"]["MessageKey"][];
             };
             header?: never;
             path: {
