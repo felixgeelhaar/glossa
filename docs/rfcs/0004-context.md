@@ -1,6 +1,6 @@
 # RFC 0004 — Context (M3)
 
-**Status:** Proposed — 2026-09-19
+**Status:** Proposed — 2026-09-19 · owner decisions of 2026-09-20 in §14
 **Builds on:** [RFC 0002](./0002-platform-architecture.md) §4 (Context and Integration contexts), §7–§9, §12, §13 (M3) · [RFC 0003](./0003-knowledge-and-intelligence.md) §2.4 · [`runtimes/SPEC.md`](../../runtimes/SPEC.md)
 **Intent:** §11–§12, §16–§18, §25–§27, §30–§32, §37, §50, §60 (Phase 2), §67–§68
 
@@ -9,7 +9,7 @@
 M3 makes the platform **know where every message appears** (intent §68: the translator should rarely need to ask "where does this string appear?"). Context is captured by the build, the CI and the running product, not typed in by developers (intent §16). A translator sees the file, the component, the route and a screenshot with the message outlined, and can edit the text inside the running product (intent §26). Pull requests show what a change does to localization before it merges (intent §30–§31). The Go runtime becomes good enough to render documents, not only emails (intent §12).
 
 M3 is done when two things hold:
-- **Context.** Every active message of a fixture app has at least one usage (file, line, component) and at least one screenshot region, and Studio shows both. A pull request against the fixture gets a Glossa check and a preview environment, and an edit made in the in-product editor lands as an ordinary translation revision.
+- **Context.** Every active message of a fixture app has at least one usage (file, line, component) and at least one screenshot region, and Studio shows both. A pull request against the fixture gets a Glossa check and a branch environment that delivers its copy, and an edit made in the in-product editor — against the shared `preview` deployment, because M3 deploys no application per PR (§14.2) — lands as an ordinary translation revision.
 - **Documents.** The Go runtime renders a fixture tax summary and a fixture export in de, en, es, fr and ja, with plurals, currency, dates and bold text, to HTML and to PDF.
 
 The internal exit test is §12. The real exit (Nexa's tax PDF and Lexora's export in production, translators on Brotwerk and KraftSport seeing usages and screenshots) happens in the dogfood phase.
@@ -37,7 +37,7 @@ Three sources feed the Context context. They all produce the same document (§2.
   - **Route** is filled where the plugin can know it: Astro's `src/pages/**`, or a `routes` map in the plugin options (route pattern → file globs).
   - The plugin **never makes network calls**. It writes `.glossa/usages.json` next to the build output, outside anything that gets served. The CLI uploads that file (§6.3). Builds stay reproducible, and no credential is ever needed inside a bundler.
 - **`glossa extract`** stays the extractor for Go and for anything without a bundler. The Go scanner moves from regular expressions to `go/ast`: calls to `T`, `For(…).T` and the typed accessors, where the component is `pkg.Func` or `pkg.(*Type).Method`. Templates are read with `text/template/parse` (`{{t "…"}}`, `{{td …}}`, `{{th …}}`). Web files keep the lexical scan as the fallback when no plugin runs. `--upload` sends the result.
-- **Runtime-reported usages** exist in M3 **only inside capture and in-product editor sessions** (§3.1, §5), in development and preview environments. They go to the control plane over the overlay's authenticated session, never through `glossa-edge`. Production runtimes report nothing: SPEC §6 already says runtimes send no telemetry unless the application enables it, and M3 adds no switch for that. Sampled production usages are an open question (§14).
+- **Runtime-reported usages** exist in M3 **only inside capture and in-product editor sessions** (§3.1, §5), in development and preview environments. They go to the control plane over the overlay's authenticated session, never through `glossa-edge`. Production runtimes report nothing: SPEC §6 already says runtimes send no telemetry unless the application enables it, and M3 adds no switch for that. Sampled production usages are **ruled out** for M3, not deferred (§14.4).
 
 **One behaviour, two implementations.** The TS plugin and the Go extractor share a fixture suite in `runtimes/testdata/usages/`: source files plus the usages expected from them, the same way the conformance suites work. A difference between the two becomes a fixture first.
 
@@ -68,7 +68,8 @@ A **usage** is a message × a location × a build. A **build** is one upload for
 
 ### 2.3 Retention and a stateless delivery plane
 
-- For each (application, branch), the latest 5 builds are kept, plus every build that is still current. A branch's builds are deleted 14 days after the branch closes (§4.2). A purge job runs daily.
+- For each (application, branch), the latest **3** builds are kept, plus every build that is still current. A branch's builds, and the captures that hang off them, are deleted **7 days** after the branch closes (§4.2). A tenant's stored capture images are capped at **2 GB** (§3.3). A purge job runs daily.
+- **Two retentions, two clocks.** This one is Context's, over builds and captures. Catalog's *proposal* retention — a closed branch's proposed messages become obsolete 14 days after it closed (§4.1) — is a different rule over different data, and stays at 14 days: text a translator worked on outlives the screenshots of it.
 - Usages never reach the delivery plane. Artifacts and manifests stay exactly as SPEC §1 defines them. `glossa-edge` gains no endpoint, no database and no write path. The runtime's capture support (§3.1) is a render hook that runs in the page and holds no state beyond the page's lifetime.
 
 ## 3. Visual context
@@ -98,6 +99,7 @@ In M3, **capture runs where the app already runs: in the product's CI**, as `glo
 - Images are validated and **re-encoded on the server** before they're stored: PNG only, at most 40 megapixels and 10 MB, with metadata stripped. Nothing uploaded is stored as-is.
 - They're stored in MinIO, **content-addressed**: `context/<tenant>/<project>/img/<sha256>.png`. The same pixels across builds are stored once. Regions reference the capture, and the capture references the image digest.
 - Captures belong to a build, so they follow the same retention (§2.3). An image is deleted when no capture references it any more. A tenant's deletion purges its prefix.
+- A tenant's stored images are capped at **2 GB**, configurable per deployment. An upload whose new pixels would take the tenant past the cap is refused with `storage_quota_exceeded` (413) and stores nothing; pixels the project already holds are deduplicated and cost nothing. Retention (§2.3) frees the quota again.
 - Studio reads images through the API (`…/captures/{capture}/image`), tenant-checked, with `Cache-Control: private, max-age=31536000, immutable`. The object store never gets a public or presigned URL.
 
 ### 3.4 In Studio
@@ -126,6 +128,7 @@ A feature branch adds and changes source text before it merges. Glossa must let 
 
 ### 4.2 Preview environments
 
+- **A branch environment delivers copy; it does not deploy an app.** It is a release and a manifest the edge serves under its own name, nothing more. M3 deploys no application per pull request (§14.2): what a PR's branch environment is *for* is a running preview the product itself deploys, or a developer's local run, pointed at that environment's delivery key. The in-product editor targets the shared `preview` deployment (§5), and screenshots come from each product's own CI (§3.2).
 - Each open branch gets a **branch environment**, `pr-<number>` for GitHub PRs and `br-<8 hex of sha256(branch)>` otherwise. That fits the existing environment name rules. It has `kind: branch` and a fixed preview policy: draft, needs_review and approved, outdated included.
 - A branch environment's release is built from the main catalog **plus that branch's overlay only**. Every other environment's build excludes `proposed` messages and source proposals. That's the rule that keeps release eligibility intact.
 - Branch releases **can't be promoted** (`branch_release_not_promotable`), because they contain text that doesn't exist outside the branch. Staging and production still receive only releases built for them.
@@ -142,6 +145,8 @@ Branch environments hold unreleased copy (intent §50), so a production key ship
 - This is an additive, minor change to SPEC §2. Runtimes don't change.
 
 ## 5. In-product editor
+
+**Where it runs in M3.** Against the **shared `preview` deployment** of each product — one long-lived deployment per product, reading the `preview` environment — and against a developer's local run. M3 deploys nothing per pull request (§14.2), so a PR's copy is reviewed in Studio's branch view and in the check (§6.4), and its screenshots come from the product's own CI (§3.2). Per-PR deployments, and the editor over a branch environment, wait for a later milestone.
 
 ### 5.1 Never in production
 
@@ -166,7 +171,7 @@ Tests cover each layer: a production fixture build must not contain the loader (
 
 - **Opening it.** Modifier-click (Alt+click) on a marked message opens the panel (intent §26). The panel lets people inspect source and translation, edit, view history, comment, see terms, ask for an AI suggestion (M2 jobs) and open the message in Studio.
 - **Edits are ordinary translation revisions.** They go through the Localization API with provenance `human` and `origin_detail.in_context` (route pattern, viewport). Workflow, QA and review routing treat them like any edit, and nothing bypasses review.
-- **Live preview** (intent §27). The runtime's dev-only `override(id, locale, model)` re-renders the edited message at once with the model the server parsed. Other people see the edit after the branch or preview environment publishes again (§4.2).
+- **Live preview** (intent §27). The runtime's dev-only `override(id, locale, model)` re-renders the edited message at once with the model the server parsed. Other people see the edit after the `preview` environment publishes again.
 - Runtime-reported usages (§2.1) are sent in the same session: messages rendered on this route that the build didn't know about.
 - **CSP for preview deployments** (documented in the runtime README):
   - `script-src` includes the Studio origin
@@ -178,14 +183,14 @@ Tests cover each layer: a production fixture build must not contain the loader (
 
 ### 6.1 The App and installations
 
-- **A GitHub App, not OAuth app tokens or PATs.** Permissions:
+- **A GitHub App, not OAuth app tokens or PATs.** It is registered **private, under the `klarlabs-studio` organization** (§14.1): installable on our own repositories only, until Glossa's product status is decided. Permissions:
   - `checks: write`
   - `pull_requests: write` (for the PR comment)
   - `metadata: read` (mandatory)
 - **No `contents` access.** Glossa never reads code, because the product's CI does the code-side work (§6.3). Webhook events: `installation`, `installation_repositories`, `pull_request` and `check_run` (`rerequested`).
 - **Installing.** Studio starts the installation with a signed `state` bound to the tenant and the person. On the callback, Glossa checks through the user's OAuth token (used once, discarded) that the person can actually see that `installation_id`. That prevents claiming someone else's installation. An installation maps to exactly one tenant.
 - **Git connection** (Integration aggregate): installation × repository (numeric ID, so a rename doesn't break it) × project × application, plus the default branch and an optional monorepo path. One repository can feed several projects, one per path.
-- **Secrets.** The App's private key, the webhook secret and the OAuth client secret are platform configuration (Kubernetes Secrets through env, 12-factor), not tenant data. Installation tokens (1 h) are minted on demand, cached in memory and never stored. Self-hosted instances register their own App through GitHub's manifest flow, and the configuration takes the App ID and key.
+- **Secrets.** The App's private key, the webhook secret and the OAuth client secret are platform configuration, not tenant data: one Kubernetes Secret in the `glossa-platform` namespace, like the release signing key, read through env (12-factor). Installation tokens (1 h) are minted on demand, cached in memory and never stored. Self-hosted instances register their own App through GitHub's manifest flow, and the configuration takes the App ID and key.
 
 ### 6.2 Webhooks
 
@@ -296,12 +301,12 @@ The graph from intent §18 connects concepts, messages, terms, screens, componen
 
 ## 10. Privacy and security (intent §17, §50)
 
-- **Usages** reveal source structure (paths, component names). They're tenant data under RLS, never sent to the edge, and never sent to AI providers beyond the `message_context` tool, which already falls under the per-tenant provider setting and the `sensitive` namespace rule (RFC 0003 §7).
+- **Usages** reveal source structure (paths, component names). They're tenant data under RLS, never sent to the edge, and never sent to AI providers beyond the `message_context` tool, which already falls under the per-tenant provider setting and the `sensitive` namespace rule (RFC 0003 §7). They are never collected from production either (§2.1, §14.4).
 - **Screenshots** are taken in **preview environments with fixture data only**:
   - `glossa capture` refuses a page whose runtime reports a `production` manifest
   - elements marked `data-glossa-redact` are blacked out before the screenshot is taken
   - uploads are re-encoded (§3.3)
-  - screenshots are **not** sent to AI providers in M3; multimodal context is an owner decision (§14)
+  - screenshots are **never** sent to AI providers: multimodal context is ruled out for M3, not deferred (§14.4)
 - **Overlay:** production is excluded in three layers (§5.1). The token is origin-bound, short-lived and kept in memory, and CORS is scoped to the overlay's endpoints.
 - **GitHub:**
   - least-privilege permissions with no code access
@@ -309,7 +314,7 @@ The graph from intent §18 connects concepts, messages, terms, screens, componen
   - verified installation ownership and repository IDs, not names
   - no stored installation tokens
   - OIDC instead of long-lived CI secrets
-- **Limits:** per-tenant rate limits on the upload endpoints. A build holds at most 100,000 usages and 500 captures, with a body of at most 20 MB for usages and 10 MB per image.
+- **Limits:** per-tenant rate limits on the upload endpoints. A build holds at most 100,000 usages and 500 captures, with a body of at most 20 MB for usages and 10 MB per image. A tenant's stored capture images are capped at **2 GB** (`storage_quota_exceeded`, 413), configurable per deployment (§3.3).
 
 ## 11. Observability
 
@@ -322,10 +327,10 @@ The graph from intent §18 connects concepts, messages, terms, screens, componen
 `platform/internal/systemtest/m3` (`make system-m3`, Docker: Postgres, MinIO, headless Chrome) runs against a real `glossa-server` and writes `REPORT.md`, like M2.
 
 1. **Fixture app.** `testdata/app` has about 150 messages, with de as the source and en, es, fr and ja as targets. It's a Vite + Vue app with one React island and Go templates. It builds with `@glossa/unplugin`, runs `glossa extract --upload`, and runs `glossa capture --upload` over 8 routes in de and ja at two viewports. The test asserts that **every active message has ≥ 1 usage with file, line and component, and ≥ 1 visible region**. A Playwright test then opens the "Where it appears" pane for three messages against the same server.
-2. **Pull request.** A fake GitHub server receives signed, recorded webhooks and serves the App endpoints. The flow runs like this:
+2. **Pull request.** A fake GitHub server receives signed, recorded webhooks and serves the App endpoints. Nothing deploys an application per PR (§14.2): `pr-7` is a delivery target the test reads through the edge, and the overlay flow runs against the fixture served from the shared `preview` environment. The flow runs like this:
    - Opening a PR creates the branch and `pr-7`.
    - A CI push adds 5 keys and 1 invalid message, so the check is `failure`, with annotations on `file:line`.
-   - The invalid message is fixed, and the overlay API (with an in-context grant) adds the missing es, fr and ja translations. The check becomes `success`. The sticky comment was updated in place, and exactly one exists.
+   - The invalid message is fixed, and the overlay API (with an in-context grant, from the `preview` deployment's origin) adds the missing es, fr and ja translations. The check becomes `success`. The sticky comment was updated in place, and exactly one exists.
    - Merging plus a default-branch push makes the proposed messages `active`.
    - Closing the PR destroys `pr-7`, and the edge answers 404.
    - A production delivery key never reads `pr-7`.
@@ -352,7 +357,7 @@ Each slice is about an hour of agent work. At most one slice per wave edits `pla
 | 2 | `glossa extract` on `go/ast` and `text/template/parse`, with components; `--upload`, `context push` | no |
 | 2 | Capture mode: `onRender` in `@glossa/runtime`, data attributes in elements/Vue/React, markers, capture script | no |
 | 2 | Catalog branch overlay: branches, `proposed` messages, source proposals, activation on default-branch push | no |
-| 3 | Captures API: multipart upload, validation and re-encoding, MinIO with dedupe, image read | yes |
+| 3 | Captures API: multipart upload, validation and re-encoding, MinIO with dedupe, the per-tenant storage quota, image read | yes |
 | 3 | `glossa capture` on `scout`: capture plan, viewports, locales, playbooks, redaction, coverage report | no |
 | 3 | Release: branch environments (overlay build, not promotable), delivery-key scopes in the key index and the edge | no |
 | 3 | Studio: "Where it appears" pane and message filters | no (consume) |
@@ -373,10 +378,15 @@ Each slice is about an hour of agent work. At most one slice per wave edits `pla
 
 **Deferred from the RFC 0002 M3 row:** per-route chunking and tree-shaking in the bundler plugin. That needs namespace routing in SPEC §1.1 first ("until namespace routing is specified, runtimes load and merge all namespaces"). The plugin already reports unused messages, which is what chunking would build on.
 
-## 14. Open questions for the owner
+## 14. Decisions
 
-1. **GitHub App ownership.** Should the App be registered publicly under `klarlabs-studio` as "Glossa", or kept private until Glossa's product status is decided (RFC 0002 §16)? And who holds its private key?
-2. **Runtime-reported usages in production.** M3 collects them only in dev and preview sessions. Is opt-in, sampled production reporting (route patterns only, no URLs or values) acceptable later, or is it ruled out?
-3. **Screenshot retention and quota.** The proposal: the latest 5 builds per application and branch, branches purged 14 days after close, and a per-tenant storage quota (default 5 GB?).
-4. **Screenshots as AI context.** Should images ever go to AI providers (multimodal translation context), behind the existing per-tenant provider setting plus a separate switch?
-5. **Preview deployments of the dogfood apps.** Capture works against CI-local `vite preview`. The in-product editor needs deployed per-PR previews of Brotwerk and KraftSport. Do we build those (RollOps on k3s) in M3, or use the overlay against the shared `preview` environment only?
+The owner settled these on **2026-09-20**. They are decisions, not proposals: the body above follows them.
+
+1. **The GitHub App is private, registered under `klarlabs-studio`.** It is installable on our own repositories only, until Glossa's product status is decided (RFC 0002 §16); publishing it is a later, separate decision. Its private key, webhook secret and OAuth client secret live in a Kubernetes Secret in the `glossa-platform` namespace, like the release signing key, and are read through env (12-factor) — platform configuration, never tenant data (§6.1). Self-hosted instances register their own App, as §6.1 already says.
+2. **No per-PR preview deployments in M3.** Nothing deploys an application per pull request. The in-product editor works against the **shared `preview` deployment** of each product (§5), and screenshots come from each product's own CI, `glossa capture` (§3.2). Branch environments (`pr-<n>`) stay as they are — they *deliver* a branch's copy, which already shipped — but they are a manifest, not a deployment (§4.2). Deployed per-PR previews (RollOps on k3s) and the editor over a branch environment are a later milestone.
+3. **Screenshot and context retention tighten**, and a quota comes with them (§2.3, §3.3, §10): the latest **3** builds per (application, branch) plus every still-current build; a closed branch's builds and captures purged **7 days** after the branch closes; a per-tenant storage quota of **2 GB**, configurable per deployment, enforced on the capture upload (`storage_quota_exceeded`). Catalog's *proposal* retention is a different rule and **stays 14 days** (§4.1): proposed messages of a closed branch become obsolete after 14 days, whatever happened to the screenshots of them.
+4. **Ruled out for M3** — decided, not open:
+   - **Runtime-reported usages from production.** Usages come from dev and preview sessions only; no sampled production reporting, and no switch for one (§2.1).
+   - **Screenshots as AI context.** Images never go to an AI provider, with or without a per-tenant switch (§10).
+
+   Both may be reopened as their own RFC later; neither is M3 work.
