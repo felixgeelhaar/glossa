@@ -81,6 +81,17 @@ jobs:
         run: go vet ./...
       - name: go test (unit)
         run: go test -race ./...
+      # `glossa capture`'s browser tests start Chrome themselves and
+      # attach to it (platform/README.md, "scout follow-ups"): this
+      # runner's kernel denies the sandbox Chrome wants, so they pass
+      # --no-sandbox, which scout's launcher can't. CI=true makes a
+      # missing Chrome fail the job instead of skipping the tests.
+      - name: Chrome for the capture tests
+        if: matrix.module == 'platform'
+        run: |
+          chrome=$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)
+          "$chrome" --version
+          echo "GLOSSA_TEST_CHROME=$chrome" >> "$GITHUB_ENV"
       - name: go test (integration)
         # Postgres and object storage via testcontainers; the runner has Docker.
         run: go test -tags=integration -timeout=300s ./...
