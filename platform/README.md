@@ -1116,12 +1116,70 @@ tenant-wide, exports `integration.read` and `knowledge.read`. The jobs
 are ordinary ones: uploaded to, followed, cancelled and downloaded
 through `import-jobs` and `export-jobs`.
 
+**GitHub** (RFC 0004 §6) is Integration's other half: the Glossa GitHub
+App, the workspaces that claim its installations, the repositories those
+feed, and the deliveries GitHub sends. It exists only where the
+deployment configures an App (`GLOSSA_GITHUB_APP_ID` and its
+companions, read by `adapters/github`); with none, `newGitHub` returns
+nil, no worker and no sweep start, and every endpoint answers
+`github_not_configured` (503). Nothing else in the server changes.
+
+| Table | Scope | Why |
+|---|---|---|
+| `integration_github_installations` | tenant | An installation GitHub made and the workspace that claimed it: GitHub's id, the account, `active`/`suspended`/`revoked`. The unique index on GitHub's id is global, so one installation maps to exactly one tenant; `glossa_system` may SELECT `(tenant_id, installation_id, state)` to resolve a delivery. |
+| `integration_github_install_intents` | tenant | A started installation: the person, an expiry, and the SHA-256 of the single-use state (never the state). `glossa_system` may SELECT `(expires_at)` and DELETE, for the sweep. |
+| `integration_git_connections` | tenant | Installation × repository (by numeric id) × project × application, with the default branch and an optional monorepo path. Unique on `(repository_id, path)`: one repository feeds several projects, one per path. |
+| `integration_github_deliveries` | tenant, after it resolves | The webhook inbox, keyed by `X-GitHub-Delivery`. `tenant_id` is NULL until the worker resolves the installation, so the endpoint can write it before any tenant is known; `glossa_system` reaches the whole table (scope `integration.github`). |
+
+**Installing.** `POST …/github/install-intents` issues a state bound to
+the tenant, the person and fifteen minutes, and the App's install URL.
+On the callback (`POST …/github/installations`) the state is verified
+and burned — single-use, so a failed attempt starts over rather than
+retrying — and GitHub's one-time `code` is redeemed for the person's own
+user token, which is used once to check that they can see the
+`installation_id` they claim and then dropped. That is what stops
+someone claiming an account they have nothing to do with. A second
+workspace's claim is `installation_already_claimed`, which never says
+whose it is. A connection's repository must be one the installation can
+see and its application one the project has, both checked before the
+transaction opens (Catalog opens its own, and nesting one is refused).
+
+**Webhooks.** `POST /v1/integrations/github/webhooks` carries no
+session: GitHub signs each delivery, and `X-Hub-Signature-256` is
+checked with HMAC-SHA256, in constant time, over the raw body **before
+anything parses it**, with the body capped at 5 MB while it is read.
+A verified delivery is written to the inbox and answered `202` at once;
+a delivery id already there is a no-op and also `202`, which is the
+replay protection. A signature that does not verify is `401` with no
+detail. The worker claims rows `FOR UPDATE SKIP LOCKED`, resolves the
+installation to its tenant and runs idempotent handlers there as
+`integration.github`: `installation` moves the installation's state,
+`installation_repositories.removed` drops the connections of
+repositories that left, and `pull_request` upserts, closes or merges the
+Catalog branch of every project the repository feeds — through Catalog's
+Branches API, never around it. **Correctness never depends on a
+delivery**: a merge lands through the default branch's push (§4.1), so a
+webhook that never arrives costs a stale branch view and nothing else,
+which a test asserts by making Catalog refuse everything. Delivery ids
+are kept seven days and then swept (`integration.github.sweep`, one
+leased run a day); payloads are dropped as soon as a delivery settles.
+
+**Seams for the check workers** (§6.4, a later slice): `check_run.
+rerequested` already verifies, resolves and settles — its handler only
+logs, and is where the report is re-enqueued;
+`app.GitHub.EnsureCheckRun`, `UpdateCheckRun` and `UpsertStickyComment`
+are implemented and idempotent; `GitHubStore.ConnectionsForRepository`
+resolves a repository to its projects; and `WebhookEvent` already
+carries the head SHA, the pull request and the check run id.
+
 Permissions: see *Identity* (`integration.read`, `integration.import`,
 `integration.manage`). **Tests**: `internal/integration/app` runs every
 format end to end on Postgres (app role, no BYPASSRLS) and MinIO —
 including the XLIFF locale option, per-item positions and the
-workspace's routes; `cmd/glossa-server` uploads, imports, exports and
-downloads through the generated server.
+workspace's routes — and the GitHub flow over in-memory ports against
+the fake GitHub, with the store and the inbox pinned on real Postgres;
+`cmd/glossa-server` uploads, imports, exports and downloads through the
+generated server.
 
 ## Context
 
@@ -1292,9 +1350,14 @@ starting their own (`WithTracerProvider`).
 `glossa_github_call_duration_seconds{op}` and
 `glossa_github_rate_limit_remaining{resource}`
 (`integration/adapters/metrics`, on the GitHub client's `OnCall` hook)
-wait only to be wired when the App is. §11's webhook deliveries and
-check latency have no source yet: the webhook inbox and the check
-worker come with the GitHub slices.
+cover the calls Glossa makes to GitHub;
+`glossa_github_webhook_deliveries_total{event, outcome}`,
+`glossa_github_webhook_handled_total{event, outcome}`,
+`glossa_github_webhook_handler_duration_seconds{event, outcome}` and
+`glossa_github_webhook_inbox_depth{event}` cover the deliveries it
+receives (§11). The inbox is shared, so every replica reports the same
+depth: take the max across instances, not the sum. §11's check latency
+has no source yet — it comes with the check worker (§6.4).
 
 **Retention** (`domain.RetentionPolicy`, §2.3): per (application,
 branch, source) the latest 3 builds are kept, plus every current one; a
