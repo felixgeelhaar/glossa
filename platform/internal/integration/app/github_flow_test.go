@@ -485,9 +485,12 @@ func appKey(t testing.TB) *rsa.PrivateKey {
 type fixture struct {
 	svc      *app.GitHubService
 	worker   *app.InboxWorker
+	checker  *app.CheckWorker
 	store    *memStore
 	inbox    *memInbox
 	branches *memBranches
+	checks   *memChecks
+	sources  *memSources
 	fake     *githubtest.Server
 	clock    time.Time
 }
@@ -520,14 +523,18 @@ func newFixture(t *testing.T) *fixture {
 		clock: time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 	}
 	f.inbox = newMemInbox(f.store, func() time.Time { return f.clock })
+	f.checks = newMemChecks(func() time.Time { return f.clock })
+	f.sources = newMemSources()
 	f.svc, err = app.NewGitHubService(app.GitHubDeps{
 		Tx: f.store, Inbox: f.inbox, GitHub: client, Verifier: hooks, Events: hooks, Branches: f.branches,
+		Checks: f.checks, Sources: f.sources, StudioURL: "https://studio.example/",
 		Now: func() time.Time { return f.clock },
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.worker = app.NewInboxWorker(f.svc, app.InboxConfig{})
+	f.checker = app.NewCheckWorker(f.svc, app.CheckConfig{})
 	return f
 }
 
