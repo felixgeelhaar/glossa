@@ -1130,6 +1130,7 @@ nil, no worker and no sweep start, and every endpoint answers
 | `integration_github_install_intents` | tenant | A started installation: the person, an expiry, and the SHA-256 of the single-use state (never the state). `glossa_system` may SELECT `(expires_at)` and DELETE, for the sweep. |
 | `integration_git_connections` | tenant | Installation × repository (by numeric id) × project × application, with the default branch and an optional monorepo path. Unique on `(repository_id, path)`: one repository feeds several projects, one per path. |
 | `integration_github_deliveries` | tenant, after it resolves | The webhook inbox, keyed by `X-GitHub-Delivery`. `tenant_id` is NULL until the worker resolves the installation, so the endpoint can write it before any tenant is known; `glossa_system` reaches the whole table (scope `integration.github`). |
+| `integration_github_checks` | tenant, and `glossa_system` for the queue | One row per pull request Glossa reports on: the queue the check worker claims, the id of its one sticky comment, and `runs` — per Git connection, the check run on the current head SHA and the annotations already appended to it. Unique on `(repository_id, pull_request)`, which is what makes one job per pull request. |
 
 **Installing.** `POST …/github/install-intents` issues a state bound to
 the tenant, the person and fifteen minutes, and the App's install URL.
@@ -1164,13 +1165,51 @@ which a test asserts by making Catalog refuse everything. Delivery ids
 are kept seven days and then swept (`integration.github.sweep`, one
 leased run a day); payloads are dropped as soon as a delivery settles.
 
-**Seams for the check workers** (§6.4, a later slice): `check_run.
-rerequested` already verifies, resolves and settles — its handler only
-logs, and is where the report is re-enqueued;
-`app.GitHub.EnsureCheckRun`, `UpdateCheckRun` and `UpsertStickyComment`
-are implemented and idempotent; `GitHubStore.ConnectionsForRepository`
-resolves a repository to its projects; and `WebhookEvent` already
-carries the head SHA, the pull request and the check run id.
+**The PR check** (§6.4). A `pull_request` that opened, was pushed to or
+reopened writes a check row and nothing else — GitHub's ten seconds are
+not the place for a call back to GitHub. The check worker claims that
+row (`FOR UPDATE SKIP LOCKED`, leased), creates the **Glossa** check run
+as `queued` for the head SHA, and completes it once that commit's
+`glossa push` *and* its usages build have been ingested. Readiness is
+**derived, never remembered**: the branch's head commit says the push
+landed, a current build on that commit says the usages did, so an event
+that arrives twice, late or never changes nothing. If neither arrives
+within 30 minutes the check completes `neutral` with "no Glossa CI run
+for this commit"; a leased scheduler job (`integration.github.
+check_timeout`) makes the waiting rows due again and the worker — the
+one place that completes a check — concludes.
+
+The report is the project's check policy applied to what the contexts
+say: new keys, the messages the last push could not accept, key
+conflicts, untranslated new keys per locale, the QA the server already
+holds (max\_length with the text, terminology from M2), unknown keys
+with their `file:line`, and what merging will make outdated. The policy
+is `glossa check`'s own — `kernel/checkpolicy` holds `require_complete`
+and `fail_on`, and the CLI's `qa.Policy` is an alias of it, so the pull
+request and the terminal can never disagree. The summary is Markdown
+with a table per locale; findings with a location become annotations,
+batched ≤ 50 per request.
+
+Two rules were learned the hard way and are enforced in the schema:
+
+- **GitHub appends annotations**, so each is sent exactly once per check
+  run. The run is the unit — a new commit or a `check_run.rerequested`
+  makes a new one — and `runs.<connection>.annotations` is its ledger of
+  fingerprints. A retry sends none.
+- **The sticky comment has one writer per pull request.** The queue row
+  *is* the pull request, so claiming it is the lock; the comment's id
+  lives on that row, and the adapter also finds it by a hidden marker.
+  Two jobs for one pull request cannot exist, and a retry updates the
+  comment rather than writing a second.
+
+`catalog.branch.pushed`, `context.build.ingested`,
+`localization.translation.revised` and `.reviewed` only **wake** the
+row (subscriber `integration.github_check`); `check_run.rerequested`
+clears its runs and wakes it. Metrics: `glossa_github_checks_total` and
+`glossa_github_check_latency_seconds` by conclusion (from the
+pull-request event to the completed check), `glossa_github_check_jobs_
+total`, `glossa_github_comment_upserts_total` and the queue's depth;
+one trace per check job.
 
 Permissions: see *Identity* (`integration.read`, `integration.import`,
 `integration.manage`). **Tests**: `internal/integration/app` runs every

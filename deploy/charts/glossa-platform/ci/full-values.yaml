@@ -24,6 +24,12 @@ server:
       timeout: 20s
       lease: 90s
       depthInterval: 15s
+    checks:
+      workers: 4
+      pollInterval: 2s
+      timeout: 45s
+      lease: 4m
+      depthInterval: 15s
   extraEnv:
     - name: GLOSSA_OUTBOX_BATCH_SIZE
       value: "100"

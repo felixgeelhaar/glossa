@@ -755,6 +755,12 @@ the value until it is set.
 | `server.github.inbox.timeout` | `30s` | `GLOSSA_GITHUB_INBOX_TIMEOUT`: bounds one attempt at one delivery. |
 | `server.github.inbox.lease` | `2m` | `GLOSSA_GITHUB_INBOX_LEASE`: how long a claimed delivery is reserved against the other replicas. Must exceed the timeout, or the server refuses to start. |
 | `server.github.inbox.depthInterval` | `30s` | `GLOSSA_GITHUB_INBOX_DEPTH_INTERVAL`: how often the inbox-depth metric is sampled. |
+| `server.github.checks.enabled` | `true` | `GLOSSA_GITHUB_CHECKS_ENABLED`: render pull requests' Glossa checks in these pods (RFC 0004 §6.4). The webhook queues a check whatever this says, so turning it off everywhere makes checks wait rather than lose them. |
+| `server.github.checks.workers` | `2` | `GLOSSA_GITHUB_CHECK_WORKERS`: checks rendered at once, per pod (1–64). |
+| `server.github.checks.pollInterval` | `1s` | `GLOSSA_GITHUB_CHECK_POLL_INTERVAL`: how long a worker waits on an empty queue. |
+| `server.github.checks.timeout` | `1m` | `GLOSSA_GITHUB_CHECK_TIMEOUT`: bounds one attempt at one check. |
+| `server.github.checks.lease` | `5m` | `GLOSSA_GITHUB_CHECK_LEASE`: how long a claimed check is reserved against the other replicas. Must exceed the timeout, or the server refuses to start. It is also what keeps one job per pull request, and so one writer of its sticky comment. |
+| `server.github.checks.depthInterval` | `30s` | `GLOSSA_GITHUB_CHECK_DEPTH_INTERVAL`: how often the check queue's depth is sampled. |
 | `server.webauthn.rpId` | `hosts.studio` | `GLOSSA_WEBAUTHN_RP_ID`; changing it later invalidates enrolled passkeys. |
 | `server.webauthn.rpName` | `Glossa` | `GLOSSA_WEBAUTHN_RP_NAME` |
 | `server.webauthn.origins` | `[https://<hosts.studio>]` | `GLOSSA_WEBAUTHN_ORIGINS` |

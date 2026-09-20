@@ -128,6 +128,20 @@ spec:
               value: {{ $v.github.inbox.lease | quote }}
             - name: GLOSSA_GITHUB_INBOX_DEPTH_INTERVAL
               value: {{ $v.github.inbox.depthInterval | quote }}
+            {{- /* The PR check worker, likewise: its tuning is read whether
+                   or not an App is configured. */}}
+            - name: GLOSSA_GITHUB_CHECKS_ENABLED
+              value: {{ $v.github.checks.enabled | quote }}
+            - name: GLOSSA_GITHUB_CHECK_WORKERS
+              value: {{ $v.github.checks.workers | quote }}
+            - name: GLOSSA_GITHUB_CHECK_POLL_INTERVAL
+              value: {{ $v.github.checks.pollInterval | quote }}
+            - name: GLOSSA_GITHUB_CHECK_TIMEOUT
+              value: {{ $v.github.checks.timeout | quote }}
+            - name: GLOSSA_GITHUB_CHECK_LEASE
+              value: {{ $v.github.checks.lease | quote }}
+            - name: GLOSSA_GITHUB_CHECK_DEPTH_INTERVAL
+              value: {{ $v.github.checks.depthInterval | quote }}
             - name: GLOSSA_STUDIO_URL
               value: {{ include "gp.studioUrl" . | quote }}
             # Surfaced to clients by GET /v1/meta (Studio's runtime snippets).

@@ -109,13 +109,18 @@ type contexts struct {
 	// endpoint still work without the worker — deliveries pile up
 	// instead of being processed.
 	githubInbox *integrationapp.InboxWorker
+	// githubChecks renders pull requests' Glossa checks and writes them
+	// to GitHub (RFC 0004 §6.4); nil without a GitHub App, or when
+	// GLOSSA_GITHUB_CHECKS_ENABLED is off. The webhook still queues the
+	// checks without it — they wait rather than being lost.
+	githubChecks *integrationapp.CheckWorker
 }
 
 // newPurgeJobs builds the daily retention jobs over the two contexts that
 // have something to purge. Each logs what it did; a failure is the
 // scheduler's to count and retry at the next interval.
 func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, inbox *integrationapp.InboxWorker,
-	logger *slog.Logger,
+	checks *integrationapp.CheckWorker, logger *slog.Logger,
 ) []scheduler.Job {
 	jobs := []scheduler.Job{
 		{Name: "context.purge", Run: func(ctx context.Context) error {
@@ -143,6 +148,13 @@ func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, inbox
 	// is leased, because one replica a day is enough.
 	if inbox != nil {
 		jobs = append(jobs, scheduler.Job{Name: "integration.github.sweep", Run: inbox.Sweep})
+	}
+	// The check's thirty-minute wait (RFC 0004 §6.4). It only makes the
+	// checks past their deadline due again; the worker beside it decides
+	// what they conclude, so a check is completed in one place. Leased,
+	// because one replica asking is enough.
+	if checks != nil {
+		jobs = append(jobs, scheduler.Job{Name: "integration.github.check_timeout", Run: checks.Sweep})
 	}
 	return jobs
 }
@@ -177,6 +189,12 @@ type contextDeps struct {
 	branches    config.Branches
 	context     config.Context
 	github      config.GitHub
+	// studioURL is where the pull request's sticky comment links to the
+	// branch (GLOSSA_STUDIO_URL); edgeURL is where a branch
+	// environment's manifest is served (GLOSSA_EDGE_PUBLIC_URL, empty
+	// when the deployment does not announce its edge).
+	studioURL string
+	edgeURL   string
 	// lookup reads the environment for the GitHub App's own
 	// configuration (RFC 0004 §14.1: platform configuration, not tenant
 	// data, in one Kubernetes Secret).
@@ -203,7 +221,7 @@ func buildContexts(
 	return newContexts(pool, events, contextDeps{
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
 		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, context: cfg.Context, tracer: tp,
-		github: cfg.GitHub, lookup: lookup,
+		github: cfg.GitHub, studioURL: cfg.Identity.StudioURL, edgeURL: cfg.Release.EdgePublicURL, lookup: lookup,
 	})
 }
 
@@ -281,11 +299,19 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 			Lease: deps.integration.Lease, JobTimeout: deps.integration.JobTimeout,
 		})
 	}
-	gh, err := newGitHub(uow, catalog, deps)
+	gh, err := newGitHub(uow, checkSources{
+		catalog: catalog, localization: localization, knowledge: knowledge,
+		usages: usageContext, release: release,
+	}, deps)
 	if err != nil {
 		return contexts{}, err
 	}
 	c.integrationAPI = integrationapi.New(integration, gh)
+	if gh != nil {
+		if err := gh.SubscribeChecks(events); err != nil {
+			return contexts{}, err
+		}
+	}
 	if gh != nil && deps.github.InboxEnabled {
 		c.githubInbox = integrationapp.NewInboxWorker(gh, integrationapp.InboxConfig{
 			Workers: deps.github.InboxWorkers, PollInterval: deps.github.PollInterval,
@@ -293,8 +319,24 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 			DepthInterval: deps.github.DepthInterval,
 		})
 	}
-	c.purgeJobs = newPurgeJobs(usageContext, catalog, c.githubInbox, deps.logger)
+	if gh != nil && deps.github.ChecksEnabled {
+		c.githubChecks = integrationapp.NewCheckWorker(gh, integrationapp.CheckConfig{
+			Workers: deps.github.CheckWorkers, PollInterval: deps.github.CheckPollInterval,
+			Timeout: deps.github.CheckTimeout, Lease: deps.github.CheckLease,
+			DepthInterval: deps.github.CheckDepthInterval,
+		})
+	}
+	c.purgeJobs = newPurgeJobs(usageContext, catalog, c.githubInbox, c.githubChecks, deps.logger)
 	return c, nil
+}
+
+// checkSources are the application services the Glossa PR check reads.
+type checkSources struct {
+	catalog      *catalogapp.Service
+	localization *localizationapp.Service
+	knowledge    *knowledgeapp.Service
+	usages       *contextapp.Service
+	release      *releaseapp.Service
 }
 
 // newGitHub wires the GitHub integration (RFC 0004 §6) when the
@@ -307,7 +349,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 // nothing else in the server changes. A partial configuration is an
 // error rather than a silent half-integration, because a deployment
 // that meant to enable GitHub should hear about the missing half.
-func newGitHub(uow *db.UnitOfWork, catalog *catalogapp.Service, deps contextDeps) (*integrationapp.GitHubService, error) {
+func newGitHub(uow *db.UnitOfWork, src checkSources, deps contextDeps) (*integrationapp.GitHubService, error) {
 	cfg, enabled, err := github.LoadConfig(deps.lookup)
 	if err != nil {
 		return nil, err
@@ -333,9 +375,17 @@ func newGitHub(uow *db.UnitOfWork, catalog *catalogapp.Service, deps contextDeps
 		GitHub:   client,
 		Verifier: hooks,
 		Events:   hooks,
-		Branches: integrationsources.NewBranches(catalog),
-		Metrics:  integrationmetrics.NewWebhooks(deps.registerer),
-		Logger:   deps.logger,
+		Branches: integrationsources.NewBranches(src.catalog),
+		Checks:   integrationpg.NewChecks(uow),
+		Sources: integrationsources.NewChecks(integrationsources.ChecksDeps{
+			Catalog: src.catalog, Localization: src.localization, Knowledge: src.knowledge,
+			Usages: src.usages, Release: src.release, EdgeURL: deps.edgeURL,
+		}),
+		StudioURL:      deps.studioURL,
+		Metrics:        integrationmetrics.NewWebhooks(deps.registerer),
+		CheckMetrics:   integrationmetrics.NewChecks(deps.registerer),
+		TracerProvider: deps.tracer,
+		Logger:         deps.logger,
 	})
 }
 

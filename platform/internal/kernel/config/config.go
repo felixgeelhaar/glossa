@@ -129,6 +129,24 @@ type GitHub struct {
 	Lease          time.Duration
 	// DepthInterval is how often the inbox-depth metric is sampled.
 	DepthInterval time.Duration
+
+	// The Glossa PR check (RFC 0004 §6.4). Its worker is a second queue
+	// worker on the same integration: it renders a pull request's report
+	// and writes the check run and the sticky comment.
+
+	// ChecksEnabled runs the check worker in this process. Off, checks
+	// are still queued by the webhook — nothing reports them.
+	ChecksEnabled bool
+	// CheckWorkers is the number of checks this process renders at once.
+	CheckWorkers int
+	// CheckPollInterval is how long an idle check worker waits.
+	CheckPollInterval time.Duration
+	// CheckTimeout bounds one attempt; CheckLease (longer) is how long a
+	// claimed check is reserved against the other replicas.
+	CheckTimeout time.Duration
+	CheckLease   time.Duration
+	// CheckDepthInterval is how often the queue-depth metric is sampled.
+	CheckDepthInterval time.Duration
 }
 
 // Context configures the Context context's capture storage
@@ -373,6 +391,13 @@ func Load(lookup LookupFunc) (Config, error) {
 		HandlerTimeout: r.duration("GLOSSA_GITHUB_INBOX_TIMEOUT", 30*time.Second),
 		Lease:          r.duration("GLOSSA_GITHUB_INBOX_LEASE", 2*time.Minute),
 		DepthInterval:  r.duration("GLOSSA_GITHUB_INBOX_DEPTH_INTERVAL", 30*time.Second),
+
+		ChecksEnabled:      r.boolean("GLOSSA_GITHUB_CHECKS_ENABLED", true),
+		CheckWorkers:       r.intRange("GLOSSA_GITHUB_CHECK_WORKERS", 2, 1, 64),
+		CheckPollInterval:  r.duration("GLOSSA_GITHUB_CHECK_POLL_INTERVAL", time.Second),
+		CheckTimeout:       r.duration("GLOSSA_GITHUB_CHECK_TIMEOUT", time.Minute),
+		CheckLease:         r.duration("GLOSSA_GITHUB_CHECK_LEASE", 5*time.Minute),
+		CheckDepthInterval: r.duration("GLOSSA_GITHUB_CHECK_DEPTH_INTERVAL", 30*time.Second),
 	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {
@@ -400,6 +425,9 @@ func (c Config) validate(r *reader) {
 	}
 	if c.GitHub.Lease <= c.GitHub.HandlerTimeout {
 		r.fail("GLOSSA_GITHUB_INBOX_LEASE", "must be longer than GLOSSA_GITHUB_INBOX_TIMEOUT")
+	}
+	if c.GitHub.CheckLease <= c.GitHub.CheckTimeout {
+		r.fail("GLOSSA_GITHUB_CHECK_LEASE", "must be longer than GLOSSA_GITHUB_CHECK_TIMEOUT")
 	}
 	if c.Purge.Timeout > c.Purge.Interval {
 		r.fail("GLOSSA_PURGE_TIMEOUT", "must fit inside GLOSSA_PURGE_INTERVAL")

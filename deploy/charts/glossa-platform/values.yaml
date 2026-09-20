@@ -133,6 +133,28 @@ server:
       lease: 2m
       # -- GLOSSA_GITHUB_INBOX_DEPTH_INTERVAL: how often the inbox-depth metric is sampled.
       depthInterval: 30s
+    # The Glossa PR check (RFC 0004 §6.4): a second queue worker that
+    # renders a pull request's report and writes its check run and its
+    # one sticky comment. A pull request's check is queued by the webhook
+    # whatever this says, so turning it off everywhere makes checks wait
+    # rather than lose them.
+    checks:
+      # -- GLOSSA_GITHUB_CHECKS_ENABLED: render and report pull requests'
+      # Glossa checks in these pods.
+      enabled: true
+      # -- GLOSSA_GITHUB_CHECK_WORKERS: checks rendered at once, per pod (1–64).
+      workers: 2
+      # -- GLOSSA_GITHUB_CHECK_POLL_INTERVAL: how long a worker waits when the queue is empty.
+      pollInterval: 1s
+      # -- GLOSSA_GITHUB_CHECK_TIMEOUT: bounds one attempt at one check.
+      timeout: 1m
+      # -- GLOSSA_GITHUB_CHECK_LEASE: how long a claimed check is reserved
+      # against the other replicas; must exceed the timeout, or the server
+      # refuses to start. It is also what keeps one job per pull request,
+      # and so one writer of the sticky comment.
+      lease: 5m
+      # -- GLOSSA_GITHUB_CHECK_DEPTH_INTERVAL: how often the check queue's depth is sampled.
+      depthInterval: 30s
   webauthn:
     # -- GLOSSA_WEBAUTHN_RP_ID (registrable domain). Default: hosts.studio.
     rpId: ""

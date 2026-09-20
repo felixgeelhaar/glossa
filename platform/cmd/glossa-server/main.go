@@ -125,7 +125,10 @@ type app struct {
 	// githubInbox drains the GitHub webhook inbox; nil when the
 	// deployment has no GitHub App or the inbox worker is off.
 	githubInbox *integrationapp.InboxWorker
-	shutdownTP  observability.ShutdownFunc
+	// githubChecks renders pull requests' Glossa checks; nil when the
+	// deployment has no GitHub App or the check worker is off.
+	githubChecks *integrationapp.CheckWorker
+	shutdownTP   observability.ShutdownFunc
 }
 
 func serve(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup config.LookupFunc) error {
@@ -183,7 +186,8 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	return &app{
 		cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, aiWorker: bounded.aiWorker,
 		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger,
-		branchPublisher: bounded.branchPublisher, githubInbox: bounded.githubInbox, shutdownTP: shutdownTP,
+		branchPublisher: bounded.branchPublisher, githubInbox: bounded.githubInbox,
+		githubChecks: bounded.githubChecks, shutdownTP: shutdownTP,
 	}, nil
 }
 
@@ -242,6 +246,7 @@ func (a *app) run(ctx context.Context) error {
 	purged := a.startPurger(dispatchCtx)
 	published := a.startBranchPublisher(dispatchCtx)
 	delivered := a.startGitHubInbox(dispatchCtx)
+	checked := a.startGitHubChecks(dispatchCtx)
 	a.startKeyIndexTask(dispatchCtx)
 
 	var runErr error
@@ -251,7 +256,7 @@ func (a *app) run(ctx context.Context) error {
 	case runErr = <-errc:
 		a.logger.Error("component failed; shutting down", slog.Any("error", runErr))
 	}
-	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, purged, published, delivered))
+	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, purged, published, delivered, checked))
 }
 
 // startPurger runs the daily retention jobs until ctx ends; a run in
@@ -354,6 +359,22 @@ func (a *app) startGitHubInbox(ctx context.Context) <-chan struct{} {
 	return done
 }
 
+// startGitHubChecks renders pull requests' Glossa checks until ctx
+// ends; a check in progress finishes its current attempt first, and an
+// unfinished one is claimed again when its lease runs out.
+func (a *app) startGitHubChecks(ctx context.Context) <-chan struct{} {
+	done := make(chan struct{})
+	if a.githubChecks == nil {
+		close(done)
+		return done
+	}
+	go func() {
+		defer close(done)
+		_ = a.githubChecks.Run(ctx)
+	}()
+	return done
+}
+
 // startWorker runs Intelligence's job workers until ctx ends; a job in
 // progress finishes first (bounded by its timeout).
 func (a *app) startWorker(ctx context.Context) <-chan struct{} {
@@ -384,7 +405,9 @@ func (a *app) startDispatcher(ctx context.Context, errc chan<- error) <-chan str
 	return done
 }
 
-func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched, worked, moved, purged, published, delivered <-chan struct{}) error {
+func (a *app) shutdown(stopDispatch context.CancelFunc,
+	dispatched, worked, moved, purged, published, delivered, checked <-chan struct{},
+) error {
 	ctx, cancel := context.WithTimeout(context.Background(), a.cfg.ShutdownTimeout)
 	defer cancel()
 	var errs []error
@@ -421,6 +444,11 @@ func (a *app) shutdown(stopDispatch context.CancelFunc, dispatched, worked, move
 	case <-delivered:
 	case <-ctx.Done():
 		errs = append(errs, errors.New("the GitHub inbox worker did not stop before the shutdown timeout; its claimed deliveries are claimed again when the lease ends"))
+	}
+	select {
+	case <-checked:
+	case <-ctx.Done():
+		errs = append(errs, errors.New("the GitHub check worker did not stop before the shutdown timeout; its claimed checks are claimed again when the lease ends"))
 	}
 	if err := a.shutdownTP(ctx); err != nil {
 		errs = append(errs, fmt.Errorf("flush traces: %w", err))
