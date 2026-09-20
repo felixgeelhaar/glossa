@@ -34,7 +34,12 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: backup
-              image: postgres:17-alpine
+              # Pinned to the SERVER major (16.x), NOT latest. pg_dump 17
+              # against a 16 server emits `SET transaction_timeout` — a
+              # parameter 16 cannot parse — so the dump restores ZERO tables
+              # under ON_ERROR_STOP. Found 2026-09-13 by the restore drill;
+              # the dumps looked perfect from the backup side.
+              image: postgres:16-alpine
               env:
                 - name: PGHOST
                   value: "postgres"

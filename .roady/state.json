@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 48,
+  "version": 54,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -25,11 +25,15 @@
       "elapsed_minutes": 19
     },
     "task-analytics": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "3cc418b — schema + repo + project_created emit + GET /admin/projects/:slug/metrics + GET /admin/metrics. Handler-level emits for translation_edited / consumer_request / ai_translation + admin Metrics tab deferred to follow-up."
+      ],
       "started_at": "2026-05-25T08:45:11.921574+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-25T08:52:32.616036+02:00",
+      "elapsed_minutes": 7
     },
     "task-audit-filter": {
       "status": "done",
@@ -179,6 +183,61 @@
       "completed_at": "2026-05-25T08:20:48.145216+02:00",
       "elapsed_minutes": 2
     },
+    "task-m0-identity": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m0-kernel": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m0-layout": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m0-mf-go": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m0-mf-ts": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m0-openapi": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m1-core-loop": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m2-knowledge-ai": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m3-context": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m4-quality": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-m5-operations": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
     "task-microcopy": {
       "status": "done",
       "path": "",
@@ -189,6 +248,17 @@
       "started_at": "2026-05-25T08:10:00.855235+02:00",
       "completed_at": "2026-05-25T08:10:10.21297+02:00",
       "elapsed_minutes": 0
+    },
+    "task-p1-locale-identity": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "BCP 47 parse/canonicalize (x/text BCP47), migration 0006 VARCHAR(35), language/script/region/direction on the wire, canonical matching for URL segments and translator scopes, SDK describeLocale + canonical cache keys, admin RTL editing. Go unit + Postgres integration + TS tests green."
+      ],
+      "started_at": "2026-09-19T08:31:38.688414+02:00",
+      "completed_at": "2026-09-19T08:38:51.974171+02:00",
+      "elapsed_minutes": 7
     },
     "task-positioning": {
       "status": "done",
@@ -262,5 +332,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-25T08:45:11.921574+02:00"
+  "updated_at": "2026-09-19T08:38:51.974172+02:00"
 }

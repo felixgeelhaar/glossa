@@ -67,6 +67,12 @@ export function createClient(config: ClientConfig): Client {
   const apiUrl = config.apiUrl.replace(/\/+$/, "");
   const doFetch = config.fetch ?? fetch;
   const cache = new Map<string, CachedBundle>();
+  // The server answers with the canonical code for whatever spelling
+  // was requested ("de-de" → "de-DE"), and SSE events carry the
+  // canonical code too. The cache is keyed canonically; aliases maps
+  // each requested spelling onto it.
+  const aliases = new Map<string, string>();
+  const cached = (locale: string) => cache.get(aliases.get(locale) ?? locale);
 
   const projectBase = `${apiUrl}/api/v1/projects/${encodeURIComponent(config.project)}`;
 
@@ -77,26 +83,28 @@ export function createClient(config: ClientConfig): Client {
   }
 
   async function bundle(locale: string): Promise<Bundle> {
-    const cached = cache.get(locale);
+    const hit = cached(locale);
     const headers = authHeaders({ Accept: "application/json" });
-    if (cached?.etag) headers.set("If-None-Match", cached.etag);
+    if (hit?.etag) headers.set("If-None-Match", hit.etag);
 
     const url = `${projectBase}/locales/${encodeURIComponent(locale)}/messages`;
     const res = await doFetch(url, { method: "GET", headers });
 
-    if (res.status === 304 && cached) {
-      return cached.bundle;
+    if (res.status === 304 && hit) {
+      return hit.bundle;
     }
     if (!res.ok) {
       throw new GlossaError(`bundle: ${res.status} ${res.statusText}`, res.status);
     }
     const body = (await res.json()) as Bundle;
-    cache.set(locale, { bundle: body, etag: res.headers.get("ETag") ?? undefined });
+    const key = body.locale || locale;
+    cache.set(key, { bundle: body, etag: res.headers.get("ETag") ?? undefined });
+    if (key !== locale) aliases.set(locale, key);
     return body;
   }
 
   function message(locale: string, key: string): string | undefined {
-    return cache.get(locale)?.bundle.messages[key];
+    return cached(locale)?.bundle.messages[key];
   }
 
   // applyUpdate is shared between subscribe()'s onEvent callback

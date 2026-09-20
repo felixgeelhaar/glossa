@@ -135,6 +135,24 @@ describe("<glossa-admin-key-edit>", () => {
     const preview = el.shadowRoot!.querySelector(".preview") as HTMLElement;
     expect(preview.textContent).toContain("2 Einheiten");
   });
+
+  it("edits and previews right-to-left locales right-to-left", async () => {
+    const el = document.createElement("glossa-admin-key-edit") as GlossaAdminKeyEdit;
+    el.keyName = "cart.checkout";
+    el.locale = "ar-EG";
+    el.value = "الدفع";
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const field = el.shadowRoot!.querySelector("gl-textarea")!;
+    const preview = el.shadowRoot!.querySelector(".preview")!;
+    expect(field.getAttribute("dir")).toBe("rtl");
+    expect(field.getAttribute("lang")).toBe("ar-EG");
+    expect(preview.getAttribute("dir")).toBe("rtl");
+
+    el.locale = "de";
+    await el.updateComplete;
+    expect(field.getAttribute("dir")).toBe("ltr");
+  });
 });
 
 describe("<glossa-admin-diff-tab>", () => {

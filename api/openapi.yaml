@@ -254,7 +254,10 @@ components:
       in: path
       required: true
       schema: { type: string, pattern: "^[a-z]{2,3}(?:-[A-Z]{2})?$" }
-      description: BCP-47 locale code (e.g. `en`, `de`, `pt-BR`)
+      description: >
+        BCP 47 locale code (e.g. `en`, `de`, `pt-BR`, `zh-Hant-TW`).
+        Matched by canonical form, so `pt-br` and `pt_BR` resolve to
+        `pt-BR`; responses always carry the canonical form.
     KeyName:
       name: key
       in: path
@@ -304,15 +307,29 @@ components:
       type: object
       required: [code, label]
       properties:
-        code: { type: string, pattern: "^[a-z]{2,3}(?:-[A-Z]{2})?$" }
+        code:
+          type: string
+          maxLength: 35
+          description: >
+            BCP 47 language tag: language[-script][-region][-variant].
+            Canonicalized on write (`en_us` → `en-US`, `iw` → `he`,
+            `en-Latn-US` → `en-US`). Extensions (`-u-`, `-t-`) and
+            private use (`-x-`) are rejected.
         label: { type: string, maxLength: 50 }
 
     Locale:
       type: object
-      required: [id, code, label, enabled]
+      required: [id, code, language, script, region, direction, label, enabled]
       properties:
         id: { type: string, format: uuid }
-        code: { type: string }
+        code: { type: string, description: Canonical BCP 47 tag, e.g. `zh-Hant-TW` }
+        language: { type: string, description: Primary language subtag, e.g. `zh` }
+        script: { type: string, description: Explicit script subtag (`Hant`), empty when the tag has none }
+        region: { type: string, description: Explicit region subtag (`TW`, `419`), empty when the tag has none }
+        direction:
+          type: string
+          enum: [ltr, rtl]
+          description: Base text direction, from the explicit or CLDR likely script
         label: { type: string }
         enabled: { type: boolean }
 

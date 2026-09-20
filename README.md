@@ -1,13 +1,15 @@
 # Glossa
 
-> **For small EU SaaS teams who want to localize without per-word fees, Glossa is a self-hosted translation backend that ships AI fan-out, live SSE updates, and drop-in web components.** Unlike Lokalise or Crowdin which meter on word count, Glossa runs on your own k3s with your own LLM keys — no per-translation cost, no vendor lock-in.
+> **For product teams who want every new language to be configuration, not an engineering project, Glossa is open-source localization infrastructure: one typed message model for web and backend, AI translation grounded in your terminology and translation memory, and immutable releases delivered to every runtime.** Unlike file-centric translation tools, Glossa treats translations as versioned product data you own: self-hosted, with your own LLM keys.
+
+**Build once. Speak everywhere.** Where Glossa is going and why: [`docs/product-intent.md`](./docs/product-intent.md). How it gets there: [RFC 0002 — Platform architecture](./docs/rfcs/0002-platform-architecture.md), a rewrite. The feature list below describes what ships today (v0.3).
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?logo=postgresql&logoColor=white)
 ![Lit](https://img.shields.io/badge/Lit-3-324FFF?logo=lit&logoColor=white)
 
-Glossa is the translation-management backbone for [Brotwerk](https://brotwerk.felixgeelhaar.de), [IRI](https://github.com/felixgeelhaar/iri), and [Kraftsport](https://kraftsport-coach.de). One deployment, many tenants, end-to-end German-first but locale-agnostic. Full positioning rationale in [`docs/positioning.md`](./docs/positioning.md).
+Glossa is the localization backbone for [Brotwerk](https://brotwerk.felixgeelhaar.de), [IRI](https://github.com/felixgeelhaar/iri), and [Kraftsport](https://kraftsport-coach.de). One deployment, many tenants. Full positioning rationale in [`docs/positioning.md`](./docs/positioning.md).
 
 ---
 
@@ -107,9 +109,13 @@ glossa/
 │   │       └── infra/          # sqlc adapter, AES-GCM secrets, AI clients
 │   └── admin/                  # Lit SPA, served by nginx in compose
 ├── packages/
+│   ├── format/                 # @felixgeelhaar/glossa-format — ICU MessageFormat
+│   ├── sdk/                    # @felixgeelhaar/glossa-sdk — fetch + cache + SSE
+│   ├── elements/               # @felixgeelhaar/glossa-elements — Lit web components
+│   ├── cli/                    # @felixgeelhaar/glossa-cli — init / scan / pull / push
 │   └── ui/                     # @felixgeelhaar/glossa-ui — design system primitives
 ├── deploy/k3s/                 # k3s manifests + Helm-free kustomize bases
-├── docs/                       # design doc + ADRs
+├── docs/                       # product intent, positioning, design doc, RFCs
 └── docker-compose.yml          # one-command dev stack
 ```
 
@@ -169,19 +175,16 @@ pnpm build
 
 ## Roadmap
 
-| Status | Item |
-|---|---|
-| ✅ shipped | Multi-tenant API + Postgres schema + RLS |
-| ✅ shipped | Admin SPA + design system + dark mode |
-| ✅ shipped | Email-first login + tenant inference |
-| ✅ shipped | AI translator agents (OpenAI / Anthropic / Gemini) |
-| ✅ shipped | SSE live updates |
-| ✅ shipped | Audit log + actor attribution |
-| 🚧 next   | `packages/sdk` + `packages/elements` + `packages/cli` for consumer apps |
-| 🚧 next   | AI backfill button (translate every missing key in one pass) |
-| 🚧 next   | Translation memory across projects in a tenant |
-| 🔭 later  | DeepL passthrough as an alternative provider kind |
-| 🔭 later  | Plurals editor in admin (visual ICU builder) |
+Glossa is being **rewritten** as the platform the [product intent](./docs/product-intent.md) describes, and the Klarlabs products are the first users. Architecture, milestones and adoption waves: [RFC 0002](./docs/rfcs/0002-platform-architecture.md). v0.3 (this README's feature list, `apps/` and `packages/`) keeps serving its current consumers until they've moved, and only receives security and data-loss fixes.
+
+| Milestone | Delivers | Done when |
+|---|---|---|
+| M0 Foundations | Server kernel, forced RLS, `auth-go`, MessageFormat 2 kernel (Go + TS) with conformance suite | Conformance + RLS suites green |
+| M1 Core loop | Messages → translations → immutable releases → edge → JS / web components / Vue / Astro / Go runtimes, CLI, Studio v0 | Brotwerk runs on it, web and email |
+| M2 Knowledge + AI | TM, termbase, style guides, translation agent with provenance and confidence, translator workspace | Armada's missing locales filled by review by exception |
+| M3 Context | Usages, in-product editing, preview environments, screenshots, GitHub checks, React | Translators see where every message appears |
+| M4 Quality | Layered QA, CI policies, visual QA, Flutter | `glossa check` gates CI in every product |
+| M5 Operations | Workflows, assignments, vendors, audit export | All products migrated, v0.3 retired |
 
 ---
 
