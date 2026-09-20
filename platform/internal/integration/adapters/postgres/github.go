@@ -379,7 +379,7 @@ func (i *Inbox) Sweep(ctx context.Context, before time.Time) (int, int, error) {
 		if deliveries, err = q.DeleteDeliveriesBefore(ctx, before); err != nil {
 			return err
 		}
-		intents, err = q.DeleteExpiredInstallIntents(ctx, before)
+		intents, err = q.DeleteExpiredInstallIntents(ctx)
 		return err
 	})
 	return int(deliveries), int(intents), err

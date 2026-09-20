@@ -218,7 +218,9 @@ type DeliveryInbox interface {
 	// Depth reports the pending deliveries per event (the §11 metric).
 	Depth(ctx context.Context) (map[string]int, error)
 	// Sweep removes settled deliveries received before the replay
-	// window's start and install intents that expired before it.
+	// window's start, and install intents whose own window has closed —
+	// an expired state is already useless, so it is not kept for the
+	// replay window as a delivery id is.
 	Sweep(ctx context.Context, before time.Time) (deliveries, intents int, err error)
 }
 

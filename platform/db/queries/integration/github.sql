@@ -22,9 +22,11 @@ SET redeemed_at = sqlc.arg(now)
 WHERE state_hash = sqlc.arg(state_hash) AND redeemed_at IS NULL AND expires_at > sqlc.arg(now)
 RETURNING id, tenant_id, person, created_at, expires_at;
 
+-- DeleteExpiredInstallIntents drops intents whose own window has closed.
+-- It is not the delivery replay window: an expired state is already
+-- useless, so there is nothing to keep it for. System scope.
 -- name: DeleteExpiredInstallIntents :execrows
--- System scope: the sweep drops intents whose window closed.
-DELETE FROM integration_github_install_intents WHERE expires_at < sqlc.arg(before);
+DELETE FROM integration_github_install_intents WHERE expires_at < now();
 
 -- ── installations ──────────────────────────────────────────────────
 

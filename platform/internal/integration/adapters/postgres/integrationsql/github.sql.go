@@ -114,12 +114,14 @@ func (q *Queries) DeleteDeliveriesBefore(ctx context.Context, before time.Time) 
 }
 
 const deleteExpiredInstallIntents = `-- name: DeleteExpiredInstallIntents :execrows
-DELETE FROM integration_github_install_intents WHERE expires_at < $1
+DELETE FROM integration_github_install_intents WHERE expires_at < now()
 `
 
-// System scope: the sweep drops intents whose window closed.
-func (q *Queries) DeleteExpiredInstallIntents(ctx context.Context, before time.Time) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteExpiredInstallIntents, before)
+// DeleteExpiredInstallIntents drops intents whose own window has closed.
+// It is not the delivery replay window: an expired state is already
+// useless, so there is nothing to keep it for. System scope.
+func (q *Queries) DeleteExpiredInstallIntents(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredInstallIntents)
 	if err != nil {
 		return 0, err
 	}

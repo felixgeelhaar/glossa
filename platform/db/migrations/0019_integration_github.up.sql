@@ -70,7 +70,7 @@ CREATE TABLE integration_github_install_intents (
 CREATE INDEX integration_github_install_intents_tenant ON integration_github_install_intents (tenant_id);
 CREATE UNIQUE INDEX integration_github_install_intents_state
     ON integration_github_install_intents (state_hash);
--- The sweep drops intents that expired long ago.
+-- The sweep drops intents whose window has closed.
 CREATE INDEX integration_github_install_intents_expiry ON integration_github_install_intents (expires_at);
 
 -- ── Git connections ────────────────────────────────────────────────
@@ -168,7 +168,13 @@ CREATE POLICY integration_github_installations_system_select ON integration_gith
     FOR SELECT TO glossa_system USING (true);
 GRANT SELECT (tenant_id, installation_id, state) ON integration_github_installations TO glossa_system;
 
--- The same sweep drops install intents that expired long ago.
+-- The same sweep drops install intents whose window has closed. It needs
+-- a SELECT policy as well as a DELETE one: a DELETE whose WHERE clause
+-- reads a column needs SELECT rights, so PostgreSQL applies the SELECT
+-- policies too, and without one the sweep would quietly delete nothing.
+-- The grant is the one column the sweep reads.
+CREATE POLICY integration_github_install_intents_system_select ON integration_github_install_intents
+    FOR SELECT TO glossa_system USING (true);
 CREATE POLICY integration_github_install_intents_system_delete ON integration_github_install_intents
     FOR DELETE TO glossa_system USING (true);
 GRANT SELECT (expires_at), DELETE ON integration_github_install_intents TO glossa_system;

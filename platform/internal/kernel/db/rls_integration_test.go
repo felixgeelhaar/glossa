@@ -73,9 +73,12 @@ var systemPolicies = map[string][]string{
 	// beside this one shows a tenant its own settled deliveries once
 	// tenant_id is set. Resolving the installation reads the mapping and
 	// the state only, and the sweep drops expired install intents.
-	"integration_github_deliveries":      {"integration_github_deliveries_system"},
-	"integration_github_installations":   {"integration_github_installations_system_select"},
-	"integration_github_install_intents": {"integration_github_install_intents_system_delete"},
+	"integration_github_deliveries":    {"integration_github_deliveries_system"},
+	"integration_github_installations": {"integration_github_installations_system_select"},
+	"integration_github_install_intents": {
+		"integration_github_install_intents_system_select",
+		"integration_github_install_intents_system_delete",
+	},
 	// Context's retention sweep finds the projects holding builds across
 	// tenants (system scope context.retention; tenant_id and project_id
 	// only), then purges each in its tenant's scope.
