@@ -79,6 +79,12 @@ var systemPolicies = map[string][]string{
 		"integration_github_install_intents_system_select",
 		"integration_github_install_intents_system_delete",
 	},
+	// The Glossa PR check's queue (the same system scope, RFC 0004
+	// §6.4). The check worker claims the oldest due row whatever tenant
+	// it belongs to and only then enters that tenant's scope to read its
+	// catalog, exactly as the inbox worker does; the tenant policy beside
+	// this one shows a tenant its own checks.
+	"integration_github_checks": {"integration_github_checks_system"},
 	// Context's retention sweep finds the projects holding builds across
 	// tenants (system scope context.retention; tenant_id and project_id
 	// only), then purges each in its tenant's scope.

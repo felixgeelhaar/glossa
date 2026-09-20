@@ -27,6 +27,27 @@ type IntegrationGitConnection struct {
 	UpdatedAt      time.Time
 }
 
+type IntegrationGithubCheck struct {
+	ID             uuid.UUID
+	TenantID       uuid.UUID
+	InstallationID int64
+	RepositoryID   int64
+	PullRequest    int32
+	Branch         string
+	HeadSha        string
+	CommentID      int64
+	Runs           json.RawMessage
+	State          string
+	Conclusion     string
+	Attempts       int32
+	Failure        string
+	ClaimToken     uuid.NullUUID
+	RequestedAt    time.Time
+	AvailableAt    time.Time
+	CompletedAt    pgtype.Timestamptz
+	UpdatedAt      time.Time
+}
+
 type IntegrationGithubInstallation struct {
 	ID             uuid.UUID
 	TenantID       uuid.UUID
