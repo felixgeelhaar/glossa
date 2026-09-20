@@ -10,7 +10,7 @@ spec:
     spec:
       namespace: glossa
       resource: deployment/api
-      image: ghcr.io/felixgeelhaar/glossa-api:0.3.1@sha256:2863bfa216753715f80c2c2e8bcb6f773a6943328ade6b0b63fea334ceda2641
+      image: ghcr.io/felixgeelhaar/glossa-api:0.4.0@sha256:fbdd8312013b9ceb76ffe02784083c281ead47d210d3237e12299a54bbeae675
       manifest: |
         apiVersion: apps/v1
         kind: Deployment
