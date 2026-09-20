@@ -224,6 +224,32 @@ type DeliveryInbox interface {
 	Sweep(ctx context.Context, before time.Time) (deliveries, intents int, err error)
 }
 
+// RepositoryConnection is a Git connection seen from outside the
+// tenant that owns it: which tenant, project and application a
+// repository feeds, at which monorepo path.
+type RepositoryConnection struct {
+	Tenant      tenancy.ID
+	Project     uuid.UUID
+	Application uuid.UUID
+	Path        string
+}
+
+// RepositoryDirectory resolves a repository to its Git connections
+// across tenants (system scope integration.github).
+//
+// It exists for the GitHub Actions OIDC exchange (RFC 0004 §6.3), which
+// arrives with no tenant: which tenant a CI run belongs to is precisely
+// what its verified `repository_id` proves, exactly as a webhook
+// delivery's tenant follows from its installation. The read is narrow —
+// the mapping and nothing else, no repository name and no creator — so
+// a verified run learns which of its own projects it may act on and
+// nothing about anyone else's.
+type RepositoryDirectory interface {
+	// ConnectionsForRepository lists a repository's connections, one per
+	// monorepo path, ordered by path. An empty result is not an error.
+	ConnectionsForRepository(ctx context.Context, repositoryID int64) ([]RepositoryConnection, error)
+}
+
 // GitHubMetrics records the webhook series of RFC 0004 §11. All methods
 // must be safe for concurrent use and must not block.
 type GitHubMetrics interface {

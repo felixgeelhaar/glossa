@@ -167,3 +167,14 @@ FROM integration_github_deliveries WHERE state = 'pending' GROUP BY event ORDER 
 -- name: DeleteDeliveriesBefore :execrows
 DELETE FROM integration_github_deliveries
 WHERE received_at < sqlc.arg(before) AND state <> 'pending';
+
+-- ResolveRepositoryConnections lists a repository's Git connections
+-- across tenants. System scope: the GitHub Actions OIDC exchange
+-- (RFC 0004 §6.3) arrives with no tenant — which tenant a run belongs
+-- to is what its repository_id proves — so the lookup happens before
+-- any tenant is known, and the grant covers these columns only.
+-- name: ResolveRepositoryConnections :many
+SELECT tenant_id, project_id, application_id, path
+FROM integration_git_connections
+WHERE repository_id = sqlc.arg(repository_id)
+ORDER BY path;

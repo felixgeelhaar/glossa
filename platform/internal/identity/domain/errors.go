@@ -37,4 +37,20 @@ var (
 	ErrPersonGrantOnly        = errors.New("identity: only a signed-in person mints an in-context grant")
 	ErrOriginNotBound         = errors.New("identity: the grant was minted for another origin")
 	ErrGrantProjectMismatch   = errors.New("identity: the grant was minted for another project")
+
+	// The GitHub Actions OIDC exchange (RFC 0004 §6.3).
+	ErrInvalidWorkflowRun = errors.New("identity: the ID token does not name a usable workflow run")
+	// ErrInvalidIDToken covers every way a presented ID token fails to
+	// verify — issuer, audience, signature, expiry, shape. The caller
+	// is told one thing, because telling it which would help it guess.
+	ErrInvalidIDToken = errors.New("identity: the GitHub Actions ID token did not verify")
+	// ErrRepositoryNotConnected means no Git connection names that
+	// repository, so there is no project to mint a token for.
+	ErrRepositoryNotConnected = errors.New("identity: that repository is not connected to a Glossa project")
+	// ErrAmbiguousProject means the repository feeds several projects
+	// and the caller named none of them.
+	ErrAmbiguousProject = errors.New("identity: that repository feeds several projects; name the one to authenticate for")
+	// ErrGitHubOIDCUnavailable means this deployment has no GitHub App,
+	// so there is nothing to exchange an ID token against.
+	ErrGitHubOIDCUnavailable = errors.New("identity: this deployment has no GitHub App configured")
 )

@@ -26,6 +26,10 @@ type Authn struct {
 	// the project and the permissions, so nothing is looked up again
 	// when the tenant is resolved.
 	Grant *GrantRecord
+	// CI is set for a token minted from a GitHub Actions ID token
+	// (RFC 0004 §6.3). Like a grant it carries its own tenant, project
+	// and permissions.
+	CI *CITokenRecord
 }
 
 // Principal returns the tenantless principal, for routes outside
@@ -37,6 +41,9 @@ func (a Authn) Principal() authz.Principal {
 	}
 	if a.Grant != nil {
 		p.TokenTenant = a.Grant.Tenant
+	}
+	if a.CI != nil {
+		p.TokenTenant = a.CI.Tenant
 	}
 	return p
 }
@@ -105,6 +112,17 @@ func (s *Service) Authorize(ctx context.Context, a Authn, tenant tenancy.ID) (au
 			return authz.Principal{}, ErrForbidden
 		}
 		p.Grant = a.Grant.Permissions
+		return p, nil
+	}
+	if a.CI != nil {
+		// A CI token carries the permissions it was minted with — the
+		// CI ceiling, fixed at mint time — in the one tenant the
+		// repository's Git connection named. It is never widened by a
+		// membership, because there is no person behind it.
+		if a.CI.Tenant != tenant {
+			return authz.Principal{}, ErrForbidden
+		}
+		p.Grant = a.CI.Permissions
 		return p, nil
 	}
 	if a.Token != nil {

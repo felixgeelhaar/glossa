@@ -85,6 +85,17 @@ var problems = []struct {
 	{domain.ErrInvalidOrigin, mapping{400, "invalid_origin",
 		"an origin is a scheme, host and port: https anywhere, http on localhost only"}},
 	{domain.ErrInvalidOriginLabel, mapping{400, "invalid_origin_label", "at most 100 characters"}},
+	// The GitHub Actions OIDC exchange (RFC 0004 §6.3).
+	{domain.ErrInvalidIDToken, mapping{401, "invalid_id_token",
+		"the GitHub Actions ID token did not verify: check the audience is glossa and that the job requests it fresh"}},
+	{domain.ErrInvalidWorkflowRun, mapping{401, "invalid_id_token",
+		"the ID token names no usable workflow run"}},
+	{domain.ErrRepositoryNotConnected, mapping{403, "repository_not_connected",
+		"no Glossa project is connected to this repository; connect it in Studio → Settings → GitHub"}},
+	{domain.ErrAmbiguousProject, mapping{409, "ambiguous_project",
+		"this repository feeds several projects: send project_id (or pass --project)"}},
+	{domain.ErrGitHubOIDCUnavailable, mapping{503, "github_not_configured",
+		"this deployment has no GitHub App, so it cannot exchange GitHub Actions ID tokens; use an API token"}},
 	{tenancy.ErrInvalidSlug, mapping{400, "invalid_slug", "lowercase letters, digits and inner hyphens, at most 63"}},
 	{tenancy.ErrInvalidName, mapping{400, "invalid_name", "1-200 characters"}},
 }

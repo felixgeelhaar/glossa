@@ -30,6 +30,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Environment variables LoadConfig reads.
@@ -42,6 +43,14 @@ const (
 	EnvClientSecret  = "GLOSSA_GITHUB_CLIENT_SECRET"
 	EnvAPIURL        = "GLOSSA_GITHUB_API_URL" // default https://api.github.com
 	EnvWebURL        = "GLOSSA_GITHUB_WEB_URL" // default https://github.com
+
+	// CI's OIDC exchange (RFC 0004 §6.3). github.com needs none of
+	// these; GitHub Enterprise Server sets its own issuer, and an
+	// operator who knows their issuer's availability can widen how long
+	// a cached key set keeps verifying while that issuer is unreachable.
+	EnvOIDCIssuer   = "GLOSSA_GITHUB_OIDC_ISSUER"    // default https://token.actions.githubusercontent.com
+	EnvOIDCAudience = "GLOSSA_GITHUB_OIDC_AUDIENCE"  // default glossa
+	EnvOIDCMaxStale = "GLOSSA_GITHUB_OIDC_MAX_STALE" // default 24h (auth-go's)
 )
 
 // Defaults for github.com; GitHub Enterprise Server uses
@@ -49,6 +58,10 @@ const (
 const (
 	DefaultAPIURL = "https://api.github.com"
 	DefaultWebURL = "https://github.com"
+	// DefaultOIDCIssuer is where github.com's Actions ID tokens come
+	// from; DefaultOIDCAudience is the `aud` a run must ask for.
+	DefaultOIDCIssuer   = "https://token.actions.githubusercontent.com"
+	DefaultOIDCAudience = "glossa"
 )
 
 // Config is the GitHub App's platform configuration (not tenant data).
@@ -68,12 +81,23 @@ type Config struct {
 	APIURL string
 	// WebURL is where people authorize the App (GHES: https://HOST).
 	WebURL string
+
+	// OIDCIssuer is the exact `iss` of the Actions ID tokens CI presents
+	// (GHES: https://HOST/_services/token). OIDCAudience is the `aud` a
+	// run must ask for — Glossa's own name, never GitHub's default
+	// audience, which any other service could also be handed.
+	OIDCIssuer   string
+	OIDCAudience string
+	// OIDCMaxStale bounds how long a cached key set keeps verifying when
+	// refetches fail. Zero means auth-go's default (24 h).
+	OIDCMaxStale time.Duration
 }
 
 // String implements fmt.Stringer without the secrets.
 func (c Config) String() string {
-	return fmt.Sprintf("github.Config{AppID: %d, AppSlug: %q, ClientID: %q, APIURL: %q, WebURL: %q, secrets: [redacted]}",
-		c.AppID, c.AppSlug, c.ClientID, c.APIURL, c.WebURL)
+	return fmt.Sprintf(
+		"github.Config{AppID: %d, AppSlug: %q, ClientID: %q, APIURL: %q, WebURL: %q, OIDCIssuer: %q, OIDCAudience: %q, secrets: [redacted]}",
+		c.AppID, c.AppSlug, c.ClientID, c.APIURL, c.WebURL, c.OIDCIssuer, c.OIDCAudience)
 }
 
 // LogValue implements slog.LogValuer without the secrets.
@@ -84,6 +108,8 @@ func (c Config) LogValue() slog.Value {
 		slog.String("client_id", c.ClientID),
 		slog.String("api_url", c.APIURL),
 		slog.String("web_url", c.WebURL),
+		slog.String("oidc_issuer", c.OIDCIssuer),
+		slog.String("oidc_audience", c.OIDCAudience),
 	)
 }
 
@@ -108,7 +134,10 @@ func (c Config) Validate() error {
 	if c.ClientSecret == "" {
 		errs = append(errs, fmt.Errorf("%s: required", EnvClientSecret))
 	}
-	for key, raw := range map[string]string{EnvAPIURL: c.APIURL, EnvWebURL: c.WebURL} {
+	if c.OIDCAudience == "" {
+		errs = append(errs, fmt.Errorf("%s: must not be empty", EnvOIDCAudience))
+	}
+	for key, raw := range map[string]string{EnvAPIURL: c.APIURL, EnvWebURL: c.WebURL, EnvOIDCIssuer: c.OIDCIssuer} {
 		if u, err := url.Parse(raw); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
 			errs = append(errs, fmt.Errorf("%s: %q is not an absolute http(s) URL", key, raw))
 		}
@@ -135,8 +164,16 @@ func LoadConfig(lookup func(string) (string, bool)) (cfg Config, enabled bool, e
 		ClientSecret:  get(EnvClientSecret),
 		APIURL:        strings.TrimRight(orDefault(get(EnvAPIURL), DefaultAPIURL), "/"),
 		WebURL:        strings.TrimRight(orDefault(get(EnvWebURL), DefaultWebURL), "/"),
+		OIDCIssuer:    strings.TrimRight(orDefault(get(EnvOIDCIssuer), DefaultOIDCIssuer), "/"),
+		OIDCAudience:  orDefault(get(EnvOIDCAudience), DefaultOIDCAudience),
 	}
 	var errs []error
+	if raw := get(EnvOIDCMaxStale); raw != "" {
+		if cfg.OIDCMaxStale, err = time.ParseDuration(raw); err != nil || cfg.OIDCMaxStale <= 0 {
+			errs = append(errs, fmt.Errorf("%s: %q is not a positive duration (e.g. 24h)", EnvOIDCMaxStale, raw))
+			cfg.OIDCMaxStale = 0
+		}
+	}
 	if cfg.AppID, err = strconv.ParseInt(rawID, 10, 64); err != nil {
 		cfg.AppID = 0
 	}

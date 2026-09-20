@@ -384,3 +384,45 @@ func (i *Inbox) Sweep(ctx context.Context, before time.Time) (int, int, error) {
 	})
 	return int(deliveries), int(intents), err
 }
+
+// ── the repository directory ─────────────────────────────────────────
+
+// Repositories implements app.RepositoryDirectory in the same system
+// scope, which migration 0024 opens to the Git connections' mapping
+// columns: tenant, repository, project, application and path.
+type Repositories struct {
+	uow   *db.UnitOfWork
+	scope db.SystemScope
+}
+
+// NewRepositories returns the directory on uow.
+func NewRepositories(uow *db.UnitOfWork) *Repositories {
+	return &Repositories{uow: uow, scope: db.NewSystemScope("integration.github")}
+}
+
+var _ app.RepositoryDirectory = (*Repositories)(nil)
+
+// ConnectionsForRepository implements app.RepositoryDirectory.
+func (r *Repositories) ConnectionsForRepository(
+	ctx context.Context, repositoryID int64,
+) ([]app.RepositoryConnection, error) {
+	var out []app.RepositoryConnection
+	err := r.uow.InSystemTx(ctx, r.scope, func(ctx context.Context, tx *db.SystemTx) error {
+		rows, err := integrationsql.New(tx).ResolveRepositoryConnections(ctx, repositoryID)
+		if err != nil {
+			return err
+		}
+		out = make([]app.RepositoryConnection, len(rows))
+		for i, row := range rows {
+			out[i] = app.RepositoryConnection{
+				Tenant: tenancy.ID(row.TenantID), Project: row.ProjectID,
+				Application: row.ApplicationID, Path: row.Path,
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("integration: resolve repository %d: %w", repositoryID, err)
+	}
+	return out, nil
+}

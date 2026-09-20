@@ -78,6 +78,19 @@ type GrantRecord struct {
 	ExpiresAt   time.Time
 }
 
+// CITokenRecord is what bearer authentication needs about a CI token
+// (RFC 0004 §6.3): the project it may act on and what it may do there.
+// Like an in-context grant it is never revoked — it expires in thirty
+// minutes — and it acts as no person, so there is nothing to look up
+// about a member.
+type CITokenRecord struct {
+	ID          domain.CITokenID
+	Tenant      tenancy.ID
+	Project     domain.ProjectRef
+	Permissions domain.Grant
+	ExpiresAt   time.Time
+}
+
 // TOTPRecord is a person's stored authenticator secret.
 type TOTPRecord struct {
 	Confirmed bool
@@ -110,6 +123,13 @@ type SystemStore interface {
 	OriginRegistered(ctx context.Context, origin string) (bool, error)
 	// PurgeExpiredGrants drops grants that expired before at.
 	PurgeExpiredGrants(ctx context.Context, at time.Time) (int64, error)
+
+	// CITokenByHash resolves a CI token before its tenant is known,
+	// like TokenByHash (RFC 0004 §6.3).
+	CITokenByHash(ctx context.Context, hash string) (CITokenRecord, error)
+	TouchCIToken(ctx context.Context, id domain.CITokenID, at time.Time) error
+	// PurgeExpiredCITokens drops CI tokens that expired before at.
+	PurgeExpiredCITokens(ctx context.Context, at time.Time) (int64, error)
 
 	PendingTOTP(ctx context.Context, person domain.PersonID, secret authgo.TOTPSecret, at time.Time) error
 	TOTP(ctx context.Context, person domain.PersonID) (TOTPRecord, error)
@@ -192,6 +212,10 @@ type TenantStore interface {
 	PreviewOriginFor(ctx context.Context, project domain.ProjectRef, origin domain.Origin) (domain.PreviewOrigin, error)
 
 	InsertGrant(ctx context.Context, g domain.InContextGrant) error
+
+	// InsertCIToken stores a token minted for a GitHub Actions run
+	// (RFC 0004 §6.3), with the run recorded beside it.
+	InsertCIToken(ctx context.Context, t domain.CIToken) error
 
 	Publish(ctx context.Context, e outbox.Event) error
 }

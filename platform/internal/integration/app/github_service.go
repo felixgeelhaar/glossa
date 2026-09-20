@@ -30,12 +30,15 @@ const principalGitHub = "integration.github"
 // worker does nothing, which is what a deployment that only wants the
 // branch view gets.
 type GitHubDeps struct {
-	Tx       GitHubTransactor
-	Inbox    DeliveryInbox
-	GitHub   GitHub
-	Verifier WebhookVerifier
-	Events   WebhookEvents
-	Branches Branches
+	Tx    GitHubTransactor
+	Inbox DeliveryInbox
+	// Repositories resolves a repository to its Git connections across
+	// tenants, for the GitHub Actions OIDC exchange (RFC 0004 §6.3).
+	Repositories RepositoryDirectory
+	GitHub       GitHub
+	Verifier     WebhookVerifier
+	Events       WebhookEvents
+	Branches     Branches
 	// Checks is the check queue; Sources is what the report is rendered
 	// from.
 	Checks  CheckQueue
@@ -59,6 +62,7 @@ type GitHubDeps struct {
 type GitHubService struct {
 	tx           GitHubTransactor
 	inbox        DeliveryInbox
+	repositories RepositoryDirectory
 	gh           GitHub
 	verifier     WebhookVerifier
 	events       WebhookEvents
@@ -82,7 +86,7 @@ const tracerName = "github.com/felixgeelhaar/glossa/platform/internal/integratio
 func NewGitHubService(d GitHubDeps) (*GitHubService, error) {
 	var errs []error
 	for name, ok := range map[string]bool{
-		"Tx": d.Tx != nil, "Inbox": d.Inbox != nil, "GitHub": d.GitHub != nil,
+		"Tx": d.Tx != nil, "Inbox": d.Inbox != nil, "GitHub": d.GitHub != nil, "Repositories": d.Repositories != nil,
 		"Verifier": d.Verifier != nil, "Events": d.Events != nil, "Branches": d.Branches != nil,
 	} {
 		if !ok {
@@ -96,7 +100,7 @@ func NewGitHubService(d GitHubDeps) (*GitHubService, error) {
 		return nil, errors.New("integration: GitHubDeps.Checks and .Sources go together")
 	}
 	s := &GitHubService{
-		tx: d.Tx, inbox: d.Inbox, gh: d.GitHub, verifier: d.Verifier, events: d.Events,
+		tx: d.Tx, inbox: d.Inbox, repositories: d.Repositories, gh: d.GitHub, verifier: d.Verifier, events: d.Events,
 		branches: d.Branches, checks: d.Checks, sources: d.Sources,
 		studioURL: strings.TrimRight(d.StudioURL, "/"),
 		metrics:   d.Metrics, checkMetrics: d.CheckMetrics, logger: d.Logger, now: d.Now,
@@ -118,6 +122,21 @@ func NewGitHubService(d GitHubDeps) (*GitHubService, error) {
 		s.now = func() time.Time { return time.Now().UTC() }
 	}
 	return s, nil
+}
+
+// ConnectionsForRepository lists the Git connections of a repository
+// across tenants, for the GitHub Actions OIDC exchange (RFC 0004 §6.3).
+//
+// It checks no permission, because the caller holds none: it is
+// Identity's exchange, acting on a GitHub-signed `repository_id` before
+// any tenant exists. Proving you are the repository is the whole of the
+// authorization, which is why the argument is the numeric id — never a
+// name, which can be renamed, deleted and registered by a stranger.
+func (s *GitHubService) ConnectionsForRepository(ctx context.Context, repositoryID int64) ([]RepositoryConnection, error) {
+	if repositoryID <= 0 {
+		return nil, nil
+	}
+	return s.repositories.ConnectionsForRepository(ctx, repositoryID)
 }
 
 // ── the install flow ─────────────────────────────────────────────────

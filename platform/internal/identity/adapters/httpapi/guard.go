@@ -110,6 +110,15 @@ func (a *API) authenticate(r *http.Request, req apiv1.Requirement) (caller, erro
 		if !req.Bearer {
 			return caller{}, app.ErrUnauthenticated
 		}
+		// A CI token is an API token's narrower cousin (RFC 0004 §6.3):
+		// it is accepted wherever an API token is, and what keeps it
+		// small is its permissions and its project binding, not a
+		// shorter list of operations. So the operations need no second
+		// security scheme, and a CI run can use the CLI unchanged.
+		if domain.IsCISecret(cred) {
+			authn, err := a.svc.AuthenticateCIToken(r.Context(), cred)
+			return caller{authn: authn}, err
+		}
 		authn, err := a.svc.AuthenticateToken(r.Context(), cred)
 		return caller{authn: authn}, err
 	}
@@ -127,21 +136,29 @@ func (a *API) authenticate(r *http.Request, req apiv1.Requirement) (caller, erro
 	return caller{authn: authn, session: cookie.Value}, nil
 }
 
-// boundToRoute enforces an in-context grant's project binding: a grant
+// boundToRoute enforces a project-bound credential's binding: a grant
 // minted for one project never reaches another's data, even though both
-// live in the same tenant. The origin binding is checked when the
-// credential is resolved; this is the other half.
+// live in the same tenant, and neither does a CI token minted from one
+// repository's Git connection. For a grant the origin binding is
+// checked when the credential is resolved; this is the other half.
 //
 // Routes with no {project} in the path — the message preview, the
-// tenant's AI suggestions — are bounded instead by the small set of
-// operations that accept a grant at all, which is the same set CORS
-// answers a preview origin on.
+// tenant's AI suggestions — are bounded instead by what the credential
+// may do: an in-context grant by the small set of operations that
+// accept one at all (the same set CORS answers a preview origin on),
+// and a CI token by its two permissions, which no tenant-level
+// operation asks for.
 func boundToRoute(c caller, r *http.Request) error {
-	g := c.authn.Grant
-	if g == nil {
+	var bound string
+	switch {
+	case c.authn.Grant != nil:
+		bound = c.authn.Grant.Project.String()
+	case c.authn.CI != nil:
+		bound = c.authn.CI.Project.String()
+	default:
 		return nil
 	}
-	if project := r.PathValue("project"); project != "" && project != g.Project.String() {
+	if project := r.PathValue("project"); project != "" && project != bound {
 		return domain.ErrGrantProjectMismatch
 	}
 	return nil

@@ -25,6 +25,10 @@ import (
 	contextpg "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/postgres"
 	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
 	contextdomain "github.com/felixgeelhaar/glossa/platform/internal/context/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/ghoidc"
+	identitymetrics "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/metrics"
+	identitysources "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/sources"
+	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
 	integrationapi "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/httpapi"
 	integrationmetrics "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/metrics"
@@ -114,6 +118,12 @@ type contexts struct {
 	// GLOSSA_GITHUB_CHECKS_ENABLED is off. The webhook still queues the
 	// checks without it — they wait rather than being lost.
 	githubChecks *integrationapp.CheckWorker
+	// ciAuth is what Identity needs to exchange a GitHub Actions ID
+	// token for a CI token (RFC 0004 §6.3): one process-wide verifier
+	// and Integration's Git connections. Zero when this deployment has
+	// no GitHub App, and the exchange then answers
+	// `github_not_configured`.
+	ciAuth identityapp.GitHubOIDC
 }
 
 // newPurgeJobs builds the daily retention jobs over the two contexts that
@@ -311,6 +321,9 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		if err := gh.SubscribeChecks(events); err != nil {
 			return contexts{}, err
 		}
+		if c.ciAuth, err = newCIAuth(gh, deps); err != nil {
+			return contexts{}, err
+		}
 	}
 	if gh != nil && deps.github.InboxEnabled {
 		c.githubInbox = integrationapp.NewInboxWorker(gh, integrationapp.InboxConfig{
@@ -370,13 +383,14 @@ func newGitHub(uow *db.UnitOfWork, src checkSources, deps contextDeps) (*integra
 	}
 	deps.logger.Info("the GitHub integration is on", slog.Any("github", cfg))
 	return integrationapp.NewGitHubService(integrationapp.GitHubDeps{
-		Tx:       integrationpg.NewGitHubTransactor(uow),
-		Inbox:    integrationpg.NewInbox(uow),
-		GitHub:   client,
-		Verifier: hooks,
-		Events:   hooks,
-		Branches: integrationsources.NewBranches(src.catalog),
-		Checks:   integrationpg.NewChecks(uow),
+		Tx:           integrationpg.NewGitHubTransactor(uow),
+		Inbox:        integrationpg.NewInbox(uow),
+		Repositories: integrationpg.NewRepositories(uow),
+		GitHub:       client,
+		Verifier:     hooks,
+		Events:       hooks,
+		Branches:     integrationsources.NewBranches(src.catalog),
+		Checks:       integrationpg.NewChecks(uow),
 		Sources: integrationsources.NewChecks(integrationsources.ChecksDeps{
 			Catalog: src.catalog, Localization: src.localization, Knowledge: src.knowledge,
 			Usages: src.usages, Release: src.release, EdgeURL: deps.edgeURL,
@@ -387,6 +401,34 @@ func newGitHub(uow *db.UnitOfWork, src checkSources, deps contextDeps) (*integra
 		TracerProvider: deps.tracer,
 		Logger:         deps.logger,
 	})
+}
+
+// newCIAuth builds the GitHub Actions OIDC exchange Identity serves
+// (RFC 0004 §6.3): one verifier for the process, over auth-go's cached
+// JWKS, and Integration's Git connections as the repository directory.
+//
+// It is only called when a GitHub App is configured, because a
+// deployment without one has no Git connections to match a
+// `repository_id` against: the exchange then stays off and answers
+// `github_not_configured`, and CI uses a stored API token instead.
+func newCIAuth(gh *integrationapp.GitHubService, deps contextDeps) (identityapp.GitHubOIDC, error) {
+	cfg, _, err := github.LoadConfig(deps.lookup)
+	if err != nil {
+		return identityapp.GitHubOIDC{}, err
+	}
+	verifier, err := ghoidc.New(ghoidc.Config{
+		Issuer: cfg.OIDCIssuer, Audience: cfg.OIDCAudience, MaxStale: cfg.OIDCMaxStale,
+	})
+	if err != nil {
+		return identityapp.GitHubOIDC{}, err
+	}
+	deps.logger.Info("CI can authenticate with GitHub Actions OIDC",
+		slog.String("issuer", verifier.Issuer()), slog.String("audience", verifier.Audience()))
+	return identityapp.GitHubOIDC{
+		Verifier:     verifier,
+		Repositories: identitysources.NewGitRepositories(gh),
+		Metrics:      identitymetrics.NewCI(deps.registerer),
+	}, nil
 }
 
 // largeBodies lets import uploads and export downloads stream files

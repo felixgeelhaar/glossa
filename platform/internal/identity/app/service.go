@@ -86,6 +86,11 @@ type Service struct {
 	// decoy is verified when an email has no password, so a failed
 	// sign-in takes as long whether or not the account exists.
 	decoy authgo.PasswordHash
+	// oidc is the GitHub Actions exchange (RFC 0004 §6.3). It is set
+	// after construction, by SetGitHubOIDC, because it needs the
+	// Integration context; zero means this deployment has no GitHub App
+	// and every exchange is refused.
+	oidc GitHubOIDC
 }
 
 // Realm is the auth-go TenantID of every auth-go object. auth-go ties a

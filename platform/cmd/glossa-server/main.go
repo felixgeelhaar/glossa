@@ -170,6 +170,12 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
+	// Identity is built first, and the GitHub Actions OIDC exchange is
+	// the one thing it needs from a later context: Integration's Git
+	// connections say which tenant a verified repository belongs to
+	// (RFC 0004 §6.3). Without a GitHub App this stays zero and the
+	// exchange answers `github_not_configured`.
+	identitySvc.SetGitHubOIDC(bounded.ciAuth)
 	purger, err := newPurger(cfg.Purge, logger, registry, pool, bounded.purgeJobs)
 	if err != nil {
 		pool.Close()

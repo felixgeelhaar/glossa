@@ -517,6 +517,50 @@ func (q *Queries) ResolveInstallationTenant(ctx context.Context, installationID 
 	return i, err
 }
 
+const resolveRepositoryConnections = `-- name: ResolveRepositoryConnections :many
+SELECT tenant_id, project_id, application_id, path
+FROM integration_git_connections
+WHERE repository_id = $1
+ORDER BY path
+`
+
+type ResolveRepositoryConnectionsRow struct {
+	TenantID      uuid.UUID
+	ProjectID     uuid.UUID
+	ApplicationID uuid.UUID
+	Path          string
+}
+
+// ResolveRepositoryConnections lists a repository's Git connections
+// across tenants. System scope: the GitHub Actions OIDC exchange
+// (RFC 0004 §6.3) arrives with no tenant — which tenant a run belongs
+// to is what its repository_id proves — so the lookup happens before
+// any tenant is known, and the grant covers these columns only.
+func (q *Queries) ResolveRepositoryConnections(ctx context.Context, repositoryID int64) ([]ResolveRepositoryConnectionsRow, error) {
+	rows, err := q.db.Query(ctx, resolveRepositoryConnections, repositoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ResolveRepositoryConnectionsRow
+	for rows.Next() {
+		var i ResolveRepositoryConnectionsRow
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.ProjectID,
+			&i.ApplicationID,
+			&i.Path,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const retryDelivery = `-- name: RetryDelivery :execrows
 UPDATE integration_github_deliveries
 SET available_at = now() + make_interval(secs => $1::float8),

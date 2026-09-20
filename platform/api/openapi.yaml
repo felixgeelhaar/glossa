@@ -453,6 +453,73 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  # ── CI: GitHub Actions OIDC ─────────────────────────────────────────
+  /v1/auth/github-oidc-exchanges:
+    post:
+      operationId: exchangeGitHubOIDCToken
+      tags: [auth]
+      summary: Exchange a GitHub Actions ID token for a CI token
+      description: |
+        How a GitHub Actions run authenticates without a stored secret
+        (RFC 0004 §6.3). The job requests an OIDC ID token with audience
+        `glossa` and posts it here; `glossa login` does this by itself
+        when it sees `ACTIONS_ID_TOKEN_REQUEST_URL`.
+
+        The operation is unauthenticated because the ID token *is* the
+        credential. Glossa verifies it against the issuer's published
+        keys — issuer, audience, signature, algorithm and expiry — and
+        then matches its `repository_id` claim, GitHub's immutable
+        number, against a Git connection. The repository's *name* is
+        never consulted: a name can be renamed, deleted and registered
+        by a stranger, and a policy keyed on one could be inherited.
+
+        The token it returns:
+
+        - allows exactly `catalog.read` and `catalog.write`, which is
+          what `glossa push`, `extract --upload`, `context push`,
+          `capture --upload` and `preview register` need and no more —
+          it cannot import translations, publish a release, ask an AI
+          provider for anything or read the tenant's members or tokens;
+        - is bound to one project: a request under another project of
+          the same tenant is `403` `grant_project_mismatch`;
+        - lives 30 minutes and cannot be refreshed. The next job asks
+          GitHub for a fresh ID token.
+
+        When a repository feeds several projects — a monorepo with one
+        connection per path — send `project_id`; without it the answer
+        is `409` `ambiguous_project`, whose `errors` list the candidate
+        projects (`pointer: "/project_id"`, `detail` the project id and
+        its path) so CI can be told which to name.
+
+        **Forks.** GitHub gives a pull request from a fork no ID token
+        and no secrets, so a fork's job has nothing to present. Its
+        Glossa check completes as `neutral` with an explanation
+        (RFC 0004 §6.4) rather than failing. Nothing here has to detect
+        a fork: a token minted from a fork's own repository would be
+        minted for that repository's connections, which are not the
+        upstream's.
+
+        Problem codes: `invalid_id_token` (401),
+        `repository_not_connected` (403), `ambiguous_project` (409),
+        `github_not_configured` (503).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitHubOIDCExchange" }
+      responses:
+        "201":
+          description: The CI token, with its secret shown once.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CIToken" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   # ── me ──────────────────────────────────────────────────────────────
   /v1/me:
     get:
@@ -6379,6 +6446,15 @@ components:
       description: |
         A tenant API token, `glossa_api_` followed by 43 base64url
         characters. Acts only in its own tenant, within its scopes.
+
+        A CI token, `glossa_ci_` followed by 43 base64url characters, is
+        accepted wherever an API token is (RFC 0004 §6.3). It is minted
+        from a GitHub Actions ID token, lives 30 minutes, allows only
+        `catalog.read` and `catalog.write`, and is bound to one project:
+        a request under another project of its tenant is `403`
+        `grant_project_mismatch`, and one that needs any other
+        permission is `403` `forbidden`. What narrows it is its grant,
+        not a shorter list of operations, so the CLI uses it unchanged.
     in_context:
       type: http
       scheme: bearer
@@ -8132,6 +8208,66 @@ components:
             locale. A translator limited to some locales in Studio is
             limited to the same ones in the editor.
           items: { $ref: "#/components/schemas/Locale" }
+
+    # ── CI: GitHub Actions OIDC (RFC 0004 §6.3) ───────────────────────
+    GitHubOIDCExchange:
+      type: object
+      required: [id_token]
+      properties:
+        id_token:
+          type: string
+          minLength: 1
+          maxLength: 16384
+          description: |
+            The compact JWS GitHub Actions issued for audience `glossa`
+            (`ACTIONS_ID_TOKEN_REQUEST_URL?audience=glossa`). It is the
+            request's only credential and is never stored or logged.
+        project_id:
+          allOf: [{ $ref: "#/components/schemas/Id" }]
+          description: |
+            Which project to authenticate for, needed only when the
+            repository feeds several — a monorepo with one Git
+            connection per path. Naming a project the repository does
+            not feed is `repository_not_connected`, the same answer as
+            an unconnected repository.
+    CIToken:
+      type: object
+      required: [token, expires_at, tenant_id, project_id, permissions, repository_id]
+      description: |
+        A GitHub Actions run's credential. `token` is shown exactly
+        once, here; CI keeps it for the length of the job and nothing
+        stores it afterwards.
+      properties:
+        token:
+          type: string
+          pattern: "^glossa_ci_[A-Za-z0-9_-]{43}$"
+          description: The bearer credential. Never echo it into a log.
+        expires_at:
+          allOf: [{ $ref: "#/components/schemas/Timestamp" }]
+          description: 30 minutes after the exchange. There is no refresh.
+        tenant_id: { $ref: "#/components/schemas/Id" }
+        project_id:
+          allOf: [{ $ref: "#/components/schemas/Id" }]
+          description: The only project this token may act on.
+        permissions:
+          type: array
+          description: |
+            What the token allows, and the whole of it: `catalog.read`
+            and `catalog.write`.
+          items:
+            type: string
+            enum: [catalog.read, catalog.write]
+        repository_id:
+          type: integer
+          format: int64
+          description: |
+            The `repository_id` claim the decision rested on — GitHub's
+            immutable number, echoed back so CI can see what it
+            authenticated as.
+        repository:
+          type: string
+          maxLength: 255
+          description: '"owner/name" when the token was issued. A label; nothing is keyed on it.'
     CreateDeliveryKey:
       type: object
       required: [name]

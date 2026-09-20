@@ -98,6 +98,32 @@ func (m *memStore) InGitHub(ctx context.Context, fn func(context.Context, app.Gi
 // errNestedTx mirrors db.ErrNestedTx.
 var errNestedTx = errors.New("db: nested unit of work")
 
+// ConnectionsForRepository implements app.RepositoryDirectory: the
+// cross-tenant read the GitHub Actions OIDC exchange does before any
+// tenant exists (RFC 0004 §6.3). It is on the store, not the scope,
+// because it deliberately sees every tenant's connections — the
+// repository is what names one.
+func (m *memStore) ConnectionsForRepository(_ context.Context, repo int64) ([]app.RepositoryConnection, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []app.RepositoryConnection
+	for _, c := range m.connections {
+		if c.RepositoryID != repo {
+			continue
+		}
+		inst, ok := m.installations[c.InstallationID]
+		if !ok {
+			continue
+		}
+		out = append(out, app.RepositoryConnection{
+			Tenant: tenancy.ID(m.claimed[inst.GitHubID]), Project: c.ProjectID,
+			Application: c.ApplicationID, Path: c.Path,
+		})
+	}
+	slices.SortFunc(out, func(a, b app.RepositoryConnection) int { return strings.Compare(a.Path, b.Path) })
+	return out, nil
+}
+
 type memScope struct {
 	m      *memStore
 	tenant uuid.UUID
@@ -526,8 +552,9 @@ func newFixture(t *testing.T) *fixture {
 	f.checks = newMemChecks(func() time.Time { return f.clock })
 	f.sources = newMemSources()
 	f.svc, err = app.NewGitHubService(app.GitHubDeps{
-		Tx: f.store, Inbox: f.inbox, GitHub: client, Verifier: hooks, Events: hooks, Branches: f.branches,
-		Checks: f.checks, Sources: f.sources, StudioURL: "https://studio.example/",
+		Tx: f.store, Inbox: f.inbox, Repositories: f.store, GitHub: client, Verifier: hooks, Events: hooks,
+		Branches: f.branches,
+		Checks:   f.checks, Sources: f.sources, StudioURL: "https://studio.example/",
 		Now: func() time.Time { return f.clock },
 	})
 	if err != nil {
