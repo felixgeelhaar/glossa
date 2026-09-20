@@ -102,7 +102,14 @@ func StartChrome(t testing.TB) string {
 	if err != nil {
 		t.Fatalf("no free port for Chrome: %v", err)
 	}
-	dir := t.TempDir()
+	// Not t.TempDir(): Chrome's helper processes outlive the kill below by a
+	// moment and keep writing into the profile, and Go's own cleanup fails the
+	// test when the directory isn't empty yet. This one is removed with
+	// patience, and a leftover in the OS temp dir is harmless.
+	dir, err := os.MkdirTemp("", "glossa-capture-chrome-*")
+	if err != nil {
+		t.Fatalf("no profile directory for Chrome: %v", err)
+	}
 	cmd := exec.Command(bin, //nolint:gosec // G204: the resolved Chrome binary, in a test
 		"--headless=new",
 		// The two flags scout's launcher can't pass: a CI runner's kernel
@@ -129,6 +136,13 @@ func StartChrome(t testing.TB) string {
 	t.Cleanup(func() {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
+		// Chrome's helpers close their files shortly after the parent dies.
+		for i := range 20 {
+			if os.RemoveAll(dir) == nil {
+				return
+			}
+			time.Sleep(time.Duration(i+1) * 50 * time.Millisecond)
+		}
 	})
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)
 	if err := waitForDevTools(endpoint, 30*time.Second); err != nil {
