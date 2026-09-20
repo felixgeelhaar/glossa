@@ -10,26 +10,32 @@ import (
 	mf "github.com/felixgeelhaar/glossa/messageformat"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 )
 
+// The policy and its vocabulary live in the kernel, because the Glossa
+// PR check decides the same question on the server and must decide it
+// the same way (RFC 0004 §6.4). These are aliases, not copies: there is
+// one policy, and `glossa check` and the pull request share it.
+
 // Severity ranks a finding.
-type Severity string
+type Severity = checkpolicy.Severity
 
 // Severities.
 const (
-	Error   Severity = "error"
-	Warning Severity = "warning"
+	Error   = checkpolicy.Error
+	Warning = checkpolicy.Warning
 )
 
-// Finding codes the CLI adds to the kernel's (compat findings keep the
+// Finding codes Glossa adds to the kernel's (compat findings keep the
 // kernel's codes, e.g. missing-argument).
 const (
-	CodeInvalidMessage      = "invalid-message"
-	CodeInvalidTranslation  = "invalid-translation"
-	CodeMissingTranslation  = "missing-translation"
-	CodeOutdatedTranslation = "outdated-translation"
-	CodeUnknownKey          = "unknown-key"
-	CodeMissingLocale       = "missing-locale"
+	CodeInvalidMessage      = checkpolicy.CodeInvalidMessage
+	CodeInvalidTranslation  = checkpolicy.CodeInvalidTranslation
+	CodeMissingTranslation  = checkpolicy.CodeMissingTranslation
+	CodeOutdatedTranslation = checkpolicy.CodeOutdatedTranslation
+	CodeUnknownKey          = checkpolicy.CodeUnknownKey
+	CodeMissingLocale       = checkpolicy.CodeMissingLocale
 )
 
 // Finding is one problem.
@@ -47,31 +53,9 @@ type Finding struct {
 	Where string `json:"where,omitempty"`
 }
 
-// Policy decides what fails a check.
-type Policy struct {
-	// RequireComplete lists the locales whose missing translations are
-	// errors; nil means every locale. Others' are warnings.
-	RequireComplete []string
-	// FailOn is the lowest severity that fails the check (default Error).
-	FailOn Severity
-}
-
-func (p Policy) required(locale string) bool {
-	if p.RequireComplete == nil {
-		return true
-	}
-	for _, l := range p.RequireComplete {
-		if l == locale {
-			return true
-		}
-	}
-	return false
-}
-
-// Fails reports whether a finding of severity s fails the check.
-func (p Policy) Fails(s Severity) bool {
-	return s == Error || (p.FailOn == Warning && s == Warning)
-}
+// Policy decides what fails a check: `require_complete` and `fail_on`,
+// shared with the server's PR check.
+type Policy = checkpolicy.Policy
 
 // Checker is one layer of QA.
 type Checker interface {
@@ -139,7 +123,7 @@ func Run(s *snapshot.Snapshot, p Policy, checkers ...Checker) Report {
 	}
 	perLocale := map[string]*LocaleReport{}
 	for _, l := range s.Locales {
-		lr := &LocaleReport{Code: l.Code, IsSource: l.IsSource, Required: !l.IsSource && p.required(l.Code), Messages: len(s.Messages)}
+		lr := &LocaleReport{Code: l.Code, IsSource: l.IsSource, Required: !l.IsSource && p.Requires(l.Code), Messages: len(s.Messages)}
 		if !l.IsSource {
 			lr.Translated = translated(s, l.Code)
 		} else {
@@ -308,7 +292,7 @@ func (completeness) Check(s *snapshot.Snapshot, p Policy) []Finding {
 	}
 	for _, l := range s.TargetLocales() {
 		sev := Warning
-		if p.required(l.Code) {
+		if p.Requires(l.Code) {
 			sev = Error
 		}
 		trs := s.Translations[l.Code]
