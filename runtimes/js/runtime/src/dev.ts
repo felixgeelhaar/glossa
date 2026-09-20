@@ -10,7 +10,13 @@
  * adds the overlay from Studio with a pinned SRI hash and starts a session.
  * It adds no inline script and evaluates no strings, so a strict CSP that
  * allows the Studio origin in `script-src` is enough.
+ *
+ * The session's credential comes from Studio's authorization popup
+ * (./grant.ts, RFC 0004 §5.2): a fifteen-minute grant held in memory,
+ * renewed through the popup, and dropped when the API says it expired.
+ * No frame is ever created, so the CSP needs no `frame-src` either.
  */
+import { popupGrant, type GrantProvider } from "./grant.js";
 import type { Runtime } from "./runtime.js";
 
 /** Where Studio serves the overlay, below its origin. */
@@ -37,6 +43,8 @@ export interface OverlayModule {
     apiBase: string;
     studioBase: string;
     token: () => Promise<string>;
+    /** Called on a 401, so the loader drops the grant and asks again. */
+    onAuthFailure?: () => void;
     tenant: string;
     project: string;
     locale: string;
@@ -77,14 +85,6 @@ export function refusal(runtimes: readonly Runtime[]): string | undefined {
   return undefined;
 }
 
-/**
- * The in-context grant comes through Studio's popup (RFC 0004 §5.2), which
- * is a later slice; until then every API call the overlay makes says why it
- * can't sign in.
- */
-const noGrant = () =>
-  Promise.reject(new Error("signing in from the overlay (in-context grants) isn't available yet"));
-
 const warn = (message: string) => console.warn(`[glossa] ${message}`);
 
 const inert: OverlayLoader = {
@@ -105,6 +105,9 @@ export function loadOverlay(config: OverlayLoaderConfig): OverlayLoader {
   let state: LoaderState = "idle";
   let reason: string | undefined;
   let session: { deactivate(): void } | undefined;
+  // One provider per loader, so a session that stops and starts again
+  // reuses the grant it already holds instead of opening a second popup.
+  let grant: GrantProvider | undefined;
   let script: Promise<OverlayModule> | undefined;
   let pending: Promise<boolean> | undefined;
 
@@ -145,10 +148,12 @@ export function loadOverlay(config: OverlayLoaderConfig): OverlayLoader {
     state = "loading";
     try {
       const mod = await load();
+      grant ??= popupGrant({ studio, tenant: config.tenant, project: config.project, window: win });
       session = mod.activate({
         apiBase: config.api ?? studio,
         studioBase: studio,
-        token: noGrant,
+        token: grant,
+        onAuthFailure: () => grant?.invalidate(),
         tenant: config.tenant,
         project: config.project,
         locale: runtimes[0]!.locale!,

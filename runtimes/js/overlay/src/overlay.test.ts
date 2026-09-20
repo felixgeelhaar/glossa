@@ -72,6 +72,9 @@ async function until(check: () => unknown, what = "condition"): Promise<void> {
   throw new Error(`timed out waiting for ${what}`);
 }
 
+/** A recorded request's body, which the fake keeps as it was sent. */
+const sent = (r: { body?: string }): Record<string, unknown> => JSON.parse(r.body ?? "{}");
+
 const altClick = (el: Element, init: MouseEventInit = {}) =>
   el.dispatchEvent(
     new MouseEvent("click", {
@@ -324,12 +327,65 @@ describe("AI suggestions", () => {
     expect(t.fake.requests.some((r) => r.url.includes("ai-fill"))).toBe(false);
   });
 
-  it("explains why a current translation gets no suggestion", async () => {
+  // The message someone is reading is current by definition, so asking
+  // about it is the editor's normal case, not its refused one
+  // (RFC 0004 5.3). Both the preview and the fill say `force`.
+  it("asks for a second opinion on a translation that is already current", async () => {
     const t = setup();
+    t.fake.aiDraft("checkout.pay", "de", "Jetzt kaufen");
+    const draft = await openOn(t, "pay");
+    buttonNamed(t.root(), "Ask AI")!.click();
+    await until(() => buttonNamed(t.root(), "Request a suggestion"), "the fill preview");
+
+    const preview = t.fake.requests.find((r) => r.url.includes("/ai-fill-previews"))!;
+    expect(sent(preview)).toMatchObject({ force: true });
+
+    buttonNamed(t.root(), "Request a suggestion")!.click();
+    await until(() => buttonNamed(t.root(), "Use in editor"), "the suggestion");
+    const fill = t.fake.requests.find((r) => r.url.endsWith("/ai-fills"))!;
+    expect(sent(fill)).toMatchObject({ force: true });
+
+    buttonNamed(t.root(), "Use in editor")!.click();
+    await until(() => draft.value === "Jetzt kaufen");
+  });
+
+  // Accepting in the running product records where the person was, as a
+  // plain edit already did (RFC 0004 5.3).
+  it("records the route and viewport when a suggestion is accepted", async () => {
+    const t = setup();
+    t.fake.suggestion("checkout.pay", "de", "Jetzt bezahlen!");
     await openOn(t, "pay");
     buttonNamed(t.root(), "Ask AI")!.click();
-    await until(() => t.q("#section-ai")?.textContent?.includes("The translation is current"));
-    expect(t.fake.requests.some((r) => r.url.endsWith("/ai-fills"))).toBe(false);
+    await until(() => buttonNamed(t.root(), "Use in editor"), "the pending suggestion");
+    buttonNamed(t.root(), "Use in editor")!.click();
+    await until(() => t.q<HTMLTextAreaElement>("#draft")!.value === "Jetzt bezahlen!");
+    t.q<HTMLButtonElement>("button[type=submit]")!.click();
+    await until(() => t.root().textContent?.includes("Saved as revision"), "the acceptance");
+
+    const accepted = t.fake.requests.find((r) => r.url.includes("/acceptance"))!;
+    expect(sent(accepted)).toMatchObject({
+      in_context: { route: "/checkout", viewport: { width: expect.any(Number), height: expect.any(Number) } },
+    });
+    // checkout.pay already had a translation, so the acceptance is the
+    // newest revision, not the first.
+    const revisions = t.fake.revisions("checkout.pay", "de");
+    expect(revisions.at(-1)!.origin_detail).toMatchObject({ in_context: { route: "/checkout" } });
+  });
+
+  // The fill names its job, so a job that ends without a suggestion says
+  // why instead of the panel timing out into "no suggestion yet".
+  it("says why when the fill's job ends without a suggestion", async () => {
+    const t = setup();
+    t.fake.jobEnding = "failed";
+    await openOn(t, "pay");
+    buttonNamed(t.root(), "Ask AI")!.click();
+    await until(() => buttonNamed(t.root(), "Request a suggestion"), "the fill preview");
+    buttonNamed(t.root(), "Request a suggestion")!.click();
+    await until(
+      () => t.q("#section-ai")?.textContent?.includes("provider didn't answer"),
+      "the job's ending",
+    );
+    expect(t.fake.requests.some((r) => r.url.includes("/ai-jobs/"))).toBe(true);
   });
 });
 

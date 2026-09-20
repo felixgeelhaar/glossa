@@ -93,12 +93,28 @@ Then it:
    integrity="sha384-…" crossorigin="anonymous">`, the hash pinned at build
    time, so a script that isn't the published one never runs;
 3. calls the overlay's `activate` with the runtimes, the page's locale, the
-   tenant and project, and the API origin (Studio's by default).
+   tenant and project, the API origin (Studio's by default), and a token
+   provider backed by Studio's authorization popup.
 
-It adds no inline script and evaluates no strings, so the preview CSP in
+**Signing in** (`src/grant.ts`, RFC 0004 §5.2). The editor runs on the
+product's own page, so it has no Studio session to use. The first API call
+opens a popup on Studio — `/in-context/authorize?tenant=…&project=…&origin=…&channel=…`
+— and Studio posts a fifteen-minute grant back to that exact origin. The
+token lives in a closure: never `localStorage`, never `sessionStorage`, never
+a cookie, never the URL. It is renewed through the popup a minute before it
+expires, and dropped as soon as the API answers `401`, so the next call asks
+again rather than retrying a dead credential.
+
+Both ends check each other. Studio posts to the origin that asked and no
+other. This side believes a message only when it came from Studio's origin,
+from the popup it opened, and carries the `channel` nonce that request
+generated — so a stale answer, a second popup's answer, or any other
+`postMessage` from the same origin is ignored.
+
+It adds no inline script, evaluates no strings and creates no frame, so the
+preview CSP in
 [`@glossa/overlay`](../overlay/README.md#csp-for-preview-deployments) is all
-it needs. Until the in-context grant slice (RFC 0004 §5.2) the overlay can't
-sign in yet: its API calls report that.
+it needs — `frame-src` included: the flow is a popup, never an iframe.
 
 `glossa capture` uses the same page-wide list: it puts the array in place
 before the page's scripts run, with a `push` that hooks each new runtime into

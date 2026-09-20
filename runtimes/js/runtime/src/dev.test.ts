@@ -133,7 +133,13 @@ describe("loadOverlay", () => {
       locale: "de",
     });
     expect(options.runtimes).toEqual(runtimes);
-    await expect(options.token()).rejects.toThrow(/in-context grants/);
+
+    // The token comes from Studio's authorization popup (grant.ts). Here
+    // there is no window.open, so asking says what the person must do —
+    // which is the point: the loader hands over a real provider, not a
+    // stub that always refuses.
+    await expect(options.token()).rejects.toThrow(/pop-ups/);
+    expect(typeof options.onAuthFailure).toBe("function");
   });
 
   it("refuses a production release even with ?glossa=edit", async () => {

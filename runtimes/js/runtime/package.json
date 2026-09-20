@@ -58,9 +58,9 @@
       "limit": "0.5 KB"
     },
     {
-      "name": "@glossa/runtime/dev, the overlay loader (never in production builds)",
+      "name": "@glossa/runtime/dev, the overlay loader and its popup sign-in (never in production builds)",
       "path": "dist/dev.js",
-      "limit": "1.25 KB"
+      "limit": "1.9 KB"
     }
   ],
   "devDependencies": {

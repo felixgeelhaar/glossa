@@ -106,11 +106,43 @@ export function overlayConfig(o: GlossaPluginOptions): OverlayLoaderConfig | und
   return studioConfig(env, o.studio);
 }
 
-/** The loader module: `@glossa/runtime/dev`, inlined so it needs no resolution, then started. */
+/** A relative import in the loader, which has to be inlined with it. */
+const RELATIVE_IMPORT = /^import\s*\{[^}]*\}\s*from\s*"\.\/([\w.-]+)";?$/gm;
+
+/** Anything left that would need resolving at build time. */
+const ANY_IMPORT = /^\s*(?:import|export)\s[^;]*\bfrom\s/m;
+
+function read(file: string): string {
+  return readFileSync(file, "utf8").replace(/\n\/\/# sourceMappingURL=\S*\s*$/, "\n");
+}
+
+/**
+ * The loader module: `@glossa/runtime/dev`, inlined so it needs no
+ * resolution, then started.
+ *
+ * The loader is injected as a virtual module with no place on disk, so a
+ * relative import inside it would have nothing to resolve against
+ * (`Could not resolve './grant.js'`). Its own files are therefore pulled
+ * in with it — one level, which is all the loader has — and anything
+ * left that would need resolving fails the build here rather than in
+ * every application that uses the plugin.
+ */
 export function loaderModule(config: OverlayLoaderConfig): string {
   const runtime = dirname(createRequire(import.meta.url).resolve("@glossa/runtime/package.json"));
-  const dev = readFileSync(join(runtime, "dist", "dev.js"), "utf8").replace(/\n\/\/# sourceMappingURL=\S*\s*$/, "\n");
-  return `${dev}\nloadOverlay(${JSON.stringify(config)});\n`;
+  const dist = join(runtime, "dist");
+  const parts: string[] = [];
+  const dev = read(join(dist, "dev.js")).replace(RELATIVE_IMPORT, (_line, file: string) => {
+    parts.push(read(join(dist, file)));
+    return "";
+  });
+  const module = `${parts.join("\n")}\n${dev}`;
+  if (ANY_IMPORT.test(module)) {
+    throw fail(
+      "the overlay loader gained an import that can't be inlined; keep @glossa/runtime/dev " +
+        "self-contained, or teach loaderModule to resolve it",
+    );
+  }
+  return `${module}\nloadOverlay(${JSON.stringify(config)});\n`;
 }
 
 /**

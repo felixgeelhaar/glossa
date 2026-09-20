@@ -79,9 +79,13 @@ export class FakeApi {
   /** Drafts an AI fill produces, by `key locale`, visible after `aiDelay` polls. */
   private readonly drafts = new Map<string, string>();
   private pendingDrafts: Array<{ polls: number; suggestion: Json }> = [];
+  /** The jobs fills created, by id, for the editor to follow. */
+  private readonly jobs = new Map<string, Json>();
   private ids = 0;
   /** How many suggestion lists a requested suggestion takes to show up. */
   aiDelay = 1;
+  /** How a job with no draft behind it ends, so the panel can say why. */
+  jobEnding: "skipped" | "failed" | "dead" | "cancelled" | "succeeded" = "skipped";
   /** Answer every request with this status instead (401, 500, …). */
   failWith?: number;
 
@@ -218,6 +222,11 @@ export class FakeApi {
     if (!t || decodeURIComponent(t[1]!) !== TENANT)
       return problem(404, "not_found", "no such tenant");
     const rest = t[2]!;
+    const jm = rest.match(/^ai-jobs\/([^/]+)$/);
+    if (jm && method === "GET") {
+      const job = this.jobs.get(decodeURIComponent(jm[1]!));
+      return job ? this.ok(200, "AIJob", job) : problem(404, "not_found", "no such job");
+    }
     const sug = rest.match(/^ai-suggestions(?:\/([^/]+)\/acceptance)?$/);
     if (sug)
       return sug[1]
@@ -253,8 +262,15 @@ export class FakeApi {
     if (sub === "terminology-findings" && method === "GET") {
       const locale = url.searchParams.get("locale")!;
       const prefix = url.searchParams.get("key_prefix") ?? "";
+      // `key` names messages exactly; `key_prefix` still matches
+      // everything below it, as the server does.
+      const keys = url.searchParams.getAll("key");
       const items = [...this.terms]
-        .filter(([k]) => k.startsWith(prefix) && k.endsWith(` ${locale}`))
+        .filter(([k]) => k.endsWith(` ${locale}`))
+        .filter(([k]) => {
+          const key = k.slice(0, k.lastIndexOf(" "));
+          return key.startsWith(prefix) && (keys.length === 0 || keys.includes(key));
+        })
         .map(([k, findings]) => {
           const key = k.slice(0, k.lastIndexOf(" "));
           const msg = this.messages.get(key)!;
@@ -276,6 +292,9 @@ export class FakeApi {
     }
     if (sub === "ai-fill-previews" && method === "POST") {
       this.check("CreateAIFill", body);
+      if (body!.force !== true) {
+        this.violations.push("ai-fill-previews from the overlay without force");
+      }
       return this.ok(200, "AIFillPreview", this.fillPreview(body!));
     }
     if (sub === "ai-fills" && method === "POST") {
@@ -426,7 +445,9 @@ export class FakeApi {
     const locale = body.locales[0] as string;
     const key = (body.keys as string[])[0]!;
     const current = this.translation(key, locale);
-    const due = !current || current.outdated;
+    // A forced request treats a current translation as due, which is the
+    // whole point of asking from the editor (RFC 0004 5.3).
+    const due = body.force === true || !current || current.outdated;
     const cost = {
       estimated_micro_usd: due ? 1200 : 0,
       max_micro_usd: due ? 5000 : 0,
@@ -455,7 +476,36 @@ export class FakeApi {
   private fill(body: Json): FakeResponse {
     const locale = body.locales[0] as string;
     const key = (body.keys as string[])[0]!;
+    // The editor asks about text someone is reading, which is current by
+    // definition. Without `force` the server would skip it as
+    // `up_to_date` (RFC 0004 §5.3), so a fill from the overlay that
+    // doesn't force is a bug in the overlay.
+    if (body.force !== true) {
+      this.violations.push("ai-fills from the overlay without force");
+    }
     const draft = this.drafts.get(`${key} ${locale}`);
+    const jobId = `job_${++this.ids}`;
+    const msg = this.messages.get(key);
+    // A job a caller can actually read back: the contract's AIJob, not
+    // just the two fields the overlay happens to look at.
+    this.jobs.set(jobId, {
+      id: jobId,
+      project_id: PROJECT,
+      message_id: msg?.id ?? `msg_${key}`,
+      message_key: key,
+      namespace: "default",
+      locale,
+      source_revision: 1,
+      knowledge_fingerprint: "f".repeat(64),
+      trigger: "fill",
+      state: draft === undefined ? this.jobEnding : "running",
+      attempts: 1,
+      max_attempts: 5,
+      available_at: NOW,
+      created_by: "overlay@example.com",
+      created_at: NOW,
+      updated_at: NOW,
+    });
     if (draft !== undefined) {
       this.pendingDrafts.push({
         polls: this.aiDelay,
@@ -471,6 +521,7 @@ export class FakeApi {
       select: "missing_or_outdated",
       jobs_created: draft === undefined ? 0 : 1,
       jobs_existing: 0,
+      job_ids: [jobId],
       skipped: {},
       job_states: draft === undefined ? {} : { queued: 1 },
       warnings: [],
@@ -486,6 +537,10 @@ export class FakeApi {
     if (!s) return problem(404, "not_found", "no such suggestion");
     if (s.status !== "pending") return problem(409, "suggestion_decided", "decided already");
     const edited = typeof body?.text === "string" && body.text !== s.message;
+    // The editor always says where it was; Studio's review queue doesn't.
+    if (body?.in_context === undefined) {
+      this.violations.push("accepting a suggestion from the overlay without in_context");
+    }
     const t = this.write(
       s.message_key,
       s.locale,
@@ -493,7 +548,7 @@ export class FakeApi {
         text: edited ? body!.text : s.message,
         syntax: edited ? (body!.syntax ?? "mf2") : "mf2",
         origin: "ai",
-        origin_detail: { suggestion: s.id, edited },
+        origin_detail: { suggestion: s.id, edited, in_context: body?.in_context },
       },
       "overlay@example.com",
     );

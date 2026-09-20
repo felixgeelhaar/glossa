@@ -26,7 +26,8 @@ import { activate } from "@glossa/overlay";
 
 const overlay = activate({
   apiBase: "https://studio.example.com", // the API origin (Studio serves /v1)
-  token: () => grant.token, // an in-context grant; the popup that mints it is a later slice
+  token: grant, // an in-context grant; @glossa/runtime/dev mints it through Studio's popup
+  onAuthFailure: () => grant.invalidate(), // a 401 drops it, so the next call asks again
   tenant: "ten_…",
   project: "prj_…",
   locale: "de", // the locale being edited
@@ -95,7 +96,9 @@ script would need `'unsafe-inline'`.
   suggestion** (with the edits, which the API records for the metrics) rather
   than writing a human revision, so the provenance stays `ai`.
 - **Open in Studio** links to the message in Studio's workspace.
-- **Comments** aren't shown: the API has no comments yet.
+- **Comments** aren't shown: the API has no comments. Nothing anywhere in
+  Glossa stores a comment on a message or a translation yet — no table, no
+  endpoint — so this is a feature of its own, not a gap in the panel.
 
 ## Accessibility
 
@@ -128,9 +131,11 @@ connect-src https://api.example.com               # the API origin (Studio's, wh
 - A production page's CSP never needs to allow any of this, because the
   overlay is never loaded there.
 
-The API side is part of the in-context grants slice: CORS from the project's
-registered preview origins on the overlay's endpoints only, bearer tokens and
-never cookies (the overlay sends `credentials: "omit"`), and
+The API side is the in-context grants slice, and it is in place: CORS from the
+project's registered preview origins on the overlay's endpoints only — the
+operations that declare the `in_context` security scheme, and no others —
+bearer grants and never cookies (the overlay sends `credentials: "omit"`, and
+`Access-Control-Allow-Credentials` is never sent back), and
 `Access-Control-Expose-Headers: ETag` so the overlay can send `If-Match`.
 
 The browser tests serve the fixture page with exactly this policy

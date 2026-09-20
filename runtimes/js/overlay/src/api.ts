@@ -116,7 +116,17 @@ export interface AIFill {
   id: string;
   jobs_created: number;
   jobs_existing: number;
+  /** The jobs this fill queued or reused, so a caller polls those and not the whole list. */
+  job_ids?: string[];
   warnings: string[];
+}
+
+/** A job's state, for following a fill the editor asked for. */
+export interface AIJob {
+  id: string;
+  state: "queued" | "running" | "succeeded" | "skipped" | "failed" | "dead" | "cancelled";
+  failure_code?: string;
+  suggestion_id?: string;
 }
 
 /** What the in-context origin detail of an edit carries (RFC 0004 §5.3). */
@@ -125,13 +135,24 @@ export interface InContext {
   viewport: { width: number; height: number };
 }
 
-/** Returns the current in-context bearer token; the popup flow that mints it comes later. */
+/**
+ * Returns the current in-context bearer token. `@glossa/runtime/dev`
+ * backs it with Studio's authorization popup (RFC 0004 §5.2): the token
+ * lives in memory, is renewed through the popup, and is asked for again
+ * after `onAuthFailure`.
+ */
 export type TokenProvider = () => string | Promise<string>;
 
 export interface ApiOptions {
   /** The API origin (and base path, if any), e.g. `https://studio.example.com`. */
   apiBase: string;
   token: TokenProvider;
+  /**
+   * Called once when the API refuses the token (401), so whoever holds
+   * the grant drops it and the next call asks for a fresh one. The
+   * failing request still fails; the editor offers to try again.
+   */
+  onAuthFailure?: () => void;
   tenant: string;
   project: string;
   fetch?: typeof fetch;
@@ -209,6 +230,7 @@ export class OverlayApi {
     } catch {
       parsed = undefined;
     }
+    if (res.status === 401) this.o.onAuthFailure?.();
     if (!res.ok) throw new ApiError(res.status, parsed as Problem | undefined);
     return { value: parsed as T, etag: res.headers.get("ETag") ?? undefined };
   }
@@ -263,8 +285,13 @@ export class OverlayApi {
   }
 
   /** Terminology findings on this message's translation (empty when none). */
+  /**
+   * Terminology findings for one message. `key` asks about exactly this
+   * key; `key_prefix` would also match every key below it, which is why
+   * this used to fetch a page and filter it here.
+   */
   async termFindings(key: string, locale: string): Promise<TermFinding[]> {
-    const q = `?locale=${seg(locale)}&key_prefix=${seg(key)}&page_size=100`;
+    const q = `?locale=${seg(locale)}&key=${seg(key)}&page_size=100`;
     const r = await this.request<{
       items: Array<{ message_key: string; findings: TermFinding[] }>;
     }>("GET", this.projectPath(`/terminology-findings${q}`));
@@ -281,30 +308,56 @@ export class OverlayApi {
     return r.value.items;
   }
 
+  /**
+   * What asking for a suggestion would do, without doing it. It forces
+   * for the same reason the fill does: the message on screen is current,
+   * and a preview that didn't force would only ever answer "nothing to
+   * translate" (RFC 0004 5.3).
+   */
   async previewFill(key: string, locale: string): Promise<AIFillPreview> {
     return (
       await this.request<AIFillPreview>("POST", this.projectPath("/ai-fill-previews"), {
-        body: { locales: [locale], keys: [key] },
+        body: { locales: [locale], keys: [key], force: true },
       })
     ).value;
   }
 
+  /**
+   * Ask for a suggestion for one message. `force` is what makes this
+   * work at all from the editor: someone is reading the translation, so
+   * it is current by definition, and a plain fill would skip it as
+   * `up_to_date` (RFC 0004 §5.3).
+   */
   async fill(key: string, locale: string): Promise<AIFill> {
     return (
       await this.request<AIFill>("POST", this.projectPath("/ai-fills"), {
-        body: { locales: [locale], keys: [key] },
+        body: { locales: [locale], keys: [key], force: true },
         headers: { "Idempotency-Key": crypto.randomUUID() },
       })
     ).value;
   }
 
-  /** Accept a suggestion as is, or an edit of it (`text`), which records the edit for the metrics. */
-  async accept(id: string, edit?: { text: string; syntax: Syntax }): Promise<AISuggestion> {
+  /** One job of a fill, for following the jobs a fill named. */
+  async job(id: string): Promise<AIJob> {
+    return (await this.request<AIJob>("GET", `/v1/tenants/${seg(this.o.tenant)}/ai-jobs/${seg(id)}`)).value;
+  }
+
+  /**
+   * Accept a suggestion as is, or an edit of it (`text`), which records
+   * the edit for the metrics. `inContext` puts the route and viewport on
+   * the revision's `origin_detail`, so history says the text was decided
+   * in the running product and on which screen (RFC 0004 §5.3).
+   */
+  async accept(
+    id: string,
+    edit: { text: string; syntax: Syntax } | undefined,
+    inContext: InContext,
+  ): Promise<AISuggestion> {
     return (
       await this.request<AISuggestion>(
         "POST",
         `/v1/tenants/${seg(this.o.tenant)}/ai-suggestions/${seg(id)}/acceptance`,
-        { body: edit ?? {} },
+        { body: { ...(edit ?? {}), in_context: inContext } },
       )
     ).value;
   }

@@ -59,7 +59,15 @@ interface AIState {
 /** How long the editor waits after typing before asking the server to parse. */
 export const VALIDATE_DELAY = 300;
 /** How often, and how patiently, the panel looks for a requested suggestion. */
-export const AI_POLL = [1000, 2000, 3000, 5000, 5000, 5000];
+export /** What a job that ended without a suggestion means, in the panel. */
+const JOB_ENDINGS: Record<string, string> = {
+  skipped: "Nothing to translate: the message changed, or it is in a namespace AI never sees.",
+  failed: "The provider didn't answer. Try again in a moment.",
+  dead: "The provider kept failing. Look in Studio for what went wrong.",
+  cancelled: "The job was cancelled.",
+};
+
+const AI_POLL = [1000, 2000, 3000, 5000, 5000, 5000];
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -260,6 +268,7 @@ export class GlossaOverlay extends LitElement {
         await host.api.accept(
           suggestion.id,
           edited ? { text: this.draft, syntax: this.syntax } : undefined,
+          host.inContext(),
         );
         const t = await host.api.getTranslation(message.key, host.locale);
         if (!t) throw new Error("accepted suggestion wrote no translation");
@@ -395,13 +404,21 @@ export class GlossaOverlay extends LitElement {
     if (!host || !message) return;
     this.ai = { ...this.ai, phase: "waiting" };
     try {
-      await host.api.fill(message.key, host.locale);
+      const fill = await host.api.fill(message.key, host.locale);
+      const [job] = fill.job_ids ?? [];
       for (const ms of AI_POLL) {
         await host.wait(ms);
         if (this.message !== message) return;
         const [s] = await host.api.suggestions(message.id, host.locale);
         if (s) {
           this.ai = { phase: "ready", suggestion: s };
+          return;
+        }
+        // The fill names its job, so a job that ended without a
+        // suggestion says why now instead of after every poll.
+        const ended = job ? await this.jobEnded(job) : undefined;
+        if (ended) {
+          this.ai = { phase: "none", note: ended };
           return;
         }
       }
@@ -412,6 +429,22 @@ export class GlossaOverlay extends LitElement {
     } catch (e) {
       this.ai = { phase: "error", note: describe(e) };
     }
+  }
+
+  /**
+   * Why a fill's job produced nothing, or undefined while it is still
+   * running. An old server that names no job is simply not asked.
+   */
+  private async jobEnded(id: string): Promise<string | undefined> {
+    let job;
+    try {
+      job = await this.host?.api.job(id);
+    } catch {
+      return undefined; // following the job is a nicety, not the answer
+    }
+    if (!job || job.state === "queued" || job.state === "running") return undefined;
+    if (job.state === "succeeded") return undefined; // the suggestion is on its way
+    return JOB_ENDINGS[job.state] ?? "The job didn't finish. Try again, or look in Studio.";
   }
 
   /** Put the suggestion into the editor; saving then accepts it (with the edits). */
@@ -688,8 +721,11 @@ const warning = (w: string) => WARNINGS[w] ?? w;
 /** Why a fill wouldn't produce a suggestion for this message. */
 function whyNot(p: AIFillPreview): string {
   const l = p.locales[0];
+  // up_to_date is no longer a reason here: the editor forces, precisely
+  // because the text on screen is current (RFC 0004 §5.3). A server that
+  // still reports it is one that doesn't know `force`.
   if (l?.skipped.up_to_date)
-    return "The translation is current. AI fills only missing or outdated translations.";
+    return "This server's AI fills only missing or outdated translations.";
   const refused = Object.keys(l?.refused ?? {});
   if (refused.includes("sensitive"))
     return "This message is in a sensitive namespace and is never sent to AI.";

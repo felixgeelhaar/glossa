@@ -307,7 +307,9 @@ test("axe finds no WCAG A/AA violations on the page with the panel open", async 
   }
   await expect(page.locator("glossa-overlay #section-terms")).toContainText("Guten Tag");
   await expect(page.locator("glossa-overlay #section-history li")).toHaveCount(1);
-  await expect(page.locator("glossa-overlay #section-ai")).toContainText("current");
+  // The editor forces, so a current translation still gets an offer
+  // (RFC 0004 §5.3) rather than "nothing to translate".
+  await expect(page.locator("glossa-overlay #section-ai")).toContainText("Request a suggestion");
   await draft(page).fill("Hallo {$name");
   await expect(page.locator("glossa-overlay #check .error")).toContainText("syntax-error");
   expect(await scan()).toEqual([]);
