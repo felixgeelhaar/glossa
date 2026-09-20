@@ -192,7 +192,8 @@ GLOSSA_STORAGE_DIR=data/objects go run ./cmd/glossa-edge   # beside a local glos
 ```sh
 go test -race ./...                            # unit (incl. contract lint and generated-code freshness)
 go test -tags=integration -timeout=300s ./...  # Docker: Postgres 16 via testcontainers
-go test -tags=system -timeout=600s ./internal/systemtest/...  # M2 exit test (make system-m2); writes m2/REPORT.md
+go test -tags=system -timeout=600s ./internal/systemtest/m2/...  # M2 exit test (make system-m2); writes m2/REPORT.md
+go test -tags=system -timeout=900s ./internal/systemtest/m3/...  # M3 exit test (make system-m3); also needs a Chrome
 go generate ./db/...                           # regenerate sqlc code (sqlc pinned in db/generate.go)
 go generate ./internal/apiv1/...               # regenerate the /v1 server (oapi-codegen pinned as a go.mod tool)
 go generate ./internal/apiclient/...           # regenerate the CLI's /v1 client from the same spec

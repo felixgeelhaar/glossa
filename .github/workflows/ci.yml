@@ -118,13 +118,53 @@ jobs:
       - name: go test (system)
         # Postgres and MinIO via testcontainers, glossa-server built from
         # this module, a fake provider on loopback; writes REPORT.md.
-        run: go test -tags=system -timeout=600s -count=1 -v ./internal/systemtest/...
+        run: go test -tags=system -timeout=600s -count=1 -v ./internal/systemtest/m2/...
       - name: keep the report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: m2-report
           path: platform/internal/systemtest/m2/REPORT.md
+          if-no-files-found: ignore
+          retention-days: 14
+
+  platform-system-m3:
+    name: Platform M3 exit test
+    # Context, the pull-request flow, the overlay guards and the
+    # documents (RFC 0004 §12). Runs after the M2 scenario, so the two
+    # Docker-heavy jobs don't compete for one runner's resources.
+    needs: platform-system
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: platform/go.mod
+          cache-dependency-path: platform/go.sum
+      - name: find Chrome
+        # `glossa capture` attaches to a browser the test starts, the way
+        # the capture integration tests do (platform/README.md).
+        run: |
+          chrome=$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)
+          "$chrome" --version
+          echo "GLOSSA_TEST_CHROME=$chrome" >> "$GITHUB_ENV"
+      - name: go vet (system)
+        run: go vet -tags=system ./internal/systemtest/...
+      - name: go test (system)
+        # Postgres and MinIO via testcontainers, glossa-server and the
+        # glossa CLI built from this module, a fake GitHub on loopback,
+        # headless Chrome for the captures; writes REPORT.md.
+        run: go test -tags=system -timeout=900s -count=1 -v ./internal/systemtest/m3/...
+      - name: keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: m3-report
+          path: platform/internal/systemtest/m3/REPORT.md
           if-no-files-found: ignore
           retention-days: 14
 
