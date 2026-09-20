@@ -20,7 +20,10 @@ export type ProviderUpdate = Body<"UpdateAIProvider">;
 export type SettingsUpdate = Body<"UpdateAISettings">;
 export type ProjectSettingsUpdate = Body<"UpdateAIProjectSettings">;
 /** A fill (or its preview): which messages by translation state, narrowed by namespace, key prefix or keys. */
-export type FillInput = Omit<Body<"CreateAIFill">, "include_outdated" | "select"> & { select: I.AIFillSelect };
+// `force` is the in-product editor's affordance (RFC 0004 §5.3):
+// re-translating text that is already current. Studio's fill dialog is
+// about what is missing or stale, so it never sends it.
+export type FillInput = Omit<Body<"CreateAIFill">, "include_outdated" | "select" | "force"> & { select: I.AIFillSelect };
 export type PriceOverrides = Body<"PutAIPrices">["overrides"];
 
 export interface ProjectRef {
@@ -117,7 +120,7 @@ const ifMatch = (etag: string | undefined) => (etag ? { "If-Match": etag } : {})
  * `select: missing_or_outdated`) as required because it has a default;
  * false leaves the selection to `select`.
  */
-const fillBody = (body: FillInput): Body<"CreateAIFill"> => ({ ...body, include_outdated: false });
+const fillBody = (body: FillInput): Body<"CreateAIFill"> => ({ ...body, include_outdated: false, force: false });
 const toPage = <T>(p: { items: T[]; next_page_token?: string | undefined }): Page<T> => ({ items: p.items, next: p.next_page_token });
 
 export const apiIntelligence: IntelligencePort = {

@@ -34,12 +34,13 @@ the jobs' history. See *Import and export* below.
 | `…/p/:project/style` | Style guides by scope (workspace, project, locale, namespace), versions, and the effective style. |
 | `…/p/:project/ai` | AI settings: consent, providers, budget and spend, prices, routing; the project's namespace tags, auto-translate and review routing; insights. |
 | `…/p/:project/locales` | Locales with BCP 47 validation and direction; the list-based fallback graph editor. |
-| `…/p/:project/settings` | Name, slug, syntax, review requirement, applications, delivery keys, delete. |
+| `…/p/:project/settings` | Name, slug, syntax, review requirement, applications, in-product editing origins, delivery keys, delete. |
 | `…/p/:project/releases` | Environments, publish, promote, rollback, release list (see below). |
 | `…/p/:project/releases/:release` | One release: per-locale counts and the diff to its parent, promote. |
 | `…/p/:project/files` | Import & export: import and export history (state, requester, counts; cancel, download) for the project or the whole workspace; export a catalog, or the project's translation memory (TMX) or termbase (TBX). |
 | `…/p/:project/files/import` | The import wizard: file (drop or choose; format recognized, can be changed), options per format (an XLIFF file's target locale is chosen), mode, upload with progress. |
 | `…/p/:project/files/imports/:job` | One import: summary, per-item results with where each item is in the file (line, column, reference), conflicts explained, “Apply this import” after a dry run. |
+| `/in-context/authorize` | The in-product editor's authorization popup (RFC 0004 §5.2), opened by a product's preview deployment and outside the app shell. It says who the editor will act as and what it will be allowed to do, mints a fifteen-minute grant on confirmation, `postMessage`s it to the exact origin that asked, and closes. Nothing is minted before the person confirms, and the token is never stored. |
 | `/account` | Every passkey of the person on any device (from `GET /v1/me/passkeys`: name, added, last used), removable after confirming; adding one where the server has passkeys; authenticator app (TOTP); sign out everywhere. While the person has no passkey and the server has passkeys, a banner promotes them. |
 
 The app shell carries the persistent **Public Beta** badge (Klarlabs

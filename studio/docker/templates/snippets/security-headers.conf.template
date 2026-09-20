@@ -12,5 +12,11 @@ add_header X-Content-Type-Options "nosniff" always;
 add_header X-Frame-Options "DENY" always;
 add_header Referrer-Policy "same-origin" always;
 add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()" always;
-add_header Cross-Origin-Opener-Policy "same-origin" always;
+# COOP is same-origin everywhere but the in-product editor's authorization
+# popup: a popup served with same-origin COOP that a cross-origin page
+# opened is put in its own browsing-context group, which severs
+# window.opener — and window.opener.postMessage is the whole flow
+# (RFC 0004 §5.2). $glossa_coop is set to same-origin on the server block
+# and to unsafe-none on that one location.
+add_header Cross-Origin-Opener-Policy $glossa_coop always;
 add_header Cross-Origin-Resource-Policy "same-origin" always;

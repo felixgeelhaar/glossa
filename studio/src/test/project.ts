@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import { computed, defineComponent, ref, type Component } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { GITHUB, type GitHubPort } from "../api/github";
+import { IN_CONTEXT, type InContextPort } from "../api/in-context";
 import { INTEGRATION, type IntegrationPort } from "../api/integration";
 import { INTELLIGENCE, type IntelligencePort } from "../api/intelligence";
 import { KNOWLEDGE, type KnowledgePort } from "../api/knowledge";
@@ -54,6 +55,7 @@ export interface ScreenOptions {
   knowledge?: KnowledgePort;
   intelligence?: IntelligencePort;
   github?: GitHubPort;
+  inContext?: InContextPort;
   integration?: IntegrationPort;
   roles?: Role[];
   /** Locale scope of the member (translators, reviewers). */
@@ -91,6 +93,7 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   if (options.intelligence) provide[INTELLIGENCE as symbol] = options.intelligence;
   if (options.integration) provide[INTEGRATION as symbol] = options.integration;
   if (options.github) provide[GITHUB as symbol] = options.github;
+  if (options.inContext) provide[IN_CONTEXT as symbol] = options.inContext;
   const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
   await flushPromises();
   return w;

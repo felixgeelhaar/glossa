@@ -261,6 +261,55 @@ export const strings = {
     deleteConfirm: (slug: string) => `Type ${slug} to confirm`,
     deleteProject: "Delete this project",
   },
+  previewOrigins: {
+    title: "In-product editing",
+    lead:
+      "Where this project's in-product editor may run. A page served from one of these origins can ask " +
+      "someone to lend it their Glossa permissions for fifteen minutes, so keep the list short and remove " +
+      "what you no longer use.",
+    columns: { origin: "Origin", label: "Label", added: "Added", actions: "Actions" },
+    development: "Development",
+    empty: "No origins yet. The editor cannot run anywhere until one is added.",
+    origin: "Origin",
+    originHint:
+      "Scheme, host and port only, e.g. https://preview.example.com. Plain http works on localhost for " +
+      "development and nowhere else.",
+    label: "Label",
+    labelHint: "What your team calls this deployment, e.g. \u201cshared preview\u201d.",
+    add: "Allow the editor here",
+    needsPermission: "You need permission to manage tokens to change this list.",
+    remove: "Remove",
+    removeTitle: "Remove this origin?",
+    removeConfirm: (origin: string) =>
+      `The editor will stop working on ${origin} straight away, and anyone editing there right now will be signed out of it.`,
+    registered: (origin: string) => `The editor may now run on ${origin}.`,
+    removed: (origin: string) => `The editor no longer runs on ${origin}.`,
+    cancel: "Cancel",
+  },
+  inContext: {
+    title: "Allow in-product editing",
+    lead: "A page outside Glossa is asking to edit this project's text as you.",
+    actingAs: "Acting as",
+    you: "you",
+    onOrigin: "On",
+    willAllow: "It will be able to",
+    mayInspect: "see this project's messages and their translations",
+    mayEdit: "write translations, in the locales you can write",
+    mayAsk: "ask for an AI suggestion and accept or edit it",
+    mayTerms: "read your terms and style guides",
+    ceiling:
+      "Never more than you can do yourself, and never anything else \u2014 it cannot publish a release, " +
+      "approve a translation, or change settings, people or keys.",
+    shortLived:
+      "The editor gets fifteen minutes and has to ask again after that. It only works on the origin above, " +
+      "and it is never saved to disk.",
+    authorize: "Allow editing",
+    authorizing: "Allowing\u2026",
+    cancel: "Cancel",
+    cancelled: "You chose not to allow in-product editing.",
+    granted: "Done \u2014 you can close this window.",
+    badRequest: "This link is incomplete. Open the editor from your preview deployment again.",
+  },
   locales: {
     title: "Locales",
     lead: "Every locale this project is translated into. Codes are BCP 47 and stored canonically.",
@@ -1278,6 +1327,17 @@ export const strings = {
     unexpected_response: "The server sent an unexpected response.",
     invalid_response: "The server's response didn't match what Studio expects.",
     unauthenticated: "Your session has ended. Sign in again.",
+    invalid_origin:
+      "An origin is a scheme, host and port, like https://preview.example.com. Plain http works on localhost only.",
+    invalid_origin_label: "A label can be at most 100 characters.",
+    origin_registered: "That origin is already on the list.",
+    too_many_preview_origins: "A project keeps at most 20 preview origins. Remove one first.",
+    origin_not_registered:
+      "That origin is not on this project's list, so the editor cannot run there. Add it in project settings first.",
+    origin_not_bound: "This editing session was opened for another site. Open the editor again.",
+    grant_project_mismatch: "This editing session was opened for another project.",
+    no_in_context_permissions: "You cannot edit this project's text, so there is nothing to allow.",
+    person_grant_only: "Only a signed-in person can allow in-product editing, not an API token.",
     invalid_credentials: "That email and password don't match.",
     totp_required: "Enter the code from your authenticator app.",
     totp_invalid: "That code isn't valid. Codes change every 30 seconds.",
@@ -1328,7 +1388,7 @@ export const strings = {
     invalid_namespace_tags: "Those namespace tags aren't valid.",
     auto_approve_ineligible: "Auto-approve needs environments that exist and ship approved translations only.",
     job_not_cancellable: "This job can't be cancelled any more: it has started or finished.",
-    too_many_keys: "Too many messages for one fill (at most 500 keys); narrow the search.",
+    too_many_keys: "That asks about too many messages at once; narrow the request.",
     locale_not_found: "That locale isn't in this project.",
     invalid_format: "That format isn't possible here (PO files can be imported, not exported).",
     invalid_mode: "That import mode isn't valid.",

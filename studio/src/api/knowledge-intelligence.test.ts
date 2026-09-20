@@ -118,7 +118,7 @@ describe("apiIntelligence", () => {
     expect(r.locales[0]!.tm_exact).toBe(1);
     const req = fetch.mock.calls[0]![0];
     expect(new URL(req.url).pathname).toBe("/v1/tenants/t/projects/p/ai-fill-previews");
-    expect(await req.json()).toEqual({ locales: ["de"], select: "outdated", include_outdated: false });
+    expect(await req.json()).toEqual({ locales: ["de"], select: "outdated", include_outdated: false, force: false });
     await expect(apiIntelligence.previewFill({ tenant: "t", project: "p" }, { locales: ["de"], select: "outdated" })).rejects.toMatchObject({ code: "invalid_response" });
   });
 

@@ -5,6 +5,7 @@ import { applications as appsApi, projects } from "../../api/endpoints";
 import { isApiError } from "../../api/errors";
 import type { Application, Platform } from "../../api/schemas";
 import ErrorAlert from "../../components/ErrorAlert.vue";
+import PreviewOrigins from "../../components/project/PreviewOrigins.vue";
 import DeliveryKeys from "../../components/releases/DeliveryKeys.vue";
 import { SLUG_PATTERN, slugify } from "../../lib/slug";
 import { allows } from "../../session/permissions";
@@ -18,6 +19,9 @@ const projectRef = () => ({ tenant: tenant.value, project: projectId.value });
 const canWrite = computed(() => allows(grant.value, "catalog.write"));
 const canDelete = computed(() => allows(grant.value, "tenant.manage"));
 const canReadReleases = computed(() => allows(grant.value, "releases.read"));
+// Everyone who can see the project sees where its editor may run; only
+// tokens.manage changes the list (RFC 0004 §5.2).
+const canSeeOrigins = computed(() => allows(grant.value, "catalog.read"));
 
 // ── general ─────────────────────────────────────────────────────────
 const form = reactive({ name: "", slug: "", review_required: true, default_syntax: "mf1" as "mf1" | "mf2" });
@@ -188,6 +192,8 @@ async function deleteProject(): Promise<void> {
         <button type="submit" class="btn">{{ s.addApplication }}</button>
       </form>
     </section>
+
+    <PreviewOrigins v-if="canSeeOrigins" />
 
     <DeliveryKeys v-if="canReadReleases" />
 

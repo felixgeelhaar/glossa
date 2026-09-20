@@ -13,6 +13,16 @@ export const routes: RouteRecordRaw[] = [
   { path: "/auth/sign-in", name: "sign-in", component: () => import("./views/auth/SignInView.vue"), meta: { public: true, title: "Sign in" } },
   { path: "/auth/register", name: "register", component: () => import("./views/auth/RegisterView.vue"), meta: { public: true, title: "Create an account" } },
   { path: "/auth/reset-password", name: "reset-password", component: () => import("./views/auth/ResetPasswordView.vue"), meta: { public: true, title: "Reset password" } },
+  // The in-product editor's authorization popup (RFC 0004 §5.2). It sits
+  // outside the app shell on purpose: it is a small window a product's
+  // preview deployment opened, not a place to navigate from. It needs a
+  // session — an anonymous visitor is sent to sign in and comes back.
+  {
+    path: "/in-context/authorize",
+    name: "in-context-authorize",
+    component: () => import("./views/in-context/AuthorizeView.vue"),
+    meta: { title: "Allow in-product editing" },
+  },
   {
     path: "/",
     component: () => import("./components/AppShell.vue"),

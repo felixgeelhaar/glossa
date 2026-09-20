@@ -8,6 +8,10 @@ server {
   root /usr/share/nginx/html;
   absolute_redirect off;
 
+  # The default Cross-Origin-Opener-Policy for every location here; the
+  # authorize popup below is the one exception.
+  set $glossa_coop "same-origin";
+
   include /tmp/nginx/snippets/security-headers.conf;
 
   # Liveness/readiness for the container and Kubernetes probes.
@@ -62,6 +66,20 @@ server {
     add_header Access-Control-Allow-Origin "*" always;
     add_header Cache-Control "no-store" always;
     try_files $uri =404;
+  }
+
+  # The in-product editor's authorization popup (RFC 0004 §5.2). A preview
+  # deployment of another product opens this window and waits for the grant
+  # on window.opener.postMessage. Under the default same-origin COOP the
+  # browser would put the popup in its own browsing-context group and
+  # window.opener would be null, so this one route relaxes it. Nothing else
+  # changes: the CSP is the same, frame-ancestors is still 'none' (the flow
+  # is a popup, never an iframe), and the page still needs Studio's session.
+  location = /in-context/authorize {
+    set $glossa_coop "unsafe-none";
+    include /tmp/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-store" always;
+    try_files /index.html =404;
   }
 
   # Vite fingerprints everything under /assets/, so it can be cached forever.
