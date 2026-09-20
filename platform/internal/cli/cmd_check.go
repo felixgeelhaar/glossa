@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/terminology"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // maxFindingsPerGroup caps human output; --json has everything.
@@ -17,8 +20,12 @@ const maxFindingsPerGroup = 20
 
 type policyJSON struct {
 	// RequireComplete is null when every locale is required.
-	RequireComplete []string `json:"require_complete"`
-	FailOn          string   `json:"fail_on"`
+	RequireComplete     []string `json:"require_complete"`
+	FailOn              string   `json:"fail_on"`
+	MissingTranslations string   `json:"missing_translations"`
+	// Source says where the policy came from: "project" when the
+	// server's project settings contributed, "local" otherwise.
+	Source string `json:"source"`
 }
 
 type checkJSON struct {
@@ -28,11 +35,11 @@ type checkJSON struct {
 }
 
 func runCheck(ctx context.Context, inv *invocation, args []string) error {
-	fs := inv.flags("check [--offline] [--terminology] [--require-complete=de,en|none] [--fail-on=error|warning]")
+	fs := inv.flags("check [--offline] [--terminology] [--require-complete=de,en|none] [--fail-on=error|warning|never]")
 	offline := fs.Bool("offline", false, "check the local catalogs instead of the server's project")
 	terms := fs.Bool("terminology", false, "also check the translations against the termbase (needs the server)")
-	require := fs.String("require-complete", "", "locales that must be complete (comma-separated, or none; default: glossa.yaml's check.require_complete, else all)")
-	failOn := fs.String("fail-on", "", "lowest severity that fails the check: error (default) or warning")
+	require := fs.String("require-complete", "", "locales that must be complete (comma-separated, or none; default: glossa.yaml's check.require_complete, else the project's check policy)")
+	failOn := fs.String("fail-on", "", "lowest severity that fails the check: error, warning or never (default: glossa.yaml's check.fail_on, else the project's check policy)")
 	if _, err := inv.parse(fs, args); err != nil {
 		return err
 	}
@@ -40,27 +47,26 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	if err != nil {
 		return err
 	}
-	policy, err := checkPolicy(inv, cfg, *require, *failOn)
-	if err != nil {
-		return err
-	}
 	if *terms && *offline {
 		return usageError(inv.name, "--terminology checks against the server's termbase: drop --offline")
 	}
-	checkers := qa.Default()
-	var (
-		s     *snapshot.Snapshot
-		label string
-	)
-	if *terms {
-		if s, label, checkers, err = inv.terminologySnapshot(ctx, cfg, checkers); err != nil {
-			return err
-		}
-	} else if s, label, err = inv.snapshot(ctx, cfg, *offline, snapshot.Options{}); err != nil {
+	s, label, checkers, stored, err := inv.checkSnapshot(ctx, cfg, *offline, *terms)
+	if err != nil {
 		return err
 	}
+	policy, err := checkPolicy(inv, cfg, stored, *require, *failOn)
+	if err != nil {
+		return err
+	}
+	source := "local"
+	if stored != nil {
+		source = "project"
+	}
 	report := qa.Run(s, policy, checkers...)
-	out := checkJSON{Schema: "glossa.cli.check/v1", Policy: policyJSON{RequireComplete: policy.RequireComplete, FailOn: string(policy.FailOn)}, Report: report}
+	out := checkJSON{Schema: "glossa.cli.check/v1", Report: report, Policy: policyJSON{
+		RequireComplete: policy.RequireComplete, FailOn: string(policy.FailOn),
+		MissingTranslations: string(policy.MissingTranslations), Source: source,
+	}}
 	if err := inv.emit(out, func(p *printer) { printCheck(p, label, report, s.SourceLocale) }); err != nil {
 		return err
 	}
@@ -70,20 +76,83 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	return nil
 }
 
-// checkPolicy merges flags over glossa.yaml.
-func checkPolicy(inv *invocation, cfg *config.Config, require, failOn string) (qa.Policy, error) {
+// checkSnapshot reads what the check runs over, and with it the
+// project's stored check policy when the server is in reach. Offline
+// there is no project to ask, so the policy is nil and the command
+// falls back to glossa.yaml and its own default.
+func (inv *invocation) checkSnapshot(ctx context.Context, cfg *config.Config, offline, terms bool) (
+	*snapshot.Snapshot, string, []qa.Checker, *qa.Policy, error) {
+	checkers := qa.Default()
+	if offline {
+		s, err := loadLocal(cfg)
+		return s, "local catalogs", checkers, nil, err
+	}
+	p, err := inv.connectWith(ctx, cfg)
+	if err != nil {
+		return nil, "", nil, nil, err
+	}
+	s, err := snapshot.FromServer(ctx, p.client, p.scope, p.info.SourceLocale, snapshot.Options{})
+	if err != nil {
+		return nil, "", nil, nil, inv.apiError(err, "can't read the project from the server")
+	}
+	if terms {
+		if checkers, err = inv.terminologyCheckers(ctx, p, s, checkers); err != nil {
+			return nil, "", nil, nil, err
+		}
+	}
+	label := fmt.Sprintf("%s on %s", p.info.Slug, cfg.Server)
+	return s, label, checkers, projectPolicy(p.info), nil
+}
+
+// projectPolicy reads the project's stored check policy. Every project
+// has one in a response, so a nil means a server that predates the
+// setting — and then the command's own default stands.
+func projectPolicy(info remote.Project) *qa.Policy {
+	cp := info.Settings.CheckPolicy
+	if cp == nil {
+		return nil
+	}
+	p := qa.Policy{FailOn: qa.Severity(cp.FailOn), MissingTranslations: qa.Severity(cp.MissingTranslations)}
+	switch cp.RequireComplete {
+	case apiclient.CheckPolicyRequireCompleteNone:
+		p.RequireComplete = []string{}
+	case apiclient.CheckPolicyRequireCompleteListed:
+		p.RequireComplete = []string{}
+		if cp.Locales != nil {
+			p.RequireComplete = append(p.RequireComplete, *cp.Locales...)
+		}
+	}
+	return &p
+}
+
+// checkPolicy merges the flags over glossa.yaml over the project's
+// stored policy: flags > glossa.yaml > project policy > the built-in
+// default. stored is nil offline, and then only the last two apply.
+//
+// missing_translations has no flag and no glossa.yaml key: whether an
+// untranslated key blocks is the project's call, not a local one, or a
+// pull request and the terminal would part ways on the one question the
+// check exists to answer.
+func checkPolicy(inv *invocation, cfg *config.Config, stored *qa.Policy, require, failOn string) (qa.Policy, error) {
 	p := qa.Policy{FailOn: qa.Error}
-	switch f := orDefault(failOn, cfg.Check.FailOn); f {
-	case "", "error":
-	case "warning":
-		p.FailOn = qa.Warning
-	default:
-		return p, usageError(inv.name, "--fail-on must be error or warning, not %q", f)
+	if stored != nil {
+		p = *stored
+	}
+	if f := orDefault(failOn, cfg.Check.FailOn); f != "" {
+		sev, err := checkpolicy.ParseFailOn(f)
+		if err != nil {
+			return p, usageError(inv.name, "--fail-on must be error, warning or never, not %q", f)
+		}
+		p.FailOn = sev
+	}
+	if p.FailOn == "" {
+		p.FailOn = qa.Error
 	}
 	var list []string
 	switch {
 	case require == "none":
-		return withRequired(p, []string{}), nil
+		p.RequireComplete = []string{}
+		return p, nil
 	case require != "":
 		list = strings.Split(require, ",")
 	case cfg.Check.RequireComplete != nil:
@@ -99,12 +168,8 @@ func checkPolicy(inv *invocation, cfg *config.Config, require, failOn string) (q
 		}
 		req = append(req, tag.String())
 	}
-	return withRequired(p, req), nil
-}
-
-func withRequired(p qa.Policy, req []string) qa.Policy {
 	p.RequireComplete = req
-	return p
+	return p, nil
 }
 
 // snapshot reads the project from the server, or the local catalogs.
@@ -124,28 +189,18 @@ func (inv *invocation) snapshot(ctx context.Context, cfg *config.Config, offline
 	return s, fmt.Sprintf("%s on %s", p.info.Slug, cfg.Server), nil
 }
 
-// terminologySnapshot reads the project from the server and adds the
-// terminology layer to checkers: every translation but rejected ones,
-// checked against the termbase.
-func (inv *invocation) terminologySnapshot(ctx context.Context, cfg *config.Config, checkers []qa.Checker) (*snapshot.Snapshot, string, []qa.Checker, error) {
-	p, err := inv.connectWith(ctx, cfg)
-	if err != nil {
-		return nil, "", nil, err
-	}
-	s, err := snapshot.FromServer(ctx, p.client, p.scope, p.info.SourceLocale, snapshot.Options{})
-	if err != nil {
-		return nil, "", nil, inv.apiError(err, "can't read the project from the server")
-	}
+// terminologyCheckers adds the terminology layer: every translation but
+// rejected ones, checked against the server's termbase.
+func (inv *invocation) terminologyCheckers(ctx context.Context, p *project, s *snapshot.Snapshot, checkers []qa.Checker) ([]qa.Checker, error) {
 	var locales []string
 	for _, l := range s.TargetLocales() {
 		locales = append(locales, l.Code)
 	}
 	report, err := inv.terminology(ctx, p, terminology.Options{Locales: locales})
 	if err != nil {
-		return nil, "", nil, err
+		return nil, err
 	}
-	label := fmt.Sprintf("%s on %s", p.info.Slug, cfg.Server)
-	return s, label, append(checkers, qa.Precomputed(terminology.CheckName, report.QA())), nil
+	return append(checkers, qa.Precomputed(terminology.CheckName, report.QA())), nil
 }
 
 func printCheck(p *printer, label string, r qa.Report, source string) {

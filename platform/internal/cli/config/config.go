@@ -98,10 +98,12 @@ type Generate struct {
 
 // Check is the default policy of `check`; flags override it.
 type Check struct {
-	// RequireComplete lists the locales that must be complete. Empty:
-	// every locale of the project.
+	// RequireComplete lists the locales that must be complete. Unset:
+	// the project's check policy, and every locale where there is no
+	// project to ask.
 	RequireComplete []string `yaml:"require_complete,omitempty" json:"require_complete,omitempty"`
-	// FailOn is error (default) or warning.
+	// FailOn is error, warning or never. Unset: the project's check
+	// policy, and error where there is no project to ask.
 	FailOn string `yaml:"fail_on,omitempty" json:"fail_on,omitempty"`
 }
 
@@ -220,9 +222,9 @@ func (c *Config) Validate() error {
 		return bad("catalogs.style", "must be flat or nested (got %q)", c.Catalogs.Style)
 	}
 	switch c.Check.FailOn {
-	case "", "error", "warning":
+	case "", "error", "warning", "never":
 	default:
-		return bad("check.fail_on", "must be error or warning (got %q)", c.Check.FailOn)
+		return bad("check.fail_on", "must be error, warning or never (got %q)", c.Check.FailOn)
 	}
 	if c.Extract.Application != "" && !ValidApplication(c.Extract.Application) {
 		return bad("extract.application", "%q is not an application slug (lowercase letters, digits and -, e.g. web)", c.Extract.Application)

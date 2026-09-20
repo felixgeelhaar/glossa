@@ -44,8 +44,8 @@ generate:
   go: internal/msg/messages.go
   go_package: msg                # default: the directory name
 check:
-  require_complete: [de, en]     # default: every locale
-  fail_on: error                 # or warning
+  require_complete: [de, en]     # default: the project's check policy
+  fail_on: error                 # or warning, or never
 pull:
   states: [approved]             # default
 capture:                         # glossa capture: screenshots with message regions
@@ -160,7 +160,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `context push <file>` | Uploads a `glossa.usages/v1` document — `@glossa/unplugin`'s `.glossa/usages.json`, or a saved `extract --json` — to the project's context builds (`POST …/context-builds`, RFC 0004 §2). `--source plugin\|extract\|runtime\|capture` names the collector; by default `extract` when the document's tool is `glossa`, else `plugin`. Prints the build and how many usages name keys the catalog doesn't know; the same document again is "Already uploaded" (the server answers with the first build). Whether a build is of the default branch is the project's `default_branch` setting, not the uploader's say. A document the server refuses (`invalid_usages`, `too_many_usages`, `unknown_application`, `invalid_source`, `payload_too_large`) exits 2. |
 | `capture` | Screenshots the pages of the capture plan (`capture:` in glossa.yaml) in headless Chrome, with `scout`, at every viewport and locale, and records where each message renders (RFC 0004 §3.1–§3.2): one `glossa.captures/v1` document (schema: `runtimes/testdata/schemas/captures.v1.schema.json`) with a full-page PNG per (route, viewport, locale), in a fixed order (route, URL, locale, the plan's viewport order). Before the page's scripts run it injects `@glossa/capture`'s agent, which hooks every `@glossa/runtime` on the page; after load (and the route's playbook) it waits until the DOM is quiet. It refuses a page whose runtime reports a `production` manifest (`production_page`), has no active release (`environment_unknown`), has no runtime (`no_runtime`) or doesn't render the requested locale (`locale_mismatch`), and blacks out `data-glossa-redact` elements before the screenshot (their regions are `visible: false`). Without `--upload` the manifest (`captures.json`) and the images (`<sha256>.png`) go to `capture.output` or `--out`; with `--upload` they're posted to the Captures API. The coverage report lists the messages with a current usage of the application (the branch's view) but no visible region; it reads the Context API, so `--no-coverage` is needed offline. Application, commit and branch are found like `extract`'s (`capture.application` first). `--cdp` (or `GLOSSA_CAPTURE_CDP`) attaches to a browser you started yourself instead of launching one — see "Attaching to a browser" below. A page that fails to load, a refusal, no Chrome (`no_browser`) or an endpoint it won't attach to (`invalid_cdp_endpoint`, `cdp_unreachable`) exits 2. |
 | `generate` | Typed accessors from the catalog's argument metadata. `--check` writes nothing and exits 1 when the files are stale; `--from-server` uses the server's messages. |
-| `check` | Structural QA: invalid messages, translation/source compatibility (`messageformat.CheckCompat`), missing and outdated translations. `--offline` checks local catalogs. `--require-complete=de,en\|none`, `--fail-on=error\|warning`. |
+| `check` | Structural QA: invalid messages, translation/source compatibility (`messageformat.CheckCompat`), missing and outdated translations. `--offline` checks local catalogs. `--require-complete=de,en\|none`, `--fail-on=error\|warning\|never`; without them, the project's check policy. |
 | `status` | Coverage per locale: translated, approved, needs review, draft, outdated, missing. One request: the server's `translation-stats`. `--offline` counts the local catalogs. |
 | `diff` | Local catalogs vs the server by canonical model (so MF1 spelling changes aren't changes). `--exit-code`. |
 | `locales`, `messages`, `namespaces` | Lists. `messages --prefix --namespace --missing-in --outdated-in --state active\|obsolete\|all`; `namespaces`: each namespace with its active and obsolete message counts (`GET …/namespaces`) |
@@ -195,7 +195,33 @@ Localization check failed: 1 error, 0 warnings.
 Missing translations are errors in required locales and warnings in the
 others; outdated translations and compatibility warnings are warnings.
 Checks are `qa.Checker`s, so source-copy lint (M3) and later layers plug
-in without changing the command. `check --terminology` adds the
+in without changing the command.
+
+### Which policy `check` uses
+
+The project stores a check policy (Studio: **Settings → Pull request
+check**), and it is the same one the Glossa pull-request check decides
+by, so the terminal and the pull request agree. `check` resolves it in
+this order, most specific first:
+
+1. **Flags** — `--require-complete`, `--fail-on`.
+2. **`glossa.yaml`** — `check.require_complete`, `check.fail_on`.
+3. **The project's check policy**, read from the server with the rest of
+   the project. Offline (`--offline`, or a server it cannot reach) there
+   is no project to ask and this step is skipped.
+4. **The built-in default** — every locale must be complete, an
+   untranslated key in one is an error, and errors fail.
+
+Each level fills in only what it names, so `check.fail_on: warning` in
+`glossa.yaml` leaves the project's required locales alone.
+
+One setting has no flag and no `glossa.yaml` key: `missing_translations`
+(whether an untranslated key in a required locale is an error or only a
+warning) is always the project's. Whether a gap blocks is the project's
+call, not a local one — otherwise a green terminal and a red pull
+request would disagree about the one question the check exists to
+answer. `check --json` says which policy it used in
+`policy.source`: `project` or `local`. `check --terminology` adds the
 termbase layer (check `terminology`: the server's terminology QA over
 every translation but rejected ones): a forbidden term is an error, a
 deprecated or missing one a warning.
@@ -241,7 +267,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.context.push/v1` | `{file, source, replayed, build: {id, application_id, commit, branch, on_default_branch, source, tool: {name, version}, digest, usages, unknown_keys, created_by, created_at}}` (the API's `ContextBuild`) |
 | `glossa.cli.capture/v1` | `{application, commit, branch, captures: [{route, url, locale, viewport: {width, height, deviceScaleFactor?}, image: {sha256, width, height}, renders, regions, visible, redacted, truncated}], output?: {dir, manifest, images}, upload?: {build, captures, images_stored, images_deduplicated, unknown_keys, replayed}, coverage: {messages, captured, not_captured: [{key, usages, file, line, routes?}]} \| null}` (`capture`; the regions themselves are in the manifest) |
 | `glossa.cli.generate/v1` | `{source, messages, check, files: [{path, kind, changed}], warnings: [{key, reason}]}` |
-| `glossa.cli.check/v1` | `{policy: {require_complete (null = all), fail_on}, origin, messages, invalid_messages, locales: [{code, is_source, required, messages, translated, missing, outdated, errors, warnings, complete}], findings: [{check, code, severity, locale?, key?, subject?, detail?, message, where?}], errors, warnings, passed}` |
+| `glossa.cli.check/v1` | `{policy: {require_complete (null = all), fail_on, missing_translations, source (project \| local)}, origin, messages, invalid_messages, locales: [{code, is_source, required, messages, translated, missing, outdated, errors, warnings, complete}], findings: [{check, code, severity, locale?, key?, subject?, detail?, message, where?}], errors, warnings, passed}` |
 | `glossa.cli.status/v1` | `{origin, messages, locales: [{code, direction, is_source, translated, approved, needs_review, draft, rejected, outdated, missing, coverage}]}` |
 | `glossa.cli.diff/v1` | `{source: {locale, added, changed: [{key, local, server}], removed, unchanged}, translations: [same], identical}` |
 | `glossa.cli.locales/v1` | `{locales: [{code, direction, is_source}], fallback}` |

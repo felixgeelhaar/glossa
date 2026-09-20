@@ -271,9 +271,9 @@ func fromKernel(f mf.Finding, locale string, t snapshot.Translation) Finding {
 // ── completeness ────────────────────────────────────────────────────
 
 // completeness: every active message has a translation in every locale
-// (required locales: error; others: warning), made against the current
-// source (outdated: warning), and no local translation names an unknown
-// message.
+// (required locales: the policy's missing_translations, error by
+// default; others: warning), made against the current source (outdated:
+// warning), and no local translation names an unknown message.
 type completeness struct{}
 
 func (completeness) Name() string { return "completeness" }
@@ -291,10 +291,10 @@ func (completeness) Check(s *snapshot.Snapshot, p Policy) []Finding {
 		}
 	}
 	for _, l := range s.TargetLocales() {
-		sev := Warning
-		if p.Requires(l.Code) {
-			sev = Error
-		}
+		// The policy decides, not the required list alone: a project can
+		// require every locale and still only warn about untranslated
+		// keys (checkpolicy.Policy.MissingTranslations).
+		sev := p.Severity(l.Code)
 		trs := s.Translations[l.Code]
 		for _, m := range s.Messages {
 			t, ok := trs[m.Key]

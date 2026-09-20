@@ -27,18 +27,22 @@ type fakeServer struct {
 
 	mu             sync.Mutex
 	reviewRequired bool
-	sourceLocale   string
-	locales        []string // including the source
-	messages       map[string]*fakeMessage
-	translations   map[string]map[string]*fakeTranslation // locale → key
-	rel            *fakeReleases
-	kn             *fakeKnowledge
-	io             *fakeInterchange
-	ctx            *fakeContext
-	branches       *fakeBranches
-	gh             *fakeGitHub
-	ci             *fakeCI
-	requests       []string
+	// checkPolicy is the project's stored check policy, as the contract
+	// renders it; nil leaves settings.check_policy out of the response,
+	// the way a server that predates the setting would.
+	checkPolicy  map[string]any
+	sourceLocale string
+	locales      []string // including the source
+	messages     map[string]*fakeMessage
+	translations map[string]map[string]*fakeTranslation // locale → key
+	rel          *fakeReleases
+	kn           *fakeKnowledge
+	io           *fakeInterchange
+	ctx          *fakeContext
+	branches     *fakeBranches
+	gh           *fakeGitHub
+	ci           *fakeCI
+	requests     []string
 }
 
 // accepts reports whether an Authorization header names a credential
@@ -134,8 +138,12 @@ func (f *fakeServer) tenants(w http.ResponseWriter, _ *http.Request) {
 func (f *fakeServer) projects(w http.ResponseWriter, _ *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	settings := map[string]any{"default_syntax": "mf1", "review_required": f.reviewRequired}
+	if f.checkPolicy != nil {
+		settings["check_policy"] = f.checkPolicy
+	}
 	writeJSONResp(w, 200, map[string]any{"items": []map[string]any{{"id": "prj_1", "slug": "shop", "name": "Shop",
-		"source_locale": f.sourceLocale, "settings": map[string]any{"default_syntax": "mf1", "review_required": f.reviewRequired},
+		"source_locale": f.sourceLocale, "settings": settings,
 		"created_at": "2026-09-19T00:00:00Z", "updated_at": "2026-09-19T00:00:00Z"}}})
 }
 

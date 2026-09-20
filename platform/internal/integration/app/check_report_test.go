@@ -90,6 +90,59 @@ func TestAnUnrequiredLocaleIsOnlyAWarning(t *testing.T) {
 	}
 }
 
+// TestTheProjectPolicyDecidesTheConclusion: the same branch, the same
+// findings, three stored policies. This is the whole point of storing
+// one — the default fails the pull request, and a project that only
+// warns about untranslated keys goes green while still listing them.
+func TestTheProjectPolicyDecidesTheConclusion(t *testing.T) {
+	branch := app.CheckInput{
+		Status:  app.BranchStatus{Name: "feat/copy", NewKeys: []string{"a"}, Outdated: map[string]int{}},
+		Quality: app.BranchQuality{Locales: []string{"de", "fr"}, Untranslated: map[string]int{"de": 1, "fr": 1}},
+		Usages:  app.BranchUsages{Builds: 1},
+	}
+	tests := []struct {
+		name          string
+		policy        checkpolicy.Policy
+		want          string
+		errors, warns int
+	}{
+		{name: "the default fails", want: app.ConclusionFailure, errors: 2},
+		{
+			name:   "only warn about untranslated keys",
+			policy: checkpolicy.Policy{MissingTranslations: checkpolicy.Warning},
+			want:   app.ConclusionSuccess, warns: 2,
+		},
+		{
+			name:   "no locale has to be complete",
+			policy: checkpolicy.Policy{RequireComplete: []string{}},
+			want:   app.ConclusionSuccess, warns: 2,
+		},
+		{
+			name:   "never fails, whatever it finds",
+			policy: checkpolicy.Policy{FailOn: checkpolicy.Never},
+			want:   app.ConclusionSuccess, errors: 2,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			in := branch
+			in.Policy = tc.policy
+			rep := app.BuildCheckReport(in)
+			if rep.Conclusion != tc.want {
+				t.Fatalf("conclusion = %q, want %q", rep.Conclusion, tc.want)
+			}
+			if rep.Errors != tc.errors || rep.Warnings != tc.warns {
+				t.Fatalf("errors = %d, warnings = %d, want %d and %d", rep.Errors, rep.Warnings, tc.errors, tc.warns)
+			}
+			// Green or not, the check still reports the gap: the table
+			// says one key is untranslated in each locale.
+			if !strings.Contains(rep.Summary, "| de | 0 | 1 | 0 |") {
+				t.Fatalf("summary does not list the gap:\n%s", rep.Summary)
+			}
+		})
+	}
+}
+
 // TestAnnotationsGoOncePerCheckRun is the rule GitHub's append-only
 // annotations force on us.
 func TestAnnotationsGoOncePerCheckRun(t *testing.T) {

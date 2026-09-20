@@ -546,7 +546,7 @@ func (inv *invocation) termsCheck(ctx context.Context, a termsArgs) error {
 	if err != nil {
 		return err
 	}
-	policy, err := checkPolicy(inv, cfg, "none", a.failOn)
+	policy, err := checkPolicy(inv, cfg, nil, "none", a.failOn)
 	if err != nil {
 		return err
 	}
