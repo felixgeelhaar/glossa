@@ -98,7 +98,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `pull` | Writes translations to the catalogs, sorted and deterministic. `--states approved,needs_review\|all`, `--locales`. `--release <id\|v<N>\|latest> [--environment env] [--out dir]` writes a release bundle instead (see *Release*). |
 | `extract` | Finds message usages and prints them as a `glossa.usages/v1` document (RFC 0004 §2.2; contract and fixtures: `runtimes/testdata/usages/`). Go is parsed with `go/parser`: `.T(…)` calls (`Client.T(ctx, "…")`, `l.T("…")`, `For(…).T("…")`) and the generated accessors, with the enclosing `pkg.Func` / `pkg.(*Type).Method` as component; files starting with `// Code generated … DO NOT EDIT.` are skipped. Go templates (`extract.templates`) are parsed with `text/template/parse`: `{{t}}`, `{{td}}`, `{{th}}`. Web files are scanned lexically: `t("…")`/`$t("…")`, `<glossa-text\|rich\|plural\|select key\|message>`, `<GlossaText id>`, `<T id>`, typed accessors; Vue and Astro files are their own component, Astro pages carry their route. Only literal keys count. Reports keys missing from the catalog and catalog messages nothing uses; `--strict` exits 1 on unknown keys. `--upload` sends the document to the project's context builds as an `extract` build (what `context push` does). The document's application is `--application`, `GLOSSA_APPLICATION` or `extract.application`; its commit and branch are `--commit`/`--branch`, `GLOSSA_COMMIT`/`GLOSSA_BRANCH`, GitHub Actions (a pull request's head, not its merge commit) or GitLab CI, else git. |
 | `context push <file>` | Uploads a `glossa.usages/v1` document — `@glossa/unplugin`'s `.glossa/usages.json`, or a saved `extract --json` — to the project's context builds (`POST …/context-builds`, RFC 0004 §2). `--source plugin\|extract\|runtime\|capture` names the collector; by default `extract` when the document's tool is `glossa`, else `plugin`. Prints the build and how many usages name keys the catalog doesn't know; the same document again is "Already uploaded" (the server answers with the first build). Whether a build is of the default branch is the project's `default_branch` setting, not the uploader's say. A document the server refuses (`invalid_usages`, `too_many_usages`, `unknown_application`, `invalid_source`, `payload_too_large`) exits 2. |
-| `capture` | Screenshots the pages of the capture plan (`capture:` in glossa.yaml) in headless Chrome, with `scout`, at every viewport and locale, and records where each message renders (RFC 0004 §3.1–§3.2): one `glossa.captures/v1` document (schema: `runtimes/testdata/schemas/captures.v1.schema.json`) with a full-page PNG per (route, viewport, locale), in a fixed order (route, URL, locale, the plan's viewport order). Before the page's scripts run it injects `@glossa/capture`'s agent, which hooks every `@glossa/runtime` on the page; after load (and the route's playbook) it waits until the DOM is quiet. It refuses a page whose runtime reports a `production` manifest (`production_page`), has no active release (`environment_unknown`), has no runtime (`no_runtime`) or doesn't render the requested locale (`locale_mismatch`), and blacks out `data-glossa-redact` elements before the screenshot (their regions are `visible: false`). Without `--upload` the manifest (`captures.json`) and the images (`<sha256>.png`) go to `capture.output` or `--out`; with `--upload` they're posted to the Captures API. The coverage report lists the messages with a current usage of the application (the branch's view) but no visible region; it reads the Context API, so `--no-coverage` is needed offline. Application, commit and branch are found like `extract`'s (`capture.application` first). A page that fails to load, a refusal, or no Chrome (`no_browser`) exits 2. |
+| `capture` | Screenshots the pages of the capture plan (`capture:` in glossa.yaml) in headless Chrome, with `scout`, at every viewport and locale, and records where each message renders (RFC 0004 §3.1–§3.2): one `glossa.captures/v1` document (schema: `runtimes/testdata/schemas/captures.v1.schema.json`) with a full-page PNG per (route, viewport, locale), in a fixed order (route, URL, locale, the plan's viewport order). Before the page's scripts run it injects `@glossa/capture`'s agent, which hooks every `@glossa/runtime` on the page; after load (and the route's playbook) it waits until the DOM is quiet. It refuses a page whose runtime reports a `production` manifest (`production_page`), has no active release (`environment_unknown`), has no runtime (`no_runtime`) or doesn't render the requested locale (`locale_mismatch`), and blacks out `data-glossa-redact` elements before the screenshot (their regions are `visible: false`). Without `--upload` the manifest (`captures.json`) and the images (`<sha256>.png`) go to `capture.output` or `--out`; with `--upload` they're posted to the Captures API. The coverage report lists the messages with a current usage of the application (the branch's view) but no visible region; it reads the Context API, so `--no-coverage` is needed offline. Application, commit and branch are found like `extract`'s (`capture.application` first). `--cdp` (or `GLOSSA_CAPTURE_CDP`) attaches to a browser you started yourself instead of launching one — see "Attaching to a browser" below. A page that fails to load, a refusal, no Chrome (`no_browser`) or an endpoint it won't attach to (`invalid_cdp_endpoint`, `cdp_unreachable`) exits 2. |
 | `generate` | Typed accessors from the catalog's argument metadata. `--check` writes nothing and exits 1 when the files are stale; `--from-server` uses the server's messages. |
 | `check` | Structural QA: invalid messages, translation/source compatibility (`messageformat.CheckCompat`), missing and outdated translations. `--offline` checks local catalogs. `--require-complete=de,en\|none`, `--fail-on=error\|warning`. |
 | `status` | Coverage per locale: translated, approved, needs review, draft, outdated, missing. One request: the server's `translation-stats`. `--offline` counts the local catalogs. |
@@ -558,6 +558,37 @@ Terminology check failed: 1 error, 0 warnings.
   (`--syntax`). A key names that message's pending suggestion (with
   `--locale` when it has several).
 
+## Attaching to a browser
+
+`glossa capture` starts headless Chrome itself. Where it can't — a CI
+sandbox whose kernel denies Chrome's own sandbox, a container or a
+remote browser — start the browser yourself and point capture at its
+DevTools endpoint:
+
+```bash
+google-chrome --headless=new --no-sandbox --disable-dev-shm-usage \
+  --remote-debugging-port=9222 --user-data-dir="$(mktemp -d)" about:blank &
+
+glossa capture --cdp http://127.0.0.1:9222     # or: export GLOSSA_CAPTURE_CDP=…
+```
+
+The endpoint is `ws://…`/`wss://…` (a browser WebSocket, as
+`/json/version` reports it) or `http://…`/`https://…`, which capture
+asks for that WebSocket. It keeps the endpoint's own host and port and
+takes only the path, so a browser behind a tunnel or a published
+container port works.
+
+**The host must be a loopback address** (`127.0.0.1`, `::1`,
+`localhost`). A DevTools endpoint is full control of that browser — its
+pages, their cookies and every address it can reach — and this value
+arrives from a flag or a CI variable, so capture refuses anything else
+(`invalid_cdp_endpoint`) before it connects. `--cdp-allow-remote` (or
+`GLOSSA_CAPTURE_CDP_ALLOW_REMOTE=1`) lifts that for a browser on another
+host; then the endpoint is yours to trust.
+
+Attached, capture owns only the tabs it opens: each is closed after its
+capture, and the browser keeps running afterwards.
+
 ## Known limits
 
 - `check`, `diff`, `pull`, `push --translations` and `import` read
@@ -586,7 +617,11 @@ Terminology check failed: 1 error, 0 warnings.
   server validates the rest by the schema.
 - `capture` needs Chrome or Chromium on the machine (scout looks for
   `google-chrome`, `chromium` and the usual app paths; GitHub's Ubuntu
-  runners have it). It lays pages out with overlay scrollbars, so an
+  runners have it), or a browser to attach to with `--cdp`. scout's
+  launcher passes a fixed flag list, so a sandbox that needs
+  `--no-sandbox` or `--disable-dev-shm-usage` is the attach path's job
+  (platform/README.md, "scout follow-ups"). It lays pages out with
+  overlay scrollbars, so an
   image is as wide as its viewport; a page taller than 16 384 device
   pixels or 40 megapixels is cut there (`truncated`), and its regions
   below the cut are `visible: false`. A PNG over 10 MB fails the capture.

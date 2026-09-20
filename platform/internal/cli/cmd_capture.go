@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
@@ -18,7 +19,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 )
 
-const captureUsage = `capture [--upload] [--out DIR] [--base-url URL] [--no-coverage] [--application SLUG] [--commit SHA] [--branch NAME]
+const captureUsage = `capture [--upload] [--out DIR] [--base-url URL] [--no-coverage] [--application SLUG] [--commit SHA] [--branch NAME] [--cdp URL]
 
 Screenshots the pages of the capture plan (glossa.yaml capture:) in headless Chrome at
 each viewport and locale, with the regions where messages render (RFC 0004 §3.2).
@@ -26,7 +27,8 @@ Run it against a preview with fixture data: a page whose runtime reports a produ
 manifest is refused, and data-glossa-redact elements are blacked out. Without --upload,
 the glossa.captures/v1 manifest and its PNGs go to capture.output (.glossa/captures).
 The coverage report lists messages with a current usage but no visible region; it reads
-the Context API (--no-coverage skips it).`
+the Context API (--no-coverage skips it). --cdp attaches to a browser you started
+yourself instead of launching one; its host must be loopback unless --cdp-allow-remote.`
 
 // runCapture takes the captures; tests replace it to run without Chrome.
 var runCapture = capture.Run
@@ -36,6 +38,8 @@ type captureFlags struct {
 	out, baseURL                string
 	application, commit, branch string
 	timeout                     time.Duration
+	cdp                         string
+	cdpAllowRemote              bool
 }
 
 // captureJSON is `glossa capture --json`.
@@ -94,6 +98,8 @@ func runCaptureCmd(ctx context.Context, inv *invocation, args []string) error {
 	fs.StringVar(&f.commit, "commit", "", "the commit the app is built from (default: CI, else git HEAD)")
 	fs.StringVar(&f.branch, "branch", "", "the branch the app is built from (default: CI, else git)")
 	fs.DurationVar(&f.timeout, "timeout", capture.DefaultTimeout, "the longest a page may take to load, settle or replay")
+	fs.StringVar(&f.cdp, "cdp", "", "attach to a browser you started yourself at this DevTools endpoint (ws:// or http://) instead of starting Chrome (default: GLOSSA_CAPTURE_CDP)")
+	fs.BoolVar(&f.cdpAllowRemote, "cdp-allow-remote", false, "let --cdp name a host that isn't loopback (default: GLOSSA_CAPTURE_CDP_ALLOW_REMOTE)")
 	pos, err := inv.parse(fs, args)
 	if err != nil {
 		return err
@@ -127,7 +133,13 @@ func runCaptureCmd(ctx context.Context, inv *invocation, args []string) error {
 		}
 	}
 	out := &captureJSON{Schema: "glossa.cli.capture/v1", Application: header.Application, Commit: header.Commit, Branch: header.Branch}
-	if out.shots, err = runCapture(ctx, plan, capture.Options{Timeout: f.timeout, Progress: inv.captureProgress(len(plan.Jobs))}); err != nil {
+	opts := capture.Options{
+		Timeout:        f.timeout,
+		Progress:       inv.captureProgress(len(plan.Jobs)),
+		CDP:            firstOf(f.cdp, inv.env.getenv("GLOSSA_CAPTURE_CDP")),
+		AllowRemoteCDP: f.cdpAllowRemote || envTrue(inv.env.getenv("GLOSSA_CAPTURE_CDP_ALLOW_REMOTE")),
+	}
+	if out.shots, err = runCapture(ctx, plan, opts); err != nil {
 		return captureError(err)
 	}
 	if err := out.assemble(header); err != nil {
@@ -313,6 +325,15 @@ func planError(cfg *config.Config, err error) error {
 		Fix: "fix capture: in glossa.yaml (see `glossa capture --help`)"}
 }
 
+// envTrue reads a boolean environment variable.
+func envTrue(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
 // refusalFixes say what to do about each refusal.
 var refusalFixes = map[string]string{
 	"production_page":     "point capture.base_url (or --base-url) at a preview deployment with fixture data",
@@ -321,19 +342,29 @@ var refusalFixes = map[string]string{
 	"locale_mismatch":     "check capture.locale: the page must pick the locale from the query parameter, cookie or URL the plan sets",
 }
 
+// cdpFixes say what to do about a --cdp endpoint.
+var cdpFixes = map[string]string{
+	"invalid_cdp_endpoint": "pass a DevTools endpoint on loopback (ws://127.0.0.1:9222/devtools/browser/… or http://127.0.0.1:9222), or --cdp-allow-remote for a browser on another host",
+	"cdp_unreachable":      "start the browser with --remote-debugging-port and check the endpoint (--cdp or GLOSSA_CAPTURE_CDP)",
+}
+
 func captureError(err error) error {
 	var r *capture.Refusal
 	var pe *capture.PageError
 	var be *capture.BrowserError
+	var ce *capture.CDPError
 	switch {
 	case errors.As(err, &r):
 		return &Error{Exit: ExitUsage, Code: r.Code, What: "refused to capture the page", Where: r.URL, Why: r.Reason, Fix: refusalFixes[r.Code], Err: err}
 	case errors.As(err, &pe):
 		return &Error{Exit: ExitUsage, Code: "page_failed", What: "can't " + pe.Step, Where: pe.URL, Why: pe.Err.Error(),
 			Fix: "check that the app runs at capture.base_url and the route's url and playbook are right", Err: err}
+	case errors.As(err, &ce):
+		return &Error{Exit: ExitUsage, Code: ce.Code, What: "can't attach to the browser", Where: ce.Endpoint, Why: ce.Reason,
+			Fix: cdpFixes[ce.Code], Err: err}
 	case errors.As(err, &be):
 		return &Error{Exit: ExitUsage, Code: "no_browser", What: "can't start Chrome", Why: be.Err.Error(),
-			Fix: "install Google Chrome or Chromium (google-chrome or chromium on PATH)", Err: err}
+			Fix: "install Google Chrome or Chromium (google-chrome or chromium on PATH), or attach to one with --cdp", Err: err}
 	}
 	return err
 }

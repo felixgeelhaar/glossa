@@ -286,6 +286,9 @@ func TestCaptureRefusals(t *testing.T) {
 		{"production", capturePlan, nil, &capture.Refusal{URL: "http://localhost:4173/", Code: "production_page", Reason: "production"}, ExitUsage, "production_page"},
 		{"page", capturePlan, nil, &capture.PageError{URL: "http://localhost:4173/", Step: "load the page", Err: os.ErrDeadlineExceeded}, ExitUsage, "page_failed"},
 		{"no chrome", capturePlan, nil, &capture.BrowserError{Err: os.ErrNotExist}, ExitUsage, "no_browser"},
+		{"no browser there", capturePlan, nil,
+			&capture.CDPError{Endpoint: "ws://127.0.0.1:9222/devtools/browser/8f3c", Code: "cdp_unreachable", Reason: "connection refused"},
+			ExitUsage, "cdp_unreachable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			w := withCapturePlan(newWorkspace(t).withProject(srv, map[string]string{"en": sourceEN}), tc.plan)
@@ -303,5 +306,64 @@ func TestCaptureRefusals(t *testing.T) {
 	}
 	if len(srv.ctx.captures) != 0 {
 		t.Errorf("uploads = %d", len(srv.ctx.captures))
+	}
+}
+
+// --cdp and GLOSSA_CAPTURE_CDP say which browser to attach to; the flag
+// wins. --cdp-allow-remote (GLOSSA_CAPTURE_CDP_ALLOW_REMOTE) is what it
+// takes to name a host that isn't loopback.
+func TestCaptureAttachesToABrowser(t *testing.T) {
+	srv := captureServer(t)
+	for _, tc := range []struct {
+		name        string
+		args        []string
+		env         map[string]string
+		endpoint    string
+		allowRemote bool
+	}{
+		{name: "the flag", args: []string{"--cdp", "ws://127.0.0.1:9222/devtools/browser/8f3c"},
+			endpoint: "ws://127.0.0.1:9222/devtools/browser/8f3c"},
+		{name: "the environment", env: map[string]string{"GLOSSA_CAPTURE_CDP": "http://127.0.0.1:9333"},
+			endpoint: "http://127.0.0.1:9333"},
+		{name: "the flag wins", args: []string{"--cdp", "http://127.0.0.1:1"},
+			env: map[string]string{"GLOSSA_CAPTURE_CDP": "http://127.0.0.1:2"}, endpoint: "http://127.0.0.1:1"},
+		{name: "a remote browser, by flag", args: []string{"--cdp", "http://chrome.example:9222", "--cdp-allow-remote"},
+			endpoint: "http://chrome.example:9222", allowRemote: true},
+		{name: "a remote browser, by environment", args: []string{"--cdp", "http://chrome.example:9222"},
+			env:      map[string]string{"GLOSSA_CAPTURE_CDP_ALLOW_REMOTE": "true"},
+			endpoint: "http://chrome.example:9222", allowRemote: true},
+		{name: "none", endpoint: ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := withCapturePlan(newWorkspace(t).withProject(srv, map[string]string{"en": sourceEN}), capturePlan)
+			for k, v := range tc.env {
+				w.env[k] = v
+			}
+			var plan *capture.Plan
+			var got capture.Options
+			fakeRun(t, &plan, nil)
+			inner := runCapture
+			runCapture = func(ctx context.Context, p *capture.Plan, o capture.Options) ([]capture.Shot, error) {
+				got = o
+				return inner(ctx, p, o)
+			}
+			args := append([]string{"capture", "--no-coverage", "--commit", testCommit, "--branch", "main"}, tc.args...)
+			w.run(args...).want(t, ExitOK)
+			if got.CDP != tc.endpoint || got.AllowRemoteCDP != tc.allowRemote {
+				t.Errorf("options = %q, remote %v; want %q, %v", got.CDP, got.AllowRemoteCDP, tc.endpoint, tc.allowRemote)
+			}
+		})
+	}
+}
+
+// A --cdp endpoint that isn't loopback is refused before any browser is
+// started or any request is made to it.
+func TestCaptureRefusesARemoteCDPEndpoint(t *testing.T) {
+	srv := captureServer(t)
+	w := withCapturePlan(newWorkspace(t).withProject(srv, map[string]string{"en": sourceEN}), capturePlan)
+	var e errorDoc
+	w.json(&e, "capture", "--no-coverage", "--commit", testCommit, "--branch", "main", "--cdp", "http://chrome.example:9222").want(t, ExitUsage)
+	if e.Error.Code != "invalid_cdp_endpoint" || !strings.Contains(e.Error.Why, "loopback") || e.Error.Fix == "" {
+		t.Fatalf("error = %+v", e.Error)
 	}
 }

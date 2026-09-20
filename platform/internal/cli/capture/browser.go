@@ -46,6 +46,12 @@ type Options struct {
 	Timeout time.Duration
 	// Progress, when set, is called before each job.
 	Progress func(i int, j Job)
+	// CDP, when set, is the DevTools endpoint (ws://, wss://, http:// or
+	// https://) of a browser someone else started: Glossa attaches to it
+	// instead of launching Chrome, and leaves it running.
+	CDP string
+	// AllowRemoteCDP lets CDP name a host that isn't loopback.
+	AllowRemoteCDP bool
 }
 
 // Shot is one capture and its PNG.
@@ -83,16 +89,35 @@ func (e *BrowserError) Unwrap() error { return e.Err }
 
 // Run takes every capture of p in headless Chrome, in the plan's order.
 // It stops at the first page it can't or won't capture.
+//
+// With o.CDP it attaches to a browser the caller started instead of
+// launching one (a CI sandbox where Chrome's own sandbox can't run, or a
+// remote or containerised Chrome). Then it owns only the pages it opens:
+// each is closed after its capture, and the browser is left running.
 func Run(ctx context.Context, p *Plan, o Options) ([]Shot, error) {
 	if o.Timeout <= 0 {
 		o.Timeout = DefaultTimeout
 	}
 	// Capture runs against previews on localhost and private networks, in
 	// CI: the addresses scout blocks by default are what it's for.
-	engine := browse.New(browse.WithHeadless(true), browse.WithTimeout(o.Timeout), browse.WithAllowPrivateIPs(true))
+	opts := []browse.Option{browse.WithHeadless(true), browse.WithTimeout(o.Timeout), browse.WithAllowPrivateIPs(true)}
+	attached := strings.TrimSpace(o.CDP) != ""
+	if attached {
+		ws, err := resolveCDP(o.CDP, o.AllowRemoteCDP)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, browse.WithRemoteCDP(ws))
+	}
+	engine := browse.New(opts...)
 	if err := engine.Launch(); err != nil {
+		if attached {
+			return nil, &CDPError{Endpoint: o.CDP, Code: "cdp_unreachable", Reason: err.Error()}
+		}
 		return nil, &BrowserError{Err: err}
 	}
+	// Close drops the CDP connection and kills only a browser scout
+	// started itself, so an attached one outlives the run.
 	defer func() { _ = engine.Close() }()
 	shots := make([]Shot, 0, len(p.Jobs))
 	for i, j := range p.Jobs {
