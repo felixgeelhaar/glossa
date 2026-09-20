@@ -1342,6 +1342,26 @@ metadata, dedupe of the same pixels, refusals, nothing left on disk);
 the CLI's real-server loop uploads captures with
 `remote.UploadCaptures` against MinIO.
 
+### scout follow-ups
+
+Gaps found while taking captures with scout (`go.klarlabs.de/scout`).
+Glossa doesn't work around them beyond what scout's own API offers; each
+belongs in scout (RFC 0002 §2.3):
+
+1. **No extra Chrome flags.** `internal/launcher.Launch` passes a fixed
+   flag list, and `scout.Options` exposes only headless, proxy and
+   viewport, so nothing can add `--no-sandbox` or
+   `--disable-dev-shm-usage`. A CI runner whose kernel denies the user
+   namespaces Chrome's sandbox wants then starts a Chrome that never
+   opens a DevTools port, and `Launch` fails with "timeout waiting for
+   devtools". Glossa's fix is the attach path: `glossa capture --cdp`
+   (`GLOSSA_CAPTURE_CDP`) connects to a browser the caller started, over
+   `browse.WithRemoteCDP`, and the capture integration tests
+   (`internal/cli/capture/capturetest`) start that browser themselves.
+   What scout wants is `scout.WithExtraArgs(args ...string)` — or a
+   narrower `Options.Sandbox bool` — reaching `launcher.Options`, so a
+   caller in a sandbox can launch rather than attach.
+
 ## Message preview
 
 `POST /v1/message-previews` runs the MessageFormat kernel — the one MF1
