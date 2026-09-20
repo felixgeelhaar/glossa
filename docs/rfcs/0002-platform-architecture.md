@@ -76,19 +76,21 @@ Each context is a Go package tree `internal/<context>/{domain,app,adapters}` wit
 
 | Where | Engine | Why |
 |---|---|---|
-| Tooling in TS (Studio preview, bundler plugin, import/export) | [`messageformat`](https://github.com/messageformat/messageformat) v4 + `@messageformat/icu-messageformat-1` + `@messageformat/xliff` | The MF2 spec editor's implementation, current to LDML 48. The MF1 → MF2 conversion and the XLIFF 2 mapping come with it. |
+| Tooling in TS (Studio preview, bundler plugin, import/export) | [`messageformat`](https://github.com/messageformat/messageformat) v4 (+ `@messageformat/icu-messageformat-1` only to *format* `mf1:` fallback functions in previews) | The MF2 spec editor's implementation, current to LDML 48. |
 | Server and Go runtime | [`kaptinlin/messageformat-go`](https://github.com/kaptinlin/messageformat-go) (MF2 data model, parse, validate, format) | A port of the TS library that runs the official conformance suite. Its `mf1` package parses ICU MF1. |
-| MF1 → MF2 on the server | Glossa's Go port of `mf1ToMessageData`, on top of `messageformat-go/mf1` | The one piece with no Go equivalent. It's small (about 400 lines in JS) and pinned to the JS output by shared fixtures. |
+| MF1 → MF2, **everywhere** | Glossa's Go converter (`messageformat.ParseMF1`), on top of `messageformat-go/mf1` | There is exactly **one** MF1 converter. The server, the CLI and the importer are Go; Studio sends MF1 source to the server. Two converters were built in M0 and disagreed on 28 of 63 fixture cases (variable naming, variant expansion, attributes). That's a permanent sync tax for no benefit, so the TS one was removed. Every conversion is verified against the MF1 reference output (`testdata/glossa/gen`). |
 | JS runtime | Glossa's own interpreter over the precompiled data model (`Intl.*` only) | The runtime needs no parser, and the reference formatter's size doesn't fit the budget. The official suite keeps the interpreter honest. |
 
 The third-party engines sit behind Glossa ports (`messageformat.Parser`, `messageformat.Formatter`). If one stalls or diverges, it's replaced behind the port, and the conformance suite proves the replacement.
+
+**Cross-implementation proof.** The JS runtime renders every Go-converted model in `mf1-to-mf2.json` and must reproduce the MF1 reference output for each sample. A message authored in MF1, stored by the server and shipped in a release therefore reads exactly as its author meant.
 
 ## 6. Data and tenancy
 
 - Postgres 16, shared schema, **`FORCE ROW LEVEL SECURITY`**. The app connects as a non-superuser, and an RLS isolation suite runs on every PR (standard §2).
 - Tenants: `individual` (created at registration) and `organization`. The hierarchy is Tenant → Project → Application, where an application is a runtime surface (web, api, ios…). Knowledge is tenant-scoped with optional project scope (intent §19).
 - **sqlc + golang-migrate. One migration stream, but each migration touches only its own context's tables.**
-- **Object storage** (S3-compatible: MinIO in dev and on k3s, Hetzner Object Storage in production) holds release artifacts, screenshots and import/export files.
+- **Object storage** (S3-compatible: MinIO in the product's own namespace on Longhorn volumes, the Klarlabs pattern (owner decision, 2026-09-19); any S3 API works through the adapter) holds release artifacts, screenshots and import/export files.
 - Secrets (AI provider keys, git tokens) are AES-GCM sealed with a per-tenant data key under a master key. A KMS or customer-managed key is a later adapter (intent §49).
 
 ## 7. Releases and delivery
@@ -115,7 +117,7 @@ resolve locale (RFC 4647 lookup over a pluggable resolver chain)
 
 | Runtime | Package | Shape |
 |---|---|---|
-| **JS core** | `@glossa/runtime` | Framework-agnostic. Formatter, loader, cache, resolver, `explain`. Size budget: 4 kB brotli. |
+| **JS core** | `@glossa/runtime` | Framework-agnostic. Formatter, loader, cache, resolver, `explain`. Budgets (brotli): interpreter only 4 kB (3.1 kB measured), full runtime 6.5 kB (5.99 kB measured), IndexedDB storage 0.5 kB. For comparison, intl-messageformat alone is about 8 kB. |
 | **Vue** | `@glossa/vue` | Plugin + `useMessages()` + typed accessors. SSR-safe. |
 | **Astro** | `@glossa/astro` | Integration: build-time catalogs for static pages, runtime for islands. |
 | **Web components** | `@glossa/elements` | `<glossa-text>` and friends on top of the core. Continues v0.3 elements. |
@@ -225,6 +227,7 @@ The rewrite lives in the same repository. The v0.3 code stays where it is until 
 ```text
 glossa/
 ├── platform/                 # Go module: glossa-server, glossa-edge, CLI
+│   ├── api/openapi.yaml      # /v1 contract (api/openapi.yaml at the root is v0.3)
 │   ├── cmd/{glossa-server,glossa-edge,glossa}/
 │   ├── internal/<context>/{domain,app,adapters}/
 │   ├── internal/kernel/      # tenancy, outbox, observability, config, http
@@ -237,7 +240,6 @@ glossa/
 │   └── dart/
 ├── studio/                   # Vue 3 SPA
 ├── site/                     # Astro marketing site
-├── api/openapi.yaml          # v1 contract of the new platform
 ├── deploy/                   # Helm chart + RollOps
 ├── docs/
 └── apps/, packages/          # v0.3, retired at M5

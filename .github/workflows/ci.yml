@@ -51,6 +51,137 @@ jobs:
         # testcontainers needs Docker, which the GitHub runner has.
         run: go test -tags=integration -timeout=300s ./internal/infra/sqlcadapter/...
 
+  platform:
+    name: Platform (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Go modules of the rewrite (RFC 0002). Keep in sync with
+        # PLATFORM_MODULES in the Makefile.
+        module: [messageformat, platform, runtimes/go, runtimes/go/examples/pdf]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      - name: gofmt
+        run: |
+          diff=$(gofmt -l .)
+          if [ -n "$diff" ]; then
+            echo "::error::gofmt: files need formatting"
+            echo "$diff"
+            exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - name: go test (unit)
+        run: go test -race ./...
+      # `glossa capture`'s browser tests start Chrome themselves and
+      # attach to it (platform/README.md, "scout follow-ups"): this
+      # runner's kernel denies the sandbox Chrome wants, so they pass
+      # --no-sandbox, which scout's launcher can't. CI=true makes a
+      # missing Chrome fail the job instead of skipping the tests.
+      - name: Chrome for the capture tests
+        if: matrix.module == 'platform'
+        run: |
+          chrome=$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)
+          "$chrome" --version
+          echo "GLOSSA_TEST_CHROME=$chrome" >> "$GITHUB_ENV"
+      - name: go test (integration)
+        # Postgres and object storage via testcontainers; the runner has Docker.
+        run: go test -tags=integration -timeout=300s ./...
+
+  platform-system:
+    name: Platform M2 exit test
+    # The whole-platform scenario (RFC 0003 §1): runs once the platform
+    # module's unit and integration tests are green, so a broken build
+    # fails fast and cheaply first.
+    needs: platform
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: platform
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: platform/go.mod
+          cache-dependency-path: platform/go.sum
+      - name: go vet (system)
+        run: go vet -tags=system ./internal/systemtest/...
+      - name: go test (system)
+        # Postgres and MinIO via testcontainers, glossa-server built from
+        # this module, a fake provider on loopback; writes REPORT.md.
+        run: go test -tags=system -timeout=600s -count=1 -v ./internal/systemtest/m2/...
+      - name: keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: m2-report
+          path: platform/internal/systemtest/m2/REPORT.md
+          if-no-files-found: ignore
+          retention-days: 14
+
+  platform-system-m3:
+    name: Platform M3 exit test
+    # Context, the pull-request flow, the overlay guards and the
+    # documents (RFC 0004 §12). Runs after the M2 scenario, so the two
+    # Docker-heavy jobs don't compete for one runner's resources.
+    needs: platform-system
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: platform/go.mod
+          cache-dependency-path: platform/go.sum
+      - name: find Chrome
+        # `glossa capture` attaches to a browser the test starts, the way
+        # the capture integration tests do (platform/README.md).
+        run: |
+          chrome=$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)
+          "$chrome" --version
+          echo "GLOSSA_TEST_CHROME=$chrome" >> "$GITHUB_ENV"
+      - name: go vet (system)
+        run: go vet -tags=system ./internal/systemtest/...
+      - name: go test (system)
+        # Postgres and MinIO via testcontainers, glossa-server and the
+        # glossa CLI built from this module, a fake GitHub on loopback,
+        # headless Chrome for the captures; writes REPORT.md.
+        run: go test -tags=system -timeout=900s -count=1 -v ./internal/systemtest/m3/...
+      - name: keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: m3-report
+          path: platform/internal/systemtest/m3/REPORT.md
+          if-no-files-found: ignore
+          retention-days: 14
+
+  contracts:
+    name: Runtime contract fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+      - run: pip install jsonschema==4.26.0 cryptography==46.0.3
+      - name: fixtures match their generator (runtimes/SPEC.md §7)
+        run: python3 runtimes/testdata/gen/generate.py --check
+      - name: usage fixtures and context schemas agree (RFC 0004 §2.1)
+        run: python3 runtimes/testdata/gen/check_usages.py
+
   packages:
     name: JS workspaces
     runs-on: ubuntu-latest
@@ -72,9 +203,63 @@ jobs:
           pnpm --filter @felixgeelhaar/glossa-ui build
           pnpm --filter @felixgeelhaar/glossa-elements build
           pnpm --filter @felixgeelhaar/glossa-cli build
+      - name: build rewrite packages (topological)
+        run: pnpm -r --filter "./messageformat/js" --filter "./runtimes/js/*" build
       - name: lint (tsc --noEmit)
         run: pnpm -r lint
       - name: test
         run: pnpm -r test
+      # Capture-mode geometry needs a real layout engine (RFC 0004 §3.1).
+      - name: install Chromium
+        run: pnpm --filter @glossa/capture exec playwright install --with-deps chromium
+      - name: capture mode in Chromium (Playwright)
+        run: pnpm --filter @glossa/capture test:browser
+      # Alt+click targeting, live override, axe, the preview CSP, and the
+      # loader's guards against production releases (RFC 0004 §5).
+      - name: in-product editor in Chromium (Playwright)
+        run: pnpm --filter @glossa/overlay test:browser
       - name: admin build (vite)
         run: pnpm --filter @felixgeelhaar/glossa-admin build
+
+  studio-e2e:
+    name: Studio e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: platform/go.mod
+          cache-dependency-path: platform/go.sum
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile=false
+      - name: build @glossa/messageformat
+        run: pnpm --filter @glossa/messageformat build
+      # Studio's build publishes this bundle at /overlay/v1/overlay.js.
+      - name: build @glossa/overlay
+        run: pnpm --filter @glossa/overlay... build
+      # Also clones and builds @klarlabs-studio/ui at the commit pinned in
+      # studio/package.json (see studio/README.md, "Design system").
+      - name: build Studio
+        run: pnpm --filter @glossa/studio build
+      - name: initial bundle size (budget 250 kB gzip)
+        run: pnpm --filter @glossa/studio size
+      - name: install Chromium
+        run: pnpm --filter @glossa/studio exec playwright install --with-deps chromium
+      # Postgres via testcontainers and glossa-server built from platform/;
+      # the runner has Docker.
+      - name: Playwright against glossa-server
+        run: pnpm --filter @glossa/studio test:e2e
+      - name: keep the report and server log
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: studio-e2e
+          path: |
+            studio/playwright-report
+            studio/test-results
+            studio/e2e/.state/server.log
+          retention-days: 7

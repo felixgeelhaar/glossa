@@ -1,0 +1,23 @@
+apiVersion: v2
+name: glossa-platform
+description: Glossa's platform (RFC 0002) — glossa-server (control plane and /v1 API), glossa-edge (stateless delivery) and Studio — against Postgres and S3-compatible object storage, each external or in the release's namespace (a Postgres StatefulSet, MinIO), with nightly backups and a weekly restore drill.
+type: application
+version: 0.1.0
+# The release the images are tagged with (release.yml pushes :<semver>
+# without the leading v). Override per component with <component>.image.tag.
+appVersion: "0.4.0"
+kubeVersion: ">=1.27.0-0"
+home: https://github.com/felixgeelhaar/glossa
+sources:
+  - https://github.com/felixgeelhaar/glossa
+keywords:
+  - localization
+  - i18n
+  - translation-management
+  - messageformat
+maintainers:
+  - name: Felix Geelhaar
+    url: https://github.com/felixgeelhaar
+annotations:
+  artifacthub.io/license: MIT
+  artifacthub.io/category: integration-delivery

@@ -1,0 +1,81 @@
+{
+  "name": "@glossa/elements",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Glossa's web components on @glossa/runtime: <glossa-provider>, <glossa-text|rich|plural|select> and <glossa-selector>, compatible with the v0.3 element API.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": [
+    "./dist/index.js",
+    "./dist/glossa-*.js"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./ssr": {
+      "types": "./dist/ssr.d.ts",
+      "import": "./dist/ssr.js"
+    },
+    "./parts": {
+      "types": "./dist/parts.d.ts",
+      "import": "./dist/parts.js"
+    }
+  },
+  "files": [
+    "dist",
+    "MIGRATION.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit -p tsconfig.test.json",
+    "size": "size-limit"
+  },
+  "size-limit": [
+    {
+      "name": "@glossa/elements, everything included (lit, @lit/context, @glossa/runtime)",
+      "path": "dist/index.js",
+      "limit": "15 KB"
+    },
+    {
+      "name": "@glossa/elements, own code (lit, @lit/context and @glossa/runtime excluded)",
+      "path": "dist/index.js",
+      "ignore": ["lit", "@lit/context", "@glossa/runtime"],
+      "limit": "3.5 KB"
+    },
+    {
+      "name": "@glossa/elements/ssr (@glossa/runtime excluded)",
+      "path": "dist/ssr.js",
+      "ignore": ["@glossa/runtime"],
+      "limit": "1.75 KB"
+    }
+  ],
+  "dependencies": {
+    "@glossa/runtime": "workspace:*",
+    "@lit/context": "1.1.6",
+    "lit": "3.3.3"
+  },
+  "devDependencies": {
+    "@size-limit/preset-small-lib": "11.2.0",
+    "@types/node": "22.19.19",
+    "jsdom": "25.0.1",
+    "size-limit": "11.2.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "author": "Felix Geelhaar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "directory": "runtimes/js/elements"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

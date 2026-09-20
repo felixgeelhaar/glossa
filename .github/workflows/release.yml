@@ -7,6 +7,11 @@ name: Release
 #   workflow_dispatch. Tag pushes also produce :latest + :<semver>
 #   tags so downstream operators can pin.
 #
+#   The RFC 0002 platform images (glossa-server, glossa-edge,
+#   glossa-studio) are published by release-platform.yml instead: they
+#   are deployed pinned by digest, so they are built from tags only,
+#   never from a branch push.
+#
 # Glossa is self-hosted — deployment is the operator's
 # responsibility. See deploy/k3s/ for reference manifests.
 #
