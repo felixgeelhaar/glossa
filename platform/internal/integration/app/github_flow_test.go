@@ -76,15 +76,27 @@ func newMemStore() *memStore {
 	}
 }
 
-// InGitHub implements app.GitHubTransactor; the tenant comes from ctx,
-// as row-level security would take it.
+// inTxKey marks a context already inside a unit of work.
+type inTxKey struct{}
+
+// InGitHub implements app.GitHubTransactor. The tenant comes from ctx,
+// as row-level security would take it, and a nested unit of work is
+// refused exactly as db.UnitOfWork refuses one — so a service method
+// that calls GitHub or another context from inside a transaction fails
+// here rather than in production.
 func (m *memStore) InGitHub(ctx context.Context, fn func(context.Context, app.GitHubStore) error) error {
 	t, ok := tenancy.FromContext(ctx)
 	if !ok {
 		return errors.New("no tenant on the context")
 	}
-	return fn(ctx, &memScope{m: m, tenant: t.UUID()})
+	if ctx.Value(inTxKey{}) != nil {
+		return errNestedTx
+	}
+	return fn(context.WithValue(ctx, inTxKey{}, true), &memScope{m: m, tenant: t.UUID()})
 }
+
+// errNestedTx mirrors db.ErrNestedTx.
+var errNestedTx = errors.New("db: nested unit of work")
 
 type memScope struct {
 	m      *memStore
@@ -401,7 +413,10 @@ func (b *memBranches) seen() []string {
 	return slices.Clone(b.calls)
 }
 
-func (b *memBranches) UpsertBranch(_ context.Context, project uuid.UUID, branch, head string, pr *int) error {
+func (b *memBranches) UpsertBranch(ctx context.Context, project uuid.UUID, branch, head string, pr *int) error {
+	if ctx.Value(inTxKey{}) != nil {
+		return errNestedTx
+	}
 	n := 0
 	if pr != nil {
 		n = *pr
@@ -410,17 +425,28 @@ func (b *memBranches) UpsertBranch(_ context.Context, project uuid.UUID, branch,
 	return b.fail
 }
 
-func (b *memBranches) CloseBranch(_ context.Context, project uuid.UUID, branch string) error {
+func (b *memBranches) CloseBranch(ctx context.Context, project uuid.UUID, branch string) error {
+	if ctx.Value(inTxKey{}) != nil {
+		return errNestedTx
+	}
 	b.record("close " + project.String() + " " + branch)
 	return b.fail
 }
 
-func (b *memBranches) MergeBranch(_ context.Context, project uuid.UUID, branch string) error {
+func (b *memBranches) MergeBranch(ctx context.Context, project uuid.UUID, branch string) error {
+	if ctx.Value(inTxKey{}) != nil {
+		return errNestedTx
+	}
 	b.record("merge " + project.String() + " " + branch)
 	return b.fail
 }
 
-func (b *memBranches) ApplicationExists(_ context.Context, _, application uuid.UUID) (bool, error) {
+// ApplicationExists refuses a call from inside a unit of work: Catalog
+// opens its own, and nesting one is what db.UnitOfWork forbids.
+func (b *memBranches) ApplicationExists(ctx context.Context, _, application uuid.UUID) (bool, error) {
+	if ctx.Value(inTxKey{}) != nil {
+		return false, errNestedTx
+	}
 	return b.apps[application], nil
 }
 

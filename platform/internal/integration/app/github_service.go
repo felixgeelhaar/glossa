@@ -285,24 +285,30 @@ func (s *GitHubService) Connect(ctx context.Context, in ConnectRepository) (doma
 	if err != nil {
 		return domain.GitConnection{}, err
 	}
-	var out domain.GitConnection
-	err = s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
-		inst, err := st.Installation(ctx, in.Installation)
-		if err != nil {
-			return err
-		}
-		if err := s.checkRepository(ctx, inst, &in.ConnectionInput); err != nil {
-			return err
-		}
-		if err := s.checkApplication(ctx, in.ProjectID, in.ApplicationID); err != nil {
-			return err
-		}
-		if out, err = domain.NewGitConnection(inst, in.ConnectionInput, by, s.now()); err != nil {
-			return err
-		}
-		return st.InsertGitConnection(ctx, out)
-	})
+	// The checks call GitHub and Catalog, so they happen before the
+	// transaction opens: a unit of work is never nested, and a database
+	// transaction never waits on the network.
+	var inst domain.Installation
+	if err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
+		var err error
+		inst, err = st.Installation(ctx, in.Installation)
+		return err
+	}); err != nil {
+		return domain.GitConnection{}, err
+	}
+	if err := s.checkRepository(ctx, inst, &in.ConnectionInput); err != nil {
+		return domain.GitConnection{}, err
+	}
+	if err := s.checkApplication(ctx, in.ProjectID, in.ApplicationID); err != nil {
+		return domain.GitConnection{}, err
+	}
+	out, err := domain.NewGitConnection(inst, in.ConnectionInput, by, s.now())
 	if err != nil {
+		return domain.GitConnection{}, err
+	}
+	if err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
+		return st.InsertGitConnection(ctx, out)
+	}); err != nil {
 		return domain.GitConnection{}, err
 	}
 	return out, nil
@@ -378,25 +384,27 @@ func (s *GitHubService) ChangeConnection(ctx context.Context, id uuid.UUID, in d
 	if _, err := gitHubActor(ctx, authz.IntegrationManage); err != nil {
 		return domain.GitConnection{}, err
 	}
-	var out domain.GitConnection
-	err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
-		c, err := st.GitConnection(ctx, id)
-		if err != nil {
-			return err
-		}
-		if err := s.checkApplication(ctx, in.ProjectID, in.ApplicationID); err != nil {
-			return err
-		}
-		if err := c.Change(in, s.now()); err != nil {
-			return err
-		}
-		if err := st.SaveGitConnection(ctx, c); err != nil {
-			return err
-		}
-		out = c
-		return nil
-	})
-	return out, err
+	// As in Connect, Catalog is asked before the transaction opens.
+	var c domain.GitConnection
+	if err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
+		var err error
+		c, err = st.GitConnection(ctx, id)
+		return err
+	}); err != nil {
+		return domain.GitConnection{}, err
+	}
+	if err := s.checkApplication(ctx, in.ProjectID, in.ApplicationID); err != nil {
+		return domain.GitConnection{}, err
+	}
+	if err := c.Change(in, s.now()); err != nil {
+		return domain.GitConnection{}, err
+	}
+	if err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
+		return st.SaveGitConnection(ctx, c)
+	}); err != nil {
+		return domain.GitConnection{}, err
+	}
+	return c, nil
 }
 
 // Disconnect removes a Git connection.
