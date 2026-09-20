@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -47,6 +48,16 @@ var allowedRequestHeaders = []string{"Authorization", "Content-Type", "If-Match"
 // one that matters: without it the editor cannot send If-Match, and
 // every save would either clobber a concurrent edit or be impossible.
 var exposedResponseHeaders = []string{"ETag"}
+
+// registered reports whether origin is a preview origin of some
+// project. It is a field so the middleware can be tested without a
+// database; New points it at the service.
+func (a *API) registered(ctx context.Context, origin string) (bool, error) {
+	if a.originLookup == nil {
+		return false, nil
+	}
+	return a.originLookup(ctx, origin)
+}
 
 // corsSurface answers "may a preview origin call this?" for a request.
 // It is a ServeMux holding exactly the in-context routes, so matching
@@ -115,7 +126,7 @@ func (a *API) Preflight(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	allowed, err := a.svc.PreviewOriginRegistered(r.Context(), origin)
+	allowed, err := a.registered(r.Context(), origin)
 	if err != nil {
 		a.logger.ErrorContext(r.Context(), "preview origin lookup failed", "error", err)
 		return
@@ -155,7 +166,7 @@ func (a *API) CORS(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		allowed, err := a.svc.PreviewOriginRegistered(r.Context(), origin)
+		allowed, err := a.registered(r.Context(), origin)
 		if err != nil {
 			a.errs.write(w, r, err)
 			return

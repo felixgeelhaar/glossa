@@ -31,12 +31,15 @@ const MinCSRFKeyLen = 32
 
 // API serves Identity's operations.
 type API struct {
-	svc     *app.Service
-	reqs    map[string]apiv1.Requirement
-	cors    *corsSurface
-	csrfKey []byte
-	logger  *slog.Logger
-	errs    errorWriter
+	svc  *app.Service
+	reqs map[string]apiv1.Requirement
+	cors *corsSurface
+	// originLookup answers whether an origin is a registered preview
+	// origin, for the CORS middleware. A field so it can be stubbed.
+	originLookup func(ctx context.Context, origin string) (bool, error)
+	csrfKey      []byte
+	logger       *slog.Logger
+	errs         errorWriter
 }
 
 // New returns the API. csrfKey derives CSRF tokens from sessions.
@@ -52,10 +55,12 @@ func New(svc *app.Service, csrfKey []byte, logger *slog.Logger) (*API, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &API{
+	a := &API{
 		svc: svc, reqs: reqs, cors: cors, csrfKey: csrfKey, logger: logger,
 		errs: errorWriter{logger: logger},
-	}, nil
+	}
+	a.originLookup = svc.PreviewOriginRegistered
+	return a, nil
 }
 
 // ResponseError, RequestError and ParamError are the generated server's
