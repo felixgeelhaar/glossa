@@ -322,6 +322,86 @@ func objectCount(t *testing.T, objects *objectstore.Memory, h *harness, f fixtur
 	return n
 }
 
+// TestCaptureUploadsStopAtTheTenantsStorageQuota drives the per-tenant
+// cap on capture images (RFC 0004 §3.3, §10): the upload that would
+// pass it is refused whole, deduplicated pixels cost nothing, another
+// tenant is unaffected, and retention frees the quota again.
+func TestCaptureUploadsStopAtTheTenantsStorageQuota(t *testing.T) {
+	a := pngOf(t, 200, 200, 1, png.BestSpeed)
+	b := pngOf(t, 200, 200, 2, png.BestSpeed)
+	c := pngOf(t, 200, 200, 3, png.BestSpeed)
+	sa, sb, sc := storedSize(t, a), storedSize(t, b), storedSize(t, c)
+	// Room for any two of the three, never all three.
+	quota := sa + sb + sc - 1
+	m := &metrics{}
+	// Keep no history, so one purge frees the images only an older
+	// build showed.
+	h, objects := withImages(t, app.WithStorageQuota(quota), app.WithMetrics(m),
+		app.WithRetention(domain.RetentionPolicy{Keep: 0, ClosedBranchGrace: 7 * 24 * time.Hour}))
+	f := h.project(t, "shop", []string{"web"}, "checkout.pay")
+	shot := func(commit string, img []byte) []byte {
+		return manifestOf(t, commit, "main", capture{"/checkout", "de", img, []string{"checkout.pay"}})
+	}
+
+	h.uploadCaptures(t, f, shot("abcdef1", a), partsOf(a))
+	if used := m.storage(h.tenant); used != [2]int64{sa, quota} {
+		t.Errorf("storage after the first upload = %v, want %d of %d", used, sa, quota)
+	}
+	h.uploadCaptures(t, f, shot("abcdef2", b), partsOf(b))
+
+	// The same pixels again are deduplicated, so they cost nothing and
+	// fit where new ones wouldn't.
+	h.uploadCaptures(t, f, shot("abcdef3", a), partsOf(a))
+	if used := m.storage(h.tenant); used[0] != sa+sb {
+		t.Errorf("storage after a deduplicated upload = %v, want %d", used, sa+sb)
+	}
+
+	// New pixels don't fit: the upload is refused whole, and the image
+	// it had written is gone again.
+	over := shot("abcdef4", c)
+	_, err := h.svc.IngestCaptures(h.ci(), app.IngestCaptures{Project: f.project, Manifest: over, Images: partsOf(c)})
+	if !errors.Is(err, app.ErrStorageQuotaExceeded) {
+		t.Fatalf("over the quota: err = %v", err)
+	}
+	if !strings.Contains(err.Error(), "past its") {
+		t.Errorf("the refusal doesn't say how far past the quota it is: %v", err)
+	}
+	if n := objectCount(t, objects, h, f, c); n != 0 {
+		t.Errorf("the refused upload left %d objects", n)
+	}
+	if n := count(t, "SELECT count(*) FROM context_builds"); n != 3 {
+		t.Errorf("builds = %d, want only the three that fit", n)
+	}
+
+	// Retention frees the quota: the second build's image is the one no
+	// surviving capture shows, so the refused upload fits afterwards.
+	if _, err := h.svc.PurgeProject(h.developer(), f.project); err != nil {
+		t.Fatal(err)
+	}
+	if used := m.storage(h.tenant); used[0] != sa {
+		t.Errorf("storage after the purge = %v, want %d", used, sa)
+	}
+	h.uploadCaptures(t, f, over, partsOf(c))
+
+	// The quota is per tenant, not per deployment: another tenant at the
+	// same limit starts from nothing.
+	other := harnessFor(t, "bolt", app.WithImages(objects, imaging.New(t.TempDir(), 0)), app.WithStorageQuota(quota))
+	g := other.project(t, "blog", []string{"web"}, "checkout.pay")
+	other.uploadCaptures(t, g, shot("abcdef9", b), partsOf(b))
+}
+
+// storedSize is how many bytes an image occupies once the server has
+// re-encoded it.
+func storedSize(t *testing.T, img []byte) int64 {
+	t.Helper()
+	n, err := imaging.New(t.TempDir(), 0).Normalize(context.Background(), bytes.NewReader(img), domain.Digest(hexDigest(img)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = n.Close() }()
+	return n.Size()
+}
+
 func TestCaptureUploadsShareTheUsagesRateLimit(t *testing.T) {
 	l := &limiter{n: 1, seen: map[string]int{}}
 	h, _ := withImages(t, app.WithLimiter(l))
@@ -402,9 +482,9 @@ func TestRetentionDeletesImagesNoCaptureReferences(t *testing.T) {
 	h, objects := withImages(t)
 	f := h.project(t, "shop", []string{"web", "api"}, "checkout.pay")
 	var images [][]byte
-	for i := range 7 {
+	for i := range 5 {
 		img := pngOf(t, 8, 8, uint8(i), png.DefaultCompression) //nolint:gosec // small
-		if i == 6 {
+		if i == 4 {
 			img = images[1] // the newest build shares the second's pixels
 		}
 		images = append(images, img)
@@ -418,7 +498,7 @@ func TestRetentionDeletesImagesNoCaptureReferences(t *testing.T) {
 	if len(got.Builds) != 2 || len(got.OrphanedImages) != 1 {
 		t.Fatalf("purged = %+v", got)
 	}
-	if objectCount(t, objects, h, f, images[0]) != 0 || objectCount(t, objects, h, f, images[1:6]...) != 5 {
+	if objectCount(t, objects, h, f, images[0]) != 0 || objectCount(t, objects, h, f, images[1:4]...) != 3 {
 		t.Error("the purge deleted the wrong images")
 	}
 
@@ -431,7 +511,7 @@ func TestRetentionDeletesImagesNoCaptureReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.drain(t)
-	if objectCount(t, objects, h, f, apiImg) != 0 || objectCount(t, objects, h, f, images[1:6]...) != 5 {
+	if objectCount(t, objects, h, f, apiImg) != 0 || objectCount(t, objects, h, f, images[1:4]...) != 3 {
 		t.Error("deleting the api application left its image or took another")
 	}
 

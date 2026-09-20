@@ -156,6 +156,7 @@ type contextDeps struct {
 	integration config.Integration
 	purge       config.Purge
 	branches    config.Branches
+	context     config.Context
 }
 
 // buildContexts opens object storage and the signer, then the contexts.
@@ -177,7 +178,7 @@ func buildContexts(
 	}
 	return newContexts(pool, events, contextDeps{
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
-		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, tracer: tp,
+		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, context: cfg.Context, tracer: tp,
 	})
 }
 
@@ -208,7 +209,8 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger),
 		contextapp.WithLimiter(ratelimit.New(contextUploadLimit())), contextapp.WithMetrics(contextmetrics.New(deps.registerer)),
 		contextapp.WithImages(deps.objects, imaging.New("", imaging.DefaultDecodeBudget)),
-		contextapp.WithDeleteBatch(deps.purge.BatchSize), contextapp.WithTracerProvider(deps.tracer))
+		contextapp.WithDeleteBatch(deps.purge.BatchSize), contextapp.WithStorageQuota(deps.context.StorageQuotaBytes),
+		contextapp.WithTracerProvider(deps.tracer))
 	if err := usageContext.Subscribe(events); err != nil {
 		return contexts{}, err
 	}

@@ -253,6 +253,30 @@ func TestPurgeConfig(t *testing.T) {
 	}
 }
 
+func TestContextStorageQuotaConfig(t *testing.T) {
+	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
+	cfg, err := config.Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 2 GB, the owner's decision of 2026-09-20 (RFC 0004 §3.3).
+	if cfg.Context.StorageQuotaBytes != 2<<30 {
+		t.Errorf("default quota = %d, want %d", cfg.Context.StorageQuotaBytes, int64(2)<<30)
+	}
+	over := map[string]string{"GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES": "536870912"}
+	for k, v := range base {
+		over[k] = v
+	}
+	if cfg, err = config.Load(env(over)); err != nil || cfg.Context.StorageQuotaBytes != 512<<20 {
+		t.Errorf("override = %d, %v", cfg.Context.StorageQuotaBytes, err)
+	}
+	over["GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES"] = "1024"
+	if _, err = config.Load(env(over)); err == nil ||
+		!strings.Contains(err.Error(), "GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES") {
+		t.Errorf("a quota below one image's worth: %v", err)
+	}
+}
+
 func TestBranchesConfig(t *testing.T) {
 	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
 	cfg, err := config.Load(env(base))

@@ -107,6 +107,8 @@ spec:
               value: {{ $v.purge.jitter | quote }}
             - name: GLOSSA_PURGE_BATCH_SIZE
               value: {{ $v.purge.batchSize | quote }}
+            - name: GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES
+              value: {{ $v.context.storageQuotaBytes | int64 | quote }}
             - name: GLOSSA_BRANCH_PUBLISHER_ENABLED
               value: {{ $v.branches.publisherEnabled | quote }}
             - name: GLOSSA_BRANCH_PUBLISH_INTERVAL

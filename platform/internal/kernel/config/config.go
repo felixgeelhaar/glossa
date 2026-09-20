@@ -105,6 +105,16 @@ type Config struct {
 	Integration          Integration
 	Purge                Purge
 	Branches             Branches
+	Context              Context
+}
+
+// Context configures the Context context's capture storage
+// (RFC 0004 §3.3, §10).
+type Context struct {
+	// StorageQuotaBytes caps the capture images one tenant keeps in
+	// object storage. An upload whose new pixels would pass it is
+	// refused with storage_quota_exceeded; retention frees space again.
+	StorageQuotaBytes int64
 }
 
 // Purge configures the daily retention job (RFC 0004 §2.3): Context's
@@ -327,6 +337,11 @@ func Load(lookup LookupFunc) (Config, error) {
 	cfg.Branches = Branches{
 		PublisherEnabled: r.boolean("GLOSSA_BRANCH_PUBLISHER_ENABLED", true),
 		PublishInterval:  r.duration("GLOSSA_BRANCH_PUBLISH_INTERVAL", 5*time.Second),
+	}
+	cfg.Context = Context{
+		// 2 GB by default (the owner's decision of 2026-09-20); at least
+		// one image's worth, and at most a terabyte.
+		StorageQuotaBytes: int64(r.intRange("GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES", 2<<30, 10<<20, 1<<40)),
 	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {

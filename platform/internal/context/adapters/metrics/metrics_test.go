@@ -97,6 +97,28 @@ glossa_context_regions_ingested_total{` + tl + `} 42
 	}
 }
 
+func TestPrometheusReportsCaptureStorageAgainstTheQuota(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	m := metrics.New(reg)
+	tenant := tenancy.NewID()
+	m.StorageUsed(tenant, 5000, 2<<30)
+	// Retention frees space: the gauge falls, unlike the ingested bytes.
+	m.StorageUsed(tenant, 1200, 2<<30)
+
+	want := `
+# HELP glossa_context_capture_bytes_used Bytes of capture images a tenant holds in object storage now, measured after each capture upload and each retention run. Unlike the ingested bytes, this falls again when retention deletes images.
+# TYPE glossa_context_capture_bytes_used gauge
+glossa_context_capture_bytes_used{tenant="` + tenant.String() + `"} 1200
+# HELP glossa_context_capture_quota_bytes The per-tenant capture storage quota this deployment enforces (GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES). An upload past it is refused with storage_quota_exceeded.
+# TYPE glossa_context_capture_quota_bytes gauge
+glossa_context_capture_quota_bytes 2.147483648e+09
+`
+	if err := testutil.GatherAndCompare(reg, strings.NewReader(want),
+		"glossa_context_capture_bytes_used", "glossa_context_capture_quota_bytes"); err != nil {
+		t.Error(err)
+	}
+}
+
 func TestPrometheusCountsPurgeDeletionsByKind(t *testing.T) {
 	reg := prometheus.NewRegistry()
 	m := metrics.New(reg)

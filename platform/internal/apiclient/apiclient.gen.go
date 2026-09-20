@@ -8214,14 +8214,22 @@ type ClientInterface interface {
 	// the same manifest again answers `200` with the first upload's
 	// build and `Idempotent-Replayed: true`, without reading its images.
 	//
+	// A tenant keeps at most 2 GB of capture images (the deployment
+	// may set another limit). An upload whose new pixels would pass it
+	// is refused with `storage_quota_exceeded` and stores nothing;
+	// pixels the project already holds are deduplicated and cost
+	// nothing, and retention (RFC 0004 §2.3) frees the quota again as
+	// builds age out.
+	//
 	// Uploads share the per-tenant limit of usage uploads (10 a minute,
 	// bursts of 60). Needs `catalog.write` (developers, `write` tokens:
 	// CI). Problem codes: `invalid_request` (not a multipart body),
 	// `invalid_captures` (a malformed body or manifest, or parts that
 	// don't match it), `too_many_captures`, `too_many_regions`,
 	// `invalid_image`, `unknown_application` (400),
-	// `payload_too_large`, `image_too_large` (413), `rate_limited`
-	// (429), `storage_unavailable` (503).
+	// `payload_too_large`, `image_too_large`,
+	// `storage_quota_exceeded` (413), `rate_limited` (429),
+	// `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -12573,14 +12581,22 @@ func (c *Client) ListBranchProposals(ctx context.Context, tenant TenantPath, pro
 // the same manifest again answers `200` with the first upload's
 // build and `Idempotent-Replayed: true`, without reading its images.
 //
+// A tenant keeps at most 2 GB of capture images (the deployment
+// may set another limit). An upload whose new pixels would pass it
+// is refused with `storage_quota_exceeded` and stores nothing;
+// pixels the project already holds are deduplicated and cost
+// nothing, and retention (RFC 0004 §2.3) frees the quota again as
+// builds age out.
+//
 // Uploads share the per-tenant limit of usage uploads (10 a minute,
 // bursts of 60). Needs `catalog.write` (developers, `write` tokens:
 // CI). Problem codes: `invalid_request` (not a multipart body),
 // `invalid_captures` (a malformed body or manifest, or parts that
 // don't match it), `too_many_captures`, `too_many_regions`,
 // `invalid_image`, `unknown_application` (400),
-// `payload_too_large`, `image_too_large` (413), `rate_limited`
-// (429), `storage_unavailable` (503).
+// `payload_too_large`, `image_too_large`,
+// `storage_quota_exceeded` (413), `rate_limited` (429),
+// `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type.
 //
@@ -27967,14 +27983,22 @@ type ClientWithResponsesInterface interface {
 	// the same manifest again answers `200` with the first upload's
 	// build and `Idempotent-Replayed: true`, without reading its images.
 	//
+	// A tenant keeps at most 2 GB of capture images (the deployment
+	// may set another limit). An upload whose new pixels would pass it
+	// is refused with `storage_quota_exceeded` and stores nothing;
+	// pixels the project already holds are deduplicated and cost
+	// nothing, and retention (RFC 0004 §2.3) frees the quota again as
+	// builds age out.
+	//
 	// Uploads share the per-tenant limit of usage uploads (10 a minute,
 	// bursts of 60). Needs `catalog.write` (developers, `write` tokens:
 	// CI). Problem codes: `invalid_request` (not a multipart body),
 	// `invalid_captures` (a malformed body or manifest, or parts that
 	// don't match it), `too_many_captures`, `too_many_regions`,
 	// `invalid_image`, `unknown_application` (400),
-	// `payload_too_large`, `image_too_large` (413), `rate_limited`
-	// (429), `storage_unavailable` (503).
+	// `payload_too_large`, `image_too_large`,
+	// `storage_quota_exceeded` (413), `rate_limited` (429),
+	// `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44388,14 +44412,22 @@ func (c *ClientWithResponses) ListBranchProposalsWithResponse(ctx context.Contex
 // the same manifest again answers `200` with the first upload's
 // build and `Idempotent-Replayed: true`, without reading its images.
 //
+// A tenant keeps at most 2 GB of capture images (the deployment
+// may set another limit). An upload whose new pixels would pass it
+// is refused with `storage_quota_exceeded` and stores nothing;
+// pixels the project already holds are deduplicated and cost
+// nothing, and retention (RFC 0004 §2.3) frees the quota again as
+// builds age out.
+//
 // Uploads share the per-tenant limit of usage uploads (10 a minute,
 // bursts of 60). Needs `catalog.write` (developers, `write` tokens:
 // CI). Problem codes: `invalid_request` (not a multipart body),
 // `invalid_captures` (a malformed body or manifest, or parts that
 // don't match it), `too_many_captures`, `too_many_regions`,
 // `invalid_image`, `unknown_application` (400),
-// `payload_too_large`, `image_too_large` (413), `rate_limited`
-// (429), `storage_unavailable` (503).
+// `payload_too_large`, `image_too_large`,
+// `storage_quota_exceeded` (413), `rate_limited` (429),
+// `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //

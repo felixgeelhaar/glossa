@@ -164,7 +164,8 @@ func (n *Normalizer) reencode(ctx context.Context, upload *os.File, weight int64
 		return nil, fmt.Errorf("imaging: re-encode: %w", err)
 	}
 	b := img.Bounds()
-	return &spooled{path: out.Name(), size: w.n, image: domain.Image{Digest: sum(h), Width: b.Dx(), Height: b.Dy()}}, nil
+	return &spooled{path: out.Name(), size: w.n,
+		image: domain.Image{Digest: sum(h), Width: b.Dx(), Height: b.Dy(), Bytes: w.n}}, nil
 }
 
 func sum(h hash.Hash) domain.Digest { return domain.Digest(hex.EncodeToString(h.Sum(nil))) }

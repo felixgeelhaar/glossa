@@ -95,6 +95,11 @@ server:
     jitter: 0.2
     # -- GLOSSA_PURGE_BATCH_SIZE: object-store deletes issued at a time.
     batchSize: 100
+  context:
+    # -- GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES: capture images one tenant may keep in
+    # object storage (2 GiB). A capture upload whose new pixels would pass it is
+    # refused with `storage_quota_exceeded` (413); retention frees space again.
+    storageQuotaBytes: 2147483648
   # The branch publisher: it publishes a branch's preview environment once
   # its debounced request is due. A publish is keyed by its request, so
   # every replica may run it. (The proposal sweep is a purge job above.)

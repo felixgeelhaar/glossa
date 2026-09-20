@@ -169,6 +169,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_PURGE_POLL_INTERVAL` | `5m` | How often a replica asks whether a job is due. It must not exceed the interval. |
 | `GLOSSA_PURGE_JITTER` | `0.2` | Fraction of the poll interval (0–1) each poll is spread by, so replicas started together don't ask in lockstep. |
 | `GLOSSA_PURGE_BATCH_SIZE` | `100` | Object-store deletes issued at a time while freeing unreferenced capture images. |
+| `GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES` | `2147483648` | Capture images one tenant may keep in object storage (2 GiB, RFC 0004 §3.3). A capture upload whose new pixels would pass it is refused with `storage_quota_exceeded` (413); retention frees space again. |
 | `GLOSSA_BRANCH_PUBLISHER_ENABLED` | `true` | Publish branch preview environments whose debounced request is due. A publish is keyed by its request, so every replica may run it. (The proposal sweep is not here: it is one of the leased `GLOSSA_PURGE_*` jobs.) |
 | `GLOSSA_BRANCH_PUBLISH_INTERVAL` | `5s` | How often due branch publishes are looked for (the debounce itself is 30 s). |
 
@@ -1220,7 +1221,17 @@ at once in object storage (the `Objects` port,
 (dedupe across builds and within an upload), so an upload holds one
 image on disk at a time (the server's `/tmp` is a 256 MiB `emptyDir`);
 a refused or failed upload removes the images it wrote (best effort: a
-leftover is reused by the next upload of the same pixels). Then one unit of work
+leftover is reused by the next upload of the same pixels).
+
+Storage is bounded per tenant: `GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES`
+(2 GiB by default, RFC 0004 §3.3). The upload reads what the tenant
+holds once — `Store.StoredImageBytes`, the sum of `image_bytes` over the
+distinct (project, image) pairs its captures reference, so a counter can
+never drift from the rows — and refuses the first image whose new pixels
+would pass the quota with `ErrStorageQuotaExceeded`
+(`storage_quota_exceeded`, 413), saying how far past it is. Deduplicated
+pixels cost nothing, the images already written are discarded with the
+upload, and retention frees the quota again as builds age out. Then one unit of work
 stores a build of source `capture` (default branch from Catalog, as for
 usages) with its captures and regions, keys resolved at ingest (unknown
 ones kept with a null ID and listed), and publishes
@@ -1240,7 +1251,7 @@ across projects and tenants, or when retention removed it).
 | `GET …/messages/{message}/usages[?branch=&limit=]` | A message's current usages (`truncated` past `limit`, 1–1000). |
 | `GET …/usages[?route=&component=&file=&branch=]` | The current usages matching, by build and position. |
 | `GET …/unused-messages[?branch=]` | The active messages without a usage, by key, with `current_builds`, `active_messages` and `unused_messages`. |
-| `POST …/projects/{project}/captures` | A capture upload, `multipart/form-data`: the `manifest` part (`glossa.captures/v1`), then one `image/png` part per distinct image named by its lowercase hex SHA-256. The route lifts the body limit to 200 MB (10-minute read deadline); parts stream into the service. `201` `{build, captures, images_stored, images_deduplicated, unknown_keys}`, or `200` + `Idempotent-Replayed` for the same manifest. `invalid_request` (not multipart), `invalid_captures`, `too_many_captures`, `too_many_regions`, `invalid_image`, `unknown_application` (400), `payload_too_large`, `image_too_large` (413), `rate_limited` (429, shared with usage uploads), `storage_unavailable` (503). `remote.UploadCaptures` is the CLI's call. |
+| `POST …/projects/{project}/captures` | A capture upload, `multipart/form-data`: the `manifest` part (`glossa.captures/v1`), then one `image/png` part per distinct image named by its lowercase hex SHA-256. The route lifts the body limit to 200 MB (10-minute read deadline); parts stream into the service. `201` `{build, captures, images_stored, images_deduplicated, unknown_keys}`, or `200` + `Idempotent-Replayed` for the same manifest. `invalid_request` (not multipart), `invalid_captures`, `too_many_captures`, `too_many_regions`, `invalid_image`, `unknown_application` (400), `payload_too_large`, `image_too_large`, `storage_quota_exceeded` (413), `rate_limited` (429, shared with usage uploads), `storage_unavailable` (503). `remote.UploadCaptures` is the CLI's call. |
 | `GET …/messages/{message}/captures[?branch=&limit=]` | A message's current captures with its regions (kind, box, visible), route, viewport, locale and image (digest, size, API path). |
 | `GET …/captures/{capture}/image` | The re-encoded PNG through the API — never a presigned or public URL — with `ETag` = its digest (`If-None-Match` → `304`) and `Cache-Control: private, max-age=31536000, immutable`. |
 
@@ -1257,7 +1268,11 @@ take the max across instances. Capture uploads add
 `glossa_context_regions_ingested_total{tenant}`,
 `glossa_context_capture_images_total{tenant, outcome}` (stored,
 deduplicated), `glossa_context_capture_bytes_stored_total{tenant}` (the
-re-encoded bytes written) and, measured by the same subscriber,
+re-encoded bytes written, which retention never takes back),
+`glossa_context_capture_bytes_used{tenant}` against
+`glossa_context_capture_quota_bytes` (what the tenant holds now, read
+from the rows after each upload and each purge, so it does fall) and,
+measured by the same subscriber,
 `glossa_context_capture_coverage_ratio{tenant, project}`: the share of
 active messages with a visible region on a current default-branch
 capture. The purge job adds

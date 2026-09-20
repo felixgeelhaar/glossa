@@ -36,6 +36,9 @@ var problems = []struct {
 	{domain.ErrTooManyRegions, http.StatusBadRequest, "too_many_regions", ""},
 	{domain.ErrInvalidCaptures, http.StatusBadRequest, "invalid_captures", ""},
 	{domain.ErrImageTooLarge, http.StatusRequestEntityTooLarge, "image_too_large", ""},
+	// 413 like image_too_large: what the request carries is too much for
+	// what may be stored. The detail says how far past the quota it is.
+	{app.ErrStorageQuotaExceeded, http.StatusRequestEntityTooLarge, "storage_quota_exceeded", ""},
 	{domain.ErrInvalidImage, http.StatusBadRequest, "invalid_image", ""},
 	{domain.ErrInvalidSource, http.StatusBadRequest, "invalid_source", ""},
 	{domain.ErrInvalidBranch, http.StatusBadRequest, "invalid_branch", ""},

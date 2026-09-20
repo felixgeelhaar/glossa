@@ -290,7 +290,7 @@ func (s *store) InsertCapture(ctx context.Context, c domain.Capture) (bool, erro
 		ID: c.ID, BuildID: c.BuildID, ProjectID: c.ProjectID, Route: c.Route,
 		ViewportWidth: int32Of(c.Viewport.Width), ViewportHeight: int32Of(c.Viewport.Height), Locale: c.Locale.String(),
 		ImageDigest: c.Image.Digest.String(), ImageWidth: int32Of(c.Image.Width), ImageHeight: int32Of(c.Image.Height),
-		CreatedBy: c.CreatedBy, CreatedAt: c.CreatedAt,
+		ImageBytes: c.Image.Bytes, CreatedBy: c.CreatedBy, CreatedAt: c.CreatedAt,
 	})
 	if err != nil || n == 0 {
 		return false, storeError(err)
@@ -347,7 +347,8 @@ func capture(r contextsql.ContextCapture) (domain.Capture, error) {
 	return domain.Capture{
 		ID: r.ID, ProjectID: r.ProjectID, BuildID: r.BuildID, Route: r.Route,
 		Viewport: domain.Viewport{Width: int(r.ViewportWidth), Height: int(r.ViewportHeight)}, Locale: tag,
-		Image:     domain.Image{Digest: domain.Digest(r.ImageDigest), Width: int(r.ImageWidth), Height: int(r.ImageHeight)},
+		Image: domain.Image{Digest: domain.Digest(r.ImageDigest), Width: int(r.ImageWidth), Height: int(r.ImageHeight),
+			Bytes: r.ImageBytes},
 		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
 	}, nil
 }
@@ -449,6 +450,11 @@ func (s *store) ReferencedImages(ctx context.Context, project uuid.UUID, ds []do
 	}
 	rows, err := s.q.ListReferencedImages(ctx, contextsql.ListReferencedImagesParams{ProjectID: project, Digests: ss})
 	return digests(rows), storeError(err)
+}
+
+func (s *store) StoredImageBytes(ctx context.Context) (int64, error) {
+	n, err := s.q.GetTenantImageBytes(ctx)
+	return n, storeError(err)
 }
 
 func (s *store) Publish(ctx context.Context, e outbox.Event) error {

@@ -38,6 +38,20 @@ type Image struct {
 	Digest Digest
 	Width  int
 	Height int
+	// Bytes is the re-encoded PNG's size in object storage, what the
+	// per-tenant storage quota counts (§3.3). Re-encoding is
+	// deterministic, so every capture of these pixels carries the same
+	// number. It is 0 where the size isn't known — a manifest entry
+	// before the part is read, or a capture stored before migration
+	// 0018 — and a read that doesn't need it may leave it unset.
+	Bytes int64
+}
+
+// SamePixels reports whether i and o are the same image. Bytes is not
+// part of an image's identity — the digest is — and a stored capture
+// may carry a size where the manifest that named it didn't.
+func (i Image) SamePixels(o Image) bool {
+	return i.Digest == o.Digest && i.Width == o.Width && i.Height == o.Height
 }
 
 func (i Image) validate() error {
@@ -160,7 +174,7 @@ func NewCapture(project, build uuid.UUID, in CaptureInput, by string, now time.T
 // SameShot reports whether c and o capture the same route, viewport and
 // locale in the same pixels: a repeated upload of one screenshot.
 func (c Capture) SameShot(o Capture) bool {
-	return c.Route == o.Route && c.Viewport == o.Viewport && c.Locale == o.Locale && c.Image == o.Image
+	return c.Route == o.Route && c.Viewport == o.Viewport && c.Locale == o.Locale && c.Image.SamePixels(o.Image)
 }
 
 // CheckCaptureLimit refuses another capture for a build that already

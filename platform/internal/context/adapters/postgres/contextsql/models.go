@@ -41,6 +41,7 @@ type ContextCapture struct {
 	ImageHeight    int32
 	CreatedBy      string
 	CreatedAt      time.Time
+	ImageBytes     int64
 }
 
 type ContextRegion struct {

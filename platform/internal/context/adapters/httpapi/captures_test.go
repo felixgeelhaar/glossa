@@ -49,6 +49,7 @@ func TestCaptureErrorsMapToTheDocumentedCodes(t *testing.T) {
 		{domain.ErrManifestTooLarge, 413, "payload_too_large"},
 		{fmt.Errorf("%w: not a PNG", domain.ErrInvalidImage), 400, "invalid_image"},
 		{domain.ErrImageTooLarge, 413, "image_too_large"},
+		{fmt.Errorf("%w: 12 bytes over", app.ErrStorageQuotaExceeded), 413, "storage_quota_exceeded"},
 		{&http.MaxBytesError{Limit: 10}, 413, "payload_too_large"},
 		{fmt.Errorf("x: %w", app.ErrStorageUnavailable), 503, "storage_unavailable"},
 		{app.ErrCaptureNotFound, 404, "not_found"},

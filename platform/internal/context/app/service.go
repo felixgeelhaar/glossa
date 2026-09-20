@@ -29,9 +29,12 @@ type Service struct {
 	// deleteBatch bounds the object-store deletes one purge issues at a
 	// time.
 	deleteBatch int
-	tracer      trace.Tracer
-	logger      *slog.Logger
-	now         func() time.Time
+	// storageQuota caps the capture images one tenant keeps in object
+	// storage.
+	storageQuota int64
+	tracer       trace.Tracer
+	logger       *slog.Logger
+	now          func() time.Time
 }
 
 // tracerName names Context's spans' instrumentation scope.
@@ -65,6 +68,21 @@ func (s *Service) span(ctx context.Context, name string, attrs ...attribute.KeyV
 // DefaultDeleteBatch is how many images a purge deletes from object
 // storage at a time without WithDeleteBatch.
 const DefaultDeleteBatch = 100
+
+// DefaultStorageQuota is how many bytes of capture images one tenant
+// may keep in object storage without WithStorageQuota: 2 GB, the
+// owner's decision of 2026-09-20 (RFC 0004 §3.3, §14.3).
+const DefaultStorageQuota int64 = 2 << 30
+
+// WithStorageQuota caps the capture images one tenant keeps in object
+// storage. A quota of 0 or less keeps DefaultStorageQuota.
+func WithStorageQuota(bytes int64) Option {
+	return func(s *Service) {
+		if bytes > 0 {
+			s.storageQuota = bytes
+		}
+	}
+}
 
 // WithDeleteBatch bounds the object-store deletes one purge issues at a
 // time. A batch of 0 or less keeps the default.
@@ -109,8 +127,9 @@ func WithSweeper(sw Sweeper) Option { return func(s *Service) { s.sweeper = sw }
 func New(tx Transactor, catalog Catalog, opts ...Option) *Service {
 	s := &Service{
 		tx: tx, catalog: catalog, retention: domain.DefaultRetention, metrics: NoMetrics{}, logger: slog.New(slog.DiscardHandler),
-		deleteBatch: DefaultDeleteBatch, tracer: noop.NewTracerProvider().Tracer(tracerName),
-		now: func() time.Time { return time.Now().UTC() },
+		deleteBatch: DefaultDeleteBatch, storageQuota: DefaultStorageQuota,
+		tracer: noop.NewTracerProvider().Tracer(tracerName),
+		now:    func() time.Time { return time.Now().UTC() },
 	}
 	for _, o := range opts {
 		o(s)

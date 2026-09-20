@@ -665,6 +665,7 @@ the value until it is set.
 | `server.purge.pollInterval` | `5m` | `GLOSSA_PURGE_POLL_INTERVAL`: how often a pod asks whether a job is due. |
 | `server.purge.jitter` | `0.2` | `GLOSSA_PURGE_JITTER`: fraction of the poll interval each poll is spread by (0–1), so replicas don't ask in lockstep. |
 | `server.purge.batchSize` | `100` | `GLOSSA_PURGE_BATCH_SIZE`: object-store deletes issued at a time while freeing unreferenced images. |
+| `server.context.storageQuotaBytes` | `2147483648` | `GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES`: capture images one tenant may keep in object storage (2 GiB). A capture upload whose new pixels would pass it is refused with `storage_quota_exceeded` (413); the daily purge frees space again. Watch `glossa_context_capture_bytes_used` against `glossa_context_capture_quota_bytes`. |
 | `server.branches.publisherEnabled` | `true` | `GLOSSA_BRANCH_PUBLISHER_ENABLED`: publish a branch's preview environment when its debounced request is due. A publish is keyed by its request, so every replica may run it. |
 | `server.branches.publishInterval` | `5s` | `GLOSSA_BRANCH_PUBLISH_INTERVAL`: how often due branch publishes are looked for (the debounce itself is 30 s). |
 | `server.webauthn.rpId` | `hosts.studio` | `GLOSSA_WEBAUTHN_RP_ID`; changing it later invalidates enrolled passkeys. |

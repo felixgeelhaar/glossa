@@ -96,7 +96,11 @@ func (s *Service) IngestCaptures(ctx context.Context, in IngestCaptures) (_ Capt
 		s.recordCaptures(ctx, first, 0, 0)
 		return first, err
 	}
-	rec, err := s.receiveImages(ctx, in.Project, up, in.Images)
+	stored, err := s.storedBytes(ctx)
+	if err != nil {
+		return CapturesIngested{}, err
+	}
+	rec, err := s.receiveImages(ctx, in.Project, up, in.Images, stored)
 	var (
 		captures []domain.Capture
 		out      CapturesIngested
@@ -115,6 +119,7 @@ func (s *Service) IngestCaptures(ctx context.Context, in IngestCaptures) (_ Capt
 		out.ImagesStored, out.ImagesDeduplicated = rec.stored, rec.deduplicated
 	}
 	s.recordCaptures(ctx, out, regionCount(captures), rec.bytes)
+	s.recordStorage(ctx, rec.stored0+rec.bytes)
 	trace.SpanFromContext(ctx).SetAttributes(
 		attribute.String("glossa.build_id", out.Build.ID.String()),
 		attribute.Int("glossa.captures", out.Captures),
@@ -146,6 +151,13 @@ func (s *Service) recordCaptures(ctx context.Context, out CapturesIngested, regi
 		t, _ := tenancy.FromContext(ctx)
 		s.metrics.CapturesIngested(t, out.Captures, regions, out.ImagesStored, out.ImagesDeduplicated, bytes)
 	}
+}
+
+// recordStorage reports what the tenant's capture images occupy now,
+// against the quota that bounds them (RFC 0004 §3.3, §11).
+func (s *Service) recordStorage(ctx context.Context, used int64) {
+	t, _ := tenancy.FromContext(ctx)
+	s.metrics.StorageUsed(t, used, s.storageQuota)
 }
 
 func regionCount(cs []domain.Capture) int {
@@ -199,18 +211,36 @@ type received struct {
 	// were stored already; bytes is what was written.
 	stored, deduplicated int
 	bytes                int64
+	// stored0 is what the tenant held before this upload: stored0 +
+	// bytes is what it holds now, and what the quota bounds.
+	stored0 int64
+}
+
+// storedBytes is what the tenant's capture images already occupy in
+// object storage, the base the storage quota is measured from
+// (RFC 0004 §3.3).
+func (s *Service) storedBytes(ctx context.Context) (int64, error) {
+	var n int64
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		var err error
+		n, err = st.StoredImageBytes(ctx)
+		return err
+	})
+	return n, err
 }
 
 // receiveImages reads every image part: each names an image of the
 // manifest, once, and is the PNG its entry describes. Each is stored as
 // soon as it is re-encoded, so an upload holds one image on disk at a
-// time, however many it carries.
-func (s *Service) receiveImages(ctx context.Context, project uuid.UUID, up domain.CaptureUpload, parts ImageParts) (received, error) {
+// time, however many it carries. stored is what the tenant already
+// holds: the upload is refused as soon as its new pixels would take the
+// tenant past its quota, and the caller discards what it wrote.
+func (s *Service) receiveImages(ctx context.Context, project uuid.UUID, up domain.CaptureUpload, parts ImageParts, stored int64) (received, error) {
 	want := map[domain.Digest]domain.Image{}
 	for _, img := range up.Parts() {
 		want[img.Digest] = img
 	}
-	rec := received{images: map[domain.Digest]domain.Image{}, seen: map[domain.Digest]bool{}}
+	rec := received{images: map[domain.Digest]domain.Image{}, seen: map[domain.Digest]bool{}, stored0: stored}
 	for {
 		name, body, err := parts.Next()
 		if errors.Is(err, io.EOF) {
@@ -266,6 +296,12 @@ func (s *Service) receiveImage(ctx context.Context, project uuid.UUID, entry dom
 	if stored {
 		rec.deduplicated++
 		return nil
+	}
+	// Only new pixels cost quota: the project pays for an image once,
+	// however many captures show it.
+	if over := rec.stored0 + rec.bytes + n.Size() - s.storageQuota; over > 0 {
+		return fmt.Errorf("%w: image %s would take the tenant %d bytes past its %d-byte capture storage quota; "+
+			"retention frees space as builds age out", ErrStorageQuotaExceeded, img.Digest, over, s.storageQuota)
 	}
 	r, err := n.Open()
 	if err != nil {

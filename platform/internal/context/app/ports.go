@@ -37,6 +37,11 @@ var (
 	// ErrStorageUnavailable means object storage failed: the upload or
 	// read can be retried.
 	ErrStorageUnavailable = errors.New("context: image storage is unavailable; retry later")
+	// ErrStorageQuotaExceeded means the tenant's capture images would
+	// pass its storage quota (RFC 0004 §3.3). Unlike ErrRateLimited,
+	// retrying alone doesn't help: the tenant has to let retention free
+	// space, or the deployment has to raise the quota.
+	ErrStorageQuotaExceeded = errors.New("context: the tenant's capture storage quota is exhausted")
 )
 
 // Limiter decides whether a tenant may upload now: Allow consumes one
@@ -57,6 +62,10 @@ type Metrics interface {
 	// the images it stored and those already stored (deduplicated), and
 	// the bytes it added to the tenant's object storage.
 	CapturesIngested(tenant tenancy.ID, captures, regions, imagesStored, imagesDeduplicated int, bytesStored int64)
+	// StorageUsed is what the tenant's capture images occupy now, and
+	// the quota they are bounded by (RFC 0004 §3.3). Unlike the ingested
+	// bytes, it goes down again when retention deletes images.
+	StorageUsed(tenant tenancy.ID, used, quota int64)
 	// CaptureCoverage is the share of a project's active messages with a
 	// visible region on a current capture (default branch).
 	CaptureCoverage(tenant tenancy.ID, project uuid.UUID, active, captured int)
@@ -77,6 +86,9 @@ func (NoMetrics) Coverage(tenant tenancy.ID, project uuid.UUID, active, used int
 
 // CapturesIngested implements Metrics.
 func (NoMetrics) CapturesIngested(tenancy.ID, int, int, int, int, int64) {}
+
+// StorageUsed implements Metrics.
+func (NoMetrics) StorageUsed(tenancy.ID, int64, int64) {}
 
 // CaptureCoverage implements Metrics.
 func (NoMetrics) CaptureCoverage(tenancy.ID, uuid.UUID, int, int) {}
@@ -269,6 +281,12 @@ type Store interface {
 	// CountCapturesOfBuilds counts the captures the builds hold: what a
 	// purge deletes with them.
 	CountCapturesOfBuilds(ctx context.Context, builds []uuid.UUID) (int, error)
+	// StoredImageBytes is what the tenant's capture images occupy in
+	// object storage: the sum over the distinct images its captures
+	// reference, since the same pixels are stored once per project. It
+	// is what the per-tenant storage quota is measured against
+	// (RFC 0004 §3.3).
+	StoredImageBytes(ctx context.Context) (int64, error)
 	// BuildImages returns the images the builds' captures reference;
 	// ReferencedImages which of digests the project's captures still do;
 	// ProjectImages every image the project's captures reference.

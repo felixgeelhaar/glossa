@@ -28,6 +28,8 @@ type Prometheus struct {
 	regions  *prometheus.CounterVec
 	images   *prometheus.CounterVec
 	bytes    *prometheus.CounterVec
+	used     *prometheus.GaugeVec
+	quota    prometheus.Gauge
 	captured *prometheus.GaugeVec
 	purged   *prometheus.CounterVec
 }
@@ -73,6 +75,14 @@ func New(reg prometheus.Registerer) *Prometheus {
 			Name: "glossa_context_capture_bytes_stored_total",
 			Help: "Bytes of re-encoded capture images written to object storage, per tenant (retention deletes some later).",
 		}, []string{"tenant"})),
+		used: register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "glossa_context_capture_bytes_used",
+			Help: "Bytes of capture images a tenant holds in object storage now, measured after each capture upload and each retention run. Unlike the ingested bytes, this falls again when retention deletes images.",
+		}, []string{"tenant"})),
+		quota: register(reg, prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "glossa_context_capture_quota_bytes",
+			Help: "The per-tenant capture storage quota this deployment enforces (GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES). An upload past it is refused with storage_quota_exceeded.",
+		})),
 		captured: register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "glossa_context_capture_coverage_ratio",
 			Help: "Share of a project's active messages with a visible region on a current default-branch capture (1 with none active), measured after each default-branch upload. Each instance reports what it measured last; take the max across instances.",
@@ -108,6 +118,12 @@ func (p *Prometheus) CapturesIngested(tenant tenancy.ID, captures, regions, stor
 	p.images.WithLabelValues(t, "stored").Add(float64(stored))
 	p.images.WithLabelValues(t, "deduplicated").Add(float64(deduplicated))
 	p.bytes.WithLabelValues(t).Add(float64(bytes))
+}
+
+// StorageUsed implements app.Metrics.
+func (p *Prometheus) StorageUsed(tenant tenancy.ID, used, quota int64) {
+	p.used.WithLabelValues(tenant.String()).Set(float64(used))
+	p.quota.Set(float64(quota))
 }
 
 // CaptureCoverage implements app.Metrics.

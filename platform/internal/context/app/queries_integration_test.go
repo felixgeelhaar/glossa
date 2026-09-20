@@ -247,6 +247,25 @@ type metrics struct {
 	captured map[uuid.UUID][2]int
 	captures []string
 	purges   []string
+	// used is the last capture storage reported per tenant, with the
+	// quota it was measured against.
+	used map[tenancy.ID][2]int64
+}
+
+func (m *metrics) StorageUsed(tenant tenancy.ID, used, quota int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.used == nil {
+		m.used = map[tenancy.ID][2]int64{}
+	}
+	m.used[tenant] = [2]int64{used, quota}
+}
+
+// storage is the tenant's last reported capture storage and its quota.
+func (m *metrics) storage(tenant tenancy.ID) [2]int64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.used[tenant]
 }
 
 func (m *metrics) Purged(p app.Purged) {

@@ -37,7 +37,7 @@ func (q *Queries) CountCapturesOfBuilds(ctx context.Context, buildIds []uuid.UUI
 }
 
 const getCapture = `-- name: GetCapture :one
-SELECT id, tenant_id, build_id, project_id, route, viewport_width, viewport_height, locale, image_digest, image_width, image_height, created_by, created_at FROM context_captures WHERE id = $1
+SELECT id, tenant_id, build_id, project_id, route, viewport_width, viewport_height, locale, image_digest, image_width, image_height, created_by, created_at, image_bytes FROM context_captures WHERE id = $1
 `
 
 func (q *Queries) GetCapture(ctx context.Context, id uuid.UUID) (ContextCapture, error) {
@@ -57,12 +57,13 @@ func (q *Queries) GetCapture(ctx context.Context, id uuid.UUID) (ContextCapture,
 		&i.ImageHeight,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.ImageBytes,
 	)
 	return i, err
 }
 
 const getCaptureByShot = `-- name: GetCaptureByShot :one
-SELECT id, tenant_id, build_id, project_id, route, viewport_width, viewport_height, locale, image_digest, image_width, image_height, created_by, created_at FROM context_captures
+SELECT id, tenant_id, build_id, project_id, route, viewport_width, viewport_height, locale, image_digest, image_width, image_height, created_by, created_at, image_bytes FROM context_captures
 WHERE build_id = $1 AND route = $2 AND viewport_width = $3
   AND viewport_height = $4 AND locale = $5
 `
@@ -98,17 +99,36 @@ func (q *Queries) GetCaptureByShot(ctx context.Context, arg GetCaptureByShotPara
 		&i.ImageHeight,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.ImageBytes,
 	)
 	return i, err
+}
+
+const getTenantImageBytes = `-- name: GetTenantImageBytes :one
+SELECT coalesce(sum(bytes), 0)::bigint AS stored_bytes
+FROM (SELECT max(image_bytes) AS bytes FROM context_captures GROUP BY project_id, image_digest) AS images
+`
+
+// What the tenant's capture images occupy in object storage: the sum
+// over the distinct images its captures reference, since the same
+// pixels are stored once per project (RFC 0004 §3.3). This is what the
+// per-tenant storage quota compares against; RLS scopes it to the
+// current tenant.
+func (q *Queries) GetTenantImageBytes(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, getTenantImageBytes)
+	var stored_bytes int64
+	err := row.Scan(&stored_bytes)
+	return stored_bytes, err
 }
 
 const insertCapture = `-- name: InsertCapture :execrows
 
 INSERT INTO context_captures (id, tenant_id, build_id, project_id, route, viewport_width, viewport_height, locale,
-                              image_digest, image_width, image_height, created_by, created_at)
+                              image_digest, image_width, image_height, image_bytes, created_by, created_at)
 VALUES ($1, app_current_tenant(), $2, $3, $4,
         $5, $6, $7, $8,
-        $9, $10, $11, $12)
+        $9, $10, $11, $12,
+        $13)
 ON CONFLICT (build_id, route, viewport_width, viewport_height, locale) DO NOTHING
 `
 
@@ -123,6 +143,7 @@ type InsertCaptureParams struct {
 	ImageDigest    string
 	ImageWidth     int32
 	ImageHeight    int32
+	ImageBytes     int64
 	CreatedBy      string
 	CreatedAt      time.Time
 }
@@ -143,6 +164,7 @@ func (q *Queries) InsertCapture(ctx context.Context, arg InsertCaptureParams) (i
 		arg.ImageDigest,
 		arg.ImageWidth,
 		arg.ImageHeight,
+		arg.ImageBytes,
 		arg.CreatedBy,
 		arg.CreatedAt,
 	)

@@ -5,11 +5,21 @@
 -- One capture per (route, viewport, locale) of a build: a repeat
 -- inserts nothing and the caller compares it with the first.
 INSERT INTO context_captures (id, tenant_id, build_id, project_id, route, viewport_width, viewport_height, locale,
-                              image_digest, image_width, image_height, created_by, created_at)
+                              image_digest, image_width, image_height, image_bytes, created_by, created_at)
 VALUES (sqlc.arg(id), app_current_tenant(), sqlc.arg(build_id), sqlc.arg(project_id), sqlc.arg(route),
         sqlc.arg(viewport_width), sqlc.arg(viewport_height), sqlc.arg(locale), sqlc.arg(image_digest),
-        sqlc.arg(image_width), sqlc.arg(image_height), sqlc.arg(created_by), sqlc.arg(created_at))
+        sqlc.arg(image_width), sqlc.arg(image_height), sqlc.arg(image_bytes), sqlc.arg(created_by),
+        sqlc.arg(created_at))
 ON CONFLICT (build_id, route, viewport_width, viewport_height, locale) DO NOTHING;
+
+-- name: GetTenantImageBytes :one
+-- What the tenant's capture images occupy in object storage: the sum
+-- over the distinct images its captures reference, since the same
+-- pixels are stored once per project (RFC 0004 §3.3). This is what the
+-- per-tenant storage quota compares against; RLS scopes it to the
+-- current tenant.
+SELECT coalesce(sum(bytes), 0)::bigint AS stored_bytes
+FROM (SELECT max(image_bytes) AS bytes FROM context_captures GROUP BY project_id, image_digest) AS images;
 
 -- name: GetCaptureByShot :one
 SELECT * FROM context_captures

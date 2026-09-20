@@ -231,7 +231,7 @@ func TestContextIsComposed(t *testing.T) {
 
 // TestThePurgeJobRunsInTheServer boots the real composition root with a
 // one-second purge interval and watches the daily retention job
-// (RFC 0004 §2.3) delete the builds beyond the five-build window, with
+// (RFC 0004 §2.3) delete the builds beyond the three-build window, with
 // its deletions and its run on /metrics (§11).
 func TestThePurgeJobRunsInTheServer(t *testing.T) {
 	s := startServerWith(t, map[string]string{
@@ -260,9 +260,9 @@ func TestThePurgeJobRunsInTheServer(t *testing.T) {
 	s.do(call{method: "POST", path: p + "/message-upserts", bearer: tok.Secret,
 		body: map[string]any{"items": []map[string]any{{"key": "checkout.pay", "text": "Pay"}}}}).want(t, http.StatusOK, "")
 
-	// Seven builds of one application on the default branch: retention
-	// keeps five.
-	for i := range 7 {
+	// Five builds of one application on the default branch: retention
+	// keeps three.
+	for i := range 5 {
 		doc := usagesDoc(strings.Repeat(fmt.Sprintf("%08x", 0x9f2c1e00+i), 5), "main",
 			usageAt("checkout.pay", "src/Payment.vue", i+1, "Payment", "/checkout"))
 		s.do(call{method: "POST", path: p + "/context-builds?source=plugin", bearer: tok.Secret, body: doc}).
@@ -276,11 +276,11 @@ func TestThePurgeJobRunsInTheServer(t *testing.T) {
 			"SELECT count(*) FROM context_builds WHERE project_id = $1", project.ID).Scan(&n); err != nil {
 			t.Fatal(err)
 		}
-		if n == 5 {
+		if n == 3 {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("the purge left %d builds, want 5\nlogs:\n%s", n, s.logs)
+			t.Fatalf("the purge left %d builds, want 3\nlogs:\n%s", n, s.logs)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}

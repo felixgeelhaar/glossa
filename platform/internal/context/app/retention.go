@@ -46,7 +46,10 @@ func (s *Service) PurgeProject(ctx context.Context, project uuid.UUID) (Purged, 
 	if err != nil {
 		return Purged{}, err
 	}
-	var out Purged
+	var (
+		out  Purged
+		left int64
+	)
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		all, err := st.BuildSummaries(ctx, project)
 		if err != nil {
@@ -54,7 +57,8 @@ func (s *Service) PurgeProject(ctx context.Context, project uuid.UUID) (Purged, 
 		}
 		expired := s.retention.Expired(all, closed, s.now())
 		if len(expired) == 0 {
-			return nil
+			left, err = st.StoredImageBytes(ctx)
+			return err
 		}
 		images, err := st.BuildImages(ctx, expired)
 		if err != nil {
@@ -67,12 +71,18 @@ func (s *Service) PurgeProject(ctx context.Context, project uuid.UUID) (Purged, 
 			return err
 		}
 		out.Builds = expired
-		out.OrphanedImages, err = orphaned(ctx, st, project, images)
+		if out.OrphanedImages, err = orphaned(ctx, st, project, images); err != nil {
+			return err
+		}
+		// The rows are gone, so this is already what the tenant holds
+		// after the run, whatever the object deletes below do.
+		left, err = st.StoredImageBytes(ctx)
 		return err
 	})
 	if err != nil {
 		return Purged{}, err
 	}
+	s.recordStorage(ctx, left)
 	// The builds are gone, so a later purge wouldn't find these images:
 	// a failure to delete one is reported and logged, the rest go on.
 	deleted, err := s.deleteImages(ctx, project, out.OrphanedImages)
