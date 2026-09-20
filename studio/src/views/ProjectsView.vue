@@ -80,6 +80,9 @@ async function create(): Promise<void> {
         <RouterLink class="btn" :to="{ name: 'workspace-knowledge', params: { tenant } }" :title="strings.tenantSettings.settingsLead">
           {{ strings.nav.workspaceSettings }}: {{ strings.tenantSettings.knowledgeLink }}
         </RouterLink>
+        <RouterLink class="btn" :to="{ name: 'workspace-github', params: { tenant } }" :title="strings.tenantSettings.settingsLead">
+          {{ strings.nav.workspaceSettings }}: {{ strings.tenantSettings.githubLink }}
+        </RouterLink>
         <button v-if="canCreate && !creating" type="button" class="btn btn-primary" @click="creating = true">{{ strings.projects.create }}</button>
       </div>
     </div>

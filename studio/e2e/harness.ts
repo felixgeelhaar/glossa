@@ -7,11 +7,12 @@
  * the tests read the way glossa-edge would.
  */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import { startFakeGitHub } from "./fake-github";
 import { startFakeProvider } from "./fake-provider";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,7 @@ export const ports = {
   api: Number(process.env.GLOSSA_E2E_API_PORT ?? 18317),
   studio: Number(process.env.GLOSSA_E2E_STUDIO_PORT ?? 4317),
   provider: Number(process.env.GLOSSA_E2E_PROVIDER_PORT ?? 18318),
+  github: Number(process.env.GLOSSA_E2E_GITHUB_PORT ?? 18319),
 };
 export const studioURL = `http://localhost:${ports.studio}`;
 export const apiURL = `http://127.0.0.1:${ports.api}`;
@@ -96,6 +98,18 @@ export async function startStack(): Promise<() => Promise<void>> {
     GLOSSA_AI_POLL_INTERVAL: "200ms",
     // Import and export jobs are picked up quickly, so the specs don't wait out the 1 s default.
     GLOSSA_INTEGRATION_POLL_INTERVAL: "200ms",
+    // A GitHub App against the fake on loopback (RFC 0004 §6). The key
+    // is generated here and never leaves the run: nothing in the repo
+    // is App key material.
+    GLOSSA_GITHUB_APP_ID: "99001",
+    GLOSSA_GITHUB_APP_SLUG: "glossa-e2e",
+    GLOSSA_GITHUB_APP_PRIVATE_KEY: generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+    GLOSSA_GITHUB_WEBHOOK_SECRET: randomBytes(32).toString("hex"),
+    GLOSSA_GITHUB_CLIENT_ID: "Iv1.e2e",
+    GLOSSA_GITHUB_CLIENT_SECRET: randomBytes(16).toString("hex"),
+    GLOSSA_GITHUB_API_URL: `http://127.0.0.1:${ports.github}`,
+    GLOSSA_GITHUB_WEB_URL: `http://127.0.0.1:${ports.github}`,
+    GLOSSA_GITHUB_INBOX_POLL_INTERVAL: "200ms",
   };
 
   const migrate = spawnSync(bin, ["-migrate=only"], { env, encoding: "utf8" });
@@ -103,6 +117,7 @@ export async function startStack(): Promise<() => Promise<void>> {
   await psql(pg, "glossa_owner", OWNER_PASSWORD, `ALTER ROLE glossa_app LOGIN PASSWORD '${APP_PASSWORD}'`);
 
   const provider = await startFakeProvider(ports.provider, PROVIDER_LOG);
+  const github = await startFakeGitHub(ports.github);
   const log = createWriteStream(SERVER_LOG, { flags: "w" });
   const server = spawn(bin, [], { env, stdio: ["ignore", "pipe", "pipe"] });
   server.stdout?.pipe(log);
@@ -114,6 +129,7 @@ export async function startStack(): Promise<() => Promise<void>> {
     await new Promise((r) => (server.exitCode !== null ? r(null) : server.once("exit", r)));
     log.end();
     await new Promise((r) => provider.close(r));
+    await new Promise((r) => github.close(r));
     await pg.stop();
   };
 }

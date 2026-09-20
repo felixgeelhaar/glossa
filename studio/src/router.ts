@@ -28,6 +28,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: "Translation memory & termbase" },
       },
       {
+        path: "t/:tenant/settings/github",
+        name: "workspace-github",
+        component: () => import("./views/workspace/GitHubView.vue"),
+        meta: { title: "GitHub" },
+      },
+      {
         path: "t/:tenant/settings/knowledge/imports/:job",
         name: "workspace-import-job",
         component: () => import("./views/workspace/KnowledgeImportJobView.vue"),

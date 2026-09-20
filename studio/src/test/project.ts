@@ -3,6 +3,7 @@ import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { vi } from "vitest";
 import { computed, defineComponent, ref, type Component } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
+import { GITHUB, type GitHubPort } from "../api/github";
 import { INTEGRATION, type IntegrationPort } from "../api/integration";
 import { INTELLIGENCE, type IntelligencePort } from "../api/intelligence";
 import { KNOWLEDGE, type KnowledgePort } from "../api/knowledge";
@@ -52,6 +53,7 @@ export interface ScreenOptions {
   port?: ReleasesPort;
   knowledge?: KnowledgePort;
   intelligence?: IntelligencePort;
+  github?: GitHubPort;
   integration?: IntegrationPort;
   roles?: Role[];
   /** Locale scope of the member (translators, reviewers). */
@@ -88,6 +90,7 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   if (options.knowledge) provide[KNOWLEDGE as symbol] = options.knowledge;
   if (options.intelligence) provide[INTELLIGENCE as symbol] = options.intelligence;
   if (options.integration) provide[INTEGRATION as symbol] = options.integration;
+  if (options.github) provide[GITHUB as symbol] = options.github;
   const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
   await flushPromises();
   return w;
@@ -95,8 +98,11 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
 
 export interface TenantScreenOptions {
   integration?: IntegrationPort;
+  github?: GitHubPort;
   roles?: Role[];
   path: string;
+  /** Answers for the stubbed fetch, by path; the default is an empty page. */
+  responses?: Record<string, unknown>;
 }
 
 /** Mount a workspace (tenant-level) screen: the member's grant comes from the session, as in the app. */
@@ -116,7 +122,8 @@ export async function mountTenantScreen(component: Component, options: TenantScr
     "fetch",
     vi.fn(async (req: Request) => {
       const path = new URL(req.url).pathname;
-      return new Response(JSON.stringify(path === "/v1/me" ? me : { items: [] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      const body = path === "/v1/me" ? me : (options.responses?.[path] ?? { items: [] });
+      return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     }),
   );
   await refreshSession();
@@ -126,11 +133,13 @@ export async function mountTenantScreen(component: Component, options: TenantScr
       { path: "/t/:tenant", name: "projects", component: Empty },
       { path: "/t/:tenant/settings/knowledge", name: "workspace-knowledge", component: Empty },
       { path: "/t/:tenant/settings/knowledge/imports/:job", name: "workspace-import-job", component: Empty },
+      { path: "/t/:tenant/settings/github", name: "workspace-github", component: Empty },
     ],
   });
   await router.push(options.path);
   const provide: Record<symbol, unknown> = {};
   if (options.integration) provide[INTEGRATION as symbol] = options.integration;
+  if (options.github) provide[GITHUB as symbol] = options.github;
   const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
   await flushPromises();
   return w;

@@ -3504,6 +3504,259 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/integrations/github/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive a GitHub webhook delivery
+         * @description GitHub's own endpoint, not a Studio one. It carries no session:
+         *     GitHub signs each delivery, and the signature is what
+         *     authenticates it.
+         *
+         *     The body is read raw, capped at 5 MiB, and its
+         *     `X-Hub-Signature-256` is checked with HMAC-SHA256 in constant
+         *     time **before anything parses it**. A verified delivery is
+         *     written to an inbox keyed by `X-GitHub-Delivery` and answered
+         *     `202` at once, well inside GitHub's ten seconds; a worker
+         *     processes it. A delivery id already seen inside the seven-day
+         *     replay window is a no-op and also answers `202`, so GitHub's
+         *     redeliveries are safe.
+         *
+         *     Handled events: `installation`, `installation_repositories`,
+         *     `pull_request` (`opened`, `synchronize`, `reopened`, `closed`)
+         *     and `check_run` (`rerequested`). Anything else is acknowledged
+         *     and dropped. Nothing in Glossa's correctness depends on a
+         *     delivery arriving: a merge lands through the default branch's
+         *     push, not through this endpoint.
+         *
+         *     A delivery whose signature does not verify answers `401` with no
+         *     detail. Problem codes: `invalid_webhook` (401),
+         *     `webhook_too_large` (413), `github_not_configured` (503).
+         */
+        post: operations["receiveGitHubWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/github/install-intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start installing the Glossa GitHub App
+         * @description Issues a single-use `state`, bound to this workspace, to the
+         *     person asking and to a short expiry, and returns the GitHub URL
+         *     to send them to. Only the state's hash is stored, so a reader of
+         *     the database cannot replay one.
+         *
+         *     Send the person to `install_url`; GitHub returns them with the
+         *     `state`, an `installation_id`, a `code` and a `setup_action`,
+         *     which go to `POST /v1/tenants/{tenant}/github/installations`.
+         *
+         *     Needs `integration.manage`. Problem codes:
+         *     `github_not_configured` (503).
+         */
+        post: operations["startGitHubInstall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/github/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The workspace's GitHub installations
+         * @description Each installation with the repositories the App can see through
+         *     it, read from GitHub. An installation GitHub cannot be reached
+         *     for still lists, with `repositories_unavailable` set and no
+         *     repositories, so one unreachable account does not empty the
+         *     page. A `suspended` or `revoked` installation lists without
+         *     repositories, because GitHub would refuse the call anyway.
+         *
+         *     Needs `integration.read`. Problem codes:
+         *     `github_not_configured` (503).
+         */
+        get: operations["listGitHubInstallations"];
+        put?: never;
+        /**
+         * Finish an installation, with the person's ownership verified
+         * @description The callback of `install-intents`. The `state` is verified and
+         *     burned — it is single-use, so a failed attempt starts over
+         *     rather than retrying — and then the `code` is redeemed for the
+         *     person's own GitHub token, which is used once to check that they
+         *     can actually see the `installation_id` they claim, and dropped.
+         *     That is what stops someone claiming an installation of an
+         *     account they have nothing to do with.
+         *
+         *     An installation maps to exactly one workspace. Re-running this
+         *     for one this workspace already holds refreshes it; one another
+         *     workspace holds is refused with `installation_already_claimed`,
+         *     which never says which workspace that is.
+         *
+         *     Needs `integration.manage`. Problem codes:
+         *     `invalid_install_state` (400: unknown, expired, already used, or
+         *     `setup_action=request`, which means no installation was made),
+         *     `install_state_not_yours` (403),
+         *     `installation_not_visible` (403: the person's token cannot see
+         *     it), `installation_already_claimed` (409),
+         *     `github_unavailable` (503), `github_not_configured` (503).
+         */
+        post: operations["completeGitHubInstall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/github/installations/{installation}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A GitHub installation `id` as Glossa issued it, not GitHub's number. */
+                installation: components["parameters"]["InstallationPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Forget an installation and its Git connections
+         * @description Removes the installation and its Git connections from Glossa. It
+         *     does **not** uninstall the App: only GitHub can do that, on the
+         *     account's or organization's Applications settings page. Until it
+         *     is uninstalled there GitHub keeps sending webhooks, which Glossa
+         *     then acknowledges and ignores.
+         *
+         *     Needs `integration.manage`. Problem codes:
+         *     `github_not_configured` (503).
+         */
+        delete: operations["forgetGitHubInstallation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/github/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The workspace's Git connections
+         * @description Every repository-to-project connection, optionally narrowed to
+         *     one installation or one project.
+         *
+         *     Needs `integration.read`. Problem codes: `invalid_query` (400),
+         *     `github_not_configured` (503).
+         */
+        get: operations["listGitConnections"];
+        put?: never;
+        /**
+         * Connect a repository to a project and application
+         * @description Ties one of an installation's repositories — by its numeric
+         *     `repository_id`, so a rename or a transfer does not break the
+         *     connection — to a project and one of its applications, with the
+         *     repository's default branch and an optional monorepo `path`.
+         *
+         *     One repository can feed several projects, one per `path`; the
+         *     same repository and path twice is `connection_exists`. The
+         *     repository must be one the installation can actually see and the
+         *     application one the project actually has, so a connection that
+         *     could never work is refused here rather than failing quietly on
+         *     the first pull request. `default_branch` may be left out, and
+         *     GitHub's is used.
+         *
+         *     Needs `integration.manage`. Problem codes: `invalid_connection`
+         *     (400), `application_not_found` (404), `repository_not_visible`
+         *     (404), `connection_exists` (409), `installation_revoked` (409),
+         *     `github_unavailable` (503), `github_not_configured` (503).
+         */
+        post: operations["createGitConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/github/connections/{connection}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A Git connection `id`. */
+                connection: components["parameters"]["ConnectionPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One Git connection
+         * @description Needs `integration.read`. Problem codes:
+         *     `github_not_configured` (503).
+         */
+        get: operations["getGitConnection"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove a Git connection
+         * @description The repository and the installation stay; only the link to this
+         *     project goes.
+         *
+         *     Needs `integration.manage`. Problem codes:
+         *     `github_not_configured` (503).
+         */
+        delete: operations["deleteGitConnection"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a connection's project, application, branch or path
+         * @description The repository is fixed: pointing a connection at another
+         *     repository is a different connection, so create that one and
+         *     delete this one.
+         *
+         *     Needs `integration.manage`. Problem codes: `invalid_connection`
+         *     (400), `application_not_found` (404), `connection_exists` (409:
+         *     another connection already covers that path),
+         *     `github_not_configured` (503).
+         */
+        patch: operations["updateGitConnection"];
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/context-builds": {
         parameters: {
             query?: never;
@@ -6168,6 +6421,144 @@ export interface components {
             /** @description TMX: `locales` (targets) and `source_locale`. TBX takes none. */
             options?: components["schemas"]["ExportOptions"];
         };
+        WebhookAck: {
+            /**
+             * @description `false` when the delivery id was already in the inbox. The
+             *     answer is `202` either way: a duplicate is a no-op.
+             */
+            accepted: boolean;
+        };
+        GitHubInstallIntent: {
+            /**
+             * @description The single-use value to carry through GitHub and hand back
+             *     on the callback. Already on `install_url`.
+             */
+            state: string;
+            /** @description Where to send the person to authorize the App. */
+            install_url: string;
+            expires_at: components["schemas"]["Timestamp"];
+        };
+        GitHubInstallCallback: {
+            /** @description The `state` GitHub handed back. */
+            state: string;
+            /**
+             * Format: int64
+             * @description GitHub's installation number.
+             */
+            installation_id: number;
+            /**
+             * @description GitHub's one-time authorization code. It is redeemed for the
+             *     person's own token, used once to check that they can see the
+             *     installation, and never stored.
+             */
+            code: string;
+            /**
+             * @description GitHub's `setup_action`. `install` means an installation was
+             *     made; `request` means the person could only ask their
+             *     organization for one, and there is nothing to claim yet.
+             */
+            setup_action?: string;
+        };
+        /**
+         * @description `active`; `suspended` when the account suspended the App;
+         *     `revoked` when it was uninstalled on GitHub, which leaves the
+         *     row so Studio can say what happened.
+         * @enum {string}
+         */
+        GitHubInstallationState: "active" | "suspended" | "revoked";
+        GitHubRepository: {
+            /**
+             * Format: int64
+             * @description GitHub's numeric id, which a rename does not change.
+             */
+            repository_id: number;
+            name: string;
+            /** @description `owner/name`, a label only. */
+            full_name: string;
+            private: boolean;
+            default_branch: string;
+        };
+        GitHubInstallation: {
+            id: components["schemas"]["Id"];
+            /**
+             * Format: int64
+             * @description GitHub's installation number.
+             */
+            installation_id: number;
+            account_login: string;
+            /** @enum {string} */
+            account_type: "User" | "Organization";
+            state: components["schemas"]["GitHubInstallationState"];
+            connected_by?: string;
+            connected_at: components["schemas"]["Timestamp"];
+            /** @description The repositories the App can see through this installation. */
+            repositories?: components["schemas"]["GitHubRepository"][];
+            /**
+             * @description GitHub could not be reached for this installation, so
+             *     `repositories` is empty and says nothing about what it
+             *     covers. It is also `true` for a suspended or revoked
+             *     installation, whose repositories GitHub would refuse.
+             */
+            repositories_unavailable: boolean;
+        };
+        GitHubInstallationList: {
+            items: components["schemas"]["GitHubInstallation"][];
+            next_page_token?: string;
+        };
+        GitConnection: {
+            id: components["schemas"]["Id"];
+            /** @description Glossa's installation `id`, not GitHub's number. */
+            installation_id: components["schemas"]["Id"];
+            /**
+             * Format: int64
+             * @description GitHub's numeric repository id.
+             */
+            repository_id: number;
+            /** @description `owner/name` as GitHub last reported it; a label, never a key. */
+            repository_name: string;
+            project_id: components["schemas"]["Id"];
+            application_id: components["schemas"]["Id"];
+            default_branch: string;
+            /**
+             * @description The monorepo subdirectory this connection covers, without
+             *     leading or trailing slashes. Empty is the whole repository.
+             */
+            path: string;
+            created_by?: string;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at?: components["schemas"]["Timestamp"];
+            /** @description The `If-Match` value for a change. A connection has no history, so it is always `0`. */
+            version: number;
+        };
+        GitConnectionList: {
+            items: components["schemas"]["GitConnection"][];
+            next_page_token?: string;
+        };
+        GitConnectionRequest: {
+            /** @description Glossa's installation `id`. */
+            installation_id: components["schemas"]["Id"];
+            /**
+             * Format: int64
+             * @description GitHub's numeric repository id, from the installation's `repositories`.
+             */
+            repository_id: number;
+            project_id: components["schemas"]["Id"];
+            application_id: components["schemas"]["Id"];
+            /** @description Left out, GitHub's default branch for the repository is used. */
+            default_branch?: string;
+            /**
+             * @description A monorepo subdirectory (`apps/web`). Left out, the
+             *     connection covers the whole repository. One repository can
+             *     feed several projects, one per path.
+             */
+            path?: string;
+        };
+        GitConnectionChange: {
+            project_id: components["schemas"]["Id"];
+            application_id: components["schemas"]["Id"];
+            default_branch: string;
+            path?: string;
+        };
         /** @enum {string} */
         ContextSource: "plugin" | "extract" | "runtime" | "capture";
         /**
@@ -6557,6 +6948,10 @@ export interface components {
         ProjectPath: components["schemas"]["Id"];
         /** @description An application `id`. */
         ApplicationPath: components["schemas"]["Id"];
+        /** @description A GitHub installation `id` as Glossa issued it, not GitHub's number. */
+        InstallationPath: components["schemas"]["Id"];
+        /** @description A Git connection `id`. */
+        ConnectionPath: components["schemas"]["Id"];
         /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
         MessagePath: components["schemas"]["MessageKey"];
         /** @description A locale code; canonicalized before use. */
@@ -11730,6 +12125,334 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    receiveGitHubWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The event name, e.g. `pull_request`. */
+                "X-GitHub-Event": string;
+                /** @description GitHub's delivery id; the inbox key. */
+                "X-GitHub-Delivery": string;
+                /** @description `sha256=` and the HMAC-SHA256 of the raw body under the App's webhook secret. */
+                "X-Hub-Signature-256": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The raw delivery. GitHub sends `application/json`; Glossa reads
+         *     the bytes exactly as they were signed and parses them only
+         *     after the signature verifies, so the body is declared as an
+         *     opaque stream.
+         */
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /**
+             * @description The delivery was verified and stored, or was a duplicate the
+             *     inbox already holds. Nothing has been processed yet.
+             */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookAck"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            413: components["responses"]["PayloadTooLarge"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    startGitHubInstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The state and where to send the person. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubInstallIntent"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listGitHubInstallations: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of installations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubInstallationList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    completeGitHubInstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitHubInstallCallback"];
+            };
+        };
+        responses: {
+            /** @description The installation, now this workspace's. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubInstallation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    forgetGitHubInstallation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A GitHub installation `id` as Glossa issued it, not GitHub's number. */
+                installation: components["parameters"]["InstallationPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The installation is gone from Glossa. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listGitConnections: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description Only this installation's connections. */
+                installation?: components["schemas"]["Id"];
+                /** @description Only this project's connections. */
+                project?: components["schemas"]["Id"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of connections. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitConnectionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createGitConnection: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitConnectionRequest"];
+            };
+        };
+        responses: {
+            /** @description The connection. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitConnection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getGitConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A Git connection `id`. */
+                connection: components["parameters"]["ConnectionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connection. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitConnection"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteGitConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A Git connection `id`. */
+                connection: components["parameters"]["ConnectionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connection is gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    updateGitConnection: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A Git connection `id`. */
+                connection: components["parameters"]["ConnectionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitConnectionChange"];
+            };
+        };
+        responses: {
+            /** @description The connection. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitConnection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listContextBuilds: {
