@@ -100,7 +100,17 @@ type APIError struct {
 	Code   string
 	Title  string
 	Detail string
+	// Errors are the problem's field errors, when it sent any: what the
+	// server could say about the request beyond one sentence, such as
+	// the projects an ambiguous repository feeds.
+	Errors []FieldError
 	Err    error
+}
+
+// FieldError points at one member of the request body.
+type FieldError struct {
+	Pointer string `json:"pointer"`
+	Detail  string `json:"detail"`
 }
 
 func (e *APIError) Error() string {
@@ -150,12 +160,13 @@ func rawBody(r any) []byte {
 func problem(status int, body []byte, method, url string) *APIError {
 	e := &APIError{Method: method, URL: url, Status: status}
 	var p struct {
-		Code   string `json:"code"`
-		Title  string `json:"title"`
-		Detail string `json:"detail"`
+		Code   string       `json:"code"`
+		Title  string       `json:"title"`
+		Detail string       `json:"detail"`
+		Errors []FieldError `json:"errors"`
 	}
 	if json.Unmarshal(body, &p) == nil && p.Code != "" {
-		e.Code, e.Title, e.Detail = p.Code, p.Title, p.Detail
+		e.Code, e.Title, e.Detail, e.Errors = p.Code, p.Title, p.Detail, p.Errors
 	} else {
 		e.Code = http.StatusText(status)
 		e.Detail = strings.TrimSpace(truncate(string(body), 200))

@@ -459,6 +459,24 @@ func (e BranchState) Valid() bool {
 	}
 }
 
+// Defines values for CITokenPermissions.
+const (
+	CITokenPermissionsCatalogRead  CITokenPermissions = "catalog.read"
+	CITokenPermissionsCatalogWrite CITokenPermissions = "catalog.write"
+)
+
+// Valid indicates whether the value is a known member of the CITokenPermissions enum.
+func (e CITokenPermissions) Valid() bool {
+	switch e {
+	case CITokenPermissionsCatalogRead:
+		return true
+	case CITokenPermissionsCatalogWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CaptureRegionKind.
 const (
 	CaptureRegionKindAttribute CaptureRegionKind = "attribute"
@@ -728,28 +746,28 @@ func (e ImportResultStatus) Valid() bool {
 
 // Defines values for InContextPermissionPermission.
 const (
-	CatalogRead           InContextPermissionPermission = "catalog.read"
-	IntelligenceRead      InContextPermissionPermission = "intelligence.read"
-	IntelligenceTranslate InContextPermissionPermission = "intelligence.translate"
-	KnowledgeRead         InContextPermissionPermission = "knowledge.read"
-	TranslationsRead      InContextPermissionPermission = "translations.read"
-	TranslationsWrite     InContextPermissionPermission = "translations.write"
+	InContextPermissionPermissionCatalogRead           InContextPermissionPermission = "catalog.read"
+	InContextPermissionPermissionIntelligenceRead      InContextPermissionPermission = "intelligence.read"
+	InContextPermissionPermissionIntelligenceTranslate InContextPermissionPermission = "intelligence.translate"
+	InContextPermissionPermissionKnowledgeRead         InContextPermissionPermission = "knowledge.read"
+	InContextPermissionPermissionTranslationsRead      InContextPermissionPermission = "translations.read"
+	InContextPermissionPermissionTranslationsWrite     InContextPermissionPermission = "translations.write"
 )
 
 // Valid indicates whether the value is a known member of the InContextPermissionPermission enum.
 func (e InContextPermissionPermission) Valid() bool {
 	switch e {
-	case CatalogRead:
+	case InContextPermissionPermissionCatalogRead:
 		return true
-	case IntelligenceRead:
+	case InContextPermissionPermissionIntelligenceRead:
 		return true
-	case IntelligenceTranslate:
+	case InContextPermissionPermissionIntelligenceTranslate:
 		return true
-	case KnowledgeRead:
+	case InContextPermissionPermissionKnowledgeRead:
 		return true
-	case TranslationsRead:
+	case InContextPermissionPermissionTranslationsRead:
 		return true
-	case TranslationsWrite:
+	case InContextPermissionPermissionTranslationsWrite:
 		return true
 	default:
 		return false
@@ -2511,6 +2529,38 @@ type BranchStatus struct {
 	SourceProposals []MessageKey `json:"source_proposals"`
 }
 
+// CIToken A GitHub Actions run's credential. `token` is shown exactly
+// once, here; CI keeps it for the length of the job and nothing
+// stores it afterwards.
+type CIToken struct {
+	// ExpiresAt 30 minutes after the exchange. There is no refresh.
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// Permissions What the token allows, and the whole of it: `catalog.read`
+	// and `catalog.write`.
+	Permissions []CITokenPermissions `json:"permissions"`
+
+	// ProjectId The only project this token may act on.
+	ProjectId Id `json:"project_id"`
+
+	// Repository "owner/name" when the token was issued. A label; nothing is keyed on it.
+	Repository *string `json:"repository,omitempty"`
+
+	// RepositoryId The `repository_id` claim the decision rested on — GitHub's
+	// immutable number, echoed back so CI can see what it
+	// authenticated as.
+	RepositoryId int64 `json:"repository_id"`
+
+	// TenantId An opaque identifier.
+	TenantId Id `json:"tenant_id"`
+
+	// Token The bearer credential. Never echo it into a log.
+	Token string `json:"token"`
+}
+
+// CITokenPermissions defines model for CIToken.Permissions.
+type CITokenPermissions string
+
 // CaptureBox Whole CSS pixels from the page's top left (covering the measured box); off-screen boxes may be negative.
 type CaptureBox struct {
 	Height int `json:"height"`
@@ -3369,6 +3419,21 @@ type GitHubInstallationList struct {
 // `revoked` when it was uninstalled on GitHub, which leaves the
 // row so Studio can say what happened.
 type GitHubInstallationState string
+
+// GitHubOIDCExchange defines model for GitHubOIDCExchange.
+type GitHubOIDCExchange struct {
+	// IdToken The compact JWS GitHub Actions issued for audience `glossa`
+	// (`ACTIONS_ID_TOKEN_REQUEST_URL?audience=glossa`). It is the
+	// request's only credential and is never stored or logged.
+	IdToken string `json:"id_token"`
+
+	// ProjectId Which project to authenticate for, needed only when the
+	// repository feeds several — a monorepo with one Git
+	// connection per path. Naming a project the repository does
+	// not feed is `repository_not_connected`, the same answer as
+	// an unconnected repository.
+	ProjectId *Id `json:"project_id,omitempty"`
+}
 
 // GitHubRepository defines model for GitHubRepository.
 type GitHubRepository struct {
@@ -6686,6 +6751,9 @@ type CreateTokenParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// ExchangeGitHubOIDCTokenJSONRequestBody defines body for ExchangeGitHubOIDCToken for application/json ContentType.
+type ExchangeGitHubOIDCTokenJSONRequestBody = GitHubOIDCExchange
+
 // RedeemMagicLinkJSONRequestBody defines body for RedeemMagicLink for application/json ContentType.
 type RedeemMagicLinkJSONRequestBody = TokenRedemption
 
@@ -7038,6 +7106,106 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+
+	// ExchangeGitHubOIDCTokenWithBody Exchange a GitHub Actions ID token for a CI token
+	//
+	// How a GitHub Actions run authenticates without a stored secret
+	// (RFC 0004 §6.3). The job requests an OIDC ID token with audience
+	// `glossa` and posts it here; `glossa login` does this by itself
+	// when it sees `ACTIONS_ID_TOKEN_REQUEST_URL`.
+	//
+	// The operation is unauthenticated because the ID token *is* the
+	// credential. Glossa verifies it against the issuer's published
+	// keys — issuer, audience, signature, algorithm and expiry — and
+	// then matches its `repository_id` claim, GitHub's immutable
+	// number, against a Git connection. The repository's *name* is
+	// never consulted: a name can be renamed, deleted and registered
+	// by a stranger, and a policy keyed on one could be inherited.
+	//
+	// The token it returns:
+	//
+	// - allows exactly `catalog.read` and `catalog.write`, which is
+	//   what `glossa push`, `extract --upload`, `context push`,
+	//   `capture --upload` and `preview register` need and no more —
+	//   it cannot import translations, publish a release, ask an AI
+	//   provider for anything or read the tenant's members or tokens;
+	// - is bound to one project: a request under another project of
+	//   the same tenant is `403` `grant_project_mismatch`;
+	// - lives 30 minutes and cannot be refreshed. The next job asks
+	//   GitHub for a fresh ID token.
+	//
+	// When a repository feeds several projects — a monorepo with one
+	// connection per path — send `project_id`; without it the answer
+	// is `409` `ambiguous_project`, whose `errors` list the candidate
+	// projects (`pointer: "/project_id"`, `detail` the project id and
+	// its path) so CI can be told which to name.
+	//
+	// **Forks.** GitHub gives a pull request from a fork no ID token
+	// and no secrets, so a fork's job has nothing to present. Its
+	// Glossa check completes as `neutral` with an explanation
+	// (RFC 0004 §6.4) rather than failing. Nothing here has to detect
+	// a fork: a token minted from a fork's own repository would be
+	// minted for that repository's connections, which are not the
+	// upstream's.
+	//
+	// Problem codes: `invalid_id_token` (401),
+	// `repository_not_connected` (403), `ambiguous_project` (409),
+	// `github_not_configured` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/auth/github-oidc-exchanges (the `ExchangeGitHubOIDCToken` operationId).
+	ExchangeGitHubOIDCTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExchangeGitHubOIDCToken Exchange a GitHub Actions ID token for a CI token
+	//
+	// How a GitHub Actions run authenticates without a stored secret
+	// (RFC 0004 §6.3). The job requests an OIDC ID token with audience
+	// `glossa` and posts it here; `glossa login` does this by itself
+	// when it sees `ACTIONS_ID_TOKEN_REQUEST_URL`.
+	//
+	// The operation is unauthenticated because the ID token *is* the
+	// credential. Glossa verifies it against the issuer's published
+	// keys — issuer, audience, signature, algorithm and expiry — and
+	// then matches its `repository_id` claim, GitHub's immutable
+	// number, against a Git connection. The repository's *name* is
+	// never consulted: a name can be renamed, deleted and registered
+	// by a stranger, and a policy keyed on one could be inherited.
+	//
+	// The token it returns:
+	//
+	// - allows exactly `catalog.read` and `catalog.write`, which is
+	//   what `glossa push`, `extract --upload`, `context push`,
+	//   `capture --upload` and `preview register` need and no more —
+	//   it cannot import translations, publish a release, ask an AI
+	//   provider for anything or read the tenant's members or tokens;
+	// - is bound to one project: a request under another project of
+	//   the same tenant is `403` `grant_project_mismatch`;
+	// - lives 30 minutes and cannot be refreshed. The next job asks
+	//   GitHub for a fresh ID token.
+	//
+	// When a repository feeds several projects — a monorepo with one
+	// connection per path — send `project_id`; without it the answer
+	// is `409` `ambiguous_project`, whose `errors` list the candidate
+	// projects (`pointer: "/project_id"`, `detail` the project id and
+	// its path) so CI can be told which to name.
+	//
+	// **Forks.** GitHub gives a pull request from a fork no ID token
+	// and no secrets, so a fork's job has nothing to present. Its
+	// Glossa check completes as `neutral` with an explanation
+	// (RFC 0004 §6.4) rather than failing. Nothing here has to detect
+	// a fork: a token minted from a fork's own repository would be
+	// minted for that repository's connections, which are not the
+	// upstream's.
+	//
+	// Problem codes: `invalid_id_token` (401),
+	// `repository_not_connected` (403), `ambiguous_project` (409),
+	// `github_not_configured` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/auth/github-oidc-exchanges (the `ExchangeGitHubOIDCToken` operationId).
+	ExchangeGitHubOIDCToken(ctx context.Context, body ExchangeGitHubOIDCTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RedeemMagicLinkWithBody Sign in with an emailed link
 	//
@@ -10511,6 +10679,126 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/tokens/{token} (the `GetToken` operationId).
 	GetToken(ctx context.Context, tenant TenantPath, token TokenPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// ExchangeGitHubOIDCTokenWithBody Exchange a GitHub Actions ID token for a CI token
+//
+// How a GitHub Actions run authenticates without a stored secret
+// (RFC 0004 §6.3). The job requests an OIDC ID token with audience
+// `glossa` and posts it here; `glossa login` does this by itself
+// when it sees `ACTIONS_ID_TOKEN_REQUEST_URL`.
+//
+// The operation is unauthenticated because the ID token *is* the
+// credential. Glossa verifies it against the issuer's published
+// keys — issuer, audience, signature, algorithm and expiry — and
+// then matches its `repository_id` claim, GitHub's immutable
+// number, against a Git connection. The repository's *name* is
+// never consulted: a name can be renamed, deleted and registered
+// by a stranger, and a policy keyed on one could be inherited.
+//
+// The token it returns:
+//
+//   - allows exactly `catalog.read` and `catalog.write`, which is
+//     what `glossa push`, `extract --upload`, `context push`,
+//     `capture --upload` and `preview register` need and no more —
+//     it cannot import translations, publish a release, ask an AI
+//     provider for anything or read the tenant's members or tokens;
+//   - is bound to one project: a request under another project of
+//     the same tenant is `403` `grant_project_mismatch`;
+//   - lives 30 minutes and cannot be refreshed. The next job asks
+//     GitHub for a fresh ID token.
+//
+// When a repository feeds several projects — a monorepo with one
+// connection per path — send `project_id`; without it the answer
+// is `409` `ambiguous_project`, whose `errors` list the candidate
+// projects (`pointer: "/project_id"`, `detail` the project id and
+// its path) so CI can be told which to name.
+//
+// **Forks.** GitHub gives a pull request from a fork no ID token
+// and no secrets, so a fork's job has nothing to present. Its
+// Glossa check completes as `neutral` with an explanation
+// (RFC 0004 §6.4) rather than failing. Nothing here has to detect
+// a fork: a token minted from a fork's own repository would be
+// minted for that repository's connections, which are not the
+// upstream's.
+//
+// Problem codes: `invalid_id_token` (401),
+// `repository_not_connected` (403), `ambiguous_project` (409),
+// `github_not_configured` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/auth/github-oidc-exchanges (the `ExchangeGitHubOIDCToken` operationId).
+func (c *Client) ExchangeGitHubOIDCTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExchangeGitHubOIDCTokenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExchangeGitHubOIDCToken Exchange a GitHub Actions ID token for a CI token
+//
+// How a GitHub Actions run authenticates without a stored secret
+// (RFC 0004 §6.3). The job requests an OIDC ID token with audience
+// `glossa` and posts it here; `glossa login` does this by itself
+// when it sees `ACTIONS_ID_TOKEN_REQUEST_URL`.
+//
+// The operation is unauthenticated because the ID token *is* the
+// credential. Glossa verifies it against the issuer's published
+// keys — issuer, audience, signature, algorithm and expiry — and
+// then matches its `repository_id` claim, GitHub's immutable
+// number, against a Git connection. The repository's *name* is
+// never consulted: a name can be renamed, deleted and registered
+// by a stranger, and a policy keyed on one could be inherited.
+//
+// The token it returns:
+//
+//   - allows exactly `catalog.read` and `catalog.write`, which is
+//     what `glossa push`, `extract --upload`, `context push`,
+//     `capture --upload` and `preview register` need and no more —
+//     it cannot import translations, publish a release, ask an AI
+//     provider for anything or read the tenant's members or tokens;
+//   - is bound to one project: a request under another project of
+//     the same tenant is `403` `grant_project_mismatch`;
+//   - lives 30 minutes and cannot be refreshed. The next job asks
+//     GitHub for a fresh ID token.
+//
+// When a repository feeds several projects — a monorepo with one
+// connection per path — send `project_id`; without it the answer
+// is `409` `ambiguous_project`, whose `errors` list the candidate
+// projects (`pointer: "/project_id"`, `detail` the project id and
+// its path) so CI can be told which to name.
+//
+// **Forks.** GitHub gives a pull request from a fork no ID token
+// and no secrets, so a fork's job has nothing to present. Its
+// Glossa check completes as `neutral` with an explanation
+// (RFC 0004 §6.4) rather than failing. Nothing here has to detect
+// a fork: a token minted from a fork's own repository would be
+// minted for that repository's connections, which are not the
+// upstream's.
+//
+// Problem codes: `invalid_id_token` (401),
+// `repository_not_connected` (403), `ambiguous_project` (409),
+// `github_not_configured` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/auth/github-oidc-exchanges (the `ExchangeGitHubOIDCToken` operationId).
+func (c *Client) ExchangeGitHubOIDCToken(ctx context.Context, body ExchangeGitHubOIDCTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExchangeGitHubOIDCTokenRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // RedeemMagicLinkWithBody Sign in with an emailed link
@@ -16564,6 +16852,46 @@ func (c *Client) GetToken(ctx context.Context, tenant TenantPath, token TokenPat
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewExchangeGitHubOIDCTokenRequest calls the generic ExchangeGitHubOIDCToken builder with application/json body
+func NewExchangeGitHubOIDCTokenRequest(server string, body ExchangeGitHubOIDCTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewExchangeGitHubOIDCTokenRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewExchangeGitHubOIDCTokenRequestWithBody constructs an http.Request for the ExchangeGitHubOIDCToken method, with any body, and a specified content type
+func NewExchangeGitHubOIDCTokenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/github-oidc-exchanges")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewRedeemMagicLinkRequest calls the generic RedeemMagicLink builder with application/json body
@@ -28409,6 +28737,106 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
+	// ExchangeGitHubOIDCTokenWithBodyWithResponse Exchange a GitHub Actions ID token for a CI token
+	//
+	// How a GitHub Actions run authenticates without a stored secret
+	// (RFC 0004 §6.3). The job requests an OIDC ID token with audience
+	// `glossa` and posts it here; `glossa login` does this by itself
+	// when it sees `ACTIONS_ID_TOKEN_REQUEST_URL`.
+	//
+	// The operation is unauthenticated because the ID token *is* the
+	// credential. Glossa verifies it against the issuer's published
+	// keys — issuer, audience, signature, algorithm and expiry — and
+	// then matches its `repository_id` claim, GitHub's immutable
+	// number, against a Git connection. The repository's *name* is
+	// never consulted: a name can be renamed, deleted and registered
+	// by a stranger, and a policy keyed on one could be inherited.
+	//
+	// The token it returns:
+	//
+	// - allows exactly `catalog.read` and `catalog.write`, which is
+	//   what `glossa push`, `extract --upload`, `context push`,
+	//   `capture --upload` and `preview register` need and no more —
+	//   it cannot import translations, publish a release, ask an AI
+	//   provider for anything or read the tenant's members or tokens;
+	// - is bound to one project: a request under another project of
+	//   the same tenant is `403` `grant_project_mismatch`;
+	// - lives 30 minutes and cannot be refreshed. The next job asks
+	//   GitHub for a fresh ID token.
+	//
+	// When a repository feeds several projects — a monorepo with one
+	// connection per path — send `project_id`; without it the answer
+	// is `409` `ambiguous_project`, whose `errors` list the candidate
+	// projects (`pointer: "/project_id"`, `detail` the project id and
+	// its path) so CI can be told which to name.
+	//
+	// **Forks.** GitHub gives a pull request from a fork no ID token
+	// and no secrets, so a fork's job has nothing to present. Its
+	// Glossa check completes as `neutral` with an explanation
+	// (RFC 0004 §6.4) rather than failing. Nothing here has to detect
+	// a fork: a token minted from a fork's own repository would be
+	// minted for that repository's connections, which are not the
+	// upstream's.
+	//
+	// Problem codes: `invalid_id_token` (401),
+	// `repository_not_connected` (403), `ambiguous_project` (409),
+	// `github_not_configured` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/github-oidc-exchanges (the `ExchangeGitHubOIDCToken` operationId).
+	ExchangeGitHubOIDCTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExchangeGitHubOIDCTokenResponse, error)
+
+	// ExchangeGitHubOIDCTokenWithResponse Exchange a GitHub Actions ID token for a CI token
+	//
+	// How a GitHub Actions run authenticates without a stored secret
+	// (RFC 0004 §6.3). The job requests an OIDC ID token with audience
+	// `glossa` and posts it here; `glossa login` does this by itself
+	// when it sees `ACTIONS_ID_TOKEN_REQUEST_URL`.
+	//
+	// The operation is unauthenticated because the ID token *is* the
+	// credential. Glossa verifies it against the issuer's published
+	// keys — issuer, audience, signature, algorithm and expiry — and
+	// then matches its `repository_id` claim, GitHub's immutable
+	// number, against a Git connection. The repository's *name* is
+	// never consulted: a name can be renamed, deleted and registered
+	// by a stranger, and a policy keyed on one could be inherited.
+	//
+	// The token it returns:
+	//
+	// - allows exactly `catalog.read` and `catalog.write`, which is
+	//   what `glossa push`, `extract --upload`, `context push`,
+	//   `capture --upload` and `preview register` need and no more —
+	//   it cannot import translations, publish a release, ask an AI
+	//   provider for anything or read the tenant's members or tokens;
+	// - is bound to one project: a request under another project of
+	//   the same tenant is `403` `grant_project_mismatch`;
+	// - lives 30 minutes and cannot be refreshed. The next job asks
+	//   GitHub for a fresh ID token.
+	//
+	// When a repository feeds several projects — a monorepo with one
+	// connection per path — send `project_id`; without it the answer
+	// is `409` `ambiguous_project`, whose `errors` list the candidate
+	// projects (`pointer: "/project_id"`, `detail` the project id and
+	// its path) so CI can be told which to name.
+	//
+	// **Forks.** GitHub gives a pull request from a fork no ID token
+	// and no secrets, so a fork's job has nothing to present. Its
+	// Glossa check completes as `neutral` with an explanation
+	// (RFC 0004 §6.4) rather than failing. Nothing here has to detect
+	// a fork: a token minted from a fork's own repository would be
+	// minted for that repository's connections, which are not the
+	// upstream's.
+	//
+	// Problem codes: `invalid_id_token` (401),
+	// `repository_not_connected` (403), `ambiguous_project` (409),
+	// `github_not_configured` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/github-oidc-exchanges (the `ExchangeGitHubOIDCToken` operationId).
+	ExchangeGitHubOIDCTokenWithResponse(ctx context.Context, body ExchangeGitHubOIDCTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*ExchangeGitHubOIDCTokenResponse, error)
+
 	// RedeemMagicLinkWithBodyWithResponse Sign in with an emailed link
 	//
 	// Spends the link's token and starts a session. Problem codes:
@@ -32111,6 +32539,82 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/tokens/{token} (the `GetToken` operationId).
 	GetTokenWithResponse(ctx context.Context, tenant TenantPath, token TokenPath, reqEditors ...RequestEditorFn) (*GetTokenResponse, error)
+}
+
+type ExchangeGitHubOIDCTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *CIToken
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r ExchangeGitHubOIDCTokenResponse) GetJSON201() *CIToken {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ExchangeGitHubOIDCTokenResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ExchangeGitHubOIDCTokenResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ExchangeGitHubOIDCTokenResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r ExchangeGitHubOIDCTokenResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r ExchangeGitHubOIDCTokenResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r ExchangeGitHubOIDCTokenResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ExchangeGitHubOIDCTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExchangeGitHubOIDCTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExchangeGitHubOIDCTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 // RedeemMagicLinkResponse200Headers the declared response headers of an HTTP 200 response for RedeemMagicLink
@@ -45474,6 +45978,118 @@ func (r GetTokenResponse) ContentType() string {
 	return ""
 }
 
+// ExchangeGitHubOIDCTokenWithBodyWithResponse Exchange a GitHub Actions ID token for a CI token
+//
+// How a GitHub Actions run authenticates without a stored secret
+// (RFC 0004 §6.3). The job requests an OIDC ID token with audience
+// `glossa` and posts it here; `glossa login` does this by itself
+// when it sees `ACTIONS_ID_TOKEN_REQUEST_URL`.
+//
+// The operation is unauthenticated because the ID token *is* the
+// credential. Glossa verifies it against the issuer's published
+// keys — issuer, audience, signature, algorithm and expiry — and
+// then matches its `repository_id` claim, GitHub's immutable
+// number, against a Git connection. The repository's *name* is
+// never consulted: a name can be renamed, deleted and registered
+// by a stranger, and a policy keyed on one could be inherited.
+//
+// The token it returns:
+//
+//   - allows exactly `catalog.read` and `catalog.write`, which is
+//     what `glossa push`, `extract --upload`, `context push`,
+//     `capture --upload` and `preview register` need and no more —
+//     it cannot import translations, publish a release, ask an AI
+//     provider for anything or read the tenant's members or tokens;
+//   - is bound to one project: a request under another project of
+//     the same tenant is `403` `grant_project_mismatch`;
+//   - lives 30 minutes and cannot be refreshed. The next job asks
+//     GitHub for a fresh ID token.
+//
+// When a repository feeds several projects — a monorepo with one
+// connection per path — send `project_id`; without it the answer
+// is `409` `ambiguous_project`, whose `errors` list the candidate
+// projects (`pointer: "/project_id"`, `detail` the project id and
+// its path) so CI can be told which to name.
+//
+// **Forks.** GitHub gives a pull request from a fork no ID token
+// and no secrets, so a fork's job has nothing to present. Its
+// Glossa check completes as `neutral` with an explanation
+// (RFC 0004 §6.4) rather than failing. Nothing here has to detect
+// a fork: a token minted from a fork's own repository would be
+// minted for that repository's connections, which are not the
+// upstream's.
+//
+// Problem codes: `invalid_id_token` (401),
+// `repository_not_connected` (403), `ambiguous_project` (409),
+// `github_not_configured` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/github-oidc-exchanges (the `ExchangeGitHubOIDCToken` operationId).
+func (c *ClientWithResponses) ExchangeGitHubOIDCTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExchangeGitHubOIDCTokenResponse, error) {
+	rsp, err := c.ExchangeGitHubOIDCTokenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExchangeGitHubOIDCTokenResponse(rsp)
+}
+
+// ExchangeGitHubOIDCTokenWithResponse Exchange a GitHub Actions ID token for a CI token
+//
+// How a GitHub Actions run authenticates without a stored secret
+// (RFC 0004 §6.3). The job requests an OIDC ID token with audience
+// `glossa` and posts it here; `glossa login` does this by itself
+// when it sees `ACTIONS_ID_TOKEN_REQUEST_URL`.
+//
+// The operation is unauthenticated because the ID token *is* the
+// credential. Glossa verifies it against the issuer's published
+// keys — issuer, audience, signature, algorithm and expiry — and
+// then matches its `repository_id` claim, GitHub's immutable
+// number, against a Git connection. The repository's *name* is
+// never consulted: a name can be renamed, deleted and registered
+// by a stranger, and a policy keyed on one could be inherited.
+//
+// The token it returns:
+//
+//   - allows exactly `catalog.read` and `catalog.write`, which is
+//     what `glossa push`, `extract --upload`, `context push`,
+//     `capture --upload` and `preview register` need and no more —
+//     it cannot import translations, publish a release, ask an AI
+//     provider for anything or read the tenant's members or tokens;
+//   - is bound to one project: a request under another project of
+//     the same tenant is `403` `grant_project_mismatch`;
+//   - lives 30 minutes and cannot be refreshed. The next job asks
+//     GitHub for a fresh ID token.
+//
+// When a repository feeds several projects — a monorepo with one
+// connection per path — send `project_id`; without it the answer
+// is `409` `ambiguous_project`, whose `errors` list the candidate
+// projects (`pointer: "/project_id"`, `detail` the project id and
+// its path) so CI can be told which to name.
+//
+// **Forks.** GitHub gives a pull request from a fork no ID token
+// and no secrets, so a fork's job has nothing to present. Its
+// Glossa check completes as `neutral` with an explanation
+// (RFC 0004 §6.4) rather than failing. Nothing here has to detect
+// a fork: a token minted from a fork's own repository would be
+// minted for that repository's connections, which are not the
+// upstream's.
+//
+// Problem codes: `invalid_id_token` (401),
+// `repository_not_connected` (403), `ambiguous_project` (409),
+// `github_not_configured` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/github-oidc-exchanges (the `ExchangeGitHubOIDCToken` operationId).
+func (c *ClientWithResponses) ExchangeGitHubOIDCTokenWithResponse(ctx context.Context, body ExchangeGitHubOIDCTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*ExchangeGitHubOIDCTokenResponse, error) {
+	rsp, err := c.ExchangeGitHubOIDCToken(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExchangeGitHubOIDCTokenResponse(rsp)
+}
+
 // RedeemMagicLinkWithBodyWithResponse Sign in with an emailed link
 //
 // Spends the link's token and starts a session. Problem codes:
@@ -50723,6 +51339,67 @@ func (c *ClientWithResponses) GetTokenWithResponse(ctx context.Context, tenant T
 		return nil, err
 	}
 	return ParseGetTokenResponse(rsp)
+}
+
+// ParseExchangeGitHubOIDCTokenResponse parses an HTTP response from a ExchangeGitHubOIDCTokenWithResponse call
+func ParseExchangeGitHubOIDCTokenResponse(rsp *http.Response) (*ExchangeGitHubOIDCTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExchangeGitHubOIDCTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CIToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseRedeemMagicLinkResponse parses an HTTP response from a RedeemMagicLinkWithResponse call

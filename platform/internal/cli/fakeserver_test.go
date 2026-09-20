@@ -37,7 +37,19 @@ type fakeServer struct {
 	ctx            *fakeContext
 	branches       *fakeBranches
 	gh             *fakeGitHub
+	ci             *fakeCI
 	requests       []string
+}
+
+// accepts reports whether an Authorization header names a credential
+// this server knows: the API token, or a CI token it minted.
+func (f *fakeServer) accepts(header string) bool {
+	if header == "Bearer "+testToken {
+		return true
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.ci.minted != "" && header == "Bearer "+f.ci.minted
 }
 
 type fakeMessage struct {
@@ -57,7 +69,7 @@ type fakeTranslation struct {
 
 func newFakeServer(t *testing.T) *fakeServer {
 	f := &fakeServer{t: t, reviewRequired: true, sourceLocale: "en", locales: []string{"en"},
-		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange(), ctx: newFakeContext(), branches: newFakeBranches(), gh: newFakeGitHub()}
+		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange(), ctx: newFakeContext(), branches: newFakeBranches(), gh: newFakeGitHub(), ci: &fakeCI{}}
 	mux := http.NewServeMux()
 	p := "/v1/tenants/ten_1/projects/prj_1"
 	mux.HandleFunc("GET /v1/tenants", f.tenants)
@@ -80,11 +92,18 @@ func newFakeServer(t *testing.T) *fakeServer {
 	f.routeContext(mux, p)
 	f.routeBranches(mux, p)
 	f.routeGitHub(mux)
+	f.routeCI(mux)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path+" "+r.Header.Get("Idempotency-Key"))
 		f.mu.Unlock()
-		if r.Header.Get("Authorization") != "Bearer "+testToken {
+		// The OIDC exchange is the one unauthenticated operation: the
+		// ID token in the body is the credential (RFC 0004 §6.3).
+		if r.URL.Path == "/v1/auth/github-oidc-exchanges" {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		if !f.accepts(r.Header.Get("Authorization")) {
 			problemResp(w, 401, "unauthenticated", "invalid token")
 			return
 		}

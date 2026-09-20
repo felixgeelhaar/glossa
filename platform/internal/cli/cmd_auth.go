@@ -6,8 +6,11 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"time"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 )
 
 // tenantJSON is a tenant in --json output.
@@ -37,22 +40,47 @@ func (inv *invocation) serverFor(flagValue string) (string, error) {
 // ── login ───────────────────────────────────────────────────────────
 
 type loginJSON struct {
-	Schema   string     `json:"schema"`
-	Server   string     `json:"server"`
-	StoredIn string     `json:"stored_in"`
-	Tenant   tenantJSON `json:"tenant"`
+	Schema   string `json:"schema"`
+	Server   string `json:"server"`
+	StoredIn string `json:"stored_in"`
+	// Method is "api_token" or "github_actions_oidc".
+	Method string     `json:"method"`
+	Tenant tenantJSON `json:"tenant"`
+	// The rest is the GitHub Actions exchange's (RFC 0004 §6.3): the
+	// one project the credential may act on, what it may do there, when
+	// it dies, and the repository it was minted for.
+	Project     *projectJSON `json:"project,omitempty"`
+	Permissions []string     `json:"permissions,omitempty"`
+	ExpiresAt   *time.Time   `json:"expires_at,omitempty"`
+	Repository  string       `json:"repository,omitempty"`
 }
 
+const loginUsage = `login [--server URL] [--token-stdin] [--project <id>] [--json]
+
+Stores a credential for the server.
+
+In GitHub Actions, with ` + "`permissions: { id-token: write }`" + `, login needs no
+secret: it asks GitHub for an OIDC ID token and exchanges it for a
+30-minute credential scoped to the connected project. Anywhere else it
+takes an API token, from the terminal or --token-stdin.`
+
 func runLogin(ctx context.Context, inv *invocation, args []string) error {
-	fs := inv.flags("login [--server URL] [--token-stdin]")
+	fs := inv.flags(loginUsage)
 	server := fs.String("server", "", "glossa-server URL (default: glossa.yaml's server)")
-	fromStdin := fs.Bool("token-stdin", false, "read the token from stdin (for scripts)")
+	fromStdin := fs.Bool("token-stdin", false, "read an API token from stdin (for scripts)")
+	project := fs.String("project", "", "in GitHub Actions: the project's ID, when the repository feeds several")
 	if _, err := inv.parse(fs, args); err != nil {
 		return err
 	}
 	srv, err := inv.serverFor(*server)
 	if err != nil {
 		return err
+	}
+	// An explicit API token wins: a job that still keeps GLOSSA_TOKEN
+	// as a secret should go on using it, and a person piping a token in
+	// never meant to authenticate as the workflow.
+	if !*fromStdin && inv.inGitHubActions() {
+		return inv.loginWithActionsOIDC(ctx, srv, *project)
 	}
 	tok, err := inv.readToken(*fromStdin)
 	if err != nil {
@@ -66,19 +94,142 @@ func runLogin(ctx context.Context, inv *invocation, args []string) error {
 	if err != nil {
 		return err
 	}
-	store, err := inv.credentialStore()
+	store, err := inv.store(srv, tok)
 	if err != nil {
 		return err
 	}
-	if err := store.Set(srv, tok); err != nil {
-		return &Error{Exit: ExitUsage, Code: "store_failed", What: "can't store the token", Where: store.Name(), Why: err.Error(),
-			Fix: "set GLOSSA_TOKEN instead"}
-	}
-	out := loginJSON{Schema: "glossa.cli.login/v1", Server: srv, StoredIn: store.Name(), Tenant: tenant}
+	out := loginJSON{Schema: "glossa.cli.login/v1", Server: srv, StoredIn: store, Method: "api_token", Tenant: tenant}
 	return inv.emit(out, func(p *printer) {
 		p.line("%s Logged in to %s as tenant %s (%s)", p.pass(), srv, tenant.Name, tenant.Slug)
-		p.line("  token stored in %s", store.Name())
+		p.line("  token stored in %s", store)
 	})
+}
+
+// loginWithActionsOIDC authenticates this workflow run (RFC 0004 §6.3).
+//
+// The run asks GitHub for an ID token with Glossa's audience, and the
+// server decides everything from the claims GitHub signed: which
+// repository, and so which tenant and project. Nothing the job could
+// have forged takes part, and the credential that comes back may only
+// read and write that project's catalog, for thirty minutes.
+func (inv *invocation) loginWithActionsOIDC(ctx context.Context, server, project string) error {
+	idToken, err := inv.requestActionsIDToken(ctx)
+	if err != nil {
+		return err
+	}
+	// No Glossa credential: the ID token is the credential.
+	c, err := newClientWithToken(inv, server, "")
+	if err != nil {
+		return err
+	}
+	minted, err := c.ExchangeGitHubOIDC(ctx, idToken, project)
+	if err != nil {
+		return inv.exchangeError(err)
+	}
+	store, err := inv.store(server, minted.Token)
+	if err != nil {
+		return err
+	}
+	out := loginJSON{
+		Schema: "glossa.cli.login/v1", Server: server, StoredIn: store, Method: "github_actions_oidc",
+		Tenant: tenantJSON{ID: minted.TenantId}, Permissions: permissionNames(minted.Permissions),
+		ExpiresAt: &minted.ExpiresAt, Project: &projectJSON{ID: minted.ProjectId},
+	}
+	if minted.Repository != nil {
+		out.Repository = *minted.Repository
+	}
+	// Name the project and the tenant rather than printing two UUIDs.
+	// It is a read the new credential is allowed, so it also proves the
+	// credential works; failing it is not a reason to fail the login.
+	named, err := newClientWithToken(inv, server, minted.Token)
+	if err == nil {
+		if ts, err := named.Tenants(ctx); err == nil && len(ts) == 1 {
+			out.Tenant = tenantJSON{ID: ts[0].Id, Slug: ts[0].Slug, Name: ts[0].Name, Kind: string(ts[0].Kind)}
+		}
+		if p, err := named.ResolveProject(ctx, minted.TenantId, minted.ProjectId); err == nil {
+			out.Project = &projectJSON{ID: p.Id, Slug: p.Slug, Name: p.Name, SourceLocale: p.SourceLocale}
+		}
+	}
+	return inv.emit(out, func(p *printer) {
+		p.line("%s Authenticated %s as a GitHub Actions run of %s", p.pass(), server, orDash(out.Repository))
+		p.line("  project    %s", projectLabel(out.Project))
+		p.line("  may        %s", strings.Join(out.Permissions, ", "))
+		p.line("  expires    %s %s", minted.ExpiresAt.Format(time.RFC3339), p.dim("(30 minutes; no refresh)"))
+		p.line("  stored in  %s", store)
+	})
+}
+
+// exchangeError explains a refused exchange in the CLI's own terms.
+// Ambiguity is the one that can be fixed from here, so it lists the
+// projects the server named.
+func (inv *invocation) exchangeError(err error) error {
+	var ae *remote.APIError
+	if !errors.As(err, &ae) {
+		return err
+	}
+	switch ae.Code {
+	case "repository_not_connected":
+		return &Error{Exit: ExitUsage, Code: ae.Code, What: "this repository isn't connected to a Glossa project",
+			Why: "the OIDC exchange matches GitHub's numeric repository ID against a Git connection",
+			Fix: "connect it in Studio → Settings → GitHub, or authenticate with GLOSSA_TOKEN"}
+	case "ambiguous_project":
+		fix := "pass --project <id>"
+		if len(ae.Errors) > 0 {
+			ids := make([]string, len(ae.Errors))
+			for i, fe := range ae.Errors {
+				ids[i] = fe.Detail
+			}
+			fix += ": " + strings.Join(ids, ", ")
+		}
+		return &Error{Exit: ExitUsage, Code: ae.Code, What: "this repository feeds several projects",
+			Why: "a CI credential is for exactly one project", Fix: fix}
+	case "invalid_id_token":
+		return &Error{Exit: ExitNetwork, Code: ae.Code, What: "the server didn't accept GitHub's ID token",
+			Why: detail(ae), Fix: "check the server's clock and its GitHub configuration, or use GLOSSA_TOKEN"}
+	case "github_not_configured":
+		return &Error{Exit: ExitNetwork, Code: ae.Code, What: "this server has no GitHub App",
+			Why: "there are no Git connections to match a repository against",
+			Fix: "authenticate with GLOSSA_TOKEN (an API token created in Studio)"}
+	}
+	return inv.apiError(err, "can't exchange the GitHub Actions ID token")
+}
+
+// store saves tok for server and says where it went.
+func (inv *invocation) store(server, tok string) (string, error) {
+	s, err := inv.credentialStore()
+	if err != nil {
+		return "", err
+	}
+	if err := s.Set(server, tok); err != nil {
+		return "", &Error{Exit: ExitUsage, Code: "store_failed", What: "can't store the token", Where: s.Name(),
+			Why: err.Error(), Fix: "set GLOSSA_TOKEN instead"}
+	}
+	return s.Name(), nil
+}
+
+func permissionNames(ps []apiclient.CITokenPermissions) []string {
+	out := make([]string, len(ps))
+	for i, p := range ps {
+		out[i] = string(p)
+	}
+	return out
+}
+
+func projectLabel(p *projectJSON) string {
+	if p == nil {
+		return "—"
+	}
+	if p.Slug != "" {
+		return p.Name + " (" + p.Slug + ", " + p.ID + ")"
+	}
+	return p.ID
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
 }
 
 func (inv *invocation) readToken(fromStdin bool) (string, error) {
@@ -200,11 +351,13 @@ func runWhoami(ctx context.Context, inv *invocation, args []string) error {
 	})
 }
 
-// redact keeps a token recognizable without revealing it.
+// redact keeps a credential recognizable without revealing it: its
+// prefix, which says what kind it is, and four characters.
 func redact(tok string) string {
-	const keep = len("glossa_api_") + 4
-	if len(tok) <= keep {
-		return "…"
+	for _, prefix := range []string{"glossa_api_", "glossa_ci_", "glossa_ctx_"} {
+		if strings.HasPrefix(tok, prefix) && len(tok) > len(prefix)+4 {
+			return tok[:len(prefix)+4] + "…"
+		}
 	}
-	return tok[:keep] + "…"
+	return "…"
 }
