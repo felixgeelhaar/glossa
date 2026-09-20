@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 105,
+  "version": 107,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -414,8 +414,11 @@
       "elapsed_minutes": 108
     },
     "task-m3-context": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "Felix Geelhaar",
+      "started_at": "2026-09-20T14:33:29.699858+02:00",
+      "completed_at": "2026-09-20T14:33:29.729063+02:00",
       "elapsed_minutes": 0
     },
     "task-m3-context-plane": {
@@ -546,5 +549,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-20T14:31:33.781185+02:00"
+  "updated_at": "2026-09-20T14:33:29.729063+02:00"
 }
