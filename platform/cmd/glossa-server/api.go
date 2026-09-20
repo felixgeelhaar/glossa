@@ -77,8 +77,10 @@ func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts) func(*http.Serv
 		})
 		mux.HandleFunc("OPTIONS /v1/", identity.Preflight)
 		apiv1.HandlerWithOptions(strict, apiv1.StdHTTPServerOptions{
-			BaseRouter:       mux,
-			Middlewares:      []apiv1.MiddlewareFunc{identity.CORS, identity.Guard},
+			BaseRouter: mux,
+			// The generated wrapper wraps in order, so the last entry is
+			// the outermost: CORS runs before the Guard.
+			Middlewares:      []apiv1.MiddlewareFunc{identity.Guard, identity.CORS},
 			ErrorHandlerFunc: identity.ParamError,
 		})
 	}

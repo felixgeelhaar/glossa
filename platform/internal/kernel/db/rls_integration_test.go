@@ -108,6 +108,18 @@ var systemPolicies = map[string][]string{
 	"catalog_messages":  {"catalog_messages_system_select"},
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
+	// A CORS preflight carries no credentials, so "is this a registered
+	// preview origin?" is answered before any tenant is known
+	// (RFC 0004 §5.2); the grant's own project binding does the rest.
+	"identity_preview_origins": {"identity_preview_origins_system_select"},
+	// An in-context grant names its own tenant, like an API token, so it
+	// is resolved in system scope; using one bumps last_used_at, and the
+	// sweep drops the ones past their fifteen minutes.
+	"identity_in_context_grants": {
+		"identity_in_context_grants_system_select",
+		"identity_in_context_grants_system_touch",
+		"identity_in_context_grants_system_sweep",
+	},
 	// Identity's global tables are system scope only (see systemTables).
 	"identity_people":              {"identity_people_system"},
 	"identity_sessions":            {"identity_sessions_system"},
