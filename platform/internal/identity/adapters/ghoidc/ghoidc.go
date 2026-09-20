@@ -20,7 +20,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/klarlabs-studio/auth-go/oidc"
@@ -48,9 +50,6 @@ type Config struct {
 	// ClockSkew is the leeway on exp, nbf and iat. Zero means auth-go's
 	// default (60 s).
 	ClockSkew time.Duration
-	// AllowInsecureHTTPHosts names hosts reachable over plain http —
-	// a test's httptest issuer, and nothing a deployment sets.
-	AllowInsecureHTTPHosts []string
 }
 
 // Verifier implements identityapp.IDTokenVerifier.
@@ -77,7 +76,14 @@ func New(cfg Config) (*Verifier, error) {
 	oc.Issuer = issuer
 	oc.MaxStale = cfg.MaxStale
 	oc.ClockSkew = cfg.ClockSkew
-	oc.AllowInsecureHTTPHosts = cfg.AllowInsecureHTTPHosts
+	// An issuer on the developer's own machine may be plain http, as a
+	// preview origin may (RFC 0004 §5.2): a fake issuer in a test, or a
+	// local GitHub Enterprise Server stand-in. Nothing else may, and
+	// this cannot be turned on for a real host — the rule is read off
+	// the issuer URL, not configured.
+	if host, ok := loopbackHTTP(issuer); ok {
+		oc.AllowInsecureHTTPHosts = []string{host}
+	}
 	v, err := oidc.New(oc)
 	if err != nil {
 		return nil, fmt.Errorf("identity: GitHub Actions OIDC verifier: %w", err)
@@ -137,3 +143,16 @@ func runID(tok *oidc.Token) string {
 // Unavailable reports whether err means the issuer's keys could not be
 // reached at all, which is an operator's problem rather than a caller's.
 func Unavailable(err error) bool { return errors.Is(err, oidc.ErrKeySetUnavailable) }
+
+// loopbackHTTP reports whether issuer is a plain-http URL on this
+// machine — localhost, 127.0.0.1, ::1 or a .localhost name — and
+// returns its host. Everything else must be https.
+func loopbackHTTP(issuer string) (string, bool) {
+	u, err := url.Parse(issuer)
+	if err != nil || u.Scheme != "http" {
+		return "", false
+	}
+	host := strings.ToLower(u.Hostname())
+	ok := host == "localhost" || host == "127.0.0.1" || host == "::1" || strings.HasSuffix(host, ".localhost")
+	return host, ok
+}

@@ -22,7 +22,6 @@ func newVerifier(t *testing.T, iss *ghoidctest.Issuer, audience string) *ghoidc.
 	t.Helper()
 	v, err := ghoidc.New(ghoidc.Config{
 		Issuer: iss.URL, Audience: audience,
-		AllowInsecureHTTPHosts: []string{iss.Host()},
 	})
 	if err != nil {
 		t.Fatalf("build the verifier: %v", err)

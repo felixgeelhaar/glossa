@@ -71,7 +71,6 @@ func newCIFixture(t *testing.T) *ciFixture {
 	f.issuer.SetClock(h.clock.Now)
 	verifier, err := ghoidc.New(ghoidc.Config{
 		Issuer: f.issuer.URL, Audience: "glossa",
-		AllowInsecureHTTPHosts: []string{f.issuer.Host()},
 	})
 	if err != nil {
 		t.Fatal(err)

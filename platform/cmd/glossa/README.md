@@ -8,7 +8,7 @@ an API token, and runs the MessageFormat kernel locally, so `check
 ```sh
 go build -o glossa ./cmd/glossa        # from platform/
 glossa init --server https://glossa.example.com --project brotwerk
-glossa login                            # or GLOSSA_TOKEN=glossa_api_… in CI
+glossa login                            # in GitHub Actions: no secret at all
 glossa push && glossa check && glossa generate
 ```
 
@@ -78,12 +78,72 @@ Catalogs are JSON objects of message ID to text, flat
 
 ## Authentication
 
-`GLOSSA_TOKEN` wins (CI). Otherwise `glossa login` verifies a token
-against the server and stores it per server URL in the macOS Keychain or
-the Secret Service keyring (Linux, via `secret-tool`), falling back to a
+`GLOSSA_TOKEN` wins. Otherwise `glossa login` verifies a token against
+the server and stores it per server URL in the macOS Keychain or the
+Secret Service keyring (Linux, via `secret-tool`), falling back to a
 0600 `glossa/credentials.json` under the user config directory. Tokens
 reach the keychain tools on stdin, never on the command line.
 `glossa logout` removes it; `glossa whoami` shows what's in use.
+
+### In GitHub Actions: no stored secret
+
+With `permissions: { id-token: write }`, `glossa login` needs no token
+at all (RFC 0004 §6.3). It sees `ACTIONS_ID_TOKEN_REQUEST_URL` and its
+request token, asks GitHub for an OIDC ID token with audience `glossa`,
+and exchanges it at `POST /v1/auth/github-oidc-exchanges`.
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+
+steps:
+  - uses: ./.github/actions/glossa      # or the commands by hand:
+  - run: glossa login                   # no secret, nothing to rotate
+  - run: glossa push --branch "$GITHUB_HEAD_REF" --pr "$PR_NUMBER"
+```
+
+The server verifies the issuer, the audience, the signature and the
+expiry, then matches the token's `repository_id` — GitHub's immutable
+number, never the repository's name — against a **Git connection**
+(*Git connections*, below). What it hands back:
+
+- lives **30 minutes** and cannot be refreshed: the next job asks GitHub
+  for a fresh ID token;
+- is bound to **one project**, so a request under another project of the
+  same workspace is refused;
+- allows exactly `catalog.read` and `catalog.write` — what `push`,
+  `extract --upload`, `context push`, `capture --upload` and
+  `preview register` need. It cannot import translations
+  (`push --translations`), publish a release, use the termbase or AI, or
+  read the workspace's members or tokens. Those still need an API token.
+
+`glossa login --json` says which project it authenticated for, what the
+credential may do and when it dies; the credential itself is stored the
+same way as any other, and never printed.
+
+Refusals, and what they mean:
+
+| Code | What to do |
+|---|---|
+| `repository_not_connected` | Connect the repository to a project in Studio → Settings → GitHub. A project the repository does not feed gets the same answer. |
+| `ambiguous_project` | The repository feeds several projects (a monorepo, one connection per path). `login` prints their IDs; pass `--project <id>`. |
+| `invalid_id_token` | The ID token didn't verify: check the audience is `glossa`, and the server's clock and GitHub configuration. |
+| `github_not_configured` | The server has no GitHub App, so there are no connections to match against. Use an API token. |
+
+**Forks.** A pull request from a fork gets no ID token and no secrets
+from GitHub, so a fork's job cannot authenticate and Glossa's check on
+it completes as `neutral` with an explanation (RFC 0004 §6.4).
+
+**Keeping a token instead.** `--token-stdin` means an API token even
+inside Actions, and `GLOSSA_TOKEN` wins over everything, so a workflow
+that already keeps a secret goes on working unchanged. On CI that isn't
+GitHub Actions, that is the way: set `GLOSSA_TOKEN` and run the same
+commands (see `.github/actions/glossa/README.md`).
+
+A self-hosted deployment, or GitHub Enterprise Server, sets the issuer
+and audience it accepts with `GLOSSA_GITHUB_OIDC_ISSUER`,
+`GLOSSA_GITHUB_OIDC_AUDIENCE` and `GLOSSA_GITHUB_OIDC_MAX_STALE`.
 
 ## Commands
 
@@ -93,7 +153,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | Command | What it does |
 |---|---|
 | `init` | Writes glossa.yaml. Prompts on a terminal; with a token, reads the tenant and source locale from the server. `--server --project --source-locale --catalogs --typescript --vue --react --go --force` |
-| `login` / `logout` / `whoami` | Token storage; `--server`, `--token-stdin` |
+| `login` / `logout` / `whoami` | Credential storage; `--server`, `--token-stdin`, `--project` (GitHub Actions OIDC; see *Authentication*) |
 | `push` | Sends the source catalog through `message-upserts` (500 per request). Reports created/revised/updated/unchanged/failed per key. `--dry-run` compares canonical models with the server instead of writing. `--translations` also imports the other catalogs as translations (provenance `import`). `--branch <name> [--pr <n>] [--commit <sha>]` pushes as a feature branch instead (RFC 0004 §4.1): the whole catalog in one request, where a new key becomes a `proposed` message the branch owns, changed source for a live key a source proposal, and nothing live changes. It answers with the branch's status report (new keys, source proposals, removed keys, conflicts, outdated per locale). Without values, the branch, commit and pull request come from the CI environment (`GITHUB_HEAD_REF`/`GITHUB_REF_NAME`, `GITHUB_SHA`, `PR_NUMBER`); `--dry-run` doesn't apply to a branch push. |
 | `pull` | Writes translations to the catalogs, sorted and deterministic. `--states approved,needs_review\|all`, `--locales`. `--release <id\|v<N>\|latest> [--environment env] [--out dir]` writes a release bundle instead (see *Release*). |
 | `extract` | Finds message usages and prints them as a `glossa.usages/v1` document (RFC 0004 §2.2; contract and fixtures: `runtimes/testdata/usages/`). Go is parsed with `go/parser`: `.T(…)` calls (`Client.T(ctx, "…")`, `l.T("…")`, `For(…).T("…")`) and the generated accessors, with the enclosing `pkg.Func` / `pkg.(*Type).Method` as component; files starting with `// Code generated … DO NOT EDIT.` are skipped. Go templates (`extract.templates`) are parsed with `text/template/parse`: `{{t}}`, `{{td}}`, `{{th}}`. Web files are scanned lexically: `t("…")`/`$t("…")`, `<glossa-text\|rich\|plural\|select key\|message>`, `<GlossaText id>`, `<T id>`, typed accessors; Vue and Astro files are their own component, Astro pages carry their route. Only literal keys count. Reports keys missing from the catalog and catalog messages nothing uses; `--strict` exits 1 on unknown keys. `--upload` sends the document to the project's context builds as an `extract` build (what `context push` does). The document's application is `--application`, `GLOSSA_APPLICATION` or `extract.application`; its commit and branch are `--commit`/`--branch`, `GLOSSA_COMMIT`/`GLOSSA_BRANCH`, GitHub Actions (a pull request's head, not its merge commit) or GitLab CI, else git. |
@@ -493,8 +553,10 @@ A Git connection ties one of a GitHub App installation's repositories —
 by GitHub's numeric id, so a rename or a transfer doesn't break it — to
 a project, one of its applications, a default branch and an optional
 monorepo path (RFC 0004 §6.1). It is what lets Glossa check that
-repository's pull requests and comment on them. One repository can feed
-several projects, one per path.
+repository's pull requests and comment on them, and what a GitHub
+Actions run's ID token is matched against when it authenticates without
+a secret (*Authentication*). One repository can feed several projects,
+one per path — which is when a CI login has to name one.
 
 Connecting a repository normally happens in **Studio**, which walks
 through installing the App on the account and picking the project;

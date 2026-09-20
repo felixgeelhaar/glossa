@@ -112,10 +112,6 @@ func New(t *testing.T) *Issuer {
 	return iss
 }
 
-// Host is the issuer's hostname, which a Verifier must be told it may
-// reach over plain http.
-func (i *Issuer) Host() string { return "127.0.0.1" }
-
 // SetClock makes the issuer date tokens by now, so a test can issue one
 // that is already expired without waiting.
 func (i *Issuer) SetClock(now func() time.Time) { i.now = now }
