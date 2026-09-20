@@ -51,7 +51,8 @@ const (
 func TestAPullRequestHasExactlyOneCheckRow(t *testing.T) {
 	q, tenant := newChecks(t)
 	ctx := context.Background()
-	now := time.Now().UTC()
+	// Postgres keeps microseconds; a nanosecond here would never come back.
+	now := time.Now().UTC().Truncate(time.Microsecond)
 
 	first, err := q.Open(ctx, aCheck(tenant, 10101, 7, shaOne, now))
 	if err != nil {
@@ -92,7 +93,8 @@ func TestAPullRequestHasExactlyOneCheckRow(t *testing.T) {
 func TestOnlyOneWorkerClaimsAPullRequestAtATime(t *testing.T) {
 	q, tenant := newChecks(t)
 	ctx := context.Background()
-	now := time.Now().UTC()
+	// Postgres keeps microseconds; a nanosecond here would never come back.
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	if _, err := q.Open(ctx, aCheck(tenant, 10101, 7, shaOne, now)); err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +123,8 @@ func TestOnlyOneWorkerClaimsAPullRequestAtATime(t *testing.T) {
 func TestExpireMakesAWaitingCheckDueAgain(t *testing.T) {
 	q, tenant := newChecks(t)
 	ctx := context.Background()
-	now := time.Now().UTC()
+	// Postgres keeps microseconds; a nanosecond here would never come back.
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	waiting := aCheck(tenant, 10101, 7, shaOne, now.Add(-domain.CheckWait-time.Minute))
 	// It is waiting for CI, so it looks again at its deadline.
 	waiting.AvailableAt = now.Add(time.Hour)
@@ -153,7 +156,8 @@ func TestExpireMakesAWaitingCheckDueAgain(t *testing.T) {
 func TestWakeAndDropTouchOnlyTheirRepositories(t *testing.T) {
 	q, tenant := newChecks(t)
 	ctx := context.Background()
-	now := time.Now().UTC()
+	// Postgres keeps microseconds; a nanosecond here would never come back.
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	for _, c := range []domain.Check{
 		aCheck(tenant, 10101, 7, shaOne, now),
 		aCheck(tenant, 20202, 3, shaTwo, now),
