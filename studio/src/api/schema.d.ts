@@ -246,6 +246,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/github-oidc-exchanges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange a GitHub Actions ID token for a CI token
+         * @description How a GitHub Actions run authenticates without a stored secret
+         *     (RFC 0004 §6.3). The job requests an OIDC ID token with audience
+         *     `glossa` and posts it here; `glossa login` does this by itself
+         *     when it sees `ACTIONS_ID_TOKEN_REQUEST_URL`.
+         *
+         *     The operation is unauthenticated because the ID token *is* the
+         *     credential. Glossa verifies it against the issuer's published
+         *     keys — issuer, audience, signature, algorithm and expiry — and
+         *     then matches its `repository_id` claim, GitHub's immutable
+         *     number, against a Git connection. The repository's *name* is
+         *     never consulted: a name can be renamed, deleted and registered
+         *     by a stranger, and a policy keyed on one could be inherited.
+         *
+         *     The token it returns:
+         *
+         *     - allows exactly `catalog.read` and `catalog.write`, which is
+         *       what `glossa push`, `extract --upload`, `context push`,
+         *       `capture --upload` and `preview register` need and no more —
+         *       it cannot import translations, publish a release, ask an AI
+         *       provider for anything or read the tenant's members or tokens;
+         *     - is bound to one project: a request under another project of
+         *       the same tenant is `403` `grant_project_mismatch`;
+         *     - lives 30 minutes and cannot be refreshed. The next job asks
+         *       GitHub for a fresh ID token.
+         *
+         *     When a repository feeds several projects — a monorepo with one
+         *     connection per path — send `project_id`; without it the answer
+         *     is `409` `ambiguous_project`, whose `errors` list the candidate
+         *     projects (`pointer: "/project_id"`, `detail` the project id and
+         *     its path) so CI can be told which to name.
+         *
+         *     **Forks.** GitHub gives a pull request from a fork no ID token
+         *     and no secrets, so a fork's job has nothing to present. Its
+         *     Glossa check completes as `neutral` with an explanation
+         *     (RFC 0004 §6.4) rather than failing. Nothing here has to detect
+         *     a fork: a token minted from a fork's own repository would be
+         *     minted for that repository's connections, which are not the
+         *     upstream's.
+         *
+         *     Problem codes: `invalid_id_token` (401),
+         *     `repository_not_connected` (403), `ambiguous_project` (409),
+         *     `github_not_configured` (503).
+         */
+        post: operations["exchangeGitHubOIDCToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -5495,6 +5556,49 @@ export interface components {
              */
             locales?: components["schemas"]["Locale"][];
         };
+        GitHubOIDCExchange: {
+            /**
+             * @description The compact JWS GitHub Actions issued for audience `glossa`
+             *     (`ACTIONS_ID_TOKEN_REQUEST_URL?audience=glossa`). It is the
+             *     request's only credential and is never stored or logged.
+             */
+            id_token: string;
+            /**
+             * @description Which project to authenticate for, needed only when the
+             *     repository feeds several — a monorepo with one Git
+             *     connection per path. Naming a project the repository does
+             *     not feed is `repository_not_connected`, the same answer as
+             *     an unconnected repository.
+             */
+            project_id?: components["schemas"]["Id"];
+        };
+        /**
+         * @description A GitHub Actions run's credential. `token` is shown exactly
+         *     once, here; CI keeps it for the length of the job and nothing
+         *     stores it afterwards.
+         */
+        CIToken: {
+            /** @description The bearer credential. Never echo it into a log. */
+            token: string;
+            expires_at: components["schemas"]["Timestamp"];
+            tenant_id: components["schemas"]["Id"];
+            /** @description The only project this token may act on. */
+            project_id: components["schemas"]["Id"];
+            /**
+             * @description What the token allows, and the whole of it: `catalog.read`
+             *     and `catalog.write`.
+             */
+            permissions: ("catalog.read" | "catalog.write")[];
+            /**
+             * Format: int64
+             * @description The `repository_id` claim the decision rested on — GitHub's
+             *     immutable number, echoed back so CI can see what it
+             *     authenticated as.
+             */
+            repository_id: number;
+            /** @description "owner/name" when the token was issued. A label; nothing is keyed on it. */
+            repository?: string;
+        };
         CreateDeliveryKey: {
             /** @description What uses it, e.g. "web" or "go-emails". */
             name: string;
@@ -7506,6 +7610,35 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    exchangeGitHubOIDCToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitHubOIDCExchange"];
+            };
+        };
+        responses: {
+            /** @description The CI token, with its secret shown once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CIToken"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getMe: {
