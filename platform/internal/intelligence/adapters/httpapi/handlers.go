@@ -298,7 +298,7 @@ func fillRequest(b *apiv1.CreateAIFill) app.FillRequest {
 		Locales: b.Locales,
 		Filter: app.FillFilter{
 			Namespace: deref(b.Namespace), KeyPrefix: deref(b.KeyPrefix), Keys: deref(b.Keys), IncludeOutdated: deref(b.IncludeOutdated),
-			Select: app.FillSelect(deref(b.Select)),
+			Select: app.FillSelect(deref(b.Select)), Force: deref(b.Force),
 		},
 	}
 }
@@ -469,6 +469,7 @@ func (a *API) AcceptAISuggestion(ctx context.Context, req apiv1.AcceptAISuggesti
 	in := app.AcceptInput{IfMatch: ifMatch}
 	if b := req.Body; b != nil {
 		in.Text, in.Syntax = deref(b.Text), string(deref(b.Syntax))
+		in.InContext = fromInContext(b.InContext)
 	}
 	r, err := a.svc.AcceptSuggestion(ctx, id, in)
 	if err != nil {
@@ -479,6 +480,19 @@ func (a *API) AcceptAISuggestion(ctx context.Context, req apiv1.AcceptAISuggesti
 		return nil, mapError(err)
 	}
 	return apiv1.AcceptAISuggestion200JSONResponse{Body: toSuggestion(r, sources), Headers: apiv1.AcceptAISuggestion200ResponseHeaders{ETag: apiconv.ETag(r.Version)}}, nil
+}
+
+// fromInContext reads where the person was when they accepted, for the
+// revision's origin_detail (RFC 0004 5.3).
+func fromInContext(in *apiv1.InContextProvenance) *domain.InContext {
+	if in == nil {
+		return nil
+	}
+	out := &domain.InContext{Route: in.Route}
+	if v := in.Viewport; v != nil {
+		out.Viewport = &domain.Viewport{Width: v.Width, Height: v.Height}
+	}
+	return out
 }
 
 func (a *API) RejectAISuggestion(ctx context.Context, req apiv1.RejectAISuggestionRequestObject) (apiv1.RejectAISuggestionResponseObject, error) {

@@ -262,7 +262,9 @@ func (a *API) ListProjectTerminologyFindings(ctx context.Context, req apiv1.List
 	if err != nil {
 		return nil, err
 	}
-	c := app.ProjectTermCheck{Namespace: p.Namespace, KeyPrefix: deref(p.KeyPrefix), Page: pg}
+	c := app.ProjectTermCheck{
+		Namespace: p.Namespace, KeyPrefix: deref(p.KeyPrefix), Keys: deref(p.Key), Page: pg,
+	}
 	for _, l := range p.Locale {
 		tag, err := locale(l)
 		if err != nil {

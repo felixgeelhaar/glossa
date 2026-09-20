@@ -3314,7 +3314,7 @@ paths:
         sources), never one per translation. Stores nothing. Needs
         `knowledge.read`, `translations.read` and `catalog.read`.
         Problem codes: `invalid_locale`, `too_many_locales`,
-        `invalid_state` (400).
+        `too_many_keys`, `invalid_state` (400).
       security:
         - session: []
         - bearer: []
@@ -4115,14 +4115,20 @@ paths:
         leaves out (`skipped.not_selected`). A job exists once per
         message, locale, source revision and knowledge fingerprint: an
         existing one is reused (`jobs_existing`), a failed, dead or
-        cancelled one queued again. `warnings` say when jobs will do
+        cancelled one queued again. `force` (with `keys`) also queues a
+        current translation, and queues an existing job again whatever
+        its state, so the in-product editor can ask for a second opinion
+        on text that is already there. The response's `job_ids` name the
+        jobs queued or reused, for a caller following a handful of them.
+        `warnings` say when jobs will do
         little: consent off (only exact translation-memory matches are
         reused), no budget, no provider. `POST …/ai-fill-previews`
         answers what a fill would do without queueing anything. Needs
         `intelligence.translate` for every locale. Problem codes:
         `too_many_locales`, `too_many_keys`, `invalid_locale`,
-        `invalid_query` (an unknown `select`, or one `include_outdated`
-        contradicts) (400), `locale_not_found` (404).
+        `invalid_query` (an unknown `select`, one `include_outdated`
+        contradicts, or `force` without `keys`) (400),
+        `locale_not_found` (404).
       security:
         - session: []
           csrf: []

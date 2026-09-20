@@ -158,13 +158,13 @@ func (s *Service) autoTranslate(ctx context.Context, project, message uuid.UUID,
 		if tr.upToDate(m.Revision) {
 			continue
 		}
-		j, err := q.job(bg, m, l, trigger, nil, "system:"+subscriberAutoTranslate)
+		j, err := q.job(bg, m, l, trigger, nil, false, "system:"+subscriberAutoTranslate)
 		if err != nil {
 			return err
 		}
 		jobs = append(jobs, j)
 	}
-	_, _, err = s.enqueue(bg, jobs, false)
+	_, _, _, err = s.enqueue(bg, jobs, false)
 	return err
 }
 

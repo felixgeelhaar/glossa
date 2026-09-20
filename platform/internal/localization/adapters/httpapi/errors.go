@@ -32,6 +32,7 @@ var problems = []struct {
 	{domain.ErrReviewForbidden, 403, "review_forbidden", ""},
 	{app.ErrTooManyItems, 400, "too_many_items", "send 1 to 500 items"},
 	{app.ErrLocaleCount, 400, "too_many_locales", "list 1 to 20 locales"},
+	{app.ErrKeyCount, 400, "too_many_keys", "name at most 50 keys"},
 	{app.ErrInvalidMessageState, 400, "invalid_message_state", ""},
 	{bcp47.ErrInvalid, 400, "invalid_locale", ""},
 	{mfcontent.ErrInvalidSyntax, 400, "invalid_syntax", ""},

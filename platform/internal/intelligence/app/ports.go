@@ -82,9 +82,14 @@ type Fill struct {
 	Filter       FillFilter
 	JobsCreated  int
 	JobsExisting int
-	Skipped      map[string]int
-	RequestedBy  string
-	CreatedAt    time.Time
+	// JobIDs are the jobs this fill queued or reused, for a caller that
+	// wants to follow them without listing every job in the tenant. It
+	// is filled on the fill's own response only, and only up to
+	// MaxReportedJobIDs.
+	JobIDs      []uuid.UUID
+	Skipped     map[string]int
+	RequestedBy string
+	CreatedAt   time.Time
 }
 
 // FillFilter narrows the messages a fill translates.
@@ -100,6 +105,13 @@ type FillFilter struct {
 	// Select chooses messages by their translation's state; a fill
 	// records the effective one.
 	Select FillSelect `json:"select,omitempty"`
+	// Force translates the listed Keys even where the translation is
+	// current, instead of skipping them as up_to_date. It is the one
+	// case no Select can express: someone reading the text in the
+	// running product wants a second opinion on what is already there
+	// (RFC 0004 §5.3). It needs Keys, and it queues an existing job
+	// again rather than reusing its answer.
+	Force bool `json:"force,omitempty"`
 }
 
 // FillSelect chooses a fill's messages by the state of their
@@ -143,6 +155,11 @@ func (f FillFilter) validate() error {
 	}
 	if f.IncludeOutdated && f.Select != "" && f.Select != SelectMissingOrOutdated {
 		return fmt.Errorf("%w: include_outdated means select missing_or_outdated; send one of them", ErrInvalidQuery)
+	}
+	// Force is for a handful of messages someone is looking at, never a
+	// project-wide re-translation: that is a bill, not a request.
+	if f.Force && len(f.Keys) == 0 {
+		return fmt.Errorf("%w: force needs keys", ErrInvalidQuery)
 	}
 	return nil
 }

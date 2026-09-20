@@ -171,19 +171,20 @@ const enqueueJob = `-- name: EnqueueJob :one
 
 INSERT INTO intelligence_jobs (
     id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision,
-    knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at,
+    knowledge_fingerprint, trigger, fill_id, forced, state, attempts, max_attempts, available_at,
     created_by, created_at, updated_at
 ) VALUES (
     $1, app_current_tenant(), $2, $3, $4,
     $5, $6, $7, $8,
-    $9, $10, 'queued', 0, $11, now(),
-    $12, $13, $13
+    $9, $10, $11, 'queued', 0, $12, now(),
+    $13, $14, $14
 )
 ON CONFLICT (tenant_id, message_id, locale, source_revision, knowledge_fingerprint) DO UPDATE
 SET state = 'queued', attempts = 0, available_at = now(), failure_code = NULL,
     last_error = NULL, claim_token = NULL, fill_id = excluded.fill_id, trigger = excluded.trigger,
-    finished_at = NULL, updated_at = excluded.updated_at
-WHERE $14::boolean AND intelligence_jobs.state IN ('failed', 'dead', 'cancelled')
+    forced = excluded.forced, finished_at = NULL, updated_at = excluded.updated_at
+WHERE ($15::boolean AND intelligence_jobs.state IN ('failed', 'dead', 'cancelled'))
+   OR ($11::boolean AND intelligence_jobs.state <> 'running')
 RETURNING id
 `
 
@@ -198,6 +199,7 @@ type EnqueueJobParams struct {
 	KnowledgeFingerprint string
 	Trigger              string
 	FillID               uuid.NullUUID
+	Forced               bool
 	MaxAttempts          int32
 	CreatedBy            string
 	CreatedAt            time.Time
@@ -208,7 +210,10 @@ type EnqueueJobParams struct {
 // EnqueueJob inserts a job unless one exists for the same message,
 // locale, source revision and knowledge fingerprint. An explicit fill
 // (requeue) brings back such a job that failed, died or was cancelled;
-// anything else finds the existing job unchanged and returns no row.
+// a forced one (RFC 0004 §5.3) brings back a job that succeeded or was
+// skipped as well, because asking again for text that is already there
+// is the whole request. Anything else finds the existing job unchanged
+// and returns no row.
 func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, enqueueJob,
 		arg.ID,
@@ -221,6 +226,7 @@ func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (uuid.UU
 		arg.KnowledgeFingerprint,
 		arg.Trigger,
 		arg.FillID,
+		arg.Forced,
 		arg.MaxAttempts,
 		arg.CreatedBy,
 		arg.CreatedAt,
@@ -338,7 +344,7 @@ func (q *Queries) GetFill(ctx context.Context, id uuid.UUID) (IntelligenceFill, 
 }
 
 const getJob = `-- name: GetJob :one
-SELECT id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision, knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at, claim_token, failure_code, last_error, suggestion_id, audit, created_by, created_at, started_at, finished_at, updated_at FROM intelligence_jobs WHERE id = $1
+SELECT id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision, knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at, claim_token, failure_code, last_error, suggestion_id, audit, created_by, created_at, started_at, finished_at, updated_at, forced FROM intelligence_jobs WHERE id = $1
 `
 
 func (q *Queries) GetJob(ctx context.Context, id uuid.UUID) (IntelligenceJob, error) {
@@ -370,12 +376,13 @@ func (q *Queries) GetJob(ctx context.Context, id uuid.UUID) (IntelligenceJob, er
 		&i.StartedAt,
 		&i.FinishedAt,
 		&i.UpdatedAt,
+		&i.Forced,
 	)
 	return i, err
 }
 
 const getJobByKey = `-- name: GetJobByKey :one
-SELECT id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision, knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at, claim_token, failure_code, last_error, suggestion_id, audit, created_by, created_at, started_at, finished_at, updated_at FROM intelligence_jobs
+SELECT id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision, knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at, claim_token, failure_code, last_error, suggestion_id, audit, created_by, created_at, started_at, finished_at, updated_at, forced FROM intelligence_jobs
 WHERE message_id = $1 AND locale = $2
   AND source_revision = $3 AND knowledge_fingerprint = $4
 `
@@ -421,6 +428,7 @@ func (q *Queries) GetJobByKey(ctx context.Context, arg GetJobByKeyParams) (Intel
 		&i.StartedAt,
 		&i.FinishedAt,
 		&i.UpdatedAt,
+		&i.Forced,
 	)
 	return i, err
 }
@@ -508,7 +516,7 @@ func (q *Queries) JobStatesByKey(ctx context.Context, arg JobStatesByKeyParams) 
 }
 
 const listJobs = `-- name: ListJobs :many
-SELECT id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision, knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at, claim_token, failure_code, last_error, suggestion_id, audit, created_by, created_at, started_at, finished_at, updated_at FROM intelligence_jobs
+SELECT id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision, knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at, claim_token, failure_code, last_error, suggestion_id, audit, created_by, created_at, started_at, finished_at, updated_at, forced FROM intelligence_jobs
 WHERE ($1::uuid IS NULL OR project_id = $1::uuid)
   AND ($2::text IS NULL OR state = $2::text)
   AND ($3::text IS NULL OR locale = $3::text)
@@ -574,6 +582,7 @@ func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Intellige
 			&i.StartedAt,
 			&i.FinishedAt,
 			&i.UpdatedAt,
+			&i.Forced,
 		); err != nil {
 			return nil, err
 		}
@@ -586,7 +595,7 @@ func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Intellige
 }
 
 const lockClaimedJob = `-- name: LockClaimedJob :one
-SELECT id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision, knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at, claim_token, failure_code, last_error, suggestion_id, audit, created_by, created_at, started_at, finished_at, updated_at FROM intelligence_jobs
+SELECT id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision, knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at, claim_token, failure_code, last_error, suggestion_id, audit, created_by, created_at, started_at, finished_at, updated_at, forced FROM intelligence_jobs
 WHERE id = $1 AND claim_token = $2::uuid AND state = 'running'
 FOR UPDATE
 `
@@ -627,6 +636,7 @@ func (q *Queries) LockClaimedJob(ctx context.Context, arg LockClaimedJobParams) 
 		&i.StartedAt,
 		&i.FinishedAt,
 		&i.UpdatedAt,
+		&i.Forced,
 	)
 	return i, err
 }

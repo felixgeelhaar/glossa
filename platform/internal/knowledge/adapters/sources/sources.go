@@ -76,7 +76,9 @@ func (t *Translations) Current(ctx context.Context, project, translation uuid.UU
 // listing (one query) and the page's sources from Catalog (one query).
 func (t *Translations) ProjectTranslations(ctx context.Context, project uuid.UUID, q app.TranslationPageQuery) ([]app.ProjectTranslation, *string, error) {
 	active := string(catalogdomain.MessageActive)
-	f := localizationapp.TranslationFilter{States: q.States, Namespace: q.Namespace, KeyPrefix: q.KeyPrefix, MessageState: &active}
+	f := localizationapp.TranslationFilter{
+		States: q.States, Namespace: q.Namespace, KeyPrefix: q.KeyPrefix, Keys: q.Keys, MessageState: &active,
+	}
 	for _, l := range q.Locales {
 		f.Locales = append(f.Locales, l.String())
 	}

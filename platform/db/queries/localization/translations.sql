@@ -136,6 +136,9 @@ WHERE m.project_id = sqlc.arg(project_id)
   AND (sqlc.narg(namespace)::text IS NULL OR m.namespace = sqlc.narg(namespace))
   AND (sqlc.narg(message_state)::text IS NULL OR m.state = sqlc.narg(message_state))
   AND (sqlc.narg(key_like)::text IS NULL OR m.key LIKE sqlc.narg(key_like))
+  -- Exactly these keys, for the messages on one screen: a key_prefix
+  -- equal to a key would also match everything below it.
+  AND (sqlc.narg(keys)::text[] IS NULL OR m.key = ANY (sqlc.narg(keys)::text[]))
 ORDER BY m.key, m.message_id, t.locale
 LIMIT sqlc.arg(max_rows);
 

@@ -21,23 +21,27 @@ SELECT state, count(*)::int AS n FROM intelligence_jobs WHERE fill_id = sqlc.arg
 -- EnqueueJob inserts a job unless one exists for the same message,
 -- locale, source revision and knowledge fingerprint. An explicit fill
 -- (requeue) brings back such a job that failed, died or was cancelled;
--- anything else finds the existing job unchanged and returns no row.
+-- a forced one (RFC 0004 §5.3) brings back a job that succeeded or was
+-- skipped as well, because asking again for text that is already there
+-- is the whole request. Anything else finds the existing job unchanged
+-- and returns no row.
 -- name: EnqueueJob :one
 INSERT INTO intelligence_jobs (
     id, tenant_id, project_id, message_id, message_key, namespace, locale, source_revision,
-    knowledge_fingerprint, trigger, fill_id, state, attempts, max_attempts, available_at,
+    knowledge_fingerprint, trigger, fill_id, forced, state, attempts, max_attempts, available_at,
     created_by, created_at, updated_at
 ) VALUES (
     sqlc.arg(id), app_current_tenant(), sqlc.arg(project_id), sqlc.arg(message_id), sqlc.arg(message_key),
     sqlc.arg(namespace), sqlc.arg(locale), sqlc.arg(source_revision), sqlc.arg(knowledge_fingerprint),
-    sqlc.arg(trigger), sqlc.narg(fill_id), 'queued', 0, sqlc.arg(max_attempts), now(),
+    sqlc.arg(trigger), sqlc.narg(fill_id), sqlc.arg(forced), 'queued', 0, sqlc.arg(max_attempts), now(),
     sqlc.arg(created_by), sqlc.arg(created_at), sqlc.arg(created_at)
 )
 ON CONFLICT (tenant_id, message_id, locale, source_revision, knowledge_fingerprint) DO UPDATE
 SET state = 'queued', attempts = 0, available_at = now(), failure_code = NULL,
     last_error = NULL, claim_token = NULL, fill_id = excluded.fill_id, trigger = excluded.trigger,
-    finished_at = NULL, updated_at = excluded.updated_at
-WHERE sqlc.arg(requeue)::boolean AND intelligence_jobs.state IN ('failed', 'dead', 'cancelled')
+    forced = excluded.forced, finished_at = NULL, updated_at = excluded.updated_at
+WHERE (sqlc.arg(requeue)::boolean AND intelligence_jobs.state IN ('failed', 'dead', 'cancelled'))
+   OR (sqlc.arg(forced)::boolean AND intelligence_jobs.state <> 'running')
 RETURNING id;
 
 -- name: GetJobByKey :one

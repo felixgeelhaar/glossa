@@ -186,6 +186,11 @@ type AcceptInput struct {
 	Syntax string
 	// IfMatch is the suggestion's version, when sent.
 	IfMatch *int
+	// InContext is set when the person accepted while looking at the
+	// running product: the route and viewport go into the revision's
+	// origin_detail (RFC 0004 §5.3). Only the in-product editor sends
+	// it; auto-apply never does.
+	InContext *domain.InContext
 }
 
 // AcceptSuggestion makes a pending suggestion (or the caller's edit of
@@ -224,7 +229,7 @@ func (s *Service) AcceptSuggestion(ctx context.Context, id uuid.UUID, in AcceptI
 		approved := "approved"
 		state = &approved
 	}
-	rev, err := s.write(ctx, r, text, state, decision.Edit != nil)
+	rev, err := s.write(ctx, r, text, state, decision.Edit != nil, in.InContext)
 	if err != nil {
 		return domain.SuggestionRecord{}, err
 	}

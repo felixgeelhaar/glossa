@@ -19,9 +19,14 @@ import (
 // MaxCheckedLocales bounds the locales one project check covers.
 const MaxCheckedLocales = 20
 
+// MaxCheckedKeys bounds the keys one project check may name: the
+// messages on a screen, not a catalog.
+const MaxCheckedKeys = 50
+
 // Errors of a project terminology check.
 var (
 	ErrLocaleCount  = errors.New("knowledge: check 1 to 20 locales")
+	ErrKeyCount     = errors.New("knowledge: name at most 50 keys")
 	ErrInvalidState = errors.New("knowledge: state must be draft, needs_review, approved or rejected")
 )
 
@@ -36,6 +41,7 @@ type TranslationPageQuery struct {
 	States    []string
 	Namespace *string
 	KeyPrefix string
+	Keys      []string
 	Page      pagination.Page
 }
 
@@ -63,7 +69,11 @@ type ProjectTermCheck struct {
 	States    []string
 	Namespace *string
 	KeyPrefix string
-	Page      pagination.Page
+	// Keys names messages exactly, for asking about the ones on a
+	// screen — the in-product editor asks about one — where KeyPrefix
+	// would also match everything below the key.
+	Keys []string
+	Page pagination.Page
 }
 
 // TranslationFindings are one translation's terminology findings.
@@ -102,6 +112,9 @@ func (s *Service) CheckProjectTerminology(ctx context.Context, project uuid.UUID
 	if len(c.Locales) == 0 || len(c.Locales) > MaxCheckedLocales {
 		return ProjectTermReport{}, ErrLocaleCount
 	}
+	if len(c.Keys) > MaxCheckedKeys {
+		return ProjectTermReport{}, ErrKeyCount
+	}
 	states := c.States
 	if len(states) == 0 {
 		states = reviewStates[:3]
@@ -116,7 +129,8 @@ func (s *Service) CheckProjectTerminology(ctx context.Context, project uuid.UUID
 		return ProjectTermReport{}, err
 	}
 	rows, next, err := s.translations.ProjectTranslations(ctx, project, TranslationPageQuery{
-		Locales: c.Locales, States: states, Namespace: c.Namespace, KeyPrefix: c.KeyPrefix, Page: c.Page,
+		Locales: c.Locales, States: states, Namespace: c.Namespace, KeyPrefix: c.KeyPrefix, Keys: c.Keys,
+		Page: c.Page,
 	})
 	if err != nil {
 		return ProjectTermReport{}, err

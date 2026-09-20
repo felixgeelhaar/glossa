@@ -242,6 +242,13 @@ func toFill(r app.FillResult) apiv1.AIFill {
 	if f.Filter.IncludeOutdated {
 		out.IncludeOutdated = apiconv.Ptr(true)
 	}
+	if len(f.JobIDs) > 0 {
+		ids := make([]string, len(f.JobIDs))
+		for i, id := range f.JobIDs {
+			ids[i] = id.String()
+		}
+		out.JobIds = &ids
+	}
 	for k, n := range f.Skipped {
 		out.Skipped[k] = n
 	}

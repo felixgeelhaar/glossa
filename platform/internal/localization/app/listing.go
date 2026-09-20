@@ -18,9 +18,15 @@ import (
 // covers.
 const MaxListedLocales = 20
 
+// MaxListedKeys bounds the keys one listing may name. It is for the
+// messages on a screen, not for a whole catalog: a caller with more
+// than this pages by key prefix instead.
+const MaxListedKeys = 50
+
 // Listing errors.
 var (
 	ErrLocaleCount         = errors.New("localization: list 1 to 20 locales")
+	ErrKeyCount            = errors.New("localization: name at most 50 keys")
 	ErrInvalidMessageState = errors.New("localization: message state must be active or obsolete")
 )
 
@@ -34,6 +40,10 @@ type TranslationFilter struct {
 	Namespace    *string
 	KeyPrefix    string
 	MessageState *string
+	// Keys names messages exactly, for asking about the ones on a
+	// screen — the in-product editor asks about one — where KeyPrefix
+	// would also match everything below the key.
+	Keys []string
 }
 
 // ProjectTranslationQuery is a validated TranslationFilter plus the
@@ -45,6 +55,7 @@ type ProjectTranslationQuery struct {
 	Namespace    *string
 	KeyPrefix    string
 	MessageState *string
+	Keys         []string
 	After        TranslationCursor
 	Limit        int
 }
@@ -104,8 +115,12 @@ func (f TranslationFilter) query(page pagination.Page) (ProjectTranslationQuery,
 	if err != nil {
 		return ProjectTranslationQuery{}, err
 	}
+	if len(f.Keys) > MaxListedKeys {
+		return ProjectTranslationQuery{}, ErrKeyCount
+	}
 	q := ProjectTranslationQuery{
-		Outdated: f.Outdated, Namespace: f.Namespace, KeyPrefix: f.KeyPrefix, After: after, Limit: page.Limit(),
+		Outdated: f.Outdated, Namespace: f.Namespace, KeyPrefix: f.KeyPrefix, Keys: f.Keys,
+		After: after, Limit: page.Limit(),
 	}
 	for _, l := range f.Locales {
 		tag, err := bcp47.Parse(l)

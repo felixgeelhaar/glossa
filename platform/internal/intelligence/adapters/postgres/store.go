@@ -420,7 +420,7 @@ func job(r intelligencesql.IntelligenceJob) app.JobView {
 		Job: domain.Job{
 			ID: r.ID, ProjectID: r.ProjectID, MessageID: r.MessageID, MessageKey: r.MessageKey, Namespace: r.Namespace,
 			Locale: r.Locale, SourceRevision: int(r.SourceRevision), Fingerprint: r.KnowledgeFingerprint,
-			Trigger: domain.Trigger(r.Trigger), FillID: uuidPtr(r.FillID), State: domain.JobState(r.State),
+			Trigger: domain.Trigger(r.Trigger), FillID: uuidPtr(r.FillID), Forced: r.Forced, State: domain.JobState(r.State),
 			Attempts: int(r.Attempts), MaxAttempts: int(r.MaxAttempts), AvailableAt: r.AvailableAt.UTC(),
 			FailureCode: r.FailureCode.String, LastError: r.LastError.String, SuggestionID: uuidPtr(r.SuggestionID),
 			CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(), StartedAt: tsPtr(r.StartedAt), FinishedAt: tsPtr(r.FinishedAt),
@@ -435,7 +435,7 @@ func (s *store) EnqueueJob(ctx context.Context, j domain.Job, requeue bool) (dom
 		ID: j.ID, ProjectID: j.ProjectID, MessageID: j.MessageID, MessageKey: j.MessageKey, Namespace: j.Namespace,
 		Locale: j.Locale, SourceRevision: i32(j.SourceRevision), KnowledgeFingerprint: j.Fingerprint,
 		Trigger: string(j.Trigger), FillID: nullUUID(j.FillID), MaxAttempts: i32(j.MaxAttempts), CreatedAt: j.CreatedAt,
-		CreatedBy: j.CreatedBy, Requeue: requeue,
+		CreatedBy: j.CreatedBy, Requeue: requeue, Forced: j.Forced,
 	})
 	created := err == nil
 	if errors.Is(err, pgx.ErrNoRows) {

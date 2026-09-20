@@ -67,6 +67,7 @@ type IntelligenceJob struct {
 	StartedAt            pgtype.Timestamptz
 	FinishedAt           pgtype.Timestamptz
 	UpdatedAt            time.Time
+	Forced               bool
 }
 
 type IntelligenceProjectSetting struct {

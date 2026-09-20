@@ -119,7 +119,7 @@ func (s *Service) PreviewFill(ctx context.Context, project uuid.UUID, req FillRe
 					continue
 				}
 				total++
-				j, err := q.job(ctx, m, locale, domain.TriggerFill, nil, "")
+				j, err := q.job(ctx, m, locale, domain.TriggerFill, nil, f.Filter.Force, "")
 				if err != nil {
 					return err
 				}

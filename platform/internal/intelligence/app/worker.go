@@ -189,7 +189,9 @@ func (s *Service) execute(ctx context.Context, j domain.Job) outcome {
 		return skipped(domain.SkipLocale, "the project no longer has the locale")
 	case err != nil && !errors.Is(err, ErrNotFound):
 		return transient(err)
-	case tr.upToDate(msg.Revision):
+	// A forced job was asked for precisely because the translation is
+	// current: someone is reading it and wants a second opinion.
+	case tr.upToDate(msg.Revision) && !j.Forced:
 		return skipped(domain.SkipUpToDate, "the message was translated meanwhile")
 	}
 	rt, err := s.runtimeFor(ctx, j)
@@ -362,7 +364,8 @@ func (s *Service) recordDisclosures(ctx context.Context, j domain.Job, ds []Disc
 // with the reason noted.
 func (s *Service) autoApply(ctx context.Context, r domain.SuggestionRecord) {
 	approved := "approved"
-	rev, err := s.write(ctx, r, r.Message, &approved, false)
+	// Nobody was looking at a screen: auto-apply has no in-context.
+	rev, err := s.write(ctx, r, r.Message, &approved, false, nil)
 	next := r
 	if err != nil {
 		next.ActionNote = "auto-apply failed; review it: " + err.Error()
@@ -384,13 +387,15 @@ func (s *Service) autoApply(ctx context.Context, r domain.SuggestionRecord) {
 // provenance ai or translation_memory and its origin_detail. ctx's
 // principal must be allowed to write (and, for approved, review) the
 // locale.
-func (s *Service) write(ctx context.Context, r domain.SuggestionRecord, text string, state *string, edited bool) (int, error) {
+func (s *Service) write(
+	ctx context.Context, r domain.SuggestionRecord, text string, state *string, edited bool, in *domain.InContext,
+) (int, error) {
 	cur, err := s.Localization.Translation(ctx, r.ProjectID, r.MessageKey, r.Locale)
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return 0, err
 	}
 	w := TranslationWrite{
-		Text: text, Origin: r.Provenance.Origin, OriginDetail: r.OriginDetail(edited),
+		Text: text, Origin: r.Provenance.Origin, OriginDetail: r.OriginDetail(edited, in),
 		SourceRevision: r.SourceRevision, State: state,
 	}
 	return s.Localization.Write(ctx, r.ProjectID, r.MessageKey, r.Locale, w, cur.Revision)

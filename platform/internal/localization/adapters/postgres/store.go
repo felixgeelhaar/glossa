@@ -483,7 +483,7 @@ func (s *store) ProjectTranslations(ctx context.Context, project uuid.UUID, q ap
 		ProjectID: project, Locales: locales,
 		AfterKey: q.After.Key, AfterMessage: q.After.Message, AfterLocale: q.After.Locale,
 		States: states, Outdated: outdated, Namespace: optText(q.Namespace), MessageState: optText(q.MessageState),
-		KeyLike: likePattern(q.KeyPrefix), MaxRows: int32Of(q.Limit),
+		KeyLike: likePattern(q.KeyPrefix), Keys: q.Keys, MaxRows: int32Of(q.Limit),
 	})
 	if err != nil {
 		return nil, storeError(err)

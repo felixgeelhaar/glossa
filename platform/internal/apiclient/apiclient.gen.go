@@ -8523,14 +8523,20 @@ type ClientInterface interface {
 	// leaves out (`skipped.not_selected`). A job exists once per
 	// message, locale, source revision and knowledge fingerprint: an
 	// existing one is reused (`jobs_existing`), a failed, dead or
-	// cancelled one queued again. `warnings` say when jobs will do
+	// cancelled one queued again. `force` (with `keys`) also queues a
+	// current translation, and queues an existing job again whatever
+	// its state, so the in-product editor can ask for a second opinion
+	// on text that is already there. The response's `job_ids` name the
+	// jobs queued or reused, for a caller following a handful of them.
+	// `warnings` say when jobs will do
 	// little: consent off (only exact translation-memory matches are
 	// reused), no budget, no provider. `POST …/ai-fill-previews`
 	// answers what a fill would do without queueing anything. Needs
 	// `intelligence.translate` for every locale. Problem codes:
 	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
-	// `invalid_query` (an unknown `select`, or one `include_outdated`
-	// contradicts) (400), `locale_not_found` (404).
+	// `invalid_query` (an unknown `select`, one `include_outdated`
+	// contradicts, or `force` without `keys`) (400),
+	// `locale_not_found` (404).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -8553,14 +8559,20 @@ type ClientInterface interface {
 	// leaves out (`skipped.not_selected`). A job exists once per
 	// message, locale, source revision and knowledge fingerprint: an
 	// existing one is reused (`jobs_existing`), a failed, dead or
-	// cancelled one queued again. `warnings` say when jobs will do
+	// cancelled one queued again. `force` (with `keys`) also queues a
+	// current translation, and queues an existing job again whatever
+	// its state, so the in-product editor can ask for a second opinion
+	// on text that is already there. The response's `job_ids` name the
+	// jobs queued or reused, for a caller following a handful of them.
+	// `warnings` say when jobs will do
 	// little: consent off (only exact translation-memory matches are
 	// reused), no budget, no provider. `POST …/ai-fill-previews`
 	// answers what a fill would do without queueing anything. Needs
 	// `intelligence.translate` for every locale. Problem codes:
 	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
-	// `invalid_query` (an unknown `select`, or one `include_outdated`
-	// contradicts) (400), `locale_not_found` (404).
+	// `invalid_query` (an unknown `select`, one `include_outdated`
+	// contradicts, or `force` without `keys`) (400),
+	// `locale_not_found` (404).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -9898,7 +9910,7 @@ type ClientInterface interface {
 	// sources), never one per translation. Stores nothing. Needs
 	// `knowledge.read`, `translations.read` and `catalog.read`.
 	// Problem codes: `invalid_locale`, `too_many_locales`,
-	// `invalid_state` (400).
+	// `too_many_keys`, `invalid_state` (400).
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/terminology-findings (the `ListProjectTerminologyFindings` operationId).
 	ListProjectTerminologyFindings(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTerminologyFindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -13085,14 +13097,20 @@ func (c *Client) PreviewAIFill(ctx context.Context, tenant TenantPath, project P
 // leaves out (`skipped.not_selected`). A job exists once per
 // message, locale, source revision and knowledge fingerprint: an
 // existing one is reused (`jobs_existing`), a failed, dead or
-// cancelled one queued again. `warnings` say when jobs will do
+// cancelled one queued again. `force` (with `keys`) also queues a
+// current translation, and queues an existing job again whatever
+// its state, so the in-product editor can ask for a second opinion
+// on text that is already there. The response's `job_ids` name the
+// jobs queued or reused, for a caller following a handful of them.
+// `warnings` say when jobs will do
 // little: consent off (only exact translation-memory matches are
 // reused), no budget, no provider. `POST …/ai-fill-previews`
 // answers what a fill would do without queueing anything. Needs
 // `intelligence.translate` for every locale. Problem codes:
 // `too_many_locales`, `too_many_keys`, `invalid_locale`,
-// `invalid_query` (an unknown `select`, or one `include_outdated`
-// contradicts) (400), `locale_not_found` (404).
+// `invalid_query` (an unknown `select`, one `include_outdated`
+// contradicts, or `force` without `keys`) (400),
+// `locale_not_found` (404).
 //
 // Takes any type of body and a specified content type.
 //
@@ -13125,14 +13143,20 @@ func (c *Client) CreateAIFillWithBody(ctx context.Context, tenant TenantPath, pr
 // leaves out (`skipped.not_selected`). A job exists once per
 // message, locale, source revision and knowledge fingerprint: an
 // existing one is reused (`jobs_existing`), a failed, dead or
-// cancelled one queued again. `warnings` say when jobs will do
+// cancelled one queued again. `force` (with `keys`) also queues a
+// current translation, and queues an existing job again whatever
+// its state, so the in-product editor can ask for a second opinion
+// on text that is already there. The response's `job_ids` name the
+// jobs queued or reused, for a caller following a handful of them.
+// `warnings` say when jobs will do
 // little: consent off (only exact translation-memory matches are
 // reused), no budget, no provider. `POST …/ai-fill-previews`
 // answers what a fill would do without queueing anything. Needs
 // `intelligence.translate` for every locale. Problem codes:
 // `too_many_locales`, `too_many_keys`, `invalid_locale`,
-// `invalid_query` (an unknown `select`, or one `include_outdated`
-// contradicts) (400), `locale_not_found` (404).
+// `invalid_query` (an unknown `select`, one `include_outdated`
+// contradicts, or `force` without `keys`) (400),
+// `locale_not_found` (404).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -15440,7 +15464,7 @@ func (c *Client) GetReleaseManifest(ctx context.Context, tenant TenantPath, proj
 // sources), never one per translation. Stores nothing. Needs
 // `knowledge.read`, `translations.read` and `catalog.read`.
 // Problem codes: `invalid_locale`, `too_many_locales`,
-// `invalid_state` (400).
+// `too_many_keys`, `invalid_state` (400).
 //
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/terminology-findings (the `ListProjectTerminologyFindings` operationId).
 func (c *Client) ListProjectTerminologyFindings(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTerminologyFindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -29965,14 +29989,20 @@ type ClientWithResponsesInterface interface {
 	// leaves out (`skipped.not_selected`). A job exists once per
 	// message, locale, source revision and knowledge fingerprint: an
 	// existing one is reused (`jobs_existing`), a failed, dead or
-	// cancelled one queued again. `warnings` say when jobs will do
+	// cancelled one queued again. `force` (with `keys`) also queues a
+	// current translation, and queues an existing job again whatever
+	// its state, so the in-product editor can ask for a second opinion
+	// on text that is already there. The response's `job_ids` name the
+	// jobs queued or reused, for a caller following a handful of them.
+	// `warnings` say when jobs will do
 	// little: consent off (only exact translation-memory matches are
 	// reused), no budget, no provider. `POST …/ai-fill-previews`
 	// answers what a fill would do without queueing anything. Needs
 	// `intelligence.translate` for every locale. Problem codes:
 	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
-	// `invalid_query` (an unknown `select`, or one `include_outdated`
-	// contradicts) (400), `locale_not_found` (404).
+	// `invalid_query` (an unknown `select`, one `include_outdated`
+	// contradicts, or `force` without `keys`) (400),
+	// `locale_not_found` (404).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -29995,14 +30025,20 @@ type ClientWithResponsesInterface interface {
 	// leaves out (`skipped.not_selected`). A job exists once per
 	// message, locale, source revision and knowledge fingerprint: an
 	// existing one is reused (`jobs_existing`), a failed, dead or
-	// cancelled one queued again. `warnings` say when jobs will do
+	// cancelled one queued again. `force` (with `keys`) also queues a
+	// current translation, and queues an existing job again whatever
+	// its state, so the in-product editor can ask for a second opinion
+	// on text that is already there. The response's `job_ids` name the
+	// jobs queued or reused, for a caller following a handful of them.
+	// `warnings` say when jobs will do
 	// little: consent off (only exact translation-memory matches are
 	// reused), no budget, no provider. `POST …/ai-fill-previews`
 	// answers what a fill would do without queueing anything. Needs
 	// `intelligence.translate` for every locale. Problem codes:
 	// `too_many_locales`, `too_many_keys`, `invalid_locale`,
-	// `invalid_query` (an unknown `select`, or one `include_outdated`
-	// contradicts) (400), `locale_not_found` (404).
+	// `invalid_query` (an unknown `select`, one `include_outdated`
+	// contradicts, or `force` without `keys`) (400),
+	// `locale_not_found` (404).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -31426,7 +31462,7 @@ type ClientWithResponsesInterface interface {
 	// sources), never one per translation. Stores nothing. Needs
 	// `knowledge.read`, `translations.read` and `catalog.read`.
 	// Problem codes: `invalid_locale`, `too_many_locales`,
-	// `invalid_state` (400).
+	// `too_many_keys`, `invalid_state` (400).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -47678,14 +47714,20 @@ func (c *ClientWithResponses) PreviewAIFillWithResponse(ctx context.Context, ten
 // leaves out (`skipped.not_selected`). A job exists once per
 // message, locale, source revision and knowledge fingerprint: an
 // existing one is reused (`jobs_existing`), a failed, dead or
-// cancelled one queued again. `warnings` say when jobs will do
+// cancelled one queued again. `force` (with `keys`) also queues a
+// current translation, and queues an existing job again whatever
+// its state, so the in-product editor can ask for a second opinion
+// on text that is already there. The response's `job_ids` name the
+// jobs queued or reused, for a caller following a handful of them.
+// `warnings` say when jobs will do
 // little: consent off (only exact translation-memory matches are
 // reused), no budget, no provider. `POST …/ai-fill-previews`
 // answers what a fill would do without queueing anything. Needs
 // `intelligence.translate` for every locale. Problem codes:
 // `too_many_locales`, `too_many_keys`, `invalid_locale`,
-// `invalid_query` (an unknown `select`, or one `include_outdated`
-// contradicts) (400), `locale_not_found` (404).
+// `invalid_query` (an unknown `select`, one `include_outdated`
+// contradicts, or `force` without `keys`) (400),
+// `locale_not_found` (404).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -47714,14 +47756,20 @@ func (c *ClientWithResponses) CreateAIFillWithBodyWithResponse(ctx context.Conte
 // leaves out (`skipped.not_selected`). A job exists once per
 // message, locale, source revision and knowledge fingerprint: an
 // existing one is reused (`jobs_existing`), a failed, dead or
-// cancelled one queued again. `warnings` say when jobs will do
+// cancelled one queued again. `force` (with `keys`) also queues a
+// current translation, and queues an existing job again whatever
+// its state, so the in-product editor can ask for a second opinion
+// on text that is already there. The response's `job_ids` name the
+// jobs queued or reused, for a caller following a handful of them.
+// `warnings` say when jobs will do
 // little: consent off (only exact translation-memory matches are
 // reused), no budget, no provider. `POST …/ai-fill-previews`
 // answers what a fill would do without queueing anything. Needs
 // `intelligence.translate` for every locale. Problem codes:
 // `too_many_locales`, `too_many_keys`, `invalid_locale`,
-// `invalid_query` (an unknown `select`, or one `include_outdated`
-// contradicts) (400), `locale_not_found` (404).
+// `invalid_query` (an unknown `select`, one `include_outdated`
+// contradicts, or `force` without `keys`) (400),
+// `locale_not_found` (404).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -49727,7 +49775,7 @@ func (c *ClientWithResponses) GetReleaseManifestWithResponse(ctx context.Context
 // sources), never one per translation. Stores nothing. Needs
 // `knowledge.read`, `translations.read` and `catalog.read`.
 // Problem codes: `invalid_locale`, `too_many_locales`,
-// `invalid_state` (400).
+// `too_many_keys`, `invalid_state` (400).
 //
 // Returns a wrapper object for the known response body format(s).
 //

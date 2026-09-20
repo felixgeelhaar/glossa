@@ -656,8 +656,11 @@ WHERE m.project_id = $1
   AND ($8::text IS NULL OR m.namespace = $8)
   AND ($9::text IS NULL OR m.state = $9)
   AND ($10::text IS NULL OR m.key LIKE $10)
+  -- Exactly these keys, for the messages on one screen: a key_prefix
+  -- equal to a key would also match everything below it.
+  AND ($11::text[] IS NULL OR m.key = ANY ($11::text[]))
 ORDER BY m.key, m.message_id, t.locale
-LIMIT $11
+LIMIT $12
 `
 
 type PageProjectTranslationsParams struct {
@@ -671,6 +674,7 @@ type PageProjectTranslationsParams struct {
 	Namespace    pgtype.Text
 	MessageState pgtype.Text
 	KeyLike      pgtype.Text
+	Keys         []string
 	MaxRows      int32
 }
 
@@ -713,6 +717,7 @@ func (q *Queries) PageProjectTranslations(ctx context.Context, arg PageProjectTr
 		arg.Namespace,
 		arg.MessageState,
 		arg.KeyLike,
+		arg.Keys,
 		arg.MaxRows,
 	)
 	if err != nil {

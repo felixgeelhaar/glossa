@@ -30,6 +30,7 @@ var problems = []struct {
 	{app.ErrIdempotencyReuse, 422, "idempotency_key_reused", "this Idempotency-Key was used for a different request"},
 	{app.ErrInvalidQuery, 400, "invalid_query", ""},
 	{app.ErrLocaleCount, 400, "too_many_locales", "check 1 to 20 locales"},
+	{app.ErrKeyCount, 400, "too_many_keys", "name at most 50 keys"},
 	{app.ErrInvalidState, 400, "invalid_state", ""},
 	{domain.ErrInvalidConcept, 400, "invalid_concept", ""},
 	{domain.ErrInvalidTermStatus, 400, "invalid_term_status", ""},

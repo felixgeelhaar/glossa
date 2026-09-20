@@ -89,6 +89,10 @@ type Job struct {
 	Fingerprint string
 	Trigger     Trigger
 	FillID      *uuid.UUID
+	// Forced means the job was asked for even though the translation was
+	// already current (RFC 0004 §5.3), so the worker's own up-to-date
+	// check must not skip it.
+	Forced      bool
 	State       JobState
 	Attempts    int
 	MaxAttempts int

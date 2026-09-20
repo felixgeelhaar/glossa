@@ -85,7 +85,23 @@ type Decision struct {
 // suggestion becomes one (RFC 0003 §3.4): provider, model, prompt
 // version, TM unit IDs, term IDs, style-guide version, score and
 // explanation, and where it came from.
-func (r SuggestionRecord) OriginDetail(edited bool) json.RawMessage {
+// InContext is where a person was when they accepted a suggestion in
+// the running product (RFC 0004 §5.3): the route pattern the page was
+// on and the viewport it was seen at. It is recorded beside what the
+// suggestion contributed, so history can say an edit was made looking
+// at the real screen and which screen that was.
+type InContext struct {
+	Route    string    `json:"route"`
+	Viewport *Viewport `json:"viewport,omitempty"`
+}
+
+// Viewport is the size the page was seen at.
+type Viewport struct {
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
+func (r SuggestionRecord) OriginDetail(edited bool, in *InContext) json.RawMessage {
 	d := map[string]any{
 		"suggestion_id": r.ID.String(), "job_id": r.JobID.String(),
 		"score": r.Confidence.Score, "explanation": r.Confidence.Explanation, "action": r.Action,
@@ -108,6 +124,9 @@ func (r SuggestionRecord) OriginDetail(edited bool) json.RawMessage {
 	}
 	if edited {
 		d["edited"] = true
+	}
+	if in != nil && in.Route != "" {
+		d["in_context"] = in
 	}
 	raw, _ := json.Marshal(d) //nolint:errchkjson // plain maps, strings and numbers
 	return raw

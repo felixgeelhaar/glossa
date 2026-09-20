@@ -22,7 +22,12 @@ const (
 	// MaxFillJobs bounds one fill; a larger catalog is filled in several
 	// requests (filters) or through auto-translate.
 	MaxFillJobs = 20_000
-	fillPage    = 100
+	// MaxReportedJobIDs bounds the ids a fill hands back. A caller with
+	// more jobs than this is paging anyway and follows them with
+	// ?fill=<id>; a caller that listed a few keys — the in-product
+	// editor asks about one — gets exactly the ids it needs to poll.
+	MaxReportedJobIDs = 200
+	fillPage          = 100
 )
 
 // SkipNotSelected counts listed keys whose translation's state the
@@ -211,15 +216,21 @@ func (s *Service) fill(ctx context.Context, f *Fill, requeue bool) error {
 					continue
 				}
 				total++
-				j, err := q.job(ctx, m, locale, domain.TriggerFill, &f.ID, f.RequestedBy)
+				j, err := q.job(ctx, m, locale, domain.TriggerFill, &f.ID, f.Filter.Force, f.RequestedBy)
 				if err != nil {
 					return err
 				}
 				jobs = append(jobs, j)
 			}
-			created, existing, err := s.enqueue(ctx, jobs, requeue)
+			ids, created, existing, err := s.enqueue(ctx, jobs, requeue)
 			f.JobsCreated += created
 			f.JobsExisting += existing
+			// A caller that listed keys gets the ids back so it can poll
+			// those jobs instead of watching the whole list; a fill big
+			// enough to page is followed with ?fill=<id> instead.
+			if len(f.JobIDs) < MaxReportedJobIDs {
+				f.JobIDs = append(f.JobIDs, ids...)
+			}
 			return err
 		})
 		if err != nil {
@@ -251,6 +262,11 @@ func (s *Service) eachFillMessage(ctx context.Context, f Fill, locale string, fn
 			}
 			missing := !tr.usable()
 			switch {
+			// force is the only way past "nothing to translate": the
+			// editor asks about text someone is reading, which is
+			// current by definition.
+			case f.Filter.Force:
+				todo = append(todo, m)
 			case tr.upToDate(m.Revision):
 				f.Skipped[domain.SkipUpToDate]++
 			case missing && sel.missing(), !missing && sel.outdated():
@@ -301,17 +317,21 @@ func (t TranslationState) upToDate(revision int) bool {
 }
 
 // enqueue stores jobs in one transaction and counts new and existing.
-func (s *Service) enqueue(ctx context.Context, jobs []domain.Job, requeue bool) (created, existing int, err error) {
+func (s *Service) enqueue(ctx context.Context, jobs []domain.Job, requeue bool) (ids []uuid.UUID, created, existing int, err error) {
 	if len(jobs) == 0 {
-		return 0, 0, nil
+		return nil, 0, 0, nil
 	}
 	err = s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		created, existing = 0, 0
+		ids, created, existing = ids[:0], 0, 0
 		for _, j := range jobs {
-			_, isNew, err := st.EnqueueJob(ctx, j, requeue)
+			stored, isNew, err := st.EnqueueJob(ctx, j, requeue)
 			if err != nil {
 				return err
 			}
+			// The stored row's id, not the one just built: reusing an
+			// existing job keeps that job's id, and a caller polling
+			// needs the id that exists.
+			ids = append(ids, stored.ID)
 			if isNew {
 				created++
 			} else {
@@ -320,7 +340,7 @@ func (s *Service) enqueue(ctx context.Context, jobs []domain.Job, requeue bool) 
 		}
 		return nil
 	})
-	return created, existing, err
+	return ids, created, existing, err
 }
 
 // queuer builds jobs with their knowledge fingerprints, caching the
@@ -337,7 +357,9 @@ func newQueuer(s *Service, project uuid.UUID) *queuer {
 	return &queuer{s: s, project: project, styles: map[string][]string{}, termbase: map[string]string{}}
 }
 
-func (q *queuer) job(ctx context.Context, m SourceMessage, locale string, trigger domain.Trigger, fill *uuid.UUID, by string) (domain.Job, error) {
+func (q *queuer) job(
+	ctx context.Context, m SourceMessage, locale string, trigger domain.Trigger, fill *uuid.UUID, forced bool, by string,
+) (domain.Job, error) {
 	scope := domain.Scope{TenantID: tenantOf(ctx).String(), ProjectID: q.project.String()}
 	if q.source == "" {
 		p, err := q.s.Catalog.Project(ctx, q.project)
@@ -369,7 +391,8 @@ func (q *queuer) job(ctx context.Context, m SourceMessage, locale string, trigge
 	return domain.Job{
 		ID: uuid.Must(uuid.NewV7()), ProjectID: q.project, MessageID: m.ID, MessageKey: m.Key, Namespace: m.Namespace,
 		Locale: locale, SourceRevision: m.Revision, Fingerprint: fp.Sum(), Trigger: trigger, FillID: fill,
-		State: domain.JobQueued, MaxAttempts: domain.DefaultMaxAttempts, AvailableAt: now, CreatedBy: by,
+		Forced: forced,
+		State:  domain.JobQueued, MaxAttempts: domain.DefaultMaxAttempts, AvailableAt: now, CreatedBy: by,
 		CreatedAt: now, UpdatedAt: now,
 	}, nil
 }
