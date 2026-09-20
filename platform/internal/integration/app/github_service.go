@@ -8,9 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
@@ -20,7 +23,12 @@ import (
 const principalGitHub = "integration.github"
 
 // GitHubDeps are the GitHub service's collaborators. Tx, Inbox, GitHub,
-// Verifier and Events are required; the rest take defaults.
+// Verifier, Events and Branches are required; the rest take defaults.
+//
+// Checks and Sources are the PR check's half (RFC 0004 §6.4). They go
+// together: without both, the webhook side still runs and the check
+// worker does nothing, which is what a deployment that only wants the
+// branch view gets.
 type GitHubDeps struct {
 	Tx       GitHubTransactor
 	Inbox    DeliveryInbox
@@ -28,9 +36,17 @@ type GitHubDeps struct {
 	Verifier WebhookVerifier
 	Events   WebhookEvents
 	Branches Branches
-	Metrics  GitHubMetrics
-	Logger   *slog.Logger
-	Now      func() time.Time
+	// Checks is the check queue; Sources is what the report is rendered
+	// from.
+	Checks  CheckQueue
+	Sources CheckSources
+	// StudioURL is where the sticky comment's branch link points.
+	StudioURL      string
+	Metrics        GitHubMetrics
+	CheckMetrics   CheckMetrics
+	TracerProvider trace.TracerProvider
+	Logger         *slog.Logger
+	Now            func() time.Time
 }
 
 // GitHubService is the GitHub integration's use cases (RFC 0004 §6):
@@ -41,16 +57,25 @@ type GitHubDeps struct {
 // one, the composition root leaves it nil and the HTTP edge answers
 // `github_not_configured`; nothing else in the server changes.
 type GitHubService struct {
-	tx       GitHubTransactor
-	inbox    DeliveryInbox
-	gh       GitHub
-	verifier WebhookVerifier
-	events   WebhookEvents
-	branches Branches
-	metrics  GitHubMetrics
-	logger   *slog.Logger
-	now      func() time.Time
+	tx           GitHubTransactor
+	inbox        DeliveryInbox
+	gh           GitHub
+	verifier     WebhookVerifier
+	events       WebhookEvents
+	branches     Branches
+	checks       CheckQueue
+	sources      CheckSources
+	studioURL    string
+	metrics      GitHubMetrics
+	checkMetrics CheckMetrics
+	tracer       trace.Tracer
+	logger       *slog.Logger
+	now          func() time.Time
 }
+
+// tracerName names the GitHub integration's spans' instrumentation
+// scope: one trace per check job (RFC 0004 §11).
+const tracerName = "github.com/felixgeelhaar/glossa/platform/internal/integration"
 
 // NewGitHubService returns the service, or an error naming what is
 // missing.
@@ -67,12 +92,24 @@ func NewGitHubService(d GitHubDeps) (*GitHubService, error) {
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
+	if (d.Checks == nil) != (d.Sources == nil) {
+		return nil, errors.New("integration: GitHubDeps.Checks and .Sources go together")
+	}
 	s := &GitHubService{
 		tx: d.Tx, inbox: d.Inbox, gh: d.GitHub, verifier: d.Verifier, events: d.Events,
-		branches: d.Branches, metrics: d.Metrics, logger: d.Logger, now: d.Now,
+		branches: d.Branches, checks: d.Checks, sources: d.Sources,
+		studioURL: strings.TrimRight(d.StudioURL, "/"),
+		metrics:   d.Metrics, checkMetrics: d.CheckMetrics, logger: d.Logger, now: d.Now,
+		tracer: noop.NewTracerProvider().Tracer(tracerName),
+	}
+	if d.TracerProvider != nil {
+		s.tracer = d.TracerProvider.Tracer(tracerName)
 	}
 	if s.metrics == nil {
 		s.metrics = NoGitHubMetrics{}
+	}
+	if s.checkMetrics == nil {
+		s.checkMetrics = NoCheckMetrics{}
 	}
 	if s.logger == nil {
 		s.logger = slog.New(slog.DiscardHandler)

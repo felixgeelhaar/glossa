@@ -282,15 +282,27 @@ func (s *GitHubService) applyEvent(ctx context.Context, ev WebhookEvent) error {
 	case "pull_request":
 		return s.applyPullRequest(ctx, ev)
 	case "check_run":
-		// `check_run.rerequested` asks for the report again. The check
-		// and comment workers are a later slice (RFC 0004 §6.4); until
-		// they exist there is nothing to re-enqueue, and acknowledging
-		// is the honest answer.
-		s.logger.InfoContext(ctx, "integration: a Glossa check was rerequested",
-			slog.Int64("installation_id", ev.InstallationID), slog.Int64("repository_id", ev.RepositoryID),
-			slog.String("head_sha", ev.HeadSHA), slog.Int64("check_run_id", ev.CheckRunID))
+		return s.applyCheckRun(ctx, ev)
+	}
+	return nil
+}
+
+// applyCheckRun is `check_run.rerequested`: somebody pressed Re-run on
+// the Glossa check. GitHub makes a new check run for it, so the stored
+// runs and the annotations they were sent are forgotten — a new run's
+// ledger starts empty — and the check is enqueued again.
+func (s *GitHubService) applyCheckRun(ctx context.Context, ev WebhookEvent) error {
+	if ev.Action != "rerequested" || !s.checksEnabled() {
 		return nil
 	}
+	n, err := s.checks.Rerun(ctx, ev.RepositoryID, ev.HeadSHA, s.now())
+	if err != nil {
+		return err
+	}
+	s.logger.InfoContext(ctx, "integration: a Glossa check was rerequested",
+		slog.Int64("installation_id", ev.InstallationID), slog.Int64("repository_id", ev.RepositoryID),
+		slog.String("head_sha", ev.HeadSHA), slog.Int64("check_run_id", ev.CheckRunID),
+		slog.Int("checks", n))
 	return nil
 }
 
@@ -330,7 +342,8 @@ func (s *GitHubService) applyInstallationRepositories(ctx context.Context, ev We
 	if len(ev.RepositoriesRemoved) == 0 {
 		return nil
 	}
-	return s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
+	var gone []int64
+	err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
 		for _, repo := range ev.RepositoriesRemoved {
 			conns, err := st.ConnectionsForRepository(ctx, repo)
 			if err != nil {
@@ -343,9 +356,22 @@ func (s *GitHubService) applyInstallationRepositories(ctx context.Context, ev We
 				s.logger.InfoContext(ctx, "integration: a repository left the installation, so its connection is gone",
 					slog.Int64("repository_id", repo), slog.String("connection_id", c.ID.String()))
 			}
+			gone = append(gone, repo)
 		}
 		return nil
 	})
+	if err != nil || !s.checksEnabled() {
+		return err
+	}
+	// Its pull requests' checks go with the connections: there is
+	// nothing left to report on, and the rows would only be claimed and
+	// dropped one at a time.
+	for _, repo := range gone {
+		if _, err := s.checks.DropRepository(ctx, repo); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // applyPullRequest keeps the Catalog branch of every project the
@@ -392,6 +418,38 @@ func (s *GitHubService) applyPullRequest(ctx context.Context, ev WebhookEvent) e
 			slog.String("project_id", c.ProjectID.String()), slog.String("branch", ev.HeadRef),
 			slog.Int("pull_request", pr), slog.String("action", ev.Action))
 	}
+	return s.openCheck(ctx, ev, len(conns))
+}
+
+// openCheck is the check's trigger (RFC 0004 §6.4): a pull request that
+// opened, was pushed to or reopened gets a Glossa check run, queued for
+// its head SHA, and thirty minutes for its CI to upload.
+//
+// The row is written here and the check run is created by the worker,
+// so the webhook stays a database write: GitHub's ten seconds are not
+// the place for a call back to GitHub.
+func (s *GitHubService) openCheck(ctx context.Context, ev WebhookEvent, connections int) error {
+	switch {
+	case !s.checksEnabled(), connections == 0, ev.HeadSHA == "", ev.HeadRef == "":
+		return nil
+	}
+	switch ev.Action {
+	case "opened", "reopened", "synchronize":
+	default:
+		return nil
+	}
+	now := s.now()
+	c, err := s.checks.Open(ctx, domain.Check{
+		ID: uuid.Must(uuid.NewV7()), TenantID: tenantOf(ctx), InstallationID: ev.InstallationID,
+		RepositoryID: ev.RepositoryID, PullRequest: ev.PullRequest, Branch: ev.HeadRef, HeadSHA: ev.HeadSHA,
+		State: domain.CheckQueued, RequestedAt: now, AvailableAt: now, UpdatedAt: now,
+	})
+	if err != nil {
+		return err
+	}
+	s.logger.InfoContext(ctx, "integration: a Glossa check was requested",
+		slog.Int64("repository_id", c.RepositoryID), slog.Int("pull_request", c.PullRequest),
+		slog.String("head_sha", c.HeadSHA), slog.String("branch", c.Branch))
 	return nil
 }
 
