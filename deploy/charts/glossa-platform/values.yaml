@@ -109,6 +109,30 @@ server:
     publisherEnabled: true
     # -- GLOSSA_BRANCH_PUBLISH_INTERVAL: how often due publishes are looked for.
     publishInterval: 5s
+  # The webhook inbox (RFC 0004 §6.2): the endpoint verifies the
+  # signature, stores the delivery and answers 202 well inside GitHub's
+  # 10 s limit, and this worker processes the inbox afterwards — claimed
+  # with a lease, at least once, idempotent handlers, like the outbox.
+  # Whether the integration exists at all is decided by the `github`
+  # block further down; without an App these settings are inert.
+  github:
+    inbox:
+      # -- GLOSSA_GITHUB_INBOX_ENABLED: process stored deliveries in these
+      # pods. Off, deliveries are still stored and acknowledged — nothing
+      # acts on them until a process with it on comes along.
+      enabled: true
+      # -- GLOSSA_GITHUB_INBOX_WORKERS: deliveries handled at once, per pod (1–64).
+      workers: 2
+      # -- GLOSSA_GITHUB_INBOX_POLL_INTERVAL: how long a worker waits when the inbox is empty.
+      pollInterval: 1s
+      # -- GLOSSA_GITHUB_INBOX_TIMEOUT: bounds one attempt at one delivery.
+      timeout: 30s
+      # -- GLOSSA_GITHUB_INBOX_LEASE: how long a claimed delivery is reserved
+      # against the other replicas; must exceed the timeout, or the server
+      # refuses to start.
+      lease: 2m
+      # -- GLOSSA_GITHUB_INBOX_DEPTH_INTERVAL: how often the inbox-depth metric is sampled.
+      depthInterval: 30s
   webauthn:
     # -- GLOSSA_WEBAUTHN_RP_ID (registrable domain). Default: hosts.studio.
     rpId: ""
@@ -435,6 +459,47 @@ mail:
     usernameKey: GLOSSA_SMTP_USERNAME
     passwordKey: GLOSSA_SMTP_PASSWORD
 
+## Optional. The GitHub App (RFC 0004 §6.1). With github.appId empty the
+## chart sets no GLOSSA_GITHUB_* App variable, needs no Secret and opens
+## no egress to GitHub; the GitHub endpoints answer `github_not_configured`
+## (503) and nothing else changes. Setting it makes the rest required, so
+## a half-configured chart fails to render rather than at pod start.
+## The App's private key, webhook secret and OAuth client secret are
+## platform configuration, never tenant data: one Secret in this
+## namespace, read through env, exactly like the release signing key
+## (RFC 0004 §14.1). See README.md, "GitHub App".
+github:
+  # -- GLOSSA_GITHUB_APP_ID: the App's numeric id. Empty turns the whole
+  # integration off; set, it turns it on for every tenant that installs it.
+  appId: ""
+  # -- GLOSSA_GITHUB_APP_SLUG: the App's name in its own URL (lowercase
+  # letters, digits and hyphens). The install link is built from it —
+  # <web url>/apps/<slug>/installations/new. REQUIRED with appId.
+  appSlug: ""
+  # -- GLOSSA_GITHUB_CLIENT_ID: the App's OAuth client id. Public, unlike
+  # the client secret below. REQUIRED with appId.
+  clientId: ""
+  # -- GLOSSA_GITHUB_API_URL: the REST base. Default https://api.github.com;
+  # GitHub Enterprise Server: https://HOST/api/v3.
+  apiUrl: ""
+  # -- GLOSSA_GITHUB_WEB_URL: where people are sent to authorize the App.
+  # Default https://github.com; GHES: https://HOST.
+  webUrl: ""
+  credentials:
+    # -- REQUIRED with appId. One existing Secret holding all three secret
+    # values; the chart never creates it, so there is nowhere here to paste
+    # a private key. `kubectl create secret generic` — see README.md.
+    secretName: ""
+    # -- The App's RSA private key, PEM (PKCS#1 or PKCS#8). It signs the
+    # App JWT that mints installation tokens.
+    privateKeyKey: GLOSSA_GITHUB_APP_PRIVATE_KEY
+    # -- The webhook HMAC secret, checked (constant-time) before a delivery
+    # body is parsed.
+    webhookSecretKey: GLOSSA_GITHUB_WEBHOOK_SECRET
+    # -- The App's OAuth client secret. Used once per installation, to
+    # redeem the callback's `code` for the person's own token.
+    clientSecretKey: GLOSSA_GITHUB_CLIENT_SECRET
+
 ## ── Object storage (S3-compatible) ────────────────────────────────
 ## Release artifacts, manifests and delivery keys. glossa-server writes,
 ## glossa-edge only reads. External storage, or the in-namespace MinIO
@@ -617,6 +682,17 @@ networkPolicy:
       to: []
       ports:
         - port: 587
+          protocol: TCP
+    # -- glossa-server → the GitHub API (only when github.appId is set):
+    # installation tokens, check runs and the PR comment all leave the
+    # cluster. GitHub publishes its address ranges (the `hooks` and `api`
+    # lists of https://api.github.com/meta) and changes them, so pin `to`
+    # only if you are prepared to follow them; an empty `to` allows 443 to
+    # any destination meanwhile.
+    github:
+      to: []
+      ports:
+        - port: 443
           protocol: TCP
     # -- glossa-server and glossa-edge → OTLP collector (only when an endpoint is set).
     otlp:

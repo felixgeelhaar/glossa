@@ -575,6 +575,87 @@ delivered then. glossa-server 0.4.0 still defaults to the `log` driver,
 which writes sign-in links to its log; NOTES.txt says so after install.
 `mail.driver: log` can be set explicitly for development.
 
+## GitHub App
+
+Optional (RFC 0004 §6.1). With `github.appId` empty the chart sets **no**
+`GLOSSA_GITHUB_APP_*`/`_CLIENT_*`/`_WEBHOOK_*` variable, needs no Secret
+and opens no egress to GitHub; the GitHub endpoints answer
+`github_not_configured` (503) and nothing else in the deployment
+changes. Setting `github.appId` makes `github.appSlug`,
+`github.clientId` and `github.credentials.secretName` required, so a
+half-configured chart fails to render with the missing value named
+rather than crash-looping the pods on the server's own startup check.
+
+**Where the App is registered.** Glossa's own App is **private, under the
+`klarlabs-studio` organization** (RFC 0004 §14.1): installable on our own
+repositories only, until the product's status is decided. A self-hosted
+instance registers its own App under its own organization and points this
+chart at that one — nothing about the App is shared between instances.
+
+Repository permissions, and no more:
+
+| Permission | Why |
+|---|---|
+| `checks: write` | the Glossa check run on a pull request's head commit |
+| `pull_requests: write` | the one sticky PR comment |
+| `metadata: read` | mandatory for every App |
+
+There is deliberately **no `contents` access**: Glossa never reads code.
+Keys, usages and screenshots arrive from the product's own CI instead
+(RFC 0004 §6.3). Subscribe to four events — `installation`,
+`installation_repositories`, `pull_request` and `check_run` — and no
+others; anything else is stored, processed and dropped for nothing.
+
+The App's URLs:
+
+| Field on the App | Value |
+|---|---|
+| Webhook URL | `https://<hosts.api>/v1/integrations/github/webhooks` |
+| Webhook secret | the same string as `GLOSSA_GITHUB_WEBHOOK_SECRET` in the Secret below |
+| Setup URL, and the OAuth callback URL | Studio, on `hosts.studio`: GitHub returns the person there with `state`, `installation_id`, `code` and `setup_action`, which Studio posts to `POST /v1/tenants/{tenant}/github/installations` to finish the install |
+
+**"Request user authorization (OAuth) during installation" must be
+ticked.** Without it GitHub sends no `code`, and the callback cannot
+redeem the person's own token to check that they can really see the
+`installation_id` they are claiming — which is the whole reason nobody
+can claim another organization's installation.
+
+The webhook endpoint is not authenticated by a session (GitHub signs each
+delivery, and the signature is checked before the body is parsed), but it
+lives under `/v1` like everything else, so the API host's IngressRoute
+already routes it. There is nothing to add to the ingress.
+
+**The Secret.** The private key, the webhook secret and the OAuth client
+secret are platform configuration, never tenant data: one Secret in the
+release's namespace, read through env, exactly like the release signing
+key. The chart never creates it, so there is nowhere in `values.yaml` to
+paste a private key:
+
+```sh
+kubectl -n glossa-platform create secret generic glossa-github \
+  --from-file=GLOSSA_GITHUB_APP_PRIVATE_KEY=glossa.<date>.private-key.pem \
+  --from-literal=GLOSSA_GITHUB_WEBHOOK_SECRET='…' \
+  --from-literal=GLOSSA_GITHUB_CLIENT_SECRET='…'
+```
+
+then `github.credentials.secretName: glossa-github`. Those key names are
+the defaults of `github.credentials.privateKeyKey`, `.webhookSecretKey`
+and `.clientSecretKey`; an existing Secret with different names works
+just as well, point the three values at them. All three are read once at
+startup, so rotating one means re-applying the Secret and
+`kubectl rollout restart deployment/<fullname>-server`. Installation
+tokens are minted from the key on demand, cached in memory and never
+stored.
+
+**Processing.** A delivery is stored and acknowledged with `202` inside
+GitHub's 10 s limit; `server.github.inbox.*` tunes the worker that
+processes the inbox afterwards. Leaving `server.github.inbox.enabled` off
+everywhere queues deliveries rather than losing them, but nothing acts on
+them.
+
+**GitHub Enterprise Server.** `github.apiUrl: https://HOST/api/v3` and
+`github.webUrl: https://HOST`; both default to github.com.
+
 ## Network policies
 
 With `networkPolicy.enabled`, each component gets one policy covering both
@@ -582,7 +663,7 @@ directions; anything not listed is denied.
 
 | Pod | Ingress | Egress |
 |---|---|---|
-| server | ingress controller → 8080; `metrics.allowFrom` → 8080 | DNS; Postgres²; object storage¹; `egress.smtp` (SMTP configured); `egress.otlp` (endpoint set) |
+| server | ingress controller → 8080; `metrics.allowFrom` → 8080 | DNS; Postgres²; object storage¹; `egress.smtp` (SMTP configured); `egress.github` (`github.appId` set); `egress.otlp` (endpoint set) |
 | edge | ingress controller → 8081; `metrics.allowFrom` → 8081 | DNS; object storage¹; `egress.otlp` (endpoint set) |
 | studio | ingress controller → 8080 | none |
 | migrate Job | none | DNS; Postgres² |
@@ -668,6 +749,12 @@ the value until it is set.
 | `server.context.storageQuotaBytes` | `2147483648` | `GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES`: capture images one tenant may keep in object storage (2 GiB). A capture upload whose new pixels would pass it is refused with `storage_quota_exceeded` (413); the daily purge frees space again. Watch `glossa_context_capture_bytes_used` against `glossa_context_capture_quota_bytes`. |
 | `server.branches.publisherEnabled` | `true` | `GLOSSA_BRANCH_PUBLISHER_ENABLED`: publish a branch's preview environment when its debounced request is due. A publish is keyed by its request, so every replica may run it. |
 | `server.branches.publishInterval` | `5s` | `GLOSSA_BRANCH_PUBLISH_INTERVAL`: how often due branch publishes are looked for (the debounce itself is 30 s). |
+| `server.github.inbox.enabled` | `true` | `GLOSSA_GITHUB_INBOX_ENABLED`: process stored webhook deliveries in these pods. The endpoint stores and acknowledges a delivery whatever this says (RFC 0004 §6.2), so turning it off everywhere queues them rather than losing them. Nothing reaches the inbox without an App — see [GitHub App](#github-app). |
+| `server.github.inbox.workers` | `2` | `GLOSSA_GITHUB_INBOX_WORKERS`: deliveries handled at once, per pod (1–64). |
+| `server.github.inbox.pollInterval` | `1s` | `GLOSSA_GITHUB_INBOX_POLL_INTERVAL`: how long a worker waits on an empty inbox. |
+| `server.github.inbox.timeout` | `30s` | `GLOSSA_GITHUB_INBOX_TIMEOUT`: bounds one attempt at one delivery. |
+| `server.github.inbox.lease` | `2m` | `GLOSSA_GITHUB_INBOX_LEASE`: how long a claimed delivery is reserved against the other replicas. Must exceed the timeout, or the server refuses to start. |
+| `server.github.inbox.depthInterval` | `30s` | `GLOSSA_GITHUB_INBOX_DEPTH_INTERVAL`: how often the inbox-depth metric is sampled. |
 | `server.webauthn.rpId` | `hosts.studio` | `GLOSSA_WEBAUTHN_RP_ID`; changing it later invalidates enrolled passkeys. |
 | `server.webauthn.rpName` | `Glossa` | `GLOSSA_WEBAUTHN_RP_NAME` |
 | `server.webauthn.origins` | `[https://<hosts.studio>]` | `GLOSSA_WEBAUTHN_ORIGINS` |
@@ -712,6 +799,12 @@ the value until it is set.
 | `mail.from` | `""` | `GLOSSA_MAIL_FROM` (set only with a driver). |
 | `mail.smtp.addr` | `""` | `GLOSSA_SMTP_ADDR` (`host:587`, STARTTLS). Setting it turns SMTP on; required with `mail.driver: smtp`. |
 | `mail.smtp.secretName` / `.usernameKey` / `.passwordKey` | `""` / `GLOSSA_SMTP_USERNAME` / `GLOSSA_SMTP_PASSWORD` | AUTH credentials; empty name: no AUTH. |
+| `github.appId` | `""` | `GLOSSA_GITHUB_APP_ID`. Empty: the integration is off and its endpoints answer `github_not_configured` (503). Set, it makes the four values below required. See [GitHub App](#github-app). |
+| `github.appSlug` | `""` | `GLOSSA_GITHUB_APP_SLUG`, the App's name in its own URL; the install link is `<web url>/apps/<slug>/installations/new`. REQUIRED with `github.appId`. |
+| `github.clientId` | `""` | `GLOSSA_GITHUB_CLIENT_ID`, the App's OAuth client id (public, unlike its secret). REQUIRED with `github.appId`. |
+| `github.apiUrl` / `.webUrl` | `https://api.github.com` / `https://github.com` | `GLOSSA_GITHUB_API_URL` / `GLOSSA_GITHUB_WEB_URL`; GitHub Enterprise Server: `https://HOST/api/v3` and `https://HOST`. |
+| `github.credentials.secretName` | REQUIRED with `github.appId` | One existing Secret with all three secret values (RFC 0004 §14.1); the chart never creates it. |
+| `github.credentials.privateKeyKey` / `.webhookSecretKey` / `.clientSecretKey` | `GLOSSA_GITHUB_APP_PRIVATE_KEY` / `GLOSSA_GITHUB_WEBHOOK_SECRET` / `GLOSSA_GITHUB_CLIENT_SECRET` | The App's RSA private key (PEM, PKCS#1 or PKCS#8), the webhook HMAC secret and the OAuth client secret. |
 | `objectStorage.endpoint` | REQUIRED; `<fullname>-minio:9000` with `minio.enabled` | `GLOSSA_S3_ENDPOINT`, `host[:port]` without scheme. |
 | `objectStorage.bucket` | REQUIRED | `GLOSSA_S3_BUCKET`; the bootstrap Job creates it with `minio.enabled`. |
 | `objectStorage.region` | `us-east-1` | `GLOSSA_S3_REGION` (MinIO's default region). |
@@ -823,6 +916,7 @@ the value until it is set.
 | `networkPolicy.egress.postgres` | `to: []`, 5432 | Server and migration Job; unused with `postgres.enabled`. |
 | `networkPolicy.egress.objectStorage` | `to: []`, 443 | Server and edge; unused with `minio.enabled`. |
 | `networkPolicy.egress.smtp` | `to: []`, 587 | Server, only when SMTP is configured. |
+| `networkPolicy.egress.github` | `to: []`, 443 | Server → the GitHub API, only when `github.appId` is set. GitHub's ranges (`api` and `hooks` in `https://api.github.com/meta`) move, so pin `to` only if you will follow them. |
 | `networkPolicy.egress.otlp` | `to: []`, 4318 | Server/edge, when their OTel endpoint is set. |
 | `networkPolicy.egress.backupRemote` | `to: []`, 23 | The backup Jobs → the rclone remote (Storage Box SFTP). |
 | `networkPolicy.extraIngress.{server,edge,studio,minio,postgres}` | `[]` | Extra `NetworkPolicyIngressRule`s. |
