@@ -81,7 +81,23 @@ export const Meta = z.object({
 export const PasskeyOptions = z.object({ options: z.record(z.string(), z.unknown()) });
 export const TotpEnrollment = z.object({ secret: z.string(), otpauth_uri: z.string() });
 
-export const ProjectSettings = z.object({ default_syntax: Syntax, review_required: z.boolean() });
+/**
+ * The project's check policy: what `glossa check` and the Glossa
+ * pull-request check decide by (RFC 0004 §6.4). `require_complete` says
+ * which locales must be complete — every one, the ones in `locales`, or
+ * none.
+ */
+export const CheckPolicy = z.object({
+  require_complete: z.enum(["all", "listed", "none"]),
+  locales: z.array(z.string()).optional(),
+  fail_on: z.enum(["error", "warning", "never"]),
+  missing_translations: z.enum(["error", "warning"]),
+});
+export const ProjectSettings = z.object({
+  default_syntax: Syntax,
+  review_required: z.boolean(),
+  check_policy: CheckPolicy.optional(),
+});
 export const Project = z.object({
   id,
   slug: z.string(),
@@ -393,6 +409,7 @@ export type ReleasePreview = z.infer<typeof ReleasePreview>;
 export type ReleaseProblem = z.infer<typeof ReleaseProblem>;
 export type Project = z.infer<typeof Project>;
 export type ProjectSettings = z.infer<typeof ProjectSettings>;
+export type CheckPolicy = z.infer<typeof CheckPolicy>;
 export type Application = z.infer<typeof Application>;
 export type Argument = z.infer<typeof Argument>;
 export type MarkupElement = z.infer<typeof MarkupElement>;
@@ -428,6 +445,7 @@ export type ContractAlignment = [
   Assert<Fits<Session, S["Session"]>>,
   Assert<Fits<Me, S["Me"]>>,
   Assert<Fits<Project, S["Project"]>>,
+  Assert<Fits<CheckPolicy, S["CheckPolicy"]>>,
   Assert<Fits<Application, S["Application"]>>,
   Assert<Fits<Argument, S["Argument"]>>,
   Assert<Fits<Message, S["Message"]>>,

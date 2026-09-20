@@ -35,13 +35,19 @@ export const demoProject: Project = {
   updated_at: NOW,
 };
 
-export function projectContext(roles: Role[] = ["developer"], locales: ProjectLocale[] = [], memberLocales: string[] = []): ProjectContext {
+export function projectContext(
+  roles: Role[] = ["developer"],
+  locales: ProjectLocale[] = [],
+  memberLocales: string[] = [],
+  project?: Project,
+  etag?: string,
+): ProjectContext {
   const all = ref(locales);
   return {
     tenant: computed(() => "t"),
     projectId: computed(() => "p"),
-    project: ref(locales.length ? demoProject : undefined),
-    etag: ref(undefined),
+    project: ref(project ?? (locales.length ? demoProject : undefined)),
+    etag: ref(etag),
     locales: all,
     targets: computed(() => all.value.filter((l) => !l.is_source)),
     grant: computed(() => grantFor({ roles, locales: memberLocales })),
@@ -61,6 +67,10 @@ export interface ScreenOptions {
   /** Locale scope of the member (translators, reviewers). */
   memberLocales?: string[];
   locales?: ProjectLocale[];
+  /** The project the context starts with (default: demoProject once there are locales). */
+  project?: Project;
+  /** Its ETag; screens that save need one. */
+  etag?: string;
   path?: string;
   /** Answers for fetch calls that don't go through a port (by path). */
   fetch?: (path: string) => unknown;
@@ -87,7 +97,9 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
       ]),
   });
   await router.push(options.path ?? "/t/t/p/p/releases");
-  const provide: Record<symbol, unknown> = { [PROJECT as symbol]: projectContext(options.roles, options.locales, options.memberLocales) };
+  const provide: Record<symbol, unknown> = {
+    [PROJECT as symbol]: projectContext(options.roles, options.locales, options.memberLocales, options.project, options.etag),
+  };
   if (options.port) provide[RELEASES as symbol] = options.port;
   if (options.knowledge) provide[KNOWLEDGE as symbol] = options.knowledge;
   if (options.intelligence) provide[INTELLIGENCE as symbol] = options.intelligence;

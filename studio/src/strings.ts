@@ -261,6 +261,39 @@ export const strings = {
     deleteConfirm: (slug: string) => `Type ${slug} to confirm`,
     deleteProject: "Delete this project",
   },
+  checkPolicy: {
+    title: "Pull request check",
+    lead:
+      "What Glossa reports on a pull request, and what makes it fail. `glossa check` in a terminal " +
+      "decides by the same settings, so a green terminal and a red pull request cannot disagree.",
+    requireComplete: "Locales that must be complete",
+    requireCompleteAll: "Every locale of this project",
+    requireCompleteListed: "Only the locales I pick",
+    requireCompleteNone: "None of them",
+    locales: "Which locales",
+    localesHint: "An untranslated key in one of these is reported as the severity below; in any other locale it is only ever a warning.",
+    noLocalesPicked: "Pick at least one locale, or choose “None of them”.",
+    missingTranslations: "An untranslated key is",
+    missingTranslationsError: "an error",
+    missingTranslationsWarning: "a warning",
+    missingTranslationsHint: "Teams that translate after merging make it a warning: the check still lists what is missing without blocking the pull request.",
+    failOn: "Fail the check on",
+    failOnError: "Errors",
+    failOnWarning: "Errors and warnings",
+    failOnNever: "Nothing — only report",
+    /** What the settings add up to, in plain language. */
+    effectTitle: "What this means",
+    effectFailsOnErrors: "A pull request fails when the check finds an error.",
+    effectFailsOnWarnings: "A pull request fails when the check finds an error or a warning.",
+    effectNeverFails: "A pull request never fails this check. Glossa still reports everything it finds.",
+    untranslatedAll: (severity: string) => `A new key with no translation in any locale is ${severity}.`,
+    untranslatedListed: (locales: string, severity: string) =>
+      `A new key with no translation in ${locales} is ${severity}; in any other locale it is a warning.`,
+    untranslatedNone: "A new key with no translation is only ever a warning, in every locale.",
+    anError: "an error",
+    aWarning: "a warning",
+    saved: "Check policy saved.",
+  },
   previewOrigins: {
     title: "In-product editing",
     lead:

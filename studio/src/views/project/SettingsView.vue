@@ -5,6 +5,7 @@ import { applications as appsApi, projects } from "../../api/endpoints";
 import { isApiError } from "../../api/errors";
 import type { Application, Platform } from "../../api/schemas";
 import ErrorAlert from "../../components/ErrorAlert.vue";
+import CheckPolicyCard from "../../components/project/CheckPolicyCard.vue";
 import PreviewOrigins from "../../components/project/PreviewOrigins.vue";
 import DeliveryKeys from "../../components/releases/DeliveryKeys.vue";
 import { SLUG_PATTERN, slugify } from "../../lib/slug";
@@ -192,6 +193,8 @@ async function deleteProject(): Promise<void> {
         <button type="submit" class="btn">{{ s.addApplication }}</button>
       </form>
     </section>
+
+    <CheckPolicyCard />
 
     <PreviewOrigins v-if="canSeeOrigins" />
 

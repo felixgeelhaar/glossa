@@ -693,9 +693,12 @@ export interface paths {
         put?: never;
         /**
          * Create a project
-         * @description The source locale is fixed at creation. Needs `catalog.write`.
-         *     Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-         *     `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
+         * @description The source locale is fixed at creation. A `settings.check_policy`
+         *     sent here is checked for shape only — the project has no locales
+         *     yet to require one against; the first update checks its locales.
+         *     Needs `catalog.write`. Problem codes: `slug_taken` (409),
+         *     `invalid_slug`, `invalid_name`, `invalid_locale`,
+         *     `invalid_syntax`, `invalid_branch`, `invalid_check_policy` (400).
          */
         post: operations["createProject"];
         delete?: never;
@@ -735,9 +738,12 @@ export interface paths {
         /**
          * Rename a project or change its settings
          * @description Members omitted from the body keep their value; the source locale
-         *     can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-         *     (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
-         *     `invalid_branch` (400).
+         *     can't change. A `settings.check_policy` that names locales
+         *     (`require_complete: listed`) is checked against the project's own
+         *     locales, which needs `translations.read` as well. Needs
+         *     `catalog.write`. Problem codes: `slug_taken` (409),
+         *     `invalid_slug`, `invalid_name`, `invalid_syntax`,
+         *     `invalid_branch`, `invalid_check_policy` (400).
          */
         patch: operations["updateProject"];
         trace?: never;
@@ -4726,6 +4732,49 @@ export interface components {
          * @enum {string}
          */
         Syntax: "mf1" | "mf2";
+        /**
+         * @description What `glossa check` and the Glossa pull-request check decide by
+         *     (RFC 0004 §6.4). Both read this one policy, so the terminal and
+         *     the pull request never disagree.
+         *
+         *     A pull request fails when the check finds something at or above
+         *     `fail_on`. A key with no translation in a locale that must be
+         *     complete is a `missing_translations` finding; a key with no
+         *     translation in any other locale is always a warning.
+         */
+        CheckPolicy: {
+            /**
+             * @description Which locales must be complete: every one of the project's
+             *     (`all`, the default), only those in `locales` (`listed`), or
+             *     none of them. `listed` with an empty `locales` is stored as
+             *     `none`.
+             * @enum {string}
+             */
+            require_complete: "all" | "listed" | "none";
+            /**
+             * @description The locales `require_complete: listed` names; empty
+             *     otherwise. Every one must be a locale the project has
+             *     (`invalid_check_policy`).
+             */
+            locales?: components["schemas"]["Locale"][];
+            /**
+             * @description The lowest severity that fails the check: `error` (the
+             *     default), `warning` — a warning fails it too — or `never`,
+             *     where the check only ever reports.
+             * @enum {string}
+             */
+            fail_on: "error" | "warning" | "never";
+            /**
+             * @description What an untranslated key in a locale that must be complete
+             *     is: an `error` (the default), which fails the check, or a
+             *     `warning`, which does not unless `fail_on` is `warning`.
+             *     Teams that translate after merging set this to `warning` and
+             *     keep every locale required: the check still lists what is
+             *     untranslated without blocking the pull request.
+             * @enum {string}
+             */
+            missing_translations: "error" | "warning";
+        };
         ProjectSettings: {
             default_syntax: components["schemas"]["Syntax"];
             /**
@@ -4742,6 +4791,12 @@ export interface components {
              *     write, the project keeps its current one.
              */
             default_branch?: string;
+            /**
+             * @description The project's check policy. Always present in responses (the
+             *     default when the project has never set one); absent in a
+             *     write, the project keeps its current one.
+             */
+            check_policy?: components["schemas"]["CheckPolicy"];
         };
         Project: {
             id: components["schemas"]["Id"];

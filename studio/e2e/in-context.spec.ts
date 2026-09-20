@@ -68,6 +68,31 @@ test("registers a preview origin and authorizes the editor for it", async ({ pag
   await expect(card.getByRole("status")).toContainText("may now run on");
   const row = card.getByRole("row").filter({ hasText: app.origin });
   await expect(row).toContainText("Development");
+
+  // ── the check policy (RFC 0004 §6.4) ──────────────────────────────
+  // The same settings screen owns what a pull request fails on, and the
+  // card explains the settings in the sentence people came for.
+  await v1.post(`/v1/tenants/${tenant}/projects/${project.id}/locales`, { code: "de" });
+  await page.reload();
+  const check = page.getByRole("region", { name: "Pull request check" });
+  await expect(check.getByText("A pull request fails when the check finds an error.")).toBeVisible();
+  await expect(check.getByText("A new key with no translation in any locale is an error.")).toBeVisible();
+
+  await check.getByLabel("Locales that must be complete").selectOption("listed");
+  await check.getByLabel("de", { exact: true }).check();
+  await check.getByLabel("An untranslated key is").selectOption("warning");
+  await expect(check.getByText("A new key with no translation in de is a warning")).toBeVisible();
+  await check.getByRole("button", { name: "Save" }).click();
+  await expect(check.getByRole("status")).toContainText("Check policy saved.");
+
+  // Stored on the project, which is where the pull-request check reads it.
+  const saved = await v1.get(`/v1/tenants/${tenant}/projects/${project.id}`);
+  expect(saved.settings.check_policy).toEqual({
+    require_complete: "listed",
+    locales: ["de"],
+    fail_on: "error",
+    missing_translations: "warning",
+  });
   // axe's target-size measures against the viewport, so a page left
   // half-scrolled by the form above reports controls that are simply
   // above the fold as "partially obscured". Scan from the top.
