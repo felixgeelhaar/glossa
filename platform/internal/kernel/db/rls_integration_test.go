@@ -66,6 +66,16 @@ var systemPolicies = map[string][]string{
 	// retention sweep deletes expired files, across tenants (system
 	// scope integration.jobs).
 	"integration_jobs": {"integration_jobs_system_select", "integration_jobs_system_update"},
+	// The GitHub webhook inbox (system scope integration.github,
+	// RFC 0004 §6.2). A delivery is stored before any tenant is known —
+	// GitHub signs it, the tenant follows from the installation — so the
+	// endpoint and the worker reach the whole table; the tenant policy
+	// beside this one shows a tenant its own settled deliveries once
+	// tenant_id is set. Resolving the installation reads the mapping and
+	// the state only, and the sweep drops expired install intents.
+	"integration_github_deliveries":      {"integration_github_deliveries_system"},
+	"integration_github_installations":   {"integration_github_installations_system_select"},
+	"integration_github_install_intents": {"integration_github_install_intents_system_delete"},
 	// Context's retention sweep finds the projects holding builds across
 	// tenants (system scope context.retention; tenant_id and project_id
 	// only), then purges each in its tenant's scope.
@@ -117,7 +127,12 @@ type tableSecurity struct {
 // holds text that exists only on feature branches). The guard checks
 // every table anyway; listing them here also fails if a migration drops
 // one or loses its tenant_id.
-var guardedTables = []string{"catalog_branches", "catalog_proposals"}
+var guardedTables = []string{
+	"catalog_branches", "catalog_proposals",
+	// A Git connection names a tenant's repositories and projects, and
+	// an installation names their GitHub account (RFC 0004 §6.1).
+	"integration_github_installations", "integration_git_connections",
+}
 
 func TestRLSGuard(t *testing.T) {
 	tables := loadTableSecurity(t)

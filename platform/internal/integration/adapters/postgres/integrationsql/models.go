@@ -12,6 +12,34 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type IntegrationGitConnection struct {
+	ID             uuid.UUID
+	TenantID       uuid.UUID
+	InstallationID uuid.UUID
+	RepositoryID   int64
+	RepositoryName string
+	ProjectID      uuid.UUID
+	ApplicationID  uuid.UUID
+	DefaultBranch  string
+	Path           string
+	CreatedBy      string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type IntegrationGithubInstallation struct {
+	ID             uuid.UUID
+	TenantID       uuid.UUID
+	InstallationID int64
+	AccountID      int64
+	AccountLogin   string
+	AccountType    string
+	State          string
+	ConnectedBy    string
+	ConnectedAt    time.Time
+	UpdatedAt      time.Time
+}
+
 type IntegrationJob struct {
 	ID              uuid.UUID
 	TenantID        uuid.UUID
