@@ -88,6 +88,7 @@ func commands() []command {
 		{"release", "Publish, promote and roll back releases", runRelease},
 		{"branch", "Show or close a feature branch's proposals", runBranch},
 		{"preview", "Register where CI deployed a branch's preview", runPreview},
+		{"github", "List, add and remove Git connections (repository → project)", runGitHub},
 		{"tm", "Search the translation memory; list and retire units; TMX export and import", runTM},
 		{"terms", "Manage the termbase; check translations against it; TBX export and import", runTerms},
 		{"style", "Show the effective style guide; edit one from YAML", runStyle},

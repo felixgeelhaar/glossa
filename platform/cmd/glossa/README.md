@@ -111,6 +111,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `release` | `publish [--dry-run]`, `list`, `show`, `diff`, `promote`, `rollback`, `environments`, `keys [list\|create\|scope\|revoke]` (see *Release*). |
 | `branch` | `status [<name>]`: what the branch proposes — new keys, source proposals, removed keys, key conflicts with other open branches, and the translations per locale merging it will make outdated (exit 1 on a conflict). `close [<name>]`: closes an unmerged branch, which destroys its preview environment; its proposed messages become obsolete 14 days later unless it is reopened. Without `<name>`, the branch comes from `GITHUB_HEAD_REF`/`GITHUB_REF_NAME`. |
 | `preview register --url <url>` | Records where CI deployed the branch's preview (`--branch`, else the CI environment's). Studio and the pull request comment link to it. |
+| `github connections` | Git connections — which repository feeds which project and application (RFC 0004 §6.1): `list [--project P \| --all-projects] [--installation I]`, `add --repository <id\|owner/name> --application A [--project P] [--path apps/web] [--branch main] [--installation I]`, `remove <connection-id>` (see *Git connections*). |
 | `tm` | Translation memory: `search <text> --to L`, `concordance <text>`, `units [--locale-pair de:en] [--retire <id>]` (see *Knowledge and AI*); `export` / `import <file>`: TMX (`export`/`import --format tmx`). |
 | `terms` | Termbase: `list`, `show`, `add`, `edit`, `deprecate`, `forbid`, and `check`, terminology QA over the project's translations; `export` / `import <file>`: TBX (`export`/`import --format tbx`). |
 | `style` | `show [--locale --namespace]`: the effective style guide; `edit --file style.yaml`: create or replace one. |
@@ -145,8 +146,8 @@ deprecated or missing one a warning.
 |---|---|
 | 0 | OK |
 | 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import) |
-| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`) |
-| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2 |
+| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`) |
+| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2 |
 | 4 | Partial failure: `push` or `import --from v0` went through but some items failed; `translate --wait`: some jobs failed; `import --format`, `export`, `jobs show --wait`: the job failed or was cancelled |
 
 Errors print what happened, where, why and how to fix it:
@@ -172,6 +173,9 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.push/v1` | `{dry_run, source, branch?: Branch, summary: {created, revised, updated, unchanged, failed}, messages: [{key, status, revision?, state?, error?: {code, detail}}], translations?: [{key, locale, status, state?, error?}]}`; with `--branch` a message's status is `new_key`, `source_proposal`, `unchanged`, `key_conflict` or `failed` |
 | `glossa.cli.branch/v1` | `{action (status \| close), branch: Branch}` where Branch is `{id, name, state, pr_number?, head_commit?, preview_url?, new_keys?, source_proposals?, removed?, conflicts?: [{key, branches}], outdated?: {locale: n}}` |
 | `glossa.cli.preview/v1` | `{url, branch: Branch}` |
+| `glossa.cli.github.connections.list/v1` | `{project_id (null: the whole workspace), connections: [Connection]}` |
+| `glossa.cli.github.connections.add/v1` | `{connection: Connection}` |
+| `glossa.cli.github.connections.remove/v1` | `{connection_id}` |
 | `glossa.cli.pull/v1` | `{states, locales: [{locale, path, messages, skipped: {state: n}, outdated, changed}], release?: {dir, release_id, version, environment, locales, artifacts, bytes, removed}}` |
 | `glossa.usages/v1` | `extract --json` (with or without `--upload`): `{application, commit, branch, tool: {name, version}, usages: [{key, file, line, column, component?, route?, kind}]}`, sorted by key, file, line, column; kind is `t`, `component`, `element`, `accessor` or `template` (the schema: `runtimes/testdata/schemas/usages.v1.schema.json`) |
 | `glossa.cli.context.push/v1` | `{file, source, replayed, build: {id, application_id, commit, branch, on_default_branch, source, tool: {name, version}, digest, usages, unknown_keys, created_by, created_at}}` (the API's `ContextBuild`) |
@@ -233,6 +237,10 @@ The release shapes share:
 - `Ref`: `{id, version}`
 - `Environment`: `{name, release: Ref | null, policy: {states, include_outdated}, updated_at}`
 - `DeliveryKey`: `{id, name, key, scope: {environments, branches}, created_at, revoked_at?}`
+
+The Git connection shapes share:
+
+- `Connection`: `{id, installation_id, repository_id (GitHub's numeric id), repository_name (owner/name, a label GitHub may change), project_id, project? (the slug, left out when it couldn't be read), application_id, application?, default_branch, path ("": the whole repository), created_by?, created_at, updated_at?, version}`
 
 Finding codes are the kernel's (`missing-argument`, `extra-argument`,
 `argument-type-changed`, `selector-*`, `invalid-plural-key`,
@@ -478,6 +486,42 @@ v6 → v7 (0191… → 0192…)
   another environment than theirs, so the bundle is written for one:
   `latest` is what `--environment` serves now; a release ID or `v<N>`
   defaults to the environment it was published to.
+
+## Git connections
+
+A Git connection ties one of a GitHub App installation's repositories —
+by GitHub's numeric id, so a rename or a transfer doesn't break it — to
+a project, one of its applications, a default branch and an optional
+monorepo path (RFC 0004 §6.1). It is what lets Glossa check that
+repository's pull requests and comment on them. One repository can feed
+several projects, one per path.
+
+Connecting a repository normally happens in **Studio**, which walks
+through installing the App on the account and picking the project;
+`glossa github connections` is the scripting path, for a workspace that
+provisions its projects from CI. The CLI never installs the App: it can
+only connect repositories an installation already sees.
+
+- Connections belong to the workspace, not to one project, so `list`
+  shows the configured project's (`--project P` another's, by slug or
+  ID) and `--all-projects` widens it to every project. It pages through
+  the whole list, not just the first page.
+- `add --repository` takes GitHub's numeric repository id or
+  `owner/name`. A name is resolved through the installations, which is
+  what makes the command usable by hand; when several installations see
+  a repository of that name it is refused as `repository_ambiguous`,
+  naming the accounts, and `--installation <id|account>` picks one.
+  `--path apps/web` limits the connection to a monorepo subdirectory
+  (left out: the whole repository), `--branch` overrides the
+  repository's default branch on GitHub, and `--application` takes an
+  application's slug or ID — one the project doesn't have is refused
+  here rather than failing quietly on the first pull request.
+- `remove <connection-id>` only unlinks the repository: Glossa stops
+  checking its pull requests, and the App **stays installed on GitHub**.
+  Only GitHub can uninstall it, on the account's or organization's
+  Applications settings page.
+- A deployment with no GitHub App configured answers
+  `github_not_configured` (exit 3) to every one of these commands.
 
 ## Knowledge and AI
 
