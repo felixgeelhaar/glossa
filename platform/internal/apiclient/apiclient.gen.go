@@ -2533,7 +2533,7 @@ type BranchStatus struct {
 // once, here; CI keeps it for the length of the job and nothing
 // stores it afterwards.
 type CIToken struct {
-	// ExpiresAt 30 minutes after the exchange. There is no refresh.
+	// ExpiresAt RFC 3339, UTC.
 	ExpiresAt Timestamp `json:"expires_at"`
 
 	// Permissions What the token allows, and the whole of it: `catalog.read`
