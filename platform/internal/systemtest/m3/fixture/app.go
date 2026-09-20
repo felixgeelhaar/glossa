@@ -3,7 +3,6 @@ package fixture
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,15 +30,6 @@ func AppFiles(f *Fixture) (map[string][]byte, error) {
 			return nil, err
 		}
 		out["locales/"+locale+".json"] = b
-	}
-	// The branch's catalogs: the main ones plus the five new keys. The
-	// test writes them over the app's when it pushes from the branch.
-	for _, locale := range Locales {
-		b, err := marshal(f.Catalog(locale, append(slices.Clone(f.Messages), f.NewKeys...)))
-		if err != nil {
-			return nil, err
-		}
-		out["branch-locales/"+locale+".json"] = b
 	}
 	catalogs, err := models(f)
 	if err != nil {

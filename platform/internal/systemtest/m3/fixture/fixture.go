@@ -50,8 +50,12 @@ const (
 // captures agree without a git checkout.
 const Commit = "3c1a5f70b28d4e96a1f0c7b4d8e2a95630fb47c1"
 
-// BranchCommit is the head commit of the pull request's CI push.
-const BranchCommit = "7d0e4b19af6c2538e1b7d940c6a2f85413ce0d7b"
+// BranchCommit is the head commit of the pull request's first CI push,
+// and BranchCommit2 the one that repairs it.
+const (
+	BranchCommit  = "7d0e4b19af6c2538e1b7d940c6a2f85413ce0d7b"
+	BranchCommit2 = "b58f3a02c41d7e69850b2c3fd1a746e09852bd34"
+)
 
 // DefaultBranch is the project's default branch.
 const DefaultBranch = "main"
