@@ -167,6 +167,13 @@ func tenantOf(ctx context.Context) uuid.UUID {
 	return t.UUID()
 }
 
+// withoutTenant drops the tenant a handler runs in, for a write to a
+// queue that belongs to the system scope: the unit of work refuses a
+// system transaction started from a tenant's context.
+func withoutTenant(ctx context.Context) context.Context {
+	return tenancy.ContextWithTenant(ctx, tenancy.ID{})
+}
+
 func invalidPageToken() error {
 	return problem.New(http.StatusBadRequest, "invalid_page_token", "page_token is not one this list issued")
 }

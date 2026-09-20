@@ -230,7 +230,7 @@ func (s *GitHubService) reportCheck(ctx context.Context, c *domain.Check) (outco
 	if len(conns) == 0 {
 		// The repository feeds nothing any more. Say nothing on GitHub —
 		// a check nobody asked for is noise — and drop the row.
-		if _, err := s.checks.DropRepository(ctx, c.RepositoryID); err != nil {
+		if _, err := s.checks.DropRepository(withoutTenant(ctx), c.RepositoryID); err != nil {
 			return "retry", err
 		}
 		c.State = domain.CheckCompleted

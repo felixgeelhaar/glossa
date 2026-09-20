@@ -295,7 +295,7 @@ func (s *GitHubService) applyCheckRun(ctx context.Context, ev WebhookEvent) erro
 	if ev.Action != "rerequested" || !s.checksEnabled() {
 		return nil
 	}
-	n, err := s.checks.Rerun(ctx, ev.RepositoryID, ev.HeadSHA, s.now())
+	n, err := s.checks.Rerun(withoutTenant(ctx), ev.RepositoryID, ev.HeadSHA, s.now())
 	if err != nil {
 		return err
 	}
@@ -367,7 +367,7 @@ func (s *GitHubService) applyInstallationRepositories(ctx context.Context, ev We
 	// nothing left to report on, and the rows would only be claimed and
 	// dropped one at a time.
 	for _, repo := range gone {
-		if _, err := s.checks.DropRepository(ctx, repo); err != nil {
+		if _, err := s.checks.DropRepository(withoutTenant(ctx), repo); err != nil {
 			return err
 		}
 	}
@@ -460,7 +460,9 @@ func (s *GitHubService) openCheck(ctx context.Context, ev WebhookEvent, connecti
 		return nil
 	}
 	now := s.now()
-	c, err := s.checks.Open(ctx, domain.Check{
+	// The check queue is the system scope's, because the worker claims
+	// across tenants (migration 0021); the tenant travels on the row.
+	c, err := s.checks.Open(withoutTenant(ctx), domain.Check{
 		ID: uuid.Must(uuid.NewV7()), TenantID: tenantOf(ctx), InstallationID: ev.InstallationID,
 		RepositoryID: ev.RepositoryID, PullRequest: ev.PullRequest, Branch: ev.HeadRef, HeadSHA: ev.HeadSHA,
 		FromFork: ev.FromFork,

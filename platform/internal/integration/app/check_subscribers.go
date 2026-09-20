@@ -119,7 +119,7 @@ func (s *GitHubService) wakeChecks(ctx context.Context, projectID, branch string
 	if len(repositories) == 0 {
 		return nil
 	}
-	n, err := s.checks.Wake(ctx, repositories, branch, s.now())
+	n, err := s.checks.Wake(withoutTenant(ctx), repositories, branch, s.now())
 	if err != nil || n == 0 {
 		return err
 	}
