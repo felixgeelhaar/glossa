@@ -22,10 +22,16 @@ import (
 )
 
 // API serves Integration's operations.
-type API struct{ svc *app.Service }
+type API struct {
+	svc *app.Service
+	// gh is the GitHub integration (RFC 0004 §6); nil when this
+	// deployment has registered no GitHub App, and then every GitHub
+	// operation answers github_not_configured.
+	gh *app.GitHubService
+}
 
-// New returns the API.
-func New(svc *app.Service) *API { return &API{svc: svc} }
+// New returns the API. gh may be nil.
+func New(svc *app.Service, gh *app.GitHubService) *API { return &API{svc: svc, gh: gh} }
 
 // UploadPath reports whether a request is an import job's upload
 // (PUT /v1/tenants/{tenant}/import-jobs/{import_job}/file), which takes

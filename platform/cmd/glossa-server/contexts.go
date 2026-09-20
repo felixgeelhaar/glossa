@@ -25,7 +25,9 @@ import (
 	contextpg "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/postgres"
 	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
 	contextdomain "github.com/felixgeelhaar/glossa/platform/internal/context/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
 	integrationapi "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/httpapi"
+	integrationmetrics "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/metrics"
 	integrationpg "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/postgres"
 	integrationsources "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/sources"
 	integrationapp "github.com/felixgeelhaar/glossa/platform/internal/integration/app"
@@ -101,13 +103,21 @@ type contexts struct {
 	// so every replica may run it; nil when
 	// GLOSSA_BRANCH_PUBLISHER_ENABLED is off.
 	branchPublisher *releaseapp.Publisher
+	// githubInbox drains the GitHub webhook inbox (RFC 0004 §6.2); nil
+	// when this deployment configures no GitHub App, or when
+	// GLOSSA_GITHUB_INBOX_ENABLED is off. The install flow and the
+	// endpoint still work without the worker — deliveries pile up
+	// instead of being processed.
+	githubInbox *integrationapp.InboxWorker
 }
 
 // newPurgeJobs builds the daily retention jobs over the two contexts that
 // have something to purge. Each logs what it did; a failure is the
 // scheduler's to count and retry at the next interval.
-func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, logger *slog.Logger) []scheduler.Job {
-	return []scheduler.Job{
+func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, inbox *integrationapp.InboxWorker,
+	logger *slog.Logger,
+) []scheduler.Job {
+	jobs := []scheduler.Job{
 		{Name: "context.purge", Run: func(ctx context.Context) error {
 			purged, err := usages.Purge(ctx)
 			for _, p := range purged {
@@ -126,6 +136,15 @@ func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, logge
 			return err
 		}},
 	}
+	// The webhook inbox's periodic half: delivery IDs are kept for the
+	// replay window and then dropped, along with install intents nobody
+	// finished (RFC 0004 §6.2). The worker beside it is a queue worker,
+	// because a delivery is handled within seconds of arriving; this one
+	// is leased, because one replica a day is enough.
+	if inbox != nil {
+		jobs = append(jobs, scheduler.Job{Name: "integration.github.sweep", Run: inbox.Sweep})
+	}
+	return jobs
 }
 
 // Context's upload limits (RFC 0004 §10): a usages document is read
@@ -157,12 +176,17 @@ type contextDeps struct {
 	purge       config.Purge
 	branches    config.Branches
 	context     config.Context
+	github      config.GitHub
+	// lookup reads the environment for the GitHub App's own
+	// configuration (RFC 0004 §14.1: platform configuration, not tenant
+	// data, in one Kubernetes Secret).
+	lookup config.LookupFunc
 }
 
 // buildContexts opens object storage and the signer, then the contexts.
 func buildContexts(
 	cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, events *outbox.Registry,
-	reg prometheus.Registerer, tp trace.TracerProvider,
+	reg prometheus.Registerer, tp trace.TracerProvider, lookup config.LookupFunc,
 ) (contexts, error) {
 	objects, err := configured.Open(cfg.Storage)
 	if err != nil {
@@ -179,6 +203,7 @@ func buildContexts(
 	return newContexts(pool, events, contextDeps{
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
 		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, context: cfg.Context, tracer: tp,
+		github: cfg.GitHub, lookup: lookup,
 	})
 }
 
@@ -233,7 +258,6 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	scanner := releasepg.NewScanner(uow)
 	c.keyIndexes = func(ctx context.Context) (int, error) { return release.RewriteKeyIndexes(ctx, scanner) }
-	c.purgeJobs = newPurgeJobs(usageContext, catalog, deps.logger)
 	if deps.branches.PublisherEnabled {
 		c.branchPublisher = releaseapp.NewPublisher(release, scanner, deps.branches.PublishInterval)
 	}
@@ -251,14 +275,68 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err := integration.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
-	c.integrationAPI = integrationapi.New(integration)
 	if deps.integration.WorkersEnabled {
 		c.integrationWorker = integrationapp.NewWorker(integration, integrationpg.NewClaimer(uow), integrationapp.WorkerConfig{
 			Workers: deps.integration.Workers, PollInterval: deps.integration.PollInterval,
 			Lease: deps.integration.Lease, JobTimeout: deps.integration.JobTimeout,
 		})
 	}
+	gh, err := newGitHub(uow, catalog, deps)
+	if err != nil {
+		return contexts{}, err
+	}
+	c.integrationAPI = integrationapi.New(integration, gh)
+	if gh != nil && deps.github.InboxEnabled {
+		c.githubInbox = integrationapp.NewInboxWorker(gh, integrationapp.InboxConfig{
+			Workers: deps.github.InboxWorkers, PollInterval: deps.github.PollInterval,
+			Timeout: deps.github.HandlerTimeout, Lease: deps.github.Lease,
+			DepthInterval: deps.github.DepthInterval,
+		})
+	}
+	c.purgeJobs = newPurgeJobs(usageContext, catalog, c.githubInbox, deps.logger)
 	return c, nil
+}
+
+// newGitHub wires the GitHub integration (RFC 0004 §6) when the
+// deployment configures a GitHub App: the App's ID, key, webhook secret
+// and OAuth credentials come from the environment, as one Kubernetes
+// Secret in the platform's namespace (§14.1).
+//
+// With none of it set it returns nil, nil: the endpoints then answer
+// `github_not_configured`, no webhook is accepted, no worker runs, and
+// nothing else in the server changes. A partial configuration is an
+// error rather than a silent half-integration, because a deployment
+// that meant to enable GitHub should hear about the missing half.
+func newGitHub(uow *db.UnitOfWork, catalog *catalogapp.Service, deps contextDeps) (*integrationapp.GitHubService, error) {
+	cfg, enabled, err := github.LoadConfig(deps.lookup)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		deps.logger.Info("GLOSSA_GITHUB_APP_ID is unset: the GitHub integration is off; its endpoints answer github_not_configured")
+		return nil, nil //nolint:nilnil // no App is a valid configuration
+	}
+	client, err := github.New(cfg, github.Options{
+		Logger: deps.logger, OnCall: integrationmetrics.NewGitHub(deps.registerer).OnCall,
+	})
+	if err != nil {
+		return nil, err
+	}
+	hooks, err := github.NewWebhooks(cfg.WebhookSecret)
+	if err != nil {
+		return nil, err
+	}
+	deps.logger.Info("the GitHub integration is on", slog.Any("github", cfg))
+	return integrationapp.NewGitHubService(integrationapp.GitHubDeps{
+		Tx:       integrationpg.NewGitHubTransactor(uow),
+		Inbox:    integrationpg.NewInbox(uow),
+		GitHub:   client,
+		Verifier: hooks,
+		Events:   hooks,
+		Branches: integrationsources.NewBranches(catalog),
+		Metrics:  integrationmetrics.NewWebhooks(deps.registerer),
+		Logger:   deps.logger,
+	})
 }
 
 // largeBodies lets import uploads and export downloads stream files

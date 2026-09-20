@@ -106,6 +106,29 @@ type Config struct {
 	Purge                Purge
 	Branches             Branches
 	Context              Context
+	GitHub               GitHub
+}
+
+// GitHub tunes the GitHub integration's worker and sweep (RFC 0004
+// §6.2). Whether the integration exists at all is decided by the App's
+// own environment (GLOSSA_GITHUB_APP_ID and friends, read by the GitHub
+// adapter): with none of it set, the endpoints answer
+// `github_not_configured` and nothing here matters.
+type GitHub struct {
+	// InboxEnabled runs the webhook inbox worker in this process. Off,
+	// deliveries are still stored and acknowledged — nothing processes
+	// them.
+	InboxEnabled bool
+	// InboxWorkers is the number of deliveries this process handles at
+	// once.
+	InboxWorkers int
+	PollInterval time.Duration
+	// HandlerTimeout bounds one attempt; Lease (longer) is how long a
+	// claimed delivery is reserved before another worker takes it over.
+	HandlerTimeout time.Duration
+	Lease          time.Duration
+	// DepthInterval is how often the inbox-depth metric is sampled.
+	DepthInterval time.Duration
 }
 
 // Context configures the Context context's capture storage
@@ -343,6 +366,14 @@ func Load(lookup LookupFunc) (Config, error) {
 		// one image's worth, and at most a terabyte.
 		StorageQuotaBytes: int64(r.intRange("GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES", 2<<30, 10<<20, 1<<40)),
 	}
+	cfg.GitHub = GitHub{
+		InboxEnabled:   r.boolean("GLOSSA_GITHUB_INBOX_ENABLED", true),
+		InboxWorkers:   r.intRange("GLOSSA_GITHUB_INBOX_WORKERS", 2, 1, 64),
+		PollInterval:   r.duration("GLOSSA_GITHUB_INBOX_POLL_INTERVAL", time.Second),
+		HandlerTimeout: r.duration("GLOSSA_GITHUB_INBOX_TIMEOUT", 30*time.Second),
+		Lease:          r.duration("GLOSSA_GITHUB_INBOX_LEASE", 2*time.Minute),
+		DepthInterval:  r.duration("GLOSSA_GITHUB_INBOX_DEPTH_INTERVAL", 30*time.Second),
+	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %w", errors.Join(r.errs...))
@@ -366,6 +397,9 @@ func (c Config) validate(r *reader) {
 	}
 	if c.Purge.Lease <= c.Purge.Timeout {
 		r.fail("GLOSSA_PURGE_LEASE", "must be longer than GLOSSA_PURGE_TIMEOUT")
+	}
+	if c.GitHub.Lease <= c.GitHub.HandlerTimeout {
+		r.fail("GLOSSA_GITHUB_INBOX_LEASE", "must be longer than GLOSSA_GITHUB_INBOX_TIMEOUT")
 	}
 	if c.Purge.Timeout > c.Purge.Interval {
 		r.fail("GLOSSA_PURGE_TIMEOUT", "must fit inside GLOSSA_PURGE_INTERVAL")

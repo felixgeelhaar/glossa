@@ -40,6 +40,33 @@ var problems = []struct {
 	{domain.ErrNotReady, http.StatusConflict, "export_not_ready", ""},
 	{domain.ErrFileExpired, http.StatusGone, "file_expired", ""},
 	{idempotency.ErrInvalidKey, http.StatusBadRequest, "invalid_idempotency_key", ""},
+
+	// GitHub (RFC 0004 §6). github_not_configured is the answer of a
+	// deployment that has registered no App: the endpoints exist, and
+	// they say so plainly.
+	{app.ErrGitHubNotConfigured, http.StatusServiceUnavailable, "github_not_configured", "this deployment has no GitHub App configured"},
+	{app.ErrInstallStateInvalid, http.StatusBadRequest, "invalid_install_state", ""},
+	{app.ErrInstallStateNotYours, http.StatusForbidden, "install_state_not_yours", ""},
+	{app.ErrInstallationNotVisible, http.StatusForbidden, "installation_not_visible", "your GitHub account cannot see that installation"},
+	{app.ErrInstallationClaimed, http.StatusConflict, "installation_already_claimed", ""},
+	{app.ErrConnectionExists, http.StatusConflict, "connection_exists", ""},
+	{domain.ErrInstallationRevoked, http.StatusConflict, "installation_revoked", ""},
+	{app.ErrApplicationNotFound, http.StatusNotFound, "application_not_found", ""},
+	{app.ErrRepositoryNotVisible, http.StatusNotFound, "repository_not_visible", ""},
+	{domain.ErrInvalidConnection, http.StatusBadRequest, "invalid_connection", ""},
+	{domain.ErrInvalidInstallation, http.StatusBadRequest, "invalid_connection", ""},
+	// A delivery that does not verify is answered without detail, so an
+	// attacker learns nothing from the answer.
+	{app.ErrWebhookSignature, http.StatusUnauthorized, "invalid_webhook", "the delivery could not be verified"},
+	{app.ErrWebhookHeaders, http.StatusUnauthorized, "invalid_webhook", "the delivery could not be verified"},
+	{app.ErrWebhookTooLarge, http.StatusRequestEntityTooLarge, "webhook_too_large", ""},
+	// GitHub itself failing is not the caller's fault; the install flow
+	// is safe to try again.
+	{app.ErrGitHubUnavailable, http.StatusServiceUnavailable, "github_unavailable", "GitHub is unavailable; try again"},
+	{app.ErrGitHubRateLimited, http.StatusServiceUnavailable, "github_unavailable", "GitHub rate-limited us; try again shortly"},
+	{app.ErrGitHubBusy, http.StatusServiceUnavailable, "github_unavailable", "too many GitHub calls are in flight; try again shortly"},
+	{app.ErrOAuthCodeRejected, http.StatusBadRequest, "invalid_install_state", "GitHub refused the authorization code"},
+	{app.ErrGitHubRejected, http.StatusBadRequest, "invalid_connection", ""},
 }
 
 // mapError turns Integration's errors into problem details; anything

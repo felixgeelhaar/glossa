@@ -189,6 +189,15 @@ tags:
       Integration: catalogs (XLIFF, JSON), translation memory (TMX) and
       termbases (TBX) out, as asynchronous jobs whose file is
       downloaded when they finish.
+  - name: github
+    description: |
+      Integration: the Glossa GitHub App. Start an installation, finish
+      it on the callback with the person's ownership verified, list the
+      installations and the repositories they cover, and connect a
+      repository (by numeric id, so a rename does not break it) to a
+      project and application. The webhook endpoint GitHub signs is here
+      too. Every operation answers `github_not_configured` (503) on a
+      deployment that has registered no App.
 
 paths:
   # ── meta ────────────────────────────────────────────────────────────
@@ -5071,6 +5080,387 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  # ── github ──────────────────────────────────────────────────────────
+  /v1/integrations/github/webhooks:
+    post:
+      operationId: receiveGitHubWebhook
+      tags: [github]
+      summary: Receive a GitHub webhook delivery
+      description: |
+        GitHub's own endpoint, not a Studio one. It carries no session:
+        GitHub signs each delivery, and the signature is what
+        authenticates it.
+
+        The body is read raw, capped at 5 MiB, and its
+        `X-Hub-Signature-256` is checked with HMAC-SHA256 in constant
+        time **before anything parses it**. A verified delivery is
+        written to an inbox keyed by `X-GitHub-Delivery` and answered
+        `202` at once, well inside GitHub's ten seconds; a worker
+        processes it. A delivery id already seen inside the seven-day
+        replay window is a no-op and also answers `202`, so GitHub's
+        redeliveries are safe.
+
+        Handled events: `installation`, `installation_repositories`,
+        `pull_request` (`opened`, `synchronize`, `reopened`, `closed`)
+        and `check_run` (`rerequested`). Anything else is acknowledged
+        and dropped. Nothing in Glossa's correctness depends on a
+        delivery arriving: a merge lands through the default branch's
+        push, not through this endpoint.
+
+        A delivery whose signature does not verify answers `401` with no
+        detail. Problem codes: `invalid_webhook` (401),
+        `webhook_too_large` (413), `github_not_configured` (503).
+      security: []
+      x-glossa-idempotency: "GitHub keys a delivery by X-GitHub-Delivery, and the inbox makes a repeat of one a no-op for seven days."
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          required: true
+          description: The event name, e.g. `pull_request`.
+          schema: { type: string, maxLength: 64 }
+        - name: X-GitHub-Delivery
+          in: header
+          required: true
+          description: GitHub's delivery id; the inbox key.
+          schema: { type: string, maxLength: 128 }
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          description: "`sha256=` and the HMAC-SHA256 of the raw body under the App's webhook secret."
+          schema: { type: string, maxLength: 128 }
+      requestBody:
+        required: true
+        description: |
+          The raw delivery. GitHub sends `application/json`; Glossa reads
+          the bytes exactly as they were signed and parses them only
+          after the signature verifies, so the body is declared as an
+          opaque stream.
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "202":
+          description: |
+            The delivery was verified and stored, or was a duplicate the
+            inbox already holds. Nothing has been processed yet.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookAck" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/github/install-intents:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: startGitHubInstall
+      tags: [github]
+      summary: Start installing the Glossa GitHub App
+      description: |
+        Issues a single-use `state`, bound to this workspace, to the
+        person asking and to a short expiry, and returns the GitHub URL
+        to send them to. Only the state's hash is stored, so a reader of
+        the database cannot replay one.
+
+        Send the person to `install_url`; GitHub returns them with the
+        `state`, an `installation_id`, a `code` and a `setup_action`,
+        which go to `POST /v1/tenants/{tenant}/github/installations`.
+
+        Needs `integration.manage`. Problem codes:
+        `github_not_configured` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      x-glossa-idempotency: "Every call issues a fresh single-use state; repeating one is meant to make another."
+      responses:
+        "201":
+          description: The state and where to send the person.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitHubInstallIntent" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/github/installations:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: completeGitHubInstall
+      tags: [github]
+      summary: Finish an installation, with the person's ownership verified
+      description: |
+        The callback of `install-intents`. The `state` is verified and
+        burned — it is single-use, so a failed attempt starts over
+        rather than retrying — and then the `code` is redeemed for the
+        person's own GitHub token, which is used once to check that they
+        can actually see the `installation_id` they claim, and dropped.
+        That is what stops someone claiming an installation of an
+        account they have nothing to do with.
+
+        An installation maps to exactly one workspace. Re-running this
+        for one this workspace already holds refreshes it; one another
+        workspace holds is refused with `installation_already_claimed`,
+        which never says which workspace that is.
+
+        Needs `integration.manage`. Problem codes:
+        `invalid_install_state` (400: unknown, expired, already used, or
+        `setup_action=request`, which means no installation was made),
+        `install_state_not_yours` (403),
+        `installation_not_visible` (403: the person's token cannot see
+        it), `installation_already_claimed` (409),
+        `github_unavailable` (503), `github_not_configured` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      x-glossa-idempotency: "The single-use state is the key: redeeming it twice is refused."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitHubInstallCallback" }
+      responses:
+        "201":
+          description: The installation, now this workspace's.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitHubInstallation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    get:
+      operationId: listGitHubInstallations
+      tags: [github]
+      summary: The workspace's GitHub installations
+      description: |
+        Each installation with the repositories the App can see through
+        it, read from GitHub. An installation GitHub cannot be reached
+        for still lists, with `repositories_unavailable` set and no
+        repositories, so one unreachable account does not empty the
+        page. A `suspended` or `revoked` installation lists without
+        repositories, because GitHub would refuse the call anyway.
+
+        Needs `integration.read`. Problem codes:
+        `github_not_configured` (503).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of installations.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitHubInstallationList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/github/installations/{installation}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/InstallationPath"
+    delete:
+      operationId: forgetGitHubInstallation
+      tags: [github]
+      summary: Forget an installation and its Git connections
+      description: |
+        Removes the installation and its Git connections from Glossa. It
+        does **not** uninstall the App: only GitHub can do that, on the
+        account's or organization's Applications settings page. Until it
+        is uninstalled there GitHub keeps sending webhooks, which Glossa
+        then acknowledges and ignores.
+
+        Needs `integration.manage`. Problem codes:
+        `github_not_configured` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204":
+          description: The installation is gone from Glossa.
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/github/connections:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: createGitConnection
+      tags: [github]
+      summary: Connect a repository to a project and application
+      description: |
+        Ties one of an installation's repositories — by its numeric
+        `repository_id`, so a rename or a transfer does not break the
+        connection — to a project and one of its applications, with the
+        repository's default branch and an optional monorepo `path`.
+
+        One repository can feed several projects, one per `path`; the
+        same repository and path twice is `connection_exists`. The
+        repository must be one the installation can actually see and the
+        application one the project actually has, so a connection that
+        could never work is refused here rather than failing quietly on
+        the first pull request. `default_branch` may be left out, and
+        GitHub's is used.
+
+        Needs `integration.manage`. Problem codes: `invalid_connection`
+        (400), `application_not_found` (404), `repository_not_visible`
+        (404), `connection_exists` (409), `installation_revoked` (409),
+        `github_unavailable` (503), `github_not_configured` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitConnectionRequest" }
+      responses:
+        "201":
+          description: The connection.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitConnection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    get:
+      operationId: listGitConnections
+      tags: [github]
+      summary: The workspace's Git connections
+      description: |
+        Every repository-to-project connection, optionally narrowed to
+        one installation or one project.
+
+        Needs `integration.read`. Problem codes: `invalid_query` (400),
+        `github_not_configured` (503).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: installation, in: query, required: false, description: Only this installation's connections., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: project, in: query, required: false, description: Only this project's connections., schema: { $ref: "#/components/schemas/Id" } }
+      responses:
+        "200":
+          description: A page of connections.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitConnectionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/github/connections/{connection}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ConnectionPath"
+    get:
+      operationId: getGitConnection
+      tags: [github]
+      summary: One Git connection
+      description: |
+        Needs `integration.read`. Problem codes:
+        `github_not_configured` (503).
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The connection.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitConnection" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    patch:
+      operationId: updateGitConnection
+      tags: [github]
+      summary: Change a connection's project, application, branch or path
+      description: |
+        The repository is fixed: pointing a connection at another
+        repository is a different connection, so create that one and
+        delete this one.
+
+        Needs `integration.manage`. Problem codes: `invalid_connection`
+        (400), `application_not_found` (404), `connection_exists` (409:
+        another connection already covers that path),
+        `github_not_configured` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitConnectionChange" }
+      responses:
+        "200":
+          description: The connection.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitConnection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      operationId: deleteGitConnection
+      tags: [github]
+      summary: Remove a Git connection
+      description: |
+        The repository and the installation stay; only the link to this
+        project goes.
+
+        Needs `integration.manage`. Problem codes:
+        `github_not_configured` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204":
+          description: The connection is gone.
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   # ── context ─────────────────────────────────────────────────────────
   /v1/tenants/{tenant}/projects/{project}/context-builds:
     parameters:
@@ -5820,6 +6210,18 @@ components:
       in: path
       required: true
       description: An application `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    InstallationPath:
+      name: installation
+      in: path
+      required: true
+      description: A GitHub installation `id` as Glossa issued it, not GitHub's number.
+      schema: { $ref: "#/components/schemas/Id" }
+    ConnectionPath:
+      name: connection
+      in: path
+      required: true
+      description: A Git connection `id`.
       schema: { $ref: "#/components/schemas/Id" }
     MessagePath:
       name: message
@@ -8690,6 +9092,183 @@ components:
         options:
           $ref: "#/components/schemas/ExportOptions"
           description: "TMX: `locales` (targets) and `source_locale`. TBX takes none."
+
+    # ── github ───────────────────────────────────────────────────────
+    WebhookAck:
+      type: object
+      required: [accepted]
+      properties:
+        accepted:
+          type: boolean
+          description: |
+            `false` when the delivery id was already in the inbox. The
+            answer is `202` either way: a duplicate is a no-op.
+    GitHubInstallIntent:
+      type: object
+      required: [state, install_url, expires_at]
+      properties:
+        state:
+          type: string
+          description: |
+            The single-use value to carry through GitHub and hand back
+            on the callback. Already on `install_url`.
+        install_url:
+          type: string
+          description: Where to send the person to authorize the App.
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+    GitHubInstallCallback:
+      type: object
+      required: [state, installation_id, code]
+      properties:
+        state:
+          type: string
+          maxLength: 256
+          description: The `state` GitHub handed back.
+        installation_id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: GitHub's installation number.
+        code:
+          type: string
+          maxLength: 512
+          description: |
+            GitHub's one-time authorization code. It is redeemed for the
+            person's own token, used once to check that they can see the
+            installation, and never stored.
+        setup_action:
+          type: string
+          maxLength: 32
+          description: |
+            GitHub's `setup_action`. `install` means an installation was
+            made; `request` means the person could only ask their
+            organization for one, and there is nothing to claim yet.
+    GitHubInstallationState:
+      type: string
+      description: |
+        `active`; `suspended` when the account suspended the App;
+        `revoked` when it was uninstalled on GitHub, which leaves the
+        row so Studio can say what happened.
+      enum: [active, suspended, revoked]
+    GitHubRepository:
+      type: object
+      required: [repository_id, name, full_name, private, default_branch]
+      properties:
+        repository_id:
+          type: integer
+          format: int64
+          description: GitHub's numeric id, which a rename does not change.
+        name: { type: string }
+        full_name:
+          type: string
+          description: "`owner/name`, a label only."
+        private: { type: boolean }
+        default_branch: { type: string }
+    GitHubInstallation:
+      type: object
+      required: [id, installation_id, account_login, account_type, state, connected_at, repositories_unavailable]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        installation_id:
+          type: integer
+          format: int64
+          description: GitHub's installation number.
+        account_login: { type: string }
+        account_type:
+          type: string
+          enum: [User, Organization]
+        state: { $ref: "#/components/schemas/GitHubInstallationState" }
+        connected_by: { type: string }
+        connected_at: { $ref: "#/components/schemas/Timestamp" }
+        repositories:
+          type: array
+          description: The repositories the App can see through this installation.
+          items: { $ref: "#/components/schemas/GitHubRepository" }
+        repositories_unavailable:
+          type: boolean
+          description: |
+            GitHub could not be reached for this installation, so
+            `repositories` is empty and says nothing about what it
+            covers. It is also `true` for a suspended or revoked
+            installation, whose repositories GitHub would refuse.
+    GitHubInstallationList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/GitHubInstallation" }
+        next_page_token: { type: string }
+    GitConnection:
+      type: object
+      required: [id, installation_id, repository_id, repository_name, project_id, application_id, default_branch, path, created_at, version]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        installation_id:
+          $ref: "#/components/schemas/Id"
+          description: Glossa's installation `id`, not GitHub's number.
+        repository_id:
+          type: integer
+          format: int64
+          description: GitHub's numeric repository id.
+        repository_name:
+          type: string
+          description: "`owner/name` as GitHub last reported it; a label, never a key."
+        project_id: { $ref: "#/components/schemas/Id" }
+        application_id: { $ref: "#/components/schemas/Id" }
+        default_branch: { type: string }
+        path:
+          type: string
+          description: |
+            The monorepo subdirectory this connection covers, without
+            leading or trailing slashes. Empty is the whole repository.
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        version:
+          type: integer
+          description: The `If-Match` value for a change. A connection has no history, so it is always `0`.
+    GitConnectionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/GitConnection" }
+        next_page_token: { type: string }
+    GitConnectionRequest:
+      type: object
+      required: [installation_id, repository_id, project_id, application_id]
+      properties:
+        installation_id:
+          $ref: "#/components/schemas/Id"
+          description: Glossa's installation `id`.
+        repository_id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: GitHub's numeric repository id, from the installation's `repositories`.
+        project_id: { $ref: "#/components/schemas/Id" }
+        application_id: { $ref: "#/components/schemas/Id" }
+        default_branch:
+          type: string
+          maxLength: 255
+          description: Left out, GitHub's default branch for the repository is used.
+        path:
+          type: string
+          maxLength: 512
+          description: |
+            A monorepo subdirectory (`apps/web`). Left out, the
+            connection covers the whole repository. One repository can
+            feed several projects, one per path.
+    GitConnectionChange:
+      type: object
+      required: [project_id, application_id, default_branch]
+      properties:
+        project_id: { $ref: "#/components/schemas/Id" }
+        application_id: { $ref: "#/components/schemas/Id" }
+        default_branch: { type: string, maxLength: 255 }
+        path: { type: string, maxLength: 512 }
 
     # ── context ──────────────────────────────────────────────────────
     ContextSource:

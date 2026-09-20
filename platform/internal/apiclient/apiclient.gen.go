@@ -218,16 +218,16 @@ func (e AIRoutingPolicyViewSource) Valid() bool {
 
 // Defines values for AISentMessageRole.
 const (
-	Assistant AISentMessageRole = "assistant"
-	User      AISentMessageRole = "user"
+	AISentMessageRoleAssistant AISentMessageRole = "assistant"
+	AISentMessageRoleUser      AISentMessageRole = "user"
 )
 
 // Valid indicates whether the value is a known member of the AISentMessageRole enum.
 func (e AISentMessageRole) Valid() bool {
 	switch e {
-	case Assistant:
+	case AISentMessageRoleAssistant:
 		return true
-	case User:
+	case AISentMessageRoleUser:
 		return true
 	default:
 		return false
@@ -609,6 +609,45 @@ func (e ExportOptionsLayout) Valid() bool {
 	case Flat:
 		return true
 	case Nested:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GitHubInstallationAccountType.
+const (
+	GitHubInstallationAccountTypeOrganization GitHubInstallationAccountType = "Organization"
+	GitHubInstallationAccountTypeUser         GitHubInstallationAccountType = "User"
+)
+
+// Valid indicates whether the value is a known member of the GitHubInstallationAccountType enum.
+func (e GitHubInstallationAccountType) Valid() bool {
+	switch e {
+	case GitHubInstallationAccountTypeOrganization:
+		return true
+	case GitHubInstallationAccountTypeUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GitHubInstallationState.
+const (
+	GitHubInstallationStateActive    GitHubInstallationState = "active"
+	GitHubInstallationStateRevoked   GitHubInstallationState = "revoked"
+	GitHubInstallationStateSuspended GitHubInstallationState = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the GitHubInstallationState enum.
+func (e GitHubInstallationState) Valid() bool {
+	switch e {
+	case GitHubInstallationStateActive:
+		return true
+	case GitHubInstallationStateRevoked:
+		return true
+	case GitHubInstallationStateSuspended:
 		return true
 	default:
 		return false
@@ -1286,16 +1325,16 @@ func (e TMUnitState) Valid() bool {
 
 // Defines values for TenantKind.
 const (
-	Individual   TenantKind = "individual"
-	Organization TenantKind = "organization"
+	TenantKindIndividual   TenantKind = "individual"
+	TenantKindOrganization TenantKind = "organization"
 )
 
 // Valid indicates whether the value is a known member of the TenantKind enum.
 func (e TenantKind) Valid() bool {
 	switch e {
-	case Individual:
+	case TenantKindIndividual:
 		return true
-	case Organization:
+	case TenantKindOrganization:
 		return true
 	default:
 		return false
@@ -3098,6 +3137,171 @@ type FieldError struct {
 
 	// Pointer JSON Pointer into the request body.
 	Pointer string `json:"pointer"`
+}
+
+// GitConnection defines model for GitConnection.
+type GitConnection struct {
+	// ApplicationId An opaque identifier.
+	ApplicationId Id `json:"application_id"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt     Timestamp `json:"created_at"`
+	CreatedBy     *string   `json:"created_by,omitempty"`
+	DefaultBranch string    `json:"default_branch"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// InstallationId Glossa's installation `id`, not GitHub's number.
+	InstallationId Id `json:"installation_id"`
+
+	// Path The monorepo subdirectory this connection covers, without
+	// leading or trailing slashes. Empty is the whole repository.
+	Path string `json:"path"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+
+	// RepositoryId GitHub's numeric repository id.
+	RepositoryId int64 `json:"repository_id"`
+
+	// RepositoryName `owner/name` as GitHub last reported it; a label, never a key.
+	RepositoryName string `json:"repository_name"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt *Timestamp `json:"updated_at,omitempty"`
+
+	// Version The `If-Match` value for a change. A connection has no history, so it is always `0`.
+	Version int `json:"version"`
+}
+
+// GitConnectionChange defines model for GitConnectionChange.
+type GitConnectionChange struct {
+	// ApplicationId An opaque identifier.
+	ApplicationId Id      `json:"application_id"`
+	DefaultBranch string  `json:"default_branch"`
+	Path          *string `json:"path,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+}
+
+// GitConnectionList defines model for GitConnectionList.
+type GitConnectionList struct {
+	Items         []GitConnection `json:"items"`
+	NextPageToken *string         `json:"next_page_token,omitempty"`
+}
+
+// GitConnectionRequest defines model for GitConnectionRequest.
+type GitConnectionRequest struct {
+	// ApplicationId An opaque identifier.
+	ApplicationId Id `json:"application_id"`
+
+	// DefaultBranch Left out, GitHub's default branch for the repository is used.
+	DefaultBranch *string `json:"default_branch,omitempty"`
+
+	// InstallationId Glossa's installation `id`.
+	InstallationId Id `json:"installation_id"`
+
+	// Path A monorepo subdirectory (`apps/web`). Left out, the
+	// connection covers the whole repository. One repository can
+	// feed several projects, one per path.
+	Path *string `json:"path,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+
+	// RepositoryId GitHub's numeric repository id, from the installation's `repositories`.
+	RepositoryId int64 `json:"repository_id"`
+}
+
+// GitHubInstallCallback defines model for GitHubInstallCallback.
+type GitHubInstallCallback struct {
+	// Code GitHub's one-time authorization code. It is redeemed for the
+	// person's own token, used once to check that they can see the
+	// installation, and never stored.
+	Code string `json:"code"`
+
+	// InstallationId GitHub's installation number.
+	InstallationId int64 `json:"installation_id"`
+
+	// SetupAction GitHub's `setup_action`. `install` means an installation was
+	// made; `request` means the person could only ask their
+	// organization for one, and there is nothing to claim yet.
+	SetupAction *string `json:"setup_action,omitempty"`
+
+	// State The `state` GitHub handed back.
+	State string `json:"state"`
+}
+
+// GitHubInstallIntent defines model for GitHubInstallIntent.
+type GitHubInstallIntent struct {
+	// ExpiresAt RFC 3339, UTC.
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// InstallUrl Where to send the person to authorize the App.
+	InstallUrl string `json:"install_url"`
+
+	// State The single-use value to carry through GitHub and hand back
+	// on the callback. Already on `install_url`.
+	State string `json:"state"`
+}
+
+// GitHubInstallation defines model for GitHubInstallation.
+type GitHubInstallation struct {
+	AccountLogin string                        `json:"account_login"`
+	AccountType  GitHubInstallationAccountType `json:"account_type"`
+
+	// ConnectedAt RFC 3339, UTC.
+	ConnectedAt Timestamp `json:"connected_at"`
+	ConnectedBy *string   `json:"connected_by,omitempty"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// InstallationId GitHub's installation number.
+	InstallationId int64 `json:"installation_id"`
+
+	// Repositories The repositories the App can see through this installation.
+	Repositories *[]GitHubRepository `json:"repositories,omitempty"`
+
+	// RepositoriesUnavailable GitHub could not be reached for this installation, so
+	// `repositories` is empty and says nothing about what it
+	// covers. It is also `true` for a suspended or revoked
+	// installation, whose repositories GitHub would refuse.
+	RepositoriesUnavailable bool `json:"repositories_unavailable"`
+
+	// State `active`; `suspended` when the account suspended the App;
+	// `revoked` when it was uninstalled on GitHub, which leaves the
+	// row so Studio can say what happened.
+	State GitHubInstallationState `json:"state"`
+}
+
+// GitHubInstallationAccountType defines model for GitHubInstallation.AccountType.
+type GitHubInstallationAccountType string
+
+// GitHubInstallationList defines model for GitHubInstallationList.
+type GitHubInstallationList struct {
+	Items         []GitHubInstallation `json:"items"`
+	NextPageToken *string              `json:"next_page_token,omitempty"`
+}
+
+// GitHubInstallationState `active`; `suspended` when the account suspended the App;
+// `revoked` when it was uninstalled on GitHub, which leaves the
+// row so Studio can say what happened.
+type GitHubInstallationState string
+
+// GitHubRepository defines model for GitHubRepository.
+type GitHubRepository struct {
+	DefaultBranch string `json:"default_branch"`
+
+	// FullName `owner/name`, a label only.
+	FullName string `json:"full_name"`
+	Name     string `json:"name"`
+	Private  bool   `json:"private"`
+
+	// RepositoryId GitHub's numeric id, which a rename does not change.
+	RepositoryId int64 `json:"repository_id"`
 }
 
 // Id An opaque identifier.
@@ -5292,6 +5496,13 @@ type UsagesTool struct {
 // WebAuthnResponse The `PublicKeyCredential` from the browser, serialized as JSON.
 type WebAuthnResponse map[string]interface{}
 
+// WebhookAck defines model for WebhookAck.
+type WebhookAck struct {
+	// Accepted `false` when the delivery id was already in the inbox. The
+	// answer is `202` either way: a duplicate is a no-op.
+	Accepted bool `json:"accepted"`
+}
+
 // AIFillPath An opaque identifier.
 type AIFillPath = Id
 
@@ -5318,6 +5529,9 @@ type CeremonyCookie = string
 
 // ConceptPath An opaque identifier.
 type ConceptPath = Id
+
+// ConnectionPath An opaque identifier.
+type ConnectionPath = Id
 
 // ContextBranch defines model for ContextBranch.
 type ContextBranch = string
@@ -5347,6 +5561,9 @@ type IfMatchSingleton = string
 
 // ImportJobPath An opaque identifier.
 type ImportJobPath = Id
+
+// InstallationPath An opaque identifier.
+type InstallationPath = Id
 
 // LocalePath A BCP 47 language tag. Stored and returned canonicalized
 // (`en_us` → `en-US`, `iw` → `he`).
@@ -5435,6 +5652,18 @@ type UnprocessableEntity = Problem
 type FinishPasskeySignInParams struct {
 	// UnderscoreUnderscoreHostGlossaWebauthn WebAuthn ceremony state set by the matching challenge operation.
 	UnderscoreUnderscoreHostGlossaWebauthn *CeremonyCookie `form:"__Host-glossa_webauthn,omitempty" json:"__Host-glossa_webauthn,omitempty"`
+}
+
+// ReceiveGitHubWebhookParams defines parameters for ReceiveGitHubWebhook.
+type ReceiveGitHubWebhookParams struct {
+	// XGitHubEvent The event name, e.g. `pull_request`.
+	XGitHubEvent string `json:"X-GitHub-Event"`
+
+	// XGitHubDelivery GitHub's delivery id; the inbox key.
+	XGitHubDelivery string `json:"X-GitHub-Delivery"`
+
+	// XHubSignature256 `sha256=` and the HMAC-SHA256 of the raw body under the App's webhook secret.
+	XHubSignature256 string `json:"X-Hub-Signature-256"`
 }
 
 // ListPasskeysParams defines parameters for ListPasskeys.
@@ -5601,6 +5830,39 @@ type ListExportJobsParams struct {
 // CreateExportJobParams defines parameters for CreateExportJob.
 type CreateExportJobParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListGitConnectionsParams defines parameters for ListGitConnections.
+type ListGitConnectionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Installation Only this installation's connections.
+	Installation *Id `form:"installation,omitempty" json:"installation,omitempty"`
+
+	// Project Only this project's connections.
+	Project *Id `form:"project,omitempty" json:"project,omitempty"`
+}
+
+// CreateGitConnectionParams defines parameters for CreateGitConnection.
+type CreateGitConnectionParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// UpdateGitConnectionParams defines parameters for UpdateGitConnection.
+type UpdateGitConnectionParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// ListGitHubInstallationsParams defines parameters for ListGitHubInstallations.
+type ListGitHubInstallationsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
 // ListImportJobsParams defines parameters for ListImportJobs.
@@ -6288,6 +6550,15 @@ type RejectAISuggestionJSONRequestBody = RejectAISuggestion
 // CreateExportJobJSONRequestBody defines body for CreateExportJob for application/json ContentType.
 type CreateExportJobJSONRequestBody = ExportJobRequest
 
+// CreateGitConnectionJSONRequestBody defines body for CreateGitConnection for application/json ContentType.
+type CreateGitConnectionJSONRequestBody = GitConnectionRequest
+
+// UpdateGitConnectionJSONRequestBody defines body for UpdateGitConnection for application/json ContentType.
+type UpdateGitConnectionJSONRequestBody = GitConnectionChange
+
+// CompleteGitHubInstallJSONRequestBody defines body for CompleteGitHubInstall for application/json ContentType.
+type CompleteGitHubInstallJSONRequestBody = GitHubInstallCallback
+
 // CreateImportJobJSONRequestBody defines body for CreateImportJob for application/json ContentType.
 type CreateImportJobJSONRequestBody = ImportJobRequest
 
@@ -6764,6 +7035,37 @@ type ClientInterface interface {
 	//
 	// Corresponds with DELETE /v1/auth/sessions (the `SignOutEverywhere` operationId).
 	SignOutEverywhere(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReceiveGitHubWebhookWithBody Receive a GitHub webhook delivery
+	//
+	// GitHub's own endpoint, not a Studio one. It carries no session:
+	// GitHub signs each delivery, and the signature is what
+	// authenticates it.
+	//
+	// The body is read raw, capped at 5 MiB, and its
+	// `X-Hub-Signature-256` is checked with HMAC-SHA256 in constant
+	// time **before anything parses it**. A verified delivery is
+	// written to an inbox keyed by `X-GitHub-Delivery` and answered
+	// `202` at once, well inside GitHub's ten seconds; a worker
+	// processes it. A delivery id already seen inside the seven-day
+	// replay window is a no-op and also answers `202`, so GitHub's
+	// redeliveries are safe.
+	//
+	// Handled events: `installation`, `installation_repositories`,
+	// `pull_request` (`opened`, `synchronize`, `reopened`, `closed`)
+	// and `check_run` (`rerequested`). Anything else is acknowledged
+	// and dropped. Nothing in Glossa's correctness depends on a
+	// delivery arriving: a merge lands through the default branch's
+	// push, not through this endpoint.
+	//
+	// A delivery whose signature does not verify answers `401` with no
+	// detail. Problem codes: `invalid_webhook` (401),
+	// `webhook_too_large` (413), `github_not_configured` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/integrations/github/webhooks (the `ReceiveGitHubWebhook` operationId).
+	ReceiveGitHubWebhookWithBody(ctx context.Context, params *ReceiveGitHubWebhookParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMe The signed-in person and their tenants
 	//
@@ -7412,6 +7714,220 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job}/file (the `DownloadExportFile` operationId).
 	DownloadExportFile(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGitConnections The workspace's Git connections
+	//
+	// Every repository-to-project connection, optionally narrowed to
+	// one installation or one project.
+	//
+	// Needs `integration.read`. Problem codes: `invalid_query` (400),
+	// `github_not_configured` (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/github/connections (the `ListGitConnections` operationId).
+	ListGitConnections(ctx context.Context, tenant TenantPath, params *ListGitConnectionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGitConnectionWithBody Connect a repository to a project and application
+	//
+	// Ties one of an installation's repositories — by its numeric
+	// `repository_id`, so a rename or a transfer does not break the
+	// connection — to a project and one of its applications, with the
+	// repository's default branch and an optional monorepo `path`.
+	//
+	// One repository can feed several projects, one per `path`; the
+	// same repository and path twice is `connection_exists`. The
+	// repository must be one the installation can actually see and the
+	// application one the project actually has, so a connection that
+	// could never work is refused here rather than failing quietly on
+	// the first pull request. `default_branch` may be left out, and
+	// GitHub's is used.
+	//
+	// Needs `integration.manage`. Problem codes: `invalid_connection`
+	// (400), `application_not_found` (404), `repository_not_visible`
+	// (404), `connection_exists` (409), `installation_revoked` (409),
+	// `github_unavailable` (503), `github_not_configured` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/github/connections (the `CreateGitConnection` operationId).
+	CreateGitConnectionWithBody(ctx context.Context, tenant TenantPath, params *CreateGitConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGitConnection Connect a repository to a project and application
+	//
+	// Ties one of an installation's repositories — by its numeric
+	// `repository_id`, so a rename or a transfer does not break the
+	// connection — to a project and one of its applications, with the
+	// repository's default branch and an optional monorepo `path`.
+	//
+	// One repository can feed several projects, one per `path`; the
+	// same repository and path twice is `connection_exists`. The
+	// repository must be one the installation can actually see and the
+	// application one the project actually has, so a connection that
+	// could never work is refused here rather than failing quietly on
+	// the first pull request. `default_branch` may be left out, and
+	// GitHub's is used.
+	//
+	// Needs `integration.manage`. Problem codes: `invalid_connection`
+	// (400), `application_not_found` (404), `repository_not_visible`
+	// (404), `connection_exists` (409), `installation_revoked` (409),
+	// `github_unavailable` (503), `github_not_configured` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/github/connections (the `CreateGitConnection` operationId).
+	CreateGitConnection(ctx context.Context, tenant TenantPath, params *CreateGitConnectionParams, body CreateGitConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteGitConnection Remove a Git connection
+	//
+	// The repository and the installation stay; only the link to this
+	// project goes.
+	//
+	// Needs `integration.manage`. Problem codes:
+	// `github_not_configured` (503).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/github/connections/{connection} (the `DeleteGitConnection` operationId).
+	DeleteGitConnection(ctx context.Context, tenant TenantPath, connection ConnectionPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGitConnection One Git connection
+	//
+	// Needs `integration.read`. Problem codes:
+	// `github_not_configured` (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/github/connections/{connection} (the `GetGitConnection` operationId).
+	GetGitConnection(ctx context.Context, tenant TenantPath, connection ConnectionPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateGitConnectionWithBody Change a connection's project, application, branch or path
+	//
+	// The repository is fixed: pointing a connection at another
+	// repository is a different connection, so create that one and
+	// delete this one.
+	//
+	// Needs `integration.manage`. Problem codes: `invalid_connection`
+	// (400), `application_not_found` (404), `connection_exists` (409:
+	// another connection already covers that path),
+	// `github_not_configured` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/github/connections/{connection} (the `UpdateGitConnection` operationId).
+	UpdateGitConnectionWithBody(ctx context.Context, tenant TenantPath, connection ConnectionPath, params *UpdateGitConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateGitConnection Change a connection's project, application, branch or path
+	//
+	// The repository is fixed: pointing a connection at another
+	// repository is a different connection, so create that one and
+	// delete this one.
+	//
+	// Needs `integration.manage`. Problem codes: `invalid_connection`
+	// (400), `application_not_found` (404), `connection_exists` (409:
+	// another connection already covers that path),
+	// `github_not_configured` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/github/connections/{connection} (the `UpdateGitConnection` operationId).
+	UpdateGitConnection(ctx context.Context, tenant TenantPath, connection ConnectionPath, params *UpdateGitConnectionParams, body UpdateGitConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartGitHubInstall Start installing the Glossa GitHub App
+	//
+	// Issues a single-use `state`, bound to this workspace, to the
+	// person asking and to a short expiry, and returns the GitHub URL
+	// to send them to. Only the state's hash is stored, so a reader of
+	// the database cannot replay one.
+	//
+	// Send the person to `install_url`; GitHub returns them with the
+	// `state`, an `installation_id`, a `code` and a `setup_action`,
+	// which go to `POST /v1/tenants/{tenant}/github/installations`.
+	//
+	// Needs `integration.manage`. Problem codes:
+	// `github_not_configured` (503).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/github/install-intents (the `StartGitHubInstall` operationId).
+	StartGitHubInstall(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGitHubInstallations The workspace's GitHub installations
+	//
+	// Each installation with the repositories the App can see through
+	// it, read from GitHub. An installation GitHub cannot be reached
+	// for still lists, with `repositories_unavailable` set and no
+	// repositories, so one unreachable account does not empty the
+	// page. A `suspended` or `revoked` installation lists without
+	// repositories, because GitHub would refuse the call anyway.
+	//
+	// Needs `integration.read`. Problem codes:
+	// `github_not_configured` (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/github/installations (the `ListGitHubInstallations` operationId).
+	ListGitHubInstallations(ctx context.Context, tenant TenantPath, params *ListGitHubInstallationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompleteGitHubInstallWithBody Finish an installation, with the person's ownership verified
+	//
+	// The callback of `install-intents`. The `state` is verified and
+	// burned — it is single-use, so a failed attempt starts over
+	// rather than retrying — and then the `code` is redeemed for the
+	// person's own GitHub token, which is used once to check that they
+	// can actually see the `installation_id` they claim, and dropped.
+	// That is what stops someone claiming an installation of an
+	// account they have nothing to do with.
+	//
+	// An installation maps to exactly one workspace. Re-running this
+	// for one this workspace already holds refreshes it; one another
+	// workspace holds is refused with `installation_already_claimed`,
+	// which never says which workspace that is.
+	//
+	// Needs `integration.manage`. Problem codes:
+	// `invalid_install_state` (400: unknown, expired, already used, or
+	// `setup_action=request`, which means no installation was made),
+	// `install_state_not_yours` (403),
+	// `installation_not_visible` (403: the person's token cannot see
+	// it), `installation_already_claimed` (409),
+	// `github_unavailable` (503), `github_not_configured` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/github/installations (the `CompleteGitHubInstall` operationId).
+	CompleteGitHubInstallWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompleteGitHubInstall Finish an installation, with the person's ownership verified
+	//
+	// The callback of `install-intents`. The `state` is verified and
+	// burned — it is single-use, so a failed attempt starts over
+	// rather than retrying — and then the `code` is redeemed for the
+	// person's own GitHub token, which is used once to check that they
+	// can actually see the `installation_id` they claim, and dropped.
+	// That is what stops someone claiming an installation of an
+	// account they have nothing to do with.
+	//
+	// An installation maps to exactly one workspace. Re-running this
+	// for one this workspace already holds refreshes it; one another
+	// workspace holds is refused with `installation_already_claimed`,
+	// which never says which workspace that is.
+	//
+	// Needs `integration.manage`. Problem codes:
+	// `invalid_install_state` (400: unknown, expired, already used, or
+	// `setup_action=request`, which means no installation was made),
+	// `install_state_not_yours` (403),
+	// `installation_not_visible` (403: the person's token cannot see
+	// it), `installation_already_claimed` (409),
+	// `github_unavailable` (503), `github_not_configured` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/github/installations (the `CompleteGitHubInstall` operationId).
+	CompleteGitHubInstall(ctx context.Context, tenant TenantPath, body CompleteGitHubInstallJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ForgetGitHubInstallation Forget an installation and its Git connections
+	//
+	// Removes the installation and its Git connections from Glossa. It
+	// does **not** uninstall the App: only GitHub can do that, on the
+	// account's or organization's Applications settings page. Until it
+	// is uninstalled there GitHub keeps sending webhooks, which Glossa
+	// then acknowledges and ignores.
+	//
+	// Needs `integration.manage`. Problem codes:
+	// `github_not_configured` (503).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/github/installations/{installation} (the `ForgetGitHubInstallation` operationId).
+	ForgetGitHubInstallation(ctx context.Context, tenant TenantPath, installation InstallationPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListImportJobs Import jobs
 	//
@@ -10052,6 +10568,47 @@ func (c *Client) SignOutEverywhere(ctx context.Context, reqEditors ...RequestEdi
 	return c.Client.Do(req)
 }
 
+// ReceiveGitHubWebhookWithBody Receive a GitHub webhook delivery
+//
+// GitHub's own endpoint, not a Studio one. It carries no session:
+// GitHub signs each delivery, and the signature is what
+// authenticates it.
+//
+// The body is read raw, capped at 5 MiB, and its
+// `X-Hub-Signature-256` is checked with HMAC-SHA256 in constant
+// time **before anything parses it**. A verified delivery is
+// written to an inbox keyed by `X-GitHub-Delivery` and answered
+// `202` at once, well inside GitHub's ten seconds; a worker
+// processes it. A delivery id already seen inside the seven-day
+// replay window is a no-op and also answers `202`, so GitHub's
+// redeliveries are safe.
+//
+// Handled events: `installation`, `installation_repositories`,
+// `pull_request` (`opened`, `synchronize`, `reopened`, `closed`)
+// and `check_run` (`rerequested`). Anything else is acknowledged
+// and dropped. Nothing in Glossa's correctness depends on a
+// delivery arriving: a merge lands through the default branch's
+// push, not through this endpoint.
+//
+// A delivery whose signature does not verify answers `401` with no
+// detail. Problem codes: `invalid_webhook` (401),
+// `webhook_too_large` (413), `github_not_configured` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/integrations/github/webhooks (the `ReceiveGitHubWebhook` operationId).
+func (c *Client) ReceiveGitHubWebhookWithBody(ctx context.Context, params *ReceiveGitHubWebhookParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReceiveGitHubWebhookRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetMe The signed-in person and their tenants
 //
 // Also accepts any open invitations addressed to the person's
@@ -11250,6 +11807,340 @@ func (c *Client) CancelExportJob(ctx context.Context, tenant TenantPath, exportJ
 // Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job}/file (the `DownloadExportFile` operationId).
 func (c *Client) DownloadExportFile(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDownloadExportFileRequest(c.Server, tenant, exportJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListGitConnections The workspace's Git connections
+//
+// Every repository-to-project connection, optionally narrowed to
+// one installation or one project.
+//
+// Needs `integration.read`. Problem codes: `invalid_query` (400),
+// `github_not_configured` (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/github/connections (the `ListGitConnections` operationId).
+func (c *Client) ListGitConnections(ctx context.Context, tenant TenantPath, params *ListGitConnectionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGitConnectionsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateGitConnectionWithBody Connect a repository to a project and application
+//
+// Ties one of an installation's repositories — by its numeric
+// `repository_id`, so a rename or a transfer does not break the
+// connection — to a project and one of its applications, with the
+// repository's default branch and an optional monorepo `path`.
+//
+// One repository can feed several projects, one per `path`; the
+// same repository and path twice is `connection_exists`. The
+// repository must be one the installation can actually see and the
+// application one the project actually has, so a connection that
+// could never work is refused here rather than failing quietly on
+// the first pull request. `default_branch` may be left out, and
+// GitHub's is used.
+//
+// Needs `integration.manage`. Problem codes: `invalid_connection`
+// (400), `application_not_found` (404), `repository_not_visible`
+// (404), `connection_exists` (409), `installation_revoked` (409),
+// `github_unavailable` (503), `github_not_configured` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/github/connections (the `CreateGitConnection` operationId).
+func (c *Client) CreateGitConnectionWithBody(ctx context.Context, tenant TenantPath, params *CreateGitConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGitConnectionRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateGitConnection Connect a repository to a project and application
+//
+// Ties one of an installation's repositories — by its numeric
+// `repository_id`, so a rename or a transfer does not break the
+// connection — to a project and one of its applications, with the
+// repository's default branch and an optional monorepo `path`.
+//
+// One repository can feed several projects, one per `path`; the
+// same repository and path twice is `connection_exists`. The
+// repository must be one the installation can actually see and the
+// application one the project actually has, so a connection that
+// could never work is refused here rather than failing quietly on
+// the first pull request. `default_branch` may be left out, and
+// GitHub's is used.
+//
+// Needs `integration.manage`. Problem codes: `invalid_connection`
+// (400), `application_not_found` (404), `repository_not_visible`
+// (404), `connection_exists` (409), `installation_revoked` (409),
+// `github_unavailable` (503), `github_not_configured` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/github/connections (the `CreateGitConnection` operationId).
+func (c *Client) CreateGitConnection(ctx context.Context, tenant TenantPath, params *CreateGitConnectionParams, body CreateGitConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGitConnectionRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteGitConnection Remove a Git connection
+//
+// The repository and the installation stay; only the link to this
+// project goes.
+//
+// Needs `integration.manage`. Problem codes:
+// `github_not_configured` (503).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/github/connections/{connection} (the `DeleteGitConnection` operationId).
+func (c *Client) DeleteGitConnection(ctx context.Context, tenant TenantPath, connection ConnectionPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGitConnectionRequest(c.Server, tenant, connection)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetGitConnection One Git connection
+//
+// Needs `integration.read`. Problem codes:
+// `github_not_configured` (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/github/connections/{connection} (the `GetGitConnection` operationId).
+func (c *Client) GetGitConnection(ctx context.Context, tenant TenantPath, connection ConnectionPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGitConnectionRequest(c.Server, tenant, connection)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateGitConnectionWithBody Change a connection's project, application, branch or path
+//
+// The repository is fixed: pointing a connection at another
+// repository is a different connection, so create that one and
+// delete this one.
+//
+// Needs `integration.manage`. Problem codes: `invalid_connection`
+// (400), `application_not_found` (404), `connection_exists` (409:
+// another connection already covers that path),
+// `github_not_configured` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/github/connections/{connection} (the `UpdateGitConnection` operationId).
+func (c *Client) UpdateGitConnectionWithBody(ctx context.Context, tenant TenantPath, connection ConnectionPath, params *UpdateGitConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateGitConnectionRequestWithBody(c.Server, tenant, connection, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateGitConnection Change a connection's project, application, branch or path
+//
+// The repository is fixed: pointing a connection at another
+// repository is a different connection, so create that one and
+// delete this one.
+//
+// Needs `integration.manage`. Problem codes: `invalid_connection`
+// (400), `application_not_found` (404), `connection_exists` (409:
+// another connection already covers that path),
+// `github_not_configured` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/github/connections/{connection} (the `UpdateGitConnection` operationId).
+func (c *Client) UpdateGitConnection(ctx context.Context, tenant TenantPath, connection ConnectionPath, params *UpdateGitConnectionParams, body UpdateGitConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateGitConnectionRequest(c.Server, tenant, connection, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartGitHubInstall Start installing the Glossa GitHub App
+//
+// Issues a single-use `state`, bound to this workspace, to the
+// person asking and to a short expiry, and returns the GitHub URL
+// to send them to. Only the state's hash is stored, so a reader of
+// the database cannot replay one.
+//
+// Send the person to `install_url`; GitHub returns them with the
+// `state`, an `installation_id`, a `code` and a `setup_action`,
+// which go to `POST /v1/tenants/{tenant}/github/installations`.
+//
+// Needs `integration.manage`. Problem codes:
+// `github_not_configured` (503).
+//
+// Corresponds with POST /v1/tenants/{tenant}/github/install-intents (the `StartGitHubInstall` operationId).
+func (c *Client) StartGitHubInstall(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartGitHubInstallRequest(c.Server, tenant)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListGitHubInstallations The workspace's GitHub installations
+//
+// Each installation with the repositories the App can see through
+// it, read from GitHub. An installation GitHub cannot be reached
+// for still lists, with `repositories_unavailable` set and no
+// repositories, so one unreachable account does not empty the
+// page. A `suspended` or `revoked` installation lists without
+// repositories, because GitHub would refuse the call anyway.
+//
+// Needs `integration.read`. Problem codes:
+// `github_not_configured` (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/github/installations (the `ListGitHubInstallations` operationId).
+func (c *Client) ListGitHubInstallations(ctx context.Context, tenant TenantPath, params *ListGitHubInstallationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGitHubInstallationsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CompleteGitHubInstallWithBody Finish an installation, with the person's ownership verified
+//
+// The callback of `install-intents`. The `state` is verified and
+// burned — it is single-use, so a failed attempt starts over
+// rather than retrying — and then the `code` is redeemed for the
+// person's own GitHub token, which is used once to check that they
+// can actually see the `installation_id` they claim, and dropped.
+// That is what stops someone claiming an installation of an
+// account they have nothing to do with.
+//
+// An installation maps to exactly one workspace. Re-running this
+// for one this workspace already holds refreshes it; one another
+// workspace holds is refused with `installation_already_claimed`,
+// which never says which workspace that is.
+//
+// Needs `integration.manage`. Problem codes:
+// `invalid_install_state` (400: unknown, expired, already used, or
+// `setup_action=request`, which means no installation was made),
+// `install_state_not_yours` (403),
+// `installation_not_visible` (403: the person's token cannot see
+// it), `installation_already_claimed` (409),
+// `github_unavailable` (503), `github_not_configured` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/github/installations (the `CompleteGitHubInstall` operationId).
+func (c *Client) CompleteGitHubInstallWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteGitHubInstallRequestWithBody(c.Server, tenant, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CompleteGitHubInstall Finish an installation, with the person's ownership verified
+//
+// The callback of `install-intents`. The `state` is verified and
+// burned — it is single-use, so a failed attempt starts over
+// rather than retrying — and then the `code` is redeemed for the
+// person's own GitHub token, which is used once to check that they
+// can actually see the `installation_id` they claim, and dropped.
+// That is what stops someone claiming an installation of an
+// account they have nothing to do with.
+//
+// An installation maps to exactly one workspace. Re-running this
+// for one this workspace already holds refreshes it; one another
+// workspace holds is refused with `installation_already_claimed`,
+// which never says which workspace that is.
+//
+// Needs `integration.manage`. Problem codes:
+// `invalid_install_state` (400: unknown, expired, already used, or
+// `setup_action=request`, which means no installation was made),
+// `install_state_not_yours` (403),
+// `installation_not_visible` (403: the person's token cannot see
+// it), `installation_already_claimed` (409),
+// `github_unavailable` (503), `github_not_configured` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/github/installations (the `CompleteGitHubInstall` operationId).
+func (c *Client) CompleteGitHubInstall(ctx context.Context, tenant TenantPath, body CompleteGitHubInstallJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteGitHubInstallRequest(c.Server, tenant, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ForgetGitHubInstallation Forget an installation and its Git connections
+//
+// Removes the installation and its Git connections from Glossa. It
+// does **not** uninstall the App: only GitHub can do that, on the
+// account's or organization's Applications settings page. Until it
+// is uninstalled there GitHub keeps sending webhooks, which Glossa
+// then acknowledges and ignores.
+//
+// Needs `integration.manage`. Problem codes:
+// `github_not_configured` (503).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/github/installations/{installation} (the `ForgetGitHubInstallation` operationId).
+func (c *Client) ForgetGitHubInstallation(ctx context.Context, tenant TenantPath, installation InstallationPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewForgetGitHubInstallationRequest(c.Server, tenant, installation)
 	if err != nil {
 		return nil, err
 	}
@@ -15557,6 +16448,66 @@ func NewSignOutEverywhereRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewReceiveGitHubWebhookRequestWithBody constructs an http.Request for the ReceiveGitHubWebhook method, with any body, and a specified content type
+func NewReceiveGitHubWebhookRequestWithBody(server string, params *ReceiveGitHubWebhookParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/integrations/github/webhooks")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-GitHub-Event", params.XGitHubEvent, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GitHub-Event", headerParam0)
+
+		var headerParam1 string
+
+		headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-GitHub-Delivery", params.XGitHubDelivery, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GitHub-Delivery", headerParam1)
+
+		var headerParam2 string
+
+		headerParam2, err = runtime.StyleParamWithOptions("simple", false, "X-Hub-Signature-256", params.XHubSignature256, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Hub-Signature-256", headerParam2)
+
+	}
+
+	return req, nil
+}
+
 // NewGetMeRequest constructs an http.Request for the GetMe method
 func NewGetMeRequest(server string) (*http.Request, error) {
 	var err error
@@ -17912,6 +18863,509 @@ func NewDownloadExportFileRequest(server string, tenant TenantPath, exportJob Ex
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListGitConnectionsRequest constructs an http.Request for the ListGitConnections method
+func NewListGitConnectionsRequest(server string, tenant TenantPath, params *ListGitConnectionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/github/connections", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Installation != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "installation", *params.Installation, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateGitConnectionRequest calls the generic CreateGitConnection builder with application/json body
+func NewCreateGitConnectionRequest(server string, tenant TenantPath, params *CreateGitConnectionParams, body CreateGitConnectionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateGitConnectionRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateGitConnectionRequestWithBody constructs an http.Request for the CreateGitConnection method, with any body, and a specified content type
+func NewCreateGitConnectionRequestWithBody(server string, tenant TenantPath, params *CreateGitConnectionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/github/connections", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteGitConnectionRequest constructs an http.Request for the DeleteGitConnection method
+func NewDeleteGitConnectionRequest(server string, tenant TenantPath, connection ConnectionPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connection", connection, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/github/connections/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGitConnectionRequest constructs an http.Request for the GetGitConnection method
+func NewGetGitConnectionRequest(server string, tenant TenantPath, connection ConnectionPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connection", connection, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/github/connections/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateGitConnectionRequest calls the generic UpdateGitConnection builder with application/json body
+func NewUpdateGitConnectionRequest(server string, tenant TenantPath, connection ConnectionPath, params *UpdateGitConnectionParams, body UpdateGitConnectionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateGitConnectionRequestWithBody(server, tenant, connection, params, "application/json", bodyReader)
+}
+
+// NewUpdateGitConnectionRequestWithBody constructs an http.Request for the UpdateGitConnection method, with any body, and a specified content type
+func NewUpdateGitConnectionRequestWithBody(server string, tenant TenantPath, connection ConnectionPath, params *UpdateGitConnectionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connection", connection, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/github/connections/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewStartGitHubInstallRequest constructs an http.Request for the StartGitHubInstall method
+func NewStartGitHubInstallRequest(server string, tenant TenantPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/github/install-intents", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListGitHubInstallationsRequest constructs an http.Request for the ListGitHubInstallations method
+func NewListGitHubInstallationsRequest(server string, tenant TenantPath, params *ListGitHubInstallationsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/github/installations", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCompleteGitHubInstallRequest calls the generic CompleteGitHubInstall builder with application/json body
+func NewCompleteGitHubInstallRequest(server string, tenant TenantPath, body CompleteGitHubInstallJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCompleteGitHubInstallRequestWithBody(server, tenant, "application/json", bodyReader)
+}
+
+// NewCompleteGitHubInstallRequestWithBody constructs an http.Request for the CompleteGitHubInstall method, with any body, and a specified content type
+func NewCompleteGitHubInstallRequestWithBody(server string, tenant TenantPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/github/installations", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewForgetGitHubInstallationRequest constructs an http.Request for the ForgetGitHubInstallation method
+func NewForgetGitHubInstallationRequest(server string, tenant TenantPath, installation InstallationPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "installation", installation, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/github/installations/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -26428,6 +27882,37 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /v1/auth/sessions (the `SignOutEverywhere` operationId).
 	SignOutEverywhereWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*SignOutEverywhereResponse, error)
 
+	// ReceiveGitHubWebhookWithBodyWithResponse Receive a GitHub webhook delivery
+	//
+	// GitHub's own endpoint, not a Studio one. It carries no session:
+	// GitHub signs each delivery, and the signature is what
+	// authenticates it.
+	//
+	// The body is read raw, capped at 5 MiB, and its
+	// `X-Hub-Signature-256` is checked with HMAC-SHA256 in constant
+	// time **before anything parses it**. A verified delivery is
+	// written to an inbox keyed by `X-GitHub-Delivery` and answered
+	// `202` at once, well inside GitHub's ten seconds; a worker
+	// processes it. A delivery id already seen inside the seven-day
+	// replay window is a no-op and also answers `202`, so GitHub's
+	// redeliveries are safe.
+	//
+	// Handled events: `installation`, `installation_repositories`,
+	// `pull_request` (`opened`, `synchronize`, `reopened`, `closed`)
+	// and `check_run` (`rerequested`). Anything else is acknowledged
+	// and dropped. Nothing in Glossa's correctness depends on a
+	// delivery arriving: a merge lands through the default branch's
+	// push, not through this endpoint.
+	//
+	// A delivery whose signature does not verify answers `401` with no
+	// detail. Problem codes: `invalid_webhook` (401),
+	// `webhook_too_large` (413), `github_not_configured` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/integrations/github/webhooks (the `ReceiveGitHubWebhook` operationId).
+	ReceiveGitHubWebhookWithBodyWithResponse(ctx context.Context, params *ReceiveGitHubWebhookParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReceiveGitHubWebhookResponse, error)
+
 	// GetMeWithResponse The signed-in person and their tenants
 	//
 	// Also accepts any open invitations addressed to the person's
@@ -27135,6 +28620,232 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/export-jobs/{export_job}/file (the `DownloadExportFile` operationId).
 	DownloadExportFileWithResponse(ctx context.Context, tenant TenantPath, exportJob ExportJobPath, reqEditors ...RequestEditorFn) (*DownloadExportFileResponse, error)
+
+	// ListGitConnectionsWithResponse The workspace's Git connections
+	//
+	// Every repository-to-project connection, optionally narrowed to
+	// one installation or one project.
+	//
+	// Needs `integration.read`. Problem codes: `invalid_query` (400),
+	// `github_not_configured` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/github/connections (the `ListGitConnections` operationId).
+	ListGitConnectionsWithResponse(ctx context.Context, tenant TenantPath, params *ListGitConnectionsParams, reqEditors ...RequestEditorFn) (*ListGitConnectionsResponse, error)
+
+	// CreateGitConnectionWithBodyWithResponse Connect a repository to a project and application
+	//
+	// Ties one of an installation's repositories — by its numeric
+	// `repository_id`, so a rename or a transfer does not break the
+	// connection — to a project and one of its applications, with the
+	// repository's default branch and an optional monorepo `path`.
+	//
+	// One repository can feed several projects, one per `path`; the
+	// same repository and path twice is `connection_exists`. The
+	// repository must be one the installation can actually see and the
+	// application one the project actually has, so a connection that
+	// could never work is refused here rather than failing quietly on
+	// the first pull request. `default_branch` may be left out, and
+	// GitHub's is used.
+	//
+	// Needs `integration.manage`. Problem codes: `invalid_connection`
+	// (400), `application_not_found` (404), `repository_not_visible`
+	// (404), `connection_exists` (409), `installation_revoked` (409),
+	// `github_unavailable` (503), `github_not_configured` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/github/connections (the `CreateGitConnection` operationId).
+	CreateGitConnectionWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateGitConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGitConnectionResponse, error)
+
+	// CreateGitConnectionWithResponse Connect a repository to a project and application
+	//
+	// Ties one of an installation's repositories — by its numeric
+	// `repository_id`, so a rename or a transfer does not break the
+	// connection — to a project and one of its applications, with the
+	// repository's default branch and an optional monorepo `path`.
+	//
+	// One repository can feed several projects, one per `path`; the
+	// same repository and path twice is `connection_exists`. The
+	// repository must be one the installation can actually see and the
+	// application one the project actually has, so a connection that
+	// could never work is refused here rather than failing quietly on
+	// the first pull request. `default_branch` may be left out, and
+	// GitHub's is used.
+	//
+	// Needs `integration.manage`. Problem codes: `invalid_connection`
+	// (400), `application_not_found` (404), `repository_not_visible`
+	// (404), `connection_exists` (409), `installation_revoked` (409),
+	// `github_unavailable` (503), `github_not_configured` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/github/connections (the `CreateGitConnection` operationId).
+	CreateGitConnectionWithResponse(ctx context.Context, tenant TenantPath, params *CreateGitConnectionParams, body CreateGitConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGitConnectionResponse, error)
+
+	// DeleteGitConnectionWithResponse Remove a Git connection
+	//
+	// The repository and the installation stay; only the link to this
+	// project goes.
+	//
+	// Needs `integration.manage`. Problem codes:
+	// `github_not_configured` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/github/connections/{connection} (the `DeleteGitConnection` operationId).
+	DeleteGitConnectionWithResponse(ctx context.Context, tenant TenantPath, connection ConnectionPath, reqEditors ...RequestEditorFn) (*DeleteGitConnectionResponse, error)
+
+	// GetGitConnectionWithResponse One Git connection
+	//
+	// Needs `integration.read`. Problem codes:
+	// `github_not_configured` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/github/connections/{connection} (the `GetGitConnection` operationId).
+	GetGitConnectionWithResponse(ctx context.Context, tenant TenantPath, connection ConnectionPath, reqEditors ...RequestEditorFn) (*GetGitConnectionResponse, error)
+
+	// UpdateGitConnectionWithBodyWithResponse Change a connection's project, application, branch or path
+	//
+	// The repository is fixed: pointing a connection at another
+	// repository is a different connection, so create that one and
+	// delete this one.
+	//
+	// Needs `integration.manage`. Problem codes: `invalid_connection`
+	// (400), `application_not_found` (404), `connection_exists` (409:
+	// another connection already covers that path),
+	// `github_not_configured` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/github/connections/{connection} (the `UpdateGitConnection` operationId).
+	UpdateGitConnectionWithBodyWithResponse(ctx context.Context, tenant TenantPath, connection ConnectionPath, params *UpdateGitConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGitConnectionResponse, error)
+
+	// UpdateGitConnectionWithResponse Change a connection's project, application, branch or path
+	//
+	// The repository is fixed: pointing a connection at another
+	// repository is a different connection, so create that one and
+	// delete this one.
+	//
+	// Needs `integration.manage`. Problem codes: `invalid_connection`
+	// (400), `application_not_found` (404), `connection_exists` (409:
+	// another connection already covers that path),
+	// `github_not_configured` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/github/connections/{connection} (the `UpdateGitConnection` operationId).
+	UpdateGitConnectionWithResponse(ctx context.Context, tenant TenantPath, connection ConnectionPath, params *UpdateGitConnectionParams, body UpdateGitConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGitConnectionResponse, error)
+
+	// StartGitHubInstallWithResponse Start installing the Glossa GitHub App
+	//
+	// Issues a single-use `state`, bound to this workspace, to the
+	// person asking and to a short expiry, and returns the GitHub URL
+	// to send them to. Only the state's hash is stored, so a reader of
+	// the database cannot replay one.
+	//
+	// Send the person to `install_url`; GitHub returns them with the
+	// `state`, an `installation_id`, a `code` and a `setup_action`,
+	// which go to `POST /v1/tenants/{tenant}/github/installations`.
+	//
+	// Needs `integration.manage`. Problem codes:
+	// `github_not_configured` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/github/install-intents (the `StartGitHubInstall` operationId).
+	StartGitHubInstallWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*StartGitHubInstallResponse, error)
+
+	// ListGitHubInstallationsWithResponse The workspace's GitHub installations
+	//
+	// Each installation with the repositories the App can see through
+	// it, read from GitHub. An installation GitHub cannot be reached
+	// for still lists, with `repositories_unavailable` set and no
+	// repositories, so one unreachable account does not empty the
+	// page. A `suspended` or `revoked` installation lists without
+	// repositories, because GitHub would refuse the call anyway.
+	//
+	// Needs `integration.read`. Problem codes:
+	// `github_not_configured` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/github/installations (the `ListGitHubInstallations` operationId).
+	ListGitHubInstallationsWithResponse(ctx context.Context, tenant TenantPath, params *ListGitHubInstallationsParams, reqEditors ...RequestEditorFn) (*ListGitHubInstallationsResponse, error)
+
+	// CompleteGitHubInstallWithBodyWithResponse Finish an installation, with the person's ownership verified
+	//
+	// The callback of `install-intents`. The `state` is verified and
+	// burned — it is single-use, so a failed attempt starts over
+	// rather than retrying — and then the `code` is redeemed for the
+	// person's own GitHub token, which is used once to check that they
+	// can actually see the `installation_id` they claim, and dropped.
+	// That is what stops someone claiming an installation of an
+	// account they have nothing to do with.
+	//
+	// An installation maps to exactly one workspace. Re-running this
+	// for one this workspace already holds refreshes it; one another
+	// workspace holds is refused with `installation_already_claimed`,
+	// which never says which workspace that is.
+	//
+	// Needs `integration.manage`. Problem codes:
+	// `invalid_install_state` (400: unknown, expired, already used, or
+	// `setup_action=request`, which means no installation was made),
+	// `install_state_not_yours` (403),
+	// `installation_not_visible` (403: the person's token cannot see
+	// it), `installation_already_claimed` (409),
+	// `github_unavailable` (503), `github_not_configured` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/github/installations (the `CompleteGitHubInstall` operationId).
+	CompleteGitHubInstallWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteGitHubInstallResponse, error)
+
+	// CompleteGitHubInstallWithResponse Finish an installation, with the person's ownership verified
+	//
+	// The callback of `install-intents`. The `state` is verified and
+	// burned — it is single-use, so a failed attempt starts over
+	// rather than retrying — and then the `code` is redeemed for the
+	// person's own GitHub token, which is used once to check that they
+	// can actually see the `installation_id` they claim, and dropped.
+	// That is what stops someone claiming an installation of an
+	// account they have nothing to do with.
+	//
+	// An installation maps to exactly one workspace. Re-running this
+	// for one this workspace already holds refreshes it; one another
+	// workspace holds is refused with `installation_already_claimed`,
+	// which never says which workspace that is.
+	//
+	// Needs `integration.manage`. Problem codes:
+	// `invalid_install_state` (400: unknown, expired, already used, or
+	// `setup_action=request`, which means no installation was made),
+	// `install_state_not_yours` (403),
+	// `installation_not_visible` (403: the person's token cannot see
+	// it), `installation_already_claimed` (409),
+	// `github_unavailable` (503), `github_not_configured` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/github/installations (the `CompleteGitHubInstall` operationId).
+	CompleteGitHubInstallWithResponse(ctx context.Context, tenant TenantPath, body CompleteGitHubInstallJSONRequestBody, reqEditors ...RequestEditorFn) (*CompleteGitHubInstallResponse, error)
+
+	// ForgetGitHubInstallationWithResponse Forget an installation and its Git connections
+	//
+	// Removes the installation and its Git connections from Glossa. It
+	// does **not** uninstall the App: only GitHub can do that, on the
+	// account's or organization's Applications settings page. Until it
+	// is uninstalled there GitHub keeps sending webhooks, which Glossa
+	// then acknowledges and ignores.
+	//
+	// Needs `integration.manage`. Problem codes:
+	// `github_not_configured` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/github/installations/{installation} (the `ForgetGitHubInstallation` operationId).
+	ForgetGitHubInstallationWithResponse(ctx context.Context, tenant TenantPath, installation InstallationPath, reqEditors ...RequestEditorFn) (*ForgetGitHubInstallationResponse, error)
 
 	// ListImportJobsWithResponse Import jobs
 	//
@@ -30135,6 +31846,68 @@ func (r SignOutEverywhereResponse) ContentType() string {
 	return ""
 }
 
+type ReceiveGitHubWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *WebhookAck
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON413 the response for an HTTP 413 `application/problem+json` response
+	ApplicationproblemJSON413 *PayloadTooLarge
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r ReceiveGitHubWebhookResponse) GetJSON202() *WebhookAck {
+	return r.JSON202
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ReceiveGitHubWebhookResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON413 returns the response for an HTTP 413 `application/problem+json` response
+func (r ReceiveGitHubWebhookResponse) GetApplicationproblemJSON413() *PayloadTooLarge {
+	return r.ApplicationproblemJSON413
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r ReceiveGitHubWebhookResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r ReceiveGitHubWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReceiveGitHubWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReceiveGitHubWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReceiveGitHubWebhookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetMeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -32989,6 +34762,676 @@ func (r DownloadExportFileResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DownloadExportFileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListGitConnectionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *GitConnectionList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListGitConnectionsResponse) GetJSON200() *GitConnectionList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListGitConnectionsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListGitConnectionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListGitConnectionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r ListGitConnectionsResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r ListGitConnectionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGitConnectionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGitConnectionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListGitConnectionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateGitConnectionResponse201Headers the declared response headers of an HTTP 201 response for CreateGitConnection
+type CreateGitConnectionResponse201Headers struct {
+	Location *string
+}
+
+type CreateGitConnectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *GitConnection
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateGitConnectionResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateGitConnectionResponse) GetJSON201() *GitConnection {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateGitConnectionResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateGitConnectionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateGitConnectionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateGitConnectionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateGitConnectionResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r CreateGitConnectionResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateGitConnectionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateGitConnectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateGitConnectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateGitConnectionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteGitConnectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeleteGitConnectionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeleteGitConnectionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeleteGitConnectionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r DeleteGitConnectionResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteGitConnectionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGitConnectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGitConnectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteGitConnectionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetGitConnectionResponse200Headers the declared response headers of an HTTP 200 response for GetGitConnection
+type GetGitConnectionResponse200Headers struct {
+	ETag *string
+}
+
+type GetGitConnectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *GitConnection
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetGitConnectionResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetGitConnectionResponse) GetJSON200() *GitConnection {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetGitConnectionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetGitConnectionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetGitConnectionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r GetGitConnectionResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r GetGitConnectionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGitConnectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGitConnectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetGitConnectionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// UpdateGitConnectionResponse200Headers the declared response headers of an HTTP 200 response for UpdateGitConnection
+type UpdateGitConnectionResponse200Headers struct {
+	ETag *string
+}
+
+type UpdateGitConnectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *GitConnection
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *UpdateGitConnectionResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateGitConnectionResponse) GetJSON200() *GitConnection {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r UpdateGitConnectionResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r UpdateGitConnectionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r UpdateGitConnectionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r UpdateGitConnectionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r UpdateGitConnectionResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r UpdateGitConnectionResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r UpdateGitConnectionResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r UpdateGitConnectionResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateGitConnectionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateGitConnectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateGitConnectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateGitConnectionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartGitHubInstallResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *GitHubInstallIntent
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r StartGitHubInstallResponse) GetJSON201() *GitHubInstallIntent {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r StartGitHubInstallResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r StartGitHubInstallResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r StartGitHubInstallResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r StartGitHubInstallResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartGitHubInstallResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartGitHubInstallResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartGitHubInstallResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListGitHubInstallationsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *GitHubInstallationList
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListGitHubInstallationsResponse) GetJSON200() *GitHubInstallationList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListGitHubInstallationsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListGitHubInstallationsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r ListGitHubInstallationsResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r ListGitHubInstallationsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGitHubInstallationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGitHubInstallationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListGitHubInstallationsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CompleteGitHubInstallResponse201Headers the declared response headers of an HTTP 201 response for CompleteGitHubInstall
+type CompleteGitHubInstallResponse201Headers struct {
+	Location *string
+}
+
+type CompleteGitHubInstallResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *GitHubInstallation
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CompleteGitHubInstallResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CompleteGitHubInstallResponse) GetJSON201() *GitHubInstallation {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CompleteGitHubInstallResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CompleteGitHubInstallResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CompleteGitHubInstallResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CompleteGitHubInstallResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r CompleteGitHubInstallResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r CompleteGitHubInstallResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CompleteGitHubInstallResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CompleteGitHubInstallResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CompleteGitHubInstallResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ForgetGitHubInstallationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ForgetGitHubInstallationResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ForgetGitHubInstallationResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ForgetGitHubInstallationResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r ForgetGitHubInstallationResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r ForgetGitHubInstallationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ForgetGitHubInstallationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ForgetGitHubInstallationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ForgetGitHubInstallationResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -42209,6 +44652,43 @@ func (c *ClientWithResponses) SignOutEverywhereWithResponse(ctx context.Context,
 	return ParseSignOutEverywhereResponse(rsp)
 }
 
+// ReceiveGitHubWebhookWithBodyWithResponse Receive a GitHub webhook delivery
+//
+// GitHub's own endpoint, not a Studio one. It carries no session:
+// GitHub signs each delivery, and the signature is what
+// authenticates it.
+//
+// The body is read raw, capped at 5 MiB, and its
+// `X-Hub-Signature-256` is checked with HMAC-SHA256 in constant
+// time **before anything parses it**. A verified delivery is
+// written to an inbox keyed by `X-GitHub-Delivery` and answered
+// `202` at once, well inside GitHub's ten seconds; a worker
+// processes it. A delivery id already seen inside the seven-day
+// replay window is a no-op and also answers `202`, so GitHub's
+// redeliveries are safe.
+//
+// Handled events: `installation`, `installation_repositories`,
+// `pull_request` (`opened`, `synchronize`, `reopened`, `closed`)
+// and `check_run` (`rerequested`). Anything else is acknowledged
+// and dropped. Nothing in Glossa's correctness depends on a
+// delivery arriving: a merge lands through the default branch's
+// push, not through this endpoint.
+//
+// A delivery whose signature does not verify answers `401` with no
+// detail. Problem codes: `invalid_webhook` (401),
+// `webhook_too_large` (413), `github_not_configured` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/integrations/github/webhooks (the `ReceiveGitHubWebhook` operationId).
+func (c *ClientWithResponses) ReceiveGitHubWebhookWithBodyWithResponse(ctx context.Context, params *ReceiveGitHubWebhookParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReceiveGitHubWebhookResponse, error) {
+	rsp, err := c.ReceiveGitHubWebhookWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReceiveGitHubWebhookResponse(rsp)
+}
+
 // GetMeWithResponse The signed-in person and their tenants
 //
 // Also accepts any open invitations addressed to the person's
@@ -43251,6 +45731,304 @@ func (c *ClientWithResponses) DownloadExportFileWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseDownloadExportFileResponse(rsp)
+}
+
+// ListGitConnectionsWithResponse The workspace's Git connections
+//
+// Every repository-to-project connection, optionally narrowed to
+// one installation or one project.
+//
+// Needs `integration.read`. Problem codes: `invalid_query` (400),
+// `github_not_configured` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/github/connections (the `ListGitConnections` operationId).
+func (c *ClientWithResponses) ListGitConnectionsWithResponse(ctx context.Context, tenant TenantPath, params *ListGitConnectionsParams, reqEditors ...RequestEditorFn) (*ListGitConnectionsResponse, error) {
+	rsp, err := c.ListGitConnections(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGitConnectionsResponse(rsp)
+}
+
+// CreateGitConnectionWithBodyWithResponse Connect a repository to a project and application
+//
+// Ties one of an installation's repositories — by its numeric
+// `repository_id`, so a rename or a transfer does not break the
+// connection — to a project and one of its applications, with the
+// repository's default branch and an optional monorepo `path`.
+//
+// One repository can feed several projects, one per `path`; the
+// same repository and path twice is `connection_exists`. The
+// repository must be one the installation can actually see and the
+// application one the project actually has, so a connection that
+// could never work is refused here rather than failing quietly on
+// the first pull request. `default_branch` may be left out, and
+// GitHub's is used.
+//
+// Needs `integration.manage`. Problem codes: `invalid_connection`
+// (400), `application_not_found` (404), `repository_not_visible`
+// (404), `connection_exists` (409), `installation_revoked` (409),
+// `github_unavailable` (503), `github_not_configured` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/github/connections (the `CreateGitConnection` operationId).
+func (c *ClientWithResponses) CreateGitConnectionWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateGitConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGitConnectionResponse, error) {
+	rsp, err := c.CreateGitConnectionWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGitConnectionResponse(rsp)
+}
+
+// CreateGitConnectionWithResponse Connect a repository to a project and application
+//
+// Ties one of an installation's repositories — by its numeric
+// `repository_id`, so a rename or a transfer does not break the
+// connection — to a project and one of its applications, with the
+// repository's default branch and an optional monorepo `path`.
+//
+// One repository can feed several projects, one per `path`; the
+// same repository and path twice is `connection_exists`. The
+// repository must be one the installation can actually see and the
+// application one the project actually has, so a connection that
+// could never work is refused here rather than failing quietly on
+// the first pull request. `default_branch` may be left out, and
+// GitHub's is used.
+//
+// Needs `integration.manage`. Problem codes: `invalid_connection`
+// (400), `application_not_found` (404), `repository_not_visible`
+// (404), `connection_exists` (409), `installation_revoked` (409),
+// `github_unavailable` (503), `github_not_configured` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/github/connections (the `CreateGitConnection` operationId).
+func (c *ClientWithResponses) CreateGitConnectionWithResponse(ctx context.Context, tenant TenantPath, params *CreateGitConnectionParams, body CreateGitConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGitConnectionResponse, error) {
+	rsp, err := c.CreateGitConnection(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGitConnectionResponse(rsp)
+}
+
+// DeleteGitConnectionWithResponse Remove a Git connection
+//
+// The repository and the installation stay; only the link to this
+// project goes.
+//
+// Needs `integration.manage`. Problem codes:
+// `github_not_configured` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/github/connections/{connection} (the `DeleteGitConnection` operationId).
+func (c *ClientWithResponses) DeleteGitConnectionWithResponse(ctx context.Context, tenant TenantPath, connection ConnectionPath, reqEditors ...RequestEditorFn) (*DeleteGitConnectionResponse, error) {
+	rsp, err := c.DeleteGitConnection(ctx, tenant, connection, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGitConnectionResponse(rsp)
+}
+
+// GetGitConnectionWithResponse One Git connection
+//
+// Needs `integration.read`. Problem codes:
+// `github_not_configured` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/github/connections/{connection} (the `GetGitConnection` operationId).
+func (c *ClientWithResponses) GetGitConnectionWithResponse(ctx context.Context, tenant TenantPath, connection ConnectionPath, reqEditors ...RequestEditorFn) (*GetGitConnectionResponse, error) {
+	rsp, err := c.GetGitConnection(ctx, tenant, connection, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGitConnectionResponse(rsp)
+}
+
+// UpdateGitConnectionWithBodyWithResponse Change a connection's project, application, branch or path
+//
+// The repository is fixed: pointing a connection at another
+// repository is a different connection, so create that one and
+// delete this one.
+//
+// Needs `integration.manage`. Problem codes: `invalid_connection`
+// (400), `application_not_found` (404), `connection_exists` (409:
+// another connection already covers that path),
+// `github_not_configured` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/github/connections/{connection} (the `UpdateGitConnection` operationId).
+func (c *ClientWithResponses) UpdateGitConnectionWithBodyWithResponse(ctx context.Context, tenant TenantPath, connection ConnectionPath, params *UpdateGitConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGitConnectionResponse, error) {
+	rsp, err := c.UpdateGitConnectionWithBody(ctx, tenant, connection, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateGitConnectionResponse(rsp)
+}
+
+// UpdateGitConnectionWithResponse Change a connection's project, application, branch or path
+//
+// The repository is fixed: pointing a connection at another
+// repository is a different connection, so create that one and
+// delete this one.
+//
+// Needs `integration.manage`. Problem codes: `invalid_connection`
+// (400), `application_not_found` (404), `connection_exists` (409:
+// another connection already covers that path),
+// `github_not_configured` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/github/connections/{connection} (the `UpdateGitConnection` operationId).
+func (c *ClientWithResponses) UpdateGitConnectionWithResponse(ctx context.Context, tenant TenantPath, connection ConnectionPath, params *UpdateGitConnectionParams, body UpdateGitConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGitConnectionResponse, error) {
+	rsp, err := c.UpdateGitConnection(ctx, tenant, connection, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateGitConnectionResponse(rsp)
+}
+
+// StartGitHubInstallWithResponse Start installing the Glossa GitHub App
+//
+// Issues a single-use `state`, bound to this workspace, to the
+// person asking and to a short expiry, and returns the GitHub URL
+// to send them to. Only the state's hash is stored, so a reader of
+// the database cannot replay one.
+//
+// Send the person to `install_url`; GitHub returns them with the
+// `state`, an `installation_id`, a `code` and a `setup_action`,
+// which go to `POST /v1/tenants/{tenant}/github/installations`.
+//
+// Needs `integration.manage`. Problem codes:
+// `github_not_configured` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/github/install-intents (the `StartGitHubInstall` operationId).
+func (c *ClientWithResponses) StartGitHubInstallWithResponse(ctx context.Context, tenant TenantPath, reqEditors ...RequestEditorFn) (*StartGitHubInstallResponse, error) {
+	rsp, err := c.StartGitHubInstall(ctx, tenant, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartGitHubInstallResponse(rsp)
+}
+
+// ListGitHubInstallationsWithResponse The workspace's GitHub installations
+//
+// Each installation with the repositories the App can see through
+// it, read from GitHub. An installation GitHub cannot be reached
+// for still lists, with `repositories_unavailable` set and no
+// repositories, so one unreachable account does not empty the
+// page. A `suspended` or `revoked` installation lists without
+// repositories, because GitHub would refuse the call anyway.
+//
+// Needs `integration.read`. Problem codes:
+// `github_not_configured` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/github/installations (the `ListGitHubInstallations` operationId).
+func (c *ClientWithResponses) ListGitHubInstallationsWithResponse(ctx context.Context, tenant TenantPath, params *ListGitHubInstallationsParams, reqEditors ...RequestEditorFn) (*ListGitHubInstallationsResponse, error) {
+	rsp, err := c.ListGitHubInstallations(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGitHubInstallationsResponse(rsp)
+}
+
+// CompleteGitHubInstallWithBodyWithResponse Finish an installation, with the person's ownership verified
+//
+// The callback of `install-intents`. The `state` is verified and
+// burned — it is single-use, so a failed attempt starts over
+// rather than retrying — and then the `code` is redeemed for the
+// person's own GitHub token, which is used once to check that they
+// can actually see the `installation_id` they claim, and dropped.
+// That is what stops someone claiming an installation of an
+// account they have nothing to do with.
+//
+// An installation maps to exactly one workspace. Re-running this
+// for one this workspace already holds refreshes it; one another
+// workspace holds is refused with `installation_already_claimed`,
+// which never says which workspace that is.
+//
+// Needs `integration.manage`. Problem codes:
+// `invalid_install_state` (400: unknown, expired, already used, or
+// `setup_action=request`, which means no installation was made),
+// `install_state_not_yours` (403),
+// `installation_not_visible` (403: the person's token cannot see
+// it), `installation_already_claimed` (409),
+// `github_unavailable` (503), `github_not_configured` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/github/installations (the `CompleteGitHubInstall` operationId).
+func (c *ClientWithResponses) CompleteGitHubInstallWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteGitHubInstallResponse, error) {
+	rsp, err := c.CompleteGitHubInstallWithBody(ctx, tenant, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompleteGitHubInstallResponse(rsp)
+}
+
+// CompleteGitHubInstallWithResponse Finish an installation, with the person's ownership verified
+//
+// The callback of `install-intents`. The `state` is verified and
+// burned — it is single-use, so a failed attempt starts over
+// rather than retrying — and then the `code` is redeemed for the
+// person's own GitHub token, which is used once to check that they
+// can actually see the `installation_id` they claim, and dropped.
+// That is what stops someone claiming an installation of an
+// account they have nothing to do with.
+//
+// An installation maps to exactly one workspace. Re-running this
+// for one this workspace already holds refreshes it; one another
+// workspace holds is refused with `installation_already_claimed`,
+// which never says which workspace that is.
+//
+// Needs `integration.manage`. Problem codes:
+// `invalid_install_state` (400: unknown, expired, already used, or
+// `setup_action=request`, which means no installation was made),
+// `install_state_not_yours` (403),
+// `installation_not_visible` (403: the person's token cannot see
+// it), `installation_already_claimed` (409),
+// `github_unavailable` (503), `github_not_configured` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/github/installations (the `CompleteGitHubInstall` operationId).
+func (c *ClientWithResponses) CompleteGitHubInstallWithResponse(ctx context.Context, tenant TenantPath, body CompleteGitHubInstallJSONRequestBody, reqEditors ...RequestEditorFn) (*CompleteGitHubInstallResponse, error) {
+	rsp, err := c.CompleteGitHubInstall(ctx, tenant, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompleteGitHubInstallResponse(rsp)
+}
+
+// ForgetGitHubInstallationWithResponse Forget an installation and its Git connections
+//
+// Removes the installation and its Git connections from Glossa. It
+// does **not** uninstall the App: only GitHub can do that, on the
+// account's or organization's Applications settings page. Until it
+// is uninstalled there GitHub keeps sending webhooks, which Glossa
+// then acknowledges and ignores.
+//
+// Needs `integration.manage`. Problem codes:
+// `github_not_configured` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/github/installations/{installation} (the `ForgetGitHubInstallation` operationId).
+func (c *ClientWithResponses) ForgetGitHubInstallationWithResponse(ctx context.Context, tenant TenantPath, installation InstallationPath, reqEditors ...RequestEditorFn) (*ForgetGitHubInstallationResponse, error) {
+	rsp, err := c.ForgetGitHubInstallation(ctx, tenant, installation, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseForgetGitHubInstallationResponse(rsp)
 }
 
 // ListImportJobsWithResponse Import jobs
@@ -47145,6 +49923,53 @@ func ParseSignOutEverywhereResponse(rsp *http.Response) (*SignOutEverywhereRespo
 	return response, nil
 }
 
+// ParseReceiveGitHubWebhookResponse parses an HTTP response from a ReceiveGitHubWebhookWithResponse call
+func ParseReceiveGitHubWebhookResponse(rsp *http.Response) (*ReceiveGitHubWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReceiveGitHubWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest WebhookAck
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest PayloadTooLarge
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetMeResponse parses an HTTP response from a GetMeWithResponse call
 func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -49493,6 +52318,571 @@ func ParseDownloadExportFileResponse(rsp *http.Response) (*DownloadExportFileRes
 			headers.ETag = &value
 		}
 		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListGitConnectionsResponse parses an HTTP response from a ListGitConnectionsWithResponse call
+func ParseListGitConnectionsResponse(rsp *http.Response) (*ListGitConnectionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGitConnectionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GitConnectionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateGitConnectionResponse parses an HTTP response from a CreateGitConnectionWithResponse call
+func ParseCreateGitConnectionResponse(rsp *http.Response) (*CreateGitConnectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateGitConnectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest GitConnection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateGitConnectionResponse201Headers
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeleteGitConnectionResponse parses an HTTP response from a DeleteGitConnectionWithResponse call
+func ParseDeleteGitConnectionResponse(rsp *http.Response) (*DeleteGitConnectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGitConnectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGitConnectionResponse parses an HTTP response from a GetGitConnectionWithResponse call
+func ParseGetGitConnectionResponse(rsp *http.Response) (*GetGitConnectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGitConnectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GitConnection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetGitConnectionResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseUpdateGitConnectionResponse parses an HTTP response from a UpdateGitConnectionWithResponse call
+func ParseUpdateGitConnectionResponse(rsp *http.Response) (*UpdateGitConnectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateGitConnectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GitConnection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers UpdateGitConnectionResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseStartGitHubInstallResponse parses an HTTP response from a StartGitHubInstallWithResponse call
+func ParseStartGitHubInstallResponse(rsp *http.Response) (*StartGitHubInstallResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartGitHubInstallResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest GitHubInstallIntent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGitHubInstallationsResponse parses an HTTP response from a ListGitHubInstallationsWithResponse call
+func ParseListGitHubInstallationsResponse(rsp *http.Response) (*ListGitHubInstallationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGitHubInstallationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GitHubInstallationList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCompleteGitHubInstallResponse parses an HTTP response from a CompleteGitHubInstallWithResponse call
+func ParseCompleteGitHubInstallResponse(rsp *http.Response) (*CompleteGitHubInstallResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CompleteGitHubInstallResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest GitHubInstallation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CompleteGitHubInstallResponse201Headers
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseForgetGitHubInstallationResponse parses an HTTP response from a ForgetGitHubInstallationWithResponse call
+func ParseForgetGitHubInstallationResponse(rsp *http.Response) (*ForgetGitHubInstallationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ForgetGitHubInstallationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
 	}
 
 	return response, nil

@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,6 +36,83 @@ var (
 	// ErrRepositoryNotVisible means the installation cannot see that
 	// repository, so a connection to it would never work.
 	ErrRepositoryNotVisible = errors.New("integration: the installation cannot see that repository")
+
+	// Webhook errors. None of them carries payload content: a delivery
+	// that fails to verify is answered without detail, so an attacker
+	// learns nothing from the answer.
+
+	// ErrWebhookSignature means X-Hub-Signature-256 was missing,
+	// malformed or did not match the raw body.
+	ErrWebhookSignature = errors.New("integration: the webhook signature is missing or invalid")
+	// ErrWebhookTooLarge means the body passed the 5 MB cap.
+	ErrWebhookTooLarge = errors.New("integration: the webhook body is too large")
+	// ErrWebhookHeaders means X-GitHub-Event or X-GitHub-Delivery was
+	// missing.
+	ErrWebhookHeaders = errors.New("integration: the webhook lacks its event or delivery headers")
+	// ErrWebhookIgnored means a verified event or action Glossa does not
+	// act on: acknowledge and drop it.
+	ErrWebhookIgnored = errors.New("integration: the webhook event is not one Glossa handles")
+	// ErrWebhookPayload means a verified payload was not what GitHub
+	// sends for its event.
+	ErrWebhookPayload = errors.New("integration: the webhook payload is malformed")
+)
+
+// WebhookDelivery is a delivery whose signature verified, with the raw
+// body exactly as it was signed.
+type WebhookDelivery struct {
+	// ID is X-GitHub-Delivery, the inbox key.
+	ID string
+	// Event is X-GitHub-Event.
+	Event string
+	Body  []byte
+}
+
+// WebhookVerifier checks a delivery against the App's webhook secret,
+// over the raw body before anything parses it.
+type WebhookVerifier interface {
+	Verify(h http.Header, body io.Reader) (WebhookDelivery, error)
+}
+
+// WebhookEvent is a verified payload reduced to what the worker acts
+// on, so the application layer never sees GitHub's own shapes.
+type WebhookEvent struct {
+	Event, Action  string
+	InstallationID int64
+	// Account is the installation's account (`installation` events).
+	AccountID    int64
+	AccountLogin string
+	AccountType  string
+	// RepositoryID is the repository the event happened in.
+	RepositoryID int64
+	// Repositories added to or removed from the installation.
+	RepositoriesAdded   []int64
+	RepositoriesRemoved []int64
+	// Pull request, on `pull_request` events.
+	PullRequest int
+	HeadRef     string
+	HeadSHA     string
+	Merged      bool
+	FromFork    bool
+	// Check run, on `check_run.rerequested`. The check worker is a later
+	// slice (RFC 0004 §6.4); these are what it will read.
+	CheckRunID   int64
+	CheckRunName string
+}
+
+// WebhookEvents parses a verified delivery. ErrWebhookIgnored is an
+// event or action Glossa does not handle; ErrWebhookPayload is one that
+// lacks the IDs Glossa keys on.
+type WebhookEvents interface {
+	Parse(d WebhookDelivery) (WebhookEvent, error)
+}
+
+// Delivery outcomes, as the §11 metrics label them.
+const (
+	DeliveryAccepted     = "accepted"
+	DeliveryDuplicate    = "duplicate"
+	DeliveryRejected     = "rejected"
+	DeliveryOversized    = "too_large"
+	DeliveryUnconfigured = "unconfigured"
 )
 
 // InstallIntent is a started installation: the state Studio carries to

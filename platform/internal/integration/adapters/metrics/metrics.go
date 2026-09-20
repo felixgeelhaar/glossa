@@ -1,13 +1,13 @@
 // Package metrics records the Integration context in Prometheus
-// (RFC 0004 §11). It covers what the adapters already report: the
-// GitHub App's calls, by status, with the rate limit the API last left
-// the installation.
+// (RFC 0004 §11): the GitHub App's calls, by status, with the rate
+// limit the API last left the installation, and the webhook side —
+// deliveries by event and outcome, the inbox's depth, and how long a
+// handler took.
 //
-// The other §11 series — webhook deliveries by event and outcome, and
-// check latency from the pull-request event to the completed check —
-// wait for the webhook inbox and the check worker. There is nothing to
-// count until they exist, and a collector with no source would only
-// publish a series that never moves.
+// The remaining §11 series, check latency from the pull-request event
+// to the completed check, waits for the check worker (§6.4). There is
+// nothing to count until it exists, and a collector with no source
+// would only publish a series that never moves.
 package metrics
 
 import (
