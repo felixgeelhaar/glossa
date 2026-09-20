@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
@@ -52,6 +53,12 @@ type Settings struct {
 	// current usages falls back to. main unless the project says
 	// otherwise; a Git connection will set it.
 	DefaultBranch BranchName `json:"default_branch"`
+	// CheckPolicy is what `glossa check` and the Glossa PR check decide
+	// by (RFC 0004 §6.4): which locales must be complete, which
+	// severity fails, and whether an untranslated key is an error. nil
+	// is the documented default — every locale, errors fail — and is
+	// what a project written before the setting existed reads as.
+	CheckPolicy *checkpolicy.Policy `json:"check_policy,omitempty"`
 }
 
 // DefaultBranch is a new project's default branch.
@@ -62,23 +69,60 @@ func DefaultSettings() Settings {
 	return Settings{DefaultSyntax: mfcontent.MF1, ReviewRequired: true, DefaultBranch: DefaultBranch}
 }
 
-// Validate checks every member.
-func (s Settings) Validate() error {
-	_, err := mfcontent.ParseSyntax(string(s.DefaultSyntax), "")
-	if err != nil || s.DefaultSyntax == "" {
-		return fmt.Errorf("%w: default_syntax", mfcontent.ErrInvalidSyntax)
+// Policy is the project's check policy, the default when it stores
+// none. The zero policy *is* that default, so there is one answer here,
+// not two.
+func (s Settings) Policy() checkpolicy.Policy {
+	if s.CheckPolicy == nil {
+		return checkpolicy.Policy{}
 	}
-	if _, err := ParseBranchName(string(s.DefaultBranch)); err != nil {
-		return fmt.Errorf("default_branch: %w", err)
-	}
-	return nil
+	return *s.CheckPolicy
 }
 
-// orDefaultBranch fills an unset default branch with current: settings
-// written without one keep the project's.
-func (s Settings) orDefaultBranch(current BranchName) Settings {
+// Validate checks every member. known is the project's locales for the
+// check policy's required ones; nil skips that check (see
+// checkpolicy.Policy.Validate).
+func (s Settings) Validate(known []string) (Settings, error) {
+	_, err := mfcontent.ParseSyntax(string(s.DefaultSyntax), "")
+	if err != nil || s.DefaultSyntax == "" {
+		return s, fmt.Errorf("%w: default_syntax", mfcontent.ErrInvalidSyntax)
+	}
+	if _, err := ParseBranchName(string(s.DefaultBranch)); err != nil {
+		return s, fmt.Errorf("default_branch: %w", err)
+	}
+	if s.CheckPolicy != nil {
+		p, err := s.CheckPolicy.Validate(known)
+		if err != nil {
+			return s, err
+		}
+		s.CheckPolicy = &p
+	}
+	return s, nil
+}
+
+// Equal compares settings by value: CheckPolicy is a pointer, so ==
+// would compare two equal policies as different.
+func (s Settings) Equal(o Settings) bool {
+	if s.DefaultSyntax != o.DefaultSyntax || s.ReviewRequired != o.ReviewRequired ||
+		s.DefaultBranch != o.DefaultBranch {
+		return false
+	}
+	if (s.CheckPolicy == nil) != (o.CheckPolicy == nil) {
+		// One stores the default and the other does not. They decide the
+		// same way today, but the project says different things.
+		return false
+	}
+	return s.CheckPolicy == nil || s.CheckPolicy.Equal(*o.CheckPolicy)
+}
+
+// orCurrent fills the members a write left out with the project's:
+// settings written without a default branch or check policy keep them.
+func (s Settings) orCurrent(current Settings) Settings {
 	if s.DefaultBranch == "" {
-		s.DefaultBranch = current
+		s.DefaultBranch = current.DefaultBranch
+	}
+	if s.CheckPolicy == nil {
+		s.CheckPolicy = current.CheckPolicy
 	}
 	return s
 }
@@ -99,7 +143,11 @@ type Project struct {
 	UpdatedAt time.Time
 }
 
-// NewProject creates a project.
+// NewProject creates a project. A check policy set at creation is
+// checked for shape only: the project has no locales yet, so there is
+// nothing to require a locale against. The first update validates it
+// against them, and the check itself reports a locale the project does
+// not have as missing-locale.
 func NewProject(tenant tenancy.ID, slug Slug, name string, source bcp47.Tag, settings Settings, now time.Time) (Project, error) {
 	if _, err := ParseName(name); err != nil {
 		return Project{}, err
@@ -107,8 +155,9 @@ func NewProject(tenant tenancy.ID, slug Slug, name string, source bcp47.Tag, set
 	if source.IsZero() {
 		return Project{}, bcp47.ErrInvalid
 	}
-	settings = settings.orDefaultBranch(DefaultBranch)
-	if err := settings.Validate(); err != nil {
+	settings = settings.orCurrent(Settings{DefaultBranch: DefaultBranch})
+	settings, err := settings.Validate(nil)
+	if err != nil {
 		return Project{}, err
 	}
 	return Project{
@@ -124,8 +173,10 @@ type ProjectChange struct {
 	Settings *Settings
 }
 
-// Change applies c and reports whether anything changed.
-func (p *Project) Change(c ProjectChange, now time.Time) (bool, error) {
+// Change applies c and reports whether anything changed. known is the
+// project's locales, which a check policy's required ones must be
+// among; nil skips that check.
+func (p *Project) Change(c ProjectChange, known []string, now time.Time) (bool, error) {
 	next := *p
 	if c.Slug != nil {
 		next.Slug = *c.Slug
@@ -137,13 +188,13 @@ func (p *Project) Change(c ProjectChange, now time.Time) (bool, error) {
 		next.Name = *c.Name
 	}
 	if c.Settings != nil {
-		settings := c.Settings.orDefaultBranch(p.Settings.DefaultBranch)
-		if err := settings.Validate(); err != nil {
+		settings, err := c.Settings.orCurrent(p.Settings).Validate(known)
+		if err != nil {
 			return false, err
 		}
 		next.Settings = settings
 	}
-	if next.Slug == p.Slug && next.Name == p.Name && next.Settings == p.Settings {
+	if next.Slug == p.Slug && next.Name == p.Name && next.Settings.Equal(p.Settings) {
 		return false, nil
 	}
 	next.Version++

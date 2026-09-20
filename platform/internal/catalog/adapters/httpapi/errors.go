@@ -7,6 +7,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/idempotency"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
@@ -40,6 +41,8 @@ var problems = []struct {
 	{app.ErrCoverageFilter, 400, "coverage_filter_conflict", "use missing_in or outdated_in, not both"},
 	{app.ErrNoCoverage, 503, problem.CodeUnavailable, "translation coverage is not available"},
 	{idempotency.ErrInvalidKey, 400, "invalid_idempotency_key", ""},
+	{checkpolicy.ErrInvalidSeverity, 400, "invalid_check_policy", ""},
+	{checkpolicy.ErrUnknownLocale, 400, "invalid_check_policy", ""},
 	{bcp47.ErrInvalid, 400, "invalid_locale", ""},
 	{mfcontent.ErrInvalidSyntax, 400, "invalid_syntax", ""},
 	{mfcontent.ErrTooLong, 400, "message_too_long", ""},

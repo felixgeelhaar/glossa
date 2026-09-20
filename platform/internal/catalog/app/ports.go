@@ -147,6 +147,16 @@ type Scanner interface {
 	TenantsWithExpiredProposals(ctx context.Context, cutoff time.Time, limit int) ([]tenancy.ID, error)
 }
 
+// ProjectLocales is Localization's list of a project's locale codes,
+// the source locale included. A project's check policy names the
+// locales that must be complete, and Catalog validates them against
+// this rather than against its own tables: locales are Localization's
+// (RFC 0002 §4). The composition root wires it in; without one, a
+// policy's locales are checked for shape only.
+type ProjectLocales interface {
+	LocaleCodes(ctx context.Context, project domain.ProjectID) ([]string, error)
+}
+
 // TranslationImpact is Localization's count, per locale, of the current
 // (not outdated, not rejected) translations of some messages: the ones
 // a change to their source will make outdated. The composition root

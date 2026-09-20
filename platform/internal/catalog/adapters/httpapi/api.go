@@ -7,13 +7,17 @@ package httpapi
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1/apiconv"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
@@ -41,14 +45,75 @@ func toProject(p domain.Project) apiv1.Project {
 		Settings: apiv1.ProjectSettings{
 			DefaultSyntax: apiv1.Syntax(p.Settings.DefaultSyntax), ReviewRequired: p.Settings.ReviewRequired,
 			DefaultBranch: apiconv.Ptr(string(p.Settings.DefaultBranch)),
+			CheckPolicy:   apiconv.Ptr(toCheckPolicy(p.Settings.Policy())),
 		},
 		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 	}
 }
 
+// toCheckPolicy renders the policy the wire's way: the three modes of
+// require_complete spelled out, where the domain has nil for "all" and
+// an empty slice for "none".
+func toCheckPolicy(p checkpolicy.Policy) apiv1.CheckPolicy {
+	out := apiv1.CheckPolicy{
+		RequireComplete:     apiv1.CheckPolicyRequireCompleteAll,
+		FailOn:              apiv1.CheckPolicyFailOn(orDefault(p.FailOn, checkpolicy.Error)),
+		MissingTranslations: apiv1.CheckPolicyMissingTranslations(orDefault(p.MissingTranslations, checkpolicy.Error)),
+		Locales:             apiconv.Ptr([]apiv1.Locale{}),
+	}
+	switch {
+	case p.RequireComplete == nil:
+	case len(p.RequireComplete) == 0:
+		out.RequireComplete = apiv1.CheckPolicyRequireCompleteNone
+	default:
+		out.RequireComplete = apiv1.CheckPolicyRequireCompleteListed
+		out.Locales = apiconv.Ptr(append([]apiv1.Locale{}, p.RequireComplete...))
+	}
+	return out
+}
+
+func orDefault(s, fallback checkpolicy.Severity) checkpolicy.Severity {
+	if s == "" {
+		return fallback
+	}
+	return s
+}
+
+// fromCheckPolicy reads a policy from a request. `listed` with no
+// locales is `none`: an empty list of locales that must be complete is
+// exactly no locale having to be.
+func fromCheckPolicy(p *apiv1.CheckPolicy) (*checkpolicy.Policy, error) {
+	if p == nil {
+		return nil, nil
+	}
+	out := checkpolicy.Policy{
+		FailOn: checkpolicy.Severity(p.FailOn), MissingTranslations: checkpolicy.Severity(p.MissingTranslations),
+	}
+	switch p.RequireComplete {
+	case apiv1.CheckPolicyRequireCompleteAll:
+	case apiv1.CheckPolicyRequireCompleteNone:
+		out.RequireComplete = []string{}
+	case apiv1.CheckPolicyRequireCompleteListed:
+		out.RequireComplete = []string{}
+		if p.Locales != nil {
+			for _, l := range *p.Locales {
+				tag, err := bcp47.Parse(l)
+				if err != nil {
+					return nil, mapError(err)
+				}
+				out.RequireComplete = append(out.RequireComplete, tag.String())
+			}
+		}
+	default:
+		return nil, problem.New(http.StatusBadRequest, "invalid_check_policy",
+			"require_complete is all, listed or none")
+	}
+	return &out, nil
+}
+
 // fromSettings reads settings from a request. An absent default_branch
-// keeps the project's (a new project gets main); an empty one is
-// invalid.
+// or check_policy keeps the project's (a new project gets main and the
+// default policy); an empty default branch is invalid.
 func fromSettings(s *apiv1.ProjectSettings) (*domain.Settings, error) {
 	if s == nil {
 		return nil, nil
@@ -61,6 +126,11 @@ func fromSettings(s *apiv1.ProjectSettings) (*domain.Settings, error) {
 		}
 		out.DefaultBranch = b
 	}
+	policy, err := fromCheckPolicy(s.CheckPolicy)
+	if err != nil {
+		return nil, err
+	}
+	out.CheckPolicy = policy
 	return out, nil
 }
 

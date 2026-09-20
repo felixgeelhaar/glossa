@@ -513,6 +513,66 @@ func (e CapturesManifestSchema) Valid() bool {
 	}
 }
 
+// Defines values for CheckPolicyFailOn.
+const (
+	CheckPolicyFailOnError   CheckPolicyFailOn = "error"
+	CheckPolicyFailOnNever   CheckPolicyFailOn = "never"
+	CheckPolicyFailOnWarning CheckPolicyFailOn = "warning"
+)
+
+// Valid indicates whether the value is a known member of the CheckPolicyFailOn enum.
+func (e CheckPolicyFailOn) Valid() bool {
+	switch e {
+	case CheckPolicyFailOnError:
+		return true
+	case CheckPolicyFailOnNever:
+		return true
+	case CheckPolicyFailOnWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CheckPolicyMissingTranslations.
+const (
+	CheckPolicyMissingTranslationsError   CheckPolicyMissingTranslations = "error"
+	CheckPolicyMissingTranslationsWarning CheckPolicyMissingTranslations = "warning"
+)
+
+// Valid indicates whether the value is a known member of the CheckPolicyMissingTranslations enum.
+func (e CheckPolicyMissingTranslations) Valid() bool {
+	switch e {
+	case CheckPolicyMissingTranslationsError:
+		return true
+	case CheckPolicyMissingTranslationsWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CheckPolicyRequireComplete.
+const (
+	CheckPolicyRequireCompleteAll    CheckPolicyRequireComplete = "all"
+	CheckPolicyRequireCompleteListed CheckPolicyRequireComplete = "listed"
+	CheckPolicyRequireCompleteNone   CheckPolicyRequireComplete = "none"
+)
+
+// Valid indicates whether the value is a known member of the CheckPolicyRequireComplete enum.
+func (e CheckPolicyRequireComplete) Valid() bool {
+	switch e {
+	case CheckPolicyRequireCompleteAll:
+		return true
+	case CheckPolicyRequireCompleteListed:
+		return true
+	case CheckPolicyRequireCompleteNone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContextSource.
 const (
 	Capture ContextSource = "capture"
@@ -2724,6 +2784,59 @@ type CapturesManifestRender struct {
 	Locale string `json:"locale"`
 }
 
+// CheckPolicy What `glossa check` and the Glossa pull-request check decide by
+// (RFC 0004 §6.4). Both read this one policy, so the terminal and
+// the pull request never disagree.
+//
+// A pull request fails when the check finds something at or above
+// `fail_on`. A key with no translation in a locale that must be
+// complete is a `missing_translations` finding; a key with no
+// translation in any other locale is always a warning.
+type CheckPolicy struct {
+	// FailOn The lowest severity that fails the check: `error` (the
+	// default), `warning` — a warning fails it too — or `never`,
+	// where the check only ever reports.
+	FailOn CheckPolicyFailOn `json:"fail_on"`
+
+	// Locales The locales `require_complete: listed` names; empty
+	// otherwise. Every one must be a locale the project has
+	// (`invalid_check_policy`).
+	Locales *[]Locale `json:"locales,omitempty"`
+
+	// MissingTranslations What an untranslated key in a locale that must be complete
+	// is: an `error` (the default), which fails the check, or a
+	// `warning`, which does not unless `fail_on` is `warning`.
+	// Teams that translate after merging set this to `warning` and
+	// keep every locale required: the check still lists what is
+	// untranslated without blocking the pull request.
+	MissingTranslations CheckPolicyMissingTranslations `json:"missing_translations"`
+
+	// RequireComplete Which locales must be complete: every one of the project's
+	// (`all`, the default), only those in `locales` (`listed`), or
+	// none of them. `listed` with an empty `locales` is stored as
+	// `none`.
+	RequireComplete CheckPolicyRequireComplete `json:"require_complete"`
+}
+
+// CheckPolicyFailOn The lowest severity that fails the check: `error` (the
+// default), `warning` — a warning fails it too — or `never`,
+// where the check only ever reports.
+type CheckPolicyFailOn string
+
+// CheckPolicyMissingTranslations What an untranslated key in a locale that must be complete
+// is: an `error` (the default), which fails the check, or a
+// `warning`, which does not unless `fail_on` is `warning`.
+// Teams that translate after merging set this to `warning` and
+// keep every locale required: the check still lists what is
+// untranslated without blocking the pull request.
+type CheckPolicyMissingTranslations string
+
+// CheckPolicyRequireComplete Which locales must be complete: every one of the project's
+// (`all`, the default), only those in `locales` (`listed`), or
+// none of them. `listed` with an empty `locales` is stored as
+// `none`.
+type CheckPolicyRequireComplete string
+
 // ContextBuild One upload of usages for one application at one commit.
 type ContextBuild struct {
 	// ApplicationId An opaque identifier.
@@ -4296,6 +4409,11 @@ type ProjectLocale struct {
 
 // ProjectSettings defines model for ProjectSettings.
 type ProjectSettings struct {
+	// CheckPolicy The project's check policy. Always present in responses (the
+	// default when the project has never set one); absent in a
+	// write, the project keeps its current one.
+	CheckPolicy *CheckPolicy `json:"check_policy,omitempty"`
+
 	// DefaultBranch The repository's default branch (`main` unless set): usage
 	// uploads of it are what every view of the current usages falls
 	// back to (RFC 0004 §2.2). A valid Git branch name
@@ -8559,9 +8677,12 @@ type ClientInterface interface {
 
 	// CreateProjectWithBody Create a project
 	//
-	// The source locale is fixed at creation. Needs `catalog.write`.
-	// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-	// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
+	// The source locale is fixed at creation. A `settings.check_policy`
+	// sent here is checked for shape only — the project has no locales
+	// yet to require one against; the first update checks its locales.
+	// Needs `catalog.write`. Problem codes: `slug_taken` (409),
+	// `invalid_slug`, `invalid_name`, `invalid_locale`,
+	// `invalid_syntax`, `invalid_branch`, `invalid_check_policy` (400).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -8570,9 +8691,12 @@ type ClientInterface interface {
 
 	// CreateProject Create a project
 	//
-	// The source locale is fixed at creation. Needs `catalog.write`.
-	// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-	// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
+	// The source locale is fixed at creation. A `settings.check_policy`
+	// sent here is checked for shape only — the project has no locales
+	// yet to require one against; the first update checks its locales.
+	// Needs `catalog.write`. Problem codes: `slug_taken` (409),
+	// `invalid_slug`, `invalid_name`, `invalid_locale`,
+	// `invalid_syntax`, `invalid_branch`, `invalid_check_policy` (400).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -8598,9 +8722,12 @@ type ClientInterface interface {
 	// UpdateProjectWithBody Rename a project or change its settings
 	//
 	// Members omitted from the body keep their value; the source locale
-	// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-	// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
-	// `invalid_branch` (400).
+	// can't change. A `settings.check_policy` that names locales
+	// (`require_complete: listed`) is checked against the project's own
+	// locales, which needs `translations.read` as well. Needs
+	// `catalog.write`. Problem codes: `slug_taken` (409),
+	// `invalid_slug`, `invalid_name`, `invalid_syntax`,
+	// `invalid_branch`, `invalid_check_policy` (400).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -8610,9 +8737,12 @@ type ClientInterface interface {
 	// UpdateProject Rename a project or change its settings
 	//
 	// Members omitted from the body keep their value; the source locale
-	// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-	// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
-	// `invalid_branch` (400).
+	// can't change. A `settings.check_policy` that names locales
+	// (`require_complete: listed`) is checked against the project's own
+	// locales, which needs `translations.read` as well. Needs
+	// `catalog.write`. Problem codes: `slug_taken` (409),
+	// `invalid_slug`, `invalid_name`, `invalid_syntax`,
+	// `invalid_branch`, `invalid_check_policy` (400).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -13173,9 +13303,12 @@ func (c *Client) ListProjects(ctx context.Context, tenant TenantPath, params *Li
 
 // CreateProjectWithBody Create a project
 //
-// The source locale is fixed at creation. Needs `catalog.write`.
-// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
+// The source locale is fixed at creation. A `settings.check_policy`
+// sent here is checked for shape only — the project has no locales
+// yet to require one against; the first update checks its locales.
+// Needs `catalog.write`. Problem codes: `slug_taken` (409),
+// `invalid_slug`, `invalid_name`, `invalid_locale`,
+// `invalid_syntax`, `invalid_branch`, `invalid_check_policy` (400).
 //
 // Takes any type of body and a specified content type.
 //
@@ -13194,9 +13327,12 @@ func (c *Client) CreateProjectWithBody(ctx context.Context, tenant TenantPath, p
 
 // CreateProject Create a project
 //
-// The source locale is fixed at creation. Needs `catalog.write`.
-// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
+// The source locale is fixed at creation. A `settings.check_policy`
+// sent here is checked for shape only — the project has no locales
+// yet to require one against; the first update checks its locales.
+// Needs `catalog.write`. Problem codes: `slug_taken` (409),
+// `invalid_slug`, `invalid_name`, `invalid_locale`,
+// `invalid_syntax`, `invalid_branch`, `invalid_check_policy` (400).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -13252,9 +13388,12 @@ func (c *Client) GetProject(ctx context.Context, tenant TenantPath, project Proj
 // UpdateProjectWithBody Rename a project or change its settings
 //
 // Members omitted from the body keep their value; the source locale
-// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
-// `invalid_branch` (400).
+// can't change. A `settings.check_policy` that names locales
+// (`require_complete: listed`) is checked against the project's own
+// locales, which needs `translations.read` as well. Needs
+// `catalog.write`. Problem codes: `slug_taken` (409),
+// `invalid_slug`, `invalid_name`, `invalid_syntax`,
+// `invalid_branch`, `invalid_check_policy` (400).
 //
 // Takes any type of body and a specified content type.
 //
@@ -13274,9 +13413,12 @@ func (c *Client) UpdateProjectWithBody(ctx context.Context, tenant TenantPath, p
 // UpdateProject Rename a project or change its settings
 //
 // Members omitted from the body keep their value; the source locale
-// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
-// `invalid_branch` (400).
+// can't change. A `settings.check_policy` that names locales
+// (`require_complete: listed`) is checked against the project's own
+// locales, which needs `translations.read` as well. Needs
+// `catalog.write`. Problem codes: `slug_taken` (409),
+// `invalid_slug`, `invalid_name`, `invalid_syntax`,
+// `invalid_branch`, `invalid_check_policy` (400).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -30281,9 +30423,12 @@ type ClientWithResponsesInterface interface {
 
 	// CreateProjectWithBodyWithResponse Create a project
 	//
-	// The source locale is fixed at creation. Needs `catalog.write`.
-	// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-	// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
+	// The source locale is fixed at creation. A `settings.check_policy`
+	// sent here is checked for shape only — the project has no locales
+	// yet to require one against; the first update checks its locales.
+	// Needs `catalog.write`. Problem codes: `slug_taken` (409),
+	// `invalid_slug`, `invalid_name`, `invalid_locale`,
+	// `invalid_syntax`, `invalid_branch`, `invalid_check_policy` (400).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -30292,9 +30437,12 @@ type ClientWithResponsesInterface interface {
 
 	// CreateProjectWithResponse Create a project
 	//
-	// The source locale is fixed at creation. Needs `catalog.write`.
-	// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-	// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
+	// The source locale is fixed at creation. A `settings.check_policy`
+	// sent here is checked for shape only — the project has no locales
+	// yet to require one against; the first update checks its locales.
+	// Needs `catalog.write`. Problem codes: `slug_taken` (409),
+	// `invalid_slug`, `invalid_name`, `invalid_locale`,
+	// `invalid_syntax`, `invalid_branch`, `invalid_check_policy` (400).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -30324,9 +30472,12 @@ type ClientWithResponsesInterface interface {
 	// UpdateProjectWithBodyWithResponse Rename a project or change its settings
 	//
 	// Members omitted from the body keep their value; the source locale
-	// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-	// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
-	// `invalid_branch` (400).
+	// can't change. A `settings.check_policy` that names locales
+	// (`require_complete: listed`) is checked against the project's own
+	// locales, which needs `translations.read` as well. Needs
+	// `catalog.write`. Problem codes: `slug_taken` (409),
+	// `invalid_slug`, `invalid_name`, `invalid_syntax`,
+	// `invalid_branch`, `invalid_check_policy` (400).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -30336,9 +30487,12 @@ type ClientWithResponsesInterface interface {
 	// UpdateProjectWithResponse Rename a project or change its settings
 	//
 	// Members omitted from the body keep their value; the source locale
-	// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-	// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
-	// `invalid_branch` (400).
+	// can't change. A `settings.check_policy` that names locales
+	// (`require_complete: listed`) is checked against the project's own
+	// locales, which needs `translations.read` as well. Needs
+	// `catalog.write`. Problem codes: `slug_taken` (409),
+	// `invalid_slug`, `invalid_name`, `invalid_syntax`,
+	// `invalid_branch`, `invalid_check_policy` (400).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -48146,9 +48300,12 @@ func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, tena
 
 // CreateProjectWithBodyWithResponse Create a project
 //
-// The source locale is fixed at creation. Needs `catalog.write`.
-// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
+// The source locale is fixed at creation. A `settings.check_policy`
+// sent here is checked for shape only — the project has no locales
+// yet to require one against; the first update checks its locales.
+// Needs `catalog.write`. Problem codes: `slug_taken` (409),
+// `invalid_slug`, `invalid_name`, `invalid_locale`,
+// `invalid_syntax`, `invalid_branch`, `invalid_check_policy` (400).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -48163,9 +48320,12 @@ func (c *ClientWithResponses) CreateProjectWithBodyWithResponse(ctx context.Cont
 
 // CreateProjectWithResponse Create a project
 //
-// The source locale is fixed at creation. Needs `catalog.write`.
-// Problem codes: `slug_taken` (409), `invalid_slug`, `invalid_name`,
-// `invalid_locale`, `invalid_syntax`, `invalid_branch` (400).
+// The source locale is fixed at creation. A `settings.check_policy`
+// sent here is checked for shape only — the project has no locales
+// yet to require one against; the first update checks its locales.
+// Needs `catalog.write`. Problem codes: `slug_taken` (409),
+// `invalid_slug`, `invalid_name`, `invalid_locale`,
+// `invalid_syntax`, `invalid_branch`, `invalid_check_policy` (400).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -48213,9 +48373,12 @@ func (c *ClientWithResponses) GetProjectWithResponse(ctx context.Context, tenant
 // UpdateProjectWithBodyWithResponse Rename a project or change its settings
 //
 // Members omitted from the body keep their value; the source locale
-// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
-// `invalid_branch` (400).
+// can't change. A `settings.check_policy` that names locales
+// (`require_complete: listed`) is checked against the project's own
+// locales, which needs `translations.read` as well. Needs
+// `catalog.write`. Problem codes: `slug_taken` (409),
+// `invalid_slug`, `invalid_name`, `invalid_syntax`,
+// `invalid_branch`, `invalid_check_policy` (400).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -48231,9 +48394,12 @@ func (c *ClientWithResponses) UpdateProjectWithBodyWithResponse(ctx context.Cont
 // UpdateProjectWithResponse Rename a project or change its settings
 //
 // Members omitted from the body keep their value; the source locale
-// can't change. Needs `catalog.write`. Problem codes: `slug_taken`
-// (409), `invalid_slug`, `invalid_name`, `invalid_syntax`,
-// `invalid_branch` (400).
+// can't change. A `settings.check_policy` that names locales
+// (`require_complete: listed`) is checked against the project's own
+// locales, which needs `translations.read` as well. Needs
+// `catalog.write`. Problem codes: `slug_taken` (409),
+// `invalid_slug`, `invalid_name`, `invalid_syntax`,
+// `invalid_branch`, `invalid_check_policy` (400).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //

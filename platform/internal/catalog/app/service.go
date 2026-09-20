@@ -20,6 +20,7 @@ type Service struct {
 	coverage   TranslationCoverage
 	projection MessageProjection
 	impact     TranslationImpact
+	locales    ProjectLocales
 	scanner    Scanner
 	now        func() time.Time
 }
@@ -51,6 +52,11 @@ func (s *Service) SetCoverage(c TranslationCoverage) { s.coverage = c }
 // SetProjection wires the message projection a bulk upsert updates in
 // its transaction. The composition root calls it once at startup.
 func (s *Service) SetProjection(p MessageProjection) { s.projection = p }
+
+// SetLocales wires the port a check policy's required locales are
+// validated against. The composition root calls it once at startup;
+// without one, they are checked for shape only.
+func (s *Service) SetLocales(l ProjectLocales) { s.locales = l }
 
 // SetImpact wires the translation impact port a branch's status report
 // counts outdated translations with. The composition root calls it once

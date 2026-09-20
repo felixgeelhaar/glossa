@@ -6,6 +6,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
@@ -33,11 +34,11 @@ func TestProjectChange(t *testing.T) {
 	p, _ := domain.NewProject(tenancy.NewID(), "brotwerk", "Brotwerk", en, domain.DefaultSettings(), t0)
 	name := "Brotwerk Web"
 	settings := domain.Settings{DefaultSyntax: mfcontent.MF2}
-	changed, err := p.Change(domain.ProjectChange{Name: &name, Settings: &settings}, t0)
+	changed, err := p.Change(domain.ProjectChange{Name: &name, Settings: &settings}, nil, t0)
 	if err != nil || !changed || p.Version != 2 || p.Name != name || p.Settings.ReviewRequired {
 		t.Fatalf("change: %v %v %+v", changed, err, p)
 	}
-	if changed, _ := p.Change(domain.ProjectChange{Name: &name}, t0); changed || p.Version != 2 {
+	if changed, _ := p.Change(domain.ProjectChange{Name: &name}, nil, t0); changed || p.Version != 2 {
 		t.Error("no-op change bumped the version")
 	}
 }
@@ -52,21 +53,74 @@ func TestProjectDefaultBranch(t *testing.T) {
 	}
 	// Settings without a default branch keep the current one.
 	trunk := domain.Settings{DefaultSyntax: mfcontent.MF1, DefaultBranch: "trunk"}
-	if changed, err := p.Change(domain.ProjectChange{Settings: &trunk}, t0); err != nil || !changed || p.Settings.DefaultBranch != "trunk" {
+	if changed, err := p.Change(domain.ProjectChange{Settings: &trunk}, nil, t0); err != nil || !changed || p.Settings.DefaultBranch != "trunk" {
 		t.Fatalf("set trunk: %v %v %+v", changed, err, p.Settings)
 	}
 	keep := domain.Settings{DefaultSyntax: mfcontent.MF1}
-	if changed, err := p.Change(domain.ProjectChange{Settings: &keep}, t0); err != nil || changed || p.Settings.DefaultBranch != "trunk" {
+	if changed, err := p.Change(domain.ProjectChange{Settings: &keep}, nil, t0); err != nil || changed || p.Settings.DefaultBranch != "trunk" {
 		t.Errorf("settings without default_branch: %v %v %+v", changed, err, p.Settings)
 	}
 	for _, bad := range []string{"feat/.hidden", "a b", "x..y", "@", "main.lock"} {
 		s := domain.Settings{DefaultSyntax: mfcontent.MF1, DefaultBranch: domain.BranchName(bad)}
-		if _, err := p.Change(domain.ProjectChange{Settings: &s}, t0); !errors.Is(err, domain.ErrInvalidBranchName) {
+		if _, err := p.Change(domain.ProjectChange{Settings: &s}, nil, t0); !errors.Is(err, domain.ErrInvalidBranchName) {
 			t.Errorf("default branch %q: %v, want ErrInvalidBranchName", bad, err)
 		}
 		if _, err := domain.NewProject(tenancy.NewID(), "x", "X", en, s, t0); !errors.Is(err, domain.ErrInvalidBranchName) {
 			t.Errorf("new project with default branch %q: %v", bad, err)
 		}
+	}
+}
+
+func TestProjectCheckPolicy(t *testing.T) {
+	p, err := domain.NewProject(tenancy.NewID(), "brotwerk", "Brotwerk", en, domain.DefaultSettings(), t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A project that has never set one reads as the documented default.
+	if p.Settings.CheckPolicy != nil {
+		t.Errorf("new project stores a policy: %+v", p.Settings.CheckPolicy)
+	}
+	if got := p.Settings.Policy(); !got.Requires("de") || !got.Fails(checkpolicy.Error) || got.Fails(checkpolicy.Warning) {
+		t.Errorf("default policy = %+v", got)
+	}
+
+	known := []string{"en", "de"}
+	warn := domain.Settings{DefaultSyntax: mfcontent.MF1, CheckPolicy: &checkpolicy.Policy{
+		RequireComplete: []string{"de"}, MissingTranslations: checkpolicy.Warning,
+	}}
+	changed, err := p.Change(domain.ProjectChange{Settings: &warn}, known, t0)
+	if err != nil || !changed {
+		t.Fatalf("set the policy: %v %v", changed, err)
+	}
+	if got := p.Settings.Policy(); got.Severity("de") != checkpolicy.Warning || got.FailOn != checkpolicy.Error {
+		t.Errorf("stored policy = %+v", got)
+	}
+
+	// Settings without a check policy keep the project's, as
+	// default_branch does; the same policy again changes nothing.
+	keep := domain.Settings{DefaultSyntax: mfcontent.MF1}
+	if changed, err := p.Change(domain.ProjectChange{Settings: &keep}, known, t0); err != nil || changed {
+		t.Errorf("settings without check_policy: %v %v", changed, err)
+	}
+	if !p.Settings.Policy().Requires("de") {
+		t.Errorf("policy lost: %+v", p.Settings.Policy())
+	}
+	again := domain.Settings{DefaultSyntax: mfcontent.MF1, CheckPolicy: &checkpolicy.Policy{
+		RequireComplete: []string{"de"}, MissingTranslations: checkpolicy.Warning, FailOn: checkpolicy.Error,
+	}}
+	if changed, err := p.Change(domain.ProjectChange{Settings: &again}, known, t0); err != nil || changed {
+		t.Errorf("the same policy again: %v %v", changed, err)
+	}
+
+	// A locale the project does not have is refused.
+	bad := domain.Settings{DefaultSyntax: mfcontent.MF1, CheckPolicy: &checkpolicy.Policy{RequireComplete: []string{"ja"}}}
+	if _, err := p.Change(domain.ProjectChange{Settings: &bad}, known, t0); !errors.Is(err, checkpolicy.ErrUnknownLocale) {
+		t.Errorf("unknown locale: %v, want ErrUnknownLocale", err)
+	}
+	// ... and so is a severity that is not one.
+	nonsense := domain.Settings{DefaultSyntax: mfcontent.MF1, CheckPolicy: &checkpolicy.Policy{FailOn: "fatal"}}
+	if _, err := p.Change(domain.ProjectChange{Settings: &nonsense}, known, t0); !errors.Is(err, checkpolicy.ErrInvalidSeverity) {
+		t.Errorf("bad fail_on: %v, want ErrInvalidSeverity", err)
 	}
 }
 

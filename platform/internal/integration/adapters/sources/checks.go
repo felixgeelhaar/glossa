@@ -63,16 +63,21 @@ func NewChecks(d ChecksDeps) *Checks {
 
 var _ app.CheckSources = (*Checks)(nil)
 
-// Policy implements app.CheckSources.
+// Policy implements app.CheckSources: the project's stored check
+// policy (Catalog's settings.check_policy).
 //
 // The policy is `glossa check`'s, shared through kernel/checkpolicy so
-// the pull request and the terminal never disagree. Its zero value is
-// the command's own default with no `glossa.yaml`: every locale must be
-// complete, and errors fail. A project that wants another one will
-// store it here — this is the seam, and it is the only one, because a
-// second policy is the failure mode worth avoiding.
-func (c *Checks) Policy(context.Context, uuid.UUID) (checkpolicy.Policy, error) {
-	return checkpolicy.Policy{}, nil
+// the pull request and the terminal never disagree — and read from the
+// project, so they agree about the same settings rather than by both
+// falling back to the same defaults. A project that has never set one
+// reads as the zero policy, which is the documented default: every
+// locale must be complete, and errors fail.
+func (c *Checks) Policy(ctx context.Context, project uuid.UUID) (checkpolicy.Policy, error) {
+	p, err := c.catalog.GetProject(ctx, catalogdomain.ProjectID(project))
+	if err != nil {
+		return checkpolicy.Policy{}, err
+	}
+	return p.Settings.Policy(), nil
 }
 
 // BranchStatus implements app.CheckSources.

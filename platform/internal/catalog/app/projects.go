@@ -122,6 +122,13 @@ func (s *Service) UpdateProject(ctx context.Context, id domain.ProjectID, ifMatc
 	if err != nil {
 		return domain.Project{}, err
 	}
+	// The locales come from Localization, whose service runs its own
+	// transaction, so they are read before this one opens rather than
+	// inside it (Transactor: calls don't nest).
+	known, err := s.requiredLocales(ctx, id, c.Settings)
+	if err != nil {
+		return domain.Project{}, err
+	}
 	var p domain.Project
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		if p, err = st.LockProject(ctx, id); err != nil {
@@ -130,7 +137,7 @@ func (s *Service) UpdateProject(ctx context.Context, id domain.ProjectID, ifMatc
 		if p.Version != ifMatch {
 			return ErrPreconditionFailed
 		}
-		changed, err := p.Change(c, s.now())
+		changed, err := p.Change(c, known, s.now())
 		if err != nil || !changed {
 			return err
 		}
@@ -140,6 +147,21 @@ func (s *Service) UpdateProject(ctx context.Context, id domain.ProjectID, ifMatc
 		return st.Publish(ctx, projectEvent(domain.EventProjectUpdated, p, by))
 	})
 	return p, err
+}
+
+// requiredLocales is the project's locales when the write names locales
+// that must be complete, and nil otherwise.
+//
+// Nothing is read unless a policy actually names one: reading them
+// needs translations.read, which a CI token (catalog.read and
+// catalog.write, nothing else) does not hold, and CI writes projects
+// without ever touching this setting.
+func (s *Service) requiredLocales(ctx context.Context, id domain.ProjectID, settings *domain.Settings) ([]string, error) {
+	if s.locales == nil || settings == nil || settings.CheckPolicy == nil ||
+		len(settings.CheckPolicy.RequireComplete) == 0 {
+		return nil, nil
+	}
+	return s.locales.LocaleCodes(ctx, id)
 }
 
 // DeleteProject deletes a project with its applications, messages and
