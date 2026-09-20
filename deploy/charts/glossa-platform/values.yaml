@@ -507,6 +507,24 @@ github:
   # -- GLOSSA_GITHUB_WEB_URL: where people are sent to authorize the App.
   # Default https://github.com; GHES: https://HOST.
   webUrl: ""
+  ## How CI authenticates: a GitHub Actions run presents an OIDC ID
+  ## token instead of a stored secret (RFC 0004 §6.3). github.com needs
+  ## none of these.
+  oidc:
+    # -- GLOSSA_GITHUB_OIDC_ISSUER: the exact `iss` of the ID tokens.
+    # Default https://token.actions.githubusercontent.com; GHES:
+    # https://HOST/_services/token.
+    issuer: ""
+    # -- GLOSSA_GITHUB_OIDC_AUDIENCE: the `aud` a run must ask GitHub
+    # for. Default `glossa`. Change it only if another service already
+    # uses that name on your runners: GitHub's own default audience is
+    # the repository owner's URL, which any service could be handed.
+    audience: ""
+    # -- GLOSSA_GITHUB_OIDC_MAX_STALE: how long a cached key set keeps
+    # verifying while refetches fail (the issuer is unreachable). Past
+    # it, exchanges fail closed until a refetch succeeds, so a key
+    # GitHub revoked cannot stay trusted. Default 24h.
+    maxStale: ""
   credentials:
     # -- REQUIRED with appId. One existing Secret holding all three secret
     # values; the chart never creates it, so there is nowhere here to paste

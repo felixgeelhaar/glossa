@@ -120,6 +120,21 @@ var systemPolicies = map[string][]string{
 		"identity_in_context_grants_system_touch",
 		"identity_in_context_grants_system_sweep",
 	},
+	// A CI token names its own tenant too (RFC 0004 §6.3), so it is
+	// resolved the same way; using one bumps last_used_at, and the sweep
+	// drops the ones past their half hour.
+	"identity_ci_tokens": {
+		"identity_ci_tokens_system_select",
+		"identity_ci_tokens_system_touch",
+		"identity_ci_tokens_system_sweep",
+	},
+	// The GitHub Actions OIDC exchange arrives with no tenant: which
+	// tenant a CI run belongs to is what its verified repository_id
+	// proves, and that mapping is the Git connections (RFC 0004 §6.3).
+	// The read is the mapping columns only — no repository name, no
+	// creator — so a verified run learns which of its own projects it
+	// may act on and nothing about anyone else's.
+	"integration_git_connections": {"integration_git_connections_system_select"},
 	// Identity's global tables are system scope only (see systemTables).
 	"identity_people":              {"identity_people_system"},
 	"identity_sessions":            {"identity_sessions_system"},

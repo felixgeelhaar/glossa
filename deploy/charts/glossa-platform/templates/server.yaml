@@ -204,6 +204,22 @@ spec:
             - name: GLOSSA_GITHUB_WEB_URL
               value: {{ . | quote }}
             {{- end }}
+            {{- /* CI's OIDC exchange (RFC 0004 §6.3). github.com needs
+                   none of these; GHES has its own issuer, and an
+                   operator who knows that issuer's availability can
+                   widen how long a cached key set keeps verifying. */}}
+            {{- with $gh.oidc.issuer }}
+            - name: GLOSSA_GITHUB_OIDC_ISSUER
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $gh.oidc.audience }}
+            - name: GLOSSA_GITHUB_OIDC_AUDIENCE
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $gh.oidc.maxStale }}
+            - name: GLOSSA_GITHUB_OIDC_MAX_STALE
+              value: {{ . | quote }}
+            {{- end }}
             {{- $ghSecret := required "github.credentials.secretName is required with github.appId (one Secret with the private key, the webhook secret and the OAuth client secret)" $gh.credentials.secretName }}
             {{- include "gp.secretEnv" (dict "name" "GLOSSA_GITHUB_APP_PRIVATE_KEY" "secret" $ghSecret "key" $gh.credentials.privateKeyKey) | nindent 12 }}
             {{- include "gp.secretEnv" (dict "name" "GLOSSA_GITHUB_WEBHOOK_SECRET" "secret" $ghSecret "key" $gh.credentials.webhookSecretKey) | nindent 12 }}

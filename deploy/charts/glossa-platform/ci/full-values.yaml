@@ -64,6 +64,12 @@ github:
   # A GHES base, so the non-default branch of both URL values renders too.
   apiUrl: https://github.example.com/api/v3
   webUrl: https://github.example.com
+  # GHES issues its Actions ID tokens itself, so CI's OIDC exchange has
+  # to be pointed at that issuer (RFC 0004 §6.3).
+  oidc:
+    issuer: https://github.example.com/_services/token
+    audience: glossa
+    maxStale: 12h
   credentials:
     secretName: glossa-github
 objectStorage:

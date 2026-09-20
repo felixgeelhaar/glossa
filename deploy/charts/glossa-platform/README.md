@@ -606,6 +606,18 @@ Keys, usages and screenshots arrive from the product's own CI instead
 `installation_repositories`, `pull_request` and `check_run` — and no
 others; anything else is stored, processed and dropped for nothing.
 
+**How that CI authenticates.** With an App configured, a GitHub Actions
+run needs no stored Glossa secret: it asks GitHub for an OIDC ID token
+with audience `glossa` and exchanges it at
+`POST /v1/auth/github-oidc-exchanges` (RFC 0004 §6.3). The server
+verifies the token against the issuer's published keys — one verifier
+per process, with a cached JWKS — and matches its `repository_id`
+against a Git connection; what it hands back lives 30 minutes, is bound
+to that one project and allows only `catalog.read` and `catalog.write`.
+`github.oidc.*` below points that at a GHES issuer; on github.com the
+defaults are right. Without an App the exchange answers
+`github_not_configured` and CI uses a stored API token, as before.
+
 The App's URLs:
 
 | Field on the App | Value |
@@ -809,6 +821,9 @@ the value until it is set.
 | `github.appSlug` | `""` | `GLOSSA_GITHUB_APP_SLUG`, the App's name in its own URL; the install link is `<web url>/apps/<slug>/installations/new`. REQUIRED with `github.appId`. |
 | `github.clientId` | `""` | `GLOSSA_GITHUB_CLIENT_ID`, the App's OAuth client id (public, unlike its secret). REQUIRED with `github.appId`. |
 | `github.apiUrl` / `.webUrl` | `https://api.github.com` / `https://github.com` | `GLOSSA_GITHUB_API_URL` / `GLOSSA_GITHUB_WEB_URL`; GitHub Enterprise Server: `https://HOST/api/v3` and `https://HOST`. |
+| `github.oidc.issuer` | `https://token.actions.githubusercontent.com` | `GLOSSA_GITHUB_OIDC_ISSUER`: the exact `iss` of the Actions ID tokens CI presents (RFC 0004 §6.3). GHES: `https://HOST/_services/token`. |
+| `github.oidc.audience` | `glossa` | `GLOSSA_GITHUB_OIDC_AUDIENCE`: the `aud` a run must ask GitHub for. Change it only if another service already uses that name on your runners — GitHub's own default audience is the repository owner's URL, which any service could be handed. |
+| `github.oidc.maxStale` | `24h` | `GLOSSA_GITHUB_OIDC_MAX_STALE`: how long a cached key set keeps verifying while the issuer is unreachable. Past it exchanges fail closed until a refetch succeeds, so a key GitHub revoked cannot stay trusted. |
 | `github.credentials.secretName` | REQUIRED with `github.appId` | One existing Secret with all three secret values (RFC 0004 §14.1); the chart never creates it. |
 | `github.credentials.privateKeyKey` / `.webhookSecretKey` / `.clientSecretKey` | `GLOSSA_GITHUB_APP_PRIVATE_KEY` / `GLOSSA_GITHUB_WEBHOOK_SECRET` / `GLOSSA_GITHUB_CLIENT_SECRET` | The App's RSA private key (PEM, PKCS#1 or PKCS#8), the webhook HMAC secret and the OAuth client secret. |
 | `objectStorage.endpoint` | REQUIRED; `<fullname>-minio:9000` with `minio.enabled` | `GLOSSA_S3_ENDPOINT`, `host[:port]` without scheme. |
