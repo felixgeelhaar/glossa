@@ -1,5 +1,12 @@
 # @felixgeelhaar/glossa-elements
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [[`1020fa2`](https://github.com/felixgeelhaar/glossa/commit/1020fa2c27b7adffd6f863a9fde8e1161672a8a6)]:
+  - @felixgeelhaar/glossa-sdk@0.3.0
+
 ## 0.3.0
 
 ### Minor Changes

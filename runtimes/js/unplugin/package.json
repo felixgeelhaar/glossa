@@ -1,6 +1,6 @@
 {
   "name": "@glossa/unplugin",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Glossa's bundler plugin for Vite, Rollup, webpack and esbuild: finds where every message is used (file, line, component, route) after the framework transforms and writes .glossa/usages.json for `glossa context push`; adds the in-product editor's loader to builds for a non-production Glossa environment, never to production ones. No network calls.",
   "type": "module",
