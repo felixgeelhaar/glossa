@@ -1,6 +1,6 @@
 {
   "name": "@glossa/astro",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Glossa for Astro 5: static pages rendered with the release at build time, islands and <glossa-*> elements sharing one runtime with the same release, and locale routing helpers.",
   "type": "module",

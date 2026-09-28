@@ -1,6 +1,6 @@
 {
   "name": "@glossa/react",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Glossa for React 18.3+ and 19: a provider, useGlossa()/useMessages() hooks and <T>, SSR- and hydration-safe through useSyncExternalStore, on @glossa/runtime.",
   "type": "module",
@@ -28,13 +28,18 @@
     {
       "name": "@glossa/react, own code (react and @glossa/runtime excluded)",
       "path": "dist/index.js",
-      "ignore": ["react", "@glossa/runtime"],
+      "ignore": [
+        "react",
+        "@glossa/runtime"
+      ],
       "limit": "1.5 KB"
     },
     {
       "name": "@glossa/react with @glossa/runtime (react excluded)",
       "path": "dist/index.js",
-      "ignore": ["react"],
+      "ignore": [
+        "react"
+      ],
       "limit": "8 KB"
     }
   ],
