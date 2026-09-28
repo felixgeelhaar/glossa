@@ -8,6 +8,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
 // The ports of the Glossa PR check (RFC 0004 §6.4): the queue the
@@ -48,20 +49,11 @@ type CheckQueue interface {
 	Check(ctx context.Context, repository int64, pullRequest int) (domain.Check, error)
 }
 
-// CheckFinding is one thing the check reports. A finding with a File
-// and a Line becomes a GitHub annotation; the rest are summary only.
-type CheckFinding struct {
-	Code     string
-	Severity checkpolicy.Severity
-	Locale   string
-	Key      string
-	Message  string
-	File     string
-	Line     int
-}
-
-// Located reports whether the finding can become an annotation.
-func (f CheckFinding) Located() bool { return f.File != "" && f.Line > 0 }
+// The check reports quality.Finding, the one shape a finding has
+// (RFC 0005 §2.1): a finding whose locus has a file and a line becomes
+// a GitHub annotation, and the rest are summary only. It used to have
+// its own CheckFinding, which disagreed with the CLI's and dropped the
+// spans, the subject and the qualifier on the way in.
 
 // InvalidMessage is one item the branch's last push could not accept.
 type InvalidMessage struct{ Key, Code, Detail string }
@@ -105,7 +97,7 @@ type BranchQuality struct {
 	// Findings are the QA warnings the server holds on the branch's
 	// messages: max_length (Localization stores it with the text) and
 	// terminology (M2).
-	Findings []CheckFinding
+	Findings []quality.Finding
 }
 
 // UnknownKey is a usage of a key the catalog did not know at ingest
