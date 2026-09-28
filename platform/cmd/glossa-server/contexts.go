@@ -58,9 +58,14 @@ import (
 	localizationapi "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/httpapi"
 	localizationpg "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/postgres"
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
+	mcpsources "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/sources"
+	mcpapp "github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
+	mcptools "github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
 	previewapi "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/httpapi"
 	previewlimit "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/ratelimit"
 	previewapp "github.com/felixgeelhaar/glossa/platform/internal/preview/app"
+	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
+	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
 	releasepg "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/postgres"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/sources"
@@ -118,6 +123,12 @@ type contexts struct {
 	// GLOSSA_GITHUB_CHECKS_ENABLED is off. The webhook still queues the
 	// checks without it — they wait rather than being lost.
 	githubChecks *integrationapp.CheckWorker
+	// mcpTools are the MCP tools this deployment can serve (RFC 0005
+	// §7.3), each a thin call into one of the contexts above. They are
+	// built here because this is where those application services are;
+	// newMCP registers them when the endpoint is enabled and drops them
+	// when it is not.
+	mcpTools []mcpapp.Tool
 	// ciAuth is what Identity needs to exchange a GitHub Actions ID
 	// token for a CI token (RFC 0004 §6.3): one process-wide verifier
 	// and Integration's Git connections. Zero when this deployment has
@@ -341,6 +352,14 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		})
 	}
 	c.purgeJobs = newPurgeJobs(usageContext, catalog, c.githubInbox, c.githubChecks, deps.logger)
+	c.mcpTools = mcptools.Read(mcptools.Sources{
+		Catalog:      mcpsources.NewCatalog(catalog, usageContext),
+		Translations: mcpsources.NewTranslations(localization),
+		Usages:       mcpsources.NewUsages(usageContext, catalog),
+		Knowledge:    mcpsources.NewKnowledge(knowledge),
+		Quality:      mcpsources.NewQuality(qualityapp.NewService(qualitypg.NewTransactor(uow))),
+		Delivery:     mcpsources.NewDelivery(release),
+	})
 	return c, nil
 }
 

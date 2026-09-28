@@ -181,7 +181,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
-	mcpHandler, err := newMCP(cfg.MCP, identitySvc, pool, registry, tp, logger)
+	mcpHandler, err := newMCP(cfg.MCP, identitySvc, pool, bounded.mcpTools, registry, tp, logger)
 	if err != nil {
 		pool.Close()
 		return nil, err
