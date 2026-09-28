@@ -23,8 +23,8 @@ type UploadedBuild struct {
 
 // Usage sources: the collector that wrote a document.
 const (
-	SourcePlugin  = string(apiclient.Plugin)
-	SourceExtract = string(apiclient.Extract)
+	SourcePlugin  = string(apiclient.ContextSourcePlugin)
+	SourceExtract = string(apiclient.ContextSourceExtract)
 )
 
 // UploadUsages posts a glossa.usages/v1 document to the project's

@@ -295,7 +295,11 @@ func outcomeOf(err error) domain.Outcome {
 	case errors.Is(err, authz.ErrForbidden), errors.Is(err, domain.ErrToolNotInSession),
 		errors.Is(err, authz.ErrUnauthenticated), errors.Is(err, ErrRateLimited):
 		return domain.OutcomeDenied
-	case errors.Is(err, domain.ErrToolNotFound):
+	case errors.Is(err, domain.ErrToolNotFound), errors.Is(err, domain.ErrNotFound):
+		// A not-found is an argument that does not resolve, not a
+		// failure of the server: an agent that asks for a message that
+		// isn't there has made an invalid call, and the operator wants
+		// those counted apart from real errors.
 		return domain.OutcomeInvalid
 	}
 	var invalid *InvalidArgumentError

@@ -573,24 +573,72 @@ func (e CheckPolicyRequireComplete) Valid() bool {
 	}
 }
 
+// Defines values for CheckRunConclusion.
+const (
+	CheckRunConclusionFailure CheckRunConclusion = "failure"
+	CheckRunConclusionNeutral CheckRunConclusion = "neutral"
+	CheckRunConclusionSuccess CheckRunConclusion = "success"
+)
+
+// Valid indicates whether the value is a known member of the CheckRunConclusion enum.
+func (e CheckRunConclusion) Valid() bool {
+	switch e {
+	case CheckRunConclusionFailure:
+		return true
+	case CheckRunConclusionNeutral:
+		return true
+	case CheckRunConclusionSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CheckRunTrigger.
+const (
+	CheckRunTriggerApi         CheckRunTrigger = "api"
+	CheckRunTriggerCapture     CheckRunTrigger = "capture"
+	CheckRunTriggerCli         CheckRunTrigger = "cli"
+	CheckRunTriggerPullRequest CheckRunTrigger = "pull_request"
+	CheckRunTriggerWrite       CheckRunTrigger = "write"
+)
+
+// Valid indicates whether the value is a known member of the CheckRunTrigger enum.
+func (e CheckRunTrigger) Valid() bool {
+	switch e {
+	case CheckRunTriggerApi:
+		return true
+	case CheckRunTriggerCapture:
+		return true
+	case CheckRunTriggerCli:
+		return true
+	case CheckRunTriggerPullRequest:
+		return true
+	case CheckRunTriggerWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContextSource.
 const (
-	Capture ContextSource = "capture"
-	Extract ContextSource = "extract"
-	Plugin  ContextSource = "plugin"
-	Runtime ContextSource = "runtime"
+	ContextSourceCapture ContextSource = "capture"
+	ContextSourceExtract ContextSource = "extract"
+	ContextSourcePlugin  ContextSource = "plugin"
+	ContextSourceRuntime ContextSource = "runtime"
 )
 
 // Valid indicates whether the value is a known member of the ContextSource enum.
 func (e ContextSource) Valid() bool {
 	switch e {
-	case Capture:
+	case ContextSourceCapture:
 		return true
-	case Extract:
+	case ContextSourceExtract:
 		return true
-	case Plugin:
+	case ContextSourcePlugin:
 		return true
-	case Runtime:
+	case ContextSourceRuntime:
 		return true
 	default:
 		return false
@@ -687,6 +735,126 @@ func (e ExportOptionsLayout) Valid() bool {
 	case Flat:
 		return true
 	case Nested:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FindingSchema.
+const (
+	GlossaFindingv1 FindingSchema = "glossa.finding/v1"
+)
+
+// Valid indicates whether the value is a known member of the FindingSchema enum.
+func (e FindingSchema) Valid() bool {
+	switch e {
+	case GlossaFindingv1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FindingFixKind.
+const (
+	AdoptSourceChange FindingFixKind = "adopt-source-change"
+	Replace           FindingFixKind = "replace"
+	Shorten           FindingFixKind = "shorten"
+	UseTerm           FindingFixKind = "use-term"
+)
+
+// Valid indicates whether the value is a known member of the FindingFixKind enum.
+func (e FindingFixKind) Valid() bool {
+	switch e {
+	case AdoptSourceChange:
+		return true
+	case Replace:
+		return true
+	case Shorten:
+		return true
+	case UseTerm:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FindingLayer.
+const (
+	FindingLayerCompleteness FindingLayer = "completeness"
+	FindingLayerLength       FindingLayer = "length"
+	FindingLayerLinguistic   FindingLayer = "linguistic"
+	FindingLayerLocale       FindingLayer = "locale"
+	FindingLayerParity       FindingLayer = "parity"
+	FindingLayerSource       FindingLayer = "source"
+	FindingLayerStructure    FindingLayer = "structure"
+	FindingLayerStyle        FindingLayer = "style"
+	FindingLayerTerminology  FindingLayer = "terminology"
+	FindingLayerVisual       FindingLayer = "visual"
+)
+
+// Valid indicates whether the value is a known member of the FindingLayer enum.
+func (e FindingLayer) Valid() bool {
+	switch e {
+	case FindingLayerCompleteness:
+		return true
+	case FindingLayerLength:
+		return true
+	case FindingLayerLinguistic:
+		return true
+	case FindingLayerLocale:
+		return true
+	case FindingLayerParity:
+		return true
+	case FindingLayerSource:
+		return true
+	case FindingLayerStructure:
+		return true
+	case FindingLayerStyle:
+		return true
+	case FindingLayerTerminology:
+		return true
+	case FindingLayerVisual:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FindingSeverity.
+const (
+	FindingSeverityError   FindingSeverity = "error"
+	FindingSeverityWaived  FindingSeverity = "waived"
+	FindingSeverityWarning FindingSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the FindingSeverity enum.
+func (e FindingSeverity) Valid() bool {
+	switch e {
+	case FindingSeverityError:
+		return true
+	case FindingSeverityWaived:
+		return true
+	case FindingSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FindingSpanSide.
+const (
+	FindingSpanSideSource FindingSpanSide = "source"
+	FindingSpanSideTarget FindingSpanSide = "target"
+)
+
+// Valid indicates whether the value is a known member of the FindingSpanSide enum.
+func (e FindingSpanSide) Valid() bool {
+	switch e {
+	case FindingSpanSideSource:
+		return true
+	case FindingSpanSideTarget:
 		return true
 	default:
 		return false
@@ -1292,19 +1460,19 @@ func (e SigningKeyAlgorithm) Valid() bool {
 
 // Defines values for StyleFormalityRegister.
 const (
-	Formal   StyleFormalityRegister = "formal"
-	Informal StyleFormalityRegister = "informal"
-	Neutral  StyleFormalityRegister = "neutral"
+	StyleFormalityRegisterFormal   StyleFormalityRegister = "formal"
+	StyleFormalityRegisterInformal StyleFormalityRegister = "informal"
+	StyleFormalityRegisterNeutral  StyleFormalityRegister = "neutral"
 )
 
 // Valid indicates whether the value is a known member of the StyleFormalityRegister enum.
 func (e StyleFormalityRegister) Valid() bool {
 	switch e {
-	case Formal:
+	case StyleFormalityRegisterFormal:
 		return true
-	case Informal:
+	case StyleFormalityRegisterInformal:
 		return true
-	case Neutral:
+	case StyleFormalityRegisterNeutral:
 		return true
 	default:
 		return false
@@ -1605,6 +1773,24 @@ const (
 func (e UsagesDocumentSchema) Valid() bool {
 	switch e {
 	case GlossaUsagesv1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WaiverScope.
+const (
+	WaiverScopeBranch  WaiverScope = "branch"
+	WaiverScopeProject WaiverScope = "project"
+)
+
+// Valid indicates whether the value is a known member of the WaiverScope enum.
+func (e WaiverScope) Valid() bool {
+	switch e {
+	case WaiverScopeBranch:
+		return true
+	case WaiverScopeProject:
 		return true
 	default:
 		return false
@@ -2837,6 +3023,67 @@ type CheckPolicyMissingTranslations string
 // `none`.
 type CheckPolicyRequireComplete string
 
+// CheckRun One evaluation of a project against its policy.
+type CheckRun struct {
+	// Commit The commit the run graded, where there is one.
+	Commit *string `json:"commit,omitempty"`
+
+	// CompletedAt RFC 3339, UTC.
+	CompletedAt *Timestamp `json:"completed_at,omitempty"`
+
+	// Conclusion Absent while the run is in flight.
+	Conclusion *CheckRunConclusion `json:"conclusion,omitempty"`
+
+	// Counts What the run concluded, with the waivers live while it graded. Nothing rewrites it.
+	Counts    CheckRunCounts `json:"counts"`
+	CreatedBy string         `json:"created_by"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Layers The layers the run actually computed, in report order. A
+	// layer the policy switched off is not in the list, so a
+	// reader can tell "clean" from "not looked at".
+	Layers []FindingLayer `json:"layers"`
+
+	// PolicyVersion The policy the run graded itself against, so a run can say
+	// which it used when two are live at once. `0` while the
+	// policy document is still the two-field kernel policy.
+	PolicyVersion int `json:"policy_version"`
+
+	// Ref What was checked — a branch, or an environment name.
+	Ref string `json:"ref"`
+
+	// StartedAt RFC 3339, UTC.
+	StartedAt Timestamp `json:"started_at"`
+
+	// Trigger What asked for the run.
+	Trigger CheckRunTrigger `json:"trigger"`
+}
+
+// CheckRunConclusion The run's verdict, spelled as the pull-request check spells it.
+// `neutral` is a run that could not grade itself: no policy, or no
+// catalog to check.
+type CheckRunConclusion string
+
+// CheckRunCounts Findings by how they ended up. `waived` is counted on its own
+// and is never part of `errors` or `warnings`, so the number a
+// dashboard shows is true.
+type CheckRunCounts struct {
+	Errors   int `json:"errors"`
+	Waived   int `json:"waived"`
+	Warnings int `json:"warnings"`
+}
+
+// CheckRunList defines model for CheckRunList.
+type CheckRunList struct {
+	Items         []CheckRun `json:"items"`
+	NextPageToken *string    `json:"next_page_token,omitempty"`
+}
+
+// CheckRunTrigger What asked for the run.
+type CheckRunTrigger string
+
 // ContextBuild One upload of usages for one application at one commit.
 type ContextBuild struct {
 	// ApplicationId An opaque identifier.
@@ -3087,6 +3334,37 @@ type CreateToken struct {
 	ExpiresAt *Timestamp `json:"expires_at,omitempty"`
 	Name      string     `json:"name"`
 	Scopes    []Scope    `json:"scopes"`
+}
+
+// CreateWaiver A finding to accept. The reason is required and non-empty.
+type CreateWaiver struct {
+	// ExpiresAt When the daily sweep retires it; absent, never. A time in the past is refused.
+	ExpiresAt *Timestamp `json:"expires_at,omitempty"`
+
+	// Fingerprint Identifies a finding across re-runs and across surfaces: the
+	// SHA-256 of its layer, its code, the message it is about, the
+	// locale and the normalized subject — and of nothing else, so a
+	// reformatted file, a new source revision or a reworded
+	// explanation never re-opens a waiver.
+	//
+	//
+	// Examples: f_7c1a3e9b40d2f815
+	Fingerprint Fingerprint `json:"fingerprint"`
+
+	// Reason Why this finding is fine. Blank or whitespace-only is refused.
+	Reason string `json:"reason"`
+
+	// Ref The branch, required for `scope` `branch` and ignored otherwise.
+	Ref *string `json:"ref,omitempty"`
+
+	// Scope Default `project`.
+	Scope *WaiverScope `json:"scope,omitempty"`
+
+	// SourceRevision The source revision to waive against. Absent: the one the
+	// most recent stored finding with this fingerprint was
+	// computed against, which is the finding the person is looking
+	// at.
+	SourceRevision *int `json:"source_revision,omitempty"`
 }
 
 // CreatedToken defines model for CreatedToken.
@@ -3380,6 +3658,161 @@ type FieldError struct {
 	// Pointer JSON Pointer into the request body.
 	Pointer string `json:"pointer"`
 }
+
+// Finding One problem, from any layer, on any surface — the
+// `glossa.finding/v1` document
+// (`runtimes/testdata/schemas/finding.v1.schema.json`), which
+// `glossa check --json`, the pull-request check and MCP's read
+// tools all carry. The shape is the contract.
+type Finding struct {
+	// Code The rule. Stable, and shared with the CLI and the pull-request check.
+	Code string `json:"code"`
+
+	// Detail Qualifies the code.
+	Detail *string `json:"detail,omitempty"`
+
+	// Evidence What the layer measured, free-form per code.
+	Evidence *map[string]interface{} `json:"evidence,omitempty"`
+
+	// Fingerprint Identifies a finding across re-runs and across surfaces: the
+	// SHA-256 of its layer, its code, the message it is about, the
+	// locale and the normalized subject — and of nothing else, so a
+	// reformatted file, a new source revision or a reworded
+	// explanation never re-opens a waiver.
+	//
+	//
+	// Examples: f_7c1a3e9b40d2f815
+	Fingerprint Fingerprint `json:"fingerprint"`
+
+	// Fix A hint, never an action: nothing applies one without a person or an explicit `--fix`.
+	Fix *FindingFix `json:"fix,omitempty"`
+
+	// Layer Which layer found it (RFC 0005 §3). Selectable by name in the policy and on the command line.
+	Layer FindingLayer `json:"layer"`
+
+	// Locus Everything that locates a finding. Every field is optional and
+	// every field means the same thing in every layer. The catalog
+	// fields come from the layer; `file`, `line`, `column`, `route`,
+	// `component`, `capture` and `region` come from Context at report
+	// time and never from a layer.
+	Locus FindingLocus `json:"locus"`
+
+	// Message The explanation for a person. Its wording is not stable and it is not part of the fingerprint.
+	Message string        `json:"message"`
+	Schema  FindingSchema `json:"schema"`
+
+	// Severity `error` or `warning` as the layer emitted it, plus `waived` — a
+	// rendering of a finding and not a third rank a layer may emit. A
+	// waived finding is still computed, still reported and counted on
+	// its own, and can never fail a check.
+	Severity FindingSeverity `json:"severity"`
+
+	// SourceRevision The source revision the finding was computed against. A waiver dies when it changes.
+	SourceRevision *int `json:"source_revision,omitempty"`
+
+	// Subject What the finding names — the argument, the markup element, the term used. Part of the fingerprint.
+	Subject *string `json:"subject,omitempty"`
+
+	// Waiver The waiver that accepted it. Present exactly when `severity` is `waived`.
+	Waiver *Id `json:"waiver,omitempty"`
+}
+
+// FindingSchema defines model for Finding.Schema.
+type FindingSchema string
+
+// FindingFix A hint, never an action: nothing applies one without a person or an explicit `--fix`.
+type FindingFix struct {
+	Hint *string        `json:"hint,omitempty"`
+	Kind FindingFixKind `json:"kind"`
+
+	// Term An opaque identifier.
+	Term *Id `json:"term,omitempty"`
+
+	// To The length `shorten` asks for.
+	To *int `json:"to,omitempty"`
+}
+
+// FindingFixKind defines model for FindingFix.Kind.
+type FindingFixKind string
+
+// FindingLayer Which layer found it (RFC 0005 §3). Selectable by name in the policy and on the command line.
+type FindingLayer string
+
+// FindingList A page of one check run's findings, as they stand now.
+type FindingList struct {
+	// Counts The whole run with today's waivers applied, whatever the filters select.
+	Counts        CheckRunCounts `json:"counts"`
+	Items         []Finding      `json:"items"`
+	NextPageToken *string        `json:"next_page_token,omitempty"`
+
+	// Run The run the page came from; absent when nothing has been checked yet.
+	Run *CheckRun `json:"run,omitempty"`
+}
+
+// FindingLocus Everything that locates a finding. Every field is optional and
+// every field means the same thing in every layer. The catalog
+// fields come from the layer; `file`, `line`, `column`, `route`,
+// `component`, `capture` and `region` come from Context at report
+// time and never from a layer.
+type FindingLocus struct {
+	// Capture An opaque identifier.
+	Capture   *Id     `json:"capture,omitempty"`
+	Column    *int    `json:"column,omitempty"`
+	Component *string `json:"component,omitempty"`
+	File      *string `json:"file,omitempty"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key  *MessageKey `json:"key,omitempty"`
+	Line *int        `json:"line,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// Message The catalog message's `id`; absent where the caller had only the key.
+	Message *Id `json:"message,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+	Region    *string    `json:"region,omitempty"`
+
+	// Revision The translation revision the finding was computed against.
+	Revision *Id     `json:"revision,omitempty"`
+	Route    *string `json:"route,omitempty"`
+
+	// Span The offending words in the source or the target, in bytes, so a surface can underline them.
+	Span *FindingSpan `json:"span,omitempty"`
+}
+
+// FindingSeverity `error` or `warning` as the layer emitted it, plus `waived` — a
+// rendering of a finding and not a third rank a layer may emit. A
+// waived finding is still computed, still reported and counted on
+// its own, and can never fail a check.
+type FindingSeverity string
+
+// FindingSpan The offending words in the source or the target, in bytes, so a surface can underline them.
+type FindingSpan struct {
+	End   int             `json:"end"`
+	Side  FindingSpanSide `json:"side"`
+	Start int             `json:"start"`
+}
+
+// FindingSpanSide defines model for FindingSpan.Side.
+type FindingSpanSide string
+
+// Fingerprint Identifies a finding across re-runs and across surfaces: the
+// SHA-256 of its layer, its code, the message it is about, the
+// locale and the normalized subject — and of nothing else, so a
+// reformatted file, a new source revision or a reworded
+// explanation never re-opens a waiver.
+//
+// Examples: f_7c1a3e9b40d2f815
+type Fingerprint = string
 
 // GitConnection defines model for GitConnection.
 type GitConnection struct {
@@ -5849,6 +6282,89 @@ type UsagesTool struct {
 	Version string `json:"version"`
 }
 
+// Waiver One accepted finding, and why.
+type Waiver struct {
+	// Accepts What a waiver accepts, read from the most recent stored finding
+	// carrying its fingerprint. Empty where no stored finding carries
+	// it any more, which is exactly the unexamined waiver a dashboard
+	// should show.
+	Accepts *WaiverFinding `json:"accepts,omitempty"`
+
+	// Active It stands now — neither revoked nor expired.
+	Active bool `json:"active"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// ExpiresAt When the daily sweep retires it; absent, never.
+	ExpiresAt *Timestamp `json:"expires_at,omitempty"`
+
+	// Fingerprint Identifies a finding across re-runs and across surfaces: the
+	// SHA-256 of its layer, its code, the message it is about, the
+	// locale and the normalized subject — and of nothing else, so a
+	// reformatted file, a new source revision or a reworded
+	// explanation never re-opens a waiver.
+	//
+	//
+	// Examples: f_7c1a3e9b40d2f815
+	Fingerprint Fingerprint `json:"fingerprint"`
+
+	// Id An opaque identifier.
+	Id     Id     `json:"id"`
+	Reason string `json:"reason"`
+
+	// Ref The branch, for a branch-scoped waiver.
+	Ref *string `json:"ref,omitempty"`
+
+	// RevokedAt When a person took it back; absent while it stands.
+	RevokedAt *Timestamp `json:"revoked_at,omitempty"`
+
+	// Scope How far a waiver reaches — everywhere in the project, or on one branch.
+	Scope WaiverScope `json:"scope"`
+
+	// SourceRevision The source revision the waiver was made against. The waiver
+	// dies when the source moves past it, and the finding comes
+	// back saying so.
+	SourceRevision int `json:"source_revision"`
+}
+
+// WaiverFinding What a waiver accepts, read from the most recent stored finding
+// carrying its fingerprint. Empty where no stored finding carries
+// it any more, which is exactly the unexamined waiver a dashboard
+// should show.
+type WaiverFinding struct {
+	Code *string `json:"code,omitempty"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key *MessageKey `json:"key,omitempty"`
+
+	// Layer Which layer found it (RFC 0005 §3). Selectable by name in the policy and on the command line.
+	Layer *FindingLayer `json:"layer,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale  *Locale `json:"locale,omitempty"`
+	Message *string `json:"message,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+}
+
+// WaiverList defines model for WaiverList.
+type WaiverList struct {
+	Items         []Waiver `json:"items"`
+	NextPageToken *string  `json:"next_page_token,omitempty"`
+}
+
+// WaiverScope How far a waiver reaches — everywhere in the project, or on one branch.
+type WaiverScope string
+
 // WebAuthnResponse The `PublicKeyCredential` from the browser, serialized as JSON.
 type WebAuthnResponse map[string]interface{}
 
@@ -5893,6 +6409,9 @@ type CapturePath = Id
 
 // CeremonyCookie defines model for CeremonyCookie.
 type CeremonyCookie = string
+
+// CheckRunPath An opaque identifier.
+type CheckRunPath = Id
 
 // ConceptPath An opaque identifier.
 type ConceptPath = Id
@@ -5975,6 +6494,9 @@ type TenantPath = Id
 
 // TokenPath An opaque identifier.
 type TokenPath = Id
+
+// WaiverPath An opaque identifier.
+type WaiverPath = Id
 
 // BadRequest RFC 9457 problem details.
 type BadRequest = Problem
@@ -6406,6 +6928,22 @@ type GetCaptureImageParams struct {
 	IfNoneMatch *string `json:"If-None-Match,omitempty"`
 }
 
+// ListCheckRunsParams defines parameters for ListCheckRuns.
+type ListCheckRunsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Branch The ref the run was of — a branch, or an environment name.
+	Branch *string `form:"branch,omitempty" json:"branch,omitempty"`
+
+	// Commit The commit the run graded, as a full lowercase SHA.
+	Commit     *string             `form:"commit,omitempty" json:"commit,omitempty"`
+	Conclusion *CheckRunConclusion `form:"conclusion,omitempty" json:"conclusion,omitempty"`
+	Trigger    *CheckRunTrigger    `form:"trigger,omitempty" json:"trigger,omitempty"`
+}
+
 // ListContextBuildsParams defines parameters for ListContextBuilds.
 type ListContextBuildsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -6462,6 +7000,38 @@ type ListDeploymentsParams struct {
 type PutFallbackGraphParams struct {
 	// IfMatch When sent, the `ETag` the change is based on.
 	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ListFindingsParams defines parameters for ListFindings.
+type ListFindingsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Run A check run `id`. Without it, the newest run matching `branch` and `commit`.
+	Run *Id `form:"run,omitempty" json:"run,omitempty"`
+
+	// Branch Read the newest run of this ref — a branch, or an environment name.
+	Branch *string `form:"branch,omitempty" json:"branch,omitempty"`
+
+	// Commit Read the newest run of this commit.
+	Commit *string       `form:"commit,omitempty" json:"commit,omitempty"`
+	Layer  *FindingLayer `form:"layer,omitempty" json:"layer,omitempty"`
+
+	// Severity The severity as it stands now, so `waived` selects the accepted findings.
+	Severity *FindingSeverity `form:"severity,omitempty" json:"severity,omitempty"`
+
+	// Code The rule, exactly (`missing-argument`, `term_forbidden`).
+	Code      *string    `form:"code,omitempty" json:"code,omitempty"`
+	Locale    *Locale    `form:"locale,omitempty" json:"locale,omitempty"`
+	Namespace *Namespace `form:"namespace,omitempty" json:"namespace,omitempty"`
+
+	// Message The message key the finding is about, exactly.
+	Message *MessageKey `form:"message,omitempty" json:"message,omitempty"`
+
+	// Waived Only the waived findings, or only those no waiver accepts. Absent, both.
+	Waived *bool `form:"waived,omitempty" json:"waived,omitempty"`
 }
 
 // ListLocalesParams defines parameters for ListLocales.
@@ -6685,6 +7255,23 @@ type ListUsagesParams struct {
 
 	// File A file path relative to the project root, exactly.
 	File *string `form:"file,omitempty" json:"file,omitempty"`
+}
+
+// ListWaiversParams defines parameters for ListWaivers.
+type ListWaiversParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken   *PageToken    `form:"page_token,omitempty" json:"page_token,omitempty"`
+	Fingerprint *Fingerprint  `form:"fingerprint,omitempty" json:"fingerprint,omitempty"`
+	Layer       *FindingLayer `form:"layer,omitempty" json:"layer,omitempty"`
+	Code        *string       `form:"code,omitempty" json:"code,omitempty"`
+
+	// Message The message key of the finding the waiver accepts, exactly.
+	Message *MessageKey `form:"message,omitempty" json:"message,omitempty"`
+
+	// Active Only the waivers that stand now, or only the revoked and expired ones. Absent, both.
+	Active *bool `form:"active,omitempty" json:"active,omitempty"`
 }
 
 // ListStyleGuidesParams defines parameters for ListStyleGuides.
@@ -7048,6 +7635,9 @@ type PublishReleaseJSONRequestBody = PublishRelease
 
 // ImportTranslationsJSONRequestBody defines body for ImportTranslations for application/json ContentType.
 type ImportTranslationsJSONRequestBody = TranslationImport
+
+// CreateWaiverJSONRequestBody defines body for CreateWaiver for application/json ContentType.
+type CreateWaiverJSONRequestBody = CreateWaiver
 
 // CreateStyleGuideJSONRequestBody defines body for CreateStyleGuide for application/json ContentType.
 type CreateStyleGuideJSONRequestBody = CreateStyleGuide
@@ -9279,6 +9869,40 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image (the `GetCaptureImage` operationId).
 	GetCaptureImage(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *GetCaptureImageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListCheckRuns A project's check runs, newest first
+	//
+	// One run is one evaluation of one ref against one policy version
+	// (RFC 0005 §2.2): the pull-request check, Studio, the dashboard
+	// and `glossa findings` read the stored run rather than
+	// recomputing the same thing four times. `branch` selects the runs
+	// of a branch or an environment, `commit` the runs of one commit
+	// (a branch moves; the commit a verdict was about does not), and
+	// `conclusion` and `trigger` narrow further; they combine.
+	//
+	// `counts` are what the run concluded, with the waivers that were
+	// live while it graded, and nothing rewrites them afterwards — a
+	// verdict is history. What the same findings look like today, with
+	// today's waivers, is `listFindings`. Needs `catalog.read`.
+	// Problem codes: `invalid_query` (400: an unknown conclusion or
+	// trigger), `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs (the `ListCheckRuns` operationId).
+	ListCheckRuns(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCheckRun One check run with its counts
+	//
+	// The run, the layers it actually computed — a layer the policy
+	// switched off is not in the list, so a reader can tell "clean"
+	// from "not looked at" — and the counts it concluded. `waived` is
+	// counted on its own and is never part of `errors` or `warnings`,
+	// because a number that goes down without the product getting
+	// better is the failure mode of every suppression system
+	// (RFC 0005 §14 decision 5). Its findings are
+	// `listFindings?run=…`. Needs `catalog.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs/{check_run} (the `GetCheckRun` operationId).
+	GetCheckRun(ctx context.Context, tenant TenantPath, project ProjectPath, checkRun CheckRunPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListContextBuilds A project's usage uploads (builds), newest first
 	//
 	// With how many usages each holds and how many of those name a key
@@ -9621,6 +10245,49 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/fallback-graph (the `PutFallbackGraph` operationId).
 	PutFallbackGraph(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutFallbackGraphParams, body PutFallbackGraphJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListFindings A check run's findings, with today's waivers applied
+	//
+	// Every finding has one shape, whatever layer found it
+	// (`glossa.finding/v1`, RFC 0005 §2.1): a layer says what is wrong
+	// with which message in which locale, and Context fills the
+	// locus's file, line, route, component, capture and region in at
+	// report time, which is what turns almost every finding into a
+	// pull-request annotation instead of only the unknown keys.
+	//
+	// A finding belongs to a run, so the list reads exactly one: the
+	// one `run` names, or the newest run of `branch` or `commit`, or
+	// the project's newest. Listing every run's copy of the same
+	// problem would report it once per run and say nothing more.
+	// `run` is the run the page came from — absent when nothing has
+	// been checked yet, and the page is then empty rather than a
+	// `404`.
+	//
+	// Waivers are applied on read (RFC 0005 §2.3). A waived finding is
+	// **still computed and still reported**, at severity `waived`,
+	// naming the waiver that accepted it, and counted on its own; it
+	// is never hidden and never deleted. It comes back as an ordinary
+	// finding once the source revision it was computed against has
+	// moved past the one its waiver was made against — the German
+	// somebody waived is not the German that now ships. `counts` are
+	// the whole run as it stands now, whatever the filters select, so
+	// waiving something changes them while the run's own stored
+	// verdict stays what it was.
+	//
+	// Findings are immutable: a run is one evaluation, and the next
+	// writes new rows rather than editing the last one's. There is no
+	// update.
+	//
+	// The order is stable — errors, then warnings, then the waived,
+	// and within each by layer, locale, message key and id — and the
+	// cursor is that order's key, so a page never shifts. MCP's read
+	// tools consume this shape (RFC 0005 §7.3): it is the contract,
+	// not an implementation detail. Needs `catalog.read`. Problem
+	// codes: `invalid_query` (400: an unknown layer or severity),
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/findings (the `ListFindings` operationId).
+	ListFindings(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListFindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateInContextGrantWithBody Mint the in-product editor's credential
 	//
@@ -10305,6 +10972,121 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/usages (the `ListUsages` operationId).
 	ListUsages(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUsagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListWaivers The findings this project accepts, and why
+	//
+	// Newest first, each with what it accepts: the layer, code, locale
+	// and message of the most recent stored finding carrying its
+	// fingerprint. Those are empty where no stored finding carries it
+	// any more — an unexamined waiver, which is exactly what a
+	// dashboard should show. `layer`, `code` and `message` filter on
+	// them; `active` selects the waivers that stand now (not revoked,
+	// not expired) or only those that don't. Needs `catalog.read`.
+	// Problem codes: `invalid_query` (400: an unknown layer),
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/waivers (the `ListWaivers` operationId).
+	ListWaivers(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWaiversParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateWaiverWithBody Accept a finding, with a reason
+	//
+	// Some findings are correct and still fine: "Login" is the German
+	// term, and the Japanese button *is* two lines by design
+	// (RFC 0005 §2.3). A waiver names the finding by its
+	// `fingerprint` — not by a finding id, so it survives the run that
+	// found it — and says why.
+	//
+	// **The reason is required and non-empty.** A blank or
+	// whitespace-only one is refused with `waiver_reason_required`;
+	// there is no way to waive a finding without saying why, because a
+	// suppression nobody had to justify is technical debt with no
+	// paper trail. There is deliberately no inline code suppression
+	// (`// glossa:ignore …`): most findings are about a *translation*,
+	// which has no line of code to put a comment on.
+	//
+	// A waiver never deletes anything. The finding it accepts is still
+	// computed, still listed and counted on its own, at severity
+	// `waived` — and it comes back on its own once
+	// `source_revision` moves. `source_revision` defaults to the one
+	// the most recent stored finding with that fingerprint was
+	// computed against, which is the finding the person is looking at.
+	//
+	// `scope` `project` accepts the finding everywhere in the project;
+	// `branch` accepts it on `ref` only. The project keeps one live
+	// waiver per fingerprint and reach, so waiving the same finding
+	// again is not a second waiver: it restates the reason, the
+	// expiry and the source revision, and answers `200` instead of
+	// `201`.
+	//
+	// Needs `catalog.write` — the permission that already carries the
+	// authority to change what a project's check concludes, since it
+	// uploads the messages, usages and captures the layers grade.
+	// `translations.review` would be the wrong one: it is
+	// locale-scoped, and the `structure`, `completeness` and `source`
+	// layers produce findings with no locale at all. Problem codes:
+	// `waiver_reason_required`, `invalid_fingerprint`,
+	// `invalid_waiver_scope`, `waiver_branch_required`,
+	// `waiver_expiry_in_the_past`, `invalid_waiver` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/waivers (the `CreateWaiver` operationId).
+	CreateWaiverWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateWaiver Accept a finding, with a reason
+	//
+	// Some findings are correct and still fine: "Login" is the German
+	// term, and the Japanese button *is* two lines by design
+	// (RFC 0005 §2.3). A waiver names the finding by its
+	// `fingerprint` — not by a finding id, so it survives the run that
+	// found it — and says why.
+	//
+	// **The reason is required and non-empty.** A blank or
+	// whitespace-only one is refused with `waiver_reason_required`;
+	// there is no way to waive a finding without saying why, because a
+	// suppression nobody had to justify is technical debt with no
+	// paper trail. There is deliberately no inline code suppression
+	// (`// glossa:ignore …`): most findings are about a *translation*,
+	// which has no line of code to put a comment on.
+	//
+	// A waiver never deletes anything. The finding it accepts is still
+	// computed, still listed and counted on its own, at severity
+	// `waived` — and it comes back on its own once
+	// `source_revision` moves. `source_revision` defaults to the one
+	// the most recent stored finding with that fingerprint was
+	// computed against, which is the finding the person is looking at.
+	//
+	// `scope` `project` accepts the finding everywhere in the project;
+	// `branch` accepts it on `ref` only. The project keeps one live
+	// waiver per fingerprint and reach, so waiving the same finding
+	// again is not a second waiver: it restates the reason, the
+	// expiry and the source revision, and answers `200` instead of
+	// `201`.
+	//
+	// Needs `catalog.write` — the permission that already carries the
+	// authority to change what a project's check concludes, since it
+	// uploads the messages, usages and captures the layers grade.
+	// `translations.review` would be the wrong one: it is
+	// locale-scoped, and the `structure`, `completeness` and `source`
+	// layers produce findings with no locale at all. Problem codes:
+	// `waiver_reason_required`, `invalid_fingerprint`,
+	// `invalid_waiver_scope`, `waiver_branch_required`,
+	// `waiver_expiry_in_the_past`, `invalid_waiver` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/waivers (the `CreateWaiver` operationId).
+	CreateWaiver(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateWaiverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeWaiver Take a waiver back
+	//
+	// The findings it accepted are ordinary findings again from the
+	// next read; nothing is deleted and the revoked waiver stays as
+	// history, with who made it, when, and why. Revoking one twice
+	// answers `204` all the same. Needs `catalog.write`.
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/waivers/{waiver} (the `RevokeWaiver` operationId).
+	RevokeWaiver(ctx context.Context, tenant TenantPath, project ProjectPath, waiver WaiverPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListStyleGuides Style guides
 	//
@@ -14295,6 +15077,60 @@ func (c *Client) GetCaptureImage(ctx context.Context, tenant TenantPath, project
 	return c.Client.Do(req)
 }
 
+// ListCheckRuns A project's check runs, newest first
+//
+// One run is one evaluation of one ref against one policy version
+// (RFC 0005 §2.2): the pull-request check, Studio, the dashboard
+// and `glossa findings` read the stored run rather than
+// recomputing the same thing four times. `branch` selects the runs
+// of a branch or an environment, `commit` the runs of one commit
+// (a branch moves; the commit a verdict was about does not), and
+// `conclusion` and `trigger` narrow further; they combine.
+//
+// `counts` are what the run concluded, with the waivers that were
+// live while it graded, and nothing rewrites them afterwards — a
+// verdict is history. What the same findings look like today, with
+// today's waivers, is `listFindings`. Needs `catalog.read`.
+// Problem codes: `invalid_query` (400: an unknown conclusion or
+// trigger), `invalid_page_size`, `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs (the `ListCheckRuns` operationId).
+func (c *Client) ListCheckRuns(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCheckRunsRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetCheckRun One check run with its counts
+//
+// The run, the layers it actually computed — a layer the policy
+// switched off is not in the list, so a reader can tell "clean"
+// from "not looked at" — and the counts it concluded. `waived` is
+// counted on its own and is never part of `errors` or `warnings`,
+// because a number that goes down without the product getting
+// better is the failure mode of every suppression system
+// (RFC 0005 §14 decision 5). Its findings are
+// `listFindings?run=…`. Needs `catalog.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs/{check_run} (the `GetCheckRun` operationId).
+func (c *Client) GetCheckRun(ctx context.Context, tenant TenantPath, project ProjectPath, checkRun CheckRunPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCheckRunRequest(c.Server, tenant, project, checkRun)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListContextBuilds A project's usage uploads (builds), newest first
 //
 // With how many usages each holds and how many of those name a key
@@ -14868,6 +15704,59 @@ func (c *Client) PutFallbackGraphWithBody(ctx context.Context, tenant TenantPath
 // Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/fallback-graph (the `PutFallbackGraph` operationId).
 func (c *Client) PutFallbackGraph(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutFallbackGraphParams, body PutFallbackGraphJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutFallbackGraphRequest(c.Server, tenant, project, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListFindings A check run's findings, with today's waivers applied
+//
+// Every finding has one shape, whatever layer found it
+// (`glossa.finding/v1`, RFC 0005 §2.1): a layer says what is wrong
+// with which message in which locale, and Context fills the
+// locus's file, line, route, component, capture and region in at
+// report time, which is what turns almost every finding into a
+// pull-request annotation instead of only the unknown keys.
+//
+// A finding belongs to a run, so the list reads exactly one: the
+// one `run` names, or the newest run of `branch` or `commit`, or
+// the project's newest. Listing every run's copy of the same
+// problem would report it once per run and say nothing more.
+// `run` is the run the page came from — absent when nothing has
+// been checked yet, and the page is then empty rather than a
+// `404`.
+//
+// Waivers are applied on read (RFC 0005 §2.3). A waived finding is
+// **still computed and still reported**, at severity `waived`,
+// naming the waiver that accepted it, and counted on its own; it
+// is never hidden and never deleted. It comes back as an ordinary
+// finding once the source revision it was computed against has
+// moved past the one its waiver was made against — the German
+// somebody waived is not the German that now ships. `counts` are
+// the whole run as it stands now, whatever the filters select, so
+// waiving something changes them while the run's own stored
+// verdict stays what it was.
+//
+// Findings are immutable: a run is one evaluation, and the next
+// writes new rows rather than editing the last one's. There is no
+// update.
+//
+// The order is stable — errors, then warnings, then the waived,
+// and within each by layer, locale, message key and id — and the
+// cursor is that order's key, so a page never shifts. MCP's read
+// tools consume this shape (RFC 0005 §7.3): it is the contract,
+// not an implementation detail. Needs `catalog.read`. Problem
+// codes: `invalid_query` (400: an unknown layer or severity),
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/findings (the `ListFindings` operationId).
+func (c *Client) ListFindings(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListFindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFindingsRequest(c.Server, tenant, project, params)
 	if err != nil {
 		return nil, err
 	}
@@ -16052,6 +16941,161 @@ func (c *Client) ListUnusedMessages(ctx context.Context, tenant TenantPath, proj
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/usages (the `ListUsages` operationId).
 func (c *Client) ListUsages(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUsagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListUsagesRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListWaivers The findings this project accepts, and why
+//
+// Newest first, each with what it accepts: the layer, code, locale
+// and message of the most recent stored finding carrying its
+// fingerprint. Those are empty where no stored finding carries it
+// any more — an unexamined waiver, which is exactly what a
+// dashboard should show. `layer`, `code` and `message` filter on
+// them; `active` selects the waivers that stand now (not revoked,
+// not expired) or only those that don't. Needs `catalog.read`.
+// Problem codes: `invalid_query` (400: an unknown layer),
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/waivers (the `ListWaivers` operationId).
+func (c *Client) ListWaivers(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWaiversParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWaiversRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateWaiverWithBody Accept a finding, with a reason
+//
+// Some findings are correct and still fine: "Login" is the German
+// term, and the Japanese button *is* two lines by design
+// (RFC 0005 §2.3). A waiver names the finding by its
+// `fingerprint` — not by a finding id, so it survives the run that
+// found it — and says why.
+//
+// **The reason is required and non-empty.** A blank or
+// whitespace-only one is refused with `waiver_reason_required`;
+// there is no way to waive a finding without saying why, because a
+// suppression nobody had to justify is technical debt with no
+// paper trail. There is deliberately no inline code suppression
+// (`// glossa:ignore …`): most findings are about a *translation*,
+// which has no line of code to put a comment on.
+//
+// A waiver never deletes anything. The finding it accepts is still
+// computed, still listed and counted on its own, at severity
+// `waived` — and it comes back on its own once
+// `source_revision` moves. `source_revision` defaults to the one
+// the most recent stored finding with that fingerprint was
+// computed against, which is the finding the person is looking at.
+//
+// `scope` `project` accepts the finding everywhere in the project;
+// `branch` accepts it on `ref` only. The project keeps one live
+// waiver per fingerprint and reach, so waiving the same finding
+// again is not a second waiver: it restates the reason, the
+// expiry and the source revision, and answers `200` instead of
+// `201`.
+//
+// Needs `catalog.write` — the permission that already carries the
+// authority to change what a project's check concludes, since it
+// uploads the messages, usages and captures the layers grade.
+// `translations.review` would be the wrong one: it is
+// locale-scoped, and the `structure`, `completeness` and `source`
+// layers produce findings with no locale at all. Problem codes:
+// `waiver_reason_required`, `invalid_fingerprint`,
+// `invalid_waiver_scope`, `waiver_branch_required`,
+// `waiver_expiry_in_the_past`, `invalid_waiver` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/waivers (the `CreateWaiver` operationId).
+func (c *Client) CreateWaiverWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWaiverRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateWaiver Accept a finding, with a reason
+//
+// Some findings are correct and still fine: "Login" is the German
+// term, and the Japanese button *is* two lines by design
+// (RFC 0005 §2.3). A waiver names the finding by its
+// `fingerprint` — not by a finding id, so it survives the run that
+// found it — and says why.
+//
+// **The reason is required and non-empty.** A blank or
+// whitespace-only one is refused with `waiver_reason_required`;
+// there is no way to waive a finding without saying why, because a
+// suppression nobody had to justify is technical debt with no
+// paper trail. There is deliberately no inline code suppression
+// (`// glossa:ignore …`): most findings are about a *translation*,
+// which has no line of code to put a comment on.
+//
+// A waiver never deletes anything. The finding it accepts is still
+// computed, still listed and counted on its own, at severity
+// `waived` — and it comes back on its own once
+// `source_revision` moves. `source_revision` defaults to the one
+// the most recent stored finding with that fingerprint was
+// computed against, which is the finding the person is looking at.
+//
+// `scope` `project` accepts the finding everywhere in the project;
+// `branch` accepts it on `ref` only. The project keeps one live
+// waiver per fingerprint and reach, so waiving the same finding
+// again is not a second waiver: it restates the reason, the
+// expiry and the source revision, and answers `200` instead of
+// `201`.
+//
+// Needs `catalog.write` — the permission that already carries the
+// authority to change what a project's check concludes, since it
+// uploads the messages, usages and captures the layers grade.
+// `translations.review` would be the wrong one: it is
+// locale-scoped, and the `structure`, `completeness` and `source`
+// layers produce findings with no locale at all. Problem codes:
+// `waiver_reason_required`, `invalid_fingerprint`,
+// `invalid_waiver_scope`, `waiver_branch_required`,
+// `waiver_expiry_in_the_past`, `invalid_waiver` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/waivers (the `CreateWaiver` operationId).
+func (c *Client) CreateWaiver(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateWaiverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWaiverRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RevokeWaiver Take a waiver back
+//
+// The findings it accepted are ordinary findings again from the
+// next read; nothing is deleted and the revoked waiver stays as
+// history, with who made it, when, and why. Revoking one twice
+// answers `204` all the same. Needs `catalog.write`.
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/waivers/{waiver} (the `RevokeWaiver` operationId).
+func (c *Client) RevokeWaiver(ctx context.Context, tenant TenantPath, project ProjectPath, waiver WaiverPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeWaiverRequest(c.Server, tenant, project, waiver)
 	if err != nil {
 		return nil, err
 	}
@@ -22826,6 +23870,182 @@ func NewGetCaptureImageRequest(server string, tenant TenantPath, project Project
 	return req, nil
 }
 
+// NewListCheckRunsRequest constructs an http.Request for the ListCheckRuns method
+func NewListCheckRunsRequest(server string, tenant TenantPath, project ProjectPath, params *ListCheckRunsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/check-runs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Commit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "commit", *params.Commit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Conclusion != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "conclusion", *params.Conclusion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Trigger != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "trigger", *params.Trigger, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetCheckRunRequest constructs an http.Request for the GetCheckRun method
+func NewGetCheckRunRequest(server string, tenant TenantPath, project ProjectPath, checkRun CheckRunPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "check_run", checkRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/check-runs/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListContextBuildsRequest constructs an http.Request for the ListContextBuilds method
 func NewListContextBuildsRequest(server string, tenant TenantPath, project ProjectPath, params *ListContextBuildsParams) (*http.Request, error) {
 	var err error
@@ -23871,6 +25091,206 @@ func NewPutFallbackGraphRequestWithBody(server string, tenant TenantPath, projec
 			req.Header.Set("If-Match", headerParam0)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewListFindingsRequest constructs an http.Request for the ListFindings method
+func NewListFindingsRequest(server string, tenant TenantPath, project ProjectPath, params *ListFindingsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/findings", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Run != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "run", *params.Run, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Commit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "commit", *params.Commit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Layer != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "layer", *params.Layer, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Severity != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "severity", *params.Severity, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Code != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "code", *params.Code, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Namespace != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "namespace", *params.Namespace, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Message != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message", *params.Message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Waived != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "waived", *params.Waived, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -26696,6 +28116,248 @@ func NewListUsagesRequest(server string, tenant TenantPath, project ProjectPath,
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListWaiversRequest constructs an http.Request for the ListWaivers method
+func NewListWaiversRequest(server string, tenant TenantPath, project ProjectPath, params *ListWaiversParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/waivers", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Fingerprint != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "fingerprint", *params.Fingerprint, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Layer != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "layer", *params.Layer, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Code != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "code", *params.Code, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Message != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message", *params.Message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Active != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "active", *params.Active, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateWaiverRequest calls the generic CreateWaiver builder with application/json body
+func NewCreateWaiverRequest(server string, tenant TenantPath, project ProjectPath, body CreateWaiverJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateWaiverRequestWithBody(server, tenant, project, "application/json", bodyReader)
+}
+
+// NewCreateWaiverRequestWithBody constructs an http.Request for the CreateWaiver method, with any body, and a specified content type
+func NewCreateWaiverRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/waivers", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRevokeWaiverRequest constructs an http.Request for the RevokeWaiver method
+func NewRevokeWaiverRequest(server string, tenant TenantPath, project ProjectPath, waiver WaiverPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "waiver", waiver, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/waivers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -31057,6 +32719,44 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image (the `GetCaptureImage` operationId).
 	GetCaptureImageWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *GetCaptureImageParams, reqEditors ...RequestEditorFn) (*GetCaptureImageResponse, error)
 
+	// ListCheckRunsWithResponse A project's check runs, newest first
+	//
+	// One run is one evaluation of one ref against one policy version
+	// (RFC 0005 §2.2): the pull-request check, Studio, the dashboard
+	// and `glossa findings` read the stored run rather than
+	// recomputing the same thing four times. `branch` selects the runs
+	// of a branch or an environment, `commit` the runs of one commit
+	// (a branch moves; the commit a verdict was about does not), and
+	// `conclusion` and `trigger` narrow further; they combine.
+	//
+	// `counts` are what the run concluded, with the waivers that were
+	// live while it graded, and nothing rewrites them afterwards — a
+	// verdict is history. What the same findings look like today, with
+	// today's waivers, is `listFindings`. Needs `catalog.read`.
+	// Problem codes: `invalid_query` (400: an unknown conclusion or
+	// trigger), `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs (the `ListCheckRuns` operationId).
+	ListCheckRunsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckRunsParams, reqEditors ...RequestEditorFn) (*ListCheckRunsResponse, error)
+
+	// GetCheckRunWithResponse One check run with its counts
+	//
+	// The run, the layers it actually computed — a layer the policy
+	// switched off is not in the list, so a reader can tell "clean"
+	// from "not looked at" — and the counts it concluded. `waived` is
+	// counted on its own and is never part of `errors` or `warnings`,
+	// because a number that goes down without the product getting
+	// better is the failure mode of every suppression system
+	// (RFC 0005 §14 decision 5). Its findings are
+	// `listFindings?run=…`. Needs `catalog.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs/{check_run} (the `GetCheckRun` operationId).
+	GetCheckRunWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, checkRun CheckRunPath, reqEditors ...RequestEditorFn) (*GetCheckRunResponse, error)
+
 	// ListContextBuildsWithResponse A project's usage uploads (builds), newest first
 	//
 	// With how many usages each holds and how many of those name a key
@@ -31415,6 +33115,51 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/fallback-graph (the `PutFallbackGraph` operationId).
 	PutFallbackGraphWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *PutFallbackGraphParams, body PutFallbackGraphJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFallbackGraphResponse, error)
+
+	// ListFindingsWithResponse A check run's findings, with today's waivers applied
+	//
+	// Every finding has one shape, whatever layer found it
+	// (`glossa.finding/v1`, RFC 0005 §2.1): a layer says what is wrong
+	// with which message in which locale, and Context fills the
+	// locus's file, line, route, component, capture and region in at
+	// report time, which is what turns almost every finding into a
+	// pull-request annotation instead of only the unknown keys.
+	//
+	// A finding belongs to a run, so the list reads exactly one: the
+	// one `run` names, or the newest run of `branch` or `commit`, or
+	// the project's newest. Listing every run's copy of the same
+	// problem would report it once per run and say nothing more.
+	// `run` is the run the page came from — absent when nothing has
+	// been checked yet, and the page is then empty rather than a
+	// `404`.
+	//
+	// Waivers are applied on read (RFC 0005 §2.3). A waived finding is
+	// **still computed and still reported**, at severity `waived`,
+	// naming the waiver that accepted it, and counted on its own; it
+	// is never hidden and never deleted. It comes back as an ordinary
+	// finding once the source revision it was computed against has
+	// moved past the one its waiver was made against — the German
+	// somebody waived is not the German that now ships. `counts` are
+	// the whole run as it stands now, whatever the filters select, so
+	// waiving something changes them while the run's own stored
+	// verdict stays what it was.
+	//
+	// Findings are immutable: a run is one evaluation, and the next
+	// writes new rows rather than editing the last one's. There is no
+	// update.
+	//
+	// The order is stable — errors, then warnings, then the waived,
+	// and within each by layer, locale, message key and id — and the
+	// cursor is that order's key, so a page never shifts. MCP's read
+	// tools consume this shape (RFC 0005 §7.3): it is the contract,
+	// not an implementation detail. Needs `catalog.read`. Problem
+	// codes: `invalid_query` (400: an unknown layer or severity),
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/findings (the `ListFindings` operationId).
+	ListFindingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListFindingsParams, reqEditors ...RequestEditorFn) (*ListFindingsResponse, error)
 
 	// CreateInContextGrantWithBodyWithResponse Mint the in-product editor's credential
 	//
@@ -32151,6 +33896,125 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/usages (the `ListUsages` operationId).
 	ListUsagesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListUsagesParams, reqEditors ...RequestEditorFn) (*ListUsagesResponse, error)
+
+	// ListWaiversWithResponse The findings this project accepts, and why
+	//
+	// Newest first, each with what it accepts: the layer, code, locale
+	// and message of the most recent stored finding carrying its
+	// fingerprint. Those are empty where no stored finding carries it
+	// any more — an unexamined waiver, which is exactly what a
+	// dashboard should show. `layer`, `code` and `message` filter on
+	// them; `active` selects the waivers that stand now (not revoked,
+	// not expired) or only those that don't. Needs `catalog.read`.
+	// Problem codes: `invalid_query` (400: an unknown layer),
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/waivers (the `ListWaivers` operationId).
+	ListWaiversWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWaiversParams, reqEditors ...RequestEditorFn) (*ListWaiversResponse, error)
+
+	// CreateWaiverWithBodyWithResponse Accept a finding, with a reason
+	//
+	// Some findings are correct and still fine: "Login" is the German
+	// term, and the Japanese button *is* two lines by design
+	// (RFC 0005 §2.3). A waiver names the finding by its
+	// `fingerprint` — not by a finding id, so it survives the run that
+	// found it — and says why.
+	//
+	// **The reason is required and non-empty.** A blank or
+	// whitespace-only one is refused with `waiver_reason_required`;
+	// there is no way to waive a finding without saying why, because a
+	// suppression nobody had to justify is technical debt with no
+	// paper trail. There is deliberately no inline code suppression
+	// (`// glossa:ignore …`): most findings are about a *translation*,
+	// which has no line of code to put a comment on.
+	//
+	// A waiver never deletes anything. The finding it accepts is still
+	// computed, still listed and counted on its own, at severity
+	// `waived` — and it comes back on its own once
+	// `source_revision` moves. `source_revision` defaults to the one
+	// the most recent stored finding with that fingerprint was
+	// computed against, which is the finding the person is looking at.
+	//
+	// `scope` `project` accepts the finding everywhere in the project;
+	// `branch` accepts it on `ref` only. The project keeps one live
+	// waiver per fingerprint and reach, so waiving the same finding
+	// again is not a second waiver: it restates the reason, the
+	// expiry and the source revision, and answers `200` instead of
+	// `201`.
+	//
+	// Needs `catalog.write` — the permission that already carries the
+	// authority to change what a project's check concludes, since it
+	// uploads the messages, usages and captures the layers grade.
+	// `translations.review` would be the wrong one: it is
+	// locale-scoped, and the `structure`, `completeness` and `source`
+	// layers produce findings with no locale at all. Problem codes:
+	// `waiver_reason_required`, `invalid_fingerprint`,
+	// `invalid_waiver_scope`, `waiver_branch_required`,
+	// `waiver_expiry_in_the_past`, `invalid_waiver` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/waivers (the `CreateWaiver` operationId).
+	CreateWaiverWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWaiverResponse, error)
+
+	// CreateWaiverWithResponse Accept a finding, with a reason
+	//
+	// Some findings are correct and still fine: "Login" is the German
+	// term, and the Japanese button *is* two lines by design
+	// (RFC 0005 §2.3). A waiver names the finding by its
+	// `fingerprint` — not by a finding id, so it survives the run that
+	// found it — and says why.
+	//
+	// **The reason is required and non-empty.** A blank or
+	// whitespace-only one is refused with `waiver_reason_required`;
+	// there is no way to waive a finding without saying why, because a
+	// suppression nobody had to justify is technical debt with no
+	// paper trail. There is deliberately no inline code suppression
+	// (`// glossa:ignore …`): most findings are about a *translation*,
+	// which has no line of code to put a comment on.
+	//
+	// A waiver never deletes anything. The finding it accepts is still
+	// computed, still listed and counted on its own, at severity
+	// `waived` — and it comes back on its own once
+	// `source_revision` moves. `source_revision` defaults to the one
+	// the most recent stored finding with that fingerprint was
+	// computed against, which is the finding the person is looking at.
+	//
+	// `scope` `project` accepts the finding everywhere in the project;
+	// `branch` accepts it on `ref` only. The project keeps one live
+	// waiver per fingerprint and reach, so waiving the same finding
+	// again is not a second waiver: it restates the reason, the
+	// expiry and the source revision, and answers `200` instead of
+	// `201`.
+	//
+	// Needs `catalog.write` — the permission that already carries the
+	// authority to change what a project's check concludes, since it
+	// uploads the messages, usages and captures the layers grade.
+	// `translations.review` would be the wrong one: it is
+	// locale-scoped, and the `structure`, `completeness` and `source`
+	// layers produce findings with no locale at all. Problem codes:
+	// `waiver_reason_required`, `invalid_fingerprint`,
+	// `invalid_waiver_scope`, `waiver_branch_required`,
+	// `waiver_expiry_in_the_past`, `invalid_waiver` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/waivers (the `CreateWaiver` operationId).
+	CreateWaiverWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateWaiverJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWaiverResponse, error)
+
+	// RevokeWaiverWithResponse Take a waiver back
+	//
+	// The findings it accepted are ordinary findings again from the
+	// next read; nothing is deleted and the revoked waiver stays as
+	// history, with who made it, when, and why. Revoking one twice
+	// answers `204` all the same. Needs `catalog.write`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/waivers/{waiver} (the `RevokeWaiver` operationId).
+	RevokeWaiverWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, waiver WaiverPath, reqEditors ...RequestEditorFn) (*RevokeWaiverResponse, error)
 
 	// ListStyleGuidesWithResponse Style guides
 	//
@@ -39956,6 +41820,137 @@ func (r GetCaptureImageResponse) ContentType() string {
 	return ""
 }
 
+type ListCheckRunsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CheckRunList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListCheckRunsResponse) GetJSON200() *CheckRunList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListCheckRunsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListCheckRunsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListCheckRunsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListCheckRunsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListCheckRunsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCheckRunsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCheckRunsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListCheckRunsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetCheckRunResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CheckRun
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetCheckRunResponse) GetJSON200() *CheckRun {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetCheckRunResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetCheckRunResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetCheckRunResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetCheckRunResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCheckRunResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCheckRunResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetCheckRunResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListContextBuildsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -41189,6 +43184,75 @@ func (r PutFallbackGraphResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PutFallbackGraphResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListFindingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *FindingList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListFindingsResponse) GetJSON200() *FindingList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListFindingsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListFindingsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListFindingsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListFindingsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListFindingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFindingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFindingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFindingsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -43999,6 +46063,213 @@ func (r ListUsagesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListUsagesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListWaiversResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WaiverList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListWaiversResponse) GetJSON200() *WaiverList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListWaiversResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListWaiversResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListWaiversResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListWaiversResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListWaiversResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListWaiversResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListWaiversResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListWaiversResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateWaiverResponse201Headers the declared response headers of an HTTP 201 response for CreateWaiver
+type CreateWaiverResponse201Headers struct {
+	Location *string
+}
+
+type CreateWaiverResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Waiver
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Waiver
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateWaiverResponse201Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CreateWaiverResponse) GetJSON200() *Waiver {
+	return r.JSON200
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateWaiverResponse) GetJSON201() *Waiver {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateWaiverResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateWaiverResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateWaiverResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateWaiverResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateWaiverResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateWaiverResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateWaiverResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateWaiverResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeWaiverResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RevokeWaiverResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RevokeWaiverResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RevokeWaiverResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r RevokeWaiverResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeWaiverResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeWaiverResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeWaiverResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -49168,6 +51439,56 @@ func (c *ClientWithResponses) GetCaptureImageWithResponse(ctx context.Context, t
 	return ParseGetCaptureImageResponse(rsp)
 }
 
+// ListCheckRunsWithResponse A project's check runs, newest first
+//
+// One run is one evaluation of one ref against one policy version
+// (RFC 0005 §2.2): the pull-request check, Studio, the dashboard
+// and `glossa findings` read the stored run rather than
+// recomputing the same thing four times. `branch` selects the runs
+// of a branch or an environment, `commit` the runs of one commit
+// (a branch moves; the commit a verdict was about does not), and
+// `conclusion` and `trigger` narrow further; they combine.
+//
+// `counts` are what the run concluded, with the waivers that were
+// live while it graded, and nothing rewrites them afterwards — a
+// verdict is history. What the same findings look like today, with
+// today's waivers, is `listFindings`. Needs `catalog.read`.
+// Problem codes: `invalid_query` (400: an unknown conclusion or
+// trigger), `invalid_page_size`, `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs (the `ListCheckRuns` operationId).
+func (c *ClientWithResponses) ListCheckRunsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckRunsParams, reqEditors ...RequestEditorFn) (*ListCheckRunsResponse, error) {
+	rsp, err := c.ListCheckRuns(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCheckRunsResponse(rsp)
+}
+
+// GetCheckRunWithResponse One check run with its counts
+//
+// The run, the layers it actually computed — a layer the policy
+// switched off is not in the list, so a reader can tell "clean"
+// from "not looked at" — and the counts it concluded. `waived` is
+// counted on its own and is never part of `errors` or `warnings`,
+// because a number that goes down without the product getting
+// better is the failure mode of every suppression system
+// (RFC 0005 §14 decision 5). Its findings are
+// `listFindings?run=…`. Needs `catalog.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs/{check_run} (the `GetCheckRun` operationId).
+func (c *ClientWithResponses) GetCheckRunWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, checkRun CheckRunPath, reqEditors ...RequestEditorFn) (*GetCheckRunResponse, error) {
+	rsp, err := c.GetCheckRun(ctx, tenant, project, checkRun, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCheckRunResponse(rsp)
+}
+
 // ListContextBuildsWithResponse A project's usage uploads (builds), newest first
 //
 // With how many usages each holds and how many of those name a key
@@ -49669,6 +51990,57 @@ func (c *ClientWithResponses) PutFallbackGraphWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParsePutFallbackGraphResponse(rsp)
+}
+
+// ListFindingsWithResponse A check run's findings, with today's waivers applied
+//
+// Every finding has one shape, whatever layer found it
+// (`glossa.finding/v1`, RFC 0005 §2.1): a layer says what is wrong
+// with which message in which locale, and Context fills the
+// locus's file, line, route, component, capture and region in at
+// report time, which is what turns almost every finding into a
+// pull-request annotation instead of only the unknown keys.
+//
+// A finding belongs to a run, so the list reads exactly one: the
+// one `run` names, or the newest run of `branch` or `commit`, or
+// the project's newest. Listing every run's copy of the same
+// problem would report it once per run and say nothing more.
+// `run` is the run the page came from — absent when nothing has
+// been checked yet, and the page is then empty rather than a
+// `404`.
+//
+// Waivers are applied on read (RFC 0005 §2.3). A waived finding is
+// **still computed and still reported**, at severity `waived`,
+// naming the waiver that accepted it, and counted on its own; it
+// is never hidden and never deleted. It comes back as an ordinary
+// finding once the source revision it was computed against has
+// moved past the one its waiver was made against — the German
+// somebody waived is not the German that now ships. `counts` are
+// the whole run as it stands now, whatever the filters select, so
+// waiving something changes them while the run's own stored
+// verdict stays what it was.
+//
+// Findings are immutable: a run is one evaluation, and the next
+// writes new rows rather than editing the last one's. There is no
+// update.
+//
+// The order is stable — errors, then warnings, then the waived,
+// and within each by layer, locale, message key and id — and the
+// cursor is that order's key, so a page never shifts. MCP's read
+// tools consume this shape (RFC 0005 §7.3): it is the contract,
+// not an implementation detail. Needs `catalog.read`. Problem
+// codes: `invalid_query` (400: an unknown layer or severity),
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/findings (the `ListFindings` operationId).
+func (c *ClientWithResponses) ListFindingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListFindingsParams, reqEditors ...RequestEditorFn) (*ListFindingsResponse, error) {
+	rsp, err := c.ListFindings(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFindingsResponse(rsp)
 }
 
 // CreateInContextGrantWithBodyWithResponse Mint the in-product editor's credential
@@ -50705,6 +53077,149 @@ func (c *ClientWithResponses) ListUsagesWithResponse(ctx context.Context, tenant
 		return nil, err
 	}
 	return ParseListUsagesResponse(rsp)
+}
+
+// ListWaiversWithResponse The findings this project accepts, and why
+//
+// Newest first, each with what it accepts: the layer, code, locale
+// and message of the most recent stored finding carrying its
+// fingerprint. Those are empty where no stored finding carries it
+// any more — an unexamined waiver, which is exactly what a
+// dashboard should show. `layer`, `code` and `message` filter on
+// them; `active` selects the waivers that stand now (not revoked,
+// not expired) or only those that don't. Needs `catalog.read`.
+// Problem codes: `invalid_query` (400: an unknown layer),
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/waivers (the `ListWaivers` operationId).
+func (c *ClientWithResponses) ListWaiversWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWaiversParams, reqEditors ...RequestEditorFn) (*ListWaiversResponse, error) {
+	rsp, err := c.ListWaivers(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListWaiversResponse(rsp)
+}
+
+// CreateWaiverWithBodyWithResponse Accept a finding, with a reason
+//
+// Some findings are correct and still fine: "Login" is the German
+// term, and the Japanese button *is* two lines by design
+// (RFC 0005 §2.3). A waiver names the finding by its
+// `fingerprint` — not by a finding id, so it survives the run that
+// found it — and says why.
+//
+// **The reason is required and non-empty.** A blank or
+// whitespace-only one is refused with `waiver_reason_required`;
+// there is no way to waive a finding without saying why, because a
+// suppression nobody had to justify is technical debt with no
+// paper trail. There is deliberately no inline code suppression
+// (`// glossa:ignore …`): most findings are about a *translation*,
+// which has no line of code to put a comment on.
+//
+// A waiver never deletes anything. The finding it accepts is still
+// computed, still listed and counted on its own, at severity
+// `waived` — and it comes back on its own once
+// `source_revision` moves. `source_revision` defaults to the one
+// the most recent stored finding with that fingerprint was
+// computed against, which is the finding the person is looking at.
+//
+// `scope` `project` accepts the finding everywhere in the project;
+// `branch` accepts it on `ref` only. The project keeps one live
+// waiver per fingerprint and reach, so waiving the same finding
+// again is not a second waiver: it restates the reason, the
+// expiry and the source revision, and answers `200` instead of
+// `201`.
+//
+// Needs `catalog.write` — the permission that already carries the
+// authority to change what a project's check concludes, since it
+// uploads the messages, usages and captures the layers grade.
+// `translations.review` would be the wrong one: it is
+// locale-scoped, and the `structure`, `completeness` and `source`
+// layers produce findings with no locale at all. Problem codes:
+// `waiver_reason_required`, `invalid_fingerprint`,
+// `invalid_waiver_scope`, `waiver_branch_required`,
+// `waiver_expiry_in_the_past`, `invalid_waiver` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/waivers (the `CreateWaiver` operationId).
+func (c *ClientWithResponses) CreateWaiverWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWaiverResponse, error) {
+	rsp, err := c.CreateWaiverWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateWaiverResponse(rsp)
+}
+
+// CreateWaiverWithResponse Accept a finding, with a reason
+//
+// Some findings are correct and still fine: "Login" is the German
+// term, and the Japanese button *is* two lines by design
+// (RFC 0005 §2.3). A waiver names the finding by its
+// `fingerprint` — not by a finding id, so it survives the run that
+// found it — and says why.
+//
+// **The reason is required and non-empty.** A blank or
+// whitespace-only one is refused with `waiver_reason_required`;
+// there is no way to waive a finding without saying why, because a
+// suppression nobody had to justify is technical debt with no
+// paper trail. There is deliberately no inline code suppression
+// (`// glossa:ignore …`): most findings are about a *translation*,
+// which has no line of code to put a comment on.
+//
+// A waiver never deletes anything. The finding it accepts is still
+// computed, still listed and counted on its own, at severity
+// `waived` — and it comes back on its own once
+// `source_revision` moves. `source_revision` defaults to the one
+// the most recent stored finding with that fingerprint was
+// computed against, which is the finding the person is looking at.
+//
+// `scope` `project` accepts the finding everywhere in the project;
+// `branch` accepts it on `ref` only. The project keeps one live
+// waiver per fingerprint and reach, so waiving the same finding
+// again is not a second waiver: it restates the reason, the
+// expiry and the source revision, and answers `200` instead of
+// `201`.
+//
+// Needs `catalog.write` — the permission that already carries the
+// authority to change what a project's check concludes, since it
+// uploads the messages, usages and captures the layers grade.
+// `translations.review` would be the wrong one: it is
+// locale-scoped, and the `structure`, `completeness` and `source`
+// layers produce findings with no locale at all. Problem codes:
+// `waiver_reason_required`, `invalid_fingerprint`,
+// `invalid_waiver_scope`, `waiver_branch_required`,
+// `waiver_expiry_in_the_past`, `invalid_waiver` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/waivers (the `CreateWaiver` operationId).
+func (c *ClientWithResponses) CreateWaiverWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateWaiverJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWaiverResponse, error) {
+	rsp, err := c.CreateWaiver(ctx, tenant, project, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateWaiverResponse(rsp)
+}
+
+// RevokeWaiverWithResponse Take a waiver back
+//
+// The findings it accepted are ordinary findings again from the
+// next read; nothing is deleted and the revoked waiver stays as
+// history, with who made it, when, and why. Revoking one twice
+// answers `204` all the same. Needs `catalog.write`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/waivers/{waiver} (the `RevokeWaiver` operationId).
+func (c *ClientWithResponses) RevokeWaiverWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, waiver WaiverPath, reqEditors ...RequestEditorFn) (*RevokeWaiverResponse, error) {
+	rsp, err := c.RevokeWaiver(ctx, tenant, project, waiver, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeWaiverResponse(rsp)
 }
 
 // ListStyleGuidesWithResponse Style guides
@@ -57616,6 +60131,107 @@ func ParseGetCaptureImageResponse(rsp *http.Response) (*GetCaptureImageResponse,
 	return response, nil
 }
 
+// ParseListCheckRunsResponse parses an HTTP response from a ListCheckRunsWithResponse call
+func ParseListCheckRunsResponse(rsp *http.Response) (*ListCheckRunsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCheckRunsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CheckRunList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCheckRunResponse parses an HTTP response from a GetCheckRunWithResponse call
+func ParseGetCheckRunResponse(rsp *http.Response) (*GetCheckRunResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCheckRunResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CheckRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListContextBuildsResponse parses an HTTP response from a ListContextBuildsWithResponse call
 func ParseListContextBuildsResponse(rsp *http.Response) (*ListContextBuildsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -58679,6 +61295,60 @@ func ParsePutFallbackGraphResponse(rsp *http.Response) (*PutFallbackGraphRespons
 			headers.ETag = &value
 		}
 		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListFindingsResponse parses an HTTP response from a ListFindingsWithResponse call
+func ParseListFindingsResponse(rsp *http.Response) (*ListFindingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFindingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FindingList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
 	}
 
 	return response, nil
@@ -61014,6 +63684,177 @@ func ParseListUsagesResponse(rsp *http.Response) (*ListUsagesResponse, error) {
 			return nil, err
 		}
 		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListWaiversResponse parses an HTTP response from a ListWaiversWithResponse call
+func ParseListWaiversResponse(rsp *http.Response) (*ListWaiversResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListWaiversResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WaiverList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateWaiverResponse parses an HTTP response from a CreateWaiverWithResponse call
+func ParseCreateWaiverResponse(rsp *http.Response) (*CreateWaiverResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateWaiverResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Waiver
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Waiver
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateWaiverResponse201Headers
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRevokeWaiverResponse parses an HTTP response from a RevokeWaiverWithResponse call
+func ParseRevokeWaiverResponse(rsp *http.Response) (*RevokeWaiverResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeWaiverResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthenticated

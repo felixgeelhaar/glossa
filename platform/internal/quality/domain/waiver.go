@@ -43,6 +43,10 @@ var (
 	// ErrInvalidFingerprint is a waiver against something that is not a
 	// finding fingerprint.
 	ErrInvalidFingerprint = errors.New("quality: not a finding fingerprint")
+	// ErrExpiryInThePast is a waiver that has already expired when it is
+	// made. It would accept nothing, so saying no is kinder than storing
+	// a waiver whose reason nobody will ever read.
+	ErrExpiryInThePast = errors.New("quality: a waiver cannot expire in the past")
 )
 
 // Waiver is one accepted finding.

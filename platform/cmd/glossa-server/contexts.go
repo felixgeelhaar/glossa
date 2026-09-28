@@ -58,9 +58,17 @@ import (
 	localizationapi "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/httpapi"
 	localizationpg "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/postgres"
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
+	mcpsources "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/sources"
+	mcpapp "github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
+	mcptools "github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
 	previewapi "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/httpapi"
 	previewlimit "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/ratelimit"
 	previewapp "github.com/felixgeelhaar/glossa/platform/internal/preview/app"
+	qualitycatalog "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/catalog"
+	qualityapi "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/httpapi"
+	qualitymetrics "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/metrics"
+	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
+	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
 	releasepg "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/postgres"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/sources"
@@ -94,6 +102,11 @@ type contexts struct {
 	// message_context reads it through its own port.
 	usageContext *contextapp.Service
 	contextAPI   *contextapi.API
+	// quality is the Quality context (RFC 0005): check runs, their
+	// immutable findings and the waivers that accept one. qualityAPI
+	// serves its reads and waiver writes.
+	quality    *qualityapp.Service
+	qualityAPI *qualityapi.API
 	// keyIndexes is Release's key index task: it rewrites the index
 	// objects of keys written before their current format (migration
 	// 0015 gave existing keys a scope).
@@ -118,6 +131,12 @@ type contexts struct {
 	// GLOSSA_GITHUB_CHECKS_ENABLED is off. The webhook still queues the
 	// checks without it — they wait rather than being lost.
 	githubChecks *integrationapp.CheckWorker
+	// mcpTools are the MCP tools this deployment can serve (RFC 0005
+	// §7.3), each a thin call into one of the contexts above. They are
+	// built here because this is where those application services are;
+	// newMCP registers them when the endpoint is enabled and drops them
+	// when it is not.
+	mcpTools []mcpapp.Tool
 	// ciAuth is what Identity needs to exchange a GitHub Actions ID
 	// token for a CI token (RFC 0004 §6.3): one process-wide verifier
 	// and Integration's Git connections. Zero when this deployment has
@@ -275,6 +294,9 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err := intelligence.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
+	quality := qualityapp.NewService(qualitypg.NewTransactor(uow), qualitycatalog.New(catalog),
+		qualityapp.WithLogger(deps.logger), qualityapp.WithMetrics(qualitymetrics.New(deps.registerer)),
+		qualityapp.WithTracerProvider(deps.tracer))
 	aiAPI, err := intelligenceapi.New(intelligence)
 	if err != nil {
 		return contexts{}, err
@@ -284,6 +306,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
 		previewAPI:   previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),
 		usageContext: usageContext, contextAPI: contextapi.New(usageContext),
+		quality: quality, qualityAPI: qualityapi.New(quality),
 	}
 	scanner := releasepg.NewScanner(uow)
 	c.keyIndexes = func(ctx context.Context) (int, error) { return release.RewriteKeyIndexes(ctx, scanner) }
@@ -341,6 +364,14 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		})
 	}
 	c.purgeJobs = newPurgeJobs(usageContext, catalog, c.githubInbox, c.githubChecks, deps.logger)
+	c.mcpTools = mcptools.Read(mcptools.Sources{
+		Catalog:      mcpsources.NewCatalog(catalog, usageContext),
+		Translations: mcpsources.NewTranslations(localization),
+		Usages:       mcpsources.NewUsages(usageContext, catalog),
+		Knowledge:    mcpsources.NewKnowledge(knowledge),
+		Quality:      mcpsources.NewQuality(quality),
+		Delivery:     mcpsources.NewDelivery(release),
+	})
 	return c, nil
 }
 

@@ -1,0 +1,344 @@
+package app_test
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+)
+
+// ListFindings against a store that remembers what it was asked. The
+// integration tests grade the same surface against Postgres; these ask
+// the narrower question — what the service resolves, validates and
+// hands down — and they ask it without a container, so the answer is
+// there on every `go test ./...`.
+
+// ── a store that remembers what it was asked ────────────────────────
+
+type fakeStore struct {
+	run  domain.CheckRun
+	rows []app.FindingRecord
+	// runErr is what the run lookup answers instead of run.
+	runErr error
+
+	// What the last ListFindings and run lookup passed down.
+	lastRunFilter app.FindingFilter
+	lastRun       app.RunFilter
+	lastAfter     string
+	lastLimit     int
+	lastNow       time.Time
+}
+
+func (f *fakeStore) LatestCheckRun(_ context.Context, _ uuid.UUID, filter app.RunFilter) (domain.CheckRun, error) {
+	f.lastRun = filter
+	return f.run, f.runErr
+}
+
+func (f *fakeStore) CheckRun(_ context.Context, _, id uuid.UUID) (domain.CheckRun, error) {
+	f.lastRun = app.RunFilter{}
+	if f.runErr != nil {
+		return domain.CheckRun{}, f.runErr
+	}
+	if id != f.run.ID {
+		return domain.CheckRun{}, app.ErrCheckRunNotFound
+	}
+	return f.run, nil
+}
+
+// ListFindings keyset-pages rows the way the query does, so a cursor
+// the service issues has to be one the store can continue from.
+func (f *fakeStore) ListFindings(
+	_ context.Context, _ domain.CheckRun, filter app.FindingFilter, after string, limit int, now time.Time,
+) ([]app.FindingRecord, error) {
+	f.lastRunFilter, f.lastAfter, f.lastLimit, f.lastNow = filter, after, limit, now
+	var out []app.FindingRecord
+	for _, r := range f.rows {
+		if after != "" && r.SortKey <= after {
+			continue
+		}
+		if len(out) == limit {
+			break
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+func (f *fakeStore) CountFindings(context.Context, domain.CheckRun, time.Time) (domain.Counts, error) {
+	return f.run.Counts, nil
+}
+
+// The rest of the port is not on this path; reaching one is the bug.
+func (f *fakeStore) InsertCheckRun(context.Context, domain.CheckRun) error { panic("not on this path") }
+func (f *fakeStore) InsertFindings(context.Context, uuid.UUID, uuid.UUID, []domain.Finding) error {
+	panic("not on this path")
+}
+
+func (f *fakeStore) ListCheckRuns(
+	context.Context, uuid.UUID, app.RunFilter, *app.RunCursor, int,
+) ([]domain.CheckRun, error) {
+	panic("not on this path")
+}
+
+func (f *fakeStore) LatestFinding(context.Context, uuid.UUID, string) (app.FindingSummary, bool, error) {
+	panic("not on this path")
+}
+
+func (f *fakeStore) UpsertWaiver(context.Context, domain.Waiver) (domain.Waiver, bool, error) {
+	panic("not on this path")
+}
+func (f *fakeStore) Waiver(context.Context, uuid.UUID, uuid.UUID) (domain.Waiver, error) {
+	panic("not on this path")
+}
+
+func (f *fakeStore) ListWaivers(
+	context.Context, uuid.UUID, app.WaiverFilter, *app.WaiverCursor, int, time.Time,
+) ([]app.WaiverRecord, error) {
+	panic("not on this path")
+}
+func (f *fakeStore) RevokeWaiver(context.Context, uuid.UUID, uuid.UUID, time.Time) error {
+	panic("not on this path")
+}
+
+func (f *fakeStore) LiveWaivers(context.Context, uuid.UUID, time.Time) ([]domain.Waiver, error) {
+	panic("not on this path")
+}
+
+type fakeTx struct{ store *fakeStore }
+
+func (t fakeTx) InTenant(ctx context.Context, fn func(context.Context, app.Store) error) error {
+	return fn(ctx, t.store)
+}
+
+// knownProjects is a Catalog that knows one project, so an unknown one
+// is a 404 and not an empty list.
+type knownProjects struct{ id uuid.UUID }
+
+func (c knownProjects) Project(_ context.Context, project uuid.UUID) error {
+	if project != c.id {
+		return app.ErrProjectNotFound
+	}
+	return nil
+}
+
+// storeWith is a completed, failing run of `main` with n findings in
+// the order the query returns them: errors first, then by layer,
+// locale, key and id, joined the way sort_key is (db/queries/quality/
+// findings.sql).
+func storeWith(n int) *fakeStore {
+	s := &fakeStore{run: domain.CheckRun{
+		ID: uuid.New(), Ref: "main", Trigger: domain.TriggerCLI, Conclusion: domain.ConclusionFailure,
+		Layers: []domain.Layer{domain.LayerParity}, Counts: domain.Counts{Errors: n},
+		StartedAt: time.Now().UTC(), CompletedAt: time.Now().UTC(),
+	}}
+	for i := range n {
+		id := uuid.New()
+		key := fmt.Sprintf("checkout.pay.%02d", i)
+		s.rows = append(s.rows, app.FindingRecord{
+			Finding: domain.New(domain.Finding{
+				Layer: domain.LayerParity, Code: "argument_missing", Severity: domain.Error,
+				Locus: domain.Locus{Key: key, Locale: "de"}, Subject: key,
+			}),
+			SortKey: "0\x01parity\x01de\x01" + key + "\x01" + id.String(),
+		})
+	}
+	return s
+}
+
+// serviceFor returns a service over store, and the project its Catalog
+// knows.
+func serviceFor(store *fakeStore) (*app.Service, uuid.UUID) {
+	project := uuid.New()
+	return app.NewService(fakeTx{store: store}, knownProjects{id: project}), project
+}
+
+// readCtx carries a principal that may read the catalog.
+func readCtx(t *testing.T) context.Context {
+	t.Helper()
+	return authztest.Token(t.Context(), tenancy.NewID(), "read")
+}
+
+func pageOf(size int) pagination.Page { return pagination.Page{Size: size} }
+
+// TestListFindingsReadsTheNewestRunOfTheRef: a finding belongs to a
+// run, so a list that names no run reads exactly one — the newest of
+// the ref and commit asked for — and never merges two runs' copies of
+// the same problem.
+//
+// Before M4's merge the store took a `completedOnly` flag and this test
+// asserted a read surface never shows a run still in flight. The flag
+// has no caller any more: RecordCheckRun stores a run together with its
+// verdict, so the store holds no in-flight run to exclude. What is left
+// to pin is that the ref and the commit reach the store unchanged and
+// that nothing else is invented as a filter.
+func TestListFindingsReadsTheNewestRunOfTheRef(t *testing.T) {
+	store := storeWith(3)
+	svc, project := serviceFor(store)
+
+	got, err := svc.ListFindings(readCtx(t), project,
+		app.FindingQuery{Ref: "main", Commit: "abc"}, pageOf(pagination.DefaultPageSize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Run == nil || got.Run.ID != store.run.ID || got.Run.Ref != "main" {
+		t.Fatalf("run = %+v, want the store's", got.Run)
+	}
+	if len(got.Items) != 3 || got.Next != nil {
+		t.Fatalf("page = %d items, next %v, want all three on one page", len(got.Items), got.Next)
+	}
+	if got.Counts != (domain.Counts{Errors: 3}) {
+		t.Errorf("counts = %+v, want the run's, recounted against today's waivers", got.Counts)
+	}
+	if want := (app.RunFilter{Ref: "main", Commit: "abc"}); store.lastRun != want {
+		t.Errorf("run filter = %+v, want %+v", store.lastRun, want)
+	}
+	if store.lastLimit != pagination.DefaultPageSize+1 {
+		t.Errorf("limit = %d, want the page size plus the lookahead row", store.lastLimit)
+	}
+}
+
+// TestListFindingsPaginates: the cursor is the order's own key, and it
+// round-trips through the page token the API hands out.
+func TestListFindingsPaginates(t *testing.T) {
+	store := storeWith(5)
+	svc, project := serviceFor(store)
+
+	first, err := svc.ListFindings(readCtx(t), project, app.FindingQuery{}, pageOf(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Items) != 2 {
+		t.Fatalf("findings = %d, want 2", len(first.Items))
+	}
+	if first.Next == nil {
+		t.Fatal("next = nil, want a token: two of five were returned")
+	}
+	next, err := pagination.Parse(nil, first.Next)
+	if err != nil {
+		t.Fatalf("the token this list issued was refused: %v", err)
+	}
+	if want := first.Items[1].SortKey; next.After != want {
+		t.Fatalf("cursor = %q, want the last row's sort key %q", next.After, want)
+	}
+
+	second, err := svc.ListFindings(readCtx(t), project, app.FindingQuery{}, pagination.Page{Size: 2, After: next.After})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.lastAfter != next.After {
+		t.Errorf("after = %q, want the cursor", store.lastAfter)
+	}
+	if len(second.Items) != 2 || second.Items[0].SortKey == first.Items[0].SortKey {
+		t.Fatalf("second page = %+v, want the two rows after the cursor", second.Items)
+	}
+}
+
+// TestListFindingsRefusesAnUnknownFilter: a filter outside the
+// vocabulary would return nothing, which reads like "clean" and is not.
+//
+// The old limit cases — past the cap, negative — are gone from this
+// layer: ListFindings takes a pagination.Page that has already been
+// validated, and pagination's own tests refuse both.
+func TestListFindingsRefusesAnUnknownFilter(t *testing.T) {
+	svc, project := serviceFor(storeWith(1))
+	for _, tc := range []struct {
+		name   string
+		filter app.FindingFilter
+	}{
+		{name: "a layer nobody stores", filter: app.FindingFilter{Layer: "spelling"}},
+		{name: "a severity nobody stores", filter: app.FindingFilter{Severity: "info"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.ListFindings(readCtx(t), project,
+				app.FindingQuery{Filter: tc.filter}, pageOf(pagination.DefaultPageSize))
+			if !errors.Is(err, app.ErrInvalidQuery) {
+				t.Fatalf("err = %v, want ErrInvalidQuery", err)
+			}
+		})
+	}
+}
+
+// TestListFindingsPassesTheFilterDown: every member reaches the store,
+// including the tri-state Waived, where nil means both and false means
+// "only what is not waived" — not "don't filter".
+func TestListFindingsPassesTheFilterDown(t *testing.T) {
+	store := storeWith(1)
+	svc, project := serviceFor(store)
+	no := false
+	want := app.FindingFilter{
+		Layer: string(domain.LayerParity), Severity: string(domain.Error), Code: "argument_missing",
+		Locale: "de", Namespace: "checkout", Key: "checkout.pay", Waived: &no,
+	}
+	if _, err := svc.ListFindings(readCtx(t), project,
+		app.FindingQuery{Filter: want}, pageOf(pagination.DefaultPageSize)); err != nil {
+		t.Fatal(err)
+	}
+	if store.lastRunFilter != want {
+		t.Fatalf("filter = %+v, want %+v", store.lastRunFilter, want)
+	}
+	if store.lastRunFilter.Waived == nil || *store.lastRunFilter.Waived {
+		t.Errorf("waived = %v, want a false that reaches the store as false", store.lastRunFilter.Waived)
+	}
+}
+
+// TestListFindingsNeedsCatalogRead: a finding is about the catalog's
+// messages, so reading one needs `catalog.read` (RFC 0005 §9).
+func TestListFindingsNeedsCatalogRead(t *testing.T) {
+	store := storeWith(1)
+	svc, project := serviceFor(store)
+	_, err := svc.ListFindings(context.Background(), project, app.FindingQuery{}, pageOf(pagination.DefaultPageSize))
+	if !errors.Is(err, authz.ErrUnauthenticated) {
+		t.Fatalf("err = %v, want unauthenticated", err)
+	}
+	if store.lastLimit != 0 {
+		t.Error("the store was read before the permission was checked")
+	}
+}
+
+// TestListFindingsPassesNotFoundOn: a run the caller named and a
+// project nobody knows are both 404s. A project nobody has checked yet
+// is not: it has no findings, which is an empty list.
+func TestListFindingsPassesNotFoundOn(t *testing.T) {
+	t.Run("a named run that isn't there", func(t *testing.T) {
+		store := storeWith(0)
+		store.runErr = app.ErrCheckRunNotFound
+		svc, project := serviceFor(store)
+		_, err := svc.ListFindings(readCtx(t), project,
+			app.FindingQuery{Run: uuid.New()}, pageOf(pagination.DefaultPageSize))
+		if !errors.Is(err, app.ErrCheckRunNotFound) {
+			t.Fatalf("err = %v, want ErrCheckRunNotFound", err)
+		}
+	})
+
+	t.Run("an unknown project", func(t *testing.T) {
+		svc, _ := serviceFor(storeWith(1))
+		_, err := svc.ListFindings(readCtx(t), uuid.New(), app.FindingQuery{}, pageOf(pagination.DefaultPageSize))
+		if !errors.Is(err, app.ErrProjectNotFound) {
+			t.Fatalf("err = %v, want ErrProjectNotFound", err)
+		}
+	})
+
+	t.Run("nothing checked yet", func(t *testing.T) {
+		store := storeWith(0)
+		store.runErr = app.ErrCheckRunNotFound
+		svc, project := serviceFor(store)
+		got, err := svc.ListFindings(readCtx(t), project, app.FindingQuery{}, pageOf(pagination.DefaultPageSize))
+		if err != nil {
+			t.Fatalf("err = %v, want an empty page", err)
+		}
+		if got.Run != nil || len(got.Items) != 0 || got.Items == nil || got.Next != nil ||
+			got.Counts != (domain.Counts{}) {
+			t.Fatalf("page = %+v, want an empty one that renders as [] and not null", got)
+		}
+	})
+}

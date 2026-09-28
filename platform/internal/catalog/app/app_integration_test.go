@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
@@ -128,6 +129,97 @@ func TestCheckPolicyRoundTripsThroughStorage(t *testing.T) {
 	settings.CheckPolicy = &checkpolicy.Policy{RequireComplete: []string{"ja"}}
 	if _, err := h.svc.UpdateProject(ctx, p.ID, cur.Version, domain.ProjectChange{Settings: &settings}); !errors.Is(err, checkpolicy.ErrUnknownLocale) {
 		t.Errorf("unknown locale: %v, want ErrUnknownLocale", err)
+	}
+}
+
+// TestCheckPolicyDocumentRoundTripsThroughStorage: the document of
+// RFC 0005 §4.1 — rules, environments, a version and a grace — has to
+// survive the JSONB column and migration 0029's constraint whole,
+// because the policy is what two readers grade a commit by.
+func TestCheckPolicyDocumentRoundTripsThroughStorage(t *testing.T) {
+	h := newHarness(t)
+	h.svc.SetLocales(fakeLocales{"en", "de", "fr"})
+	ctx := h.developer()
+	p := h.project(t, ctx)
+
+	saved := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+	document := checkpolicy.Policy{
+		Schema: checkpolicy.Schema, RequireComplete: []string{"de"}, FailOn: checkpolicy.Error,
+		MissingTranslations: checkpolicy.Warning,
+		Environments: map[string]checkpolicy.Environment{
+			"production": {
+				RequireComplete: checkpolicy.RequiredLocales("de", "fr"),
+				RequireReview:   checkpolicy.ReviewApproved,
+			},
+			"staging": {RequireComplete: checkpolicy.AllLocales()},
+		},
+		Rules: []checkpolicy.Rule{
+			{Selector: checkpolicy.Selector{Layer: "source"}, Severity: checkpolicy.Off},
+			{
+				Selector: checkpolicy.Selector{Layer: "terminology", Namespace: "legal"},
+				Severity: checkpolicy.Error,
+			},
+			{
+				Selector: checkpolicy.Selector{Layer: "visual"},
+				Severity: checkpolicy.Warning, Mode: checkpolicy.ModeWarn,
+			},
+		},
+	}.Supersede(checkpolicy.Policy{Version: 6}, saved, checkpolicy.DefaultGrace)
+
+	cur, err := h.svc.GetProject(ctx, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := cur.Settings
+	settings.CheckPolicy = &document
+	if _, err := h.svc.UpdateProject(ctx, p.ID, cur.Version,
+		domain.ProjectChange{Settings: &settings}); err != nil {
+		t.Fatal(err)
+	}
+	back, err := h.svc.GetProject(ctx, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// What comes back is the document as validation normalized it — a
+	// rule that named no mode enforces — and nothing else moved.
+	want, err := document.Validate([]string{"en", "de", "fr"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := back.Settings.Policy()
+	if !got.Equal(want) {
+		t.Fatalf("stored document = %+v, want %+v", got, want)
+	}
+	// And it still decides: the rules, the environments and the grace
+	// came back, not just the bytes.
+	if !got.FailsDecision(got.Decide(checkpolicy.Target{
+		Layer: "terminology", Namespace: "legal", Locale: "de", Severity: checkpolicy.Warning,
+	})) {
+		t.Error("the stored rule stopped deciding")
+	}
+	if got.Computes("source", "") {
+		t.Error("the source layer computes, want the stored rule to switch it off")
+	}
+	if !got.RequiresIn("production", "fr") || got.RequiresIn("", "fr") {
+		t.Error("the stored environment's require_complete did not survive")
+	}
+	if !got.Pins(saved.Add(-time.Hour), saved.Add(time.Hour)) || got.Previous.Version != 6 {
+		t.Errorf("the grace or the previous version did not survive: %+v", got.Previous)
+	}
+
+	// A rule raising the advisory layer to error is refused by the
+	// domain before storage ever sees it (RFC 0005 §14 decision 10).
+	cur, err = h.svc.GetProject(ctx, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings = cur.Settings
+	settings.CheckPolicy = &checkpolicy.Policy{Rules: []checkpolicy.Rule{
+		{Selector: checkpolicy.Selector{Layer: "linguistic"}, Severity: checkpolicy.Error},
+	}}
+	if _, err := h.svc.UpdateProject(ctx, p.ID, cur.Version,
+		domain.ProjectChange{Settings: &settings}); !errors.Is(err, checkpolicy.ErrAdvisoryLayer) {
+		t.Errorf("raising the linguistic layer: %v, want ErrAdvisoryLayer", err)
 	}
 }
 

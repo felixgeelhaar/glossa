@@ -121,8 +121,19 @@ func (s Settings) orCurrent(current Settings) Settings {
 	if s.DefaultBranch == "" {
 		s.DefaultBranch = current.DefaultBranch
 	}
-	if s.CheckPolicy == nil {
+	switch {
+	case s.CheckPolicy == nil:
 		s.CheckPolicy = current.CheckPolicy
+	case current.CheckPolicy != nil && s.CheckPolicy.BaseOnly():
+		// A settings write that says only the three base fields is the
+		// project-settings API, which is all it can say — the document's
+		// rules, environments, version and history are the policy API's
+		// (RFC 0005 §13 wave 3). Taking such a write at face value would
+		// drop them, so it changes the base and the document keeps the
+		// rest. A policy nobody meant to touch is not a policy anybody
+		// deleted. A write that does carry a document replaces one.
+		kept := current.CheckPolicy.WithBase(*s.CheckPolicy)
+		s.CheckPolicy = &kept
 	}
 	return s
 }

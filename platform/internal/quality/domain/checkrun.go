@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"time"
 
@@ -53,7 +54,18 @@ var (
 	ErrUnknownTrigger = errors.New("quality: unknown trigger")
 	// ErrUnknownLayer is a layer outside Layers.
 	ErrUnknownLayer = errors.New("quality: unknown layer")
+	// ErrInvalidRef is a run that names no ref, or one past the column.
+	ErrInvalidRef = errors.New("quality: a check run is of a branch or an environment")
+	// ErrInvalidCommit is a commit that is not a full Git object name.
+	ErrInvalidCommit = errors.New("quality: not a commit SHA")
 )
+
+// MaxRefLength bounds a run's ref, matching the column.
+const MaxRefLength = 255
+
+// commitSHA is a full lowercase Git object name; a run that is not
+// about a commit carries none.
+var commitSHA = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 // Counts are a run's findings by how they ended up. Waived is counted
 // on its own and is never part of Errors or Warnings, so the number a
@@ -84,7 +96,14 @@ type CheckRun struct {
 	ID      uuid.UUID
 	Project uuid.UUID
 	// Ref is what was checked: a branch, or an environment name.
-	Ref     string
+	Ref string
+	// Commit is the commit the run graded, where there is one. A branch
+	// moves; the commit a verdict was about does not, and RFC 0005 §12.3
+	// asks the CLI and the pull-request check of one commit to agree —
+	// which needs the commit to be part of what a run records. Empty for
+	// a run that is not about a commit (an environment's, a write-time
+	// job's).
+	Commit  string
 	Trigger Trigger
 	// PolicyVersion is the policy the run graded itself against, so a
 	// run can say which version it used when two are live at once
@@ -97,13 +116,21 @@ type CheckRun struct {
 	Layers     []Layer
 	Counts     Counts
 	Conclusion Conclusion
-	StartedAt  time.Time
+	// CreatedBy is the actor that asked for the run.
+	CreatedBy string
+	StartedAt time.Time
 	// CompletedAt is zero while the run is in flight.
 	CompletedAt time.Time
 }
 
 // Validate checks a run before it is stored.
 func (r CheckRun) Validate() error {
+	if r.Ref == "" || len(r.Ref) > MaxRefLength {
+		return fmt.Errorf("%w: %q", ErrInvalidRef, r.Ref)
+	}
+	if r.Commit != "" && !commitSHA.MatchString(r.Commit) {
+		return fmt.Errorf("%w: %q", ErrInvalidCommit, r.Commit)
+	}
 	if !slices.Contains(Triggers, r.Trigger) {
 		return fmt.Errorf("%w: %q", ErrUnknownTrigger, r.Trigger)
 	}

@@ -4,8 +4,12 @@ go 1.26.5
 
 replace github.com/felixgeelhaar/glossa/messageformat => ../messageformat
 
-// Test-only: the end-to-end delivery test (cmd/glossa-server) loads
-// releases from glossa-edge through the Go runtime. No binary imports it.
+// glossa-server links the Go runtime for one thing: MCP's
+// explain_delivery answers "why does this locale resolve this way"
+// (RFC 0005 §7.3) through glossa.ResolveLocale, so the control plane
+// and the runtime cannot disagree about negotiation. The end-to-end
+// delivery test (cmd/glossa-server) also loads releases from
+// glossa-edge through it.
 replace github.com/felixgeelhaar/glossa/runtimes/go => ../runtimes/go
 
 require (

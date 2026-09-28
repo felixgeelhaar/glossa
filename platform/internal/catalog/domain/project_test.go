@@ -112,6 +112,43 @@ func TestProjectCheckPolicy(t *testing.T) {
 		t.Errorf("the same policy again: %v %v", changed, err)
 	}
 
+	// A settings write speaks the three base fields and nothing else,
+	// so it may not delete the rules the policy document carries: those
+	// are the policy API's (RFC 0005 §13 wave 3), and a policy nobody
+	// meant to touch is not a policy anybody deleted.
+	document := domain.Settings{DefaultSyntax: mfcontent.MF1, CheckPolicy: &checkpolicy.Policy{
+		Schema: checkpolicy.Schema, Version: 7, RequireComplete: []string{"de"},
+		MissingTranslations: checkpolicy.Warning,
+		Rules: []checkpolicy.Rule{{
+			Selector: checkpolicy.Selector{Layer: "terminology", Namespace: "legal"},
+			Severity: checkpolicy.Error,
+		}},
+		Environments: map[string]checkpolicy.Environment{
+			"production": {RequireComplete: checkpolicy.AllLocales(), RequireReview: checkpolicy.ReviewApproved},
+		},
+	}}
+	if changed, err := p.Change(domain.ProjectChange{Settings: &document}, known, t0); err != nil || !changed {
+		t.Fatalf("store the document: %v %v", changed, err)
+	}
+	base := domain.Settings{DefaultSyntax: mfcontent.MF1, CheckPolicy: &checkpolicy.Policy{
+		RequireComplete: []string{"de", "en"}, FailOn: checkpolicy.Warning,
+	}}
+	if changed, err := p.Change(domain.ProjectChange{Settings: &base}, known, t0); err != nil || !changed {
+		t.Fatalf("change the base: %v %v", changed, err)
+	}
+	got := p.Settings.Policy()
+	if got.FailOn != checkpolicy.Warning || len(got.RequireComplete) != 2 {
+		t.Errorf("the base did not change: %+v", got)
+	}
+	if got.Version != 7 || len(got.Rules) != 1 || len(got.Environments) != 1 {
+		t.Errorf("the document lost its rules or its version: %+v", got)
+	}
+	if !got.FailsDecision(got.Decide(checkpolicy.Target{
+		Layer: "terminology", Namespace: "legal", Severity: checkpolicy.Warning,
+	})) {
+		t.Error("the rule stopped deciding after a settings write")
+	}
+
 	// A locale the project does not have is refused.
 	bad := domain.Settings{DefaultSyntax: mfcontent.MF1, CheckPolicy: &checkpolicy.Policy{RequireComplete: []string{"ja"}}}
 	if _, err := p.Change(domain.ProjectChange{Settings: &bad}, known, t0); !errors.Is(err, checkpolicy.ErrUnknownLocale) {

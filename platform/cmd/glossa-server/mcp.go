@@ -18,6 +18,7 @@ import (
 	mcpmetrics "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/metrics"
 	mcppg "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/postgres"
 	mcpapp "github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
+	mcpdomain "github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
 )
 
 // mcpRateInterval is the window GLOSSA_MCP_RATE counts tool calls in.
@@ -32,7 +33,7 @@ const mcpRateInterval = time.Minute
 // its authentication is Identity's service, and it shares no state with
 // the bounded contexts whose ports its tools will call.
 func newMCP(
-	cfg config.MCP, identity *identityapp.Service, pool *pgxpool.Pool,
+	cfg config.MCP, identity *identityapp.Service, pool *pgxpool.Pool, tools []mcpapp.Tool,
 	reg prometheus.Registerer, tp trace.TracerProvider, logger *slog.Logger,
 ) (http.Handler, error) {
 	if !cfg.Enabled {
@@ -42,6 +43,7 @@ func newMCP(
 	metrics := mcpmetrics.New(reg)
 	svc, err := mcpapp.New(
 		mcpidentity.New(identity),
+		mcpapp.WithTools(tools...),
 		mcpapp.WithAudit(mcppg.NewAudit(db.NewUnitOfWork(pool))),
 		mcpapp.WithMetrics(metrics),
 		mcpapp.WithLimiter(ratelimit.New(ratelimit.Config{Rate: cfg.Rate, Interval: mcpRateInterval, Burst: cfg.Burst})),
@@ -59,7 +61,7 @@ func newMCP(
 	// The transport owns session lifetime, so it — not the service —
 	// answers how many are open right now.
 	metrics.TrackOpenSessions(mcpgo.Transport, h.OpenSessions)
-	logger.Info("serving MCP", slog.String("path", mcpgo.Path),
+	logger.Info("serving MCP", slog.String("path", mcpgo.Path), slog.Int("tools", len(svc.Tools(mcpdomain.ToolsetWrite))),
 		slog.Duration("session_timeout", cfg.SessionTimeout), slog.Int("calls_per_minute", cfg.Rate))
 	return h, nil
 }

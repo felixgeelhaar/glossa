@@ -4233,6 +4233,242 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/check-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A project's check runs, newest first
+         * @description One run is one evaluation of one ref against one policy version
+         *     (RFC 0005 §2.2): the pull-request check, Studio, the dashboard
+         *     and `glossa findings` read the stored run rather than
+         *     recomputing the same thing four times. `branch` selects the runs
+         *     of a branch or an environment, `commit` the runs of one commit
+         *     (a branch moves; the commit a verdict was about does not), and
+         *     `conclusion` and `trigger` narrow further; they combine.
+         *
+         *     `counts` are what the run concluded, with the waivers that were
+         *     live while it graded, and nothing rewrites them afterwards — a
+         *     verdict is history. What the same findings look like today, with
+         *     today's waivers, is `listFindings`. Needs `catalog.read`.
+         *     Problem codes: `invalid_query` (400: an unknown conclusion or
+         *     trigger), `invalid_page_size`, `invalid_page_token` (400).
+         */
+        get: operations["listCheckRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/check-runs/{check_run}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A check run `id`. */
+                check_run: components["parameters"]["CheckRunPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One check run with its counts
+         * @description The run, the layers it actually computed — a layer the policy
+         *     switched off is not in the list, so a reader can tell "clean"
+         *     from "not looked at" — and the counts it concluded. `waived` is
+         *     counted on its own and is never part of `errors` or `warnings`,
+         *     because a number that goes down without the product getting
+         *     better is the failure mode of every suppression system
+         *     (RFC 0005 §14 decision 5). Its findings are
+         *     `listFindings?run=…`. Needs `catalog.read`.
+         */
+        get: operations["getCheckRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A check run's findings, with today's waivers applied
+         * @description Every finding has one shape, whatever layer found it
+         *     (`glossa.finding/v1`, RFC 0005 §2.1): a layer says what is wrong
+         *     with which message in which locale, and Context fills the
+         *     locus's file, line, route, component, capture and region in at
+         *     report time, which is what turns almost every finding into a
+         *     pull-request annotation instead of only the unknown keys.
+         *
+         *     A finding belongs to a run, so the list reads exactly one: the
+         *     one `run` names, or the newest run of `branch` or `commit`, or
+         *     the project's newest. Listing every run's copy of the same
+         *     problem would report it once per run and say nothing more.
+         *     `run` is the run the page came from — absent when nothing has
+         *     been checked yet, and the page is then empty rather than a
+         *     `404`.
+         *
+         *     Waivers are applied on read (RFC 0005 §2.3). A waived finding is
+         *     **still computed and still reported**, at severity `waived`,
+         *     naming the waiver that accepted it, and counted on its own; it
+         *     is never hidden and never deleted. It comes back as an ordinary
+         *     finding once the source revision it was computed against has
+         *     moved past the one its waiver was made against — the German
+         *     somebody waived is not the German that now ships. `counts` are
+         *     the whole run as it stands now, whatever the filters select, so
+         *     waiving something changes them while the run's own stored
+         *     verdict stays what it was.
+         *
+         *     Findings are immutable: a run is one evaluation, and the next
+         *     writes new rows rather than editing the last one's. There is no
+         *     update.
+         *
+         *     The order is stable — errors, then warnings, then the waived,
+         *     and within each by layer, locale, message key and id — and the
+         *     cursor is that order's key, so a page never shifts. MCP's read
+         *     tools consume this shape (RFC 0005 §7.3): it is the contract,
+         *     not an implementation detail. Needs `catalog.read`. Problem
+         *     codes: `invalid_query` (400: an unknown layer or severity),
+         *     `invalid_page_size`, `invalid_page_token` (400).
+         */
+        get: operations["listFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/waivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The findings this project accepts, and why
+         * @description Newest first, each with what it accepts: the layer, code, locale
+         *     and message of the most recent stored finding carrying its
+         *     fingerprint. Those are empty where no stored finding carries it
+         *     any more — an unexamined waiver, which is exactly what a
+         *     dashboard should show. `layer`, `code` and `message` filter on
+         *     them; `active` selects the waivers that stand now (not revoked,
+         *     not expired) or only those that don't. Needs `catalog.read`.
+         *     Problem codes: `invalid_query` (400: an unknown layer),
+         *     `invalid_page_size`, `invalid_page_token` (400).
+         */
+        get: operations["listWaivers"];
+        put?: never;
+        /**
+         * Accept a finding, with a reason
+         * @description Some findings are correct and still fine: "Login" is the German
+         *     term, and the Japanese button *is* two lines by design
+         *     (RFC 0005 §2.3). A waiver names the finding by its
+         *     `fingerprint` — not by a finding id, so it survives the run that
+         *     found it — and says why.
+         *
+         *     **The reason is required and non-empty.** A blank or
+         *     whitespace-only one is refused with `waiver_reason_required`;
+         *     there is no way to waive a finding without saying why, because a
+         *     suppression nobody had to justify is technical debt with no
+         *     paper trail. There is deliberately no inline code suppression
+         *     (`// glossa:ignore …`): most findings are about a *translation*,
+         *     which has no line of code to put a comment on.
+         *
+         *     A waiver never deletes anything. The finding it accepts is still
+         *     computed, still listed and counted on its own, at severity
+         *     `waived` — and it comes back on its own once
+         *     `source_revision` moves. `source_revision` defaults to the one
+         *     the most recent stored finding with that fingerprint was
+         *     computed against, which is the finding the person is looking at.
+         *
+         *     `scope` `project` accepts the finding everywhere in the project;
+         *     `branch` accepts it on `ref` only. The project keeps one live
+         *     waiver per fingerprint and reach, so waiving the same finding
+         *     again is not a second waiver: it restates the reason, the
+         *     expiry and the source revision, and answers `200` instead of
+         *     `201`.
+         *
+         *     Needs `catalog.write` — the permission that already carries the
+         *     authority to change what a project's check concludes, since it
+         *     uploads the messages, usages and captures the layers grade.
+         *     `translations.review` would be the wrong one: it is
+         *     locale-scoped, and the `structure`, `completeness` and `source`
+         *     layers produce findings with no locale at all. Problem codes:
+         *     `waiver_reason_required`, `invalid_fingerprint`,
+         *     `invalid_waiver_scope`, `waiver_branch_required`,
+         *     `waiver_expiry_in_the_past`, `invalid_waiver` (400).
+         */
+        post: operations["createWaiver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/waivers/{waiver}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A waiver `id`. */
+                waiver: components["parameters"]["WaiverPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take a waiver back
+         * @description The findings it accepted are ordinary findings again from the
+         *     next read; nothing is deleted and the revoked waiver stays as
+         *     history, with who made it, when, and why. Revoking one twice
+         *     answers `204` all the same. Needs `catalog.write`.
+         */
+        delete: operations["revokeWaiver"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/branches": {
         parameters: {
             query?: never;
@@ -7195,6 +7431,229 @@ export interface components {
             /** @description More captures exist than `limit`. */
             truncated: boolean;
         };
+        /**
+         * @description Identifies a finding across re-runs and across surfaces: the
+         *     SHA-256 of its layer, its code, the message it is about, the
+         *     locale and the normalized subject — and of nothing else, so a
+         *     reformatted file, a new source revision or a reworded
+         *     explanation never re-opens a waiver.
+         * @example f_7c1a3e9b40d2f815
+         */
+        Fingerprint: string;
+        /**
+         * @description Which layer found it (RFC 0005 §3). Selectable by name in the policy and on the command line.
+         * @enum {string}
+         */
+        FindingLayer: "structure" | "parity" | "completeness" | "terminology" | "style" | "length" | "locale" | "source" | "visual" | "linguistic";
+        /**
+         * @description `error` or `warning` as the layer emitted it, plus `waived` — a
+         *     rendering of a finding and not a third rank a layer may emit. A
+         *     waived finding is still computed, still reported and counted on
+         *     its own, and can never fail a check.
+         * @enum {string}
+         */
+        FindingSeverity: "error" | "warning" | "waived";
+        /** @description The offending words in the source or the target, in bytes, so a surface can underline them. */
+        FindingSpan: {
+            /** @enum {string} */
+            side: "source" | "target";
+            start: number;
+            end: number;
+        };
+        /**
+         * @description Everything that locates a finding. Every field is optional and
+         *     every field means the same thing in every layer. The catalog
+         *     fields come from the layer; `file`, `line`, `column`, `route`,
+         *     `component`, `capture` and `region` come from Context at report
+         *     time and never from a layer.
+         */
+        FindingLocus: {
+            /** @description The catalog message's `id`; absent where the caller had only the key. */
+            message?: components["schemas"]["Id"];
+            key?: components["schemas"]["MessageKey"];
+            locale?: components["schemas"]["Locale"];
+            /** @description The translation revision the finding was computed against. */
+            revision?: components["schemas"]["Id"];
+            namespace?: components["schemas"]["Namespace"];
+            file?: string;
+            line?: number;
+            column?: number;
+            route?: string;
+            component?: string;
+            capture?: components["schemas"]["Id"];
+            region?: string;
+            span?: components["schemas"]["FindingSpan"];
+        };
+        /** @description A hint, never an action: nothing applies one without a person or an explicit `--fix`. */
+        FindingFix: {
+            /** @enum {string} */
+            kind: "replace" | "shorten" | "use-term" | "adopt-source-change";
+            /** @description The length `shorten` asks for. */
+            to?: number;
+            term?: components["schemas"]["Id"];
+            hint?: string;
+        };
+        /**
+         * @description One problem, from any layer, on any surface — the
+         *     `glossa.finding/v1` document
+         *     (`runtimes/testdata/schemas/finding.v1.schema.json`), which
+         *     `glossa check --json`, the pull-request check and MCP's read
+         *     tools all carry. The shape is the contract.
+         */
+        Finding: {
+            /** @constant */
+            schema: "glossa.finding/v1";
+            fingerprint: components["schemas"]["Fingerprint"];
+            layer: components["schemas"]["FindingLayer"];
+            /** @description The rule. Stable, and shared with the CLI and the pull-request check. */
+            code: string;
+            severity: components["schemas"]["FindingSeverity"];
+            locus: components["schemas"]["FindingLocus"];
+            /** @description The explanation for a person. Its wording is not stable and it is not part of the fingerprint. */
+            message: string;
+            /** @description What the finding names — the argument, the markup element, the term used. Part of the fingerprint. */
+            subject?: string;
+            /** @description Qualifies the code. */
+            detail?: string;
+            /** @description What the layer measured, free-form per code. */
+            evidence?: {
+                [key: string]: unknown;
+            };
+            fix?: components["schemas"]["FindingFix"];
+            /** @description The source revision the finding was computed against. A waiver dies when it changes. */
+            source_revision?: number;
+            /** @description The waiver that accepted it. Present exactly when `severity` is `waived`. */
+            waiver?: components["schemas"]["Id"];
+        };
+        /** @description A page of one check run's findings, as they stand now. */
+        FindingList: {
+            items: components["schemas"]["Finding"][];
+            /** @description The run the page came from; absent when nothing has been checked yet. */
+            run?: components["schemas"]["CheckRun"];
+            /** @description The whole run with today's waivers applied, whatever the filters select. */
+            counts: components["schemas"]["CheckRunCounts"];
+            next_page_token?: string;
+        };
+        /**
+         * @description What asked for the run.
+         * @enum {string}
+         */
+        CheckRunTrigger: "cli" | "pull_request" | "write" | "capture" | "api";
+        /**
+         * @description The run's verdict, spelled as the pull-request check spells it.
+         *     `neutral` is a run that could not grade itself: no policy, or no
+         *     catalog to check.
+         * @enum {string}
+         */
+        CheckRunConclusion: "success" | "failure" | "neutral";
+        /**
+         * @description Findings by how they ended up. `waived` is counted on its own
+         *     and is never part of `errors` or `warnings`, so the number a
+         *     dashboard shows is true.
+         */
+        CheckRunCounts: {
+            errors: number;
+            warnings: number;
+            waived: number;
+        };
+        /** @description One evaluation of a project against its policy. */
+        CheckRun: {
+            id: components["schemas"]["Id"];
+            /** @description What was checked — a branch, or an environment name. */
+            ref: string;
+            /** @description The commit the run graded, where there is one. */
+            commit?: string;
+            trigger: components["schemas"]["CheckRunTrigger"];
+            /**
+             * @description The policy the run graded itself against, so a run can say
+             *     which it used when two are live at once. `0` while the
+             *     policy document is still the two-field kernel policy.
+             */
+            policy_version: number;
+            /**
+             * @description The layers the run actually computed, in report order. A
+             *     layer the policy switched off is not in the list, so a
+             *     reader can tell "clean" from "not looked at".
+             */
+            layers: components["schemas"]["FindingLayer"][];
+            /** @description What the run concluded, with the waivers live while it graded. Nothing rewrites it. */
+            counts: components["schemas"]["CheckRunCounts"];
+            /** @description Absent while the run is in flight. */
+            conclusion?: components["schemas"]["CheckRunConclusion"];
+            created_by: string;
+            started_at: components["schemas"]["Timestamp"];
+            completed_at?: components["schemas"]["Timestamp"];
+        };
+        CheckRunList: {
+            items: components["schemas"]["CheckRun"][];
+            next_page_token?: string;
+        };
+        /**
+         * @description How far a waiver reaches — everywhere in the project, or on one branch.
+         * @enum {string}
+         */
+        WaiverScope: "project" | "branch";
+        /**
+         * @description What a waiver accepts, read from the most recent stored finding
+         *     carrying its fingerprint. Empty where no stored finding carries
+         *     it any more, which is exactly the unexamined waiver a dashboard
+         *     should show.
+         */
+        WaiverFinding: {
+            layer?: components["schemas"]["FindingLayer"];
+            code?: string;
+            locale?: components["schemas"]["Locale"];
+            key?: components["schemas"]["MessageKey"];
+            namespace?: components["schemas"]["Namespace"];
+            message?: string;
+        };
+        /** @description One accepted finding, and why. */
+        Waiver: {
+            id: components["schemas"]["Id"];
+            fingerprint: components["schemas"]["Fingerprint"];
+            reason: string;
+            scope: components["schemas"]["WaiverScope"];
+            /** @description The branch, for a branch-scoped waiver. */
+            ref?: string;
+            /**
+             * @description The source revision the waiver was made against. The waiver
+             *     dies when the source moves past it, and the finding comes
+             *     back saying so.
+             */
+            source_revision: number;
+            /** @description It stands now — neither revoked nor expired. */
+            active: boolean;
+            accepts?: components["schemas"]["WaiverFinding"];
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            /** @description When the daily sweep retires it; absent, never. */
+            expires_at?: components["schemas"]["Timestamp"];
+            /** @description When a person took it back; absent while it stands. */
+            revoked_at?: components["schemas"]["Timestamp"];
+        };
+        WaiverList: {
+            items: components["schemas"]["Waiver"][];
+            next_page_token?: string;
+        };
+        /** @description A finding to accept. The reason is required and non-empty. */
+        CreateWaiver: {
+            fingerprint: components["schemas"]["Fingerprint"];
+            /** @description Why this finding is fine. Blank or whitespace-only is refused. */
+            reason: string;
+            /** @description Default `project`. */
+            scope?: components["schemas"]["WaiverScope"];
+            /** @description The branch, required for `scope` `branch` and ignored otherwise. */
+            ref?: string;
+            /**
+             * @description The source revision to waive against. Absent: the one the
+             *     most recent stored finding with this fingerprint was
+             *     computed against, which is the finding the person is looking
+             *     at.
+             */
+            source_revision?: number;
+            /** @description When the daily sweep retires it; absent, never. A time in the past is refused. */
+            expires_at?: components["schemas"]["Timestamp"];
+        };
     };
     responses: {
         /** @description Signed in. The session cookie is set. */
@@ -7383,6 +7842,10 @@ export interface components {
         ExportJobPath: components["schemas"]["Id"];
         /** @description A capture `id`. */
         CapturePath: components["schemas"]["Id"];
+        /** @description A check run `id`. */
+        CheckRunPath: components["schemas"]["Id"];
+        /** @description A waiver `id`. */
+        WaiverPath: components["schemas"]["Id"];
         /** @description A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's. */
         ContextBranch: string;
         PageSize: number;
@@ -13332,6 +13795,236 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCheckRuns: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description The ref the run was of — a branch, or an environment name. */
+                branch?: string;
+                /** @description The commit the run graded, as a full lowercase SHA. */
+                commit?: string;
+                conclusion?: components["schemas"]["CheckRunConclusion"];
+                trigger?: components["schemas"]["CheckRunTrigger"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of check runs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckRunList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCheckRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A check run `id`. */
+                check_run: components["parameters"]["CheckRunPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The check run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckRun"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listFindings: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A check run `id`. Without it, the newest run matching `branch` and `commit`. */
+                run?: components["schemas"]["Id"];
+                /** @description Read the newest run of this ref — a branch, or an environment name. */
+                branch?: string;
+                /** @description Read the newest run of this commit. */
+                commit?: string;
+                layer?: components["schemas"]["FindingLayer"];
+                /** @description The severity as it stands now, so `waived` selects the accepted findings. */
+                severity?: components["schemas"]["FindingSeverity"];
+                /** @description The rule, exactly (`missing-argument`, `term_forbidden`). */
+                code?: string;
+                locale?: components["schemas"]["Locale"];
+                namespace?: components["schemas"]["Namespace"];
+                /** @description The message key the finding is about, exactly. */
+                message?: components["schemas"]["MessageKey"];
+                /** @description Only the waived findings, or only those no waiver accepts. Absent, both. */
+                waived?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of findings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listWaivers: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                fingerprint?: components["schemas"]["Fingerprint"];
+                layer?: components["schemas"]["FindingLayer"];
+                code?: string;
+                /** @description The message key of the finding the waiver accepts, exactly. */
+                message?: components["schemas"]["MessageKey"];
+                /** @description Only the waivers that stand now, or only the revoked and expired ones. Absent, both. */
+                active?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of waivers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaiverList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createWaiver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWaiver"];
+            };
+        };
+        responses: {
+            /** @description The project already had a live waiver for this finding and reach; it now says this. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Waiver"];
+                };
+            };
+            /** @description The waiver. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Waiver"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    revokeWaiver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A waiver `id`. */
+                waiver: components["parameters"]["WaiverPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

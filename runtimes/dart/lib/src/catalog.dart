@@ -95,8 +95,9 @@ class Explanation {
   /// The canonicalized requested locales, in priority order.
   final List<String> requested;
 
-  /// The active locale negotiated from [requested].
-  final String locale;
+  /// The active locale negotiated from [requested], or null when no
+  /// release is active at all and there was nothing to negotiate against.
+  final String? locale;
 
   /// The active locale's fallback chain.
   final List<String> chain;
@@ -138,17 +139,22 @@ class Catalog {
     this._loaded,
     this.source,
     this._errors,
+    this._ownsErrors,
   );
 
   /// The release's manifest.
   final Manifest manifest;
 
   /// Where this release was loaded from.
-  final Source source;
+  ///
+  /// The loader lowers it to [Source.memory] when a later refresh brings
+  /// nothing new, which is what SPEC §6 asks `explain().source` to report.
+  Source source;
 
   final Map<String, Map<String, Message>> _messages;
   final Set<String> _loaded;
   final ErrorChannel _errors;
+  final bool _ownsErrors;
 
   /// The active release.
   ReleaseRef get release => manifest.release;
@@ -223,7 +229,50 @@ class Catalog {
       if (any) loaded.add(locale);
     }
 
-    return Catalog._(manifest, messages, loaded, source, channel);
+    return Catalog._(manifest, messages, loaded, source, channel, true);
+  }
+
+  /// Build a catalog from artifacts that have already been verified and
+  /// decoded — the loader's entry point (`loader.dart`).
+  ///
+  /// [artifacts] is keyed by SHA-256 and holds only what the active
+  /// fallback chain needed (SPEC §3). A locale of the manifest with no
+  /// artifact here is *not* an error: it is simply not loaded, and
+  /// `explain()` reports its step as `not-loaded` (SPEC §6).
+  ///
+  /// Nothing is reported on [errors] from here. The loader has already
+  /// reported whatever went wrong while it fetched and verified, and
+  /// re-reporting on every activation would defeat the repeat suppression.
+  /// When [errors] is given it belongs to the caller and [dispose] leaves
+  /// it open, so one channel spans every release of a runtime's life.
+  factory Catalog.fromArtifacts({
+    required Manifest manifest,
+    required Map<String, Artifact> artifacts,
+    required Source source,
+    ErrorChannel? errors,
+  }) {
+    final messages = <String, Map<String, Message>>{};
+    final loaded = <String>{};
+    for (final entry in manifest.artifacts.entries) {
+      final merged = <String, Message>{};
+      var any = false;
+      for (final sha in entry.value.values) {
+        final artifact = artifacts[sha];
+        if (artifact == null) continue;
+        merged.addAll(artifact.messages);
+        any = true;
+      }
+      messages[entry.key] = merged;
+      if (any) loaded.add(entry.key);
+    }
+    return Catalog._(
+      manifest,
+      messages,
+      loaded,
+      source,
+      errors ?? ErrorChannel(),
+      errors == null,
+    );
   }
 
   /// A localizer for [requested], canonicalized and negotiated by RFC 4647
@@ -235,8 +284,10 @@ class Catalog {
     return Localizer._(this, canonical, active);
   }
 
-  /// Release the error channel.
-  Future<void> dispose() => _errors.close();
+  /// Release the error channel, unless it was supplied by the caller.
+  Future<void> dispose() async {
+    if (_ownsErrors) await _errors.close();
+  }
 }
 
 /// A catalog bound to one set of requested locales.
