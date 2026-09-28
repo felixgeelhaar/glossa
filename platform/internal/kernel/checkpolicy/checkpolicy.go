@@ -1,6 +1,28 @@
-// Package checkpolicy is a project's check policy: which locales must
-// be complete, which findings fail the check, and whether an
-// untranslated key is one of them.
+// Package checkpolicy is a project's check policy and its evaluator:
+// which locales must be complete, what severity a finding has here, and
+// what fails the run.
+//
+// Since M4 the policy is a versioned *document* (RFC 0005 §4.1) rather
+// than three fields. It keeps the three — `require_complete`, `fail_on`
+// and `missing_translations` are still the base every project starts
+// from, and a project that stored them before M4 reads as a version-0
+// document that decides every question exactly as it did — and adds
+// what different locales, namespaces and environments genuinely deserve
+// different answers about:
+//
+//   - `rules`, each selecting on layer, code, locale, namespace and
+//     environment, and setting a severity (Rule, §4.1). Precedence is by
+//     specificity; see Decide, which is the whole ordering.
+//   - `environments`, where completeness and review are asked for
+//     differently in production than on a branch.
+//   - `version`, `effective_from`, `grace_until` and `previous`, which
+//     are how a stricter policy rolls out without turning forty open
+//     pull requests red (§4.3, Effective).
+//
+// The package answers two questions and nothing else: "what severity
+// does this finding have here?" (Decide) and "does this run fail?"
+// (Fails, FailsDecision). It reads no file, no database and no clock it
+// was not handed.
 //
 // It lives in the kernel because two callers decide the same question
 // and must decide it the same way: `glossa check` in the CLI (where the
@@ -24,8 +46,15 @@ package checkpolicy
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
+	"time"
 )
+
+// Schema is the policy document's wire schema (RFC 0005 §4.1). A
+// document that names none is read as this one: there has never been
+// another.
+const Schema = "glossa.check-policy/v1"
 
 // Severity ranks a finding.
 type Severity string
@@ -45,6 +74,20 @@ var (
 	ErrInvalidSeverity = errors.New("checkpolicy: invalid severity")
 	// ErrUnknownLocale is a required locale the project does not have.
 	ErrUnknownLocale = errors.New("checkpolicy: the project has no such locale")
+	// ErrInvalidMode is a rule's mode that is neither enforce nor warn.
+	ErrInvalidMode = errors.New("checkpolicy: a rule's mode is enforce or warn")
+	// ErrUnknownLayer is a rule selecting a layer that does not exist.
+	ErrUnknownLayer = errors.New("checkpolicy: unknown layer")
+	// ErrAdvisoryLayer is a rule raising a model-decided layer to error
+	// (RFC 0005 §14 decision 10).
+	ErrAdvisoryLayer = errors.New("checkpolicy: an advisory layer may not be raised to error")
+	// ErrInvalidDocument is a document whose bookkeeping does not hold
+	// together: a negative version, a schema it does not have, or a
+	// history nested more than one version deep.
+	ErrInvalidDocument = errors.New("checkpolicy: invalid policy document")
+	// ErrInvalidEnvironment is an environment block that asks for
+	// something the policy cannot say.
+	ErrInvalidEnvironment = errors.New("checkpolicy: invalid environment")
 )
 
 // Finding codes Glossa adds to the MessageFormat kernel's (compat
@@ -62,10 +105,20 @@ const (
 	CodeKeyConflict = "key-conflict"
 )
 
-// Policy decides what fails a check. Its zero value is the documented
-// default: every locale must be complete, an untranslated key in one is
-// an error, and errors fail.
+// Policy is the check-policy document and the evaluator of it. Its
+// zero value is the documented default: every locale must be complete,
+// an untranslated key in one is an error, errors fail, and no rule says
+// anything else — which is what every project written before M4 reads
+// as, so the document changes what a policy can say and nothing about
+// what the policies that exist decide.
 type Policy struct {
+	// Schema is Schema. A document that stores none is that one.
+	Schema string `json:"schema,omitempty"`
+	// Version is monotonic: every saved policy has one, and every check
+	// run records the version it graded itself against, so a run can say
+	// which it used when two are live at once (RFC 0005 §4.3). 0 is the
+	// pre-M4 policy, which had no versions.
+	Version int `json:"version,omitempty"`
 	// RequireComplete lists the locales whose missing translations are
 	// errors; nil means every locale, and an empty slice means none.
 	// Others' are warnings.
@@ -83,15 +136,54 @@ type Policy struct {
 	// it to Warning and keeps every locale required, so the check still
 	// lists what is untranslated without failing the pull request.
 	MissingTranslations Severity `json:"missing_translations,omitempty"`
+	// Environments asks for something different where something
+	// different is true: production may require locales a branch does
+	// not, and a review state a branch does not.
+	Environments map[string]Environment `json:"environments,omitempty"`
+	// Rules are the selectors, in document order. Order is part of the
+	// meaning: ties in specificity go to the later rule (Decide).
+	Rules []Rule `json:"rules,omitempty"`
+	// EffectiveFrom is when this version was saved. A pull request older
+	// than it is what GraceUntil pins to Previous.
+	EffectiveFrom *time.Time `json:"effective_from,omitempty"`
+	// GraceUntil is when the pinning ends. Until then a check for a pull
+	// request opened before EffectiveFrom grades against Previous, and
+	// says so; after it, everything grades against this version
+	// (RFC 0005 §4.3).
+	GraceUntil *time.Time `json:"grace_until,omitempty"`
+	// Previous is the version a pinned pull request grades against. It
+	// is exactly one version deep: a policy saved three times in a
+	// fortnight pins to the version before the last, because that is the
+	// one whose grace is still running.
+	Previous *Policy `json:"previous,omitempty"`
 }
 
-// Requires reports whether locale must be complete.
-func (p Policy) Requires(locale string) bool {
-	if p.RequireComplete == nil {
+// Requires reports whether locale must be complete, outside any
+// environment — which is every check in CI.
+func (p Policy) Requires(locale string) bool { return p.RequiresIn("", locale) }
+
+// RequiresIn reports whether locale must be complete in env. An
+// environment that names no require_complete of its own inherits the
+// document's, so naming an environment only to ask for a review state
+// does not quietly change what must be translated.
+func (p Policy) RequiresIn(env, locale string) bool {
+	required := p.RequireComplete
+	if e, ok := p.Environments[env]; ok && e.RequireComplete.Set {
+		if e.RequireComplete.All {
+			return true
+		}
+		required = e.RequireComplete.Locales
+	}
+	if required == nil {
 		return true
 	}
-	return slices.Contains(p.RequireComplete, locale)
+	return slices.Contains(required, locale)
 }
+
+// ReviewIn is the review state an environment requires before a release
+// may publish to it, or "" where it asks for none. Release enforces it
+// at publish (RFC 0005 §4.1); the policy only states it.
+func (p Policy) ReviewIn(env string) string { return p.Environments[env].RequireReview }
 
 // Fails reports whether a finding of severity s fails the check.
 func (p Policy) Fails(s Severity) bool {
@@ -108,17 +200,48 @@ func (p Policy) Fails(s Severity) bool {
 // Severity of a missing translation in locale: an error where the
 // policy requires the locale to be complete and missing translations
 // are errors, a warning elsewhere.
-func (p Policy) Severity(locale string) Severity {
-	if p.Requires(locale) && p.MissingTranslations != Warning {
+//
+// It is the severity the *completeness layer emits*, which the rules
+// then grade like any other finding: a policy can still say that a
+// missing translation in one namespace is only a warning.
+func (p Policy) Severity(locale string) Severity { return p.SeverityIn("", locale) }
+
+// SeverityIn is Severity in an environment.
+func (p Policy) SeverityIn(env, locale string) Severity {
+	if p.RequiresIn(env, locale) && p.MissingTranslations != Warning {
 		return Error
 	}
 	return Warning
 }
 
-// Equal reports whether p and o decide every question the same way.
+// Equal reports whether p and o are the same document. Two documents
+// that decide alike today but say different things are not equal: what
+// a project stores is what it says.
 func (p Policy) Equal(o Policy) bool {
-	return slices.Equal(p.RequireComplete, o.RequireComplete) &&
-		p.FailOn == o.FailOn && p.MissingTranslations == o.MissingTranslations
+	if !slices.Equal(p.RequireComplete, o.RequireComplete) ||
+		p.FailOn != o.FailOn || p.MissingTranslations != o.MissingTranslations {
+		return false
+	}
+	if p.Schema != o.Schema || p.Version != o.Version || !slices.Equal(p.Rules, o.Rules) {
+		return false
+	}
+	if !maps.EqualFunc(p.Environments, o.Environments, Environment.Equal) {
+		return false
+	}
+	if !sameTime(p.EffectiveFrom, o.EffectiveFrom) || !sameTime(p.GraceUntil, o.GraceUntil) {
+		return false
+	}
+	if (p.Previous == nil) != (o.Previous == nil) {
+		return false
+	}
+	return p.Previous == nil || p.Previous.Equal(*o.Previous)
+}
+
+func sameTime(a, b *time.Time) bool {
+	if (a == nil) != (b == nil) {
+		return false
+	}
+	return a == nil || a.Equal(*b)
 }
 
 // ParseFailOn validates a fail_on: error, warning or never. "" is
@@ -164,21 +287,82 @@ func (p Policy) Validate(known []string) (Policy, error) {
 	if err != nil {
 		return Policy{}, err
 	}
-	out := Policy{RequireComplete: p.RequireComplete, FailOn: failOn, MissingTranslations: missing}
-	if out.RequireComplete == nil {
-		return out, nil
+	out := p
+	out.FailOn, out.MissingTranslations = failOn, missing
+	// A document that names no schema is this one, and is left naming
+	// none: the three-field policies stored before M4 are valid
+	// documents, and validating one must not rewrite what the project
+	// stored.
+	if out.Schema != "" && out.Schema != Schema {
+		return Policy{}, fmt.Errorf("%w: schema is %q, not %q", ErrInvalidDocument, out.Schema, Schema)
 	}
-	if known != nil {
-		for _, l := range out.RequireComplete {
-			if !slices.Contains(known, l) {
-				return Policy{}, fmt.Errorf("%w: %q", ErrUnknownLocale, l)
-			}
-		}
+	if out.Version < 0 {
+		return Policy{}, fmt.Errorf("%w: version %d is not monotonic", ErrInvalidDocument, out.Version)
 	}
-	if len(out.RequireComplete) == 0 {
+	if err := requireKnown(out.RequireComplete, known); err != nil {
+		return Policy{}, err
+	}
+	if out.RequireComplete != nil && len(out.RequireComplete) == 0 {
 		// An empty list is "no locale has to be complete". Keep it
 		// non-nil and canonical, because nil means the opposite.
 		out.RequireComplete = []string{}
 	}
+	if out.Environments, err = validateEnvironments(out.Environments, known); err != nil {
+		return Policy{}, err
+	}
+	if out.Rules != nil {
+		rules := make([]Rule, 0, len(out.Rules))
+		for i, r := range out.Rules {
+			v, err := r.Validate()
+			if err != nil {
+				return Policy{}, fmt.Errorf("rule %d: %w", i, err)
+			}
+			rules = append(rules, v)
+		}
+		out.Rules = rules
+	}
+	if out.Previous != nil {
+		prev, err := out.Previous.validatePrevious(known, out.Version)
+		if err != nil {
+			return Policy{}, err
+		}
+		if out.EffectiveFrom == nil {
+			return Policy{}, fmt.Errorf(
+				"%w: a document that keeps a previous version needs an effective_from to pin against",
+				ErrInvalidDocument)
+		}
+		out.Previous = &prev
+	}
 	return out, nil
+}
+
+// validatePrevious checks the one version a document keeps behind it.
+// A history two versions deep would mean two graces running at once and
+// a check that cannot say which policy it used.
+func (p Policy) validatePrevious(known []string, version int) (Policy, error) {
+	if p.Previous != nil {
+		return Policy{}, fmt.Errorf("%w: a policy's history is one version deep", ErrInvalidDocument)
+	}
+	if p.Version >= version {
+		return Policy{}, fmt.Errorf("%w: the previous version (%d) must precede this one (%d)",
+			ErrInvalidDocument, p.Version, version)
+	}
+	out, err := p.Validate(known)
+	if err != nil {
+		return Policy{}, fmt.Errorf("previous: %w", err)
+	}
+	return out, nil
+}
+
+// requireKnown checks required locales against the project's.
+func requireKnown(required, known []string) error {
+	if required == nil || known == nil {
+		return nil
+	}
+	for _, l := range required {
+		if !slices.Contains(known, l) {
+			return fmt.Errorf("%w: %q", ErrUnknownLocale, l)
+		}
+	}
+	return nil
 }
