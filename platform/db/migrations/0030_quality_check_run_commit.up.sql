@@ -1,4 +1,4 @@
--- 0029 — a check run remembers the commit it graded.
+-- 0030 — a check run remembers the commit it graded.
 --
 -- RFC 0005 §2.2 rule 3 names a run by its ref — a branch or an
 -- environment — because that is what a dashboard groups by. The pull
