@@ -21,6 +21,13 @@ var (
 	ErrToolNotInSession = errors.New("mcp: the tool is not in this session's toolset")
 	// ErrToolNotFound means no tool of that name is registered.
 	ErrToolNotFound = errors.New("mcp: no such tool")
+	// ErrNotFound means the thing a tool's arguments name is not there:
+	// it does not exist, or it belongs to another tenant. The two are
+	// deliberately one answer — a session is bound to its token's tenant
+	// and nothing tells it apart from a typo — because a
+	// forbidden-with-detail would confirm that the id exists somewhere
+	// (RFC 0005 §7.2).
+	ErrNotFound = errors.New("mcp: not found")
 	// ErrInvalidToolset means the client asked for a toolset that does
 	// not exist.
 	ErrInvalidToolset = errors.New("mcp: invalid toolset")
