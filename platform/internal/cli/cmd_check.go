@@ -27,6 +27,14 @@ type policyJSON struct {
 	// Source says where the policy came from: "project" when the
 	// server's project settings contributed, "local" otherwise.
 	Source string `json:"source"`
+	// Version is the version of the server's policy document the run
+	// graded against; absent for a policy that has none, which is every
+	// policy stored before M4.
+	Version int `json:"version,omitempty"`
+	// Overridden says `glossa.yaml` or a flag changed the policy for
+	// this run. The pull-request check ignores both (RFC 0005 §4.2), so
+	// an overridden run is a local answer and says so.
+	Overridden bool `json:"overridden,omitempty"`
 }
 
 type checkJSON struct {
@@ -55,7 +63,7 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	if err != nil {
 		return err
 	}
-	policy, err := checkPolicy(inv, cfg, stored, *require, *failOn)
+	policy, overrides, err := checkPolicy(inv, cfg, stored, *require, *failOn)
 	if err != nil {
 		return err
 	}
@@ -67,6 +75,7 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	out := checkJSON{Schema: "glossa.cli.check/v1", Report: report, Policy: policyJSON{
 		RequireComplete: policy.RequireComplete, FailOn: string(policy.FailOn),
 		MissingTranslations: string(policy.MissingTranslations), Source: source,
+		Version: policy.Version, Overridden: !overrides.Empty(),
 	}}
 	if err := inv.emit(out, func(p *printer) { printCheck(p, label, report, s.SourceLocale) }); err != nil {
 		return err
@@ -126,51 +135,63 @@ func projectPolicy(info remote.Project) *qa.Policy {
 	return &p
 }
 
-// checkPolicy merges the flags over glossa.yaml over the project's
-// stored policy: flags > glossa.yaml > project policy > the built-in
-// default. stored is nil offline, and then only the last two apply.
+// checkPolicy is the server's policy document with this run's local
+// overrides applied: flags > glossa.yaml > the project's document > the
+// built-in default. stored is nil offline, and then only the last two
+// apply.
 //
-// missing_translations has no flag and no glossa.yaml key: whether an
-// untranslated key blocks is the project's call, not a local one, or a
-// pull request and the terminal would part ways on the one question the
-// check exists to answer.
-func checkPolicy(inv *invocation, cfg *config.Config, stored *qa.Policy, require, failOn string) (qa.Policy, error) {
+// The overrides are local and stay local. `glossa.yaml`'s `check:`
+// block and the flags are honoured for this run and **ignored by the
+// pull-request check** (RFC 0005 §4.2, §14 decision 3): a developer can
+// tighten or loosen their own loop and cannot change what CI decides.
+// They reach fail_on and require_complete and nothing else — the rules,
+// the environments and the version are the project's.
+//
+// missing_translations has no flag and no glossa.yaml key for the same
+// reason, one layer down: whether an untranslated key blocks is the
+// project's call, or a pull request and the terminal would part ways on
+// the one question the check exists to answer.
+func checkPolicy(inv *invocation, cfg *config.Config, stored *qa.Policy, require, failOn string) (
+	qa.Policy, checkpolicy.Overrides, error,
+) {
 	p := qa.Policy{FailOn: qa.Error}
 	if stored != nil {
 		p = *stored
 	}
+	var o checkpolicy.Overrides
 	if f := orDefault(failOn, cfg.Check.FailOn); f != "" {
 		sev, err := checkpolicy.ParseFailOn(f)
 		if err != nil {
-			return p, usageError(inv.name, "--fail-on must be error, warning or never, not %q", f)
+			return p, o, usageError(inv.name, "--fail-on must be error, warning or never, not %q", f)
 		}
-		p.FailOn = sev
-	}
-	if p.FailOn == "" {
-		p.FailOn = qa.Error
+		o.FailOn = sev
 	}
 	var list []string
 	switch {
 	case require == "none":
-		p.RequireComplete = []string{}
-		return p, nil
+		o.RequireComplete = checkpolicy.RequiredLocales()
+		list = nil
 	case require != "":
 		list = strings.Split(require, ",")
 	case cfg.Check.RequireComplete != nil:
 		list = cfg.Check.RequireComplete
-	default:
-		return p, nil
 	}
-	req := []string{}
-	for _, l := range list {
-		tag, err := bcp47.Parse(strings.TrimSpace(l))
-		if err != nil {
-			return p, usageError(inv.name, "%q in --require-complete is not a locale", l)
+	if list != nil {
+		req := []string{}
+		for _, l := range list {
+			tag, err := bcp47.Parse(strings.TrimSpace(l))
+			if err != nil {
+				return p, o, usageError(inv.name, "%q in --require-complete is not a locale", l)
+			}
+			req = append(req, tag.String())
 		}
-		req = append(req, tag.String())
+		o.RequireComplete = checkpolicy.RequiredLocales(req...)
 	}
-	p.RequireComplete = req
-	return p, nil
+	p = p.Override(o)
+	if p.FailOn == "" {
+		p.FailOn = qa.Error
+	}
+	return p, o, nil
 }
 
 // snapshot reads the project from the server, or the local catalogs.

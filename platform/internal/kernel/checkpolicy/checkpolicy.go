@@ -180,6 +180,32 @@ func (p Policy) RequiresIn(env, locale string) bool {
 	return slices.Contains(required, locale)
 }
 
+// In returns the document as it applies in env: the environment's
+// require_complete resolved into the base, and everything else as it
+// is.
+//
+// It is how a run hands an environment down to the layers. A layer asks
+// the policy whether a locale must be complete and knows nothing about
+// environments, which is right — where a finding is graded is the
+// run's business, not the layer's — so the run resolves the block once,
+// at the top, and every layer below it asks the same question and gets
+// the environment's answer.
+func (p Policy) In(env string) Policy {
+	e, ok := p.Environments[env]
+	if !ok || !e.RequireComplete.Set {
+		return p
+	}
+	if e.RequireComplete.All {
+		p.RequireComplete = nil
+		return p
+	}
+	p.RequireComplete = slices.Clone(e.RequireComplete.Locales)
+	if p.RequireComplete == nil {
+		p.RequireComplete = []string{}
+	}
+	return p
+}
+
 // ReviewIn is the review state an environment requires before a release
 // may publish to it, or "" where it asks for none. Release enforces it
 // at publish (RFC 0005 §4.1); the policy only states it.
@@ -212,6 +238,30 @@ func (p Policy) SeverityIn(env, locale string) Severity {
 		return Error
 	}
 	return Warning
+}
+
+// BaseOnly reports whether the policy says nothing the pre-M4 shape
+// could not say: no schema, no version, no rules, no environments and
+// no history.
+//
+// It is how a caller that can only speak the three fields is told
+// apart from one writing a document (see WithBase).
+func (p Policy) BaseOnly() bool {
+	return p.Schema == "" && p.Version == 0 && p.Rules == nil && p.Environments == nil &&
+		p.EffectiveFrom == nil && p.GraceUntil == nil && p.Previous == nil
+}
+
+// WithBase returns p with its three base fields — require_complete,
+// fail_on and missing_translations — taken from b, and everything the
+// document adds kept as it is.
+//
+// It is how a write that can only say the three changes them without
+// deleting the rules a project set through the policy document: the
+// project-settings API speaks the pre-M4 shape, and will until the
+// policy API of RFC 0005 §13 wave 3.
+func (p Policy) WithBase(b Policy) Policy {
+	p.RequireComplete, p.FailOn, p.MissingTranslations = b.RequireComplete, b.FailOn, b.MissingTranslations
+	return p
 }
 
 // Equal reports whether p and o are the same document. Two documents

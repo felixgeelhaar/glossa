@@ -78,7 +78,10 @@ func (l Layer) Valid() bool {
 // Advisory reports whether a policy is forbidden from raising this
 // layer to Error (RFC 0005 §14 decision 10: a build never fails on an
 // opinion).
-func (l Layer) Advisory() bool { return l == LayerLinguistic }
+//
+// The kernel decides it, because the policy is what has to refuse the
+// rule, and a second list here could drift from the one that refuses.
+func (l Layer) Advisory() bool { return checkpolicy.Advisory(string(l)) }
 
 // Severity ranks a finding. It is the check policy's severity, not a
 // second vocabulary: checkpolicy decides what fails a run, and a

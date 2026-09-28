@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -35,37 +36,81 @@ const MaxAnnotations = 200
 
 // CheckInput is everything the report is rendered from, for one Git
 // connection's project.
+//
+// The policy is the project's, read from the server. There is no local
+// override here and there never will be: `glossa.yaml` and the
+// command's flags are a developer's own loop, and a pull request grades
+// against what the project says (RFC 0005 §4.2, §14 decision 3).
 type CheckInput struct {
 	Policy  checkpolicy.Policy
 	Status  BranchStatus
 	Quality BranchQuality
 	Usages  BranchUsages
+	// OpenedAt is when the pull request was opened, for the grace a
+	// stricter policy ships with: a pull request older than the save
+	// keeps grading against the version it opened under until the grace
+	// runs out (RFC 0005 §4.3). The zero time is "not a pull request, or
+	// nobody recorded when", and then the current version grades it.
+	OpenedAt time.Time
+	// Now is when the check runs. A check that read a clock of its own
+	// could grade a re-run differently from the run.
+	Now time.Time
 }
 
 // CheckReport is the rendered check for one Git connection.
 type CheckReport struct {
 	Findings         []quality.Finding
 	Errors, Warnings int
-	Conclusion       string
-	Title            string
-	Summary          string
-	Annotations      []CheckAnnotation
+	// Waived counts the findings a waiver accepted. They are reported
+	// and never fail the run (RFC 0005 §2.3).
+	Waived     int
+	Conclusion string
+	Title      string
+	Summary    string
+	// PolicyVersion is the version of the policy document this check
+	// graded itself against, and Pinned says it is not the project's
+	// current one because the pull request predates it. The summary says
+	// both, because a check whose answer changed under someone has to be
+	// able to explain itself.
+	PolicyVersion int
+	Pinned        bool
+	GraceUntil    time.Time
+	Annotations   []CheckAnnotation
 }
 
 // BuildCheckReport turns what the contexts said into the check's
 // verdict, summary and annotations.
 func BuildCheckReport(in CheckInput) CheckReport {
-	r := CheckReport{Findings: findings(in)}
-	// The policy stays the evaluator, and a waived finding is counted on
-	// its own and can never fail a run (RFC 0005 §2.3).
-	counts, conclusion := quality.Conclude(in.Policy, r.Findings)
-	r.Errors, r.Warnings = counts.Errors, counts.Warnings
-	r.Conclusion = string(conclusion)
+	// The version that grades this pull request, which is the current
+	// one unless a grace pins it to the one it was opened under.
+	pinned := in.Policy.Pins(in.OpenedAt, in.Now)
+	var grace time.Time
+	if pinned {
+		grace = *in.Policy.GraceUntil
+	}
+	in.Policy = in.Policy.Effective(in.OpenedAt, in.Now)
+	r := CheckReport{
+		Findings:      findings(in),
+		PolicyVersion: in.Policy.Version, Pinned: pinned, GraceUntil: grace,
+	}
+	// The policy stays the evaluator: it grades every finding for this
+	// locale and namespace, drops the ones a rule switched off, ignores
+	// the ones a rule is still only warning about, and a waived finding
+	// is counted on its own and can never fail a run (RFC 0005 §2.3).
+	ev := quality.Evaluate(in.Policy, checkEnvironment, r.Findings)
+	r.Findings = ev.Findings()
+	r.Errors, r.Warnings, r.Waived = ev.Counts.Errors, ev.Counts.Warnings, ev.Counts.Waived
+	r.Conclusion = string(ev.Conclusion)
 	r.Title = checkTitle(r)
 	r.Summary = checkSummary(in, r)
 	r.Annotations = annotations(r.Findings)
 	return r
 }
+
+// checkEnvironment is the environment a pull-request check runs in:
+// none. A branch is not an environment, so a rule that names one says
+// nothing here, and the document's own require_complete applies.
+const checkEnvironment = ""
 
 // findings collects every finding the check reports, in the order the
 // summary lists them.
@@ -163,7 +208,33 @@ func checkSummary(in CheckInput, r CheckReport) string {
 	if r.Errors == 0 && r.Warnings == 0 {
 		b.WriteString("\nNothing to report: every new key is translated and nothing is out of place.\n")
 	}
+	writePolicyNote(&b, r)
 	return b.String()
+}
+
+// writePolicyNote says which version of the check policy graded this
+// run, and — where the pull request predates a stricter version — that
+// it is being graded against the version it was opened under, and until
+// when (RFC 0005 §4.3).
+//
+// A policy with no version says nothing, which is every policy stored
+// before M4: a project that has not written a document is graded
+// exactly as it always was, and the comment does not grow a line about
+// machinery it does not use.
+func writePolicyNote(b *strings.Builder, r CheckReport) {
+	if r.PolicyVersion == 0 {
+		return
+	}
+	fmt.Fprintf(b, "\nGraded against the project's check policy v%d", r.PolicyVersion)
+	if r.Pinned {
+		fmt.Fprintf(b, " — the version this pull request was opened under; the project's current policy"+
+			" takes over on %s", r.GraceUntil.UTC().Format("2006-01-02"))
+	}
+	b.WriteString(".\n")
+	if r.Waived > 0 {
+		fmt.Fprintf(b, "\n%s accepted by a waiver, reported and not counted against this check.\n",
+			plural(r.Waived, "finding", "findings"))
+	}
 }
 
 // localeTable is the per-locale table RFC 0004 §6.4 asks for: how far
