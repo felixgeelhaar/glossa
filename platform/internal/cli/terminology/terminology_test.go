@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
 func finding(sev string) remote.TermFinding {
@@ -58,8 +58,16 @@ func TestRunSumsTheServersPages(t *testing.T) {
 		t.Errorf("order = %v", order)
 	}
 	qf := r.QA()
-	if len(qf) != 4 || qf[0].Check != CheckName || qf[0].Severity != qa.Error || qf[0].Locale != "fr" || qf[0].Key != "a" {
+	if len(qf) != 4 || qf[0].Layer != domain.LayerTerminology || qf[0].Severity != domain.Error ||
+		qf[0].Locus.Locale != "fr" || qf[0].Locus.Key != "a" {
 		t.Errorf("qa = %+v", qf)
+	}
+	// The span, the offending text and the allowed terms survive the
+	// constructor; the conversion this replaced dropped all three.
+	if qf[0].Locus.Span == nil || qf[0].Locus.Span.Side != domain.SideTarget ||
+		qf[0].Subject == "" || qf[0].Evidence["suggestions"] == nil ||
+		qf[0].Fix == nil || qf[0].Fingerprint == "" {
+		t.Errorf("qa[0] lost what the server said: %+v", qf[0])
 	}
 }
 

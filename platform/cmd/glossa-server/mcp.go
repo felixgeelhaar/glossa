@@ -1,0 +1,65 @@
+package main
+
+import (
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/trace"
+
+	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/ratelimit"
+	mcpidentity "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/identity"
+	"github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/mcpgo"
+	mcpmetrics "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/metrics"
+	mcppg "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/postgres"
+	mcpapp "github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
+)
+
+// mcpRateInterval is the window GLOSSA_MCP_RATE counts tool calls in.
+const mcpRateInterval = time.Minute
+
+// newMCP wires the MCP context (RFC 0005 §7) and returns the handler
+// for /mcp, or nil when GLOSSA_MCP_ENABLED is off — in which case
+// nothing is registered and the path 404s like any other unknown one.
+//
+// It is built here rather than in newContexts because its one
+// collaborator is Identity: MCP mints no credential, so the whole of
+// its authentication is Identity's service, and it shares no state with
+// the bounded contexts whose ports its tools will call.
+func newMCP(
+	cfg config.MCP, identity *identityapp.Service, pool *pgxpool.Pool,
+	reg prometheus.Registerer, tp trace.TracerProvider, logger *slog.Logger,
+) (http.Handler, error) {
+	if !cfg.Enabled {
+		logger.Info("GLOSSA_MCP_ENABLED is off: /mcp is not served")
+		return nil, nil //nolint:nilnil // no MCP endpoint is a valid configuration
+	}
+	metrics := mcpmetrics.New(reg)
+	svc, err := mcpapp.New(
+		mcpidentity.New(identity),
+		mcpapp.WithAudit(mcppg.NewAudit(db.NewUnitOfWork(pool))),
+		mcpapp.WithMetrics(metrics),
+		mcpapp.WithLimiter(ratelimit.New(ratelimit.Config{Rate: cfg.Rate, Interval: mcpRateInterval, Burst: cfg.Burst})),
+		mcpapp.WithTracerProvider(tp),
+		mcpapp.WithLogger(logger),
+	)
+	if err != nil {
+		return nil, err
+	}
+	h, err := mcpgo.New(svc,
+		mcpgo.WithLogger(logger), mcpgo.WithVersion(version()), mcpgo.WithSessionTimeout(cfg.SessionTimeout))
+	if err != nil {
+		return nil, err
+	}
+	// The transport owns session lifetime, so it — not the service —
+	// answers how many are open right now.
+	metrics.TrackOpenSessions(mcpgo.Transport, h.OpenSessions)
+	logger.Info("serving MCP", slog.String("path", mcpgo.Path),
+		slog.Duration("session_timeout", cfg.SessionTimeout), slog.Int("calls_per_minute", cfg.Rate))
+	return h, nil
+}

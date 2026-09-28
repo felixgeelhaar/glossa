@@ -106,6 +106,26 @@ server:
     # object storage (2 GiB). A capture upload whose new pixels would pass it is
     # refused with `storage_quota_exceeded` (413); retention frees space again.
     storageQuotaBytes: 2147483648
+  # MCP (RFC 0005 §7): glossa-server serves the Model Context Protocol at
+  # /mcp over streamable HTTP, in this same process, behind the same
+  # middleware, tenancy and row-level security as the REST API.
+  #
+  # It is off by default. An MCP session authenticates with an ordinary
+  # tenant API token — no new credential is minted — so turning it on
+  # lets every existing token that carries `read` drive an agent against
+  # the tenant's catalog. Turn it on deliberately, and read the MCP
+  # section of the README first.
+  mcp:
+    # -- GLOSSA_MCP_ENABLED: serve MCP at /mcp. Off: the path is not
+    # registered at all.
+    enabled: false
+    # -- GLOSSA_MCP_SESSION_TIMEOUT: close a session idle this long, so an
+    # agent that walks away does not hold one open.
+    sessionTimeout: 30m
+    # -- GLOSSA_MCP_RATE: tool calls a minute per tenant.
+    rate: 120
+    # -- GLOSSA_MCP_BURST: tool calls a tenant may make at once.
+    burst: 240
   # The branch publisher: it publishes a branch's preview environment once
   # its debounced request is due. A publish is keyed by its request, so
   # every replica may run it. (The proposal sweep is a purge job above.)
@@ -588,10 +608,14 @@ objectStorage:
 minio:
   # -- Run MinIO in the release's namespace and point objectStorage at it.
   enabled: false
+  # -- Chainguard's MinIO build (uid 65532), since MinIO withdrew its own
+  # OSS images in September 2026. Chainguard's free tier publishes
+  # `latest` only and garbage-collects the digests behind it, so refresh
+  # this pin periodically; README.md, "In-namespace MinIO" → Images.
   image:
-    repository: quay.io/minio/minio
-    tag: RELEASE.2025-09-07T16-13-09Z
-    digest: sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    repository: cgr.dev/chainguard/minio
+    tag: latest
+    digest: sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
   rootCredentials:
     # -- REQUIRED with minio.enabled. Existing Secret with MinIO's root
     # user and password; the chart never creates it.
@@ -629,10 +653,12 @@ minio:
     # -- post-install/post-upgrade hook Job: bucket, a read-write user for
     # glossa-server and a read-only user for glossa-edge (idempotent).
     enabled: true
+    # -- Chainguard's `mc` build (uid 65532); same refresh caveat as
+    # minio.image above.
     image:
-      repository: quay.io/minio/mc
-      tag: RELEASE.2025-08-13T08-35-41Z
-      digest: sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+      repository: cgr.dev/chainguard/minio-client
+      tag: latest
+      digest: sha256:b2bd7824d23d3e3b15bedd7e87fbc3be29d2e213307b4f901e4a1d92356dc20f
     # -- How long the Job waits for MinIO to answer (volume attach, pull).
     waitSeconds: 600
     backoffLimit: 3

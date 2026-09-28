@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Provisions the in-namespace MinIO for glossa-platform. Runs as the
 # post-install/post-upgrade hook Job <fullname>-minio-bootstrap in the
-# quay.io/minio/mc image. Idempotent: every step converges on the state
-# below whether it ran before or not, so upgrades re-run it safely and a
-# rotated secret key in a user Secret is picked up by the next upgrade.
+# cgr.dev/chainguard/minio-client image (`mc`). Idempotent: every step
+# converges on the state below whether it ran before or not, so upgrades
+# re-run it safely and a rotated secret key in a user Secret is picked up
+# by the next upgrade.
 #
 #   bucket BUCKET
 #   policy POLICY_RW: read-write on BUCKET[/PREFIX]/*  → user RW_ACCESS_KEY (glossa-server)

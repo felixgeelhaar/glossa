@@ -12,6 +12,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
 // Rendering the Glossa check (RFC 0004 §6.4): what it reports, which
@@ -43,7 +44,7 @@ type CheckInput struct {
 
 // CheckReport is the rendered check for one Git connection.
 type CheckReport struct {
-	Findings         []CheckFinding
+	Findings         []quality.Finding
 	Errors, Warnings int
 	Conclusion       string
 	Title            string
@@ -55,20 +56,11 @@ type CheckReport struct {
 // verdict, summary and annotations.
 func BuildCheckReport(in CheckInput) CheckReport {
 	r := CheckReport{Findings: findings(in)}
-	for _, f := range r.Findings {
-		if f.Severity == checkpolicy.Error {
-			r.Errors++
-		} else {
-			r.Warnings++
-		}
-	}
-	r.Conclusion = ConclusionSuccess
-	for _, f := range r.Findings {
-		if in.Policy.Fails(f.Severity) {
-			r.Conclusion = ConclusionFailure
-			break
-		}
-	}
+	// The policy stays the evaluator, and a waived finding is counted on
+	// its own and can never fail a run (RFC 0005 §2.3).
+	counts, conclusion := quality.Conclude(in.Policy, r.Findings)
+	r.Errors, r.Warnings = counts.Errors, counts.Warnings
+	r.Conclusion = string(conclusion)
 	r.Title = checkTitle(r)
 	r.Summary = checkSummary(in, r)
 	r.Annotations = annotations(r.Findings)
@@ -77,7 +69,7 @@ func BuildCheckReport(in CheckInput) CheckReport {
 
 // findings collects every finding the check reports, in the order the
 // summary lists them.
-func findings(in CheckInput) []CheckFinding {
+func findings(in CheckInput) []quality.Finding {
 	// A key that is not in the catalog is, by definition, unknown to it,
 	// so its usages carry the file:line the annotations need. That is
 	// what locates an invalid message in the product's own source.
@@ -87,51 +79,57 @@ func findings(in CheckInput) []CheckFinding {
 			where[u.Key] = u
 		}
 	}
-	var out []CheckFinding
-	add := func(f CheckFinding) {
-		if u, ok := where[f.Key]; ok && !f.Located() {
-			f.File, f.Line = u.File, u.Line
+	var out []quality.Finding
+	add := func(f quality.Finding) {
+		if u, ok := where[f.Locus.Key]; ok && !f.Located() {
+			f.Locus.File, f.Locus.Line = u.File, u.Line
 		}
 		out = append(out, f)
 	}
 	for _, m := range in.Status.Invalid {
-		add(CheckFinding{
-			Code: checkpolicy.CodeInvalidMessage, Severity: checkpolicy.Error, Key: m.Key,
+		add(quality.New(quality.Finding{
+			Layer: quality.LayerStructure, Code: checkpolicy.CodeInvalidMessage, Severity: checkpolicy.Error,
+			Locus: quality.Locus{Key: m.Key}, Detail: m.Code,
 			Message: "invalid message (" + m.Code + "): " + m.Detail,
-		})
+		}))
 	}
 	for _, c := range in.Status.Conflicts {
-		add(CheckFinding{
-			Code: checkpolicy.CodeKeyConflict, Severity: checkpolicy.Error, Key: c.Key,
+		add(quality.New(quality.Finding{
+			Layer: quality.LayerCompleteness, Code: checkpolicy.CodeKeyConflict, Severity: checkpolicy.Error,
+			Locus:   quality.Locus{Key: c.Key},
 			Message: "another open branch proposes this key with different source: " + strings.Join(c.Branches, ", "),
-		})
+		}))
 	}
 	for _, l := range in.Quality.Locales {
 		n := in.Quality.Untranslated[l]
 		if n == 0 {
 			continue
 		}
-		add(CheckFinding{
-			Code: checkpolicy.CodeMissingTranslation, Severity: in.Policy.Severity(l), Locale: l,
+		add(quality.New(quality.Finding{
+			Layer: quality.LayerCompleteness, Code: checkpolicy.CodeMissingTranslation,
+			Severity: in.Policy.Severity(l), Locus: quality.Locus{Locale: l},
 			Message: plural(n, "new key", "new keys") + " untranslated in " + l,
-		})
+		}))
 	}
 	out = append(out, in.Quality.Findings...)
 	for _, u := range in.Usages.Unknown {
-		out = append(out, CheckFinding{
-			Code: checkpolicy.CodeUnknownKey, Severity: checkpolicy.Warning, Key: u.Key,
-			Message: "no message with this key: " + u.Key, File: u.File, Line: u.Line,
-		})
+		out = append(out, quality.New(quality.Finding{
+			Layer: quality.LayerCompleteness, Code: checkpolicy.CodeUnknownKey, Severity: checkpolicy.Warning,
+			Locus:   quality.Locus{Key: u.Key, File: u.File, Line: u.Line},
+			Message: "no message with this key: " + u.Key,
+		}))
 	}
 	for _, l := range sortedKeys(in.Status.Outdated) {
 		n := in.Status.Outdated[l]
 		if n == 0 {
 			continue
 		}
-		out = append(out, CheckFinding{
-			Code: checkpolicy.CodeOutdatedTranslation, Severity: checkpolicy.Warning, Locale: l,
+		out = append(out, quality.New(quality.Finding{
+			Layer: quality.LayerCompleteness, Code: checkpolicy.CodeOutdatedTranslation,
+			Severity: checkpolicy.Warning, Locus: quality.Locus{Locale: l},
 			Message: plural(n, "translation", "translations") + " in " + l + " will be outdated when this merges",
-		})
+			Fix:     &quality.Fix{Kind: quality.FixAdoptSourceChange},
+		}))
 	}
 	return out
 }
@@ -199,8 +197,8 @@ func localeTable(in CheckInput) string {
 	return b.String()
 }
 
-func writeFindingGroup(b *strings.Builder, heading string, fs []CheckFinding, code string) {
-	var group []CheckFinding
+func writeFindingGroup(b *strings.Builder, heading string, fs []quality.Finding, code string) {
+	var group []quality.Finding
 	for _, f := range fs {
 		if f.Code == code {
 			group = append(group, f)
@@ -215,9 +213,9 @@ func writeFindingGroup(b *strings.Builder, heading string, fs []CheckFinding, co
 			fmt.Fprintf(b, "- … and %d more\n", len(group)-i)
 			break
 		}
-		b.WriteString("- " + mdCode(f.Key) + " — " + mdEscape(f.Message))
+		b.WriteString("- " + mdCode(f.Locus.Key) + " — " + mdEscape(f.Message))
 		if f.Located() {
-			b.WriteString(" (" + mdCode(f.File+":"+strconv.Itoa(f.Line)) + ")")
+			b.WriteString(" (" + mdCode(f.Locus.File+":"+strconv.Itoa(f.Locus.Line)) + ")")
 		}
 		b.WriteString("\n")
 	}
@@ -226,13 +224,13 @@ func writeFindingGroup(b *strings.Builder, heading string, fs []CheckFinding, co
 
 // writeQAGroup lists the QA findings (terminology, max_length), which
 // are the ones the other groups did not claim.
-func writeQAGroup(b *strings.Builder, fs []CheckFinding) {
+func writeQAGroup(b *strings.Builder, fs []quality.Finding) {
 	claimed := map[string]bool{
 		checkpolicy.CodeInvalidMessage: true, checkpolicy.CodeKeyConflict: true,
 		checkpolicy.CodeUnknownKey: true, checkpolicy.CodeMissingTranslation: true,
 		checkpolicy.CodeOutdatedTranslation: true,
 	}
-	var group []CheckFinding
+	var group []quality.Finding
 	for _, f := range fs {
 		if !claimed[f.Code] {
 			group = append(group, f)
@@ -247,9 +245,9 @@ func writeQAGroup(b *strings.Builder, fs []CheckFinding) {
 			fmt.Fprintf(b, "- … and %d more\n", len(group)-i)
 			break
 		}
-		b.WriteString("- " + mdCode(f.Key))
-		if f.Locale != "" {
-			b.WriteString(" _" + mdEscape(f.Locale) + "_")
+		b.WriteString("- " + mdCode(f.Locus.Key))
+		if f.Locus.Locale != "" {
+			b.WriteString(" _" + mdEscape(f.Locus.Locale) + "_")
 		}
 		b.WriteString(" — " + mdEscape(f.Message) + "\n")
 	}
@@ -259,7 +257,7 @@ func writeQAGroup(b *strings.Builder, fs []CheckFinding) {
 // annotations turns the located findings into GitHub annotations,
 // capped. A finding without a location stays in the summary only: an
 // annotation has to point at a line of the product's source.
-func annotations(fs []CheckFinding) []CheckAnnotation {
+func annotations(fs []quality.Finding) []CheckAnnotation {
 	var out []CheckAnnotation
 	for _, f := range fs {
 		if !f.Located() || len(out) == MaxAnnotations {
@@ -270,11 +268,11 @@ func annotations(fs []CheckFinding) []CheckAnnotation {
 			level = "failure"
 		}
 		title := f.Code
-		if f.Key != "" {
-			title = f.Code + ": " + f.Key
+		if f.Locus.Key != "" {
+			title = f.Code + ": " + f.Locus.Key
 		}
 		out = append(out, CheckAnnotation{
-			Path: f.File, StartLine: f.Line, EndLine: f.Line, Level: level,
+			Path: f.Locus.File, StartLine: f.Locus.Line, EndLine: f.Locus.Line, Level: level,
 			Title: title, Message: f.Message,
 		})
 	}

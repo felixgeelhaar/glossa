@@ -1,0 +1,19 @@
+name: glossa
+description: >-
+  Glossa runtime for Dart and Flutter: BCP 47 negotiation, the SPEC fallback
+  graph and a MessageFormat 2 interpreter over the precompiled data model.
+version: 0.1.0
+publish_to: none
+
+environment:
+  # Pinned in CI to the SDK in .github/workflows/ci.yml (runtimes-dart).
+  sdk: ^3.13.0
+
+dependencies:
+  # CLDR number, date and plural data. The host's CLDR version decides
+  # formatting output; see README.md, "CLDR and ICU versions".
+  intl: ^0.20.2
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0

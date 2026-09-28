@@ -20,6 +20,7 @@ import (
 	knowledgeapp "github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
 	knowledgedomain "github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
+	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
 	releasedelivery "github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
 )
@@ -191,7 +192,7 @@ func (c *Checks) newKeyMessages(ctx context.Context, project uuid.UUID, branch s
 // qaFindings collects the QA the server already holds on the branch's
 // messages: the structural warnings Localization stored with each text
 // (max_length among them) and the terminology findings of M2.
-func (c *Checks) qaFindings(ctx context.Context, project uuid.UUID, locales, branchKeys []string) ([]app.CheckFinding, error) {
+func (c *Checks) qaFindings(ctx context.Context, project uuid.UUID, locales, branchKeys []string) ([]quality.Finding, error) {
 	if len(locales) == 0 || len(branchKeys) == 0 {
 		return nil, nil
 	}
@@ -213,8 +214,8 @@ func (c *Checks) qaFindings(ctx context.Context, project uuid.UUID, locales, bra
 // storedWarnings reads the structural QA Localization kept with each
 // translation when it was written (max-length-exceeded and the compat
 // warnings), for the branch's own keys.
-func (c *Checks) storedWarnings(ctx context.Context, project uuid.UUID, locales []string, wanted map[string]bool) ([]app.CheckFinding, error) {
-	var out []app.CheckFinding
+func (c *Checks) storedWarnings(ctx context.Context, project uuid.UUID, locales []string, wanted map[string]bool) ([]quality.Finding, error) {
+	var out []quality.Finding
 	page := pagination.Page{Size: pagination.MaxPageSize}
 	for range maxQAPages {
 		rows, next, err := c.localization.ListProjectTranslations(ctx, project,
@@ -227,10 +228,17 @@ func (c *Checks) storedWarnings(ctx context.Context, project uuid.UUID, locales 
 				continue
 			}
 			for _, w := range r.Warnings {
-				out = append(out, app.CheckFinding{
-					Code: string(w.Code), Severity: severity(w.Severity), Locale: r.Locale.String(),
-					Key: r.Key, Message: w.Message,
-				})
+				// The kernel's subject and qualifier survive now, and so
+				// does which message and which revision this is about.
+				out = append(out, quality.New(quality.Finding{
+					Layer: quality.LayerParity, Code: string(w.Code), Severity: severity(w.Severity),
+					Locus: quality.Locus{
+						Message: r.MessageID.String(), Key: r.Key, Locale: r.Locale.String(),
+						Namespace: r.Namespace, Revision: r.ID.String(),
+					},
+					Message: w.Message, Subject: w.Subject, Detail: w.Detail,
+					SourceRevision: sourceRevision(r.SourceRevision),
+				}))
 			}
 		}
 		if next == nil {
@@ -251,7 +259,7 @@ func severity(s mf.Severity) checkpolicy.Severity {
 }
 
 // terminology asks Knowledge for the branch's terminology findings.
-func (c *Checks) terminology(ctx context.Context, project uuid.UUID, locales []string, wanted map[string]bool) ([]app.CheckFinding, error) {
+func (c *Checks) terminology(ctx context.Context, project uuid.UUID, locales []string, wanted map[string]bool) ([]quality.Finding, error) {
 	if c.knowledge == nil {
 		return nil, nil
 	}
@@ -266,7 +274,7 @@ func (c *Checks) terminology(ctx context.Context, project uuid.UUID, locales []s
 	if len(tags) == 0 {
 		return nil, nil
 	}
-	var out []app.CheckFinding
+	var out []quality.Finding
 	page := pagination.Page{Size: pagination.MaxPageSize}
 	for range maxQAPages {
 		rep, err := c.knowledge.CheckProjectTerminology(ctx, project,
@@ -279,10 +287,18 @@ func (c *Checks) terminology(ctx context.Context, project uuid.UUID, locales []s
 				continue
 			}
 			for _, f := range item.Findings {
-				out = append(out, app.CheckFinding{
-					Code: string(f.Code), Severity: termSeverity(f.Severity), Locale: item.Locale.String(),
-					Key: item.Key, Message: f.Message,
-				})
+				// The span and the offending text reach the pull request
+				// too: Knowledge has computed them since M2, and the
+				// conversion this replaces threw them away.
+				out = append(out, quality.New(quality.Finding{
+					Layer: quality.LayerTerminology, Code: string(f.Code), Severity: termSeverity(f.Severity),
+					Locus: quality.Locus{
+						Message: item.MessageID.String(), Key: item.Key, Locale: item.Locale.String(),
+						Namespace: item.Namespace,
+						Span:      &quality.Span{Side: quality.Side(f.Side), Start: f.Start, End: f.End},
+					},
+					Message: f.Message, Subject: f.Text, Evidence: termEvidence(f),
+				}))
 			}
 		}
 		if rep.Next == nil {
@@ -300,6 +316,25 @@ func termSeverity(s knowledgedomain.Severity) checkpolicy.Severity {
 		return checkpolicy.Error
 	}
 	return checkpolicy.Warning
+}
+
+// termEvidence keeps the concept and the allowed terms with the
+// finding, so a reader can follow it back to the termbase.
+func termEvidence(f knowledgedomain.TermFinding) map[string]any {
+	out := map[string]any{"concept_id": f.ConceptID.String(), "term_id": f.TermID.String()}
+	if len(f.Suggestions) > 0 {
+		out["suggestions"] = f.Suggestions
+	}
+	return out
+}
+
+// sourceRevision is the revision a finding was computed against, which
+// is what a waiver is measured against.
+func sourceRevision(rev int) *int {
+	if rev == 0 {
+		return nil
+	}
+	return &rev
 }
 
 // maxUnknownPages bounds the unknown-key scan. The query already keeps

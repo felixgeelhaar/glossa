@@ -107,6 +107,28 @@ type Config struct {
 	Branches             Branches
 	Context              Context
 	GitHub               GitHub
+	MCP                  MCP
+}
+
+// MCP configures the Model Context Protocol endpoint (RFC 0005 §7):
+// /mcp on this same server, behind the same middleware, tenancy and RLS
+// as REST.
+//
+// It is off by default, and deliberately so. MCP is a second façade on
+// the API for agents, it authenticates with tenant API tokens that were
+// minted before the endpoint existed, and RFC 0005 §15 leaves "hosted,
+// local-only, or both?" open for the owner. An operator turns it on;
+// nobody gets an agent surface by upgrading.
+type MCP struct {
+	// Enabled serves /mcp.
+	Enabled bool
+	// SessionTimeout closes a session idle this long, so an agent that
+	// walks away does not hold one open forever.
+	SessionTimeout time.Duration
+	// Rate and Burst bound tool calls per tenant, the same wall a
+	// runaway script hits (RFC 0005 §7.4).
+	Rate  int
+	Burst int
 }
 
 // GitHub tunes the GitHub integration's worker and sweep (RFC 0004
@@ -300,9 +322,9 @@ func decodeKey(s string) ([]byte, error) {
 // String renders the configuration with secrets redacted.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"database=%s migrate=%s http=%s log=%s shutdown=%s otel=%q outbox=%t storage=%s ai_workers=%d purge=%s",
+		"database=%s migrate=%s http=%s log=%s shutdown=%s otel=%q outbox=%t storage=%s ai_workers=%d purge=%s mcp=%t",
 		c.DatabaseURL, c.Migrate, c.HTTP.Addr, c.LogLevel, c.ShutdownTimeout,
-		c.OTel.Endpoint, c.Outbox.Enabled, c.Storage.Driver, c.aiWorkers(), c.purge(),
+		c.OTel.Endpoint, c.Outbox.Enabled, c.Storage.Driver, c.aiWorkers(), c.purge(), c.MCP.Enabled,
 	)
 }
 
@@ -398,6 +420,15 @@ func Load(lookup LookupFunc) (Config, error) {
 		CheckTimeout:       r.duration("GLOSSA_GITHUB_CHECK_TIMEOUT", time.Minute),
 		CheckLease:         r.duration("GLOSSA_GITHUB_CHECK_LEASE", 5*time.Minute),
 		CheckDepthInterval: r.duration("GLOSSA_GITHUB_CHECK_DEPTH_INTERVAL", 30*time.Second),
+	}
+	cfg.MCP = MCP{
+		Enabled:        r.boolean("GLOSSA_MCP_ENABLED", false),
+		SessionTimeout: r.duration("GLOSSA_MCP_SESSION_TIMEOUT", 30*time.Minute),
+		// 120 calls a minute in bursts of 240: an agent exploring a
+		// catalog makes a burst of reads and then thinks, and a loop that
+		// never thinks is exactly what the limit is for.
+		Rate:  r.intRange("GLOSSA_MCP_RATE", 120, 1, 100_000),
+		Burst: r.intRange("GLOSSA_MCP_BURST", 240, 1, 100_000),
 	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {

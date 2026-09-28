@@ -13,6 +13,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/terminology"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	qualitydomain "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
 // maxFindingsPerGroup caps human output; --json has everything.
@@ -200,7 +201,7 @@ func (inv *invocation) terminologyCheckers(ctx context.Context, p *project, s *s
 	if err != nil {
 		return nil, err
 	}
-	return append(checkers, qa.Precomputed(terminology.CheckName, report.QA())), nil
+	return append(checkers, qa.Precomputed(qualitydomain.LayerTerminology, report.QA())), nil
 }
 
 func printCheck(p *printer, label string, r qa.Report, source string) {

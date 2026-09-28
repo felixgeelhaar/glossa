@@ -38,8 +38,8 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install nox (pinned + sha256-verified binary)
         env:
-          NOX_VERSION: "1.7.1"
-          NOX_SHA256: "3106ab3ce7197f43a45fc1128ea27112686421e8ec3eac9be356d4ca42ab4c89"
+          NOX_VERSION: "1.43.1"
+          NOX_SHA256: "4077a0f73a3c76eebf7c93f232aaaae584a3c024c9413a42ae2ab155d346f84d"
         run: |
           curl -sL -o nox.tar.gz \
             "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/nox_${NOX_VERSION}_linux_amd64.tar.gz"

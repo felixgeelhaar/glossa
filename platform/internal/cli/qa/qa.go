@@ -1,16 +1,26 @@
-// Package qa is `glossa check`: structural QA over a project snapshot
-// (product intent §29.1, §30). Each layer is a Checker, so later layers
-// (source copy lint §28, terminology, usage) plug in without changing
-// the command; a Policy decides which findings fail the check.
+// Package qa is `glossa check`'s side of the Quality context: it turns
+// the CLI's snapshot into the project a layer checks, runs the layers,
+// and renders the result as `glossa check --json` has always rendered
+// it.
+//
+// The QA itself moved to internal/quality in M4 (RFC 0005 §14
+// decision 1): the layers, the finding and the run all live there now,
+// so `glossa check`, the Glossa pull-request check and the server's
+// jobs share one implementation and cannot disagree. What is left here
+// is the adapter — a snapshot in, the command's wire shape out.
+//
+// The wire shape is deliberately unchanged. `glossa.cli.check/v1` is
+// the command's own contract, versioned on its own, and RFC 0005 §13
+// wave 3 rebuilds the command on the Quality library; until then a
+// finding prints and serializes exactly as it did in M3.
 package qa
 
 import (
-	"sort"
-
-	mf "github.com/felixgeelhaar/glossa/messageformat"
-
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
 )
 
 // The policy and its vocabulary live in the kernel, because the Glossa
@@ -38,9 +48,12 @@ const (
 	CodeMissingLocale       = checkpolicy.CodeMissingLocale
 )
 
-// Finding is one problem.
+// Finding is one problem as `glossa check` prints and serializes it: a
+// flattened quality finding, with the fields the command has always
+// shown.
 type Finding struct {
-	// Check is the checker that found it (structure, arguments, completeness).
+	// Check is the layer that found it, under the name the command has
+	// always printed.
 	Check    string   `json:"check"`
 	Code     string   `json:"code"`
 	Severity Severity `json:"severity"`
@@ -58,28 +71,16 @@ type Finding struct {
 type Policy = checkpolicy.Policy
 
 // Checker is one layer of QA.
-type Checker interface {
-	Name() string
-	Check(s *snapshot.Snapshot, p Policy) []Finding
-}
+type Checker = layers.Checker
 
-// Default is the structural QA of M1.
-func Default() []Checker {
-	return []Checker{structure{}, arguments{}, completeness{}}
-}
+// Default is the deterministic QA every check runs.
+func Default() []Checker { return layers.Default() }
 
 // Precomputed is a Checker reporting findings computed elsewhere, such
 // as the terminology layer, which asks the server.
-func Precomputed(name string, fs []Finding) Checker { return precomputed{name: name, findings: fs} }
-
-type precomputed struct {
-	name     string
-	findings []Finding
+func Precomputed(layer domain.Layer, fs []domain.Finding) Checker {
+	return layers.Precomputed(layer, fs)
 }
-
-func (c precomputed) Name() string { return c.name }
-
-func (c precomputed) Check(*snapshot.Snapshot, Policy) []Finding { return c.findings }
 
 // LocaleReport summarizes one locale.
 type LocaleReport struct {
@@ -111,212 +112,79 @@ type Report struct {
 
 // Run checks s with the checkers and summarizes.
 func Run(s *snapshot.Snapshot, p Policy, checkers ...Checker) Report {
-	r := Report{Origin: s.Origin, Messages: len(s.Messages), Findings: []Finding{}, Passed: true}
-	for _, c := range checkers {
-		r.Findings = append(r.Findings, c.Check(s, p)...)
+	return render(qualityapp.Run(Project(s), p, checkers...))
+}
+
+// Project is the snapshot as a layer sees it. The CLI's snapshot holds
+// no message IDs — it is read by key — so a finding from an offline
+// check is fingerprinted by key (domain.Fingerprint).
+func Project(s *snapshot.Snapshot) *layers.Project {
+	p := &layers.Project{
+		Origin: s.Origin, SourceLocale: s.SourceLocale,
+		Translations: make(map[string]map[string]layers.Translation, len(s.Translations)),
 	}
-	sortFindings(r.Findings)
-	for _, m := range s.Messages {
-		if m.Invalid != nil {
-			r.Invalid++
-		}
-	}
-	perLocale := map[string]*LocaleReport{}
 	for _, l := range s.Locales {
-		lr := &LocaleReport{Code: l.Code, IsSource: l.IsSource, Required: !l.IsSource && p.Requires(l.Code), Messages: len(s.Messages)}
-		if !l.IsSource {
-			lr.Translated = translated(s, l.Code)
-		} else {
-			lr.Translated = len(s.Messages)
+		p.Locales = append(p.Locales, layers.Locale{Code: l.Code, IsSource: l.IsSource, File: l.File})
+	}
+	for _, m := range s.Messages {
+		p.Messages = append(p.Messages, layers.Message{
+			Key: m.Key, Namespace: m.Namespace, Revision: m.Revision, Model: m.Model,
+			Invalid: invalid(m.Invalid), File: m.File,
+		})
+	}
+	for locale, trs := range s.Translations {
+		out := make(map[string]layers.Translation, len(trs))
+		for key, t := range trs {
+			out[key] = layers.Translation{
+				Key: t.Key, Locale: t.Locale, Model: t.Model, State: t.State,
+				SourceRevision: t.SourceRevision, Outdated: t.Outdated, Warnings: t.Warnings,
+				Invalid: invalid(t.Invalid), File: t.File,
+			}
 		}
-		perLocale[l.Code] = lr
+		p.Translations[locale] = out
+	}
+	return p
+}
+
+func invalid(i *snapshot.Invalid) *layers.Invalid {
+	if i == nil {
+		return nil
+	}
+	return &layers.Invalid{Code: i.Code, Detail: i.Detail}
+}
+
+// render flattens a quality run into the command's wire shape.
+func render(r qualityapp.Report) Report {
+	out := Report{
+		Origin: r.Origin, Messages: r.Messages, Invalid: r.Invalid, Findings: []Finding{},
+		Errors: r.Counts.Errors, Warnings: r.Counts.Warnings, Passed: r.Passed(),
+	}
+	for _, l := range r.Locales {
+		out.Locales = append(out.Locales, LocaleReport{
+			Code: l.Code, IsSource: l.IsSource, Required: l.Required, Messages: l.Messages,
+			Translated: l.Translated, Missing: l.Missing, Outdated: l.Outdated,
+			Errors: l.Errors, Warnings: l.Warnings, Complete: l.Complete,
+		})
 	}
 	for _, f := range r.Findings {
-		if f.Severity == Error {
-			r.Errors++
-		} else {
-			r.Warnings++
-		}
-		if p.Fails(f.Severity) {
-			r.Passed = false
-		}
-		lr, ok := perLocale[f.Locale]
-		if !ok {
-			continue
-		}
-		switch f.Code {
-		case CodeMissingTranslation:
-			lr.Missing++
-		case CodeOutdatedTranslation:
-			lr.Outdated++
-		}
-		if f.Severity == Error {
-			lr.Errors++
-		} else {
-			lr.Warnings++
-		}
-	}
-	for _, l := range s.Locales {
-		lr := perLocale[l.Code]
-		lr.Complete = lr.Missing == 0
-		r.Locales = append(r.Locales, *lr)
-	}
-	return r
-}
-
-func translated(s *snapshot.Snapshot, locale string) int {
-	n := 0
-	for _, m := range s.Messages {
-		if t, ok := s.Translations[locale][m.Key]; ok && t.State != "rejected" {
-			n++
-		}
-	}
-	return n
-}
-
-func sortFindings(fs []Finding) {
-	rank := map[Severity]int{Error: 0, Warning: 1}
-	sort.SliceStable(fs, func(i, j int) bool {
-		a, b := fs[i], fs[j]
-		if a.Locale != b.Locale {
-			return a.Locale < b.Locale
-		}
-		if rank[a.Severity] != rank[b.Severity] {
-			return rank[a.Severity] < rank[b.Severity]
-		}
-		return a.Key < b.Key
-	})
-}
-
-// ── structure ───────────────────────────────────────────────────────
-
-// structure: every source message and translation parses into a valid
-// MessageFormat 2 model.
-type structure struct{}
-
-func (structure) Name() string { return "structure" }
-
-func (structure) Check(s *snapshot.Snapshot, _ Policy) []Finding {
-	var out []Finding
-	for _, m := range s.Messages {
-		if m.Invalid != nil {
-			out = append(out, Finding{Check: "structure", Code: CodeInvalidMessage, Severity: Error,
-				Locale: s.SourceLocale, Key: m.Key, Detail: m.Invalid.Code,
-				Message: "invalid message: " + m.Invalid.Detail, Where: m.File})
-		}
-	}
-	for _, l := range s.TargetLocales() {
-		for _, t := range sortedTranslations(s, l.Code) {
-			if t.Invalid != nil {
-				out = append(out, Finding{Check: "structure", Code: CodeInvalidTranslation, Severity: Error,
-					Locale: l.Code, Key: t.Key, Detail: t.Invalid.Code,
-					Message: "invalid translation: " + t.Invalid.Detail, Where: t.File})
-			}
-		}
+		out.Findings = append(out.Findings, Finding{
+			Check: CheckName(f.Layer), Code: f.Code, Severity: f.Severity,
+			Locale: f.Locus.Locale, Key: f.Locus.Key, Subject: f.Subject, Detail: f.Detail,
+			Message: f.Message, Where: f.Locus.File,
+		})
 	}
 	return out
 }
 
-func sortedTranslations(s *snapshot.Snapshot, locale string) []snapshot.Translation {
-	trs := s.Translations[locale]
-	out := make([]snapshot.Translation, 0, len(trs))
-	for _, t := range trs {
-		out = append(out, t)
+// CheckName is a layer's name in `glossa check`'s output.
+//
+// The parity layer is still spelled `arguments` there: that is what the
+// command has printed since M1, and renaming it is part of rebuilding
+// the command on the Quality library (RFC 0005 §13 wave 3), not of
+// moving the layers.
+func CheckName(l domain.Layer) string {
+	if l == domain.LayerParity {
+		return "arguments"
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
-	return out
-}
-
-// ── arguments ───────────────────────────────────────────────────────
-
-// arguments: every translation is structurally compatible with its
-// current source (messageformat.CheckCompat), plus the warnings the
-// server stored that only it can compute (max-length-exceeded).
-type arguments struct{}
-
-func (arguments) Name() string { return "arguments" }
-
-func (arguments) Check(s *snapshot.Snapshot, _ Policy) []Finding {
-	var out []Finding
-	for _, l := range s.TargetLocales() {
-		for _, t := range sortedTranslations(s, l.Code) {
-			m, ok := s.Message(t.Key)
-			if !ok || m.Model == nil || t.Model == nil || t.State == "rejected" {
-				continue
-			}
-			seen := map[string]bool{}
-			for _, f := range mf.CheckCompat(*m.Model, *t.Model, l.Code) {
-				seen[string(f.Code)] = true
-				out = append(out, fromKernel(f, l.Code, t))
-			}
-			for _, w := range t.Warnings {
-				if !seen[string(w.Code)] {
-					out = append(out, fromKernel(w, l.Code, t))
-				}
-			}
-		}
-	}
-	return out
-}
-
-func fromKernel(f mf.Finding, locale string, t snapshot.Translation) Finding {
-	sev := Warning
-	if f.Severity == mf.SeverityError {
-		sev = Error
-	}
-	return Finding{Check: "arguments", Code: string(f.Code), Severity: sev, Locale: locale, Key: t.Key,
-		Subject: f.Subject, Detail: f.Detail, Message: f.Message, Where: t.File}
-}
-
-// ── completeness ────────────────────────────────────────────────────
-
-// completeness: every active message has a translation in every locale
-// (required locales: the policy's missing_translations, error by
-// default; others: warning), made against the current source (outdated:
-// warning), and no local translation names an unknown message.
-type completeness struct{}
-
-func (completeness) Name() string { return "completeness" }
-
-func (completeness) Check(s *snapshot.Snapshot, p Policy) []Finding {
-	var out []Finding
-	have := map[string]bool{}
-	for _, l := range s.Locales {
-		have[l.Code] = true
-	}
-	for _, l := range p.RequireComplete {
-		if !have[l] {
-			out = append(out, Finding{Check: "completeness", Code: CodeMissingLocale, Severity: Error, Locale: l,
-				Message: "required locale isn't in the project"})
-		}
-	}
-	for _, l := range s.TargetLocales() {
-		// The policy decides, not the required list alone: a project can
-		// require every locale and still only warn about untranslated
-		// keys (checkpolicy.Policy.MissingTranslations).
-		sev := p.Severity(l.Code)
-		trs := s.Translations[l.Code]
-		for _, m := range s.Messages {
-			t, ok := trs[m.Key]
-			switch {
-			case !ok || t.State == "rejected":
-				msg := "missing translation"
-				if ok {
-					msg = "translation rejected in review"
-				}
-				out = append(out, Finding{Check: "completeness", Code: CodeMissingTranslation, Severity: sev,
-					Locale: l.Code, Key: m.Key, Message: msg, Where: l.File})
-			case t.Outdated:
-				out = append(out, Finding{Check: "completeness", Code: CodeOutdatedTranslation, Severity: Warning,
-					Locale: l.Code, Key: m.Key, Message: "made against an older source revision; the source changed since"})
-			}
-		}
-		for _, t := range sortedTranslations(s, l.Code) {
-			if _, ok := s.Message(t.Key); !ok {
-				out = append(out, Finding{Check: "completeness", Code: CodeUnknownKey, Severity: Warning,
-					Locale: l.Code, Key: t.Key, Message: "no source message has this ID", Where: t.File})
-			}
-		}
-	}
-	return out
+	return string(l)
 }

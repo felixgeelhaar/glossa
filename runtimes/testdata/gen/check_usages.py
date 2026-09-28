@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Check the usage fixture suite and the context schemas (RFC 0004 §2.1–§3.3).
+"""Check the usage fixture suite and the shared schemas (RFC 0004 §2.1–§3.3, RFC 0005 §2.1).
 
 Unlike the runtime fixtures, `usages/*/expected.json` are written by hand:
 they are the contract that @glossa/unplugin and `glossa extract` must both
 meet. This script keeps them honest:
 
-- the schemas are valid JSON Schema 2020-12, the examples in
-  schemas/examples/ validate, and a list of broken variants does not;
+- the schemas — usages.v1, captures.v1 and finding.v1 — are valid JSON
+  Schema 2020-12, the examples in schemas/examples/ validate, and a list of
+  broken variants does not;
 - every case has case.json, a project/ tree and an expected.json that
   validates against usages.v1, carries the runner header, is sorted and
   formatted canonically, and whose every position points at the key (or
@@ -84,19 +85,22 @@ def load(path):
 
 
 def validators():
-    usages, captures = load(SCHEMAS / "usages.v1.schema.json"), load(SCHEMAS / "captures.v1.schema.json")
-    for s in (usages, captures):
+    schemas = [load(SCHEMAS / f"{n}.v1.schema.json") for n in ("usages", "captures", "finding")]
+    for s in schemas:
         jsonschema.Draft202012Validator.check_schema(s)
-    registry = Registry().with_resources(
-        (s["$id"], Resource.from_contents(s)) for s in (usages, captures)
-    )
+    registry = Registry().with_resources((s["$id"], Resource.from_contents(s)) for s in schemas)
     fmt = jsonschema.Draft202012Validator.FORMAT_CHECKER
-    return (jsonschema.Draft202012Validator(usages, registry=registry, format_checker=fmt),
-            jsonschema.Draft202012Validator(captures, registry=registry, format_checker=fmt))
+    return tuple(jsonschema.Draft202012Validator(s, registry=registry, format_checker=fmt) for s in schemas)
 
 
 def mutate(doc, path, value):
-    """Return a copy of doc with the value at path (a list of keys/indexes) replaced; None deletes."""
+    """Return a copy of doc with the value at path (a list of keys/indexes) replaced; None deletes.
+
+    An empty path replaces the whole document, for a variant that changes
+    two fields at once.
+    """
+    if not path:
+        return copy.deepcopy(value)
     out = copy.deepcopy(doc)
     target = out
     for step in path[:-1]:
@@ -171,12 +175,56 @@ CAPTURE_VARIANTS = [
 ]
 
 
-def check_examples(v_usages, v_captures, fail):
+F = ["locus"]
+MINIMAL_FINDING = {
+    "schema": "glossa.finding/v1", "fingerprint": "f_0123456789abcdef", "layer": "completeness",
+    "code": "missing-translation", "severity": "error",
+    "locus": {"key": "checkout.pay", "locale": "fr"}, "message": "missing translation",
+}
+WAIVED_FINDING = dict(MINIMAL_FINDING, severity="waived", waiver="0192f5d3-5e6f-7081-82a3-4d5e6f708192")
+FINDING_VARIANTS = [
+    (True, "nothing but the required fields", [], MINIMAL_FINDING),
+    (True, "a waived finding that names its waiver", [], WAIVED_FINDING),
+    (True, "a kernel qualifier alongside the code", ["detail"], "number->string"),
+    (True, "a terminology code, which is spelled with an underscore", ["code"], "term_forbidden"),
+    (False, "a waived finding with no waiver", ["severity"], "waived"),
+    (False, "an unwaived finding that names a waiver", ["waiver"], "0192f5d3-5e6f-7081-82a3-4d5e6f708192"),
+    (False, "a layer nobody implements", ["layer"], "semantic"),
+    (False, "a severity a layer may not emit", ["severity"], "never"),
+    (False, "a code in shouting case", ["code"], "Expansion-Excessive"),
+    (False, "a fingerprint that isn't one", ["fingerprint"], "7c1a"),
+    (False, "an unprefixed fingerprint", ["fingerprint"], "7c1a3e5b9d024f68"),
+    (False, "an unknown schema version", ["schema"], "glossa.finding/v2"),
+    (False, "an extra top-level field", ["check"], "arguments"),
+    (False, "an empty explanation", ["message"], ""),
+    (False, "evidence that isn't an object", ["evidence"], [1.74]),
+    (False, "no locus at all", ["locus"], None),
+    (False, "an extra locus field", F + ["file_hash"], "abc"),
+    (False, "a message ID that isn't a UUID", F + ["message"], "msg_1"),
+    (False, "a line with no file", F + ["file"], None),
+    (False, "a region with no capture", F + ["capture"], None),
+    (False, "a locale that isn't BCP 47", F + ["locale"], "fr_FR"),
+    (False, "an absolute file path", F + ["file"], "/src/App.vue"),
+    (False, "a route that is a URL", F + ["route"], "https://shop.example.com/checkout"),
+    (False, "line 0", F + ["line"], 0),
+    (False, "a span side outside the two", F + ["span", "side"], "both"),
+    (False, "a span with no end", F + ["span", "end"], None),
+    (False, "a negative span start", F + ["span", "start"], -1),
+    (False, "a fix kind nobody can apply", ["fix", "kind"], "rewrite"),
+    (False, "a fix with no kind", ["fix", "kind"], None),
+    (False, "an extra fix field", ["fix", "why"], "too long"),
+    (False, "a negative source revision", ["source_revision"], -1),
+]
+
+
+def check_examples(v_usages, v_captures, v_finding, fail):
     usages_example = load(EXAMPLES / "usages.v1.json")
     captures_example = load(EXAMPLES / "captures.v1.json")
+    finding_example = load(EXAMPLES / "finding.v1.json")
     for name, validator, doc, variants in (
         ("usages.v1.json", v_usages, usages_example, USAGE_VARIANTS),
         ("captures.v1.json", v_captures, captures_example, CAPTURE_VARIANTS),
+        ("finding.v1.json", v_finding, finding_example, FINDING_VARIANTS),
     ):
         where = f"schemas/examples/{name}"
         for err in validator.iter_errors(doc):
@@ -334,8 +382,8 @@ def check_case(case_dir, v_usages, fix, fail):
 def main():
     fix = "--fix" in sys.argv
     fail = Failures()
-    v_usages, v_captures = validators()
-    check_examples(v_usages, v_captures, fail)
+    v_usages, v_captures, v_finding = validators()
+    check_examples(v_usages, v_captures, v_finding, fail)
     cases = sorted(p for p in CASES.iterdir() if p.is_dir())
     if not cases:
         fail.add("usages", "no fixture cases")

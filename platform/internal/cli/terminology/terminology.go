@@ -12,12 +12,13 @@ import (
 	"context"
 	"sort"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
-// CheckName is the qa check the findings belong to.
-const CheckName = "terminology"
+// CheckName is the layer the findings belong to, under the name
+// `glossa check` prints.
+const CheckName = string(domain.LayerTerminology)
 
 // maxLocales is the server's limit of locales per project check.
 const maxLocales = 20
@@ -138,16 +139,56 @@ func nonNil(s []string) []string {
 	return s
 }
 
-// QA turns the findings into `glossa check` findings.
-func (r Report) QA() []qa.Finding {
-	out := make([]qa.Finding, 0, len(r.Findings))
+// QA turns the findings into quality findings (RFC 0005 §2.1).
+//
+// It is a constructor, not a conversion. The span, the offending text,
+// the concept and the term survive it — the conversion this replaces
+// dropped all four on the way to `glossa check`, which is why a
+// terminology finding could never underline anything or become an
+// annotation.
+func (r Report) QA() []domain.Finding {
+	out := make([]domain.Finding, 0, len(r.Findings))
 	for _, f := range r.Findings {
-		sev := qa.Warning
-		if f.Severity == "error" {
-			sev = qa.Error
+		severity := domain.Warning
+		if f.Severity == string(domain.Error) {
+			severity = domain.Error
 		}
-		out = append(out, qa.Finding{Check: CheckName, Code: f.Code, Severity: sev, Locale: f.Locale, Key: f.Key,
-			Subject: f.Text, Message: f.Message})
+		locus := domain.Locus{Key: f.Key, Locale: f.Locale}
+		if f.Side != "" {
+			locus.Span = &domain.Span{Side: domain.Side(f.Side), Start: f.Start, End: f.End}
+		}
+		out = append(out, domain.New(domain.Finding{
+			Layer: domain.LayerTerminology, Code: f.Code, Severity: severity, Locus: locus,
+			Message: f.Message, Subject: f.Text, Evidence: evidence(f), Fix: fix(f),
+		}))
 	}
 	return out
+}
+
+// evidence is what the termbase recognized, kept so a reader can follow
+// the finding back to the concept it is about.
+func evidence(f Finding) map[string]any {
+	out := map[string]any{}
+	if f.ConceptID != "" {
+		out["concept_id"] = f.ConceptID
+	}
+	if f.TermID != "" {
+		out["term_id"] = f.TermID
+	}
+	if len(f.Suggestions) > 0 {
+		out["suggestions"] = f.Suggestions
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// fix names the term the translation should have used, where the
+// termbase allows one. It is a hint: nothing applies it.
+func fix(f Finding) *domain.Fix {
+	if len(f.Suggestions) == 0 {
+		return nil
+	}
+	return &domain.Fix{Kind: domain.FixUseTerm, Hint: f.Suggestions[0]}
 }

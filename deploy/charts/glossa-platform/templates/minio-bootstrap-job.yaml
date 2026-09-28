@@ -61,7 +61,7 @@ spec:
       automountServiceAccountToken: false
       enableServiceLinks: false
       securityContext:
-        {{- include "gp.podSecurityContext" 1000 | nindent 8 }}
+        {{- include "gp.podSecurityContext" 65532 | nindent 8 }}
       {{- with (include "gp.scheduling" (dict "root" $ "values" $v) | trim) }}{{ . | nindent 6 }}{{ end }}
       containers:
         - name: bootstrap

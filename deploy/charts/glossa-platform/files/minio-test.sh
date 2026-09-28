@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # `helm test` for the in-namespace MinIO (the Pod <fullname>-minio-test,
-# quay.io/minio/mc image). Checks what the bootstrap Job promised:
+# cgr.dev/chainguard/minio-client image). Checks what the bootstrap Job
+# promised:
 #   - glossa-edge's credentials reach the bucket and can read objects,
 #   - they cannot write or delete,
 #   - glossa-server's credentials can write and delete.

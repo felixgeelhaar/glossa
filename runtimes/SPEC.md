@@ -2,7 +2,15 @@
 
 **Status:** Accepted — 2026-09-19, clarified after the first two implementations (JS, Go) · **Implements:** RFC 0002 §7–§8, intent §13, §33–§39, §51
 
-This is the contract between the delivery plane (the Release context and `glossa-edge`) and every runtime (JS, Go, and later Dart, Swift, Kotlin). A runtime is conformant when it passes the scenarios in [`testdata/`](./testdata) and follows the MUST rules below. The words MUST, SHOULD and MAY are used as in RFC 2119.
+This is the contract between the delivery plane (the Release context and `glossa-edge`) and every runtime (JS, Go, Dart, and later Swift and Kotlin). A runtime is conformant when it passes the scenarios in [`testdata/`](./testdata) and follows the MUST rules below. The words MUST, SHOULD and MAY are used as in RFC 2119.
+
+## 0. Implementations
+
+| Runtime | Where | Covers |
+|---|---|---|
+| JS / TS | [`js/runtime`](./js/runtime) (plus `elements`, `vue`, `react`, `astro`, `unplugin`, `capture`, `overlay`) | all of it |
+| Go | [`go`](./go) | all of it |
+| Dart / Flutter | [`dart`](./dart) | §1 decoding, §4 negotiation and fallback, §5 formatting, §6 `explain()` and the error channel. §2–§3 loading and §1.3 verification are in progress ([RFC 0005 §6](../docs/rfcs/0005-quality.md)) |
 
 ## 1. Artifacts
 
