@@ -289,17 +289,27 @@ class _Interpreter {
       return k is Literal ? prefs[i].indexOf(k.value) : prefs[i].length;
     }
 
-    final candidates = [
-      for (final v in msg.variants)
-        if (List.generate(
-          v.keys.length,
-          (i) => rank(v.keys, i),
-        ).every((r) => r >= 0))
-          v,
-    ];
-    for (var i = prefs.length - 1; i >= 0; i--) {
-      candidates.sort((a, b) => rank(a.keys, i).compareTo(rank(b.keys, i)));
+    final candidates = <(int, Variant)>[];
+    for (var v = 0; v < msg.variants.length; v++) {
+      final variant = msg.variants[v];
+      final matches = List.generate(
+        variant.keys.length,
+        (i) => rank(variant.keys, i),
+      ).every((r) => r >= 0);
+      if (matches) candidates.add((v, variant));
     }
+    // The spec sorts once per selector, from the last to the first, with a
+    // stable sort — so the first selector ends up most significant and each
+    // later one is a tie-break. `List.sort` is not stable in Dart, so the
+    // whole ordering is expressed as one comparator instead, with the
+    // variant's position as the final tie-break.
+    candidates.sort((a, b) {
+      for (var i = 0; i < prefs.length; i++) {
+        final c = rank(a.$2.keys, i).compareTo(rank(b.$2.keys, i));
+        if (c != 0) return c;
+      }
+      return a.$1.compareTo(b.$1);
+    });
     if (candidates.isEmpty) {
       // The data model guarantees a `*` variant, so this is unreachable for
       // a valid message; a bad one renders its last variant rather than
@@ -307,7 +317,7 @@ class _Interpreter {
       report('bad-selector', '\ufffd');
       return msg.variants.last.value;
     }
-    return candidates.first.value;
+    return candidates.first.$2.value;
   }
 
   List<Part> run() {
