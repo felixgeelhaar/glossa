@@ -110,6 +110,16 @@ spec:
               value: {{ $v.purge.batchSize | quote }}
             - name: GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES
               value: {{ $v.context.storageQuotaBytes | int64 | quote }}
+            {{- /* MCP (RFC 0005 §7) is off unless a deployment asks for
+                   it; the other three are inert while it is. */}}
+            - name: GLOSSA_MCP_ENABLED
+              value: {{ $v.mcp.enabled | quote }}
+            - name: GLOSSA_MCP_SESSION_TIMEOUT
+              value: {{ $v.mcp.sessionTimeout | quote }}
+            - name: GLOSSA_MCP_RATE
+              value: {{ $v.mcp.rate | quote }}
+            - name: GLOSSA_MCP_BURST
+              value: {{ $v.mcp.burst | quote }}
             - name: GLOSSA_BRANCH_PUBLISHER_ENABLED
               value: {{ $v.branches.publisherEnabled | quote }}
             - name: GLOSSA_BRANCH_PUBLISH_INTERVAL

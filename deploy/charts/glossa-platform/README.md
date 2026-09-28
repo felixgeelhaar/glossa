@@ -782,6 +782,51 @@ them.
 **GitHub Enterprise Server.** `github.apiUrl: https://HOST/api/v3` and
 `github.webUrl: https://HOST`; both default to github.com.
 
+## MCP
+
+`glossa-server` can serve the [Model Context Protocol](https://modelcontextprotocol.io)
+at `/mcp` over streamable HTTP, in the same process, behind the same
+middleware, tenancy and row-level security as the REST API
+(RFC 0005 §7). It is **off by default**:
+
+```yaml
+server:
+  mcp:
+    enabled: true
+```
+
+Nothing else is needed, and nothing else is minted. An MCP session
+presents an existing **tenant API token** (`glossa_api_…`) as its bearer
+token, and inherits that token's scopes, grant and tenant unchanged —
+the same `Scope` → permissions the REST API derives. So:
+
+- **the token's tenant is the session's tenant.** No tool takes a tenant
+  argument. A token cannot reach another tenant's catalog, and revoking
+  it ends its agent's session at the next call.
+- **CI tokens (`glossa_ci_…`) and in-context grants (`glossa_ctx_…`) are
+  refused at connect**, with a message naming what was presented. Each
+  is minted for one workflow run or one browser origin; lending either
+  to a long-lived agent would widen it.
+- **writes need two locks**: the token must carry the `write` scope
+  *and* the client must open the session asking for the write toolset
+  (`https://<hosts.api>/mcp?toolset=write`). A plain `/mcp` is a read
+  session, whatever the token could do.
+- **`admin` is not exposed, and there is no delete tool of any kind.**
+  No member, token, connection or tenant management, and no AI provider
+  key in either direction.
+- **every tool call is written to an append-only audit ledger**
+  (`mcp_tool_calls`) with the token, the tool, the outcome and the
+  *shape* of the arguments — a locale verbatim, a translation as its
+  length. Message text never reaches the ledger or the logs.
+
+Turn it on deliberately. Enabling it lets every existing token that
+carries `read` drive an agent against that tenant's catalog, and those
+tokens were minted before the endpoint existed.
+
+Metrics: `glossa_mcp_tool_calls_total{tool,scope,outcome}`,
+`glossa_mcp_sessions_total{transport}` and
+`glossa_mcp_sessions_open{transport}`.
+
 ## Network policies
 
 With `networkPolicy.enabled`, each component gets one policy covering both
@@ -874,6 +919,10 @@ the value until it is set.
 | `server.purge.jitter` | `0.2` | `GLOSSA_PURGE_JITTER`: fraction of the poll interval each poll is spread by (0–1), so replicas don't ask in lockstep. |
 | `server.purge.batchSize` | `100` | `GLOSSA_PURGE_BATCH_SIZE`: object-store deletes issued at a time while freeing unreferenced images. |
 | `server.context.storageQuotaBytes` | `2147483648` | `GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES`: capture images one tenant may keep in object storage (2 GiB). A capture upload whose new pixels would pass it is refused with `storage_quota_exceeded` (413); the daily purge frees space again. Watch `glossa_context_capture_bytes_used` against `glossa_context_capture_quota_bytes`. |
+| `server.mcp.enabled` | `false` | `GLOSSA_MCP_ENABLED`: serve MCP at `/mcp` (RFC 0005 §7). Off, the path is not registered at all. See [MCP](#mcp) before turning it on. |
+| `server.mcp.sessionTimeout` | `30m` | `GLOSSA_MCP_SESSION_TIMEOUT`: close a session idle this long, so an agent that walks away does not hold one open. |
+| `server.mcp.rate` | `120` | `GLOSSA_MCP_RATE`: tool calls a minute per tenant. A runaway agent hits the same wall a runaway script does. |
+| `server.mcp.burst` | `240` | `GLOSSA_MCP_BURST`: tool calls one tenant may make at once. |
 | `server.branches.publisherEnabled` | `true` | `GLOSSA_BRANCH_PUBLISHER_ENABLED`: publish a branch's preview environment when its debounced request is due. A publish is keyed by its request, so every replica may run it. |
 | `server.branches.publishInterval` | `5s` | `GLOSSA_BRANCH_PUBLISH_INTERVAL`: how often due branch publishes are looked for (the debounce itself is 30 s). |
 | `server.github.inbox.enabled` | `true` | `GLOSSA_GITHUB_INBOX_ENABLED`: process stored webhook deliveries in these pods. The endpoint stores and acknowledges a delivery whatever this says (RFC 0004 §6.2), so turning it off everywhere queues them rather than losing them. Nothing reaches the inbox without an App — see [GitHub App](#github-app). |

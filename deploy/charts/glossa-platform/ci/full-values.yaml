@@ -23,6 +23,11 @@ server:
     origins: [https://app.example.com]
   otel:
     endpoint: http://otel-collector.observability:4318
+  mcp:
+    enabled: true
+    sessionTimeout: 15m
+    rate: 60
+    burst: 120
   github:
     inbox:
       workers: 4

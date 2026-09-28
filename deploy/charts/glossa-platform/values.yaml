@@ -106,6 +106,26 @@ server:
     # object storage (2 GiB). A capture upload whose new pixels would pass it is
     # refused with `storage_quota_exceeded` (413); retention frees space again.
     storageQuotaBytes: 2147483648
+  # MCP (RFC 0005 §7): glossa-server serves the Model Context Protocol at
+  # /mcp over streamable HTTP, in this same process, behind the same
+  # middleware, tenancy and row-level security as the REST API.
+  #
+  # It is off by default. An MCP session authenticates with an ordinary
+  # tenant API token — no new credential is minted — so turning it on
+  # lets every existing token that carries `read` drive an agent against
+  # the tenant's catalog. Turn it on deliberately, and read the MCP
+  # section of the README first.
+  mcp:
+    # -- GLOSSA_MCP_ENABLED: serve MCP at /mcp. Off: the path is not
+    # registered at all.
+    enabled: false
+    # -- GLOSSA_MCP_SESSION_TIMEOUT: close a session idle this long, so an
+    # agent that walks away does not hold one open.
+    sessionTimeout: 30m
+    # -- GLOSSA_MCP_RATE: tool calls a minute per tenant.
+    rate: 120
+    # -- GLOSSA_MCP_BURST: tool calls a tenant may make at once.
+    burst: 240
   # The branch publisher: it publishes a branch's preview environment once
   # its debounced request is due. A publish is keyed by its request, so
   # every replica may run it. (The proposal sweep is a purge job above.)
