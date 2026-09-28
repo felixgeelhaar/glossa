@@ -213,6 +213,16 @@ The integration harness (`internal/kernel/db/dbtest`) provisions the
 database the way production does: a `CREATEROLE` owner runs the
 migrations, and the tests connect as `glossa_app`.
 
+**MinIO's OSS images were withdrawn in September 2026** — Docker Hub
+stopped serving `minio/minio`, `quay.io/minio/*` refuses anonymous pulls
+— so the object-storage harness
+(`internal/kernel/objectstore/s3store/s3test`) and the chart now run
+**Chainguard's builds**, `cgr.dev/chainguard/minio` and
+`cgr.dev/chainguard/minio-client` (uid 65532, drop-in otherwise). They
+track `:latest` here and are pinned by digest in the chart, which
+documents how to refresh the pin. If Chainguard ever gates them too, the
+S3-API alternatives are SeaweedFS, Garage, RustFS and Ceph RGW.
+
 ## Contract for context authors
 
 ### Tenancy and row-level security
