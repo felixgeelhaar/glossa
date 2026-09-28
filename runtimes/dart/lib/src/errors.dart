@@ -94,6 +94,9 @@ class ErrorChannel {
       StreamController<GlossaError>.broadcast(sync: true);
   final Map<String, DateTime> _seen = {};
 
+  /// How many distinct errors are tracked before expired entries are swept.
+  static const int _maxTracked = 256;
+
   /// The errors, as they happen.
   Stream<GlossaError> get stream => _controller.stream;
 
@@ -103,6 +106,14 @@ class ErrorChannel {
       final now = DateTime.now();
       final last = _seen[error._key];
       if (last != null && now.difference(last) < interval) return;
+      // An error's identity includes its message id and locale, so a
+      // long-lived app can see unboundedly many of them. Entries older than
+      // the interval can never suppress anything again; drop them once the
+      // map has grown, so the channel doesn't retain them for the process's
+      // lifetime.
+      if (_seen.length >= _maxTracked) {
+        _seen.removeWhere((_, at) => now.difference(at) >= interval);
+      }
       _seen[error._key] = now;
     }
     if (!_controller.isClosed) _controller.add(error);
