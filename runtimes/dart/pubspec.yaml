@@ -10,6 +10,9 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
+  # SHA-256 for artifact integrity and SHA-512 for Ed25519 (SPEC §1.3).
+  # Pure Dart, so the package still compiles for the web and for AOT.
+  crypto: ^3.0.7
   # CLDR number, date and plural data. The host's CLDR version decides
   # formatting output; see README.md, "CLDR and ICU versions".
   intl: ^0.20.2
