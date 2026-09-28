@@ -1,4 +1,4 @@
--- 0027 — the MCP audit ledger (RFC 0005 §7.2, §10, §11).
+-- 0028 — the MCP audit ledger (RFC 0005 §7.2, §10, §11).
 --
 -- `glossa-server` serves MCP at /mcp for agents. An agent is not a
 -- person: it acts on a long-lived tenant API token, unattended, and

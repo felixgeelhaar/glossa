@@ -1571,7 +1571,7 @@ wrongly costs a hundred calls. The read and write tools arrive in
 RFC 0005 waves 2 and 3, and inherit the session model, the audit and
 the metrics unchanged.
 
-**Every call is audited.** `mcp_tool_calls` (migration 0027) is
+**Every call is audited.** `mcp_tool_calls` (migration 0028) is
 tenant-owned under forced RLS and **append-only** for `glossa_app`:
 INSERT and SELECT, no UPDATE, no DELETE, so no code path — and no agent
 — rewrites its own trail. A row carries the actor, the token, the
