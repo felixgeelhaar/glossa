@@ -64,6 +64,9 @@ import (
 	previewapi "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/httpapi"
 	previewlimit "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/ratelimit"
 	previewapp "github.com/felixgeelhaar/glossa/platform/internal/preview/app"
+	qualitycatalog "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/catalog"
+	qualityapi "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/httpapi"
+	qualitymetrics "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/metrics"
 	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
@@ -99,6 +102,11 @@ type contexts struct {
 	// message_context reads it through its own port.
 	usageContext *contextapp.Service
 	contextAPI   *contextapi.API
+	// quality is the Quality context (RFC 0005): check runs, their
+	// immutable findings and the waivers that accept one. qualityAPI
+	// serves its reads and waiver writes.
+	quality    *qualityapp.Service
+	qualityAPI *qualityapi.API
 	// keyIndexes is Release's key index task: it rewrites the index
 	// objects of keys written before their current format (migration
 	// 0015 gave existing keys a scope).
@@ -286,6 +294,9 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err := intelligence.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
+	quality := qualityapp.NewService(qualitypg.NewTransactor(uow), qualitycatalog.New(catalog),
+		qualityapp.WithLogger(deps.logger), qualityapp.WithMetrics(qualitymetrics.New(deps.registerer)),
+		qualityapp.WithTracerProvider(deps.tracer))
 	aiAPI, err := intelligenceapi.New(intelligence)
 	if err != nil {
 		return contexts{}, err
@@ -295,6 +306,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
 		previewAPI:   previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),
 		usageContext: usageContext, contextAPI: contextapi.New(usageContext),
+		quality: quality, qualityAPI: qualityapi.New(quality),
 	}
 	scanner := releasepg.NewScanner(uow)
 	c.keyIndexes = func(ctx context.Context) (int, error) { return release.RewriteKeyIndexes(ctx, scanner) }
@@ -357,7 +369,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		Translations: mcpsources.NewTranslations(localization),
 		Usages:       mcpsources.NewUsages(usageContext, catalog),
 		Knowledge:    mcpsources.NewKnowledge(knowledge),
-		Quality:      mcpsources.NewQuality(qualityapp.NewService(qualitypg.NewTransactor(uow))),
+		Quality:      mcpsources.NewQuality(quality),
 		Delivery:     mcpsources.NewDelivery(release),
 	})
 	return c, nil

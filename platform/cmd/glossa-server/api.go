@@ -26,6 +26,7 @@ import (
 	localizationapi "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/mcpgo"
 	previewapi "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/httpapi"
+	qualityapi "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/httpapi"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
 )
 
@@ -41,6 +42,7 @@ type apiServer struct {
 	*intelligenceAPI
 	*integrationAPI
 	*contextAPI
+	*qualityAPI
 	*previewAPI
 	*metaAPI
 }
@@ -55,6 +57,7 @@ type (
 	intelligenceAPI = intelligenceapi.API
 	integrationAPI  = integrationapi.API
 	contextAPI      = contextapi.API
+	qualityAPI      = qualityapi.API
 	previewAPI      = previewapi.API
 )
 
@@ -78,7 +81,7 @@ var _ apiv1.StrictServerInterface = apiServer{}
 func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts, mcp http.Handler) func(*http.ServeMux) {
 	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
 		knowledgeAPI: c.knowledgeAPI, intelligenceAPI: c.intelligenceAPI, integrationAPI: c.integrationAPI,
-		previewAPI: c.previewAPI, contextAPI: c.contextAPI, metaAPI: meta}
+		previewAPI: c.previewAPI, contextAPI: c.contextAPI, qualityAPI: c.qualityAPI, metaAPI: meta}
 	return func(mux *http.ServeMux) {
 		if mcp != nil {
 			mux.Handle(mcpgo.Path, mcp)
