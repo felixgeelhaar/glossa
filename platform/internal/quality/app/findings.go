@@ -2,113 +2,108 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
-// Findings listing limits. A stored run can hold thousands of findings,
-// so nothing reads them all at once.
-const (
-	DefaultFindingLimit = 50
-	MaxFindingLimit     = 200
-)
-
-// Service reads what Quality stored. Running the layers is Run's job
-// and needs no state; reading a stored run does, so it lives here.
-type Service struct{ tx Transactor }
-
-// NewService returns the service on tx.
-func NewService(tx Transactor) *Service { return &Service{tx: tx} }
-
-// FindingQuery asks for a page of a stored run's findings.
+// FindingQuery says which run's findings to read and how to narrow
+// them. A finding belongs to a run, so the list always reads exactly
+// one: the one Run names, or the newest of Ref and Commit, or the
+// project's newest. Listing every run's copy of the same problem would
+// report it once per run and say nothing more.
 type FindingQuery struct {
-	// Ref selects the run's ref (a branch, or an environment name);
-	// empty takes the project's latest run whatever it checked.
+	// Run names a run exactly; uuid.Nil leaves it to Ref and Commit.
+	Run uuid.UUID
+	// Ref is the branch or environment whose newest run to read.
 	Ref string
-	FindingFilter
-	// Limit is the page size (default DefaultFindingLimit, at most
-	// MaxFindingLimit); After is the finding id the page continues from.
-	Limit int
-	After string
+	// Commit is the commit whose newest run to read.
+	Commit string
+	Filter FindingFilter
 }
 
-// FindingsPage is a page of one run's findings, with the run it came
-// from: a finding without its run cannot be dated or graded.
-type FindingsPage struct {
-	Run      RunSummary
-	Findings []StoredFinding
-	// Next is the id to continue from, or "" on the last page.
-	Next string
+// Findings is a page of one run's findings as they stand now.
+type Findings struct {
+	// Run is the run they came from; nil when the project has no run
+	// matching the query yet, and the page is then empty.
+	Run *domain.CheckRun
+	// Counts are the run's findings with today's waivers applied,
+	// whatever the filters select — so waiving a finding changes them
+	// while the run's own stored verdict stays what it was.
+	Counts domain.Counts
+	Items  []FindingRecord
+	Next   *string
 }
 
-// ListFindings returns a page of the latest check run's findings for a
-// project. Needs catalog.read.
+// ListFindings pages a run's findings, graded against the waivers that
+// stand now (RFC 0005 §2.3): a waived finding is still computed, still
+// listed and counted on its own, and it comes back as an ordinary
+// finding once the source revision it was computed against has moved
+// past the one its waiver was made against.
 //
-// It reads the *latest* run rather than every stored one because that
-// is what every surface shows (RFC 0005 §2.2 rule 3): a finding from a
-// superseded run is history, not a problem anyone can act on.
-func (s *Service) ListFindings(ctx context.Context, project uuid.UUID, q FindingQuery) (FindingsPage, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
-		return FindingsPage{}, err
+// The order is stable — errors, then warnings, then the waived, and
+// within each by layer, locale, message key and id — and the cursor is
+// that order's key, so a page never shifts. MCP's `findings_list` reads
+// this shape (RFC 0005 §7.3): it is the contract, not an implementation
+// detail.
+func (s *Service) ListFindings(ctx context.Context, project uuid.UUID, q FindingQuery, page pagination.Page) (Findings, error) {
+	if err := s.read(ctx, project); err != nil {
+		return Findings{}, err
 	}
-	if err := q.validate(); err != nil {
-		return FindingsPage{}, err
+	if err := q.Filter.validate(); err != nil {
+		return Findings{}, err
 	}
-	limit := q.limit()
-	var page FindingsPage
+	now := s.now()
+	var out Findings
 	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		run, err := st.LatestRun(ctx, project, q.Ref, true)
+		run, err := s.resolveRun(ctx, st, project, q)
+		if err != nil {
+			if errors.Is(err, ErrCheckRunNotFound) && q.Run == uuid.Nil {
+				return nil // nothing has been checked yet: an empty list, not a 404
+			}
+			return err
+		}
+		out.Run = &run
+		if out.Counts, err = st.CountFindings(ctx, run, now); err != nil {
+			return err
+		}
+		rows, err := st.ListFindings(ctx, run, q.Filter, page.After, page.Limit(), now)
 		if err != nil {
 			return err
 		}
-		page.Run = run
-		// One row more than the page, so the cursor can be issued
-		// without a second count.
-		found, err := st.Findings(ctx, run.ID, q.FindingFilter, q.After, limit+1)
-		if err != nil {
-			return err
-		}
-		if len(found) > limit {
-			found = found[:limit]
-			page.Next = found[len(found)-1].ID.String()
-		}
-		page.Findings = found
+		out.Items, out.Next = pagination.Trim(rows, page, func(f FindingRecord) string { return f.SortKey })
 		return nil
 	})
 	if err != nil {
-		return FindingsPage{}, err
+		return Findings{}, err
 	}
-	if page.Findings == nil {
-		page.Findings = []StoredFinding{}
+	if out.Items == nil {
+		out.Items = []FindingRecord{}
 	}
-	return page, nil
+	return out, nil
 }
 
-// validate rejects a filter outside the closed vocabularies. A layer or
-// severity nobody stores would silently return nothing, which reads
-// like "clean" and is not.
-func (q FindingQuery) validate() error {
-	if q.Layer != "" && !q.Layer.Valid() {
-		return fmt.Errorf("%w: unknown layer %q", ErrInvalidQuery, q.Layer)
+func (s *Service) resolveRun(ctx context.Context, st Store, project uuid.UUID, q FindingQuery) (domain.CheckRun, error) {
+	if q.Run != uuid.Nil {
+		return st.CheckRun(ctx, project, q.Run)
 	}
-	switch q.Severity {
+	return st.LatestCheckRun(ctx, project, RunFilter{Ref: q.Ref, Commit: q.Commit})
+}
+
+// validate refuses a layer or severity outside the vocabulary, so a
+// typo answers 400 rather than silently matching nothing.
+func (f FindingFilter) validate() error {
+	if f.Layer != "" && !domain.Layer(f.Layer).Valid() {
+		return fmt.Errorf("%w: layer %q", ErrInvalidQuery, f.Layer)
+	}
+	switch domain.Severity(f.Severity) {
 	case "", domain.Error, domain.Warning, domain.Waived:
+		return nil
 	default:
-		return fmt.Errorf("%w: unknown severity %q", ErrInvalidQuery, q.Severity)
+		return fmt.Errorf("%w: severity %q", ErrInvalidQuery, f.Severity)
 	}
-	if q.Limit < 0 || q.Limit > MaxFindingLimit {
-		return fmt.Errorf("%w: limit must be 1 to %d", ErrInvalidQuery, MaxFindingLimit)
-	}
-	return nil
-}
-
-func (q FindingQuery) limit() int {
-	if q.Limit <= 0 {
-		return DefaultFindingLimit
-	}
-	return q.Limit
 }

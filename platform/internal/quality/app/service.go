@@ -1,0 +1,123 @@
+package app
+
+import (
+	"context"
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
+)
+
+// Service implements Quality's stored use cases: recording a check run
+// with its findings, reading runs and findings back, and the waivers
+// that accept a finding.
+//
+// Permissions (RFC 0005 §9). Reading a run, a finding or a waiver needs
+// `catalog.read`: a finding is about the catalog's messages and their
+// translations, and the callers that must read one — `glossa check`,
+// the pull-request check, Studio and MCP's read tools — hold exactly
+// that. A CI token allows only `catalog.read` and `catalog.write`
+// (RFC 0004 §6.3), so any narrower scope would lock CI out of its own
+// verdict.
+//
+// Writing — recording a run, waiving a finding, revoking a waiver —
+// needs `catalog.write`, the permission that already carries the
+// authority to change what the project's check concludes (it uploads
+// the messages, the usages and the captures the layers grade).
+// `translations.review` was the alternative and is the wrong one: it is
+// locale-scoped, and the `structure`, `completeness` and `source`
+// layers produce findings with no locale at all, which nobody could
+// then waive.
+type Service struct {
+	tx      Transactor
+	catalog Catalog
+	metrics Metrics
+	tracer  trace.Tracer
+	logger  *slog.Logger
+	now     func() time.Time
+}
+
+// tracerName names Quality's spans' instrumentation scope.
+const tracerName = "github.com/felixgeelhaar/glossa/platform/internal/quality"
+
+// Option configures a Service.
+type Option func(*Service)
+
+// WithMetrics records runs, findings and waivers (NoMetrics by default).
+func WithMetrics(m Metrics) Option { return func(s *Service) { s.metrics = m } }
+
+// WithLogger sets the logger.
+func WithLogger(l *slog.Logger) Option { return func(s *Service) { s.logger = l } }
+
+// WithClock replaces time.Now (tests).
+func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
+
+// WithTracerProvider traces a check run across its layers (RFC 0005
+// §11). Without one, nothing is traced.
+func WithTracerProvider(tp trace.TracerProvider) Option {
+	return func(s *Service) {
+		if tp != nil {
+			s.tracer = tp.Tracer(tracerName)
+		}
+	}
+}
+
+// NewService returns the service.
+func NewService(tx Transactor, catalog Catalog, opts ...Option) *Service {
+	s := &Service{
+		tx: tx, catalog: catalog, metrics: NoMetrics{}, logger: slog.New(slog.DiscardHandler),
+		tracer: noop.NewTracerProvider().Tracer(tracerName),
+		now:    func() time.Time { return time.Now().UTC() },
+	}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
+}
+
+// span starts a child span of ctx named name, and returns it with the
+// function that ends it: end(&err) records the error and finishes.
+func (s *Service) span(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, func(*error)) {
+	ctx, sp := s.tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindInternal), trace.WithAttributes(attrs...))
+	return ctx, func(err *error) {
+		if err != nil && *err != nil {
+			sp.RecordError(*err)
+			sp.SetStatus(codes.Error, (*err).Error())
+		}
+		sp.End()
+	}
+}
+
+// read checks `catalog.read` and that the project exists, so an unknown
+// project is a 404 rather than an empty list.
+func (s *Service) read(ctx context.Context, project uuid.UUID) error {
+	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+		return err
+	}
+	return s.catalog.Project(ctx, project)
+}
+
+// write checks `catalog.write`, that the project exists, and returns
+// the acting principal.
+func (s *Service) write(ctx context.Context, project uuid.UUID) (string, error) {
+	if err := authz.Require(ctx, authz.CatalogWrite); err != nil {
+		return "", err
+	}
+	if err := s.catalog.Project(ctx, project); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return p.Actor.String(), nil
+}
+
+func invalidPageToken() error {
+	return problem.New(http.StatusBadRequest, "invalid_page_token", "page_token is not one this list issued")
+}
