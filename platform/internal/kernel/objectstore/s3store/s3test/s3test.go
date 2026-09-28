@@ -16,7 +16,19 @@ import (
 )
 
 const (
-	image    = "quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z" // Docker Hub no longer serves MinIO
+	// MinIO withdrew its OSS distribution in September 2026: Docker Hub
+	// stopped serving minio/minio and quay.io/minio/* refuses anonymous
+	// pulls, so the release tags this harness used are gone. Chainguard's
+	// drop-in build takes their place (same /usr/bin/minio entrypoint, same
+	// MINIO_ROOT_USER/MINIO_ROOT_PASSWORD, same /minio/health/live the
+	// testcontainers module waits on).
+	//
+	// Deliberately a floating tag, unlike the chart, which pins the digest:
+	// Chainguard's free tier publishes :latest only and garbage-collects the
+	// digests behind it, so a pin here would rot into exactly the unpullable
+	// image this replaces. A test harness wants an image that exists; a
+	// deployment wants one that cannot change underneath it.
+	image    = "cgr.dev/chainguard/minio:latest"
 	user     = "glossa-test"
 	password = "glossa-test-secret"
 )
