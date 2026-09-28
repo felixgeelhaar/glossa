@@ -125,8 +125,8 @@ func seed() *world {
 				PolicyVersion: 3, Layers: []string{"structure", "parity"}, Errors: 1, Warnings: 1,
 			},
 			findings: []tools.Finding{
-				{ID: uuid.New().String(), Layer: "parity", Code: "argument_missing", Severity: "error", Key: "checkout.pay", Locale: "de"},
-				{ID: uuid.New().String(), Layer: "structure", Code: "parse_error", Severity: "warning", Key: "home.title", Locale: "fr"},
+				{Fingerprint: "fp-parity", Layer: "parity", Code: "argument_missing", Severity: "error", Key: "checkout.pay", Locale: "de"},
+				{Fingerprint: "fp-structure", Layer: "structure", Code: "parse_error", Severity: "warning", Key: "home.title", Locale: "fr"},
 			},
 		},
 		{tenant: w.other, project: w.otherProject, run: tools.CheckRun{ID: "secret", Ref: "secret"}},

@@ -267,7 +267,7 @@ func (f *fakeQuality) Findings(
 			out = append(out, fi)
 		}
 		if len(out) > q.Limit {
-			return r.run, out[:q.Limit], out[q.Limit-1].ID, nil
+			return r.run, out[:q.Limit], out[q.Limit-1].Fingerprint, nil
 		}
 		return r.run, out, "", nil
 	}

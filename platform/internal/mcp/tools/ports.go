@@ -305,12 +305,15 @@ type CheckRun struct {
 
 // Finding is one stored finding.
 //
+// It is identified by its fingerprint, which is what a waiver names and
+// what survives a re-run, and not by the row id: findings are immutable
+// and a run's copy of a problem is not a thing to address.
+//
 // Omitted: the evidence object and the fix hint, which are free-form
 // per code and can be large, the byte spans, the capture and region,
 // and the source revision. An agent reads what is wrong and where; the
 // Quality API serves the full record.
 type Finding struct {
-	ID          string `json:"id"`
 	Fingerprint string `json:"fingerprint"`
 	Layer       string `json:"layer"`
 	Code        string `json:"code"`
