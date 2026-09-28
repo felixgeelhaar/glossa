@@ -25,8 +25,12 @@ P=gpe2e-$$
 PG=docker.io/library/postgres:16.15-alpine@sha256:3c5c8892d184f738f4fe282d14ddaa613a38f00f4189d2d94725ebe6f2909ddb
 PG17=docker.io/library/postgres:17-alpine
 RC=docker.io/rclone/rclone:1.75.1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5
-MINIO=quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
-MC=quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+# Chainguard's MinIO builds (uid 65532), since MinIO withdrew its own OSS
+# images. Floating tags on purpose, while the chart pins their digests:
+# Chainguard's free tier publishes `latest` only and garbage-collects the
+# digests behind it, so a pin here would stop this drill from running.
+MINIO=cgr.dev/chainguard/minio:latest
+MC=cgr.dev/chainguard/minio-client:latest
 
 step() { printf '\n=== %s\n' "$*"; }
 ok() { printf 'e2e ok: %s\n' "$*"; }
@@ -256,16 +260,16 @@ pg_script "$W/app.env" t-postgres-test.test >/dev/null
 ok "restored onto a new volume; glossa_app passes the helm test; the tenant is back"
 
 step "minio-backup: mirror, deleted/ retention, empty-source guard"
-docker run -d --name $P-minio --network $P --network-alias t-minio --user 1000:1000 \
-  --tmpfs /data:uid=1000,gid=1000 --tmpfs /tmp:uid=1000,gid=1000 \
+docker run -d --name $P-minio --network $P --network-alias t-minio --user 65532:65532 \
+  --tmpfs /data:uid=65532,gid=65532 --tmpfs /tmp:uid=65532,gid=65532 \
   -e MINIO_ROOT_USER=glossa-root -e MINIO_ROOT_PASSWORD=rootpassword123 \
   $MINIO server /data --address :9000 --certs-dir /tmp/certs >/dev/null
 MC_ENV=(-e MINIO_URL=http://t-minio:9000 -e BUCKET=glossa -e OBJECT_PREFIX= -e MC_CONFIG_DIR=/tmp/.mc -e HOME=/tmp
   -e RW_ACCESS_KEY=glossa-server -e RW_SECRET_KEY=serversecret123 -e RO_ACCESS_KEY=glossa-edge -e RO_SECRET_KEY=edgesecret12345)
-docker run --rm --network $P --user 1000:1000 --tmpfs /tmp:uid=1000,gid=1000 "${MC_ENV[@]}" \
+docker run --rm --network $P --user 65532:65532 --tmpfs /tmp:uid=65532,gid=65532 "${MC_ENV[@]}" \
   -e MINIO_ROOT_USER=glossa-root -e MINIO_ROOT_PASSWORD=rootpassword123 -e POLICY_RW=t-readwrite -e POLICY_RO=t-readonly \
   -e WAIT_SECONDS=60 --entrypoint /bin/bash $MC -c "$(script t-minio-bootstrap.bootstrap)" >/dev/null
-mc_rw() { docker run --rm -i --network $P --user 1000:1000 --tmpfs /tmp:uid=1000,gid=1000 -e MC_CONFIG_DIR=/tmp/.mc \
+mc_rw() { docker run --rm -i --network $P --user 65532:65532 --tmpfs /tmp:uid=65532,gid=65532 -e MC_CONFIG_DIR=/tmp/.mc \
   -e MC_HOST_s=http://glossa-server:serversecret123@t-minio:9000 --entrypoint mc $MC "$@" >/dev/null; }
 echo '{"v":1}' | mc_rw pipe -q s/glossa/t1/production/manifest.json
 echo '{"a":1}' | mc_rw pipe -q s/glossa/t1/artifacts/a.json
