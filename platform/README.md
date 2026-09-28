@@ -59,6 +59,12 @@ internal/context/           where messages appear (RFC 0004 §2–§3)
   adapters/                 postgres (sqlc; the system-scope Sweeper), catalog (Catalog's port),
                             httpapi (the Context API), metrics (Prometheus)
 internal/preview/           stateless message preview (parse, MF2, format), rate-limited per caller
+internal/mcp/               the Model Context Protocol endpoint (RFC 0005 §7), off by default
+  domain/                   the two session toolsets, the outcome vocabulary, the argument shape
+  app/                      the session model, the tool registry and one audited tool call
+  adapters/                 mcpgo (streamable HTTP on the official Go MCP SDK), identity (the
+                            Authenticator over Identity), postgres (the audit ledger, sqlc),
+                            metrics (Prometheus)
 internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
   domain/                   Person, Member, roles, locale scopes, Grant, APIToken, events
@@ -172,6 +178,9 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES` | `2147483648` | Capture images one tenant may keep in object storage (2 GiB, RFC 0004 §3.3). A capture upload whose new pixels would pass it is refused with `storage_quota_exceeded` (413); retention frees space again. |
 | `GLOSSA_BRANCH_PUBLISHER_ENABLED` | `true` | Publish branch preview environments whose debounced request is due. A publish is keyed by its request, so every replica may run it. (The proposal sweep is not here: it is one of the leased `GLOSSA_PURGE_*` jobs.) |
 | `GLOSSA_BRANCH_PUBLISH_INTERVAL` | `5s` | How often due branch publishes are looked for (the debounce itself is 30 s). |
+| `GLOSSA_MCP_ENABLED` | `false` | Serve MCP at `/mcp` (RFC 0005 §7). Off, the path is not registered at all. A session presents an ordinary tenant API token, so turning it on lets every token that carries `read` drive an agent against its tenant's catalog; turn it on deliberately. |
+| `GLOSSA_MCP_SESSION_TIMEOUT` | `30m` | Close an MCP session idle this long, so an agent that walks away does not hold one open. |
+| `GLOSSA_MCP_RATE` / `_BURST` | `120` / `240` | Tool calls a minute per tenant, and how many at once. A runaway agent hits the same wall a runaway script does. |
 
 `glossa-edge` reads `GLOSSA_HTTP_*` (listening on `:8081` by default),
 `GLOSSA_LOG_LEVEL`, `GLOSSA_SHUTDOWN_TIMEOUT`, `OTEL_*` (service
@@ -1511,6 +1520,91 @@ principal (`person:<id>` / `token:<id>`): **10 a second, bursts of
 the CPU one caller can take from any instance; idle buckets expire
 after 10 minutes, at most 100 000 are tracked. Over the limit is `429
 rate_limited`.
+
+## MCP
+
+Agents are first-class users (intent §6.5, §47). `glossa-server` serves
+the Model Context Protocol at **`/mcp`** over streamable HTTP, in this
+same process, behind the same middleware, tenancy and row-level
+security as REST (RFC 0005 §7.1). It is **off by default**
+(`GLOSSA_MCP_ENABLED`); with it off the path is not registered at all.
+
+**The SDK.** `github.com/modelcontextprotocol/go-sdk`, pinned, behind
+`adapters/mcpgo`. It is the official one, at a released v1, and it was
+already in the module graph through the Anthropic SDK — taking the
+other candidate would have linked two MCP implementations into one
+binary. Nothing outside that one package imports it: `app` speaks Go
+functions over `app.Session` and `json.RawMessage`, so replacing the
+library is a rewrite of `adapters/mcpgo` and nothing else.
+
+**Auth mints nothing.** A session presents an existing tenant API token
+(`glossa_api_…`) as its bearer. `adapters/identity` resolves it through
+exactly the calls Identity's HTTP guard makes — `AuthenticateToken`,
+then `Authorize` in the token's own tenant — so an MCP session's grant
+is the grant the REST API would have produced, permission for
+permission, and `authz.Require` runs in the tool as it does in a
+handler. **CI tokens (`glossa_ci_…`) and in-context grants
+(`glossa_ctx_…`) are refused at connect**, with a message naming what
+was presented: each is minted for one workflow run or one browser
+origin, and lending either to a long-lived agent would widen it.
+
+**The session is bound to the token's tenant.** No tool takes a tenant
+argument. The SDK creates the session from the `initialize` request and
+runs every later call on that request's context, so the tenant a
+session acts in is fixed when it opens; a second token cannot steer an
+open session (the SDK compares the bearer's actor against the
+session's), and every HTTP request is re-authenticated, so revoking a
+token ends its agent's session at the next call.
+
+**Two locks on a write.** The token must carry the `write` scope *and*
+the client must open the session asking for the write toolset
+(`/mcp?toolset=write`). A plain `/mcp` is a read session whatever the
+token could do — a token is long-lived and an agent is not a person, so
+one accidental call must not be able to rewrite a catalog. `admin` is
+not a toolset, there is no delete tool of any kind, and no AI provider
+key crosses MCP in either direction.
+
+**Wave 1 registers one tool**, `whoami`: the tenant, the actor, the
+token's scopes and permissions, the toolset and the tools this session
+may call. It is the question an agent asks first, and answering it
+wrongly costs a hundred calls. The read and write tools arrive in
+RFC 0005 waves 2 and 3, and inherit the session model, the audit and
+the metrics unchanged.
+
+**Every call is audited.** `mcp_tool_calls` (migration 0027) is
+tenant-owned under forced RLS and **append-only** for `glossa_app`:
+INSERT and SELECT, no UPDATE, no DELETE, so no code path — and no agent
+— rewrites its own trail. A row carries the actor, the token, the
+session, the toolset, the tool, the outcome, the affected ids and the
+**shape** of the arguments rather than their content: a tool declares
+which of its arguments are selectors (a locale, a state, a namespace)
+and those are recorded verbatim, while everything else becomes its JSON
+type and, for a string, its rune length —
+`{"locale": "de", "source": "string(len=32)"}`. A tool argument can
+carry source text or a translation, and message text never reaches a
+log or a ledger (RFC 0005 §11). A selector that arrives longer than 64
+runes, or carrying a control character, is recorded as a length anyway:
+what a tool declares an argument is *for* does not decide what a caller
+actually sends. A ledger write that fails is logged at error level and
+does not fail the call.
+
+**Observability.** `glossa_mcp_tool_calls_total{tool,scope,outcome}`
+(`ok`, `denied`, `invalid`, `error`), `glossa_mcp_sessions_total{transport}`
+and `glossa_mcp_sessions_open{transport}` — a gauge *function* over the
+transport's live sessions, because the transport owns when a session
+ends and a counted gauge would drift upwards forever. One span per tool
+call. Per-tenant rate limits (`GLOSSA_MCP_RATE`/`_BURST`) use the same
+`kernel/ratelimit` bucket the preview and Context's uploads use.
+
+**Tests**: `internal/mcp/domain` (the toolsets, and that a shape never
+echoes text), `internal/mcp/app` (the write gate, the permission check,
+tenant isolation, what the audit row says), `internal/mcp/adapters/identity`
+(every credential that is not a tenant API token, refused before the
+token table is even consulted), `internal/mcp/adapters/mcpgo` (a real
+MCP client over `httptest`: refusals at connect with their statuses,
+the toolsets a session sees, tenant binding, the audit rows) and
+`internal/mcp/adapters/postgres` (integration: RLS, and the ledger's
+append-only grant).
 
 ## Release
 
