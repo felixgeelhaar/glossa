@@ -180,3 +180,16 @@ sql:
         emit_interface: false
         emit_exported_queries: false
         omit_unused_structs: true
+
+  - name: quality
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/quality
+    gen:
+      go:
+        package: qualitysql
+        out: internal/quality/adapters/postgres/qualitysql
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_exported_queries: false
+        omit_unused_structs: true
