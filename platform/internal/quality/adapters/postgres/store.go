@@ -1,22 +1,29 @@
 // Package postgres implements Quality's persistence port on the
-// kernel's unit of work, with sqlc queries over the quality_* tables of
-// migration 0027. It is read-only for now: M4 wave 2 needs the stored
-// findings on the read surfaces (the API and MCP), and the layers still
-// write their runs through the slice that stores them.
+// kernel's unit of work, with sqlc queries over the quality_* tables:
+// check runs, their immutable findings, and the waivers that accept a
+// finding (migration 0027, RFC 0005 §2).
 package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres/qualitysql"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
+
+// insertBatch bounds the rows one INSERT … unnest statement carries. A
+// run holds at most 10 000 findings (RFC 0005 §10), so at most two
+// statements.
+const insertBatch = 5000
 
 // Transactor implements app.Transactor.
 type Transactor struct{ uow *db.UnitOfWork }
@@ -35,89 +42,392 @@ type store struct{ q *qualitysql.Queries }
 
 var _ app.Store = (*store)(nil)
 
-// LatestRun implements app.Store.
-func (s *store) LatestRun(ctx context.Context, project uuid.UUID, ref string, completedOnly bool) (app.RunSummary, error) {
-	row, err := s.q.LatestRun(ctx, qualitysql.LatestRunParams{
-		ProjectID: project, Ref: ref, CompletedOnly: completedOnly,
-	})
+func storeError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
-		return app.RunSummary{}, app.ErrNotFound
+		return app.ErrNotFound
 	}
-	if err != nil {
-		return app.RunSummary{}, err
-	}
-	run := app.RunSummary{
-		ID: row.ID, Ref: row.Ref, Trigger: domain.Trigger(row.Trigger), PolicyVersion: int(row.PolicyVersion),
-		Counts: domain.Counts{
-			Errors: int(row.Errors), Warnings: int(row.Warnings), Waived: int(row.Waived),
-		},
-		Conclusion: domain.Conclusion(row.Conclusion.String), CreatedBy: row.CreatedBy, StartedAt: row.StartedAt,
-	}
-	for _, l := range row.Layers {
-		run.Layers = append(run.Layers, domain.Layer(l))
-	}
-	if row.CompletedAt.Valid {
-		at := row.CompletedAt.Time
-		run.CompletedAt = &at
-	}
-	return run, nil
+	return err
 }
 
-// Findings implements app.Store. An `after` that is not a UUID is read
-// as the first page: a cursor this store never issued selects nothing
-// rather than everything.
-func (s *store) Findings(
-	ctx context.Context, run uuid.UUID, f app.FindingFilter, after string, limit int,
-) ([]app.StoredFinding, error) {
-	cursor, err := uuid.Parse(after)
-	if after != "" && err != nil {
-		return nil, app.ErrInvalidQuery
+func notFound(err, as error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return as
 	}
-	rows, err := s.q.RunFindings(ctx, qualitysql.RunFindingsParams{
-		RunID: run, Layer: string(f.Layer), Locale: f.Locale, Severity: string(f.Severity),
-		MessageKey: f.MessageKey, WaivedOnly: f.WaivedOnly, After: cursor, RowLimit: int32(limit), //nolint:gosec // bounded by app.MaxFindingLimit
+	return err
+}
+
+//nolint:gosec // counts, offsets, revisions and limits are bounded by the domain and the columns
+func int32Of(n int) int32 { return int32(n) }
+
+func text(s string) pgtype.Text {
+	if s == "" {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: s, Valid: true}
+}
+
+func timestamp(t time.Time) pgtype.Timestamptz {
+	if t.IsZero() {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: t, Valid: true}
+}
+
+func timestampPtr(t *time.Time) pgtype.Timestamptz {
+	if t == nil {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: *t, Valid: true}
+}
+
+func timePtr(t pgtype.Timestamptz) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	at := t.Time.UTC()
+	return &at
+}
+
+func boolean(b *bool) pgtype.Bool {
+	if b == nil {
+		return pgtype.Bool{}
+	}
+	return pgtype.Bool{Bool: *b, Valid: true}
+}
+
+// ── check runs ──────────────────────────────────────────────────────
+
+func checkRun(r qualitysql.QualityCheckRun) domain.CheckRun {
+	out := domain.CheckRun{
+		ID: r.ID, Project: r.ProjectID, Ref: r.Ref, Commit: r.CommitSha, Trigger: domain.Trigger(r.Trigger),
+		PolicyVersion: int(r.PolicyVersion), Layers: make([]domain.Layer, len(r.Layers)),
+		Counts:     domain.Counts{Errors: int(r.Errors), Warnings: int(r.Warnings), Waived: int(r.Waived)},
+		Conclusion: domain.Conclusion(r.Conclusion.String), CreatedBy: r.CreatedBy, StartedAt: r.StartedAt.UTC(),
+	}
+	for i, l := range r.Layers {
+		out.Layers[i] = domain.Layer(l)
+	}
+	if r.CompletedAt.Valid {
+		out.CompletedAt = r.CompletedAt.Time.UTC()
+	}
+	return out
+}
+
+func (s *store) InsertCheckRun(ctx context.Context, r domain.CheckRun) error {
+	layers := make([]string, len(r.Layers))
+	for i, l := range r.Layers {
+		layers[i] = string(l)
+	}
+	return s.q.InsertCheckRun(ctx, qualitysql.InsertCheckRunParams{
+		ID: r.ID, ProjectID: r.Project, Ref: r.Ref, CommitSha: r.Commit, RunTrigger: string(r.Trigger),
+		PolicyVersion: int32Of(r.PolicyVersion), Layers: layers, Errors: int32Of(r.Counts.Errors),
+		Warnings: int32Of(r.Counts.Warnings), Waived: int32Of(r.Counts.Waived),
+		Conclusion: text(string(r.Conclusion)), CreatedBy: r.CreatedBy, StartedAt: r.StartedAt,
+		CompletedAt: timestamp(r.CompletedAt),
+	})
+}
+
+func (s *store) CheckRun(ctx context.Context, project, id uuid.UUID) (domain.CheckRun, error) {
+	r, err := s.q.GetCheckRun(ctx, qualitysql.GetCheckRunParams{ProjectID: project, ID: id})
+	if err != nil {
+		return domain.CheckRun{}, notFound(err, app.ErrCheckRunNotFound)
+	}
+	return checkRun(r), nil
+}
+
+func (s *store) LatestCheckRun(ctx context.Context, project uuid.UUID, f app.RunFilter) (domain.CheckRun, error) {
+	r, err := s.q.LatestCheckRun(ctx, qualitysql.LatestCheckRunParams{
+		ProjectID: project, Ref: f.Ref, CommitSha: f.Commit, Conclusion: f.Conclusion, RunTrigger: f.Trigger,
 	})
 	if err != nil {
-		return nil, err
+		return domain.CheckRun{}, notFound(err, app.ErrCheckRunNotFound)
 	}
-	out := make([]app.StoredFinding, len(rows))
+	return checkRun(r), nil
+}
+
+func (s *store) ListCheckRuns(ctx context.Context, project uuid.UUID, f app.RunFilter, after *app.RunCursor, limit int) ([]domain.CheckRun, error) {
+	p := qualitysql.ListCheckRunsParams{
+		ProjectID: project, Ref: f.Ref, CommitSha: f.Commit, Conclusion: f.Conclusion, RunTrigger: f.Trigger,
+		MaxRows: int32Of(limit),
+	}
+	if after != nil {
+		p.AfterStartedAt = pgtype.Timestamptz{Time: after.StartedAt, Valid: true}
+		p.AfterID = uuid.NullUUID{UUID: after.ID, Valid: true}
+	}
+	rows, err := s.q.ListCheckRuns(ctx, p)
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.CheckRun, len(rows))
 	for i, r := range rows {
-		out[i] = app.StoredFinding{ID: r.ID, Finding: findingOf(r)}
+		out[i] = checkRun(r)
 	}
 	return out, nil
 }
 
-// findingOf rebuilds the domain finding from its row. The stored
-// fingerprint is kept rather than recomputed: it is what a waiver
-// names, and a read must not quietly disagree with the run that wrote
-// it.
-func findingOf(r qualitysql.RunFindingsRow) domain.Finding {
+// ── findings ────────────────────────────────────────────────────────
+
+// findingColumns is one batch's columns, as parallel arrays for the
+// INSERT … unnest. uuid.Nil stands for an absent ID, 0 for an absent
+// line or column, -1 for an absent span offset or source revision, and
+// ” for absent JSON.
+type findingColumns struct {
+	p qualitysql.InsertFindingsParams
+}
+
+func (c *findingColumns) add(f domain.Finding) error {
+	evidence, fix := "", ""
+	if len(f.Evidence) > 0 {
+		b, err := json.Marshal(f.Evidence)
+		if err != nil {
+			return err
+		}
+		evidence = string(b)
+	}
+	if f.Fix != nil {
+		b, err := json.Marshal(f.Fix)
+		if err != nil {
+			return err
+		}
+		fix = string(b)
+	}
+	span := domain.Span{Start: -1, End: -1}
+	if f.Locus.Span != nil {
+		span = *f.Locus.Span
+	}
+	revision := -1
+	if f.SourceRevision != nil {
+		revision = *f.SourceRevision
+	}
+	p := &c.p
+	p.Ids = append(p.Ids, uuid.Must(uuid.NewV7()))
+	p.Fingerprints = append(p.Fingerprints, f.Fingerprint)
+	p.Layers = append(p.Layers, string(f.Layer))
+	p.Codes = append(p.Codes, f.Code)
+	p.Severities = append(p.Severities, string(f.Severity))
+	p.MessageIds = append(p.MessageIds, parseID(f.Locus.Message))
+	p.MessageKeys = append(p.MessageKeys, f.Locus.Key)
+	p.Locales = append(p.Locales, f.Locus.Locale)
+	p.Namespaces = append(p.Namespaces, f.Locus.Namespace)
+	p.TranslationRevisions = append(p.TranslationRevisions, parseID(f.Locus.Revision))
+	p.Files = append(p.Files, f.Locus.File)
+	p.Lines = append(p.Lines, int32Of(f.Locus.Line))
+	p.Cols = append(p.Cols, int32Of(f.Locus.Column))
+	p.Routes = append(p.Routes, f.Locus.Route)
+	p.Components = append(p.Components, f.Locus.Component)
+	p.CaptureIds = append(p.CaptureIds, parseID(f.Locus.Capture))
+	p.Regions = append(p.Regions, f.Locus.Region)
+	p.SpanSides = append(p.SpanSides, string(span.Side))
+	p.SpanStarts = append(p.SpanStarts, int32Of(span.Start))
+	p.SpanEnds = append(p.SpanEnds, int32Of(span.End))
+	p.Explanations = append(p.Explanations, f.Message)
+	p.Subjects = append(p.Subjects, f.Subject)
+	p.Details = append(p.Details, f.Detail)
+	p.Evidences = append(p.Evidences, evidence)
+	p.Fixes = append(p.Fixes, fix)
+	p.SourceRevisions = append(p.SourceRevisions, int32Of(revision))
+	return nil
+}
+
+func (c *findingColumns) len() int { return len(c.p.Ids) }
+
+// parseID reads an optional ID from the wire; anything unparseable is
+// simply absent, because a locus field is a hint and never a key.
+func parseID(s string) uuid.UUID {
+	if s == "" {
+		return uuid.Nil
+	}
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
+}
+
+func (s *store) InsertFindings(ctx context.Context, run, project uuid.UUID, fs []domain.Finding) error {
+	for start := 0; start < len(fs); start += insertBatch {
+		end := min(start+insertBatch, len(fs))
+		c := &findingColumns{p: qualitysql.InsertFindingsParams{RunID: run, ProjectID: project}}
+		for _, f := range fs[start:end] {
+			if err := c.add(f); err != nil {
+				return err
+			}
+		}
+		if c.len() == 0 {
+			continue
+		}
+		if err := s.q.InsertFindings(ctx, c.p); err != nil {
+			return storeError(err)
+		}
+	}
+	return nil
+}
+
+func (s *store) ListFindings(ctx context.Context, run domain.CheckRun, f app.FindingFilter, after string, limit int, now time.Time) ([]app.FindingRecord, error) {
+	rows, err := s.q.ListRunFindings(ctx, qualitysql.ListRunFindingsParams{
+		RunID: run.ID, Ref: run.Ref, Now: now, Layer: f.Layer, Severity: f.Severity, Code: f.Code,
+		Locale: f.Locale, Namespace: f.Namespace, MessageKey: f.Key, Waived: boolean(f.Waived),
+		After: after, MaxRows: int32Of(limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.FindingRecord, len(rows))
+	for i, r := range rows {
+		rec, err := finding(r)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = rec
+	}
+	return out, nil
+}
+
+func finding(r qualitysql.ListRunFindingsRow) (app.FindingRecord, error) {
 	f := domain.Finding{
 		Schema: domain.Schema, Fingerprint: r.Fingerprint, Layer: domain.Layer(r.Layer), Code: r.Code,
-		Severity: domain.Severity(r.Severity), Message: r.Explanation, Subject: r.Subject, Detail: r.Detail,
+		Severity: domain.Severity(r.EffectiveSeverity), Message: r.Explanation, Subject: r.Subject, Detail: r.Detail,
 		Locus: domain.Locus{
 			Key: r.MessageKey, Locale: r.Locale, Namespace: r.Namespace, File: r.File,
-			Line: int(r.Line.Int32), Column: int(r.Col.Int32), Route: r.Route, Component: r.Component,
-			Region: r.Region,
+			Line: int(r.Line.Int32), Column: int(r.Col.Int32), Route: r.Route, Component: r.Component, Region: r.Region,
 		},
 	}
 	if r.MessageID.Valid {
 		f.Locus.Message = r.MessageID.UUID.String()
 	}
+	if r.TranslationRevision.Valid {
+		f.Locus.Revision = r.TranslationRevision.UUID.String()
+	}
 	if r.CaptureID.Valid {
 		f.Locus.Capture = r.CaptureID.UUID.String()
 	}
 	if r.SpanSide.Valid {
-		f.Locus.Span = &domain.Span{
-			Side: domain.Side(r.SpanSide.String), Start: int(r.SpanStart.Int32), End: int(r.SpanEnd.Int32),
-		}
+		f.Locus.Span = &domain.Span{Side: domain.Side(r.SpanSide.String), Start: int(r.SpanStart.Int32), End: int(r.SpanEnd.Int32)}
 	}
 	if r.SourceRevision.Valid {
-		rev := int(r.SourceRevision.Int32)
-		f.SourceRevision = &rev
+		revision := int(r.SourceRevision.Int32)
+		f.SourceRevision = &revision
 	}
-	if r.WaiverID.Valid {
-		f.Waiver = r.WaiverID.UUID.String()
+	if len(r.Evidence) > 0 {
+		if err := json.Unmarshal(r.Evidence, &f.Evidence); err != nil {
+			return app.FindingRecord{}, err
+		}
 	}
-	return f
+	if len(r.Fix) > 0 {
+		if err := json.Unmarshal(r.Fix, &f.Fix); err != nil {
+			return app.FindingRecord{}, err
+		}
+	}
+	if r.IsWaived {
+		f.Waiver = r.WaiverID.String()
+	}
+	return app.FindingRecord{Finding: f, Waived: r.IsWaived, SortKey: r.SortKey}, nil
+}
+
+func (s *store) CountFindings(ctx context.Context, run domain.CheckRun, now time.Time) (domain.Counts, error) {
+	c, err := s.q.CountRunFindings(ctx, qualitysql.CountRunFindingsParams{RunID: run.ID, Ref: run.Ref, Now: now})
+	if err != nil {
+		return domain.Counts{}, storeError(err)
+	}
+	return domain.Counts{Errors: int(c.Errors), Warnings: int(c.Warnings), Waived: int(c.Waived)}, nil
+}
+
+func (s *store) LatestFinding(ctx context.Context, project uuid.UUID, fingerprint string) (app.FindingSummary, bool, error) {
+	r, err := s.q.GetLatestFinding(ctx, qualitysql.GetLatestFindingParams{ProjectID: project, Fingerprint: fingerprint})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return app.FindingSummary{}, false, nil
+	}
+	if err != nil {
+		return app.FindingSummary{}, false, err
+	}
+	return app.FindingSummary{
+		Layer: r.Layer, Code: r.Code, Locale: r.Locale, Key: r.MessageKey, Namespace: r.Namespace,
+		Explanation: r.Explanation, SourceRevision: int(r.SourceRevision.Int32),
+	}, true, nil
+}
+
+// ── waivers ─────────────────────────────────────────────────────────
+
+func waiver(r qualitysql.QualityWaiver) domain.Waiver {
+	return domain.Waiver{
+		ID: r.ID, Project: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
+		Scope: domain.WaiverScope(r.Scope), Ref: r.Ref, SourceRevision: int(r.SourceRevision),
+		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(), ExpiresAt: timePtr(r.ExpiresAt),
+		RevokedAt: timePtr(r.RevokedAt),
+	}
+}
+
+func (s *store) UpsertWaiver(ctx context.Context, w domain.Waiver) (domain.Waiver, bool, error) {
+	r, err := s.q.UpsertWaiver(ctx, qualitysql.UpsertWaiverParams{
+		ID: w.ID, ProjectID: w.Project, Fingerprint: w.Fingerprint, Reason: w.Reason, Scope: string(w.Scope),
+		Ref: w.Ref, SourceRevision: int32Of(w.SourceRevision), CreatedBy: w.CreatedBy, CreatedAt: w.CreatedAt,
+		ExpiresAt: timestampPtr(w.ExpiresAt),
+	})
+	if err != nil {
+		return domain.Waiver{}, false, storeError(err)
+	}
+	return waiver(qualitysql.QualityWaiver{
+		ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
+		Scope: r.Scope, Ref: r.Ref, SourceRevision: r.SourceRevision, CreatedBy: r.CreatedBy,
+		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, RevokedAt: r.RevokedAt,
+	}), r.Inserted, nil
+}
+
+func (s *store) Waiver(ctx context.Context, project, id uuid.UUID) (domain.Waiver, error) {
+	r, err := s.q.GetWaiver(ctx, qualitysql.GetWaiverParams{ProjectID: project, ID: id})
+	if err != nil {
+		return domain.Waiver{}, notFound(err, app.ErrWaiverNotFound)
+	}
+	return waiver(r), nil
+}
+
+func (s *store) ListWaivers(ctx context.Context, project uuid.UUID, f app.WaiverFilter, after *app.WaiverCursor, limit int, now time.Time) ([]app.WaiverRecord, error) {
+	p := qualitysql.ListWaiversParams{
+		ProjectID: project, Fingerprint: f.Fingerprint, Layer: f.Layer, Code: f.Code, MessageKey: f.Key,
+		Active: boolean(f.Active), Now: now, MaxRows: int32Of(limit),
+	}
+	if after != nil {
+		p.AfterCreatedAt = pgtype.Timestamptz{Time: after.CreatedAt, Valid: true}
+		p.AfterID = uuid.NullUUID{UUID: after.ID, Valid: true}
+	}
+	rows, err := s.q.ListWaivers(ctx, p)
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.WaiverRecord, len(rows))
+	for i, r := range rows {
+		w := waiver(qualitysql.QualityWaiver{
+			ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
+			Scope: r.Scope, Ref: r.Ref, SourceRevision: r.SourceRevision, CreatedBy: r.CreatedBy,
+			CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, RevokedAt: r.RevokedAt,
+		})
+		out[i] = app.WaiverRecord{
+			Waiver: w,
+			Accepts: app.FindingSummary{
+				Layer: r.FindingLayer, Code: r.FindingCode, Locale: r.FindingLocale, Key: r.FindingMessageKey,
+				Namespace: r.FindingNamespace, Explanation: r.FindingExplanation,
+			},
+			Active: w.Live(now),
+		}
+	}
+	return out, nil
+}
+
+func (s *store) RevokeWaiver(ctx context.Context, project, id uuid.UUID, at time.Time) error {
+	_, err := s.q.RevokeWaiver(ctx, qualitysql.RevokeWaiverParams{
+		ProjectID: project, ID: id, RevokedAt: pgtype.Timestamptz{Time: at, Valid: true},
+	})
+	return storeError(err)
+}
+
+func (s *store) LiveWaivers(ctx context.Context, project uuid.UUID, now time.Time) ([]domain.Waiver, error) {
+	rows, err := s.q.ListLiveWaivers(ctx, qualitysql.ListLiveWaiversParams{ProjectID: project, Now: now})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.Waiver, len(rows))
+	for i, r := range rows {
+		out[i] = waiver(r)
+	}
+	return out, nil
 }

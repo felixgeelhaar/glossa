@@ -3,3 +3,43 @@
 //   sqlc v1.31.1
 
 package qualitysql
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+type QualityCheckRun struct {
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	ProjectID     uuid.UUID
+	Ref           string
+	Trigger       string
+	PolicyVersion int32
+	Layers        []string
+	Errors        int32
+	Warnings      int32
+	Waived        int32
+	Conclusion    pgtype.Text
+	CreatedBy     string
+	StartedAt     time.Time
+	CompletedAt   pgtype.Timestamptz
+	CommitSha     string
+}
+
+type QualityWaiver struct {
+	ID             uuid.UUID
+	TenantID       uuid.UUID
+	ProjectID      uuid.UUID
+	Fingerprint    string
+	Reason         string
+	Scope          string
+	Ref            string
+	SourceRevision int32
+	CreatedBy      string
+	CreatedAt      time.Time
+	ExpiresAt      pgtype.Timestamptz
+	RevokedAt      pgtype.Timestamptz
+}

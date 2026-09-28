@@ -13,134 +13,321 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const latestRun = `-- name: LatestRun :one
-SELECT id, ref, trigger, policy_version, layers, errors, warnings, waived,
-       conclusion, created_by, started_at, completed_at
-FROM quality_check_runs
-WHERE project_id = $1
-  AND ($2::text = '' OR ref = $2::text)
-  AND (NOT $3::boolean OR completed_at IS NOT NULL)
-ORDER BY started_at DESC, id DESC
+const countRunFindings = `-- name: CountRunFindings :one
+SELECT count(*) FILTER (WHERE w.id IS NULL AND f.severity = 'error')::int AS errors,
+       count(*) FILTER (WHERE w.id IS NULL AND f.severity = 'warning')::int AS warnings,
+       count(*) FILTER (WHERE w.id IS NOT NULL)::int AS waived
+FROM quality_findings f
+LEFT JOIN LATERAL (
+    SELECT w.id
+    FROM quality_waivers w
+    WHERE w.project_id = f.project_id AND w.fingerprint = f.fingerprint AND w.revoked_at IS NULL
+      AND (w.expires_at IS NULL OR w.expires_at > $1::timestamptz)
+      AND (w.scope = 'project' OR w.ref = $2::text)
+      AND (f.source_revision IS NULL OR f.source_revision = w.source_revision)
+    LIMIT 1
+) w ON true
+WHERE f.run_id = $3
+`
+
+type CountRunFindingsParams struct {
+	Now   time.Time
+	Ref   string
+	RunID uuid.UUID
+}
+
+type CountRunFindingsRow struct {
+	Errors   int32
+	Warnings int32
+	Waived   int32
+}
+
+// The run's findings as they stand now: waived is counted on its own and
+// is never part of the other two, so the number a dashboard shows is
+// true (RFC 0005 §14 decision 5).
+func (q *Queries) CountRunFindings(ctx context.Context, arg CountRunFindingsParams) (CountRunFindingsRow, error) {
+	row := q.db.QueryRow(ctx, countRunFindings, arg.Now, arg.Ref, arg.RunID)
+	var i CountRunFindingsRow
+	err := row.Scan(&i.Errors, &i.Warnings, &i.Waived)
+	return i, err
+}
+
+const getLatestFinding = `-- name: GetLatestFinding :one
+SELECT layer, code, locale, message_key, namespace, explanation, source_revision
+FROM quality_findings
+WHERE project_id = $1 AND fingerprint = $2
+ORDER BY run_id DESC
 LIMIT 1
 `
 
-type LatestRunParams struct {
-	ProjectID     uuid.UUID
-	Ref           string
-	CompletedOnly bool
+type GetLatestFindingParams struct {
+	ProjectID   uuid.UUID
+	Fingerprint string
 }
 
-type LatestRunRow struct {
-	ID            uuid.UUID
-	Ref           string
-	Trigger       string
-	PolicyVersion int32
-	Layers        []string
-	Errors        int32
-	Warnings      int32
-	Waived        int32
-	Conclusion    pgtype.Text
-	CreatedBy     string
-	StartedAt     time.Time
-	CompletedAt   pgtype.Timestamptz
+type GetLatestFindingRow struct {
+	Layer          string
+	Code           string
+	Locale         string
+	MessageKey     string
+	Namespace      string
+	Explanation    string
+	SourceRevision pgtype.Int4
 }
 
-// The latest run of a ref, or of the project when ref is empty: what
-// every surface reads (migration 0027, quality_check_runs_ref).
-func (q *Queries) LatestRun(ctx context.Context, arg LatestRunParams) (LatestRunRow, error) {
-	row := q.db.QueryRow(ctx, latestRun, arg.ProjectID, arg.Ref, arg.CompletedOnly)
-	var i LatestRunRow
+// The most recent stored finding carrying a fingerprint (run ids are
+// time-ordered UUIDv7): what a waiver is about, and the source revision
+// it is made against when the caller names none.
+func (q *Queries) GetLatestFinding(ctx context.Context, arg GetLatestFindingParams) (GetLatestFindingRow, error) {
+	row := q.db.QueryRow(ctx, getLatestFinding, arg.ProjectID, arg.Fingerprint)
+	var i GetLatestFindingRow
 	err := row.Scan(
-		&i.ID,
-		&i.Ref,
-		&i.Trigger,
-		&i.PolicyVersion,
-		&i.Layers,
-		&i.Errors,
-		&i.Warnings,
-		&i.Waived,
-		&i.Conclusion,
-		&i.CreatedBy,
-		&i.StartedAt,
-		&i.CompletedAt,
+		&i.Layer,
+		&i.Code,
+		&i.Locale,
+		&i.MessageKey,
+		&i.Namespace,
+		&i.Explanation,
+		&i.SourceRevision,
 	)
 	return i, err
 }
 
-const runFindings = `-- name: RunFindings :many
-SELECT id, fingerprint, layer, code, severity, message_id, message_key, locale,
-       namespace, file, line, col, route, component, capture_id, region,
-       span_side, span_start, span_end, explanation, subject, detail,
-       source_revision, waiver_id
-FROM quality_findings
-WHERE run_id = $1
-  AND ($2::text = '' OR layer = $2::text)
-  AND ($3::text = '' OR locale = $3::text)
-  AND ($4::text = '' OR severity = $4::text)
-  AND ($5::text = '' OR message_key = $5::text)
-  AND (NOT $6::boolean OR severity = 'waived')
-  AND ($7::uuid = '00000000-0000-0000-0000-000000000000'::uuid OR id > $7::uuid)
-ORDER BY id
-LIMIT $8::integer
+const insertFindings = `-- name: InsertFindings :exec
+
+INSERT INTO quality_findings (id, tenant_id, run_id, project_id, fingerprint, layer, code, severity,
+                              message_id, message_key, locale, namespace, translation_revision,
+                              file, line, col, route, component, capture_id, region,
+                              span_side, span_start, span_end,
+                              explanation, subject, detail, evidence, fix, source_revision)
+SELECT f.id, app_current_tenant(), $1, $2, f.fingerprint, f.layer, f.code, f.severity,
+       NULLIF(f.message_id, '00000000-0000-0000-0000-000000000000'::uuid), f.message_key, f.locale, f.namespace,
+       NULLIF(f.translation_revision, '00000000-0000-0000-0000-000000000000'::uuid),
+       f.file, NULLIF(f.line, 0), NULLIF(f.col, 0), f.route, f.component,
+       NULLIF(f.capture_id, '00000000-0000-0000-0000-000000000000'::uuid), f.region,
+       NULLIF(f.span_side, ''), NULLIF(f.span_start, -1), NULLIF(f.span_end, -1),
+       f.explanation, f.subject, f.detail, NULLIF(f.evidence, '')::jsonb, NULLIF(f.fix, '')::jsonb,
+       NULLIF(f.source_revision, -1)
+FROM (SELECT unnest($3::uuid[]) AS id, unnest($4::text[]) AS fingerprint,
+             unnest($5::text[]) AS layer, unnest($6::text[]) AS code,
+             unnest($7::text[]) AS severity, unnest($8::uuid[]) AS message_id,
+             unnest($9::text[]) AS message_key, unnest($10::text[]) AS locale,
+             unnest($11::text[]) AS namespace,
+             unnest($12::uuid[]) AS translation_revision,
+             unnest($13::text[]) AS file, unnest($14::int[]) AS line,
+             unnest($15::int[]) AS col, unnest($16::text[]) AS route,
+             unnest($17::text[]) AS component, unnest($18::uuid[]) AS capture_id,
+             unnest($19::text[]) AS region, unnest($20::text[]) AS span_side,
+             unnest($21::int[]) AS span_start, unnest($22::int[]) AS span_end,
+             unnest($23::text[]) AS explanation, unnest($24::text[]) AS subject,
+             unnest($25::text[]) AS detail, unnest($26::text[]) AS evidence,
+             unnest($27::text[]) AS fix,
+             unnest($28::int[]) AS source_revision) AS f
 `
 
-type RunFindingsParams struct {
-	RunID      uuid.UUID
-	Layer      string
-	Locale     string
-	Severity   string
-	MessageKey string
-	WaivedOnly bool
-	After      uuid.UUID
-	RowLimit   int32
+type InsertFindingsParams struct {
+	RunID                uuid.UUID
+	ProjectID            uuid.UUID
+	Ids                  []uuid.UUID
+	Fingerprints         []string
+	Layers               []string
+	Codes                []string
+	Severities           []string
+	MessageIds           []uuid.UUID
+	MessageKeys          []string
+	Locales              []string
+	Namespaces           []string
+	TranslationRevisions []uuid.UUID
+	Files                []string
+	Lines                []int32
+	Cols                 []int32
+	Routes               []string
+	Components           []string
+	CaptureIds           []uuid.UUID
+	Regions              []string
+	SpanSides            []string
+	SpanStarts           []int32
+	SpanEnds             []int32
+	Explanations         []string
+	Subjects             []string
+	Details              []string
+	Evidences            []string
+	Fixes                []string
+	SourceRevisions      []int32
 }
 
-type RunFindingsRow struct {
-	ID             uuid.UUID
-	Fingerprint    string
-	Layer          string
-	Code           string
-	Severity       string
-	MessageID      uuid.NullUUID
-	MessageKey     string
-	Locale         string
-	Namespace      string
-	File           string
-	Line           pgtype.Int4
-	Col            pgtype.Int4
-	Route          string
-	Component      string
-	CaptureID      uuid.NullUUID
-	Region         string
-	SpanSide       pgtype.Text
-	SpanStart      pgtype.Int4
-	SpanEnd        pgtype.Int4
-	Explanation    string
-	Subject        string
-	Detail         string
-	SourceRevision pgtype.Int4
-	WaiverID       uuid.NullUUID
-}
-
-// One run's findings, filtered and keyset-paginated on the finding id.
-func (q *Queries) RunFindings(ctx context.Context, arg RunFindingsParams) ([]RunFindingsRow, error) {
-	rows, err := q.db.Query(ctx, runFindings,
+// Tenant scope (db.TenantTx): RLS limits every statement to the current
+// tenant.
+//
+// A finding row is immutable (migration 0027): a run is one evaluation,
+// and the next evaluation writes new rows rather than editing the last
+// one's. There is no UPDATE here and the table is not granted one.
+//
+// Severity is stored as the layer emitted it — `error` or `warning`, and
+// never `waived`. A waiver is not a property of a finding but of the
+// project (RFC 0005 §2.3), it can be written after the run that found
+// the finding and it dies when the source revision moves, so whether a
+// finding is waived is decided on *read*, by the lateral join below,
+// against the waivers that are live now. Baking it into the row would
+// lose the severity the layer emitted, and a revoked waiver could never
+// give it back. What the run itself concluded is kept, in the run's own
+// counts.
+// A batch of a run's findings. uuid.Nil stands for an absent ID, 0 for
+// an absent line or column, -1 for an absent span offset or source
+// revision, and ” for absent JSON.
+func (q *Queries) InsertFindings(ctx context.Context, arg InsertFindingsParams) error {
+	_, err := q.db.Exec(ctx, insertFindings,
 		arg.RunID,
+		arg.ProjectID,
+		arg.Ids,
+		arg.Fingerprints,
+		arg.Layers,
+		arg.Codes,
+		arg.Severities,
+		arg.MessageIds,
+		arg.MessageKeys,
+		arg.Locales,
+		arg.Namespaces,
+		arg.TranslationRevisions,
+		arg.Files,
+		arg.Lines,
+		arg.Cols,
+		arg.Routes,
+		arg.Components,
+		arg.CaptureIds,
+		arg.Regions,
+		arg.SpanSides,
+		arg.SpanStarts,
+		arg.SpanEnds,
+		arg.Explanations,
+		arg.Subjects,
+		arg.Details,
+		arg.Evidences,
+		arg.Fixes,
+		arg.SourceRevisions,
+	)
+	return err
+}
+
+const listRunFindings = `-- name: ListRunFindings :many
+WITH graded AS (
+    SELECT f.id, f.fingerprint, f.layer, f.code, f.severity, f.message_id, f.message_key, f.locale, f.namespace,
+           f.translation_revision, f.file, f.line, f.col, f.route, f.component, f.capture_id, f.region,
+           f.span_side, f.span_start, f.span_end, f.explanation, f.subject, f.detail, f.evidence, f.fix,
+           f.source_revision,
+           coalesce(w.id, '00000000-0000-0000-0000-000000000000'::uuid) AS waiver_id,
+           (w.id IS NOT NULL)::boolean AS is_waived,
+           (CASE WHEN w.id IS NOT NULL THEN 'waived' ELSE f.severity END)::text AS effective_severity,
+           concat_ws(E'\x01',
+                     CASE WHEN w.id IS NOT NULL THEN '2' WHEN f.severity = 'error' THEN '0' ELSE '1' END,
+                     f.layer, f.locale, f.message_key, f.id::text) AS sort_key
+    FROM quality_findings f
+    LEFT JOIN LATERAL (
+        SELECT w.id, w.source_revision, w.scope, w.created_at
+        FROM quality_waivers w
+        WHERE w.project_id = f.project_id AND w.fingerprint = f.fingerprint AND w.revoked_at IS NULL
+          AND (w.expires_at IS NULL OR w.expires_at > $10::timestamptz)
+          AND (w.scope = 'project' OR w.ref = $11::text)
+          AND (f.source_revision IS NULL OR f.source_revision = w.source_revision)
+        ORDER BY (w.scope = 'branch') DESC, w.created_at DESC, w.id
+        LIMIT 1
+    ) w ON true
+    WHERE f.run_id = $12
+)
+SELECT id, fingerprint, layer, code, severity, message_id, message_key, locale, namespace, translation_revision, file, line, col, route, component, capture_id, region, span_side, span_start, span_end, explanation, subject, detail, evidence, fix, source_revision, waiver_id, is_waived, effective_severity, sort_key FROM graded
+WHERE ($1::text = '' OR layer = $1::text)
+  AND ($2::text = '' OR effective_severity = $2::text)
+  AND ($3::text = '' OR code = $3::text)
+  AND ($4::text = '' OR locale = $4::text)
+  AND ($5::text = '' OR namespace = $5::text)
+  AND ($6::text = '' OR message_key = $6::text)
+  AND ($7::boolean IS NULL OR is_waived = $7::boolean)
+  AND ($8::text = '' OR sort_key COLLATE "C" > $8::text)
+ORDER BY sort_key COLLATE "C"
+LIMIT $9
+`
+
+type ListRunFindingsParams struct {
+	Layer      string
+	Severity   string
+	Code       string
+	Locale     string
+	Namespace  string
+	MessageKey string
+	Waived     pgtype.Bool
+	After      string
+	MaxRows    int32
+	Now        time.Time
+	Ref        string
+	RunID      uuid.UUID
+}
+
+type ListRunFindingsRow struct {
+	ID                  uuid.UUID
+	Fingerprint         string
+	Layer               string
+	Code                string
+	Severity            string
+	MessageID           uuid.NullUUID
+	MessageKey          string
+	Locale              string
+	Namespace           string
+	TranslationRevision uuid.NullUUID
+	File                string
+	Line                pgtype.Int4
+	Col                 pgtype.Int4
+	Route               string
+	Component           string
+	CaptureID           uuid.NullUUID
+	Region              string
+	SpanSide            pgtype.Text
+	SpanStart           pgtype.Int4
+	SpanEnd             pgtype.Int4
+	Explanation         string
+	Subject             string
+	Detail              string
+	Evidence            []byte
+	Fix                 []byte
+	SourceRevision      pgtype.Int4
+	WaiverID            uuid.UUID
+	IsWaived            bool
+	EffectiveSeverity   string
+	SortKey             string
+}
+
+// A page of a run's findings, graded against the waivers that are live
+// now, in a stable order: errors, then warnings, then the waived, and
+// within each by layer, locale, message key and id. The order key is
+// byte-ordered ("C") and unique, and it is both what the rows are
+// ordered by and what the cursor carries, so a page never shifts.
+//
+// The lateral picks at most one waiver — a branch-scoped one before a
+// project-scoped one, because it is the more specific reach — and picks
+// none once the source revision the finding was computed against has
+// moved past the one the waiver was made against: the German somebody
+// waived is not the German that now ships, so the finding comes back.
+func (q *Queries) ListRunFindings(ctx context.Context, arg ListRunFindingsParams) ([]ListRunFindingsRow, error) {
+	rows, err := q.db.Query(ctx, listRunFindings,
 		arg.Layer,
-		arg.Locale,
 		arg.Severity,
+		arg.Code,
+		arg.Locale,
+		arg.Namespace,
 		arg.MessageKey,
-		arg.WaivedOnly,
+		arg.Waived,
 		arg.After,
-		arg.RowLimit,
+		arg.MaxRows,
+		arg.Now,
+		arg.Ref,
+		arg.RunID,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []RunFindingsRow
+	var items []ListRunFindingsRow
 	for rows.Next() {
-		var i RunFindingsRow
+		var i ListRunFindingsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Fingerprint,
@@ -151,6 +338,7 @@ func (q *Queries) RunFindings(ctx context.Context, arg RunFindingsParams) ([]Run
 			&i.MessageKey,
 			&i.Locale,
 			&i.Namespace,
+			&i.TranslationRevision,
 			&i.File,
 			&i.Line,
 			&i.Col,
@@ -164,8 +352,13 @@ func (q *Queries) RunFindings(ctx context.Context, arg RunFindingsParams) ([]Run
 			&i.Explanation,
 			&i.Subject,
 			&i.Detail,
+			&i.Evidence,
+			&i.Fix,
 			&i.SourceRevision,
 			&i.WaiverID,
+			&i.IsWaived,
+			&i.EffectiveSeverity,
+			&i.SortKey,
 		); err != nil {
 			return nil, err
 		}
