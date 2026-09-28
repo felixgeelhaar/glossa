@@ -10,8 +10,9 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-/// `runtimes/`, resolved from this package's directory.
-final Directory runtimesDir = Directory('..').absolute;
+/// `runtimes/`. `dart test` runs with the package root as the working
+/// directory, so the repository is always one level up from `runtimes/dart`.
+final Directory runtimesDir = Directory.current.parent;
 
 /// The repository root.
 final Directory repoRoot = runtimesDir.parent;
@@ -32,12 +33,13 @@ Directory fixtureDir(String kind) {
 /// Every `*.json` fixture of [kind], keyed by file name, in name order.
 Map<String, Map<String, Object?>> loadFixtures(String kind) {
   final dir = fixtureDir(kind);
-  final files = dir
-      .listSync()
-      .whereType<File>()
-      .where((f) => f.path.endsWith('.json'))
-      .toList()
-    ..sort((a, b) => a.path.compareTo(b.path));
+  final files =
+      dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
   if (files.isEmpty) {
     throw StateError('no $kind fixtures in ${dir.path}');
   }

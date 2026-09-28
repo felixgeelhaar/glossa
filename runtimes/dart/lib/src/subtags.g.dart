@@ -395,9 +395,7 @@ const Map<String, String> regionPreferred = {
 };
 
 /// Deprecated variant subtags and their replacements.
-const Map<String, String> variantPreferred = {
-  'heploc': 'alalc97',
-};
+const Map<String, String> variantPreferred = {'heploc': 'alalc97'};
 
 /// Whole tags the registry marks redundant, and their replacements.
 const Map<String, String> redundantPreferred = {
@@ -595,4 +593,3 @@ const Map<String, String?> grandfathered = {
   'zh-min-nan': 'nan',
   'zh-xiang': 'hsn',
 };
-

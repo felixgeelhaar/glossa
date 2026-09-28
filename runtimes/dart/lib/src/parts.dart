@@ -99,13 +99,8 @@ class ValuePart extends Part {
   final String? id;
 
   /// A copy carrying [id].
-  ValuePart withId(String? id) => ValuePart(
-        type: type,
-        text: text,
-        locale: locale,
-        dir: dir,
-        id: id,
-      );
+  ValuePart withId(String? id) =>
+      ValuePart(type: type, text: text, locale: locale, dir: dir, id: id);
 }
 
 /// Join formatted [parts] into the string `format()` returns.

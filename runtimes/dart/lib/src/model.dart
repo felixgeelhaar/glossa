@@ -46,16 +46,13 @@ sealed class Message {
     return switch (m['type']) {
       'message' => PatternMessage(declarations, _pattern(m['pattern'])),
       'select' => SelectMessage(
-          declarations,
-          [
-            for (final s in _list(m['selectors'], 'selectors'))
-              VariableRef.fromJson(s),
-          ],
-          [
-            for (final v in _list(m['variants'], 'variants'))
-              Variant.fromJson(v),
-          ],
-        ),
+        declarations,
+        [
+          for (final s in _list(m['selectors'], 'selectors'))
+            VariableRef.fromJson(s),
+        ],
+        [for (final v in _list(m['variants'], 'variants')) Variant.fromJson(v)],
+      ),
       final other => _bad('unknown message type ${other ?? 'null'}'),
     };
   }
@@ -86,8 +83,8 @@ class SelectMessage extends Message {
 typedef Pattern = List<PatternElement>;
 
 Pattern _pattern(Object? json) => [
-      for (final e in _list(json, 'pattern')) PatternElement.fromJson(e),
-    ];
+  for (final e in _list(json, 'pattern')) PatternElement.fromJson(e),
+];
 
 /// One element of a pattern.
 sealed class PatternElement {
@@ -164,10 +161,9 @@ class Variant {
   /// Reads a variant from decoded JSON.
   factory Variant.fromJson(Object? json) {
     final m = _obj(json, 'variant');
-    return Variant(
-      [for (final k in _list(m['keys'], 'variant keys')) VariantKey.fromJson(k)],
-      _pattern(m['value']),
-    );
+    return Variant([
+      for (final k in _list(m['keys'], 'variant keys')) VariantKey.fromJson(k),
+    ], _pattern(m['value']));
   }
 }
 
@@ -226,10 +222,8 @@ class Literal extends Operand implements VariantKey {
   }
 
   @override
-  String get source => '|${value.replaceAllMapped(
-        RegExp(r'[\\|]'),
-        (m) => '\\${m[0]}',
-      )}|';
+  String get source =>
+      '|${value.replaceAllMapped(RegExp(r'[\\|]'), (m) => '\\${m[0]}')}|';
 }
 
 /// A `$name` reference.
@@ -267,9 +261,12 @@ class Expression extends PatternElement {
   factory Expression.fromJson(Object? json) {
     final m = _obj(json, 'expression');
     final arg = m['arg'] == null ? null : Operand.fromJson(m['arg']);
-    final fn =
-        m['function'] == null ? null : FunctionRef.fromJson(m['function']);
-    if (arg == null && fn == null) _bad('expression has neither arg nor function');
+    final fn = m['function'] == null
+        ? null
+        : FunctionRef.fromJson(m['function']);
+    if (arg == null && fn == null) {
+      _bad('expression has neither arg nor function');
+    }
     return Expression(arg: arg, function: fn);
   }
 
@@ -344,7 +341,5 @@ enum MarkupKind {
 Map<String, Operand> _options(Object? json) {
   if (json == null) return const {};
   final m = _obj(json, 'options');
-  return {
-    for (final e in m.entries) e.key: Operand.fromJson(e.value),
-  };
+  return {for (final e in m.entries) e.key: Operand.fromJson(e.value)};
 }

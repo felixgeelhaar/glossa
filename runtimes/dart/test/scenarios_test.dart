@@ -73,8 +73,11 @@ void main() {
           expect(rendered, c['exp'], reason: 'rendered string');
           expect(localizer.locale, c['expLocale'], reason: 'active locale');
           if (c['expDirection'] != null) {
-            expect('${localizer.direction}', c['expDirection'],
-                reason: 'direction');
+            expect(
+              '${localizer.direction}',
+              c['expDirection'],
+              reason: 'direction',
+            );
           }
 
           final x = localizer.explain(id);
@@ -83,8 +86,7 @@ void main() {
           expect(x.resolvedFrom, expResolvedFrom);
           expect(x.release?.id, manifest.release.id);
           expect(x.release?.version, manifest.release.version);
-          expect('${x.source}',
-              expResolvedFrom == null ? 'inline' : 'network');
+          expect('${x.source}', expResolvedFrom == null ? 'inline' : 'network');
 
           // Explaining the requested locales directly answers the same,
           // without switching.
@@ -107,10 +109,9 @@ void main() {
 
           // A message found in the chain renders without errors; a miss is
           // reported once, as `missing-message`.
-          expect(
-            [for (final e in errors) '${e.type}'],
-            expResolvedFrom == null ? ['missing-message'] : <String>[],
-          );
+          expect([
+            for (final e in errors) '${e.type}',
+          ], expResolvedFrom == null ? ['missing-message'] : <String>[]);
         });
       }
     });

@@ -22,10 +22,10 @@ enum Direction {
 
   /// The direction named by [value], or null when it names neither.
   static Direction? parse(String? value) => switch (value) {
-        'ltr' => Direction.ltr,
-        'rtl' => Direction.rtl,
-        _ => null,
-      };
+    'ltr' => Direction.ltr,
+    'rtl' => Direction.rtl,
+    _ => null,
+  };
 }
 
 /// ISO 15924 scripts written right to left (Unicode bidi class R or AL).
@@ -33,10 +33,42 @@ enum Direction {
 /// Kept in sync with `runtimes/go/locale.go` (`rtlScripts`) and
 /// `studio/src/lib/bcp47.ts` (`RTL_SCRIPTS`).
 const Set<String> rtlScripts = {
-  'Adlm', 'Arab', 'Aran', 'Armi', 'Avst', 'Chrs', 'Cprt', 'Elym', 'Hatr',
-  'Hebr', 'Hung', 'Khar', 'Lydi', 'Mand', 'Mani', 'Mend', 'Merc', 'Mero',
-  'Narb', 'Nbat', 'Nkoo', 'Orkh', 'Ougr', 'Palm', 'Phli', 'Phlp', 'Phnx',
-  'Prti', 'Rohg', 'Samr', 'Sarb', 'Sogd', 'Sogo', 'Syrc', 'Thaa', 'Yezi',
+  'Adlm',
+  'Arab',
+  'Aran',
+  'Armi',
+  'Avst',
+  'Chrs',
+  'Cprt',
+  'Elym',
+  'Hatr',
+  'Hebr',
+  'Hung',
+  'Khar',
+  'Lydi',
+  'Mand',
+  'Mani',
+  'Mend',
+  'Merc',
+  'Mero',
+  'Narb',
+  'Nbat',
+  'Nkoo',
+  'Orkh',
+  'Ougr',
+  'Palm',
+  'Phli',
+  'Phlp',
+  'Phnx',
+  'Prti',
+  'Rohg',
+  'Samr',
+  'Sarb',
+  'Sogd',
+  'Sogo',
+  'Syrc',
+  'Thaa',
+  'Yezi',
 };
 
 /// Languages whose implied script is right to left, for tags that name no
@@ -45,10 +77,24 @@ const Set<String> rtlScripts = {
 /// about Latin — so this is the CLDR likely-script answer for the RTL
 /// languages a catalog realistically carries.
 const Map<String, String> _likelyScript = {
-  'ar': 'Arab', 'arc': 'Armi', 'az': 'Latn', 'ckb': 'Arab', 'dv': 'Thaa',
-  'fa': 'Arab', 'ff': 'Latn', 'he': 'Hebr', 'iw': 'Hebr', 'ks': 'Arab',
-  'ku': 'Latn', 'nqo': 'Nkoo', 'pa': 'Guru', 'ps': 'Arab', 'sd': 'Arab',
-  'ug': 'Arab', 'ur': 'Arab', 'yi': 'Hebr',
+  'ar': 'Arab',
+  'arc': 'Armi',
+  'az': 'Latn',
+  'ckb': 'Arab',
+  'dv': 'Thaa',
+  'fa': 'Arab',
+  'ff': 'Latn',
+  'he': 'Hebr',
+  'iw': 'Hebr',
+  'ks': 'Arab',
+  'ku': 'Latn',
+  'nqo': 'Nkoo',
+  'pa': 'Guru',
+  'ps': 'Arab',
+  'sd': 'Arab',
+  'ug': 'Arab',
+  'ur': 'Arab',
+  'yi': 'Hebr',
 };
 
 final RegExp _alpha = RegExp(r'^[a-z]+$');
@@ -65,12 +111,7 @@ class _Parsed {
   final List<String> variants;
 
   @override
-  String toString() => [
-        language,
-        ?script,
-        ?region,
-        ...variants,
-      ].join('-');
+  String toString() => [language, ?script, ?region, ...variants].join('-');
 }
 
 /// Canonicalize a requested tag into the form the platform stores
@@ -152,9 +193,9 @@ _Parsed? _parse(String raw) {
   final variants = <String>[];
   while (i < subtags.length) {
     final s = subtags[i];
-    final isVariant = (s.length >= 5 && s.length <= 8 && _alphanum.hasMatch(s)) ||
-        (s.length == 4 &&
-            RegExp(r'^[0-9][a-z0-9]{3}$').hasMatch(s));
+    final isVariant =
+        (s.length >= 5 && s.length <= 8 && _alphanum.hasMatch(s)) ||
+        (s.length == 4 && RegExp(r'^[0-9][a-z0-9]{3}$').hasMatch(s));
     if (!isVariant) break;
     final preferred = variantPreferred[s] ?? s;
     if (!variants.contains(preferred)) variants.add(preferred);

@@ -65,8 +65,10 @@ class Step {
   final Outcome outcome;
 
   /// The SPEC §6 JSON shape.
-  Map<String, Object?> toJson() =>
-      {'locale': locale, 'outcome': outcome.toString()};
+  Map<String, Object?> toJson() => {
+    'locale': locale,
+    'outcome': outcome.toString(),
+  };
 
   @override
   String toString() => '$locale:$outcome';
@@ -114,24 +116,29 @@ class Explanation {
 
   /// The SPEC §6 JSON document, verbatim.
   Map<String, Object?> toJson() => {
-        'id': id,
-        'requested': requested,
-        'locale': locale,
-        'chain': chain,
-        'resolvedFrom': resolvedFrom,
-        'release': release == null
-            ? null
-            : {'id': release!.id, 'version': release!.version},
-        'source': source.toString(),
-        'steps': [for (final s in steps) s.toJson()],
-      };
+    'id': id,
+    'requested': requested,
+    'locale': locale,
+    'chain': chain,
+    'resolvedFrom': resolvedFrom,
+    'release': release == null
+        ? null
+        : {'id': release!.id, 'version': release!.version},
+    'source': source.toString(),
+    'steps': [for (final s in steps) s.toJson()],
+  };
 }
 
 /// A loaded release: its manifest and the messages of every locale it
 /// carries, merged across namespaces (SPEC §1.1).
 class Catalog {
-  Catalog._(this.manifest, this._messages, this._loaded, this.source,
-      this._errors);
+  Catalog._(
+    this.manifest,
+    this._messages,
+    this._loaded,
+    this.source,
+    this._errors,
+  );
 
   /// The release's manifest.
   final Manifest manifest;
@@ -175,35 +182,41 @@ class Catalog {
       for (final namespace in entry.value.entries) {
         final bytes = artifacts[namespace.value];
         if (bytes == null) {
-          channel.report(GlossaError(
-            ErrorType.network,
-            'artifact ${namespace.value} for $locale/${namespace.key} '
-                'was not supplied',
-            locale: locale,
-            releaseId: manifest.release.id,
-          ));
+          channel.report(
+            GlossaError(
+              ErrorType.network,
+              'artifact ${namespace.value} for $locale/${namespace.key} '
+              'was not supplied',
+              locale: locale,
+              releaseId: manifest.release.id,
+            ),
+          );
           continue;
         }
         try {
           final artifact = Artifact.decode(bytes);
           merged.addAll(artifact.messages);
           for (final bad in artifact.unreadable.entries) {
-            channel.report(GlossaError(
-              ErrorType.schema,
-              bad.value,
-              messageId: bad.key,
-              locale: locale,
-              releaseId: manifest.release.id,
-            ));
+            channel.report(
+              GlossaError(
+                ErrorType.schema,
+                bad.value,
+                messageId: bad.key,
+                locale: locale,
+                releaseId: manifest.release.id,
+              ),
+            );
           }
           any = true;
         } on SchemaException catch (e) {
-          channel.report(GlossaError(
-            ErrorType.schema,
-            e.detail,
-            locale: locale,
-            releaseId: manifest.release.id,
-          ));
+          channel.report(
+            GlossaError(
+              ErrorType.schema,
+              e.detail,
+              locale: locale,
+              releaseId: manifest.release.id,
+            ),
+          );
         }
       }
       messages[locale] = merged;
@@ -229,7 +242,7 @@ class Catalog {
 /// A catalog bound to one set of requested locales.
 class Localizer {
   Localizer._(this._catalog, this.requested, this.locale)
-      : chain = fallbackChain(locale, _catalog.manifest);
+    : chain = fallbackChain(locale, _catalog.manifest);
 
   final Catalog _catalog;
 
@@ -259,13 +272,14 @@ class Localizer {
     Map<String, Object?> values = const {},
     String? defaultText,
     bool bidiIsolation = true,
-  }) =>
-      partsToString(parts(
-        id,
-        values: values,
-        defaultText: defaultText,
-        bidiIsolation: bidiIsolation,
-      ));
+  }) => partsToString(
+    parts(
+      id,
+      values: values,
+      defaultText: defaultText,
+      bidiIsolation: bidiIsolation,
+    ),
+  );
 
   /// Render message [id] to parts, for a renderer that needs the markup.
   List<Part> parts(
@@ -276,13 +290,15 @@ class Localizer {
   }) {
     final hit = _find(id);
     if (hit == null) {
-      _catalog._errors.report(GlossaError(
-        ErrorType.missingMessage,
-        'no locale in the chain has the message',
-        messageId: id,
-        locale: locale,
-        releaseId: _catalog.release.id,
-      ));
+      _catalog._errors.report(
+        GlossaError(
+          ErrorType.missingMessage,
+          'no locale in the chain has the message',
+          messageId: id,
+          locale: locale,
+          releaseId: _catalog.release.id,
+        ),
+      );
       return [TextPart(defaultText ?? id)];
     }
     final rendered = formatToParts(
@@ -291,13 +307,15 @@ class Localizer {
       values: values,
       options: FormatOptions(
         bidiIsolation: bidiIsolation,
-        onError: (e) => _catalog._errors.report(GlossaError(
-          ErrorType.format,
-          '${e.type} at ${e.source}',
-          messageId: id,
-          locale: hit.locale,
-          releaseId: _catalog.release.id,
-        )),
+        onError: (e) => _catalog._errors.report(
+          GlossaError(
+            ErrorType.format,
+            '${e.type} at ${e.source}',
+            messageId: id,
+            locale: hit.locale,
+            releaseId: _catalog.release.id,
+          ),
+        ),
       ),
     );
     // SPEC §3: a result that is the empty string falls through to the
@@ -313,8 +331,7 @@ class Localizer {
   /// With [locales], explain those requested locales instead of this
   /// localizer's, without switching.
   Explanation explain(String id, [List<String>? locales]) {
-    final target =
-        locales == null ? this : _catalog.forLocales(locales);
+    final target = locales == null ? this : _catalog.forLocales(locales);
     final hit = target._find(id);
     final steps = <Step>[];
     for (final l in target.chain) {
@@ -322,12 +339,14 @@ class Localizer {
         steps.add(Step(l, Outcome.found));
         break;
       }
-      steps.add(Step(
-        l,
-        _catalog._messages.containsKey(l) && !_catalog._loaded.contains(l)
-            ? Outcome.notLoaded
-            : Outcome.missing,
-      ));
+      steps.add(
+        Step(
+          l,
+          _catalog._messages.containsKey(l) && !_catalog._loaded.contains(l)
+              ? Outcome.notLoaded
+              : Outcome.missing,
+        ),
+      );
     }
     return Explanation(
       id: id,

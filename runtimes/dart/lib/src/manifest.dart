@@ -126,9 +126,10 @@ class Manifest {
           ),
       ],
       fallback: {
-        for (final e in _object(m['fallback'] ?? const <String, Object?>{},
-                'fallback')
-            .entries)
+        for (final e in _object(
+          m['fallback'] ?? const <String, Object?>{},
+          'fallback',
+        ).entries)
           e.key: [
             for (final t in _array(e.value, 'fallback.${e.key}'))
               _string(t, 'fallback.${e.key} entry'),
@@ -139,8 +140,9 @@ class Manifest {
           e.key: {
             for (final n in _object(e.value, 'artifacts.${e.key}').entries)
               n.key: _string(
-                  _object(n.value, 'artifacts.${e.key}.${n.key}')['sha256'],
-                  'artifacts.${e.key}.${n.key}.sha256'),
+                _object(n.value, 'artifacts.${e.key}.${n.key}')['sha256'],
+                'artifacts.${e.key}.${n.key}.sha256',
+              ),
           },
       },
     );

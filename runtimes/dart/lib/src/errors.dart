@@ -64,15 +64,16 @@ class GlossaError {
 
   /// The SPEC §6 JSON shape.
   Map<String, Object?> toJson() => {
-        'type': type.toString(),
-        'detail': detail,
-        if (messageId != null) 'messageId': messageId,
-        if (locale != null) 'locale': locale,
-        if (releaseId != null) 'releaseId': releaseId,
-      };
+    'type': type.toString(),
+    'detail': detail,
+    if (messageId != null) 'messageId': messageId,
+    if (locale != null) 'locale': locale,
+    if (releaseId != null) 'releaseId': releaseId,
+  };
 
   /// The identity used for repeat suppression: all five fields.
-  String get _key => '$type\u0000$detail\u0000$messageId\u0000$locale'
+  String get _key =>
+      '$type\u0000$detail\u0000$messageId\u0000$locale'
       '\u0000$releaseId';
 
   @override

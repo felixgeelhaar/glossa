@@ -57,8 +57,20 @@ const String _fsi = '\u2068';
 const String _pdi = '\u2069';
 
 const Set<String> _rtlLanguages = {
-  'ar', 'arc', 'ckb', 'dv', 'fa', 'he', 'iw', 'ks', 'nqo', 'ps', 'sd', 'ug',
-  'ur', 'yi',
+  'ar',
+  'arc',
+  'ckb',
+  'dv',
+  'fa',
+  'he',
+  'iw',
+  'ks',
+  'nqo',
+  'ps',
+  'sd',
+  'ug',
+  'ur',
+  'yi',
 };
 
 /// Format [message] to parts with [locale]'s rules and [values].
@@ -67,8 +79,7 @@ List<Part> formatToParts(
   String locale, {
   Map<String, Object?> values = const {},
   FormatOptions options = const FormatOptions(),
-}) =>
-    _Interpreter(message, locale, values, options).run();
+}) => _Interpreter(message, locale, values, options).run();
 
 /// Format [message] to a string.
 String formatMessage(
@@ -76,10 +87,9 @@ String formatMessage(
   String locale, {
   Map<String, Object?> values = const {},
   FormatOptions options = const FormatOptions(),
-}) =>
-    partsToString(
-      formatToParts(message, locale, values: values, options: options),
-    );
+}) => partsToString(
+  formatToParts(message, locale, values: values, options: options),
+);
 
 /// A resolved expression: a value plus the MF2 source it came from.
 class _Resolved {
@@ -98,7 +108,7 @@ class _Resolved {
 
 class _Interpreter {
   _Interpreter(this.message, this.locale, this.values, this.options)
-      : functions = {...builtins, ...options.functions};
+    : functions = {...builtins, ...options.functions};
 
   final Message message;
   final String locale;
@@ -115,21 +125,24 @@ class _Interpreter {
       options.onError?.call(MessageFormatError(type, source));
 
   _Resolved fallback(String source) => _Resolved(
-        MessageValue(
-          type: 'fallback',
-          value: null,
-          formatter: () => [FallbackPart(source)],
-        ),
-        source,
-      );
+    MessageValue(
+      type: 'fallback',
+      value: null,
+      formatter: () => [FallbackPart(source)],
+    ),
+    source,
+  );
 
-  FunctionContext context(String source, {String? dir, Set<String>? literals}) =>
-      FunctionContext(
-        locale: locale,
-        dir: dir,
-        literals: literals ?? const {},
-        onError: (type) => report(type, source),
-      );
+  FunctionContext context(
+    String source, {
+    String? dir,
+    Set<String>? literals,
+  }) => FunctionContext(
+    locale: locale,
+    dir: dir,
+    literals: literals ?? const {},
+    onError: (type) => report(type, source),
+  );
 
   /// The value of a variable: a resolved declaration, or an external value.
   ///
@@ -157,8 +170,11 @@ class _Interpreter {
   Object? operandValue(Operand operand, {bool external = false}) =>
       switch (operand) {
         Literal(:final value) => value,
-        VariableRef(:final name) =>
-          lookup(name, operand.source, external: external),
+        VariableRef(:final name) => lookup(
+          name,
+          operand.source,
+          external: external,
+        ),
       };
 
   /// Resolve an expression to a value. Never throws: failures become
@@ -291,8 +307,10 @@ class _Interpreter {
 
     final candidates = [
       for (final v in msg.variants)
-        if (List.generate(v.keys.length, (i) => rank(v.keys, i))
-            .every((r) => r >= 0))
+        if (List.generate(
+          v.keys.length,
+          (i) => rank(v.keys, i),
+        ).every((r) => r >= 0))
           v,
     ];
     for (var i = prefs.length - 1; i >= 0; i--) {
@@ -320,7 +338,8 @@ class _Interpreter {
       return const [FallbackPart('\ufffd')];
     }
 
-    final messageDir = options.dir ??
+    final messageDir =
+        options.dir ??
         (_rtlLanguages.contains(locale.split('-').first) ? 'rtl' : 'ltr');
     final parts = <Part>[];
     for (final element in pattern) {
@@ -360,11 +379,13 @@ class _Interpreter {
           if (options.bidiIsolation &&
               (messageDir != 'ltr' || dir != 'ltr' || resolved.isolate)) {
             parts
-              ..add(BidiIsolationPart(switch (dir) {
-                'ltr' => _lri,
-                'rtl' => _rli,
-                _ => _fsi,
-              }))
+              ..add(
+                BidiIsolationPart(switch (dir) {
+                  'ltr' => _lri,
+                  'rtl' => _rli,
+                  _ => _fsi,
+                }),
+              )
               ..addAll(formatted)
               ..add(const BidiIsolationPart(_pdi));
           } else {

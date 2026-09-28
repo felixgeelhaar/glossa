@@ -67,38 +67,58 @@ void main(List<String> args) {
     ..writeln('/// The registry file date these tables were generated from.')
     ..writeln("const String subtagRegistryDate = '$fileDate';")
     ..writeln();
-  _writeMap(out, 'languagePreferred',
-      'Deprecated primary language subtags and their replacements.', language);
-  _writeMap(out, 'extlangPreferred',
-      'Extended language subtags and the tags that replace `prefix-extlang`.',
-      extlang);
-  _writeMap(out, 'regionPreferred',
-      'Deprecated region subtags and their replacements.', region);
-  _writeMap(out, 'variantPreferred',
-      'Deprecated variant subtags and their replacements.', variant);
   _writeMap(
-      out,
-      'redundantPreferred',
-      'Whole tags the registry marks redundant, and their replacements.',
-      redundant);
+    out,
+    'languagePreferred',
+    'Deprecated primary language subtags and their replacements.',
+    language,
+  );
   _writeMap(
-      out,
-      'suppressScript',
-      'Scripts a language implies, which a canonical tag leaves out.',
-      suppressScript);
+    out,
+    'extlangPreferred',
+    'Extended language subtags and the tags that replace `prefix-extlang`.',
+    extlang,
+  );
+  _writeMap(
+    out,
+    'regionPreferred',
+    'Deprecated region subtags and their replacements.',
+    region,
+  );
+  _writeMap(
+    out,
+    'variantPreferred',
+    'Deprecated variant subtags and their replacements.',
+    variant,
+  );
+  _writeMap(
+    out,
+    'redundantPreferred',
+    'Whole tags the registry marks redundant, and their replacements.',
+    redundant,
+  );
+  _writeMap(
+    out,
+    'suppressScript',
+    'Scripts a language implies, which a canonical tag leaves out.',
+    suppressScript,
+  );
   _writeNullableMap(
-      out,
-      'grandfathered',
-      'Grandfathered tags; the value is the replacement, or null when the '
-          'registry names none.',
-      grandfathered);
+    out,
+    'grandfathered',
+    'Grandfathered tags; the value is the replacement, or null when the '
+        'registry names none.',
+    grandfathered,
+  );
 
   File('lib/src/subtags.g.dart').writeAsStringSync(out.toString());
-  stdout.writeln('lib/src/subtags.g.dart written from registry $fileDate: '
-      '${language.length} language, ${extlang.length} extlang, '
-      '${region.length} region, ${variant.length} variant, '
-      '${redundant.length} redundant, ${suppressScript.length} suppress-script, '
-      '${grandfathered.length} grandfathered');
+  stdout.writeln(
+    'lib/src/subtags.g.dart written from registry $fileDate: '
+    '${language.length} language, ${extlang.length} extlang, '
+    '${region.length} region, ${variant.length} variant, '
+    '${redundant.length} redundant, ${suppressScript.length} suppress-script, '
+    '${grandfathered.length} grandfathered',
+  );
 }
 
 /// Parse one registry record, unfolding its continuation lines.
@@ -122,7 +142,11 @@ Map<String, String> _fields(String record) {
 }
 
 void _writeMap(
-    StringBuffer out, String name, String doc, Map<String, String> m) {
+  StringBuffer out,
+  String name,
+  String doc,
+  Map<String, String> m,
+) {
   out
     ..writeln('/// $doc')
     ..writeln('const Map<String, String> $name = {');
@@ -135,7 +159,11 @@ void _writeMap(
 }
 
 void _writeNullableMap(
-    StringBuffer out, String name, String doc, Map<String, String?> m) {
+  StringBuffer out,
+  String name,
+  String doc,
+  Map<String, String?> m,
+) {
   out
     ..writeln('/// $doc')
     ..writeln('const Map<String, String?> $name = {');

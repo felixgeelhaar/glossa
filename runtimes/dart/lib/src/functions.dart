@@ -10,6 +10,7 @@
 /// from it.
 library;
 
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
 import 'parts.dart';
@@ -104,9 +105,8 @@ typedef MessageFunction = MessageValue Function(
 );
 
 /// Unwrap a resolved value to its raw value and the options it carries.
-(Object?, Map<String, Object?>?) unwrap(Object? v) => v is MessageValue
-    ? (v.value, v.options)
-    : (v, null);
+(Object?, Map<String, Object?>?) unwrap(Object? v) =>
+    v is MessageValue ? (v.value, v.options) : (v, null);
 
 String _asString(Object? v) {
   final (raw, _) = unwrap(v);
@@ -134,8 +134,20 @@ String _dirOf(String locale) =>
     _rtlLanguages.contains(locale.split('-').first) ? 'rtl' : 'ltr';
 
 const Set<String> _rtlLanguages = {
-  'ar', 'arc', 'ckb', 'dv', 'fa', 'he', 'iw', 'ks', 'nqo', 'ps', 'sd', 'ug',
-  'ur', 'yi',
+  'ar',
+  'arc',
+  'ckb',
+  'dv',
+  'fa',
+  'he',
+  'iw',
+  'ks',
+  'nqo',
+  'ps',
+  'sd',
+  'ug',
+  'ur',
+  'yi',
 };
 
 // ---------------------------------------------------------------------------
@@ -166,11 +178,11 @@ MessageValue stringValue(FunctionContext ctx, String value) =>
 
 /// A bare value the runtime has no function for: rendered with `toString`.
 MessageValue unknownValue(Object? value) => MessageValue(
-      type: 'unknown',
-      value: value,
-      dir: 'auto',
-      formatter: () => [ValuePart(type: 'unknown', text: '$value')],
-    );
+  type: 'unknown',
+  value: value,
+  dir: 'auto',
+  formatter: () => [ValuePart(type: 'unknown', text: '$value')],
+);
 
 // ---------------------------------------------------------------------------
 // :number and friends
@@ -288,12 +300,21 @@ MessageValue _numberFunction(
 
   final format = switch (kind) {
     _NumberKind.percent => NumberFormat.percentPattern(ctx.locale),
-    _NumberKind.currency => NumberFormat.currency(
-        locale: ctx.locale,
-        name: currency,
-        symbol: currencyDisplay == 'code' ? currency : null,
-        decimalDigits: maxFraction,
-      ),
+    // `simpleCurrency` looks the locale's symbol up ("€", "￥");
+    // `currency` without a symbol falls back to the ISO code, which is what
+    // `currencyDisplay=code` asks for.
+    _NumberKind.currency =>
+      currencyDisplay == 'code'
+          ? NumberFormat.currency(
+              locale: ctx.locale,
+              name: currency,
+              decimalDigits: maxFraction,
+            )
+          : NumberFormat.simpleCurrency(
+              locale: ctx.locale,
+              name: currency,
+              decimalDigits: maxFraction,
+            ),
     _ => NumberFormat.decimalPattern(ctx.locale),
   };
   if (minFraction != null) format.minimumFractionDigits = minFraction!;
@@ -303,7 +324,9 @@ MessageValue _numberFunction(
     format
       ..significantDigits = maxSignificant
       ..significantDigitsInUse = true;
-    if (minSignificant != null) format.minimumSignificantDigits = minSignificant;
+    if (minSignificant != null) {
+      format.minimumSignificantDigits = minSignificant;
+    }
   }
   if (grouping == false) format.turnOffGrouping();
 
@@ -321,8 +344,9 @@ MessageValue _numberFunction(
     value: value,
     dir: dir,
     options: resolved,
-    formatter: () =>
-        [ValuePart(type: 'number', locale: ctx.locale, dir: dir, text: text)],
+    formatter: () => [
+      ValuePart(type: 'number', locale: ctx.locale, dir: dir, text: text),
+    ],
     selector: !canSelect || selectMode == 'ordinal'
         ? null
         : (keys) {
@@ -369,6 +393,12 @@ int visibleFractionDigits(num value, int minFraction, int maxFraction) {
 /// `package:intl` exposes its plural rules only through [Intl.pluralLogic],
 /// so the category names are passed in as the branch values and the chosen
 /// branch is the answer.
+///
+/// `useExplicitNumberCases` is off: it is a `package:intl` convenience that
+/// returns the `zero`, `one` and `two` branches for those exact numbers
+/// whatever the locale's rule says. MF2 selects an exact key separately
+/// (`0`, `1`), and CLDR decides the category — Japanese has no *one*, and
+/// French counts 0 as *one*.
 String pluralCategory(num value, String locale, {int? precision}) =>
     Intl.pluralLogic<String>(
       value,
@@ -380,6 +410,7 @@ String pluralCategory(num value, String locale, {int? precision}) =>
       other: 'other',
       locale: locale,
       precision: precision,
+      useExplicitNumberCases: false,
     );
 
 MessageValue _offset(
@@ -414,6 +445,22 @@ MessageValue _offset(
 
 /// Which date/time function is being applied.
 enum _DateKind { date, time, datetime }
+
+bool _dateSymbolsReady = false;
+
+/// `package:intl` requires date symbols to be registered before any locale
+/// but the default one can be formatted, and otherwise throws.
+///
+/// `date_symbol_data_local` carries every locale's data, so registration is
+/// synchronous despite the `Future` the API returns, and this package is
+/// usable without the application having to initialize anything. It is the
+/// one place the package's CLDR version is decided: the data ships with
+/// `package:intl`, not with Glossa.
+void _ensureDateSymbols() {
+  if (_dateSymbolsReady) return;
+  initializeDateFormatting();
+  _dateSymbolsReady = true;
+}
 
 const Map<String, String> _monthSkeleton = {
   'long': 'MMMM',
@@ -478,17 +525,19 @@ MessageValue _dateTimeFunction(
   }
 
   final skeleton = StringBuffer();
+  var dateLength = 'medium';
   if (kind != _DateKind.time) {
     final fields =
         read(kind == _DateKind.date ? 'fields' : 'dateFields', _dateFields) ??
-            'year-month-day';
+        'year-month-day';
     final length =
         read(kind == _DateKind.date ? 'length' : 'dateLength', const {
-              'long',
-              'medium',
-              'short',
-            }) ??
-            'medium';
+          'long',
+          'medium',
+          'short',
+        }) ??
+        'medium';
+    dateLength = length;
     final parts = fields.split('-');
     if (parts.contains('year')) skeleton.write('y');
     if (parts.contains('month')) skeleton.write(_monthSkeleton[length]);
@@ -498,10 +547,12 @@ MessageValue _dateTimeFunction(
 
   final timeSkeleton = StringBuffer();
   if (kind != _DateKind.date) {
-    final precision = read(
-          kind == _DateKind.time ? 'precision' : 'timePrecision',
-          const {'hour', 'minute', 'second'},
-        ) ??
+    final precision =
+        read(kind == _DateKind.time ? 'precision' : 'timePrecision', const {
+          'hour',
+          'minute',
+          'second',
+        }) ??
         'minute';
     timeSkeleton.write('j');
     if (precision != 'hour') timeSkeleton.write('m');
@@ -511,6 +562,7 @@ MessageValue _dateTimeFunction(
     }
   }
 
+  _ensureDateSymbols();
   final DateFormat format;
   try {
     if (skeleton.isEmpty) {
@@ -518,11 +570,23 @@ MessageValue _dateTimeFunction(
     } else if (timeSkeleton.isEmpty) {
       format = DateFormat(skeleton.toString(), ctx.locale);
     } else {
-      // package:intl joins a date and a time skeleton with a plain space; the
-      // locale's own dateTimeFormat pattern is not exposed.
-      ctx.onError('unsupported-operation');
-      format = DateFormat(skeleton.toString(), ctx.locale)
-          .addPattern(timeSkeleton.toString(), ', ');
+      // `addPattern` joins with a plain space; CLDR joins a date and a time
+      // with the locale's own dateTimeFormat ("{1} 'um' {0}" in German), so
+      // the two resolved patterns are substituted into it.
+      final datePart = DateFormat(skeleton.toString(), ctx.locale);
+      final timePart = DateFormat(timeSkeleton.toString(), ctx.locale);
+      final combiner =
+          datePart.dateSymbols.DATETIMEFORMATS[const {
+            'long': 1,
+            'medium': 2,
+            'short': 3,
+          }[dateLength]!];
+      format = DateFormat(
+        combiner
+            .replaceFirst('{1}', datePart.pattern!)
+            .replaceFirst('{0}', timePart.pattern!),
+        ctx.locale,
+      );
     }
   } on Exception {
     throw FunctionError('unsupported-operation');
@@ -535,8 +599,9 @@ MessageValue _dateTimeFunction(
     value: date,
     dir: dir,
     options: {...?inherited, 'timeZone': ?timeZone},
-    formatter: () =>
-        [ValuePart(type: 'datetime', locale: ctx.locale, dir: dir, text: text)],
+    formatter: () => [
+      ValuePart(type: 'datetime', locale: ctx.locale, dir: dir, text: text),
+    ],
   );
 }
 
@@ -555,8 +620,7 @@ final Map<String, MessageFunction> builtins = {
   'offset': _offset,
   'date': (c, o, v, h) => _dateTimeFunction(_DateKind.date, c, o, v, h),
   'time': (c, o, v, h) => _dateTimeFunction(_DateKind.time, c, o, v, h),
-  'datetime': (c, o, v, h) =>
-      _dateTimeFunction(_DateKind.datetime, c, o, v, h),
+  'datetime': (c, o, v, h) => _dateTimeFunction(_DateKind.datetime, c, o, v, h),
 };
 
 /// A value the interpreter resolves without a function: numbers format with
