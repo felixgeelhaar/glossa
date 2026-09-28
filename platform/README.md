@@ -1205,9 +1205,20 @@ say: new keys, the messages the last push could not accept, key
 conflicts, untranslated new keys per locale, the QA the server already
 holds (max\_length with the text, terminology from M2), unknown keys
 with their `file:line`, and what merging will make outdated. The policy
-is `glossa check`'s own — `kernel/checkpolicy` holds `require_complete`
-and `fail_on`, and the CLI's `qa.Policy` is an alias of it, so the pull
-request and the terminal can never disagree. The summary is Markdown
+is `glossa check`'s own — `kernel/checkpolicy` is the **policy document**
+(RFC 0005 §4.1) and its evaluator, and the CLI's `qa.Policy` is an alias
+of it, so the pull request and the terminal can never disagree. Beside
+`require_complete`, `fail_on` and `missing_translations` it holds
+`rules` selecting on layer, code, locale, namespace and environment
+(precedence: the rule naming more fields wins, ties go to the later
+rule), per-environment completeness and review, and the rollout
+machinery of §4.3 — a `version` every run records, `mode: warn` for a
+rule that reports without failing, and a `grace_until` that keeps a pull
+request opened before a stricter save on the version it opened under,
+which the check summary says. A rule may never raise a model-decided
+layer to `error`. `glossa.yaml` and the flags are **local overrides**
+(`checkpolicy.Overrides`): honoured for the local run, ignored by the PR
+check. The summary is Markdown
 with a table per locale; findings with a location become annotations,
 batched ≤ 50 per request.
 
