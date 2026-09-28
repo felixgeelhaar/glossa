@@ -182,6 +182,30 @@ jobs:
       - name: usage fixtures and context schemas agree (RFC 0004 §2.1)
         run: python3 runtimes/testdata/gen/check_usages.py
 
+  runtimes-dart:
+    name: Dart runtime
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtimes/dart
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          # Pinned, like the Go toolchains: the package's environment
+          # constraint in runtimes/dart/pubspec.yaml matches.
+          sdk: "3.13.4"
+      - run: dart pub get
+      - name: dart format
+        run: dart format --output=none --set-exit-if-changed .
+      - name: dart analyze
+        run: dart analyze --fatal-infos
+      # Reads runtimes/testdata and messageformat/testdata from the
+      # checkout: the Dart runtime is a driver over the shared fixtures
+      # (RFC 0005 §6.3), never a copy of them.
+      - name: dart test (shared conformance fixtures)
+        run: dart test
+
   packages:
     name: JS workspaces
     runs-on: ubuntu-latest
