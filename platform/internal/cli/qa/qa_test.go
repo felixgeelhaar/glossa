@@ -7,6 +7,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
 func msg(key, text string) snapshot.Message {
@@ -115,5 +116,54 @@ func TestServerWarningsAreKeptWhenTheKernelCantComputeThem(t *testing.T) {
 	s.Translations["de"]["cart.items"] = de
 	if got := codes(qa.Run(s, qa.Policy{}, qa.Default()...).Findings)["de cart.items max-length-exceeded"]; got != qa.Warning {
 		t.Errorf("max-length-exceeded = %q", got)
+	}
+}
+
+// The QA moved to internal/quality in M4; the command's wire shape did
+// not. A finding still names its layer under the name `glossa check`
+// has printed since M1 — "arguments", not "parity" — and still carries
+// the kernel's subject and the local file it came from.
+func TestTheWireShapeIsUnchanged(t *testing.T) {
+	s := project()
+	names := map[string]bool{}
+	var compat qa.Finding
+	for _, f := range qa.Run(s, qa.Policy{}, qa.Default()...).Findings {
+		names[f.Check] = true
+		if f.Code == string(mf.FindingMissingArgument) {
+			compat = f
+		}
+	}
+	for _, want := range []string{"arguments", "completeness"} {
+		if !names[want] {
+			t.Errorf("no finding named the %q check: %v", want, names)
+		}
+	}
+	if names["parity"] {
+		t.Error("the command printed the layer's new name; wave 3 renames it, not wave 1")
+	}
+	if compat.Subject != "amount" || compat.Message == "" || compat.Locale != "de" || compat.Key != "checkout.pay" {
+		t.Errorf("the kernel's finding lost something on the way to the command: %+v", compat)
+	}
+}
+
+// Terminology findings reach the command as they always did, through
+// the precomputed layer.
+func TestPrecomputedFindingsKeepTheirLayer(t *testing.T) {
+	f := domain.New(domain.Finding{
+		Layer: domain.LayerTerminology, Code: "term_forbidden", Severity: qa.Error,
+		Locus: domain.Locus{Key: "cart.checkout", Locale: "de"}, Message: "forbidden term", Subject: "Einkaufswagen",
+	})
+	r := qa.Run(project(), qa.Policy{RequireComplete: []string{}},
+		qa.Precomputed(domain.LayerTerminology, []domain.Finding{f}))
+	if len(r.Findings) != 1 {
+		t.Fatalf("findings = %+v", r.Findings)
+	}
+	got := r.Findings[0]
+	if got.Check != "terminology" || got.Code != "term_forbidden" || got.Severity != qa.Error ||
+		got.Locale != "de" || got.Key != "cart.checkout" || got.Subject != "Einkaufswagen" {
+		t.Errorf("finding = %+v", got)
+	}
+	if r.Passed {
+		t.Error("an error finding passed the check")
 	}
 }
