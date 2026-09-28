@@ -1,20 +1,27 @@
 /// Glossa's Dart runtime: the delivery contract in `runtimes/SPEC.md`,
 /// implemented in pure Dart so it works on the VM, in AOT and on the web.
 ///
-/// Wave 1 covers locale identity and negotiation (SPEC §4), message
+/// Waves 1 and 2 cover locale identity and negotiation (SPEC §4), message
 /// resolution over the fallback graph (§4.3), the MessageFormat 2
 /// interpreter over the precompiled data model (§5), `explain()` and the
-/// error channel (§6). The loader, signature verification and the Flutter
-/// widgets are waves 2 and 3 — see `README.md`.
+/// error channel (§6), and the loader: the §3 load order, SHA-256 artifact
+/// integrity and Ed25519 manifest signatures over the RFC 8785 (JCS) form
+/// (§1.3). The Flutter widgets are wave 3 — see `README.md`.
+///
+/// Nothing here imports Flutter or `dart:io`. A host supplies a
+/// [Transport] and a [ReleaseStore]; `package:glossa/io.dart` has both for
+/// the Dart VM, Flutter mobile and Flutter desktop.
 ///
 /// ```dart
-/// final catalog = Catalog.fromRelease(
-///   manifest: Manifest.decode(manifestBytes),
-///   artifacts: {sha256: artifactBytes},
+/// final glossa = GlossaClient(
+///   edge: 'https://edge.example.com',
+///   deliveryKey: 'pk_live_…',
+///   locales: ['de-AT'],
+///   publicKeys: [GlossaPublicKey.parse('k_2026a', '…')],
 /// );
-/// final t = catalog.forLocales(['de-AT']);
-/// print(t.t('cart.checkout')); // Zur Kassa
-/// print(t.explain('cart.checkout').chain); // [de-AT, de, en]
+/// await glossa.ready;
+/// print(glossa.t('cart.checkout')); // Zur Kassa
+/// print(glossa.explain('cart.checkout').chain); // [de-AT, de, en]
 /// ```
 library;
 
@@ -31,6 +38,9 @@ export 'src/functions.dart'
         MessageValue,
         builtins,
         pluralCategory;
+export 'src/jcs.dart'
+    show JcsException, canonicalizeJson, canonicalizeJsonValue;
+export 'src/loader.dart' show BundledRelease, GlossaClient;
 export 'src/locale.dart'
     show
         Direction,
@@ -48,6 +58,7 @@ export 'src/manifest.dart'
         Artifact,
         LocaleEntry,
         Manifest,
+        ManifestSignature,
         ReleaseRef,
         SchemaException,
         artifactSchema,
@@ -83,4 +94,12 @@ export 'src/parts.dart'
         TextPart,
         ValuePart,
         partsToString;
+export 'src/store.dart' show MemoryReleaseStore, ReleaseStore, StoredManifest;
 export 'src/subtags.g.dart' show subtagRegistryDate;
+export 'src/transport.dart' show EdgeResponse, Transport;
+export 'src/verify.dart'
+    show
+        GlossaPublicKey,
+        sha256Hex,
+        signatureAlgorithm,
+        verifyManifestSignature;
