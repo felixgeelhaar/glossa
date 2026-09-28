@@ -166,8 +166,9 @@ String formatEs6Number(num value) {
 String _placeDecimalPoint(String digits, int n) {
   final k = digits.length;
   if (k <= n && n <= 21) return digits + '0' * (n - k);
-  if (0 < n && n <= 21)
+  if (0 < n && n <= 21) {
     return '${digits.substring(0, n)}.${digits.substring(n)}';
+  }
   if (-6 < n && n <= 0) return '0.${'0' * -n}$digits';
   final exponent = n - 1;
   final mantissa = k > 1
