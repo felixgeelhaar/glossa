@@ -48,8 +48,8 @@ class _FakeEdge {
     _manifest =
         (edge['manifest'] as Map<String, Object?>?) ?? const {'status': 503};
     _artifacts = {
-      for (final e in (edge['artifacts'] as Map<String, Object?>? ?? const {})
-          .entries)
+      for (final e
+          in (edge['artifacts'] as Map<String, Object?>? ?? const {}).entries)
         e.key: e.value! as String,
     };
   }
@@ -69,10 +69,14 @@ class _FakeEdge {
       );
     }
     final match = RegExp(
-      r'^' + RegExp.escape('$_edge/v1/$_deliveryKey/a/') + r'([0-9a-f]{64})\.json$',
+      r'^' +
+          RegExp.escape('$_edge/v1/$_deliveryKey/a/') +
+          r'([0-9a-f]{64})\.json$',
     ).firstMatch(url);
     final body = match == null ? null : _artifacts[match.group(1)];
-    return body == null ? const EdgeResponse(404) : EdgeResponse(200, body: body);
+    return body == null
+        ? const EdgeResponse(404)
+        : EdgeResponse(200, body: body);
   };
 }
 
@@ -86,9 +90,10 @@ void main() {
   sequences.forEach((name, fixture) {
     final steps = (fixture['steps']! as List<Object?>)
         .cast<Map<String, Object?>>();
-    final restartBefore = ((fixture['restartBefore'] as List<Object?>?) ?? const [])
-        .cast<int>()
-        .toSet();
+    final restartBefore =
+        ((fixture['restartBefore'] as List<Object?>?) ?? const [])
+            .cast<int>()
+            .toSet();
     final publicKeys = [
       for (final k in (fixture['publicKeys'] as List<Object?>?) ?? const [])
         GlossaPublicKey.parse(
@@ -187,9 +192,11 @@ void main() {
   group('the skip list is honest', () {
     final known = {
       for (final entry in sequences.entries)
-        for (var i = 0;
-            i < (entry.value['steps']! as List<Object?>).length;
-            i++)
+        for (
+          var i = 0;
+          i < (entry.value['steps']! as List<Object?>).length;
+          i++
+        )
           '${entry.key}: $i '
               '${((entry.value['steps']! as List<Object?>)[i] as Map<String, Object?>)['description']}',
     };
