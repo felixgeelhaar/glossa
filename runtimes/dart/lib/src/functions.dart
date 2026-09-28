@@ -137,6 +137,12 @@ String _dirOf(String locale) => directionOf(locale).name;
 // :string
 // ---------------------------------------------------------------------------
 
+/// MF2 compares a `:string` selector's value with the variant keys in NFC.
+/// The Dart SDK has no Unicode normalization, so the comparison is on the
+/// strings as given. Keys come from the data model, which the platform
+/// already stores in NFC, so this only differs for an application value
+/// that is decomposed — a gap to close with a normalization package rather
+/// than a hand-rolled table.
 MessageValue _string(
   FunctionContext ctx,
   Map<String, Object?> options,
