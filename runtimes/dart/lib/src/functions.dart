@@ -13,6 +13,7 @@ library;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
+import 'locale.dart';
 import 'parts.dart';
 
 /// A hard failure inside a function: the expression falls back and [type] is
@@ -130,25 +131,7 @@ int _asDigitSize(Object? v) {
 
 /// The default text direction of a locale's script, for values the runtime
 /// formats itself.
-String _dirOf(String locale) =>
-    _rtlLanguages.contains(locale.split('-').first) ? 'rtl' : 'ltr';
-
-const Set<String> _rtlLanguages = {
-  'ar',
-  'arc',
-  'ckb',
-  'dv',
-  'fa',
-  'he',
-  'iw',
-  'ks',
-  'nqo',
-  'ps',
-  'sd',
-  'ug',
-  'ur',
-  'yi',
-};
+String _dirOf(String locale) => directionOf(locale).name;
 
 // ---------------------------------------------------------------------------
 // :string

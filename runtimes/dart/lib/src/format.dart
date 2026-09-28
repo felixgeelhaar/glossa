@@ -8,6 +8,7 @@
 library;
 
 import 'functions.dart';
+import 'locale.dart';
 import 'model.dart';
 import 'parts.dart';
 
@@ -55,23 +56,6 @@ const String _lri = '\u2066';
 const String _rli = '\u2067';
 const String _fsi = '\u2068';
 const String _pdi = '\u2069';
-
-const Set<String> _rtlLanguages = {
-  'ar',
-  'arc',
-  'ckb',
-  'dv',
-  'fa',
-  'he',
-  'iw',
-  'ks',
-  'nqo',
-  'ps',
-  'sd',
-  'ug',
-  'ur',
-  'yi',
-};
 
 /// Format [message] to parts with [locale]'s rules and [values].
 List<Part> formatToParts(
@@ -338,9 +322,7 @@ class _Interpreter {
       return const [FallbackPart('\ufffd')];
     }
 
-    final messageDir =
-        options.dir ??
-        (_rtlLanguages.contains(locale.split('-').first) ? 'rtl' : 'ltr');
+    final messageDir = options.dir ?? directionOf(locale).name;
     final parts = <Part>[];
     for (final element in pattern) {
       switch (element) {
