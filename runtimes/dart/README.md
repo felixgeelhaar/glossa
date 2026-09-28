@@ -99,6 +99,9 @@ dart pub get
 dart test                       # everything
 dart test test/scenarios_test.dart
 dart analyze --fatal-infos      # the CI bar
+
+# RFC 0005 §6.4: the core must build for the web, so no dart:io in it
+dart compile js -o .dart_tool/web_compile.js tool/web_compile.dart
 ```
 
 CI runs the same three commands on a pinned SDK in the `runtimes-dart` job.
