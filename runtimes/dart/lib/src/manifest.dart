@@ -58,6 +58,22 @@ class LocaleEntry {
   final String? direction;
 }
 
+/// One signature over a manifest (SPEC §1.3).
+class ManifestSignature {
+  /// Creates a signature.
+  const ManifestSignature(this.keyId, this.alg, this.sig);
+
+  /// The id of the key that signed.
+  final String keyId;
+
+  /// The algorithm; only `Ed25519` is defined.
+  final String alg;
+
+  /// The signature, base64url without padding, over the RFC 8785 (JCS)
+  /// form of the manifest with `signatures` removed.
+  final String sig;
+}
+
 /// A release manifest (SPEC §1.1).
 class Manifest {
   /// Creates a manifest.
@@ -69,6 +85,7 @@ class Manifest {
     required this.locales,
     required this.fallback,
     required this.artifacts,
+    this.signatures = const [],
   });
 
   /// The project the release belongs to.
@@ -91,6 +108,10 @@ class Manifest {
 
   /// `artifacts[locale][namespace]` → the SHA-256 of the artifact's bytes.
   final Map<String, Map<String, String>> artifacts;
+
+  /// The signatures the release was published with, in manifest order.
+  /// Empty when the manifest is unsigned.
+  final List<ManifestSignature> signatures;
 
   /// The codes of [locales], in manifest order.
   List<String> get localeCodes => [for (final l in locales) l.code];
@@ -145,6 +166,23 @@ class Manifest {
               ),
           },
       },
+      signatures: [
+        // A malformed entry is skipped rather than failing the manifest:
+        // it simply isn't a signature anyone can verify against.
+        for (final s
+            in m['signatures'] is List<Object?>
+                ? m['signatures']! as List<Object?>
+                : const <Object?>[])
+          if (s is Map<String, Object?> &&
+              s['keyId'] is String &&
+              s['alg'] is String &&
+              s['sig'] is String)
+            ManifestSignature(
+              s['keyId']! as String,
+              s['alg']! as String,
+              s['sig']! as String,
+            ),
+      ],
     );
   }
 
