@@ -427,3 +427,28 @@ func TestStringRedactsSecrets(t *testing.T) {
 		t.Errorf("Reveal() = %q, want the original DSN", got)
 	}
 }
+
+// MCP is off by default: a deployment gains an agent surface (RFC 0005
+// §7) by asking for one, never by upgrading.
+func TestMCPDefaultsOff(t *testing.T) {
+	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
+	cfg, err := config.Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.MCP.Enabled {
+		t.Error("GLOSSA_MCP_ENABLED defaults to on")
+	}
+	if !strings.Contains(cfg.String(), "mcp=false") {
+		t.Errorf("String() = %q, want it to say mcp=false", cfg.String())
+	}
+
+	base["GLOSSA_MCP_ENABLED"] = "true"
+	cfg, err = config.Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.MCP.Enabled || cfg.MCP.SessionTimeout != 30*time.Minute || cfg.MCP.Rate != 120 || cfg.MCP.Burst != 240 {
+		t.Errorf("mcp = %+v, want it enabled with its documented defaults", cfg.MCP)
+	}
+}

@@ -24,6 +24,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	knowledgeapi "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/httpapi"
 	localizationapi "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/httpapi"
+	"github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/mcpgo"
 	previewapi "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/httpapi"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
 )
@@ -66,11 +67,22 @@ var _ apiv1.StrictServerInterface = apiServer{}
 // the headers the browser needs to show the problem, and its Preflight
 // handler answers OPTIONS, which the generated router doesn't register
 // (RFC 0004 §5.2).
-func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts) func(*http.ServeMux) {
+//
+// mcp, when the deployment enables it, is mounted beside /v1 rather
+// than inside it: MCP is JSON-RPC over one streamable endpoint, not a
+// REST operation, so it is not in the OpenAPI contract and does not go
+// through the generated router or the Guard. It authenticates with the
+// same tenant API tokens through Identity's own service, and its
+// sessions carry the same principal (RFC 0005 §7.2). A nil handler
+// registers nothing, so /mcp then answers like any unknown path.
+func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts, mcp http.Handler) func(*http.ServeMux) {
 	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
 		knowledgeAPI: c.knowledgeAPI, intelligenceAPI: c.intelligenceAPI, integrationAPI: c.integrationAPI,
 		previewAPI: c.previewAPI, contextAPI: c.contextAPI, metaAPI: meta}
 	return func(mux *http.ServeMux) {
+		if mcp != nil {
+			mux.Handle(mcpgo.Path, mcp)
+		}
 		strict := apiv1.NewStrictHandlerWithOptions(server, nil, apiv1.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  identity.RequestError,
 			ResponseErrorHandlerFunc: identity.ResponseError,

@@ -181,12 +181,17 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
+	mcpHandler, err := newMCP(cfg.MCP, identitySvc, pool, registry, tp, logger)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
 	server := httpserver.New(cfg.HTTP, httpserver.Deps{
 		Logger:         logger,
 		TracerProvider: tp,
 		Registry:       registry,
 		Readiness:      []httpserver.Check{{Name: "postgres", Probe: pool.Ping}},
-		Routes:         apiRoutes(identity, &metaAPI{signIn: identitySvc, edgeURL: cfg.Release.EdgePublicURL}, bounded),
+		Routes:         apiRoutes(identity, &metaAPI{signIn: identitySvc, edgeURL: cfg.Release.EdgePublicURL}, bounded, mcpHandler),
 		LargeBodies:    largeBodies(cfg.Integration),
 	})
 	return &app{
