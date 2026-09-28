@@ -20,6 +20,12 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
+// The store's own questions: what row-level security does to a query
+// that names another tenant's run, and whether a finding survives its
+// columns whole. What the queries select and how they page is graded
+// through the service in internal/quality/app, against the same
+// database and through the writer that actually fills these rows.
+
 var env *dbtest.Env
 
 func TestMain(m *testing.M) {
@@ -34,61 +40,47 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// seedRun writes one completed check run and its findings. Quality's
-// writer is a later slice, so the rows go in directly: what is under
-// test here is the read, the SQL and the isolation.
+func inTenant(t *testing.T, uow *db.UnitOfWork, tenant tenancy.ID, fn func(context.Context, app.Store) error) error {
+	t.Helper()
+	return qualitypg.NewTransactor(uow).InTenant(tenancy.ContextWithTenant(t.Context(), tenant), fn)
+}
+
+// seedRun writes one completed run and its findings through the store,
+// so the insert's column mapping is under test alongside the read.
 func seedRun(
 	t *testing.T, uow *db.UnitOfWork, tenant tenancy.ID, project uuid.UUID,
 	ref string, started time.Time, findings []domain.Finding,
-) uuid.UUID {
+) domain.CheckRun {
 	t.Helper()
-	run := uuid.Must(uuid.NewV7())
-	err := uow.InTenantTx(tenancy.ContextWithTenant(t.Context(), tenant),
-		func(ctx context.Context, tx *db.TenantTx) error {
-			_, err := tx.Exec(ctx, `
-				INSERT INTO quality_check_runs (id, tenant_id, project_id, ref, trigger, policy_version,
-				    layers, errors, warnings, waived, conclusion, created_by, started_at, completed_at)
-				VALUES ($1, $2, $3, $4, 'cli', 3, ARRAY['structure','parity'], 1, 1, 0, 'failure',
-				        'token:seed', $5, $5)`,
-				run, tenant.UUID(), project, ref, started)
-			if err != nil {
-				return err
-			}
-			for _, f := range findings {
-				_, err := tx.Exec(ctx, `
-					INSERT INTO quality_findings (id, tenant_id, run_id, project_id, fingerprint, layer, code,
-					    severity, message_key, locale, namespace, file, line, explanation, subject)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-					uuid.Must(uuid.NewV7()), tenant.UUID(), run, project, f.Fingerprint, string(f.Layer), f.Code,
-					string(f.Severity), f.Locus.Key, f.Locus.Locale, f.Locus.Namespace, f.Locus.File,
-					f.Locus.Line, f.Message, f.Subject)
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+	counts, conclusion := domain.Conclude(failsOnError{}, findings)
+	run := domain.CheckRun{
+		ID: uuid.Must(uuid.NewV7()), Project: project, Ref: ref, Trigger: domain.TriggerCLI, PolicyVersion: 3,
+		Layers: []domain.Layer{domain.LayerStructure, domain.LayerParity}, Counts: counts,
+		Conclusion: conclusion, CreatedBy: "token:seed", StartedAt: started, CompletedAt: started,
+	}
+	err := inTenant(t, uow, tenant, func(ctx context.Context, st app.Store) error {
+		if err := st.InsertCheckRun(ctx, run); err != nil {
+			return err
+		}
+		return st.InsertFindings(ctx, run.ID, project, findings)
+	})
 	if err != nil {
 		t.Fatalf("seed a run: %v", err)
 	}
 	return run
 }
 
-func finding(layer domain.Layer, code, key, locale string, severity domain.Severity) domain.Finding {
-	return domain.New(domain.Finding{
-		Layer: layer, Code: code, Severity: severity, Subject: code,
-		Locus:   domain.Locus{Key: key, Locale: locale, Namespace: "checkout", File: "src/Checkout.vue", Line: 12},
-		Message: "something is wrong with " + key,
-	})
-}
+// failsOnError is the default policy's verdict, spelled out so the
+// seed doesn't depend on a policy the store knows nothing about.
+type failsOnError struct{}
 
-func inTenant(t *testing.T, uow *db.UnitOfWork, tenant tenancy.ID, fn func(context.Context, app.Store) error) error {
-	t.Helper()
-	return qualitypg.NewTransactor(uow).InTenant(tenancy.ContextWithTenant(t.Context(), tenant), fn)
-}
+func (failsOnError) Fails(s domain.Severity) bool { return s == domain.Error }
 
-// Findings are tenant-owned under forced row-level security: one
-// tenant's run is not visible to another, whatever id it asks for.
+// TestFindingsAreTenantIsolated: findings are tenant-owned under forced
+// row-level security, so another tenant's run is not there whatever id
+// it asks for. The service can't answer this on its own — it refuses an
+// unknown project before it ever reaches a quality table — so the guard
+// on the tables themselves belongs here.
 func TestFindingsAreTenantIsolated(t *testing.T) {
 	ctx := t.Context()
 	if err := env.Reset(ctx); err != nil {
@@ -112,13 +104,12 @@ func TestFindingsAreTenantIsolated(t *testing.T) {
 		finding(domain.LayerStyle, "secret_code", "secret.key", "fr", domain.Warning),
 	})
 
-	// The second tenant's own project is simply not there for the first.
+	// The second tenant's project is simply not there for the first …
 	err = inTenant(t, uow, first, func(ctx context.Context, st app.Store) error {
-		if _, err := st.LatestRun(ctx, projectB, "", true); !errors.Is(err, app.ErrNotFound) {
+		if _, err := st.LatestCheckRun(ctx, projectB, app.RunFilter{}); !errors.Is(err, app.ErrCheckRunNotFound) {
 			t.Errorf("another tenant's project answered %v, want not found", err)
 		}
-		// Even naming the other tenant's run id directly returns nothing.
-		got, err := st.Findings(ctx, runA, app.FindingFilter{}, "", 10)
+		got, err := st.ListFindings(ctx, runA, app.FindingFilter{}, "", 10, now)
 		if err != nil {
 			return err
 		}
@@ -130,8 +121,12 @@ func TestFindingsAreTenantIsolated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// … and naming the first tenant's run id directly returns nothing.
 	err = inTenant(t, uow, second, func(ctx context.Context, st app.Store) error {
-		got, err := st.Findings(ctx, runA, app.FindingFilter{}, "", 10)
+		if _, err := st.CheckRun(ctx, projectA, runA.ID); !errors.Is(err, app.ErrCheckRunNotFound) {
+			t.Errorf("the second tenant read the first's run: %v", err)
+		}
+		got, err := st.ListFindings(ctx, runA, app.FindingFilter{}, "", 10, now)
 		if err != nil {
 			return err
 		}
@@ -145,131 +140,12 @@ func TestFindingsAreTenantIsolated(t *testing.T) {
 	}
 }
 
-// The latest run wins, and a ref picks the latest of that ref.
-func TestLatestRunPicksTheNewest(t *testing.T) {
-	ctx := t.Context()
-	if err := env.Reset(ctx); err != nil {
-		t.Fatal(err)
-	}
-	tenant, err := env.SeedTenant(ctx, "latest")
-	if err != nil {
-		t.Fatal(err)
-	}
-	uow := db.NewUnitOfWork(env.App)
-	project := uuid.New()
-	now := time.Now().UTC().Truncate(time.Millisecond)
-	seedRun(t, uow, tenant, project, "main", now.Add(-time.Hour), nil)
-	newest := seedRun(t, uow, tenant, project, "pr-7", now, nil)
-	main := seedRun(t, uow, tenant, project, "main", now.Add(-time.Minute), nil)
-
-	err = inTenant(t, uow, tenant, func(ctx context.Context, st app.Store) error {
-		latest, err := st.LatestRun(ctx, project, "", true)
-		if err != nil {
-			return err
-		}
-		if latest.ID != newest {
-			t.Errorf("latest run = %v, want the newest %v", latest.ID, newest)
-		}
-		if latest.PolicyVersion != 3 || latest.Counts.Errors != 1 || latest.Conclusion != domain.ConclusionFailure {
-			t.Errorf("run = %+v", latest)
-		}
-		if len(latest.Layers) != 2 || latest.Layers[0] != domain.LayerStructure {
-			t.Errorf("layers = %v", latest.Layers)
-		}
-		if latest.CompletedAt == nil {
-			t.Error("a completed run came back without its completion time")
-		}
-		ofRef, err := st.LatestRun(ctx, project, "main", true)
-		if err != nil {
-			return err
-		}
-		if ofRef.ID != main {
-			t.Errorf("latest run of main = %v, want %v", ofRef.ID, main)
-		}
-		if _, err := st.LatestRun(ctx, project, "nope", true); !errors.Is(err, app.ErrNotFound) {
-			t.Errorf("an unknown ref answered %v, want not found", err)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// Filters narrow, and the keyset cursor walks a run's findings without
-// repeating or skipping one.
-func TestFindingsFilterAndPaginate(t *testing.T) {
-	ctx := t.Context()
-	if err := env.Reset(ctx); err != nil {
-		t.Fatal(err)
-	}
-	tenant, err := env.SeedTenant(ctx, "filters")
-	if err != nil {
-		t.Fatal(err)
-	}
-	uow := db.NewUnitOfWork(env.App)
-	project := uuid.New()
-	run := seedRun(t, uow, tenant, project, "main", time.Now().UTC(), []domain.Finding{
-		finding(domain.LayerParity, "argument_missing", "checkout.pay", "de", domain.Error),
-		finding(domain.LayerParity, "argument_extra", "checkout.pay", "fr", domain.Warning),
-		finding(domain.LayerStructure, "parse_error", "home.title", "de", domain.Error),
-	})
-
-	err = inTenant(t, uow, tenant, func(ctx context.Context, st app.Store) error {
-		cases := []struct {
-			name   string
-			filter app.FindingFilter
-			want   int
-		}{
-			{name: "everything", want: 3},
-			{name: "by layer", filter: app.FindingFilter{Layer: domain.LayerParity}, want: 2},
-			{name: "by locale", filter: app.FindingFilter{Locale: "de"}, want: 2},
-			{name: "by severity", filter: app.FindingFilter{Severity: domain.Error}, want: 2},
-			{name: "by key", filter: app.FindingFilter{MessageKey: "home.title"}, want: 1},
-			{name: "waived only", filter: app.FindingFilter{WaivedOnly: true}, want: 0},
-			{
-				name:   "layer and locale together",
-				filter: app.FindingFilter{Layer: domain.LayerParity, Locale: "fr"}, want: 1,
-			},
-		}
-		for _, tc := range cases {
-			got, err := st.Findings(ctx, run, tc.filter, "", 50)
-			if err != nil {
-				return err
-			}
-			if len(got) != tc.want {
-				t.Errorf("%s: findings = %d, want %d", tc.name, len(got), tc.want)
-			}
-		}
-		// The cursor: one row at a time, over the whole run.
-		seen := map[uuid.UUID]bool{}
-		after := ""
-		for range 4 {
-			got, err := st.Findings(ctx, run, app.FindingFilter{}, after, 1)
-			if err != nil {
-				return err
-			}
-			if len(got) == 0 {
-				break
-			}
-			if seen[got[0].ID] {
-				t.Fatalf("the cursor repeated %v", got[0].ID)
-			}
-			seen[got[0].ID] = true
-			after = got[0].ID.String()
-		}
-		if len(seen) != 3 {
-			t.Errorf("the cursor walked %d findings, want 3", len(seen))
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// A stored finding comes back whole enough to act on: its fingerprint
-// as written, its locus, and its prose.
+// TestFindingRoundTrip: a finding is stored across two dozen columns,
+// and every one of them is something a surface renders — the file and
+// line an annotation needs, the span the overlay underlines, the
+// evidence and the fix. A conversion that drops one is the failure
+// M4 exists to end (RFC 0005 §14 decision 1), so the whole locus goes
+// down and comes back.
 func TestFindingRoundTrip(t *testing.T) {
 	ctx := t.Context()
 	if err := env.Reset(ctx); err != nil {
@@ -281,11 +157,27 @@ func TestFindingRoundTrip(t *testing.T) {
 	}
 	uow := db.NewUnitOfWork(env.App)
 	project := uuid.New()
-	want := finding(domain.LayerParity, "argument_missing", "checkout.pay", "de", domain.Error)
-	run := seedRun(t, uow, tenant, project, "main", time.Now().UTC(), []domain.Finding{want})
+	now := time.Now().UTC()
+	revision := 41
+	to := 30
+	message, translation, capture := uuid.New(), uuid.New(), uuid.New()
+	want := domain.New(domain.Finding{
+		Layer: domain.LayerLength, Code: "too_long", Severity: domain.Error, Subject: "checkout.pay",
+		Detail: "expansion", Message: "the German is 40% longer than the source",
+		Locus: domain.Locus{
+			Message: message.String(), Key: "checkout.pay", Locale: "de", Revision: translation.String(),
+			Namespace: "checkout", File: "src/Checkout.vue", Line: 12, Column: 7,
+			Route: "/checkout", Component: "PayButton", Capture: capture.String(), Region: "cta",
+			Span: &domain.Span{Side: domain.SideTarget, Start: 3, End: 11},
+		},
+		Evidence:       map[string]any{"limit": float64(30), "measured": float64(42)},
+		Fix:            &domain.Fix{Kind: domain.FixShorten, To: &to, Hint: "Bezahlen"},
+		SourceRevision: &revision,
+	})
+	run := seedRun(t, uow, tenant, project, "main", now, []domain.Finding{want})
 
 	err = inTenant(t, uow, tenant, func(ctx context.Context, st app.Store) error {
-		got, err := st.Findings(ctx, run, app.FindingFilter{}, "", 10)
+		got, err := st.ListFindings(ctx, run, app.FindingFilter{}, "", 10, now)
 		if err != nil {
 			return err
 		}
@@ -293,21 +185,45 @@ func TestFindingRoundTrip(t *testing.T) {
 			t.Fatalf("findings = %d, want 1", len(got))
 		}
 		f := got[0]
-		switch {
-		case f.Fingerprint != want.Fingerprint:
-			t.Errorf("fingerprint = %q, want the stored %q", f.Fingerprint, want.Fingerprint)
-		case f.Schema != domain.Schema:
-			t.Errorf("schema = %q", f.Schema)
-		case f.Locus.File != "src/Checkout.vue" || f.Locus.Line != 12:
-			t.Errorf("locus = %+v", f.Locus)
-		case f.Message != want.Message || f.Subject != want.Subject:
-			t.Errorf("finding = %+v", f)
-		case f.ID == uuid.Nil:
-			t.Error("the row has no id to page on")
+		if f.Fingerprint != want.Fingerprint || f.Schema != domain.Schema {
+			t.Errorf("identity = %q/%q, want %q/%q", f.Schema, f.Fingerprint, domain.Schema, want.Fingerprint)
+		}
+		if f.Locus != want.Locus {
+			// Span is a pointer, so compare what it points at too.
+			if f.Locus.Span == nil || want.Locus.Span == nil || *f.Locus.Span != *want.Locus.Span {
+				t.Errorf("span = %+v, want %+v", f.Locus.Span, want.Locus.Span)
+			}
+			f.Locus.Span, want.Locus.Span = nil, nil
+			if f.Locus != want.Locus {
+				t.Errorf("locus = %+v, want %+v", f.Locus, want.Locus)
+			}
+		}
+		if f.Message != want.Message || f.Subject != want.Subject || f.Detail != want.Detail {
+			t.Errorf("prose = %+v", f.Finding)
+		}
+		if f.Evidence["limit"] != float64(30) || f.Evidence["measured"] != float64(42) {
+			t.Errorf("evidence = %+v, want what the layer measured", f.Evidence)
+		}
+		if f.Fix == nil || f.Fix.Kind != domain.FixShorten || f.Fix.To == nil || *f.Fix.To != to {
+			t.Errorf("fix = %+v", f.Fix)
+		}
+		if f.SourceRevision == nil || *f.SourceRevision != revision {
+			t.Errorf("source revision = %v, want %d: a waiver dies when it moves", f.SourceRevision, revision)
+		}
+		if f.Waived || f.SortKey == "" {
+			t.Errorf("record = waived %v, sort key %q", f.Waived, f.SortKey)
 		}
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func finding(layer domain.Layer, code, key, locale string, severity domain.Severity) domain.Finding {
+	return domain.New(domain.Finding{
+		Layer: layer, Code: code, Severity: severity, Subject: code,
+		Locus:   domain.Locus{Key: key, Locale: locale, Namespace: "checkout", File: "src/Checkout.vue", Line: 12},
+		Message: "something is wrong with " + key,
+	})
 }
