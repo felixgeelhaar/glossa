@@ -56,8 +56,8 @@ This is the shared fixture suite for `@glossa/unplugin` and `glossa extract`: so
 `glossa.usages/v1` document each tool must produce from them. These `expected.json` files are
 written by hand, unlike the generated files above. [`gen/check_usages.py`](./gen/check_usages.py)
 validates them. It also validates `schemas/usages.v1.schema.json`,
-`schemas/captures.v1.schema.json` and their [`examples/`](./schemas/examples). CI runs it next to
-`generate.py --check`. The contract itself is in [`usages/README.md`](./usages/README.md).
+`schemas/captures.v1.schema.json`, `schemas/finding.v1.schema.json` and their
+[`examples/`](./schemas/examples). CI runs it next to `generate.py --check`. The contract itself is in [`usages/README.md`](./usages/README.md).
 
 ## `markup.json` (formatted parts → HTML, SPEC §5)
 
