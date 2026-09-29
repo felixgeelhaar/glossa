@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
@@ -29,6 +30,14 @@ var (
 	ErrPreGradedFinding = errors.New("quality: a recorded finding carries the severity its layer emitted, not `waived`")
 	// ErrTooManyFindings is a run past domain.MaxRunFindings.
 	ErrTooManyFindings = errors.New("quality: too many findings in one run")
+	// ErrPolicyVersionNotFound is a policy version this project never
+	// had.
+	ErrPolicyVersionNotFound = errors.New("quality: no such check-policy version in the project")
+	// ErrPolicyConflict is a policy write that lost a race: the project
+	// moved between reading the document and replacing it, so saving
+	// would drop whatever the other writer said. The caller reads the
+	// policy again and decides.
+	ErrPolicyConflict = errors.New("quality: the project's check policy changed while this write was being prepared")
 )
 
 // MaxRunFindings bounds one run's findings (RFC 0005 §10).
@@ -41,6 +50,29 @@ const MaxRunFindings = 10000
 type Catalog interface {
 	// Project answers ErrProjectNotFound for an unknown project.
 	Project(ctx context.Context, project uuid.UUID) error
+	// CheckPolicy reads the project's stored check-policy document. A
+	// project that has never saved one reads as the zero policy, which
+	// is checkpolicy's documented default.
+	CheckPolicy(ctx context.Context, project uuid.UUID) (StoredPolicy, error)
+	// SaveCheckPolicy replaces the stored document, if the project is
+	// still at the version the read saw (ErrPolicyConflict otherwise).
+	SaveCheckPolicy(ctx context.Context, project uuid.UUID, ifMatch int, p checkpolicy.Policy) error
+	// OpenPullRequests maps the names of the project's open branches to
+	// the pull requests they belong to, for branches that have one. It
+	// is what turns "these refs would newly fail" into the number
+	// RFC 0005 §4.3 asks the impact preview to show: how many people
+	// would wake up to a red pull request they did not cause.
+	OpenPullRequests(ctx context.Context, project uuid.UUID) (map[string]int, error)
+}
+
+// StoredPolicy is the project's check policy as Catalog holds it.
+type StoredPolicy struct {
+	// Policy is the document that grades, history and all.
+	Policy checkpolicy.Policy
+	// ProjectVersion is the project row's version when the document was
+	// read. A save hands it back, so a write that lost a race is refused
+	// rather than silently overwriting the winner.
+	ProjectVersion int
 }
 
 // Metrics records Quality in the deployment's metrics (RFC 0005 §11).
@@ -205,4 +237,33 @@ type Store interface {
 	RevokeWaiver(ctx context.Context, project, id uuid.UUID, at time.Time) error
 	// LiveWaivers are the project's waivers that stand at now.
 	LiveWaivers(ctx context.Context, project uuid.UUID, now time.Time) ([]domain.Waiver, error)
+	// InsertPolicyVersion appends one saved policy version to the
+	// project's history; stored is false where that version is already
+	// recorded, which makes a repeated save idempotent rather than an
+	// error.
+	InsertPolicyVersion(ctx context.Context, v PolicyVersion) (stored bool, err error)
+	// PolicyVersion reads one version of the project's policy
+	// (ErrPolicyVersionNotFound).
+	PolicyVersion(ctx context.Context, project uuid.UUID, version int) (PolicyVersion, error)
+	// ListPolicyVersions pages the project's policy versions, newest
+	// first, continuing below after.
+	ListPolicyVersions(ctx context.Context, project uuid.UUID, after *int, limit int) ([]PolicyVersion, error)
+}
+
+// PolicyVersion is one saved version of a project's check policy: the
+// document as it was stored, who wrote it and when (RFC 0005 §4.3).
+//
+// The document is the version itself, without the version behind it:
+// the history is the sequence of these rows, not a chain inside one of
+// them.
+type PolicyVersion struct {
+	ID      uuid.UUID
+	Project uuid.UUID
+	Version int
+	Policy  checkpolicy.Policy
+	// CreatedBy is the principal that saved it, and CreatedAt is when.
+	// A policy is an organizational decision about a project, so who
+	// took it is part of the record.
+	CreatedBy string
+	CreatedAt time.Time
 }

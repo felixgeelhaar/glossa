@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
@@ -30,6 +32,10 @@ type fakeStore struct {
 	rows []app.FindingRecord
 	// runErr is what the run lookup answers instead of run.
 	runErr error
+	// runs and versions are what the policy surface reads: the runs an
+	// impact preview is measured against, and the saved policy versions.
+	runs     []domain.CheckRun
+	versions []app.PolicyVersion
 
 	// What the last ListFindings and run lookup passed down.
 	lastRunFilter app.FindingFilter
@@ -84,10 +90,53 @@ func (f *fakeStore) InsertFindings(context.Context, uuid.UUID, uuid.UUID, []doma
 	panic("not on this path")
 }
 
+// ListCheckRuns returns the runs the impact preview is measured
+// against, newest first, and nothing when a test set none.
 func (f *fakeStore) ListCheckRuns(
-	context.Context, uuid.UUID, app.RunFilter, *app.RunCursor, int,
+	_ context.Context, _ uuid.UUID, _ app.RunFilter, _ *app.RunCursor, limit int,
 ) ([]domain.CheckRun, error) {
-	panic("not on this path")
+	if len(f.runs) > limit {
+		return f.runs[:limit], nil
+	}
+	return f.runs, nil
+}
+
+func (f *fakeStore) InsertPolicyVersion(_ context.Context, v app.PolicyVersion) (bool, error) {
+	for _, had := range f.versions {
+		if had.Version == v.Version {
+			return false, nil
+		}
+	}
+	f.versions = append(f.versions, v)
+	return true, nil
+}
+
+func (f *fakeStore) PolicyVersion(_ context.Context, _ uuid.UUID, version int) (app.PolicyVersion, error) {
+	for _, v := range f.versions {
+		if v.Version == version {
+			return v, nil
+		}
+	}
+	return app.PolicyVersion{}, app.ErrPolicyVersionNotFound
+}
+
+// ListPolicyVersions pages newest first, the way the query does.
+func (f *fakeStore) ListPolicyVersions(
+	_ context.Context, _ uuid.UUID, after *int, limit int,
+) ([]app.PolicyVersion, error) {
+	ordered := slices.Clone(f.versions)
+	slices.SortFunc(ordered, func(a, b app.PolicyVersion) int { return b.Version - a.Version })
+	var out []app.PolicyVersion
+	for _, v := range ordered {
+		if after != nil && v.Version >= *after {
+			continue
+		}
+		if len(out) == limit {
+			break
+		}
+		out = append(out, v)
+	}
+	return out, nil
 }
 
 func (f *fakeStore) LatestFinding(context.Context, uuid.UUID, string) (app.FindingSummary, bool, error) {
@@ -121,14 +170,56 @@ func (t fakeTx) InTenant(ctx context.Context, fn func(context.Context, app.Store
 }
 
 // knownProjects is a Catalog that knows one project, so an unknown one
-// is a 404 and not an empty list.
-type knownProjects struct{ id uuid.UUID }
+// is a 404 and not an empty list. It also holds that project's check
+// policy, because Catalog is where the document that grades lives.
+type knownProjects struct {
+	id uuid.UUID
+	// policy is the stored document and projectVersion the project row's
+	// ETag, which a save has to still match.
+	policy         checkpolicy.Policy
+	projectVersion int
+	// open maps open branch names to their pull requests.
+	open map[string]int
+	// conflict makes the next save lose the race.
+	conflict bool
+	// saved and savedIfMatch record what the last save asked for.
+	saved        *checkpolicy.Policy
+	savedIfMatch int
+}
 
-func (c knownProjects) Project(_ context.Context, project uuid.UUID) error {
+func (c *knownProjects) Project(_ context.Context, project uuid.UUID) error {
 	if project != c.id {
 		return app.ErrProjectNotFound
 	}
 	return nil
+}
+
+func (c *knownProjects) CheckPolicy(_ context.Context, project uuid.UUID) (app.StoredPolicy, error) {
+	if project != c.id {
+		return app.StoredPolicy{}, app.ErrProjectNotFound
+	}
+	return app.StoredPolicy{Policy: c.policy, ProjectVersion: c.projectVersion}, nil
+}
+
+func (c *knownProjects) SaveCheckPolicy(
+	_ context.Context, project uuid.UUID, ifMatch int, p checkpolicy.Policy,
+) error {
+	if project != c.id {
+		return app.ErrProjectNotFound
+	}
+	if c.conflict {
+		return app.ErrPolicyConflict
+	}
+	c.saved, c.savedIfMatch = &p, ifMatch
+	c.policy, c.projectVersion = p, c.projectVersion+1
+	return nil
+}
+
+func (c *knownProjects) OpenPullRequests(_ context.Context, project uuid.UUID) (map[string]int, error) {
+	if project != c.id {
+		return nil, app.ErrProjectNotFound
+	}
+	return c.open, nil
 }
 
 // storeWith is a completed, failing run of `main` with n findings in
@@ -158,8 +249,16 @@ func storeWith(n int) *fakeStore {
 // serviceFor returns a service over store, and the project its Catalog
 // knows.
 func serviceFor(store *fakeStore) (*app.Service, uuid.UUID) {
+	svc, _, project := serviceAndCatalog(store)
+	return svc, project
+}
+
+// serviceAndCatalog also hands back the Catalog, for the tests that
+// care what the service stored through it.
+func serviceAndCatalog(store *fakeStore) (*app.Service, *knownProjects, uuid.UUID) {
 	project := uuid.New()
-	return app.NewService(fakeTx{store: store}, knownProjects{id: project}), project
+	catalog := &knownProjects{id: project, projectVersion: 1}
+	return app.NewService(fakeTx{store: store}, catalog), catalog, project
 }
 
 // readCtx carries a principal that may read the catalog.

@@ -573,6 +573,135 @@ func (e CheckPolicyRequireComplete) Valid() bool {
 	}
 }
 
+// Defines values for CheckPolicyDocumentFailOn.
+const (
+	CheckPolicyDocumentFailOnError   CheckPolicyDocumentFailOn = "error"
+	CheckPolicyDocumentFailOnNever   CheckPolicyDocumentFailOn = "never"
+	CheckPolicyDocumentFailOnWarning CheckPolicyDocumentFailOn = "warning"
+)
+
+// Valid indicates whether the value is a known member of the CheckPolicyDocumentFailOn enum.
+func (e CheckPolicyDocumentFailOn) Valid() bool {
+	switch e {
+	case CheckPolicyDocumentFailOnError:
+		return true
+	case CheckPolicyDocumentFailOnNever:
+		return true
+	case CheckPolicyDocumentFailOnWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CheckPolicyDocumentMissingTranslations.
+const (
+	CheckPolicyDocumentMissingTranslationsError   CheckPolicyDocumentMissingTranslations = "error"
+	CheckPolicyDocumentMissingTranslationsWarning CheckPolicyDocumentMissingTranslations = "warning"
+)
+
+// Valid indicates whether the value is a known member of the CheckPolicyDocumentMissingTranslations enum.
+func (e CheckPolicyDocumentMissingTranslations) Valid() bool {
+	switch e {
+	case CheckPolicyDocumentMissingTranslationsError:
+		return true
+	case CheckPolicyDocumentMissingTranslationsWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CheckPolicyDocumentSchema.
+const (
+	GlossaCheckPolicyv1 CheckPolicyDocumentSchema = "glossa.check-policy/v1"
+)
+
+// Valid indicates whether the value is a known member of the CheckPolicyDocumentSchema enum.
+func (e CheckPolicyDocumentSchema) Valid() bool {
+	switch e {
+	case GlossaCheckPolicyv1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CheckPolicyEnvironmentRequireReview.
+const (
+	CheckPolicyEnvironmentRequireReviewApproved CheckPolicyEnvironmentRequireReview = "approved"
+)
+
+// Valid indicates whether the value is a known member of the CheckPolicyEnvironmentRequireReview enum.
+func (e CheckPolicyEnvironmentRequireReview) Valid() bool {
+	switch e {
+	case CheckPolicyEnvironmentRequireReviewApproved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CheckPolicyLocaleRequirement.
+const (
+	CheckPolicyLocaleRequirementAll    CheckPolicyLocaleRequirement = "all"
+	CheckPolicyLocaleRequirementListed CheckPolicyLocaleRequirement = "listed"
+	CheckPolicyLocaleRequirementNone   CheckPolicyLocaleRequirement = "none"
+)
+
+// Valid indicates whether the value is a known member of the CheckPolicyLocaleRequirement enum.
+func (e CheckPolicyLocaleRequirement) Valid() bool {
+	switch e {
+	case CheckPolicyLocaleRequirementAll:
+		return true
+	case CheckPolicyLocaleRequirementListed:
+		return true
+	case CheckPolicyLocaleRequirementNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CheckPolicyRuleMode.
+const (
+	Enforce CheckPolicyRuleMode = "enforce"
+	Warn    CheckPolicyRuleMode = "warn"
+)
+
+// Valid indicates whether the value is a known member of the CheckPolicyRuleMode enum.
+func (e CheckPolicyRuleMode) Valid() bool {
+	switch e {
+	case Enforce:
+		return true
+	case Warn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CheckPolicyRuleSeverity.
+const (
+	CheckPolicyRuleSeverityError   CheckPolicyRuleSeverity = "error"
+	CheckPolicyRuleSeverityOff     CheckPolicyRuleSeverity = "off"
+	CheckPolicyRuleSeverityWarning CheckPolicyRuleSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the CheckPolicyRuleSeverity enum.
+func (e CheckPolicyRuleSeverity) Valid() bool {
+	switch e {
+	case CheckPolicyRuleSeverityError:
+		return true
+	case CheckPolicyRuleSeverityOff:
+		return true
+	case CheckPolicyRuleSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CheckRunConclusion.
 const (
 	CheckRunConclusionFailure CheckRunConclusion = "failure"
@@ -3023,6 +3152,307 @@ type CheckPolicyMissingTranslations string
 // `none`.
 type CheckPolicyRequireComplete string
 
+// CheckPolicyDocument The check-policy document in its canonical form (RFC 0005 §4.1):
+// what the policy says, and none of the bookkeeping about when it
+// said it. It is what `exportCheckPolicy` writes and
+// `importCheckPolicy` reads, and what `saveCheckPolicy` takes as
+// its `policy`.
+//
+// A save replaces the whole document. The three base fields —
+// `require_complete`, `fail_on` and `missing_translations` — are
+// the ones every project starts from and mean exactly what they
+// meant before the document existed, so a policy that names no
+// rules and no environments decides every question the way the
+// pre-document policy did.
+type CheckPolicyDocument struct {
+	// Environments What each environment asks for, by environment name.
+	Environments *map[string]CheckPolicyEnvironment `json:"environments,omitempty"`
+
+	// FailOn The lowest severity that fails the check: `error` (the
+	// default), `warning` — a warning fails it too — or `never`,
+	// where the check only ever reports.
+	FailOn CheckPolicyDocumentFailOn `json:"fail_on"`
+
+	// Locales The locales `require_complete: listed` names; empty
+	// otherwise. Every one must be a locale the project has
+	// (`invalid_check_policy`).
+	Locales *[]Locale `json:"locales,omitempty"`
+
+	// MissingTranslations What an untranslated key in a locale that must be complete
+	// is. Teams that translate after merging set this to `warning`
+	// and keep every locale required: the check still lists what
+	// is untranslated without blocking the pull request.
+	MissingTranslations CheckPolicyDocumentMissingTranslations `json:"missing_translations"`
+
+	// RequireComplete Which locales must be complete: every one of the project's
+	// (`all`), only those in `locales` (`listed`), or none of them.
+	// `listed` with an empty `locales` is stored as `none`.
+	RequireComplete CheckPolicyLocaleRequirement `json:"require_complete"`
+
+	// Rules The selectors, in document order. Order is part of the
+	// meaning: ties in specificity go to the later rule.
+	Rules *[]CheckPolicyRule `json:"rules,omitempty"`
+
+	// Schema Always present in responses; absent in a write, the server writes this one.
+	Schema *CheckPolicyDocumentSchema `json:"schema,omitempty"`
+}
+
+// CheckPolicyDocumentFailOn The lowest severity that fails the check: `error` (the
+// default), `warning` — a warning fails it too — or `never`,
+// where the check only ever reports.
+type CheckPolicyDocumentFailOn string
+
+// CheckPolicyDocumentMissingTranslations What an untranslated key in a locale that must be complete
+// is. Teams that translate after merging set this to `warning`
+// and keep every locale required: the check still lists what
+// is untranslated without blocking the pull request.
+type CheckPolicyDocumentMissingTranslations string
+
+// CheckPolicyDocumentSchema Always present in responses; absent in a write, the server writes this one.
+type CheckPolicyDocumentSchema string
+
+// CheckPolicyEnvironment What one environment asks for beyond the document's base:
+// production may require locales a branch does not, and a review
+// state a branch does not. An environment that names no
+// `require_complete` inherits the document's, so naming one only
+// to ask for a review state doesn't quietly change what must be
+// translated.
+type CheckPolicyEnvironment struct {
+	// Locales The locales this block's `listed` names; empty otherwise.
+	Locales *[]Locale `json:"locales,omitempty"`
+
+	// RequireComplete Absent, the document's.
+	RequireComplete *CheckPolicyLocaleRequirement `json:"require_complete,omitempty"`
+
+	// RequireReview The review state a release must have reached to publish
+	// here. Release enforces it at publish (`policy_not_met`); the
+	// policy only states it.
+	RequireReview *CheckPolicyEnvironmentRequireReview `json:"require_review,omitempty"`
+}
+
+// CheckPolicyEnvironmentRequireReview The review state a release must have reached to publish
+// here. Release enforces it at publish (`policy_not_met`); the
+// policy only states it.
+type CheckPolicyEnvironmentRequireReview string
+
+// CheckPolicyImpact What a candidate policy would change about the findings and the
+// runs the project already has (RFC 0005 §4.3), measured against
+// the newest run of each of the refs checked most recently.
+type CheckPolicyImpact struct {
+	// Findings The stored findings the preview was measured against.
+	Findings int `json:"findings"`
+	Lowered  int `json:"lowered"`
+
+	// NewlyFailing Findings that fail under the candidate and did not before.
+	NewlyFailing int `json:"newly_failing"`
+
+	// NewlyFailingRefs The refs whose verdict turns from passing to failing.
+	NewlyFailingRefs    *[]string `json:"newly_failing_refs,omitempty"`
+	NoLongerFailing     int       `json:"no_longer_failing"`
+	NoLongerFailingRefs *[]string `json:"no_longer_failing_refs,omitempty"`
+
+	// OpenPullRequests Open pull requests among `newly_failing_refs` — the number
+	// of people who would wake up to a red pull request they did
+	// not cause, and the one that decides whether this policy
+	// ships with a grace.
+	OpenPullRequests int `json:"open_pull_requests"`
+
+	// Raised Findings the candidate makes count for more.
+	Raised int                     `json:"raised"`
+	Rules  []CheckPolicyRuleImpact `json:"rules"`
+
+	// Runs The runs those findings came from — one per ref, the newest.
+	Runs int `json:"runs"`
+
+	// Silenced Findings the candidate stops computing.
+	Silenced int `json:"silenced"`
+}
+
+// CheckPolicyLocaleRequirement Which locales must be complete: every one of the project's
+// (`all`), only those in `locales` (`listed`), or none of them.
+// `listed` with an empty `locales` is stored as `none`.
+type CheckPolicyLocaleRequirement string
+
+// CheckPolicyRule One line of the policy document (RFC 0005 §4.1): what it
+// selects, what that is worth, and whether it may fail a run yet.
+//
+// The selector is any subset of `layer`, `code`, `locale`,
+// `namespace` and `environment`. Every field it names must match
+// the finding; every field it leaves out matches anything. A field
+// the finding doesn't carry never matches a rule that names it, so
+// a rule for `environment: production` says nothing about a pull
+// request's branch check, which runs in no environment at all.
+//
+// **Precedence is by specificity**: the rule naming more fields
+// wins, and ties go to the later rule — so a rule appended to a
+// policy always wins against the rule it was written to override.
+// A policy nobody can predict is worse than no policy.
+type CheckPolicyRule struct {
+	Code *string `json:"code,omitempty"`
+
+	// Environment The environment the run is about. A branch check is in none.
+	Environment *string `json:"environment,omitempty"`
+
+	// Layer Which layer found it (RFC 0005 §3). Selectable by name in the policy and on the command line.
+	Layer *FindingLayer `json:"layer,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// Mode `enforce` (the default) lets the rule change the run's
+	// conclusion. `warn` computes and reports at the rule's
+	// severity but can never fail a run: it is the on-ramp for a
+	// stricter policy — ship the rule, watch the number, flip it.
+	Mode *CheckPolicyRuleMode `json:"mode,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// Severity What the selected findings are worth. `off` means "don't
+	// compute": the layer isn't run, so a project doesn't pay for
+	// QA it ignores, and nothing is reported or counted. A rule
+	// may not raise the model-decided `linguistic` layer to
+	// `error` — a build never fails on an opinion.
+	Severity CheckPolicyRuleSeverity `json:"severity"`
+}
+
+// CheckPolicyRuleMode `enforce` (the default) lets the rule change the run's
+// conclusion. `warn` computes and reports at the rule's
+// severity but can never fail a run: it is the on-ramp for a
+// stricter policy — ship the rule, watch the number, flip it.
+type CheckPolicyRuleMode string
+
+// CheckPolicyRuleSeverity What the selected findings are worth. `off` means "don't
+// compute": the layer isn't run, so a project doesn't pay for
+// QA it ignores, and nothing is reported or counted. A rule
+// may not raise the model-decided `linguistic` layer to
+// `error` — a build never fails on an opinion.
+type CheckPolicyRuleSeverity string
+
+// CheckPolicyRuleImpact What one rule of the candidate did. A rule that changed nothing
+// is listed too: it is exactly what a reader wants to know before
+// saving.
+type CheckPolicyRuleImpact struct {
+	// Changed Findings it decided differently from the policy in force.
+	Changed int `json:"changed"`
+
+	// Matched Findings this rule decided.
+	Matched int `json:"matched"`
+
+	// NewlyFailing Findings it turned into a reason a run fails.
+	NewlyFailing int `json:"newly_failing"`
+
+	// Rule The rule's index in the candidate document's `rules`.
+	Rule int `json:"rule"`
+
+	// Selector One line of the policy document (RFC 0005 §4.1): what it
+	// selects, what that is worth, and whether it may fail a run yet.
+	//
+	// The selector is any subset of `layer`, `code`, `locale`,
+	// `namespace` and `environment`. Every field it names must match
+	// the finding; every field it leaves out matches anything. A field
+	// the finding doesn't carry never matches a rule that names it, so
+	// a rule for `environment: production` says nothing about a pull
+	// request's branch check, which runs in no environment at all.
+	//
+	// **Precedence is by specificity**: the rule naming more fields
+	// wins, and ties go to the later rule — so a rule appended to a
+	// policy always wins against the rule it was written to override.
+	// A policy nobody can predict is worse than no policy.
+	Selector *CheckPolicyRule `json:"selector,omitempty"`
+}
+
+// CheckPolicySaved defines model for CheckPolicySaved.
+type CheckPolicySaved struct {
+	// DryRun Nothing was stored.
+	DryRun bool `json:"dry_run"`
+
+	// Impact What a candidate policy would change about the findings and the
+	// runs the project already has (RFC 0005 §4.3), measured against
+	// the newest run of each of the refs checked most recently.
+	Impact CheckPolicyImpact `json:"impact"`
+
+	// Policy The policy that grades, and the record of who put it there.
+	Policy CheckPolicyState `json:"policy"`
+}
+
+// CheckPolicyState The policy that grades, and the record of who put it there.
+type CheckPolicyState struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt *Timestamp `json:"created_at,omitempty"`
+
+	// CreatedBy Absent for a policy nobody saved through this endpoint.
+	CreatedBy *string `json:"created_by,omitempty"`
+
+	// Document The check-policy document in its canonical form (RFC 0005 §4.1):
+	// what the policy says, and none of the bookkeeping about when it
+	// said it. It is what `exportCheckPolicy` writes and
+	// `importCheckPolicy` reads, and what `saveCheckPolicy` takes as
+	// its `policy`.
+	//
+	// A save replaces the whole document. The three base fields —
+	// `require_complete`, `fail_on` and `missing_translations` — are
+	// the ones every project starts from and mean exactly what they
+	// meant before the document existed, so a policy that names no
+	// rules and no environments decides every question the way the
+	// pre-document policy did.
+	Document CheckPolicyDocument `json:"document"`
+
+	// EffectiveFrom When this version was saved.
+	EffectiveFrom *Timestamp `json:"effective_from,omitempty"`
+
+	// GraceUntil Until when pull requests opened before `effective_from` keep
+	// grading against `pinned_version`. Absent, the version grades
+	// everything at once.
+	GraceUntil *Timestamp `json:"grace_until,omitempty"`
+
+	// PinnedVersion The version a pull request still inside the grace grades against.
+	PinnedVersion *int `json:"pinned_version,omitempty"`
+
+	// Version Monotonic. Every check run records the version it graded
+	// itself against, so a run can say which it used when two are
+	// live at once. `0` is a project that has never saved one.
+	Version int `json:"version"`
+}
+
+// CheckPolicyVersion One saved version of the policy, and who saved it when.
+type CheckPolicyVersion struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// Document The check-policy document in its canonical form (RFC 0005 §4.1):
+	// what the policy says, and none of the bookkeeping about when it
+	// said it. It is what `exportCheckPolicy` writes and
+	// `importCheckPolicy` reads, and what `saveCheckPolicy` takes as
+	// its `policy`.
+	//
+	// A save replaces the whole document. The three base fields —
+	// `require_complete`, `fail_on` and `missing_translations` — are
+	// the ones every project starts from and mean exactly what they
+	// meant before the document existed, so a policy that names no
+	// rules and no environments decides every question the way the
+	// pre-document policy did.
+	Document CheckPolicyDocument `json:"document"`
+
+	// EffectiveFrom RFC 3339, UTC.
+	EffectiveFrom *Timestamp `json:"effective_from,omitempty"`
+
+	// GraceUntil RFC 3339, UTC.
+	GraceUntil *Timestamp `json:"grace_until,omitempty"`
+	Version    int        `json:"version"`
+}
+
+// CheckPolicyVersionList defines model for CheckPolicyVersionList.
+type CheckPolicyVersionList struct {
+	Items         []CheckPolicyVersion `json:"items"`
+	NextPageToken *string              `json:"next_page_token,omitempty"`
+}
+
 // CheckRun One evaluation of a project against its policy.
 type CheckRun struct {
 	// Commit The commit the run graded, where there is one.
@@ -5279,6 +5709,33 @@ type Rollback struct {
 	ReleaseId *Id `json:"release_id,omitempty"`
 }
 
+// SaveCheckPolicy A new version of the check policy.
+type SaveCheckPolicy struct {
+	// DryRun Answer the impact preview and store nothing — neither the document nor a version.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// GraceDays How long the save pins the pull requests that predate it to
+	// the version they were opened under. Absent, 14 days — the
+	// default protects the people who did not cause the change;
+	// `0` pins nothing, which is what a policy that only loosens
+	// wants.
+	GraceDays *int `json:"grace_days,omitempty"`
+
+	// Policy The check-policy document in its canonical form (RFC 0005 §4.1):
+	// what the policy says, and none of the bookkeeping about when it
+	// said it. It is what `exportCheckPolicy` writes and
+	// `importCheckPolicy` reads, and what `saveCheckPolicy` takes as
+	// its `policy`.
+	//
+	// A save replaces the whole document. The three base fields —
+	// `require_complete`, `fail_on` and `missing_translations` — are
+	// the ones every project starts from and mean exactly what they
+	// meant before the document existed, so a policy that names no
+	// rules and no environments decides every question the way the
+	// pre-document policy did.
+	Policy CheckPolicyDocument `json:"policy"`
+}
+
 // Scope `read` reads the tenant; `write` pushes messages and
 // translations; `publish` creates releases; `admin` manages the
 // tenant, members and tokens (never owners). Every scope implies
@@ -6410,6 +6867,9 @@ type CapturePath = Id
 // CeremonyCookie defines model for CeremonyCookie.
 type CeremonyCookie = string
 
+// CheckPolicyVersionPath defines model for CheckPolicyVersionPath.
+type CheckPolicyVersionPath = int
+
 // CheckRunPath An opaque identifier.
 type CheckRunPath = Id
 
@@ -6926,6 +7386,24 @@ type CreateCapturesMultipartBody struct {
 type GetCaptureImageParams struct {
 	// IfNoneMatch The `ETag` of a cached copy.
 	IfNoneMatch *string `json:"If-None-Match,omitempty"`
+}
+
+// ImportCheckPolicyParams defines parameters for ImportCheckPolicy.
+type ImportCheckPolicyParams struct {
+	// GraceDays How long to pin the pull requests that predate the save.
+	// Absent, 14 days; `0` pins nothing.
+	GraceDays *int `form:"grace_days,omitempty" json:"grace_days,omitempty"`
+
+	// DryRun Answer the impact preview and store nothing.
+	DryRun *bool `form:"dry_run,omitempty" json:"dry_run,omitempty"`
+}
+
+// ListCheckPolicyVersionsParams defines parameters for ListCheckPolicyVersions.
+type ListCheckPolicyVersionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
 // ListCheckRunsParams defines parameters for ListCheckRuns.
@@ -7575,6 +8053,12 @@ type SetBranchPreviewJSONRequestBody = BranchPreview
 
 // CreateCapturesMultipartRequestBody defines body for CreateCaptures for multipart/form-data ContentType.
 type CreateCapturesMultipartRequestBody CreateCapturesMultipartBody
+
+// SaveCheckPolicyJSONRequestBody defines body for SaveCheckPolicy for application/json ContentType.
+type SaveCheckPolicyJSONRequestBody = SaveCheckPolicy
+
+// ImportCheckPolicyJSONRequestBody defines body for ImportCheckPolicy for application/json ContentType.
+type ImportCheckPolicyJSONRequestBody = CheckPolicyDocument
 
 // CreateContextBuildJSONRequestBody defines body for CreateContextBuild for application/json ContentType.
 type CreateContextBuildJSONRequestBody = UsagesDocument
@@ -9868,6 +10352,191 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image (the `GetCaptureImage` operationId).
 	GetCaptureImage(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *GetCaptureImageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCheckPolicy The project's check policy
+	//
+	// What `glossa check` and the Glossa pull-request check decide by
+	// (RFC 0005 §4). The server is the source of truth: `glossa check`
+	// fetches this document and caches it at `.glossa/policy.json`,
+	// and `glossa.yaml`'s `check:` block and the flags are local
+	// overrides the pull-request check ignores. A developer can
+	// tighten or loosen their own loop; they cannot change what CI
+	// decides.
+	//
+	// A project that has never saved one reads as the documented
+	// default — every locale must be complete, an untranslated key in
+	// one is an error, errors fail — at `version` `0`. `created_by`
+	// and `created_at` are absent for a policy nobody saved through
+	// this endpoint. Needs `catalog.read`, because a policy is about
+	// the catalog's messages and the callers that must read it — the
+	// CLI, the pull-request check, Studio and MCP — hold exactly that.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy (the `GetCheckPolicy` operationId).
+	GetCheckPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SaveCheckPolicyWithBody Save a new version of the check policy
+	//
+	// A policy is never edited in place: every save is a new version,
+	// one past the last, and every check run records the version it
+	// graded itself against (RFC 0005 §4.3). `version`,
+	// `effective_from` and `grace_until` are the server's answers to
+	// "when did this become true" and are refused in a request
+	// (`invalid_check_policy`): a caller that could set them could
+	// rewrite history or unpin an open pull request mid-grace.
+	//
+	// **`dry_run` answers the impact preview and stores nothing.** The
+	// failure mode this exists for is obvious and avoidable: somebody
+	// adds `terminology: error`, and forty open pull requests go red
+	// for something their authors didn't do. The preview says how many
+	// stored findings change severity, which refs would newly fail and
+	// how many open pull requests are among them, per rule. Studio
+	// shows it before the save; `glossa policy diff` prints it. The
+	// same preview is computed for a real save, so the audit trail
+	// carries the number the author saw.
+	//
+	// **`grace_days` pins the pull requests that predate the save** to
+	// the version they were opened under, until the grace ends; a new
+	// pull request grades against the new version at once, and merging
+	// is never blocked by a rule the branch predates. Absent, it is
+	// 14 days, because the default should protect the people who did
+	// not cause the change; `0` pins nothing, which is what a policy
+	// that only loosens wants.
+	//
+	// Needs `catalog.write` — the permission that already carries the
+	// authority to change what a project's check concludes. Problem
+	// codes: `invalid_check_policy` (400: an unknown layer or
+	// severity, a rule raising the model-decided `linguistic` layer to
+	// `error`, a locale the project doesn't have, or a request that
+	// set the server's bookkeeping), `check_policy_conflict` (409: the
+	// project changed while the write was being prepared — read the
+	// policy again and decide).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy (the `SaveCheckPolicy` operationId).
+	SaveCheckPolicyWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SaveCheckPolicy Save a new version of the check policy
+	//
+	// A policy is never edited in place: every save is a new version,
+	// one past the last, and every check run records the version it
+	// graded itself against (RFC 0005 §4.3). `version`,
+	// `effective_from` and `grace_until` are the server's answers to
+	// "when did this become true" and are refused in a request
+	// (`invalid_check_policy`): a caller that could set them could
+	// rewrite history or unpin an open pull request mid-grace.
+	//
+	// **`dry_run` answers the impact preview and stores nothing.** The
+	// failure mode this exists for is obvious and avoidable: somebody
+	// adds `terminology: error`, and forty open pull requests go red
+	// for something their authors didn't do. The preview says how many
+	// stored findings change severity, which refs would newly fail and
+	// how many open pull requests are among them, per rule. Studio
+	// shows it before the save; `glossa policy diff` prints it. The
+	// same preview is computed for a real save, so the audit trail
+	// carries the number the author saw.
+	//
+	// **`grace_days` pins the pull requests that predate the save** to
+	// the version they were opened under, until the grace ends; a new
+	// pull request grades against the new version at once, and merging
+	// is never blocked by a rule the branch predates. Absent, it is
+	// 14 days, because the default should protect the people who did
+	// not cause the change; `0` pins nothing, which is what a policy
+	// that only loosens wants.
+	//
+	// Needs `catalog.write` — the permission that already carries the
+	// authority to change what a project's check concludes. Problem
+	// codes: `invalid_check_policy` (400: an unknown layer or
+	// severity, a rule raising the model-decided `linguistic` layer to
+	// `error`, a locale the project doesn't have, or a request that
+	// set the server's bookkeeping), `check_policy_conflict` (409: the
+	// project changed while the write was being prepared — read the
+	// policy again and decide).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy (the `SaveCheckPolicy` operationId).
+	SaveCheckPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, body SaveCheckPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExportCheckPolicy The check policy in its canonical form
+	//
+	// The document alone, with none of the state around it — exactly
+	// what `importCheckPolicy` takes. A project can't keep its policy
+	// in Git (RFC 0005 §4.2: one commit must have one verdict, and a
+	// policy change must not be a merge conflict), so export and
+	// import are what keep it reviewable: `glossa policy export`
+	// writes this file, a person reads the diff, `glossa policy
+	// import` sends it back.
+	//
+	// The server's bookkeeping is left out, because importing it
+	// elsewhere would be asserting another project's history. Needs
+	// `catalog.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/export (the `ExportCheckPolicy` operationId).
+	ExportCheckPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ImportCheckPolicyWithBody Import a check policy as a new version
+	//
+	// Takes a canonical document — what `exportCheckPolicy` returns,
+	// from this project or another — validates it and saves it as the
+	// next version, with the same grace and the same impact preview as
+	// `saveCheckPolicy`. It is the same write with the document as the
+	// whole body, so a file can be posted as it is.
+	//
+	// `grace_days` and `dry_run` ride in the query, for the same
+	// reason: the body is the file. Needs `catalog.write`. Problem
+	// codes: `invalid_check_policy` (400), `check_policy_conflict`
+	// (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy/import (the `ImportCheckPolicy` operationId).
+	ImportCheckPolicyWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *ImportCheckPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ImportCheckPolicy Import a check policy as a new version
+	//
+	// Takes a canonical document — what `exportCheckPolicy` returns,
+	// from this project or another — validates it and saves it as the
+	// next version, with the same grace and the same impact preview as
+	// `saveCheckPolicy`. It is the same write with the document as the
+	// whole body, so a file can be posted as it is.
+	//
+	// `grace_days` and `dry_run` ride in the query, for the same
+	// reason: the body is the file. Needs `catalog.write`. Problem
+	// codes: `invalid_check_policy` (400), `check_policy_conflict`
+	// (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy/import (the `ImportCheckPolicy` operationId).
+	ImportCheckPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, params *ImportCheckPolicyParams, body ImportCheckPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListCheckPolicyVersions How the check policy got to be what it is
+	//
+	// Every saved version, newest first, with the document it was and
+	// who saved it when. A policy is an organizational decision about
+	// a project (RFC 0005 §4.2), so "who tightened `terminology` to
+	// `error`, and when?" has an answer that outlives the version that
+	// carried it.
+	//
+	// The list starts at the project's first save through this API: a
+	// policy set through the project's settings, or never set at all,
+	// has no versions. Needs `catalog.read`. Problem codes:
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions (the `ListCheckPolicyVersions` operationId).
+	ListCheckPolicyVersions(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckPolicyVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCheckPolicyVersion One version of the check policy
+	//
+	// The document as it was saved, with who saved it and when. It is
+	// what a check run that records `policy_version` was graded
+	// against, so a verdict from three weeks ago can be read against
+	// the policy that produced it rather than the policy that happens
+	// to be live now. Needs `catalog.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions/{version} (the `GetCheckPolicyVersion` operationId).
+	GetCheckPolicyVersion(ctx context.Context, tenant TenantPath, project ProjectPath, version CheckPolicyVersionPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListCheckRuns A project's check runs, newest first
 	//
@@ -15067,6 +15736,271 @@ func (c *Client) CreateCapturesWithBody(ctx context.Context, tenant TenantPath, 
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image (the `GetCaptureImage` operationId).
 func (c *Client) GetCaptureImage(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *GetCaptureImageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCaptureImageRequest(c.Server, tenant, project, capture, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetCheckPolicy The project's check policy
+//
+// What `glossa check` and the Glossa pull-request check decide by
+// (RFC 0005 §4). The server is the source of truth: `glossa check`
+// fetches this document and caches it at `.glossa/policy.json`,
+// and `glossa.yaml`'s `check:` block and the flags are local
+// overrides the pull-request check ignores. A developer can
+// tighten or loosen their own loop; they cannot change what CI
+// decides.
+//
+// A project that has never saved one reads as the documented
+// default — every locale must be complete, an untranslated key in
+// one is an error, errors fail — at `version` `0`. `created_by`
+// and `created_at` are absent for a policy nobody saved through
+// this endpoint. Needs `catalog.read`, because a policy is about
+// the catalog's messages and the callers that must read it — the
+// CLI, the pull-request check, Studio and MCP — hold exactly that.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy (the `GetCheckPolicy` operationId).
+func (c *Client) GetCheckPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCheckPolicyRequest(c.Server, tenant, project)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SaveCheckPolicyWithBody Save a new version of the check policy
+//
+// A policy is never edited in place: every save is a new version,
+// one past the last, and every check run records the version it
+// graded itself against (RFC 0005 §4.3). `version`,
+// `effective_from` and `grace_until` are the server's answers to
+// "when did this become true" and are refused in a request
+// (`invalid_check_policy`): a caller that could set them could
+// rewrite history or unpin an open pull request mid-grace.
+//
+// **`dry_run` answers the impact preview and stores nothing.** The
+// failure mode this exists for is obvious and avoidable: somebody
+// adds `terminology: error`, and forty open pull requests go red
+// for something their authors didn't do. The preview says how many
+// stored findings change severity, which refs would newly fail and
+// how many open pull requests are among them, per rule. Studio
+// shows it before the save; `glossa policy diff` prints it. The
+// same preview is computed for a real save, so the audit trail
+// carries the number the author saw.
+//
+// **`grace_days` pins the pull requests that predate the save** to
+// the version they were opened under, until the grace ends; a new
+// pull request grades against the new version at once, and merging
+// is never blocked by a rule the branch predates. Absent, it is
+// 14 days, because the default should protect the people who did
+// not cause the change; `0` pins nothing, which is what a policy
+// that only loosens wants.
+//
+// Needs `catalog.write` — the permission that already carries the
+// authority to change what a project's check concludes. Problem
+// codes: `invalid_check_policy` (400: an unknown layer or
+// severity, a rule raising the model-decided `linguistic` layer to
+// `error`, a locale the project doesn't have, or a request that
+// set the server's bookkeeping), `check_policy_conflict` (409: the
+// project changed while the write was being prepared — read the
+// policy again and decide).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy (the `SaveCheckPolicy` operationId).
+func (c *Client) SaveCheckPolicyWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSaveCheckPolicyRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SaveCheckPolicy Save a new version of the check policy
+//
+// A policy is never edited in place: every save is a new version,
+// one past the last, and every check run records the version it
+// graded itself against (RFC 0005 §4.3). `version`,
+// `effective_from` and `grace_until` are the server's answers to
+// "when did this become true" and are refused in a request
+// (`invalid_check_policy`): a caller that could set them could
+// rewrite history or unpin an open pull request mid-grace.
+//
+// **`dry_run` answers the impact preview and stores nothing.** The
+// failure mode this exists for is obvious and avoidable: somebody
+// adds `terminology: error`, and forty open pull requests go red
+// for something their authors didn't do. The preview says how many
+// stored findings change severity, which refs would newly fail and
+// how many open pull requests are among them, per rule. Studio
+// shows it before the save; `glossa policy diff` prints it. The
+// same preview is computed for a real save, so the audit trail
+// carries the number the author saw.
+//
+// **`grace_days` pins the pull requests that predate the save** to
+// the version they were opened under, until the grace ends; a new
+// pull request grades against the new version at once, and merging
+// is never blocked by a rule the branch predates. Absent, it is
+// 14 days, because the default should protect the people who did
+// not cause the change; `0` pins nothing, which is what a policy
+// that only loosens wants.
+//
+// Needs `catalog.write` — the permission that already carries the
+// authority to change what a project's check concludes. Problem
+// codes: `invalid_check_policy` (400: an unknown layer or
+// severity, a rule raising the model-decided `linguistic` layer to
+// `error`, a locale the project doesn't have, or a request that
+// set the server's bookkeeping), `check_policy_conflict` (409: the
+// project changed while the write was being prepared — read the
+// policy again and decide).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy (the `SaveCheckPolicy` operationId).
+func (c *Client) SaveCheckPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, body SaveCheckPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSaveCheckPolicyRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExportCheckPolicy The check policy in its canonical form
+//
+// The document alone, with none of the state around it — exactly
+// what `importCheckPolicy` takes. A project can't keep its policy
+// in Git (RFC 0005 §4.2: one commit must have one verdict, and a
+// policy change must not be a merge conflict), so export and
+// import are what keep it reviewable: `glossa policy export`
+// writes this file, a person reads the diff, `glossa policy
+// import` sends it back.
+//
+// The server's bookkeeping is left out, because importing it
+// elsewhere would be asserting another project's history. Needs
+// `catalog.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/export (the `ExportCheckPolicy` operationId).
+func (c *Client) ExportCheckPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExportCheckPolicyRequest(c.Server, tenant, project)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ImportCheckPolicyWithBody Import a check policy as a new version
+//
+// Takes a canonical document — what `exportCheckPolicy` returns,
+// from this project or another — validates it and saves it as the
+// next version, with the same grace and the same impact preview as
+// `saveCheckPolicy`. It is the same write with the document as the
+// whole body, so a file can be posted as it is.
+//
+// `grace_days` and `dry_run` ride in the query, for the same
+// reason: the body is the file. Needs `catalog.write`. Problem
+// codes: `invalid_check_policy` (400), `check_policy_conflict`
+// (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy/import (the `ImportCheckPolicy` operationId).
+func (c *Client) ImportCheckPolicyWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *ImportCheckPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportCheckPolicyRequestWithBody(c.Server, tenant, project, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ImportCheckPolicy Import a check policy as a new version
+//
+// Takes a canonical document — what `exportCheckPolicy` returns,
+// from this project or another — validates it and saves it as the
+// next version, with the same grace and the same impact preview as
+// `saveCheckPolicy`. It is the same write with the document as the
+// whole body, so a file can be posted as it is.
+//
+// `grace_days` and `dry_run` ride in the query, for the same
+// reason: the body is the file. Needs `catalog.write`. Problem
+// codes: `invalid_check_policy` (400), `check_policy_conflict`
+// (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy/import (the `ImportCheckPolicy` operationId).
+func (c *Client) ImportCheckPolicy(ctx context.Context, tenant TenantPath, project ProjectPath, params *ImportCheckPolicyParams, body ImportCheckPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportCheckPolicyRequest(c.Server, tenant, project, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListCheckPolicyVersions How the check policy got to be what it is
+//
+// Every saved version, newest first, with the document it was and
+// who saved it when. A policy is an organizational decision about
+// a project (RFC 0005 §4.2), so "who tightened `terminology` to
+// `error`, and when?" has an answer that outlives the version that
+// carried it.
+//
+// The list starts at the project's first save through this API: a
+// policy set through the project's settings, or never set at all,
+// has no versions. Needs `catalog.read`. Problem codes:
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions (the `ListCheckPolicyVersions` operationId).
+func (c *Client) ListCheckPolicyVersions(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckPolicyVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCheckPolicyVersionsRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetCheckPolicyVersion One version of the check policy
+//
+// The document as it was saved, with who saved it and when. It is
+// what a check run that records `policy_version` was graded
+// against, so a verdict from three weeks ago can be read against
+// the policy that produced it rather than the policy that happens
+// to be live now. Needs `catalog.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions/{version} (the `GetCheckPolicyVersion` operationId).
+func (c *Client) GetCheckPolicyVersion(ctx context.Context, tenant TenantPath, project ProjectPath, version CheckPolicyVersionPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCheckPolicyVersionRequest(c.Server, tenant, project, version)
 	if err != nil {
 		return nil, err
 	}
@@ -23865,6 +24799,363 @@ func NewGetCaptureImageRequest(server string, tenant TenantPath, project Project
 			req.Header.Set("If-None-Match", headerParam0)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewGetCheckPolicyRequest constructs an http.Request for the GetCheckPolicy method
+func NewGetCheckPolicyRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/check-policy", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSaveCheckPolicyRequest calls the generic SaveCheckPolicy builder with application/json body
+func NewSaveCheckPolicyRequest(server string, tenant TenantPath, project ProjectPath, body SaveCheckPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSaveCheckPolicyRequestWithBody(server, tenant, project, "application/json", bodyReader)
+}
+
+// NewSaveCheckPolicyRequestWithBody constructs an http.Request for the SaveCheckPolicy method, with any body, and a specified content type
+func NewSaveCheckPolicyRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/check-policy", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewExportCheckPolicyRequest constructs an http.Request for the ExportCheckPolicy method
+func NewExportCheckPolicyRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/check-policy/export", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewImportCheckPolicyRequest calls the generic ImportCheckPolicy builder with application/json body
+func NewImportCheckPolicyRequest(server string, tenant TenantPath, project ProjectPath, params *ImportCheckPolicyParams, body ImportCheckPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewImportCheckPolicyRequestWithBody(server, tenant, project, params, "application/json", bodyReader)
+}
+
+// NewImportCheckPolicyRequestWithBody constructs an http.Request for the ImportCheckPolicy method, with any body, and a specified content type
+func NewImportCheckPolicyRequestWithBody(server string, tenant TenantPath, project ProjectPath, params *ImportCheckPolicyParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/check-policy/import", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.GraceDays != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "grace_days", *params.GraceDays, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DryRun != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dry_run", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListCheckPolicyVersionsRequest constructs an http.Request for the ListCheckPolicyVersions method
+func NewListCheckPolicyVersionsRequest(server string, tenant TenantPath, project ProjectPath, params *ListCheckPolicyVersionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/check-policy/versions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetCheckPolicyVersionRequest constructs an http.Request for the GetCheckPolicyVersion method
+func NewGetCheckPolicyVersionRequest(server string, tenant TenantPath, project ProjectPath, version CheckPolicyVersionPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "version", version, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/check-policy/versions/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -32718,6 +34009,199 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image (the `GetCaptureImage` operationId).
 	GetCaptureImageWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *GetCaptureImageParams, reqEditors ...RequestEditorFn) (*GetCaptureImageResponse, error)
+
+	// GetCheckPolicyWithResponse The project's check policy
+	//
+	// What `glossa check` and the Glossa pull-request check decide by
+	// (RFC 0005 §4). The server is the source of truth: `glossa check`
+	// fetches this document and caches it at `.glossa/policy.json`,
+	// and `glossa.yaml`'s `check:` block and the flags are local
+	// overrides the pull-request check ignores. A developer can
+	// tighten or loosen their own loop; they cannot change what CI
+	// decides.
+	//
+	// A project that has never saved one reads as the documented
+	// default — every locale must be complete, an untranslated key in
+	// one is an error, errors fail — at `version` `0`. `created_by`
+	// and `created_at` are absent for a policy nobody saved through
+	// this endpoint. Needs `catalog.read`, because a policy is about
+	// the catalog's messages and the callers that must read it — the
+	// CLI, the pull-request check, Studio and MCP — hold exactly that.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy (the `GetCheckPolicy` operationId).
+	GetCheckPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*GetCheckPolicyResponse, error)
+
+	// SaveCheckPolicyWithBodyWithResponse Save a new version of the check policy
+	//
+	// A policy is never edited in place: every save is a new version,
+	// one past the last, and every check run records the version it
+	// graded itself against (RFC 0005 §4.3). `version`,
+	// `effective_from` and `grace_until` are the server's answers to
+	// "when did this become true" and are refused in a request
+	// (`invalid_check_policy`): a caller that could set them could
+	// rewrite history or unpin an open pull request mid-grace.
+	//
+	// **`dry_run` answers the impact preview and stores nothing.** The
+	// failure mode this exists for is obvious and avoidable: somebody
+	// adds `terminology: error`, and forty open pull requests go red
+	// for something their authors didn't do. The preview says how many
+	// stored findings change severity, which refs would newly fail and
+	// how many open pull requests are among them, per rule. Studio
+	// shows it before the save; `glossa policy diff` prints it. The
+	// same preview is computed for a real save, so the audit trail
+	// carries the number the author saw.
+	//
+	// **`grace_days` pins the pull requests that predate the save** to
+	// the version they were opened under, until the grace ends; a new
+	// pull request grades against the new version at once, and merging
+	// is never blocked by a rule the branch predates. Absent, it is
+	// 14 days, because the default should protect the people who did
+	// not cause the change; `0` pins nothing, which is what a policy
+	// that only loosens wants.
+	//
+	// Needs `catalog.write` — the permission that already carries the
+	// authority to change what a project's check concludes. Problem
+	// codes: `invalid_check_policy` (400: an unknown layer or
+	// severity, a rule raising the model-decided `linguistic` layer to
+	// `error`, a locale the project doesn't have, or a request that
+	// set the server's bookkeeping), `check_policy_conflict` (409: the
+	// project changed while the write was being prepared — read the
+	// policy again and decide).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy (the `SaveCheckPolicy` operationId).
+	SaveCheckPolicyWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveCheckPolicyResponse, error)
+
+	// SaveCheckPolicyWithResponse Save a new version of the check policy
+	//
+	// A policy is never edited in place: every save is a new version,
+	// one past the last, and every check run records the version it
+	// graded itself against (RFC 0005 §4.3). `version`,
+	// `effective_from` and `grace_until` are the server's answers to
+	// "when did this become true" and are refused in a request
+	// (`invalid_check_policy`): a caller that could set them could
+	// rewrite history or unpin an open pull request mid-grace.
+	//
+	// **`dry_run` answers the impact preview and stores nothing.** The
+	// failure mode this exists for is obvious and avoidable: somebody
+	// adds `terminology: error`, and forty open pull requests go red
+	// for something their authors didn't do. The preview says how many
+	// stored findings change severity, which refs would newly fail and
+	// how many open pull requests are among them, per rule. Studio
+	// shows it before the save; `glossa policy diff` prints it. The
+	// same preview is computed for a real save, so the audit trail
+	// carries the number the author saw.
+	//
+	// **`grace_days` pins the pull requests that predate the save** to
+	// the version they were opened under, until the grace ends; a new
+	// pull request grades against the new version at once, and merging
+	// is never blocked by a rule the branch predates. Absent, it is
+	// 14 days, because the default should protect the people who did
+	// not cause the change; `0` pins nothing, which is what a policy
+	// that only loosens wants.
+	//
+	// Needs `catalog.write` — the permission that already carries the
+	// authority to change what a project's check concludes. Problem
+	// codes: `invalid_check_policy` (400: an unknown layer or
+	// severity, a rule raising the model-decided `linguistic` layer to
+	// `error`, a locale the project doesn't have, or a request that
+	// set the server's bookkeeping), `check_policy_conflict` (409: the
+	// project changed while the write was being prepared — read the
+	// policy again and decide).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy (the `SaveCheckPolicy` operationId).
+	SaveCheckPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body SaveCheckPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveCheckPolicyResponse, error)
+
+	// ExportCheckPolicyWithResponse The check policy in its canonical form
+	//
+	// The document alone, with none of the state around it — exactly
+	// what `importCheckPolicy` takes. A project can't keep its policy
+	// in Git (RFC 0005 §4.2: one commit must have one verdict, and a
+	// policy change must not be a merge conflict), so export and
+	// import are what keep it reviewable: `glossa policy export`
+	// writes this file, a person reads the diff, `glossa policy
+	// import` sends it back.
+	//
+	// The server's bookkeeping is left out, because importing it
+	// elsewhere would be asserting another project's history. Needs
+	// `catalog.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/export (the `ExportCheckPolicy` operationId).
+	ExportCheckPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*ExportCheckPolicyResponse, error)
+
+	// ImportCheckPolicyWithBodyWithResponse Import a check policy as a new version
+	//
+	// Takes a canonical document — what `exportCheckPolicy` returns,
+	// from this project or another — validates it and saves it as the
+	// next version, with the same grace and the same impact preview as
+	// `saveCheckPolicy`. It is the same write with the document as the
+	// whole body, so a file can be posted as it is.
+	//
+	// `grace_days` and `dry_run` ride in the query, for the same
+	// reason: the body is the file. Needs `catalog.write`. Problem
+	// codes: `invalid_check_policy` (400), `check_policy_conflict`
+	// (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy/import (the `ImportCheckPolicy` operationId).
+	ImportCheckPolicyWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ImportCheckPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportCheckPolicyResponse, error)
+
+	// ImportCheckPolicyWithResponse Import a check policy as a new version
+	//
+	// Takes a canonical document — what `exportCheckPolicy` returns,
+	// from this project or another — validates it and saves it as the
+	// next version, with the same grace and the same impact preview as
+	// `saveCheckPolicy`. It is the same write with the document as the
+	// whole body, so a file can be posted as it is.
+	//
+	// `grace_days` and `dry_run` ride in the query, for the same
+	// reason: the body is the file. Needs `catalog.write`. Problem
+	// codes: `invalid_check_policy` (400), `check_policy_conflict`
+	// (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy/import (the `ImportCheckPolicy` operationId).
+	ImportCheckPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ImportCheckPolicyParams, body ImportCheckPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportCheckPolicyResponse, error)
+
+	// ListCheckPolicyVersionsWithResponse How the check policy got to be what it is
+	//
+	// Every saved version, newest first, with the document it was and
+	// who saved it when. A policy is an organizational decision about
+	// a project (RFC 0005 §4.2), so "who tightened `terminology` to
+	// `error`, and when?" has an answer that outlives the version that
+	// carried it.
+	//
+	// The list starts at the project's first save through this API: a
+	// policy set through the project's settings, or never set at all,
+	// has no versions. Needs `catalog.read`. Problem codes:
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions (the `ListCheckPolicyVersions` operationId).
+	ListCheckPolicyVersionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckPolicyVersionsParams, reqEditors ...RequestEditorFn) (*ListCheckPolicyVersionsResponse, error)
+
+	// GetCheckPolicyVersionWithResponse One version of the check policy
+	//
+	// The document as it was saved, with who saved it and when. It is
+	// what a check run that records `policy_version` was graded
+	// against, so a verdict from three weeks ago can be read against
+	// the policy that produced it rather than the policy that happens
+	// to be live now. Needs `catalog.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions/{version} (the `GetCheckPolicyVersion` operationId).
+	GetCheckPolicyVersionWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, version CheckPolicyVersionPath, reqEditors ...RequestEditorFn) (*GetCheckPolicyVersionResponse, error)
 
 	// ListCheckRunsWithResponse A project's check runs, newest first
 	//
@@ -41814,6 +43298,413 @@ func (r GetCaptureImageResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetCaptureImageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetCheckPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CheckPolicyState
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetCheckPolicyResponse) GetJSON200() *CheckPolicyState {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetCheckPolicyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetCheckPolicyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetCheckPolicyResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetCheckPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCheckPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCheckPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetCheckPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SaveCheckPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CheckPolicySaved
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SaveCheckPolicyResponse) GetJSON200() *CheckPolicySaved {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r SaveCheckPolicyResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r SaveCheckPolicyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r SaveCheckPolicyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r SaveCheckPolicyResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r SaveCheckPolicyResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r SaveCheckPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SaveCheckPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SaveCheckPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SaveCheckPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ExportCheckPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CheckPolicyDocument
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ExportCheckPolicyResponse) GetJSON200() *CheckPolicyDocument {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ExportCheckPolicyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ExportCheckPolicyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ExportCheckPolicyResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ExportCheckPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ExportCheckPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExportCheckPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExportCheckPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ImportCheckPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CheckPolicySaved
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ImportCheckPolicyResponse) GetJSON200() *CheckPolicySaved {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ImportCheckPolicyResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ImportCheckPolicyResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ImportCheckPolicyResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ImportCheckPolicyResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r ImportCheckPolicyResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r ImportCheckPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ImportCheckPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ImportCheckPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ImportCheckPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListCheckPolicyVersionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CheckPolicyVersionList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListCheckPolicyVersionsResponse) GetJSON200() *CheckPolicyVersionList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListCheckPolicyVersionsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListCheckPolicyVersionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListCheckPolicyVersionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListCheckPolicyVersionsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListCheckPolicyVersionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCheckPolicyVersionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCheckPolicyVersionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListCheckPolicyVersionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetCheckPolicyVersionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CheckPolicyVersion
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetCheckPolicyVersionResponse) GetJSON200() *CheckPolicyVersion {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetCheckPolicyVersionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetCheckPolicyVersionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetCheckPolicyVersionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetCheckPolicyVersionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCheckPolicyVersionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCheckPolicyVersionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetCheckPolicyVersionResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -51439,6 +53330,247 @@ func (c *ClientWithResponses) GetCaptureImageWithResponse(ctx context.Context, t
 	return ParseGetCaptureImageResponse(rsp)
 }
 
+// GetCheckPolicyWithResponse The project's check policy
+//
+// What `glossa check` and the Glossa pull-request check decide by
+// (RFC 0005 §4). The server is the source of truth: `glossa check`
+// fetches this document and caches it at `.glossa/policy.json`,
+// and `glossa.yaml`'s `check:` block and the flags are local
+// overrides the pull-request check ignores. A developer can
+// tighten or loosen their own loop; they cannot change what CI
+// decides.
+//
+// A project that has never saved one reads as the documented
+// default — every locale must be complete, an untranslated key in
+// one is an error, errors fail — at `version` `0`. `created_by`
+// and `created_at` are absent for a policy nobody saved through
+// this endpoint. Needs `catalog.read`, because a policy is about
+// the catalog's messages and the callers that must read it — the
+// CLI, the pull-request check, Studio and MCP — hold exactly that.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy (the `GetCheckPolicy` operationId).
+func (c *ClientWithResponses) GetCheckPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*GetCheckPolicyResponse, error) {
+	rsp, err := c.GetCheckPolicy(ctx, tenant, project, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCheckPolicyResponse(rsp)
+}
+
+// SaveCheckPolicyWithBodyWithResponse Save a new version of the check policy
+//
+// A policy is never edited in place: every save is a new version,
+// one past the last, and every check run records the version it
+// graded itself against (RFC 0005 §4.3). `version`,
+// `effective_from` and `grace_until` are the server's answers to
+// "when did this become true" and are refused in a request
+// (`invalid_check_policy`): a caller that could set them could
+// rewrite history or unpin an open pull request mid-grace.
+//
+// **`dry_run` answers the impact preview and stores nothing.** The
+// failure mode this exists for is obvious and avoidable: somebody
+// adds `terminology: error`, and forty open pull requests go red
+// for something their authors didn't do. The preview says how many
+// stored findings change severity, which refs would newly fail and
+// how many open pull requests are among them, per rule. Studio
+// shows it before the save; `glossa policy diff` prints it. The
+// same preview is computed for a real save, so the audit trail
+// carries the number the author saw.
+//
+// **`grace_days` pins the pull requests that predate the save** to
+// the version they were opened under, until the grace ends; a new
+// pull request grades against the new version at once, and merging
+// is never blocked by a rule the branch predates. Absent, it is
+// 14 days, because the default should protect the people who did
+// not cause the change; `0` pins nothing, which is what a policy
+// that only loosens wants.
+//
+// Needs `catalog.write` — the permission that already carries the
+// authority to change what a project's check concludes. Problem
+// codes: `invalid_check_policy` (400: an unknown layer or
+// severity, a rule raising the model-decided `linguistic` layer to
+// `error`, a locale the project doesn't have, or a request that
+// set the server's bookkeeping), `check_policy_conflict` (409: the
+// project changed while the write was being prepared — read the
+// policy again and decide).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy (the `SaveCheckPolicy` operationId).
+func (c *ClientWithResponses) SaveCheckPolicyWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveCheckPolicyResponse, error) {
+	rsp, err := c.SaveCheckPolicyWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSaveCheckPolicyResponse(rsp)
+}
+
+// SaveCheckPolicyWithResponse Save a new version of the check policy
+//
+// A policy is never edited in place: every save is a new version,
+// one past the last, and every check run records the version it
+// graded itself against (RFC 0005 §4.3). `version`,
+// `effective_from` and `grace_until` are the server's answers to
+// "when did this become true" and are refused in a request
+// (`invalid_check_policy`): a caller that could set them could
+// rewrite history or unpin an open pull request mid-grace.
+//
+// **`dry_run` answers the impact preview and stores nothing.** The
+// failure mode this exists for is obvious and avoidable: somebody
+// adds `terminology: error`, and forty open pull requests go red
+// for something their authors didn't do. The preview says how many
+// stored findings change severity, which refs would newly fail and
+// how many open pull requests are among them, per rule. Studio
+// shows it before the save; `glossa policy diff` prints it. The
+// same preview is computed for a real save, so the audit trail
+// carries the number the author saw.
+//
+// **`grace_days` pins the pull requests that predate the save** to
+// the version they were opened under, until the grace ends; a new
+// pull request grades against the new version at once, and merging
+// is never blocked by a rule the branch predates. Absent, it is
+// 14 days, because the default should protect the people who did
+// not cause the change; `0` pins nothing, which is what a policy
+// that only loosens wants.
+//
+// Needs `catalog.write` — the permission that already carries the
+// authority to change what a project's check concludes. Problem
+// codes: `invalid_check_policy` (400: an unknown layer or
+// severity, a rule raising the model-decided `linguistic` layer to
+// `error`, a locale the project doesn't have, or a request that
+// set the server's bookkeeping), `check_policy_conflict` (409: the
+// project changed while the write was being prepared — read the
+// policy again and decide).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy (the `SaveCheckPolicy` operationId).
+func (c *ClientWithResponses) SaveCheckPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body SaveCheckPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveCheckPolicyResponse, error) {
+	rsp, err := c.SaveCheckPolicy(ctx, tenant, project, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSaveCheckPolicyResponse(rsp)
+}
+
+// ExportCheckPolicyWithResponse The check policy in its canonical form
+//
+// The document alone, with none of the state around it — exactly
+// what `importCheckPolicy` takes. A project can't keep its policy
+// in Git (RFC 0005 §4.2: one commit must have one verdict, and a
+// policy change must not be a merge conflict), so export and
+// import are what keep it reviewable: `glossa policy export`
+// writes this file, a person reads the diff, `glossa policy
+// import` sends it back.
+//
+// The server's bookkeeping is left out, because importing it
+// elsewhere would be asserting another project's history. Needs
+// `catalog.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/export (the `ExportCheckPolicy` operationId).
+func (c *ClientWithResponses) ExportCheckPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, reqEditors ...RequestEditorFn) (*ExportCheckPolicyResponse, error) {
+	rsp, err := c.ExportCheckPolicy(ctx, tenant, project, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExportCheckPolicyResponse(rsp)
+}
+
+// ImportCheckPolicyWithBodyWithResponse Import a check policy as a new version
+//
+// Takes a canonical document — what `exportCheckPolicy` returns,
+// from this project or another — validates it and saves it as the
+// next version, with the same grace and the same impact preview as
+// `saveCheckPolicy`. It is the same write with the document as the
+// whole body, so a file can be posted as it is.
+//
+// `grace_days` and `dry_run` ride in the query, for the same
+// reason: the body is the file. Needs `catalog.write`. Problem
+// codes: `invalid_check_policy` (400), `check_policy_conflict`
+// (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy/import (the `ImportCheckPolicy` operationId).
+func (c *ClientWithResponses) ImportCheckPolicyWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ImportCheckPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportCheckPolicyResponse, error) {
+	rsp, err := c.ImportCheckPolicyWithBody(ctx, tenant, project, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportCheckPolicyResponse(rsp)
+}
+
+// ImportCheckPolicyWithResponse Import a check policy as a new version
+//
+// Takes a canonical document — what `exportCheckPolicy` returns,
+// from this project or another — validates it and saves it as the
+// next version, with the same grace and the same impact preview as
+// `saveCheckPolicy`. It is the same write with the document as the
+// whole body, so a file can be posted as it is.
+//
+// `grace_days` and `dry_run` ride in the query, for the same
+// reason: the body is the file. Needs `catalog.write`. Problem
+// codes: `invalid_check_policy` (400), `check_policy_conflict`
+// (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-policy/import (the `ImportCheckPolicy` operationId).
+func (c *ClientWithResponses) ImportCheckPolicyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ImportCheckPolicyParams, body ImportCheckPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportCheckPolicyResponse, error) {
+	rsp, err := c.ImportCheckPolicy(ctx, tenant, project, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportCheckPolicyResponse(rsp)
+}
+
+// ListCheckPolicyVersionsWithResponse How the check policy got to be what it is
+//
+// Every saved version, newest first, with the document it was and
+// who saved it when. A policy is an organizational decision about
+// a project (RFC 0005 §4.2), so "who tightened `terminology` to
+// `error`, and when?" has an answer that outlives the version that
+// carried it.
+//
+// The list starts at the project's first save through this API: a
+// policy set through the project's settings, or never set at all,
+// has no versions. Needs `catalog.read`. Problem codes:
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions (the `ListCheckPolicyVersions` operationId).
+func (c *ClientWithResponses) ListCheckPolicyVersionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckPolicyVersionsParams, reqEditors ...RequestEditorFn) (*ListCheckPolicyVersionsResponse, error) {
+	rsp, err := c.ListCheckPolicyVersions(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCheckPolicyVersionsResponse(rsp)
+}
+
+// GetCheckPolicyVersionWithResponse One version of the check policy
+//
+// The document as it was saved, with who saved it and when. It is
+// what a check run that records `policy_version` was graded
+// against, so a verdict from three weeks ago can be read against
+// the policy that produced it rather than the policy that happens
+// to be live now. Needs `catalog.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions/{version} (the `GetCheckPolicyVersion` operationId).
+func (c *ClientWithResponses) GetCheckPolicyVersionWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, version CheckPolicyVersionPath, reqEditors ...RequestEditorFn) (*GetCheckPolicyVersionResponse, error) {
+	rsp, err := c.GetCheckPolicyVersion(ctx, tenant, project, version, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCheckPolicyVersionResponse(rsp)
+}
+
 // ListCheckRunsWithResponse A project's check runs, newest first
 //
 // One run is one evaluation of one ref against one policy version
@@ -60126,6 +62258,323 @@ func ParseGetCaptureImageResponse(rsp *http.Response) (*GetCaptureImageResponse,
 			headers.ETag = &value
 		}
 		response.Headers304 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetCheckPolicyResponse parses an HTTP response from a GetCheckPolicyWithResponse call
+func ParseGetCheckPolicyResponse(rsp *http.Response) (*GetCheckPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCheckPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CheckPolicyState
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSaveCheckPolicyResponse parses an HTTP response from a SaveCheckPolicyWithResponse call
+func ParseSaveCheckPolicyResponse(rsp *http.Response) (*SaveCheckPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SaveCheckPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CheckPolicySaved
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExportCheckPolicyResponse parses an HTTP response from a ExportCheckPolicyWithResponse call
+func ParseExportCheckPolicyResponse(rsp *http.Response) (*ExportCheckPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExportCheckPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CheckPolicyDocument
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseImportCheckPolicyResponse parses an HTTP response from a ImportCheckPolicyWithResponse call
+func ParseImportCheckPolicyResponse(rsp *http.Response) (*ImportCheckPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ImportCheckPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CheckPolicySaved
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListCheckPolicyVersionsResponse parses an HTTP response from a ListCheckPolicyVersionsWithResponse call
+func ParseListCheckPolicyVersionsResponse(rsp *http.Response) (*ListCheckPolicyVersionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCheckPolicyVersionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CheckPolicyVersionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCheckPolicyVersionResponse parses an HTTP response from a GetCheckPolicyVersionWithResponse call
+func ParseGetCheckPolicyVersionResponse(rsp *http.Response) (*GetCheckPolicyVersionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCheckPolicyVersionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CheckPolicyVersion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
 	}
 
 	return response, nil

@@ -431,3 +431,65 @@ func (s *store) LiveWaivers(ctx context.Context, project uuid.UUID, now time.Tim
 	}
 	return out, nil
 }
+
+// ── check-policy versions ───────────────────────────────────────────
+//
+// The document that grades lives in the project's settings, which
+// Catalog owns; this is the append-only record of how it got there
+// (migration 0031, RFC 0005 §4.3).
+
+func policyVersion(r qualitysql.QualityPolicyVersion) (app.PolicyVersion, error) {
+	out := app.PolicyVersion{
+		ID: r.ID, Project: r.ProjectID, Version: int(r.Version),
+		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
+	}
+	if err := json.Unmarshal(r.Document, &out.Policy); err != nil {
+		return app.PolicyVersion{}, err
+	}
+	return out, nil
+}
+
+func (s *store) InsertPolicyVersion(ctx context.Context, v app.PolicyVersion) (bool, error) {
+	doc, err := json.Marshal(v.Policy)
+	if err != nil {
+		return false, err
+	}
+	n, err := s.q.InsertPolicyVersion(ctx, qualitysql.InsertPolicyVersionParams{
+		ID: v.ID, ProjectID: v.Project, Version: int32Of(v.Version), Document: doc,
+		CreatedBy: v.CreatedBy, CreatedAt: v.CreatedAt,
+	})
+	if err != nil {
+		return false, storeError(err)
+	}
+	return n > 0, nil
+}
+
+func (s *store) PolicyVersion(ctx context.Context, project uuid.UUID, version int) (app.PolicyVersion, error) {
+	r, err := s.q.GetPolicyVersion(ctx, qualitysql.GetPolicyVersionParams{
+		ProjectID: project, Version: int32Of(version),
+	})
+	if err != nil {
+		return app.PolicyVersion{}, notFound(err, app.ErrPolicyVersionNotFound)
+	}
+	return policyVersion(r)
+}
+
+func (s *store) ListPolicyVersions(
+	ctx context.Context, project uuid.UUID, after *int, limit int,
+) ([]app.PolicyVersion, error) {
+	p := qualitysql.ListPolicyVersionsParams{ProjectID: project, MaxRows: int32Of(limit)}
+	if after != nil {
+		p.AfterVersion = pgtype.Int4{Int32: int32Of(*after), Valid: true}
+	}
+	rows, err := s.q.ListPolicyVersions(ctx, p)
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.PolicyVersion, len(rows))
+	for i, r := range rows {
+		if out[i], err = policyVersion(r); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
