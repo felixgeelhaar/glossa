@@ -27,6 +27,8 @@ async function bundle(contents: string): Promise<string> {
 
 /** Things only capture code has: the start mark, range geometry, the session API. */
 const CAPTURE = [/\u2063|\\u2063/, /getClientRects/, /startCapture|collectRegions|stripMarkers/];
+/** Things only the visual probe pass has (RFC 0005 \u00a75.2). */
+const PROBES = /glossa\.finding\/v1|untranslated-on-screen|text-clipped/;
 
 describe("tree-shaking", () => {
   it("an app on @glossa/runtime and the components has no capture code", async () => {
@@ -48,25 +50,48 @@ describe("tree-shaking", () => {
     const all = await bundle(`import { startCapture } from "@glossa/capture"; console.log(startCapture);`);
     expect(all).toMatch(/getClientRects/);
   });
+
+  /**
+   * The probe pass is given to a session, never imported by it, so a bundle
+   * that measures nothing — `@glossa/overlay`, the in-product editor served to
+   * end users — doesn't carry it (RFC 0005 §5.1).
+   */
+  it("a session without the probe pass leaves ./probes out; asking for it brings it in", async () => {
+    const session = await bundle(`
+      import { startCapture } from "@glossa/capture";
+      console.log(startCapture([]).collect());
+    `);
+    expect(session).toMatch(/getClientRects/); // the capture script is there…
+    expect(session).not.toMatch(PROBES); // …the probes aren't.
+
+    const probing = await bundle(`
+      import { startCapture } from "@glossa/capture";
+      import { probe } from "@glossa/capture/probes";
+      console.log(startCapture([], { probe }).collect());
+    `);
+    expect(probing).toMatch(PROBES);
+  });
 });
 
 /**
- * RFC 0005 §5.1 raised the package's budget from 3 kB to 4 kB (brotli) for
- * the probe pass, and the probes have to live inside it. The measurement is
- * `size-limit`, the same tool every runtime package's `pnpm size` runs, over
- * the same `size-limit` block of package.json — one budget, one number, and
- * one place to change it. Run as a test because `pnpm -r test` is what CI
- * runs for these packages; it needs `dist/`, exactly as the tree-shaking
- * tests above do.
+ * Both budgets, from the one `size-limit` block of package.json: RFC 0005
+ * §5.1's 4 kB for a session **with** the probe pass, which is what `glossa
+ * capture` runs, and the unchanged 3 kB for a session **without** it, which is
+ * what `@glossa/overlay` pulls in. The measurement is `size-limit`, the same
+ * tool every runtime package's `pnpm size` runs — one place to change a
+ * budget, and no second mechanism to disagree with it. Run as a test because
+ * `pnpm -r test` is what CI runs for these packages; it needs `dist/`, exactly
+ * as the tree-shaking tests above do.
  */
-describe("the size budget", () => {
-  it("the whole session with the probe pass fits 4 kB brotli", () => {
+describe("the size budgets", () => {
+  it("a session fits 3 kB brotli, and 4 kB with the probe pass", () => {
     const pkg = join(import.meta.dirname, "..");
     const bin = join(dirname(createRequire(import.meta.url).resolve("size-limit/package.json")), "bin.js");
     // Non-zero exit (over budget, or no dist/) throws with size-limit's own report.
     const report = execFileSync(process.execPath, [bin], { cwd: pkg, encoding: "utf8" });
     expect(report).toContain("Size limit: 4 kB");
+    expect(report).toContain("Size limit: 3 kB");
     expect(report).not.toMatch(/exceeded/);
-    expect(report).toMatch(/Size:\s+[\d.]+ kB with all dependencies, minified and brotlied/);
+    expect(report.match(/Size:\s+[\d.]+ kB with all dependencies, minified and brotlied/g)).toHaveLength(2);
   }, 120_000);
 });

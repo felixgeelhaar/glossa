@@ -17,6 +17,7 @@
  */
 import type { Runtime } from "@glossa/runtime";
 
+import { probe } from "./probes.js";
 import type { ProbeOptions } from "./probes.js";
 import type { Box } from "./regions.js";
 import { startCapture } from "./session.js";
@@ -119,7 +120,9 @@ function redact(doc: Document): Box[] {
 export function install(g: Global = globalThis as Global): Agent {
   if (g.__glossaCapture) return g.__glossaCapture;
   const runtimes: Runtime[] = (g[REGISTRY] ??= []);
-  const session = startCapture([]);
+  // The agent is the surface that measures quality, so it is the surface that
+  // carries the probe pass (RFC 0005 §5.1).
+  const session = startCapture([], { probe });
   runtimes.forEach((rt) => session.add(rt));
   Object.defineProperty(runtimes, "push", {
     configurable: true,

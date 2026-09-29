@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createRuntime } from "@glossa/runtime";
 import type { BundledRelease, Runtime } from "@glossa/runtime";
 
+import { probe } from "./probes.js";
 import type { ProbeFinding } from "./probes.js";
 import { startCapture } from "./session.js";
 import type { CaptureSession, SessionCapture } from "./session.js";
@@ -42,7 +43,7 @@ const valid = (c: SessionCapture) => c.probes.flatMap((p) => findingErrors(p));
 describe("text-clipped", () => {
   it("reports the clipping container's own numbers, once for a message on three lines", () => {
     const rt = runtime("de");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<div id="box" style="overflow-x: hidden"><span id="t"></span></div>`;
     document.getElementById("t")!.textContent = rt.t("long.text");
     undo.push(
@@ -74,7 +75,7 @@ describe("text-clipped", () => {
 
   it("says nothing when the container shows everything, or doesn't clip", () => {
     const rt = runtime("de");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<div id="box" style="overflow-x: hidden"><span id="t"></span></div>`;
     document.getElementById("t")!.textContent = rt.t("profile.save");
     undo.push(
@@ -90,7 +91,7 @@ describe("text-clipped", () => {
 describe("region-overlap", () => {
   it("reports a pair that covers more than a quarter of the smaller, once", () => {
     const rt = runtime("de");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="a"></span><span id="b"></span>`;
     document.getElementById("a")!.textContent = rt.t("profile.save");
     document.getElementById("b")!.textContent = rt.t("settings.save");
@@ -113,7 +114,7 @@ describe("region-overlap", () => {
 
   it("ignores a quarter or less, and a region inside another", () => {
     const rt = runtime("de");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="a"></span><span id="b"></span><div id="outer"><span id="inner"></span></div>`;
     document.getElementById("a")!.textContent = rt.t("profile.save");
     document.getElementById("b")!.textContent = rt.t("settings.save");
@@ -134,7 +135,7 @@ describe("region-overlap", () => {
 describe("line-growth", () => {
   it("compares the line boxes against the source capture's, above the tolerance", () => {
     const rt = runtime("de");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="t"></span>`;
     document.getElementById("t")!.textContent = rt.t("long.text");
     undo.push(
@@ -169,7 +170,7 @@ describe("rtl-not-mirrored", () => {
   it("reports a region that still lays out left to right in an RTL locale", () => {
     const rt = runtime("ar");
     expect(rt.dir).toBe("rtl");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="t" style="direction: ltr"></span>`;
     document.getElementById("t")!.textContent = rt.t("profile.save");
     undo.push(layout({ t: { box: { x: 0, y: 0, width: 80, height: 20 } } }));
@@ -182,7 +183,7 @@ describe("rtl-not-mirrored", () => {
 
   it("says nothing when the region mirrored, and nothing at all in an LTR locale", () => {
     const rt = runtime("ar");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="t" style="direction: rtl"></span>`;
     document.getElementById("t")!.textContent = rt.t("profile.save");
     undo.push(layout({ t: { box: { x: 0, y: 0, width: 80, height: 20 } } }));
@@ -191,7 +192,7 @@ describe("rtl-not-mirrored", () => {
     session.stop();
     document.body.innerHTML = "";
     const de = runtime("de");
-    session = startCapture(de);
+    session = startCapture(de, { probe });
     document.body.innerHTML = `<span id="u" style="direction: ltr"></span>`;
     document.getElementById("u")!.textContent = de.t("profile.save");
     undo.push(layout({ u: { box: { x: 0, y: 0, width: 80, height: 20 } } }));
@@ -202,7 +203,7 @@ describe("rtl-not-mirrored", () => {
 describe("missing-glyph", () => {
   it("reports what document.fonts.check() refuses, with the font it asked for", () => {
     const rt = runtime("ar");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="t" style="direction: rtl; font-family: Tofu; font-size: 16px"></span>`;
     document.getElementById("t")!.textContent = rt.t("profile.save");
     undo.push(layout({ t: { box: { x: 0, y: 0, width: 80, height: 20 } } }), fonts(false));
@@ -215,7 +216,7 @@ describe("missing-glyph", () => {
 
   it("says nothing when the fonts cover the text", () => {
     const rt = runtime("ar");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="t" style="direction: rtl"></span>`;
     document.getElementById("t")!.textContent = rt.t("profile.save");
     undo.push(layout({ t: { box: { x: 0, y: 0, width: 80, height: 20 } } }), fonts(true));
@@ -226,7 +227,7 @@ describe("missing-glyph", () => {
 describe("untranslated-on-screen", () => {
   it("comes from explain(), not from the text: a fallback locale on a translated screen", () => {
     const rt = runtime("ar");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="a" style="direction: rtl"></span><span id="b" style="direction: rtl"></span>`;
     document.getElementById("a")!.textContent = rt.t("profile.save"); // ar has it
     document.getElementById("b")!.textContent = rt.t("settings.save"); // falls back to de
@@ -243,7 +244,7 @@ describe("untranslated-on-screen", () => {
 
   it("reports an inline default the same way, and says nothing for the source locale", () => {
     const rt = runtime("de");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="a"></span><span id="b"></span>`;
     document.getElementById("a")!.textContent = rt.t("profile.save");
     document.getElementById("b")!.textContent = rt.t("no.such.key", {}, { default: "Standard" });
@@ -268,7 +269,7 @@ describe("mixed-locale", () => {
   it("names the screen's locale and reports the keys that resolved outside its chain", () => {
     const fr = runtime("fr", three);
     const ja = runtime("ja", three);
-    session = startCapture([fr, ja]);
+    session = startCapture([fr, ja], { probe });
     document.body.innerHTML = `<span id="a"></span><span id="b"></span><span id="c"></span>`;
     document.getElementById("a")!.textContent = fr.t("profile.save");
     document.getElementById("b")!.textContent = fr.t("settings.save");
@@ -287,7 +288,7 @@ describe("mixed-locale", () => {
   it("says nothing when the two locales are in one fallback chain", () => {
     const fr = runtime("fr", three);
     const de = runtime("de", three);
-    session = startCapture([fr, de]);
+    session = startCapture([fr, de], { probe });
     document.body.innerHTML = `<span id="a"></span><span id="b"></span>`;
     document.getElementById("a")!.textContent = fr.t("profile.save");
     document.getElementById("b")!.textContent = de.t("settings.save");
@@ -298,7 +299,7 @@ describe("mixed-locale", () => {
 describe("the error-channel drain", () => {
   it("turns what the session's runtimes reported into runtime-* findings", () => {
     const rt = runtime("de");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="a"></span>`;
     document.getElementById("a")!.textContent = rt.t("nope.not.here");
     expect(session.errors).toEqual([
@@ -325,7 +326,7 @@ describe("the error-channel drain", () => {
   it("drains every runtime in the session, and drops a message ID no locus can name", () => {
     const de = runtime("de");
     const ar = runtime("ar");
-    session = startCapture([de, ar]);
+    session = startCapture([de, ar], { probe });
     de.t("nope.one");
     ar.t("Not A Key");
     const { probes } = session.collect();
@@ -337,9 +338,24 @@ describe("the error-channel drain", () => {
 });
 
 describe("the probe pass as a whole", () => {
+  it("is given to a session, not imported by it: without one, a capture just has no findings", () => {
+    const rt = runtime("ar");
+    session = startCapture(rt); // no { probe }: the in-product editor's session
+    document.body.innerHTML = `<span id="t" style="direction: ltr"></span>`;
+    document.getElementById("t")!.textContent = rt.t("profile.save");
+    rt.t("nope.zero");
+    undo.push(layout({ t: { box: { x: 0, y: 0, width: 80, height: 20 } } }));
+
+    const capture = session.collect();
+    expect(capture.regions).toHaveLength(1); // the regions are still collected…
+    expect(capture.probes).toEqual([]); // …and nothing measured them.
+    expect(capture.metrics).toEqual({});
+    expect(session.errors).toHaveLength(1); // the drain still fills; only the pass is absent.
+  });
+
   it("never breaks a capture: a probe that throws costs its own finding and no more", () => {
     const rt = runtime("de");
-    session = startCapture(rt);
+    session = startCapture(rt, { probe });
     document.body.innerHTML = `<span id="t"></span>`;
     document.getElementById("t")!.textContent = rt.t("profile.save");
     rt.t("nope.three");
@@ -363,7 +379,7 @@ describe("the probe pass as a whole", () => {
   });
 
   it("hooks runtimes added after the start into the log and the drain", () => {
-    session = startCapture([]);
+    session = startCapture([], { probe });
     const rt = runtime("de");
     session.add(rt);
     document.body.innerHTML = `<span id="t"></span>`;

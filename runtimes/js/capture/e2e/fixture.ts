@@ -9,6 +9,7 @@ import "@glossa/elements";
 
 import { startCapture } from "../src/index.js";
 import type { CaptureSession, SessionCapture } from "../src/index.js";
+import { probe } from "../src/probes.js";
 
 declare global {
   interface Window {
@@ -80,7 +81,7 @@ function probes(): Probe[] {
 window.fixture = {
   render,
   start: () => {
-    session = startCapture([de, ar]);
+    session = startCapture([de, ar], { probe });
     render();
   },
   stop: () => session?.stop(),

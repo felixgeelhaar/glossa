@@ -163,7 +163,7 @@ fail on any `securitypolicyviolation`.
   (nested markers, duplicate text, an attribute, a component host), live
   override on save, the focus trap, axe, and constructable stylesheets. Needs
   the workspace built and `pnpm exec playwright install chromium`.
-- `pnpm size`: 17 kB brotli with Lit and `@glossa/capture`, 8.5 kB own code.
-  The 16 kB was raised to 17 kB when `@glossa/capture` gained the visual probe
-  pass (RFC 0005 §5.1): an editor session runs no probes, but it is the same
-  session object, so it carries them. Own code is unchanged.
+- `pnpm size`: 16 kB brotli with Lit and `@glossa/capture`, 8.5 kB own code.
+  An editor session measures nothing, so it is started without
+  `@glossa/capture`'s visual probe pass (RFC 0005 §5.1) and that module never
+  enters this bundle.

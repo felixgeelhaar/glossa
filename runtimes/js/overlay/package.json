@@ -34,9 +34,9 @@
   },
   "size-limit": [
     {
-      "name": "@glossa/overlay, everything included (lit, @glossa/capture with its probe pass; @glossa/runtime is types only)",
+      "name": "@glossa/overlay, everything included (lit, @glossa/capture; @glossa/runtime is types only)",
       "path": "dist/index.js",
-      "limit": "17 KB"
+      "limit": "16 KB"
     },
     {
       "name": "@glossa/overlay, own code (lit and @glossa/capture excluded)",
@@ -50,7 +50,7 @@
     {
       "name": "the served bundle, /overlay/v1/overlay.js (dist/bundle/overlay.js)",
       "path": "dist/bundle/overlay.js",
-      "limit": "17 KB"
+      "limit": "16 KB"
     }
   ],
   "dependencies": {

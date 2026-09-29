@@ -18,8 +18,9 @@ it. The runtime only has the extension point, `onRender`, which costs under
 
 ```ts
 import { startCapture } from "@glossa/capture";
+import { probe } from "@glossa/capture/probes"; // optional: the visual probe pass
 
-const session = startCapture(runtime); // or [runtimeA, runtimeB] for islands
+const session = startCapture(runtime, { probe }); // or [runtimeA, runtimeB] for islands
 // …the page re-renders with markers and host attributes…
 const { renders, regions, probes } = session.collect(); // captures.v1 fields + findings
 session.stop(); // remove the hook and every marker
@@ -72,7 +73,8 @@ log keeps a digest of the values (FNV-1a of their JSON), never the values.
 
 ## The visual probe pass
 
-`collect()` also runs the visual probes of [RFC 0005 §5](../../../docs/rfcs/0005-quality.md),
+A session started with `{ probe }` also runs the visual probes of
+[RFC 0005 §5](../../../docs/rfcs/0005-quality.md) in `collect()`,
 after the regions and before the screenshot, while the page still has layout:
 `scrollWidth`, `getComputedStyle`, `document.fonts.check()` and the runtime's
 `explain()` exist only while the page is open. They are **semantic assertions
@@ -110,6 +112,17 @@ is what the next locale's `collect(root, { baseline })` compares against.
 so. A probe that throws costs its own finding and nothing else: it can never
 break a capture.
 
+**The pass is given to a session, never imported by it.** `collect()` is always
+reachable on the session object, so a static `import` of `./probes.js` in
+`session.ts` would put the probes in every bundle that starts a session —
+including `@glossa/overlay`, the in-product editor served to end users, which
+measures nothing. So `probe` lives behind its own entry point,
+`@glossa/capture/probes`, and is handed to `startCapture(runtimes, { probe })`.
+`glossa capture`'s agent passes it and pays the ~1.2 kB; a session without it
+collects regions and reports `probes: []`. `src/bundle.test.ts` asserts both
+directions, and `pnpm size` budgets a session with the pass (4 kB, RFC 0005
+§5.1) and without it (3 kB, unchanged) separately.
+
 ## The trade-off
 
 **Markers change string lengths.** During a session, a `t()` string is a few
@@ -131,13 +144,13 @@ Vue and Go-template usage.
 
 | | |
 |---|---|
-| `startCapture(runtimes) → CaptureSession` | Installs the hook on one runtime or several (they share one log). |
+| `startCapture(runtimes, { probe? }) → CaptureSession` | Installs the hook on one runtime or several (they share one log). `probe` comes from `@glossa/capture/probes`; without it a session reports no findings. |
 | `session.renders` | The render log: `{ id, locale, digest }`, a marker's index is a position in it. |
 | `session.errors` | What the session's runtimes put on their error channels, in order. |
 | `session.collect(root?, { baseline?, tolerance? }) → { renders, regions, probes, metrics }` | The capture script and the probe pass, over the document or a subtree. |
 | `session.stop()` | Removes the hooks and strips the markers left in the document. Idempotent. |
 | `collectRegions(log, root?, onHost?)` | The capture script on its own, for a log kept elsewhere. |
-| `probe(capture, hosts, ctx, options?)` | The probe pass on its own, over regions already collected. |
+| `probe(capture, hosts, ctx, options?)` (`@glossa/capture/probes`) | The probe pass on its own, over regions already collected. |
 | `stripMarkers(root?)`, `strip(s)` | Remove markers from a DOM tree or a string. |
 | `mark(index, text)`, `ranges(s)`, `digest(values)` | The marker format and the values digest. |
 
@@ -171,9 +184,11 @@ CLI integration test's fixture app (`src/testing/cli-fixture.ts`) to
 - `pnpm test`: markers, the session and the capture script's structure in
   jsdom, with Vue and React apps, validated against captures.v1 with ajv; one
   fixture per probe, with the layout stated (`src/testing/layout.ts`) because
-  jsdom has none, validated against finding.v1; the tree-shaking check; and
-  the size budget, which runs `size-limit` over `dist/` and fails over 4 kB
-  brotli, so `pnpm -r test` enforces what `pnpm size` reports.
+  jsdom has none, validated against finding.v1; the tree-shaking checks,
+  including that a session without the probe pass leaves `./probes` out of the
+  bundle; and the size budgets, which run `size-limit` over `dist/` and fail
+  over 4 kB brotli with the pass or 3 kB without it, so `pnpm -r test` enforces
+  what `pnpm size` reports.
 - `pnpm test:browser`: geometry in Chromium with Playwright on a fixture page:
   "Speichern" rendered by three different messages, formatted values,
   attributes, hidden and off-screen text, RTL text, wrapped lines, a

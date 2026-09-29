@@ -85,6 +85,13 @@ export interface ProbeResult {
   metrics: Baseline;
 }
 
+/**
+ * `probe`'s type. A session takes the pass rather than importing it
+ * (`startCapture(runtimes, { probe })`), so a bundle that never probes — the
+ * in-product editor — doesn't carry this module.
+ */
+export type ProbePass = typeof probe;
+
 /** RFC 0005 §5.2's thresholds, in CSS pixels and never device pixels. */
 const SLACK = 1;
 /** Per cent of the smaller region, so the overlap share stays an integer. */
