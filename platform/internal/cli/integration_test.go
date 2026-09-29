@@ -312,16 +312,27 @@ func TestCLIAgainstGlossaServer(t *testing.T) {
 		t.Errorf("second push = %+v", push)
 	}
 
+	// `check --json` is glossa.cli.check/v2: the findings are
+	// glossa.finding/v1, so the locale and the key live on the locus
+	// (RFC 0005 §2.1). Reading them flat silently counts nothing.
 	var check struct {
 		Passed   bool `json:"passed"`
 		Findings []struct {
-			Code, Locale, Key string
+			Code  string `json:"code"`
+			Layer string `json:"layer"`
+			Locus struct {
+				Key    string `json:"key"`
+				Locale string `json:"locale"`
+			} `json:"locus"`
 		} `json:"findings"`
 	}
 	r.run(cli.ExitCheckFailed, &check, "check")
 	missing := 0
 	for _, f := range check.Findings {
-		if f.Code == "missing-translation" && f.Locale == "en" {
+		if f.Code == "missing-translation" && f.Locus.Locale == "en" {
+			if f.Locus.Key == "" {
+				t.Errorf("finding %+v carries no key", f)
+			}
 			missing++
 		}
 	}
