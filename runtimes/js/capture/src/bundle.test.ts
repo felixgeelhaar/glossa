@@ -88,7 +88,19 @@ describe("the size budgets", () => {
     const pkg = join(import.meta.dirname, "..");
     const bin = join(dirname(createRequire(import.meta.url).resolve("size-limit/package.json")), "bin.js");
     // Non-zero exit (over budget, or no dist/) throws with size-limit's own report.
-    const report = execFileSync(process.execPath, [bin], { cwd: pkg, encoding: "utf8" });
+    //
+    // NO_COLOR because size-limit bolds the numbers when it thinks the
+    // terminal wants colour, which GitHub Actions does: the bytes then read
+    // `Size limit: \u001b[1m4 kB`, and matching the plain string fails on a
+    // run whose budgets are all green. Strip anything that survives anyway,
+    // so the assertions below are about sizes and never about formatting.
+    const raw = execFileSync(process.execPath, [bin], {
+      cwd: pkg,
+      encoding: "utf8",
+      env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
+    });
+    // eslint-disable-next-line no-control-regex
+    const report = raw.replace(/\u001b\[[0-9;]*m/g, "");
     expect(report).toContain("Size limit: 4 kB");
     expect(report).toContain("Size limit: 3 kB");
     expect(report).not.toMatch(/exceeded/);
