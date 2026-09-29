@@ -12,14 +12,14 @@ func TestGenerateWritesTypedAccessorsAndChecksStaleness(t *testing.T) {
 	w := newWorkspace(t).withProject(nil, map[string]string{"en": sourceEN})
 	var out generateJSON
 	w.json(&out, "generate").want(t, ExitOK)
-	if out.Messages != 3 || len(out.Files) != 4 || !out.Files[0].Changed {
+	if out.Messages != 3 || len(out.Files) != 5 || !out.Files[0].Changed {
 		t.Fatalf("generate = %+v", out)
 	}
 	var kinds []string
 	for _, f := range out.Files {
 		kinds = append(kinds, f.Kind)
 	}
-	if strings.Join(kinds, ",") != "typescript,vue,react,go" {
+	if strings.Join(kinds, ",") != "typescript,vue,react,go,dart" {
 		t.Errorf("kinds = %v", kinds)
 	}
 	ts := w.read("src/glossa/messages.ts")
@@ -38,6 +38,12 @@ func TestGenerateWritesTypedAccessorsAndChecksStaleness(t *testing.T) {
 	if goSrc := w.read("internal/msg/messages.go"); !strings.Contains(goSrc, "package msg") ||
 		!strings.Contains(goSrc, "func (m Messages) CheckoutPay(amount float64, opts ...glossa.Option) string") {
 		t.Errorf("messages.go = %s", goSrc)
+	}
+	if dartSrc := w.read("lib/glossa/messages.dart"); !strings.Contains(dartSrc, "// dart format off") ||
+		!strings.Contains(dartSrc, "import 'package:glossa/glossa.dart';") ||
+		!strings.Contains(dartSrc, "String pay({required num amount, String? defaultText}) => translate(") ||
+		!strings.Contains(dartSrc, "static const String checkoutPay = 'checkout.pay';") {
+		t.Errorf("messages.dart = %s", dartSrc)
 	}
 	w.json(&out, "generate", "--check").want(t, ExitOK)
 	w.write("locales/en.json", `{"checkout.pay": "Pay {total, number}"}`)

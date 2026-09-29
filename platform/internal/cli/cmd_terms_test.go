@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/terminology"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
 // termbase adds the cart concept: en "cart" preferred, de "Warenkorb"
@@ -173,7 +173,8 @@ func TestTermsCheckFindsForbiddenTerms(t *testing.T) {
 	w.json(&chk, "check", "--terminology", "--require-complete=none").want(t, ExitCheckFailed)
 	found := false
 	for _, f := range chk.Findings {
-		if f.Check == terminology.CheckName && f.Code == "term_forbidden" && f.Locale == "de" && f.Key == "cart.checkout" {
+		if f.Layer == domain.LayerTerminology && f.Code == "term_forbidden" &&
+			f.Locus.Locale == "de" && f.Locus.Key == "cart.checkout" {
 			found = true
 		}
 	}

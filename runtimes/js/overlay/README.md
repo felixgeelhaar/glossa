@@ -164,3 +164,6 @@ fail on any `securitypolicyviolation`.
   override on save, the focus trap, axe, and constructable stylesheets. Needs
   the workspace built and `pnpm exec playwright install chromium`.
 - `pnpm size`: 16 kB brotli with Lit and `@glossa/capture`, 8.5 kB own code.
+  An editor session measures nothing, so it is started without
+  `@glossa/capture`'s visual probe pass (RFC 0005 §5.1) and that module never
+  enters this bundle.

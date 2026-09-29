@@ -4469,6 +4469,216 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/check-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The project's check policy
+         * @description What `glossa check` and the Glossa pull-request check decide by
+         *     (RFC 0005 §4). The server is the source of truth: `glossa check`
+         *     fetches this document and caches it at `.glossa/policy.json`,
+         *     and `glossa.yaml`'s `check:` block and the flags are local
+         *     overrides the pull-request check ignores. A developer can
+         *     tighten or loosen their own loop; they cannot change what CI
+         *     decides.
+         *
+         *     A project that has never saved one reads as the documented
+         *     default — every locale must be complete, an untranslated key in
+         *     one is an error, errors fail — at `version` `0`. `created_by`
+         *     and `created_at` are absent for a policy nobody saved through
+         *     this endpoint. Needs `catalog.read`, because a policy is about
+         *     the catalog's messages and the callers that must read it — the
+         *     CLI, the pull-request check, Studio and MCP — hold exactly that.
+         */
+        get: operations["getCheckPolicy"];
+        put?: never;
+        /**
+         * Save a new version of the check policy
+         * @description A policy is never edited in place: every save is a new version,
+         *     one past the last, and every check run records the version it
+         *     graded itself against (RFC 0005 §4.3). `version`,
+         *     `effective_from` and `grace_until` are the server's answers to
+         *     "when did this become true" and are refused in a request
+         *     (`invalid_check_policy`): a caller that could set them could
+         *     rewrite history or unpin an open pull request mid-grace.
+         *
+         *     **`dry_run` answers the impact preview and stores nothing.** The
+         *     failure mode this exists for is obvious and avoidable: somebody
+         *     adds `terminology: error`, and forty open pull requests go red
+         *     for something their authors didn't do. The preview says how many
+         *     stored findings change severity, which refs would newly fail and
+         *     how many open pull requests are among them, per rule. Studio
+         *     shows it before the save; `glossa policy diff` prints it. The
+         *     same preview is computed for a real save, so the audit trail
+         *     carries the number the author saw.
+         *
+         *     **`grace_days` pins the pull requests that predate the save** to
+         *     the version they were opened under, until the grace ends; a new
+         *     pull request grades against the new version at once, and merging
+         *     is never blocked by a rule the branch predates. Absent, it is
+         *     14 days, because the default should protect the people who did
+         *     not cause the change; `0` pins nothing, which is what a policy
+         *     that only loosens wants.
+         *
+         *     Needs `catalog.write` — the permission that already carries the
+         *     authority to change what a project's check concludes. Problem
+         *     codes: `invalid_check_policy` (400: an unknown layer or
+         *     severity, a rule raising the model-decided `linguistic` layer to
+         *     `error`, a locale the project doesn't have, or a request that
+         *     set the server's bookkeeping), `check_policy_conflict` (409: the
+         *     project changed while the write was being prepared — read the
+         *     policy again and decide).
+         */
+        post: operations["saveCheckPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/check-policy/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * How the check policy got to be what it is
+         * @description Every saved version, newest first, with the document it was and
+         *     who saved it when. A policy is an organizational decision about
+         *     a project (RFC 0005 §4.2), so "who tightened `terminology` to
+         *     `error`, and when?" has an answer that outlives the version that
+         *     carried it.
+         *
+         *     The list starts at the project's first save through this API: a
+         *     policy set through the project's settings, or never set at all,
+         *     has no versions. Needs `catalog.read`. Problem codes:
+         *     `invalid_page_size`, `invalid_page_token` (400).
+         */
+        get: operations["listCheckPolicyVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/check-policy/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A check-policy version number, as `listCheckPolicyVersions` gives it. */
+                version: components["parameters"]["CheckPolicyVersionPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One version of the check policy
+         * @description The document as it was saved, with who saved it and when. It is
+         *     what a check run that records `policy_version` was graded
+         *     against, so a verdict from three weeks ago can be read against
+         *     the policy that produced it rather than the policy that happens
+         *     to be live now. Needs `catalog.read`.
+         */
+        get: operations["getCheckPolicyVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/check-policy/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The check policy in its canonical form
+         * @description The document alone, with none of the state around it — exactly
+         *     what `importCheckPolicy` takes. A project can't keep its policy
+         *     in Git (RFC 0005 §4.2: one commit must have one verdict, and a
+         *     policy change must not be a merge conflict), so export and
+         *     import are what keep it reviewable: `glossa policy export`
+         *     writes this file, a person reads the diff, `glossa policy
+         *     import` sends it back.
+         *
+         *     The server's bookkeeping is left out, because importing it
+         *     elsewhere would be asserting another project's history. Needs
+         *     `catalog.read`.
+         */
+        get: operations["exportCheckPolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/check-policy/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a check policy as a new version
+         * @description Takes a canonical document — what `exportCheckPolicy` returns,
+         *     from this project or another — validates it and saves it as the
+         *     next version, with the same grace and the same impact preview as
+         *     `saveCheckPolicy`. It is the same write with the document as the
+         *     whole body, so a file can be posted as it is.
+         *
+         *     `grace_days` and `dry_run` ride in the query, for the same
+         *     reason: the body is the file. Needs `catalog.write`. Problem
+         *     codes: `invalid_check_policy` (400), `check_policy_conflict`
+         *     (409).
+         */
+        post: operations["importCheckPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/branches": {
         parameters: {
             query?: never;
@@ -7654,6 +7864,229 @@ export interface components {
             /** @description When the daily sweep retires it; absent, never. A time in the past is refused. */
             expires_at?: components["schemas"]["Timestamp"];
         };
+        /**
+         * @description Which locales must be complete: every one of the project's
+         *     (`all`), only those in `locales` (`listed`), or none of them.
+         *     `listed` with an empty `locales` is stored as `none`.
+         * @enum {string}
+         */
+        CheckPolicyLocaleRequirement: "all" | "listed" | "none";
+        /**
+         * @description One line of the policy document (RFC 0005 §4.1): what it
+         *     selects, what that is worth, and whether it may fail a run yet.
+         *
+         *     The selector is any subset of `layer`, `code`, `locale`,
+         *     `namespace` and `environment`. Every field it names must match
+         *     the finding; every field it leaves out matches anything. A field
+         *     the finding doesn't carry never matches a rule that names it, so
+         *     a rule for `environment: production` says nothing about a pull
+         *     request's branch check, which runs in no environment at all.
+         *
+         *     **Precedence is by specificity**: the rule naming more fields
+         *     wins, and ties go to the later rule — so a rule appended to a
+         *     policy always wins against the rule it was written to override.
+         *     A policy nobody can predict is worse than no policy.
+         */
+        CheckPolicyRule: {
+            layer?: components["schemas"]["FindingLayer"];
+            code?: string;
+            locale?: components["schemas"]["Locale"];
+            namespace?: components["schemas"]["Namespace"];
+            /** @description The environment the run is about. A branch check is in none. */
+            environment?: string;
+            /**
+             * @description What the selected findings are worth. `off` means "don't
+             *     compute": the layer isn't run, so a project doesn't pay for
+             *     QA it ignores, and nothing is reported or counted. A rule
+             *     may not raise the model-decided `linguistic` layer to
+             *     `error` — a build never fails on an opinion.
+             * @enum {string}
+             */
+            severity: "error" | "warning" | "off";
+            /**
+             * @description `enforce` (the default) lets the rule change the run's
+             *     conclusion. `warn` computes and reports at the rule's
+             *     severity but can never fail a run: it is the on-ramp for a
+             *     stricter policy — ship the rule, watch the number, flip it.
+             * @enum {string}
+             */
+            mode?: "enforce" | "warn";
+        };
+        /**
+         * @description What one environment asks for beyond the document's base:
+         *     production may require locales a branch does not, and a review
+         *     state a branch does not. An environment that names no
+         *     `require_complete` inherits the document's, so naming one only
+         *     to ask for a review state doesn't quietly change what must be
+         *     translated.
+         */
+        CheckPolicyEnvironment: {
+            /** @description Absent, the document's. */
+            require_complete?: components["schemas"]["CheckPolicyLocaleRequirement"];
+            /** @description The locales this block's `listed` names; empty otherwise. */
+            locales?: components["schemas"]["Locale"][];
+            /**
+             * @description The review state a release must have reached to publish
+             *     here. Release enforces it at publish (`policy_not_met`); the
+             *     policy only states it.
+             * @enum {string}
+             */
+            require_review?: "approved";
+        };
+        /**
+         * @description The check-policy document in its canonical form (RFC 0005 §4.1):
+         *     what the policy says, and none of the bookkeeping about when it
+         *     said it. It is what `exportCheckPolicy` writes and
+         *     `importCheckPolicy` reads, and what `saveCheckPolicy` takes as
+         *     its `policy`.
+         *
+         *     A save replaces the whole document. The three base fields —
+         *     `require_complete`, `fail_on` and `missing_translations` — are
+         *     the ones every project starts from and mean exactly what they
+         *     meant before the document existed, so a policy that names no
+         *     rules and no environments decides every question the way the
+         *     pre-document policy did.
+         */
+        CheckPolicyDocument: {
+            /**
+             * @description Always present in responses; absent in a write, the server writes this one.
+             * @enum {string}
+             */
+            schema?: "glossa.check-policy/v1";
+            require_complete: components["schemas"]["CheckPolicyLocaleRequirement"];
+            /**
+             * @description The locales `require_complete: listed` names; empty
+             *     otherwise. Every one must be a locale the project has
+             *     (`invalid_check_policy`).
+             */
+            locales?: components["schemas"]["Locale"][];
+            /**
+             * @description The lowest severity that fails the check: `error` (the
+             *     default), `warning` — a warning fails it too — or `never`,
+             *     where the check only ever reports.
+             * @enum {string}
+             */
+            fail_on: "error" | "warning" | "never";
+            /**
+             * @description What an untranslated key in a locale that must be complete
+             *     is. Teams that translate after merging set this to `warning`
+             *     and keep every locale required: the check still lists what
+             *     is untranslated without blocking the pull request.
+             * @enum {string}
+             */
+            missing_translations: "error" | "warning";
+            /** @description What each environment asks for, by environment name. */
+            environments?: {
+                [key: string]: components["schemas"]["CheckPolicyEnvironment"];
+            };
+            /**
+             * @description The selectors, in document order. Order is part of the
+             *     meaning: ties in specificity go to the later rule.
+             */
+            rules?: components["schemas"]["CheckPolicyRule"][];
+        };
+        /** @description The policy that grades, and the record of who put it there. */
+        CheckPolicyState: {
+            /**
+             * @description Monotonic. Every check run records the version it graded
+             *     itself against, so a run can say which it used when two are
+             *     live at once. `0` is a project that has never saved one.
+             */
+            version: number;
+            document: components["schemas"]["CheckPolicyDocument"];
+            /** @description When this version was saved. */
+            effective_from?: components["schemas"]["Timestamp"];
+            /**
+             * @description Until when pull requests opened before `effective_from` keep
+             *     grading against `pinned_version`. Absent, the version grades
+             *     everything at once.
+             */
+            grace_until?: components["schemas"]["Timestamp"];
+            /** @description The version a pull request still inside the grace grades against. */
+            pinned_version?: number;
+            /** @description Absent for a policy nobody saved through this endpoint. */
+            created_by?: string;
+            created_at?: components["schemas"]["Timestamp"];
+        };
+        /** @description A new version of the check policy. */
+        SaveCheckPolicy: {
+            policy: components["schemas"]["CheckPolicyDocument"];
+            /**
+             * @description How long the save pins the pull requests that predate it to
+             *     the version they were opened under. Absent, 14 days — the
+             *     default protects the people who did not cause the change;
+             *     `0` pins nothing, which is what a policy that only loosens
+             *     wants.
+             */
+            grace_days?: number;
+            /** @description Answer the impact preview and store nothing — neither the document nor a version. */
+            dry_run?: boolean;
+        };
+        /**
+         * @description What one rule of the candidate did. A rule that changed nothing
+         *     is listed too: it is exactly what a reader wants to know before
+         *     saving.
+         */
+        CheckPolicyRuleImpact: {
+            /** @description The rule's index in the candidate document's `rules`. */
+            rule: number;
+            selector?: components["schemas"]["CheckPolicyRule"];
+            /** @description Findings this rule decided. */
+            matched: number;
+            /** @description Findings it decided differently from the policy in force. */
+            changed: number;
+            /** @description Findings it turned into a reason a run fails. */
+            newly_failing: number;
+        };
+        /**
+         * @description What a candidate policy would change about the findings and the
+         *     runs the project already has (RFC 0005 §4.3), measured against
+         *     the newest run of each of the refs checked most recently.
+         */
+        CheckPolicyImpact: {
+            /** @description The stored findings the preview was measured against. */
+            findings: number;
+            /** @description The runs those findings came from — one per ref, the newest. */
+            runs: number;
+            /** @description Findings the candidate makes count for more. */
+            raised: number;
+            lowered: number;
+            /** @description Findings the candidate stops computing. */
+            silenced: number;
+            /** @description Findings that fail under the candidate and did not before. */
+            newly_failing: number;
+            no_longer_failing: number;
+            /**
+             * @description Open pull requests among `newly_failing_refs` — the number
+             *     of people who would wake up to a red pull request they did
+             *     not cause, and the one that decides whether this policy
+             *     ships with a grace.
+             */
+            open_pull_requests: number;
+            /** @description The refs whose verdict turns from passing to failing. */
+            newly_failing_refs?: string[];
+            no_longer_failing_refs?: string[];
+            rules: components["schemas"]["CheckPolicyRuleImpact"][];
+        };
+        CheckPolicySaved: {
+            /** @description Nothing was stored. */
+            dry_run: boolean;
+            policy: components["schemas"]["CheckPolicyState"];
+            impact: components["schemas"]["CheckPolicyImpact"];
+        };
+        /** @description One saved version of the policy, and who saved it when. */
+        CheckPolicyVersion: {
+            version: number;
+            document: components["schemas"]["CheckPolicyDocument"];
+            effective_from?: components["schemas"]["Timestamp"];
+            grace_until?: components["schemas"]["Timestamp"];
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        CheckPolicyVersionList: {
+            items: components["schemas"]["CheckPolicyVersion"][];
+            next_page_token?: string;
+        };
     };
     responses: {
         /** @description Signed in. The session cookie is set. */
@@ -7846,6 +8279,8 @@ export interface components {
         CheckRunPath: components["schemas"]["Id"];
         /** @description A waiver `id`. */
         WaiverPath: components["schemas"]["Id"];
+        /** @description A check-policy version number, as `listCheckPolicyVersions` gives it. */
+        CheckPolicyVersionPath: number;
         /** @description A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's. */
         ContextBranch: string;
         PageSize: number;
@@ -14028,6 +14463,201 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getCheckPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckPolicyState"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveCheckPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveCheckPolicy"];
+            };
+        };
+        responses: {
+            /** @description The policy as it now stands, or — for a `dry_run` — as it would stand. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckPolicySaved"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listCheckPolicyVersions: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of policy versions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckPolicyVersionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCheckPolicyVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A check-policy version number, as `listCheckPolicyVersions` gives it. */
+                version: components["parameters"]["CheckPolicyVersionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckPolicyVersion"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    exportCheckPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The canonical policy document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckPolicyDocument"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    importCheckPolicy: {
+        parameters: {
+            query?: {
+                /**
+                 * @description How long to pin the pull requests that predate the save.
+                 *     Absent, 14 days; `0` pins nothing.
+                 */
+                grace_days?: number;
+                /** @description Answer the impact preview and store nothing. */
+                dry_run?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckPolicyDocument"];
+            };
+        };
+        responses: {
+            /** @description The policy as it now stands, or — for a `dry_run` — as it would stand. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckPolicySaved"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listBranches: {

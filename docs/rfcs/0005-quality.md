@@ -259,7 +259,9 @@ A visual finding carries `locus.capture` and `locus.region`, so Studio crops the
 
 ### 6.1 Shape and shipping
 
-`runtimes/dart/` holds one package, `glossa`, pure Dart with an optional Flutter layer (`glossa/flutter.dart`) so the core is testable with `dart test` and usable off Flutter. It is developed in the monorepo and consumed by Pet Medical from a path/git dependency until it is published; **whether it goes to pub.dev is an owner decision** (§15), and nothing in the design depends on the answer.
+`runtimes/dart/` holds **two** packages: `glossa`, pure Dart, and `glossa_flutter` in `runtimes/dart/flutter/`, which path-depends on it and re-exports it. The core stays testable with `dart test` and usable off Flutter.
+
+*Amended during wave 3.* This section first called for one package with an optional Flutter layer at `glossa/flutter.dart`. That cannot be built: pub has no optional dependencies, so a single package with a Flutter layer must declare `flutter: {sdk: flutter}`, which makes the Flutter SDK a hard requirement of the whole package and breaks `dart pub get`, `dart test` and `dart compile js` on every host without it — including the `runtimes-dart` CI job, which installs Dart and not Flutter. Declaring nothing and importing `package:flutter` anyway fails `dart analyze`, and the only way to silence that is to exclude the file from analysis, i.e. never check the new code at all. Two packages serve this section's stated reason; one package defeats it. `runtimes/dart/analysis_options.yaml` excludes `flutter/**` so the core's analyzer and test run see only pure Dart, and `test/purity_test.dart` fails if anything under `lib/` imports `package:flutter`, or if anything but `lib/io.dart` imports `dart:io`. It is developed in the monorepo and consumed by Pet Medical from a path/git dependency until it is published; **whether it goes to pub.dev is an owner decision** (§15), and nothing in the design depends on the answer.
 
 ### 6.2 Satisfying `runtimes/SPEC.md`
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -34,6 +35,32 @@ var problems = []struct {
 	{domain.ErrInvalidScope, http.StatusBadRequest, "invalid_waiver_scope", ""},
 	{domain.ErrBranchRequired, http.StatusBadRequest, "waiver_branch_required", ""},
 	{domain.ErrExpiryInThePast, http.StatusBadRequest, "waiver_expiry_in_the_past", ""},
+	{app.ErrPolicyVersionNotFound, http.StatusNotFound, problem.CodeNotFound, "no such check-policy version"},
+	// A write that lost the race is refused rather than allowed to drop
+	// what the winner said: the caller reads the policy again and
+	// decides (RFC 0005 §4.3).
+	{app.ErrPolicyConflict, http.StatusConflict, "check_policy_conflict", ""},
+	// Everything a policy document can be wrong about is one code. The
+	// detail says which — an unknown layer, a severity that is not one,
+	// a rule raising an opinion to an error, a locale the project does
+	// not have — because a caller fixing a policy needs the sentence,
+	// not a taxonomy of codes to branch on.
+	{domain.ErrPolicyBookkeeping, http.StatusBadRequest, "invalid_check_policy", ""},
+	{domain.ErrInvalidGrace, http.StatusBadRequest, "invalid_check_policy", ""},
+	{checkpolicy.ErrInvalidDocument, http.StatusBadRequest, "invalid_check_policy", ""},
+	{checkpolicy.ErrInvalidSeverity, http.StatusBadRequest, "invalid_check_policy", ""},
+	{checkpolicy.ErrInvalidMode, http.StatusBadRequest, "invalid_check_policy", ""},
+	{checkpolicy.ErrUnknownLayer, http.StatusBadRequest, "invalid_check_policy", ""},
+	{checkpolicy.ErrAdvisoryLayer, http.StatusBadRequest, "invalid_check_policy", ""},
+	{checkpolicy.ErrUnknownLocale, http.StatusBadRequest, "invalid_check_policy", ""},
+	{checkpolicy.ErrInvalidEnvironment, http.StatusBadRequest, "invalid_check_policy", ""},
+}
+
+// invalidPolicy is a policy document the edge itself can refuse,
+// before the domain sees it: a require_complete that names none of the
+// three modes.
+func invalidPolicy(detail string) error {
+	return problem.New(http.StatusBadRequest, "invalid_check_policy", detail)
 }
 
 // mapError turns Quality's errors into problem details; anything else

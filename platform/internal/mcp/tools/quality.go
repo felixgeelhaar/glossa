@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
@@ -96,6 +97,96 @@ const findingsListSchema = `{
     "waived": {"type": "boolean", "description": "Only findings a waiver accepted."},
     "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "Page size; 20 by default."},
     "cursor": {"type": "string", "description": "The next_cursor of the previous page."}
+  },
+  "required": ["project"],
+  "additionalProperties": false
+}`
+
+// CheckRunName is the check tool's wire name.
+const CheckRunName = "check_run"
+
+type checkRunArgs struct {
+	Project     string   `json:"project"`
+	Environment string   `json:"environment"`
+	Layers      []string `json:"layers"`
+	Limit       *int     `json:"limit"`
+}
+
+// checkRun runs the deterministic layers over the project as it stands
+// and answers with the findings and the policy's verdict
+// (RFC 0005 §7.3).
+//
+// It is a **read** tool, and that is not a technicality. It computes;
+// it stores nothing. `glossa check` in CI and the pull-request check
+// record their runs because a verdict about a commit is history worth
+// keeping; an agent asking "what is wrong right now" is asking a
+// question, and a question should not need a write session or fill the
+// run table. That is why RFC 0005 §7.3 gives check_run the `read`
+// scope, and why the exit criterion has a read-only token run one.
+func checkRun(c Checks) app.Tool {
+	return app.Tool{
+		Name:  CheckRunName,
+		Title: "Run a check",
+		Description: "Run the deterministic quality layers over the project as it stands now and " +
+			"return what they found with the policy's verdict: the same layers, the same policy " +
+			"and the same conclusion as `glossa check` and the pull-request check reach, because " +
+			"there is one implementation. Nothing is stored — use findings_list to read the last " +
+			"recorded run instead. Findings are bounded by limit; the counts are the whole run's.",
+		Toolset:     domain.ToolsetRead,
+		Permission:  identity.PermCatalogRead,
+		Selectors:   append(slices.Clone(selectors), "layers"),
+		ReadOnly:    true,
+		InputSchema: json.RawMessage(checkRunSchema),
+		Handler: func(ctx context.Context, _ app.Session, raw json.RawMessage) (app.Result, error) {
+			var a checkRunArgs
+			if err := decode(raw, &a); err != nil {
+				return app.Result{}, err
+			}
+			project, err := projectOf(a.Project)
+			if err != nil {
+				return app.Result{}, err
+			}
+			limit, err := limitOf(a.Limit, MaxLimit)
+			if err != nil {
+				return app.Result{}, err
+			}
+			if len(a.Layers) > MaxLimit {
+				return app.Result{}, invalid("layers", "names more layers than exist")
+			}
+			rep, err := c.Run(ctx, project, CheckRequest{
+				Environment: a.Environment, Layers: a.Layers, Limit: limit,
+			})
+			if err != nil {
+				return app.Result{}, err
+			}
+			if rep.Findings == nil {
+				rep.Findings = []Finding{}
+			}
+			more := ""
+			if rep.Truncated {
+				more = fmt.Sprintf(" The first %d are listed; raise limit or read them by layer with findings_list.", limit)
+			}
+			return app.Result{
+				Explanation: fmt.Sprintf("The check is a %s over %s: %d error(s) and %d warning(s) in %s.%s",
+					rep.Conclusion, plural(rep.Messages, "message", "messages"), rep.Errors, rep.Warnings,
+					plural(len(rep.Layers), "layer", "layers"), more),
+				Data: rep,
+			}, nil
+		},
+	}
+}
+
+const checkRunSchema = `{
+  "type": "object",
+  "properties": {
+    "project": {"type": "string", "format": "uuid", "description": "The project's id."},
+    "environment": {"type": "string", "maxLength": 64, "description": "Grade against the policy's block for this environment; a branch check, in no environment, when absent."},
+    "layers": {
+      "type": "array", "maxItems": 10, "uniqueItems": true,
+      "items": {"type": "string", "enum": ["structure", "parity", "completeness"]},
+      "description": "The layers to compute; every deterministic layer when absent."
+    },
+    "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "How many findings to return; 20 by default. The counts are the whole run's."}
   },
   "required": ["project"],
   "additionalProperties": false

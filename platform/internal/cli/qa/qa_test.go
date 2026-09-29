@@ -38,10 +38,10 @@ func project() *snapshot.Snapshot {
 	}
 }
 
-func codes(fs []qa.Finding) map[string]qa.Severity {
+func codes(fs []domain.Finding) map[string]qa.Severity {
 	out := map[string]qa.Severity{}
 	for _, f := range fs {
-		out[f.Locale+" "+f.Key+" "+f.Code] = f.Severity
+		out[f.Locus.Locale+" "+f.Locus.Key+" "+f.Code] = f.Severity
 	}
 	return out
 }
@@ -57,7 +57,7 @@ func TestRunReportsCompatAndMissingTranslations(t *testing.T) {
 			t.Errorf("%s = %q, want %q (all: %v)", key, got[key], sev, got)
 		}
 	}
-	if r.Passed {
+	if r.Passed() {
 		t.Error("check passed with errors")
 	}
 	ja := r.Locales[2]
@@ -76,15 +76,15 @@ func TestPolicyRequireCompleteAndFailOn(t *testing.T) {
 	if got := codes(r.Findings)["ja checkout.pay "+qa.CodeMissingTranslation]; got != qa.Warning {
 		t.Fatalf("ja missing = %q, want a warning when only de is required", got)
 	}
-	if !r.Passed {
+	if !r.Passed() {
 		t.Errorf("warnings failed the check: %+v", r.Findings)
 	}
-	if r = qa.Run(s, qa.Policy{RequireComplete: []string{"de"}, FailOn: qa.Warning}, qa.Default()...); r.Passed {
+	if r = qa.Run(s, qa.Policy{RequireComplete: []string{"de"}, FailOn: qa.Warning}, qa.Default()...); r.Passed() {
 		t.Error("fail-on warning passed with warnings")
 	}
 	r = qa.Run(s, qa.Policy{RequireComplete: []string{"de", "fr"}}, qa.Default()...)
-	if got := codes(r.Findings)["fr  "+qa.CodeMissingLocale]; got != qa.Error || r.Passed {
-		t.Errorf("required fr not in the project = %q (passed %v)", got, r.Passed)
+	if got := codes(r.Findings)["fr  "+qa.CodeMissingLocale]; got != qa.Error || r.Passed() {
+		t.Errorf("required fr not in the project = %q (passed %v)", got, r.Passed())
 	}
 }
 
@@ -119,29 +119,30 @@ func TestServerWarningsAreKeptWhenTheKernelCantComputeThem(t *testing.T) {
 	}
 }
 
-// The QA moved to internal/quality in M4; the command's wire shape did
-// not. A finding still names its layer under the name `glossa check`
-// has printed since M1 — "arguments", not "parity" — and still carries
-// the kernel's subject and the local file it came from.
-func TestTheWireShapeIsUnchanged(t *testing.T) {
+// Wave 3 rebuilt the command on the Quality library: a run hands back
+// domain.Finding itself. The layer is spelled as the domain spells it —
+// `parity`, not M1's `arguments` — and the kernel's subject and the
+// local file the finding came from survive all the way to the command.
+func TestARunHandsBackTheDomainFinding(t *testing.T) {
 	s := project()
-	names := map[string]bool{}
-	var compat qa.Finding
+	layersSeen := map[domain.Layer]bool{}
+	var compat domain.Finding
 	for _, f := range qa.Run(s, qa.Policy{}, qa.Default()...).Findings {
-		names[f.Check] = true
+		layersSeen[f.Layer] = true
+		if f.Schema != domain.Schema || f.Fingerprint == "" {
+			t.Errorf("a finding reached the command unsealed: %+v", f)
+		}
 		if f.Code == string(mf.FindingMissingArgument) {
 			compat = f
 		}
 	}
-	for _, want := range []string{"arguments", "completeness"} {
-		if !names[want] {
-			t.Errorf("no finding named the %q check: %v", want, names)
+	for _, want := range []domain.Layer{domain.LayerParity, domain.LayerCompleteness} {
+		if !layersSeen[want] {
+			t.Errorf("no finding from the %q layer: %v", want, layersSeen)
 		}
 	}
-	if names["parity"] {
-		t.Error("the command printed the layer's new name; wave 3 renames it, not wave 1")
-	}
-	if compat.Subject != "amount" || compat.Message == "" || compat.Locale != "de" || compat.Key != "checkout.pay" {
+	if compat.Subject != "amount" || compat.Message == "" ||
+		compat.Locus.Locale != "de" || compat.Locus.Key != "checkout.pay" {
 		t.Errorf("the kernel's finding lost something on the way to the command: %+v", compat)
 	}
 }
@@ -159,11 +160,11 @@ func TestPrecomputedFindingsKeepTheirLayer(t *testing.T) {
 		t.Fatalf("findings = %+v", r.Findings)
 	}
 	got := r.Findings[0]
-	if got.Check != "terminology" || got.Code != "term_forbidden" || got.Severity != qa.Error ||
-		got.Locale != "de" || got.Key != "cart.checkout" || got.Subject != "Einkaufswagen" {
+	if got.Layer != domain.LayerTerminology || got.Code != "term_forbidden" || got.Severity != qa.Error ||
+		got.Locus.Locale != "de" || got.Locus.Key != "cart.checkout" || got.Subject != "Einkaufswagen" {
 		t.Errorf("finding = %+v", got)
 	}
-	if r.Passed {
+	if r.Passed() {
 		t.Error("an error finding passed the check")
 	}
 }

@@ -14,7 +14,8 @@ type checkDoc struct {
 		Source              string   `json:"source"`
 	} `json:"policy"`
 	Findings []struct {
-		Code, Locale, Key, Severity string
+		Code, Severity string
+		Locus          struct{ Locale, Key string }
 	} `json:"findings"`
 }
 
@@ -43,33 +44,33 @@ func TestCheckFollowsTheProjectPolicy(t *testing.T) {
 	}{
 		{
 			name: "no stored policy: the command's own default",
-			want: ExitCheckFailed, source: "local",
+			want: ExitCheckFailed, source: "default",
 		},
 		{
 			name:   "the stored default",
 			policy: map[string]any{"require_complete": "all", "fail_on": "error", "missing_translations": "error"},
-			want:   ExitCheckFailed, source: "project",
+			want:   ExitCheckFailed, source: "server",
 		},
 		{
 			name:   "untranslated keys only warn",
 			policy: map[string]any{"require_complete": "all", "fail_on": "error", "missing_translations": "warning"},
-			want:   ExitOK, source: "project",
+			want:   ExitOK, source: "server",
 		},
 		{
 			name:   "no locale has to be complete",
 			policy: map[string]any{"require_complete": "none", "fail_on": "error", "missing_translations": "error"},
-			want:   ExitOK, source: "project",
+			want:   ExitOK, source: "server",
 		},
 		{
 			name: "de is not among the required locales",
 			policy: map[string]any{"require_complete": "listed", "locales": []string{"en"},
 				"fail_on": "error", "missing_translations": "error"},
-			want: ExitOK, source: "project",
+			want: ExitOK, source: "server",
 		},
 		{
 			name:   "nothing fails the check",
 			policy: map[string]any{"require_complete": "all", "fail_on": "never", "missing_translations": "error"},
-			want:   ExitOK, source: "project",
+			want:   ExitOK, source: "server",
 		},
 	}
 	for _, tc := range tests {
@@ -87,7 +88,7 @@ func TestCheckFollowsTheProjectPolicy(t *testing.T) {
 			// Green or not, the gap is still reported.
 			var missing int
 			for _, f := range doc.Findings {
-				if f.Code == "missing-translation" && f.Locale == "de" {
+				if f.Code == "missing-translation" && f.Locus.Locale == "de" {
 					missing++
 				}
 			}
@@ -137,7 +138,7 @@ func TestCheckOfflineUsesTheLocalPolicy(t *testing.T) {
 	})
 	var doc checkDoc
 	w.json(&doc, "check", "--offline").want(t, ExitCheckFailed)
-	if doc.Policy.Source != "local" || doc.Policy.FailOn != "error" {
+	if doc.Policy.Source != "default" || doc.Policy.FailOn != "error" {
 		t.Errorf("policy = %+v", doc.Policy)
 	}
 	w.json(&doc, "check", "--offline", "--fail-on=never").want(t, ExitOK)

@@ -16,7 +16,7 @@
  * are searched too. The result's `renders` and `regions` are the fields of a
  * `glossa.captures/v1` capture (runtimes/testdata/schemas/captures.v1.schema.json).
  */
-import { MARK, decodeIndex, hasMarkers, ranges } from "./markers.js";
+import { MARK, decodeIndex, hasMarkers, ranges, strip } from "./markers.js";
 
 export interface Box {
   x: number;
@@ -51,6 +51,19 @@ export interface Capture {
   regions: Region[];
 }
 
+/**
+ * A region's element and the text it rendered: what the visual probe pass
+ * (RFC 0005 §5.2) needs and a box can't say. `collectRegions` hands one to
+ * `onHost` per region, in the same order as `regions`. Neither the element
+ * nor the text ever enters a capture.
+ */
+export interface Host {
+  /** The component host, the attribute's element, or the text run's parent. */
+  el: Element | null;
+  /** What the region rendered, markers stripped. */
+  text: string;
+}
+
 /** What the script needs to know about each render in the session's log. */
 export interface LogEntry {
   id: string;
@@ -61,7 +74,12 @@ export interface LogEntry {
 const KEY = /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)*$/;
 const LOCALE = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$/;
 const ATTRIBUTE = /^[a-z][a-z0-9-]*$/;
-const validKey = (k: string | null | undefined): k is string => !!k && k.length <= 200 && KEY.test(k);
+/** Whether captures.v1 (and a finding's locus) can name this message. */
+export const validKey = (k: string | null | undefined): k is string =>
+  !!k && k.length <= 200 && KEY.test(k);
+/** Whether captures.v1 (and a finding's locus) can name this locale. */
+export const validLocale = (l: string | null | undefined): l is string =>
+  !!l && l.length <= 35 && LOCALE.test(l);
 
 /** Text in these is never rendered as page text (a textarea's is its value). */
 const NOT_TEXT = /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA)$/;
@@ -105,7 +123,7 @@ function lines(rects: Rect[]): Rect[] {
 }
 
 /** The parent in the flat tree: the slot a node is assigned to, else its parent or shadow host. */
-function flatParent(n: Node): Element | null {
+export function flatParent(n: Node): Element | null {
   const slot = (n as Element | Text).assignedSlot;
   if (slot) return slot;
   if (n.parentElement) return n.parentElement;
@@ -234,6 +252,7 @@ interface Open {
 export function collectRegions(
   log: readonly LogEntry[],
   root: Document | Element | ShadowRoot = document,
+  onHost?: (host: Host) => void,
 ): Capture {
   const doc = root.nodeType === Node.DOCUMENT_NODE ? (root as Document) : root.ownerDocument!;
   const page = new Page(doc);
@@ -241,14 +260,25 @@ export function collectRegions(
   const used = new Set<number>();
   const known = (index: number) => index >= 0 && index < log.length && validKey(log[index]!.id);
 
-  const add = (kind: Region["kind"], found: Array<Omit<Region, "kind">>, extra: Partial<Region>) => {
-    for (const r of found) regions.push({ ...extra, kind, ...r });
+  const add = (
+    kind: Region["kind"],
+    found: Array<Omit<Region, "kind">>,
+    extra: Partial<Region>,
+    host: Host,
+  ) => {
+    for (const r of found) {
+      regions.push({ ...extra, kind, ...r });
+      onHost?.(host);
+    }
     if (extra.index !== undefined) used.add(extra.index);
   };
 
   const element = (el: Element) => {
     const key = el.getAttribute("data-glossa-id");
-    if (validKey(key)) add("element", page.regions(page.rendered(el), el, false), { key });
+    if (validKey(key)) {
+      const host = { el, text: strip(el.textContent ?? "") };
+      add("element", page.regions(page.rendered(el), el, false), { key }, host);
+    }
     const values: Array<[string, string]> = [];
     for (const a of Array.from(el.attributes)) {
       if (!(el instanceof HTMLInputElement && a.name === "value")) values.push([a.name, a.value]);
@@ -260,7 +290,8 @@ export function collectRegions(
       for (const m of ranges(value)) {
         if (!known(m.index)) continue;
         const rects = [plain(el.getBoundingClientRect())];
-        add("attribute", page.regions(rects, el, false), { index: m.index, attribute: name });
+        const host = { el, text: strip(value.slice(m.from, m.to)) };
+        add("attribute", page.regions(rects, el, false), { index: m.index, attribute: name }, host);
       }
     }
   };
@@ -273,7 +304,8 @@ export function collectRegions(
     const option = page.option(start.node);
     const rects = option?.rects ?? Array.from(range.getClientRects?.() ?? [], plain);
     const anchor = option?.anchor ?? flatParent(start.node);
-    add("text", page.regions(rects, anchor, true), { index: start.index });
+    const host = { el: anchor, text: strip(range.toString()) };
+    add("text", page.regions(rects, anchor, true), { index: start.index }, host);
   };
 
   const scope = (tree: Node) => {
@@ -310,7 +342,7 @@ export function collectRegions(
     .sort((a, b) => a - b)
     .map((index) => {
       const { id, locale } = log[index]!;
-      return { index, key: id, locale: locale && LOCALE.test(locale) ? locale : "und" };
+      return { index, key: id, locale: validLocale(locale) ? locale : "und" };
     });
   return { renders, regions };
 }

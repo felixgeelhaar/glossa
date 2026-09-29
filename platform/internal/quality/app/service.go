@@ -40,9 +40,14 @@ type Service struct {
 	tx      Transactor
 	catalog Catalog
 	metrics Metrics
-	tracer  trace.Tracer
-	logger  *slog.Logger
-	now     func() time.Time
+	// snapshot reads a project as the layers read it, so a check can run
+	// on the server (RunCheck). Nil where the deployment does not wire
+	// it, and RunCheck then answers ErrNoSnapshot rather than pretending
+	// a project is clean.
+	snapshot Snapshot
+	tracer   trace.Tracer
+	logger   *slog.Logger
+	now      func() time.Time
 }
 
 // tracerName names Quality's spans' instrumentation scope.

@@ -6509,6 +6509,252 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenants/{tenant}/projects/{project}/check-policy:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: getCheckPolicy
+      tags: [quality]
+      summary: The project's check policy
+      description: |
+        What `glossa check` and the Glossa pull-request check decide by
+        (RFC 0005 §4). The server is the source of truth: `glossa check`
+        fetches this document and caches it at `.glossa/policy.json`,
+        and `glossa.yaml`'s `check:` block and the flags are local
+        overrides the pull-request check ignores. A developer can
+        tighten or loosen their own loop; they cannot change what CI
+        decides.
+
+        A project that has never saved one reads as the documented
+        default — every locale must be complete, an untranslated key in
+        one is an error, errors fail — at `version` `0`. `created_by`
+        and `created_at` are absent for a policy nobody saved through
+        this endpoint. Needs `catalog.read`, because a policy is about
+        the catalog's messages and the callers that must read it — the
+        CLI, the pull-request check, Studio and MCP — hold exactly that.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The policy.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckPolicyState" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: saveCheckPolicy
+      tags: [quality]
+      summary: Save a new version of the check policy
+      description: |
+        A policy is never edited in place: every save is a new version,
+        one past the last, and every check run records the version it
+        graded itself against (RFC 0005 §4.3). `version`,
+        `effective_from` and `grace_until` are the server's answers to
+        "when did this become true" and are refused in a request
+        (`invalid_check_policy`): a caller that could set them could
+        rewrite history or unpin an open pull request mid-grace.
+
+        **`dry_run` answers the impact preview and stores nothing.** The
+        failure mode this exists for is obvious and avoidable: somebody
+        adds `terminology: error`, and forty open pull requests go red
+        for something their authors didn't do. The preview says how many
+        stored findings change severity, which refs would newly fail and
+        how many open pull requests are among them, per rule. Studio
+        shows it before the save; `glossa policy diff` prints it. The
+        same preview is computed for a real save, so the audit trail
+        carries the number the author saw.
+
+        **`grace_days` pins the pull requests that predate the save** to
+        the version they were opened under, until the grace ends; a new
+        pull request grades against the new version at once, and merging
+        is never blocked by a rule the branch predates. Absent, it is
+        14 days, because the default should protect the people who did
+        not cause the change; `0` pins nothing, which is what a policy
+        that only loosens wants.
+
+        Needs `catalog.write` — the permission that already carries the
+        authority to change what a project's check concludes. Problem
+        codes: `invalid_check_policy` (400: an unknown layer or
+        severity, a rule raising the model-decided `linguistic` layer to
+        `error`, a locale the project doesn't have, or a request that
+        set the server's bookkeeping), `check_policy_conflict` (409: the
+        project changed while the write was being prepared — read the
+        policy again and decide).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SaveCheckPolicy" }
+      responses:
+        "200":
+          description: The policy as it now stands, or — for a `dry_run` — as it would stand.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckPolicySaved" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/projects/{project}/check-policy/versions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listCheckPolicyVersions
+      tags: [quality]
+      summary: How the check policy got to be what it is
+      description: |
+        Every saved version, newest first, with the document it was and
+        who saved it when. A policy is an organizational decision about
+        a project (RFC 0005 §4.2), so "who tightened `terminology` to
+        `error`, and when?" has an answer that outlives the version that
+        carried it.
+
+        The list starts at the project's first save through this API: a
+        policy set through the project's settings, or never set at all,
+        has no versions. Needs `catalog.read`. Problem codes:
+        `invalid_page_size`, `invalid_page_token` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of policy versions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckPolicyVersionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/check-policy/versions/{version}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/CheckPolicyVersionPath"
+    get:
+      operationId: getCheckPolicyVersion
+      tags: [quality]
+      summary: One version of the check policy
+      description: |
+        The document as it was saved, with who saved it and when. It is
+        what a check run that records `policy_version` was graded
+        against, so a verdict from three weeks ago can be read against
+        the policy that produced it rather than the policy that happens
+        to be live now. Needs `catalog.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The version.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckPolicyVersion" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/check-policy/export:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: exportCheckPolicy
+      tags: [quality]
+      summary: The check policy in its canonical form
+      description: |
+        The document alone, with none of the state around it — exactly
+        what `importCheckPolicy` takes. A project can't keep its policy
+        in Git (RFC 0005 §4.2: one commit must have one verdict, and a
+        policy change must not be a merge conflict), so export and
+        import are what keep it reviewable: `glossa policy export`
+        writes this file, a person reads the diff, `glossa policy
+        import` sends it back.
+
+        The server's bookkeeping is left out, because importing it
+        elsewhere would be asserting another project's history. Needs
+        `catalog.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The canonical policy document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckPolicyDocument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/check-policy/import:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    post:
+      operationId: importCheckPolicy
+      tags: [quality]
+      summary: Import a check policy as a new version
+      description: |
+        Takes a canonical document — what `exportCheckPolicy` returns,
+        from this project or another — validates it and saves it as the
+        next version, with the same grace and the same impact preview as
+        `saveCheckPolicy`. It is the same write with the document as the
+        whole body, so a file can be posted as it is.
+
+        `grace_days` and `dry_run` ride in the query, for the same
+        reason: the body is the file. Needs `catalog.write`. Problem
+        codes: `invalid_check_policy` (400), `check_policy_conflict`
+        (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - name: grace_days
+          in: query
+          required: false
+          description: |
+            How long to pin the pull requests that predate the save.
+            Absent, 14 days; `0` pins nothing.
+          schema: { type: integer, minimum: 0, maximum: 90 }
+        - name: dry_run
+          in: query
+          required: false
+          description: Answer the impact preview and store nothing.
+          schema: { type: boolean }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckPolicyDocument" }
+      responses:
+        "200":
+          description: The policy as it now stands, or — for a `dry_run` — as it would stand.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckPolicySaved" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   # ── branches ────────────────────────────────────────────────────────
   /v1/tenants/{tenant}/projects/{project}/branches:
     parameters:
@@ -7011,6 +7257,12 @@ components:
       required: true
       description: A waiver `id`.
       schema: { $ref: "#/components/schemas/Id" }
+    CheckPolicyVersionPath:
+      name: version
+      in: path
+      required: true
+      description: A check-policy version number, as `listCheckPolicyVersions` gives it.
+      schema: { type: integer, minimum: 0 }
     ContextBranch:
       name: branch
       in: query
@@ -10814,3 +11066,288 @@ components:
         expires_at:
           $ref: "#/components/schemas/Timestamp"
           description: When the daily sweep retires it; absent, never. A time in the past is refused.
+    CheckPolicyLocaleRequirement:
+      type: string
+      enum: [all, listed, none]
+      description: |
+        Which locales must be complete: every one of the project's
+        (`all`), only those in `locales` (`listed`), or none of them.
+        `listed` with an empty `locales` is stored as `none`.
+    CheckPolicyRule:
+      type: object
+      required: [severity]
+      description: |
+        One line of the policy document (RFC 0005 §4.1): what it
+        selects, what that is worth, and whether it may fail a run yet.
+
+        The selector is any subset of `layer`, `code`, `locale`,
+        `namespace` and `environment`. Every field it names must match
+        the finding; every field it leaves out matches anything. A field
+        the finding doesn't carry never matches a rule that names it, so
+        a rule for `environment: production` says nothing about a pull
+        request's branch check, which runs in no environment at all.
+
+        **Precedence is by specificity**: the rule naming more fields
+        wins, and ties go to the later rule — so a rule appended to a
+        policy always wins against the rule it was written to override.
+        A policy nobody can predict is worse than no policy.
+      properties:
+        layer: { $ref: "#/components/schemas/FindingLayer" }
+        code: { type: string, maxLength: 64 }
+        locale: { $ref: "#/components/schemas/Locale" }
+        namespace: { $ref: "#/components/schemas/Namespace" }
+        environment:
+          type: string
+          maxLength: 63
+          description: The environment the run is about. A branch check is in none.
+        severity:
+          type: string
+          enum: [error, warning, "off"]
+          description: |
+            What the selected findings are worth. `off` means "don't
+            compute": the layer isn't run, so a project doesn't pay for
+            QA it ignores, and nothing is reported or counted. A rule
+            may not raise the model-decided `linguistic` layer to
+            `error` — a build never fails on an opinion.
+        mode:
+          type: string
+          enum: [enforce, warn]
+          description: |
+            `enforce` (the default) lets the rule change the run's
+            conclusion. `warn` computes and reports at the rule's
+            severity but can never fail a run: it is the on-ramp for a
+            stricter policy — ship the rule, watch the number, flip it.
+    CheckPolicyEnvironment:
+      type: object
+      description: |
+        What one environment asks for beyond the document's base:
+        production may require locales a branch does not, and a review
+        state a branch does not. An environment that names no
+        `require_complete` inherits the document's, so naming one only
+        to ask for a review state doesn't quietly change what must be
+        translated.
+      properties:
+        require_complete:
+          $ref: "#/components/schemas/CheckPolicyLocaleRequirement"
+          description: Absent, the document's.
+        locales:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/Locale" }
+          description: |
+            The locales this block's `listed` names; empty otherwise.
+        require_review:
+          type: string
+          enum: [approved]
+          description: |
+            The review state a release must have reached to publish
+            here. Release enforces it at publish (`policy_not_met`); the
+            policy only states it.
+    CheckPolicyDocument:
+      type: object
+      required: [require_complete, fail_on, missing_translations]
+      description: |
+        The check-policy document in its canonical form (RFC 0005 §4.1):
+        what the policy says, and none of the bookkeeping about when it
+        said it. It is what `exportCheckPolicy` writes and
+        `importCheckPolicy` reads, and what `saveCheckPolicy` takes as
+        its `policy`.
+
+        A save replaces the whole document. The three base fields —
+        `require_complete`, `fail_on` and `missing_translations` — are
+        the ones every project starts from and mean exactly what they
+        meant before the document existed, so a policy that names no
+        rules and no environments decides every question the way the
+        pre-document policy did.
+      properties:
+        schema:
+          type: string
+          enum: ["glossa.check-policy/v1"]
+          description: Always present in responses; absent in a write, the server writes this one.
+        require_complete: { $ref: "#/components/schemas/CheckPolicyLocaleRequirement" }
+        locales:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/Locale" }
+          description: |
+            The locales `require_complete: listed` names; empty
+            otherwise. Every one must be a locale the project has
+            (`invalid_check_policy`).
+        fail_on:
+          type: string
+          enum: [error, warning, never]
+          description: |
+            The lowest severity that fails the check: `error` (the
+            default), `warning` — a warning fails it too — or `never`,
+            where the check only ever reports.
+        missing_translations:
+          type: string
+          enum: [error, warning]
+          description: |
+            What an untranslated key in a locale that must be complete
+            is. Teams that translate after merging set this to `warning`
+            and keep every locale required: the check still lists what
+            is untranslated without blocking the pull request.
+        environments:
+          type: object
+          maxProperties: 50
+          additionalProperties: { $ref: "#/components/schemas/CheckPolicyEnvironment" }
+          description: What each environment asks for, by environment name.
+        rules:
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/CheckPolicyRule" }
+          description: |
+            The selectors, in document order. Order is part of the
+            meaning: ties in specificity go to the later rule.
+    CheckPolicyState:
+      type: object
+      required: [version, document]
+      description: The policy that grades, and the record of who put it there.
+      properties:
+        version:
+          type: integer
+          minimum: 0
+          description: |
+            Monotonic. Every check run records the version it graded
+            itself against, so a run can say which it used when two are
+            live at once. `0` is a project that has never saved one.
+        document: { $ref: "#/components/schemas/CheckPolicyDocument" }
+        effective_from:
+          $ref: "#/components/schemas/Timestamp"
+          description: When this version was saved.
+        grace_until:
+          $ref: "#/components/schemas/Timestamp"
+          description: |
+            Until when pull requests opened before `effective_from` keep
+            grading against `pinned_version`. Absent, the version grades
+            everything at once.
+        pinned_version:
+          type: integer
+          minimum: 0
+          description: The version a pull request still inside the grace grades against.
+        created_by:
+          type: string
+          description: Absent for a policy nobody saved through this endpoint.
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    SaveCheckPolicy:
+      type: object
+      required: [policy]
+      description: A new version of the check policy.
+      properties:
+        policy: { $ref: "#/components/schemas/CheckPolicyDocument" }
+        grace_days:
+          type: integer
+          minimum: 0
+          maximum: 90
+          description: |
+            How long the save pins the pull requests that predate it to
+            the version they were opened under. Absent, 14 days — the
+            default protects the people who did not cause the change;
+            `0` pins nothing, which is what a policy that only loosens
+            wants.
+        dry_run:
+          type: boolean
+          description: Answer the impact preview and store nothing — neither the document nor a version.
+    CheckPolicyRuleImpact:
+      type: object
+      required: [rule, matched, changed, newly_failing]
+      description: |
+        What one rule of the candidate did. A rule that changed nothing
+        is listed too: it is exactly what a reader wants to know before
+        saving.
+      properties:
+        rule:
+          type: integer
+          minimum: 0
+          description: The rule's index in the candidate document's `rules`.
+        selector: { $ref: "#/components/schemas/CheckPolicyRule" }
+        matched:
+          type: integer
+          minimum: 0
+          description: Findings this rule decided.
+        changed:
+          type: integer
+          minimum: 0
+          description: Findings it decided differently from the policy in force.
+        newly_failing:
+          type: integer
+          minimum: 0
+          description: Findings it turned into a reason a run fails.
+    CheckPolicyImpact:
+      type: object
+      required:
+        [findings, runs, raised, lowered, silenced, newly_failing, no_longer_failing, open_pull_requests, rules]
+      description: |
+        What a candidate policy would change about the findings and the
+        runs the project already has (RFC 0005 §4.3), measured against
+        the newest run of each of the refs checked most recently.
+      properties:
+        findings:
+          type: integer
+          minimum: 0
+          description: The stored findings the preview was measured against.
+        runs:
+          type: integer
+          minimum: 0
+          description: The runs those findings came from — one per ref, the newest.
+        raised:
+          type: integer
+          minimum: 0
+          description: Findings the candidate makes count for more.
+        lowered: { type: integer, minimum: 0 }
+        silenced:
+          type: integer
+          minimum: 0
+          description: Findings the candidate stops computing.
+        newly_failing:
+          type: integer
+          minimum: 0
+          description: Findings that fail under the candidate and did not before.
+        no_longer_failing: { type: integer, minimum: 0 }
+        open_pull_requests:
+          type: integer
+          minimum: 0
+          description: |
+            Open pull requests among `newly_failing_refs` — the number
+            of people who would wake up to a red pull request they did
+            not cause, and the one that decides whether this policy
+            ships with a grace.
+        newly_failing_refs:
+          type: array
+          items: { type: string }
+          description: The refs whose verdict turns from passing to failing.
+        no_longer_failing_refs:
+          type: array
+          items: { type: string }
+        rules:
+          type: array
+          items: { $ref: "#/components/schemas/CheckPolicyRuleImpact" }
+    CheckPolicySaved:
+      type: object
+      required: [dry_run, policy, impact]
+      properties:
+        dry_run:
+          type: boolean
+          description: Nothing was stored.
+        policy: { $ref: "#/components/schemas/CheckPolicyState" }
+        impact: { $ref: "#/components/schemas/CheckPolicyImpact" }
+    CheckPolicyVersion:
+      type: object
+      required: [version, document, created_by, created_at]
+      description: One saved version of the policy, and who saved it when.
+      properties:
+        version: { type: integer, minimum: 0 }
+        document: { $ref: "#/components/schemas/CheckPolicyDocument" }
+        effective_from: { $ref: "#/components/schemas/Timestamp" }
+        grace_until: { $ref: "#/components/schemas/Timestamp" }
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    CheckPolicyVersionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CheckPolicyVersion" }
+        next_page_token: { type: string }

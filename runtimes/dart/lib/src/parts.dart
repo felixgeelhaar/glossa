@@ -1,7 +1,8 @@
 /// Formatted parts, the MF2 shape `runtimes/testdata/markup.json` describes.
 ///
-/// A renderer (the Flutter layer in wave 3, or an HTML renderer) consumes
-/// parts; `format()` joins them into a string.
+/// A renderer consumes parts — `markup.dart` turns them into the tree
+/// `glossa_flutter` and an HTML serializer share; `format()` joins them
+/// into a string.
 library;
 
 import 'model.dart';

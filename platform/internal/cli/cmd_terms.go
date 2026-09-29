@@ -11,6 +11,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/terminology"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // ── output shapes (cmd/glossa/README.md, "JSON output") ─────────────
@@ -546,7 +547,7 @@ func (inv *invocation) termsCheck(ctx context.Context, a termsArgs) error {
 	if err != nil {
 		return err
 	}
-	policy, _, err := checkPolicy(inv, cfg, nil, "none", a.failOn)
+	policy, _, err := checkPolicy(inv, cfg, checkpolicy.Policy{}, checkFlags{require: "none", failOn: a.failOn})
 	if err != nil {
 		return err
 	}

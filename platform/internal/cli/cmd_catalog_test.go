@@ -108,13 +108,13 @@ func TestCheckFailsOnMissingTranslationsAndHonorsPolicy(t *testing.T) {
 	_, w := seeded(t)
 	var out checkJSON
 	w.json(&out, "check").want(t, ExitCheckFailed)
-	if out.Passed || out.Schema != "glossa.cli.check/v1" || out.Messages != 3 || out.Policy.RequireComplete != nil {
+	if out.Passed || out.Schema != "glossa.cli.check/v2" || out.Messages != 3 || out.Policy.RequireComplete != nil {
 		t.Fatalf("check = %+v", out)
 	}
 	var missing []string
 	for _, f := range out.Findings {
 		if f.Code == qa.CodeMissingTranslation {
-			missing = append(missing, f.Locale+" "+f.Key+" "+string(f.Severity))
+			missing = append(missing, f.Locus.Locale+" "+f.Locus.Key+" "+string(f.Severity))
 		}
 	}
 	if strings.Join(missing, ",") != "ja checkout.pay error" {
@@ -137,7 +137,7 @@ func TestCheckHumanOutputReadsLikeCI(t *testing.T) {
 	_, w := seeded(t)
 	r := w.run("check")
 	r.want(t, ExitCheckFailed)
-	for _, want := range []string{"✓ 3 messages discovered", "✓ message structures valid", "✓ arguments valid",
+	for _, want := range []string{"✓ 3 messages discovered", "✓ message structures valid", "✓ parity valid",
 		"✓ de complete", "✗ ja 1 missing", "checkout.pay  missing translation", "Localization check failed: 1 error, 0 warnings."} {
 		if !strings.Contains(r.stdout, want) {
 			t.Errorf("output lacks %q:\n%s", want, r.stdout)
@@ -157,12 +157,12 @@ func TestCheckOfflineUsesLocalCatalogsAndTheKernel(t *testing.T) {
 	w.json(&out, "check", "--offline").want(t, ExitCheckFailed)
 	got := map[string]string{}
 	for _, f := range out.Findings {
-		got[f.Key+" "+f.Code] = string(f.Severity)
+		got[f.Locus.Key+" "+f.Code] = string(f.Severity)
 	}
 	if got["cart.items missing-argument"] != "error" || got["cart.items extra-argument"] != "error" || got["old.key unknown-key"] != "warning" {
 		t.Errorf("findings = %v", got)
 	}
-	if out.Origin != "local" || out.Findings[0].Where == "" {
+	if out.Origin != "local" || out.Findings[0].Locus.File == "" {
 		t.Errorf("report = %+v", out)
 	}
 }

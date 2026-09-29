@@ -12,6 +12,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./probes": {
+      "types": "./dist/probes.d.ts",
+      "import": "./dist/probes.js"
     }
   },
   "files": [
@@ -28,7 +32,19 @@
   },
   "size-limit": [
     {
-      "name": "@glossa/capture, the whole session (@glossa/runtime is types only)",
+      "name": "a capture session WITH the visual probe pass, what `glossa capture` runs (RFC 0005 §5.1's 4 kB)",
+      "path": [
+        "dist/index.js",
+        "dist/probes.js"
+      ],
+      "import": {
+        "dist/index.js": "{ startCapture }",
+        "dist/probes.js": "{ probe }"
+      },
+      "limit": "4 KB"
+    },
+    {
+      "name": "a session WITHOUT it, what @glossa/overlay pulls in (@glossa/runtime is types only)",
       "path": "dist/index.js",
       "limit": "3 KB"
     }
