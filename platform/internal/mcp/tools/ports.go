@@ -382,9 +382,195 @@ type Delivery interface {
 	ArtifactHasMessage(ctx context.Context, project uuid.UUID, release uuid.UUID, digest, key string) (bool, error)
 }
 
-// Sources are the application ports the read tools call. A nil port
-// leaves its tools unregistered, so a deployment that does not run a
-// context does not advertise tools that cannot work.
+// ── Writes ──────────────────────────────────────────────────────────
+//
+// The write ports are deliberately narrower than the contexts behind
+// them (RFC 0005 §7.2, §7.4). What an agent may not ask for is not an
+// argument it is refused, it is an argument that does not exist:
+// MessageUpsert cannot obsolete or rename a message, LocaleWriter
+// cannot remove a locale, and TranslationProposal carries no review
+// state at all, because a proposal always enters review and a field
+// that could say otherwise is the bug this shape makes impossible.
+
+// MessageUpsert is source text to create or revise. A nil pointer
+// leaves a field as it stands; a pointer to the zero value clears it.
+type MessageUpsert struct {
+	Key         string
+	Namespace   *string
+	Description *string
+	MaxLength   *int
+	Text        string
+	// Syntax is the source's own syntax ("mf2", "icu"); "" is the
+	// project's default.
+	Syntax string
+	// BaseRevision is the source revision the caller read before
+	// revising, an optimistic lock. nil writes without one.
+	BaseRevision *int
+}
+
+// MessageWritten is the message an upsert left behind.
+type MessageWritten struct {
+	MessageSummary
+	// Status is what the write did: created, revised (a new source
+	// revision), updated (details only) or unchanged.
+	Status string `json:"status"`
+}
+
+// CatalogWriter is Catalog's application service, as MCP writes it.
+type CatalogWriter interface {
+	// UpsertMessage creates or revises one source message, ErrNotFound
+	// when the project is not this tenant's to see.
+	UpsertMessage(ctx context.Context, project uuid.UUID, in MessageUpsert) (MessageWritten, error)
+}
+
+// TranslationProposal is a translation an agent offers for a locale.
+//
+// It carries no review state. A proposal writes a revision that enters
+// review whatever the project's routing policy says, for the same
+// reason a CI token cannot approve one: review is a human decision and
+// no token scope grants it (RFC 0005 §7.4).
+type TranslationProposal struct {
+	Key    string
+	Locale string
+	Text   string
+	// Syntax is the text's own syntax; "" is the project's default.
+	Syntax string
+	// SourceRevision is the source revision the text was made against;
+	// nil means the current one.
+	SourceRevision *int
+	// BaseRevision is the translation revision the agent read before
+	// proposing, an optimistic lock. nil lets the adapter propose onto
+	// the revision that stands now.
+	BaseRevision *int
+}
+
+// ProposedTranslation is the revision a proposal wrote.
+type ProposedTranslation struct {
+	Translation
+	// Status is what the write did: created, revised or unchanged.
+	Status string `json:"status"`
+}
+
+// TranslationWriter is Localization's application service, as MCP
+// proposes into it.
+type TranslationWriter interface {
+	// ProposeTranslation writes a revision that is always in review.
+	ProposeTranslation(ctx context.Context, project uuid.UUID, in TranslationProposal) (ProposedTranslation, error)
+}
+
+// AddedLocale is a project's target locale after locale_add.
+type AddedLocale struct {
+	Locale    string `json:"locale"`
+	Direction string `json:"direction,omitempty"`
+	// Created says whether this call added it; false means it was
+	// already there, which is not an error.
+	Created bool `json:"created"`
+}
+
+// LocaleWriter adds a target locale. There is no remover: obsoleting is
+// a state change and is available, destroying data is not
+// (RFC 0005 §7.2).
+type LocaleWriter interface {
+	// AddLocale adds a target locale to a project.
+	AddLocale(ctx context.Context, project uuid.UUID, code string) (AddedLocale, error)
+}
+
+// CheckRequest narrows a check run.
+type CheckRequest struct {
+	// Environment grades against the policy's block for it; "" is a
+	// branch check, in no environment at all.
+	Environment string
+	// Layers are the deterministic layers to compute; empty runs every
+	// one the policy leaves on.
+	Layers []string
+	// Limit bounds the findings returned.
+	Limit int
+}
+
+// CheckReport is a check run's verdict and what it found.
+//
+// Omitted: the policy's decision per finding (`glossa check
+// --explain-policy` prints those and the Quality API serves them) and
+// the per-locale coverage table, which translation-stats already
+// answers. A run through MCP is a verdict and a work list.
+type CheckReport struct {
+	// Conclusion is the policy's verdict (success, failure, neutral).
+	Conclusion string `json:"conclusion"`
+	// PolicyVersion is the policy document the run graded itself
+	// against; 0 for a project that has never saved one.
+	PolicyVersion int `json:"policy_version"`
+	// Layers are the layers that ran, so a caller can tell "clean" from
+	// "not looked at"; Skipped are the ones the policy switched off.
+	Layers  []string `json:"layers,omitempty"`
+	Skipped []string `json:"skipped,omitempty"`
+	// Messages is the project's active messages and Invalid how many of
+	// them do not parse.
+	Messages int       `json:"messages"`
+	Invalid  int       `json:"invalid_messages"`
+	Errors   int       `json:"errors"`
+	Warnings int       `json:"warnings"`
+	Findings []Finding `json:"findings"`
+	// Truncated says the run found more findings than were returned.
+	// The counts above are the run's, not the page's.
+	Truncated bool `json:"truncated"`
+}
+
+// Checks runs the deterministic layers over the project as it stands.
+// Nothing is stored: the report answers a question, and recording a run
+// is a write that reading the catalog does not carry.
+type Checks interface {
+	// Run computes the report, ErrNotFound when the project is not this
+	// tenant's to see.
+	Run(ctx context.Context, project uuid.UUID, in CheckRequest) (CheckReport, error)
+}
+
+// TranslateRequest asks for an M2 fill job.
+type TranslateRequest struct {
+	Locales   []string
+	Keys      []string
+	Namespace string
+	KeyPrefix string
+	// Select chooses messages by the state of their translation:
+	// missing, outdated or missing_or_outdated. "" is the context's own
+	// default.
+	Select string
+}
+
+// TranslateJob is the fill a translate call started.
+//
+// No provider, model or key appears here, in either direction: the job
+// runs server-side under the tenant's own provider configuration and
+// budget, and the MCP client never sees a key (RFC 0005 §7.4).
+type TranslateJob struct {
+	// Fill is the fill's id, which its jobs are followed by.
+	Fill    string   `json:"fill"`
+	Locales []string `json:"locales"`
+	Select  string   `json:"select"`
+	// JobsCreated and JobsExisting count the jobs queued and the ones
+	// that already existed and were reused.
+	JobsCreated  int `json:"jobs_created"`
+	JobsExisting int `json:"jobs_existing"`
+	// Skipped counts the messages left out, by reason — a sensitive
+	// namespace among them, which is never machine-translated
+	// (RFC 0005 §7.4).
+	Skipped map[string]int `json:"skipped,omitempty"`
+	// Warnings say why jobs will fail or do little: no provider, no
+	// budget, provider consent off.
+	Warnings []string `json:"warnings,omitempty"`
+	// Jobs are the queued jobs' ids, up to the context's own cap.
+	Jobs []string `json:"jobs,omitempty"`
+}
+
+// Translator is Intelligence's application service, as MCP starts a
+// fill through it.
+type Translator interface {
+	// Translate queues an M2 fill and returns it.
+	Translate(ctx context.Context, project uuid.UUID, in TranslateRequest) (TranslateJob, error)
+}
+
+// Sources are the application ports the tools call. A nil port leaves
+// its tools unregistered, so a deployment that does not run a context
+// does not advertise tools that cannot work.
 type Sources struct {
 	Catalog      Catalog
 	Translations Translations
@@ -392,4 +578,9 @@ type Sources struct {
 	Knowledge    Knowledge
 	Quality      Quality
 	Delivery     Delivery
+	Checks       Checks
+	Messages     CatalogWriter
+	Proposals    TranslationWriter
+	Locales      LocaleWriter
+	Translator   Translator
 }

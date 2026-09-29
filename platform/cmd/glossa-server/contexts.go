@@ -68,6 +68,7 @@ import (
 	qualityapi "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/httpapi"
 	qualitymetrics "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/metrics"
 	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
+	qualitysnapshot "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/snapshot"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
 	releasepg "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/postgres"
@@ -296,7 +297,11 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	quality := qualityapp.NewService(qualitypg.NewTransactor(uow), qualitycatalog.New(catalog),
 		qualityapp.WithLogger(deps.logger), qualityapp.WithMetrics(qualitymetrics.New(deps.registerer)),
-		qualityapp.WithTracerProvider(deps.tracer))
+		qualityapp.WithTracerProvider(deps.tracer),
+		// The server-side check reads the project through Catalog's and
+		// Localization's own services, so it sees exactly what its
+		// caller could read through the API (RFC 0005 §2.2).
+		qualityapp.WithSnapshot(qualitysnapshot.New(catalog, localization)))
 	aiAPI, err := intelligenceapi.New(intelligence)
 	if err != nil {
 		return contexts{}, err
@@ -364,13 +369,24 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		})
 	}
 	c.purgeJobs = newPurgeJobs(usageContext, catalog, c.githubInbox, c.githubChecks, deps.logger)
-	c.mcpTools = mcptools.Read(mcptools.Sources{
-		Catalog:      mcpsources.NewCatalog(catalog, usageContext),
-		Translations: mcpsources.NewTranslations(localization),
+	// One adapter per context, wired to both the read and the write
+	// ports it satisfies: MCP is a second façade on these services, so a
+	// tool and the endpoint beside it call the same use case.
+	mcpCatalog := mcpsources.NewCatalog(catalog, usageContext)
+	mcpTranslations := mcpsources.NewTranslations(localization)
+	mcpQuality := mcpsources.NewQuality(quality)
+	c.mcpTools = mcptools.All(mcptools.Sources{
+		Catalog:      mcpCatalog,
+		Translations: mcpTranslations,
 		Usages:       mcpsources.NewUsages(usageContext, catalog),
 		Knowledge:    mcpsources.NewKnowledge(knowledge),
-		Quality:      mcpsources.NewQuality(quality),
+		Quality:      mcpQuality,
+		Checks:       mcpQuality,
 		Delivery:     mcpsources.NewDelivery(release),
+		Messages:     mcpCatalog,
+		Proposals:    mcpTranslations,
+		Locales:      mcpTranslations,
+		Translator:   mcpsources.NewIntelligence(intelligence),
 	})
 	return c, nil
 }

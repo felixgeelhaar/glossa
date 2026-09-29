@@ -19,12 +19,13 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
 )
 
-// readTools are the nine tools of RFC 0005 §7.3, in the order Read
-// registers them.
+// readTools are the read tools of RFC 0005 §7.3, in the order Read
+// registers them: the nine of wave 2 and check_run, which computes and
+// stores nothing and so carries the `read` scope.
 var readTools = []string{
 	tools.CatalogSearchName, tools.MessageGetName, tools.TranslationGetName, tools.UsagesGetName,
 	tools.TMSearchName, tools.TermLookupName, tools.StyleRulesName, tools.FindingsListName,
-	tools.ExplainDeliveryName,
+	tools.CheckRunName, tools.ExplainDeliveryName,
 }
 
 // ── the world under test ────────────────────────────────────────────
@@ -42,6 +43,9 @@ type world struct {
 	sources      tools.Sources
 	knowledge    *fakeKnowledge
 	quality      *fakeQuality
+	// writes are the write ports' fakes, so a test can assert what
+	// reached a context and not only what came back.
+	writes *writers
 }
 
 func seed() *world {
@@ -164,6 +168,7 @@ func seed() *world {
 		Catalog: catalog, Translations: translations, Usages: usages,
 		Knowledge: w.knowledge, Quality: w.quality, Delivery: delivery,
 	}
+	w.writes = seedWrites(w)
 	return w
 }
 
@@ -196,29 +201,17 @@ func callerWith(t *testing.T, tenant tenancy.ID, scopes ...string) app.Caller {
 	}
 }
 
-// writeProbe stands in for a write tool. M4 wave 2 ships none, and the
-// toolset gate still has to hold: a read session must not be able to
-// reach one, and must not even be offered it.
-func writeProbe() app.Tool {
-	return app.Tool{
-		Name: "message_upsert", Toolset: domain.ToolsetWrite, Permission: identity.PermCatalogWrite,
-		Handler: func(context.Context, app.Session, json.RawMessage) (app.Result, error) {
-			return app.Result{Explanation: "written"}, nil
-		},
-	}
-}
-
-// session builds a read session on the world's tenant, with the service
-// the tools are registered in.
+// session builds a session on the world's tenant, with every tool the
+// world's ports support — read and write — registered in the service,
+// because the toolset gate is only worth testing against the tools it
+// actually guards.
 func session(t *testing.T, w *world, audit *recordingAudit, scopes ...string) (*app.Service, app.Session) {
 	t.Helper()
 	if len(scopes) == 0 {
 		scopes = []string{"read"}
 	}
 	caller := callerWith(t, w.tenant, scopes...)
-	opts := []app.Option{
-		app.WithTools(append(tools.Read(w.sources), writeProbe())...),
-	}
+	opts := []app.Option{app.WithTools(tools.All(w.sources)...)}
 	if audit != nil {
 		opts = append(opts, app.WithAudit(audit))
 	}
@@ -283,7 +276,7 @@ func TestReadSkipsToolsWithoutTheirPort(t *testing.T) {
 // §7.2).
 func TestNoToolTakesATenant(t *testing.T) {
 	w := seed()
-	for _, tool := range tools.Read(w.sources) {
+	for _, tool := range tools.All(w.sources) {
 		var schema struct {
 			Properties           map[string]json.RawMessage `json:"properties"`
 			Required             []string                   `json:"required"`
@@ -561,6 +554,7 @@ func TestCrossTenantIdsAreNotFound(t *testing.T) {
 		tools.TermLookupName:      {"project": w.otherProject.String(), "text": "cart", "locale": "en"},
 		tools.StyleRulesName:      {"project": w.otherProject.String(), "locale": "de"},
 		tools.FindingsListName:    {"project": w.otherProject.String()},
+		tools.CheckRunName:        {"project": w.otherProject.String()},
 		tools.ExplainDeliveryName: {"project": w.otherProject.String(), "environment": "production", "locale": "de"},
 	}
 	for _, name := range readTools {
