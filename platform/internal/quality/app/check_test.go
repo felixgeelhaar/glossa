@@ -43,6 +43,34 @@ func (c checkCatalog) Project(_ context.Context, project uuid.UUID) error {
 	return nil
 }
 
+// The rest of Quality's Catalog port is the policy side, which RunCheck
+// never reaches: a check grades against the policy its caller passes,
+// not one it fetches. These answer the zero policy so the fake
+// satisfies the port without pretending to a behaviour under test.
+
+func (c checkCatalog) CheckPolicy(_ context.Context, project uuid.UUID) (app.StoredPolicy, error) {
+	if project != c.id {
+		return app.StoredPolicy{}, app.ErrProjectNotFound
+	}
+	return app.StoredPolicy{}, nil
+}
+
+func (c checkCatalog) SaveCheckPolicy(
+	_ context.Context, project uuid.UUID, _ int, _ checkpolicy.Policy,
+) error {
+	if project != c.id {
+		return app.ErrProjectNotFound
+	}
+	return nil
+}
+
+func (c checkCatalog) OpenPullRequests(_ context.Context, project uuid.UUID) (map[string]int, error) {
+	if project != c.id {
+		return nil, app.ErrProjectNotFound
+	}
+	return nil, nil
+}
+
 // failingStore is Quality's persistence, and every method on it panics:
 // RunCheck must never reach storage, because it records nothing.
 type failingStore struct{ app.Store }
