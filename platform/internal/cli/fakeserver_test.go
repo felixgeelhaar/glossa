@@ -119,6 +119,12 @@ func newFakeServer(t *testing.T) *fakeServer {
 
 func (f *fakeServer) URL() string { return f.srv.URL }
 
+// close stops the server, so a command pointed at it gets a refused
+// connection on a local port rather than a DNS lookup. It is how a test
+// says "the server is out of reach"; the cleanup closing it twice is
+// harmless.
+func (f *fakeServer) close() { f.srv.Close() }
+
 func writeJSONResp(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

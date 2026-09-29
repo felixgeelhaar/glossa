@@ -67,7 +67,7 @@ func localVerdict(t *testing.T, p checkpolicy.Policy) bool {
 		}
 		checkers = append(checkers, qa.Precomputed(layer, fs))
 	}
-	return qa.Run(s, p, checkers...).Passed
+	return qa.Run(s, p, checkers...).Passed()
 }
 
 // prVerdict is the pull-request check's, from the same findings and the
