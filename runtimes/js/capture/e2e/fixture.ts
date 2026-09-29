@@ -8,7 +8,7 @@ import type { BundledRelease, Runtime } from "@glossa/runtime";
 import "@glossa/elements";
 
 import { startCapture } from "../src/index.js";
-import type { Capture, CaptureSession } from "../src/index.js";
+import type { CaptureSession, SessionCapture } from "../src/index.js";
 
 declare global {
   interface Window {
@@ -29,7 +29,7 @@ export interface Fixture {
   render(): void;
   start(): void;
   stop(): void;
-  collect(): Capture;
+  collect(): SessionCapture;
   /** Every probed element's and text run's box, for the layout comparison. */
   probes(): Probe[];
   hooked(): boolean[];

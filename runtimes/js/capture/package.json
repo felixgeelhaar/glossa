@@ -28,9 +28,9 @@
   },
   "size-limit": [
     {
-      "name": "@glossa/capture, the whole session (@glossa/runtime is types only)",
+      "name": "@glossa/capture, the whole session with the probe pass (@glossa/runtime is types only)",
       "path": "dist/index.js",
-      "limit": "3 KB"
+      "limit": "4 KB"
     }
   ],
   "peerDependencies": {

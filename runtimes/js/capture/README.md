@@ -21,7 +21,7 @@ import { startCapture } from "@glossa/capture";
 
 const session = startCapture(runtime); // or [runtimeA, runtimeB] for islands
 // …the page re-renders with markers and host attributes…
-const { renders, regions } = session.collect(); // captures.v1 fields
+const { renders, regions, probes } = session.collect(); // captures.v1 fields + findings
 session.stop(); // remove the hook and every marker
 ```
 
@@ -70,6 +70,46 @@ markers are added.
 Equal renders (same ID, locale, values and output) share one log entry. The
 log keeps a digest of the values (FNV-1a of their JSON), never the values.
 
+## The visual probe pass
+
+`collect()` also runs the visual probes of [RFC 0005 §5](../../../docs/rfcs/0005-quality.md),
+after the regions and before the screenshot, while the page still has layout:
+`scrollWidth`, `getComputedStyle`, `document.fonts.check()` and the runtime's
+`explain()` exist only while the page is open. They are **semantic assertions
+about known regions**, never pixel diffing, OCR, contrast or general
+accessibility (§5.3).
+
+| Code | How it decides |
+|---|---|
+| `text-clipped` | the nearest container above the region with `overflow: hidden\|clip` or an ellipsizing `text-overflow` has `scrollWidth`/`scrollHeight` more than a pixel over its client size |
+| `region-overlap` | two regions of different messages intersect by more than 25 % of the smaller, and neither element contains the other |
+| `line-growth` | the message covers more line boxes than it did in the `baseline` — the source locale's capture of the same route and viewport. Without a baseline nothing is decided |
+| `rtl-not-mirrored` | the runtime that rendered the region reports `dir === "rtl"` and the region's computed `direction` is not `rtl` |
+| `missing-glyph` | `document.fonts.check()` refuses the region's computed font for its text |
+| `untranslated-on-screen` | `explain()` says the region resolved from a fallback locale, or from the inline default, in a locale the manifest lists — never a heuristic on the text |
+| `mixed-locale` | regions resolved from two locales that share no fallback chain; the locale most regions came from is the screen's |
+| `runtime-*` | drained from the runtime error channel (SPEC §6) the session listened on: `runtime-format`, `runtime-missing-message` and the four load errors |
+
+Every finding is the one shape of RFC 0005 §2.1
+([schema](../../testdata/schemas/finding.v1.schema.json)), at layer `visual`
+and **always at severity `warning`** — promotion to `error` needs the same
+fingerprint in two consecutive captures, which only the server can see. Two
+fields of that shape are left for the ingest to fill, because the page cannot
+know them:
+
+- **`fingerprint`** hashes the catalog *message ID* where the caller has one,
+  and a browser only ever has the key; computing one here would not match the
+  one the server computes, so waivers would stop matching.
+- **`locus.capture`** is minted on ingest. The probe names the region within
+  this capture as `r_<index into regions>`, and the ingest pairs it with the
+  capture — the same way Context fills a locus at report time.
+
+`collect()` also returns `metrics`: the line boxes each message covered, which
+is what the next locale's `collect(root, { baseline })` compares against.
+`tolerance` is the line boxes a translation may gain before `line-growth` says
+so. A probe that throws costs its own finding and nothing else: it can never
+break a capture.
+
 ## The trade-off
 
 **Markers change string lengths.** During a session, a `t()` string is a few
@@ -93,9 +133,11 @@ Vue and Go-template usage.
 |---|---|
 | `startCapture(runtimes) → CaptureSession` | Installs the hook on one runtime or several (they share one log). |
 | `session.renders` | The render log: `{ id, locale, digest }`, a marker's index is a position in it. |
-| `session.collect(root?) → { renders, regions }` | The capture script, over the document or a subtree. |
+| `session.errors` | What the session's runtimes put on their error channels, in order. |
+| `session.collect(root?, { baseline?, tolerance? }) → { renders, regions, probes, metrics }` | The capture script and the probe pass, over the document or a subtree. |
 | `session.stop()` | Removes the hooks and strips the markers left in the document. Idempotent. |
-| `collectRegions(log, root?)` | The capture script on its own, for a log kept elsewhere. |
+| `collectRegions(log, root?, onHost?)` | The capture script on its own, for a log kept elsewhere. |
+| `probe(capture, hosts, ctx, options?)` | The probe pass on its own, over regions already collected. |
 | `stripMarkers(root?)`, `strip(s)` | Remove markers from a DOM tree or a string. |
 | `mark(index, text)`, `ranges(s)`, `digest(values)` | The marker format and the values digest. |
 
@@ -112,9 +154,11 @@ scripts run:
 - The CLI then calls `__glossaCapture.settle()` (fonts loaded, no DOM mutation
   for 300 ms), `status()` (every runtime's active manifest environment and
   locale: the CLI refuses `production` and a page without an active release)
-  and `collect()`: the regions, the document's size, and the boxes of the
-  `data-glossa-redact` elements it blacked out. Their content is painted black
-  and covered, and regions under them are `visible: false`.
+  and `collect()`: the regions, the probes, the document's size, and the boxes
+  of the `data-glossa-redact` elements it blacked out. Their content is painted
+  black and covered, and regions under them are `visible: false`. The probes
+  run before the redaction overlays go in, so they measure the page as it laid
+  out rather than as it is blacked out.
 
 `pnpm build:cli` (after `pnpm -r build`) writes the bundle to
 `platform/internal/cli/capture/agent.js`, which the Go binary embeds, and the
@@ -125,8 +169,11 @@ CLI integration test's fixture app (`src/testing/cli-fixture.ts`) to
 ## Tests
 
 - `pnpm test`: markers, the session and the capture script's structure in
-  jsdom, with Vue and React apps, validated against captures.v1 with ajv; the
-  tree-shaking check.
+  jsdom, with Vue and React apps, validated against captures.v1 with ajv; one
+  fixture per probe, with the layout stated (`src/testing/layout.ts`) because
+  jsdom has none, validated against finding.v1; the tree-shaking check; and
+  the size budget, which runs `size-limit` over `dist/` and fails over 4 kB
+  brotli, so `pnpm -r test` enforces what `pnpm size` reports.
 - `pnpm test:browser`: geometry in Chromium with Playwright on a fixture page:
   "Speichern" rendered by three different messages, formatted values,
   attributes, hidden and off-screen text, RTL text, wrapped lines, a

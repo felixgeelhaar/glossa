@@ -17,8 +17,10 @@
  */
 import type { Runtime } from "@glossa/runtime";
 
-import type { Box, Capture } from "./regions.js";
+import type { ProbeOptions } from "./probes.js";
+import type { Box } from "./regions.js";
 import { startCapture } from "./session.js";
+import type { SessionCapture } from "./session.js";
 
 /** What the page's runtimes report once their first load settled. */
 export interface PageStatus {
@@ -29,8 +31,8 @@ export interface PageStatus {
   locales: Array<string | null>;
 }
 
-/** A capture's regions plus the page's size and what was blacked out. */
-export interface PageCapture extends Capture {
+/** A capture's regions and probes plus the page's size and what was blacked out. */
+export interface PageCapture extends SessionCapture {
   /** The document's size in CSS pixels: what a full-page screenshot covers. */
   width: number;
   height: number;
@@ -42,7 +44,8 @@ export interface Agent {
   status(): Promise<PageStatus>;
   /** Resolves once fonts are loaded and the DOM saw no mutation for `quiet` ms (at most `max` ms). */
   settle(quiet?: number, max?: number): Promise<void>;
-  collect(): PageCapture;
+  /** `options` carries the source capture's `metrics` as the baseline, where the CLI has one. */
+  collect(options?: ProbeOptions): PageCapture;
 }
 
 type Global = typeof globalThis & {
@@ -155,8 +158,10 @@ export function install(g: Global = globalThis as Global): Agent {
       await frame();
       await frame();
     },
-    collect() {
-      const { renders, regions } = session.collect(document);
+    collect(options) {
+      // The probes run before the redaction overlays go in: they measure the
+      // page as it laid out, not as it is blacked out for the screenshot.
+      const { renders, regions, probes, metrics } = session.collect(document, options);
       const redacted = redact(document);
       for (const r of regions) {
         if (r.visible && redacted.some((box) => inside(r.box, box))) r.visible = false;
@@ -164,7 +169,7 @@ export function install(g: Global = globalThis as Global): Agent {
       const el = document.documentElement;
       const width = Math.ceil(Math.max(el.scrollWidth, document.body?.scrollWidth ?? 0));
       const height = Math.ceil(Math.max(el.scrollHeight, document.body?.scrollHeight ?? 0));
-      return { renders, regions, width, height, redacted };
+      return { renders, regions, probes, metrics, width, height, redacted };
     },
   };
   g.__glossaCapture = agent;

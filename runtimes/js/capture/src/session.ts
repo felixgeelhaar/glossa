@@ -1,14 +1,17 @@
 /**
  * A capture or editor session (RFC 0004 §3.1): installs an `onRender` hook on
  * the page's runtimes that marks every `t()` string, keeps the render log the
- * markers point into, collects regions, and ends by removing the hook and the
- * markers it left behind.
+ * markers point into, listens on their error channels, collects regions and
+ * probes them (RFC 0005 §5), and ends by removing the hooks and the markers it
+ * left behind.
  */
-import type { Render, Runtime } from "@glossa/runtime";
+import type { Render, Runtime, RuntimeError } from "@glossa/runtime";
 
 import { hasMarkers, mark, strip } from "./markers.js";
+import { probe } from "./probes.js";
+import type { Baseline, ProbeFinding, ProbeOptions } from "./probes.js";
 import { collectRegions } from "./regions.js";
-import type { Capture, LogEntry } from "./regions.js";
+import type { Capture, Host, LogEntry } from "./regions.js";
 
 /** One entry of the session's render log. */
 export interface LoggedRender extends LogEntry {
@@ -16,11 +19,25 @@ export interface LoggedRender extends LogEntry {
   digest: string;
 }
 
+/** A capture with the visual probe pass over it (RFC 0005 §5.1). */
+export interface SessionCapture extends Capture {
+  /** What the probes found, in the `glossa.finding/v1` shape. */
+  probes: ProbeFinding[];
+  /** What this capture measured, to hand to the next locale's `collect()` as its `baseline`. */
+  metrics: Baseline;
+}
+
 export interface CaptureSession {
   /** The render log: a marker's index is a position in it. Equal renders share an entry. */
   readonly renders: readonly LoggedRender[];
-  /** Regions under `root` (default: the document), with the log entries they refer to. */
-  collect(root?: Document | Element | ShadowRoot): Capture;
+  /** What the session's runtimes put on their error channels (SPEC §6), in order. */
+  readonly errors: readonly RuntimeError[];
+  /**
+   * Regions under `root` (default: the document), with the log entries they
+   * refer to, and the probe pass over them (RFC 0005 §5.2) — computed after
+   * the regions and before the screenshot, while the page still has layout.
+   */
+  collect(root?: Document | Element | ShadowRoot, options?: ProbeOptions): SessionCapture;
   /** Hook one more runtime into this session's log (one created after the session started). */
   add(runtime: Runtime): void;
   /**
@@ -51,25 +68,47 @@ export function digest(values: Record<string, unknown> | undefined): string {
 export function startCapture(runtimes: Runtime | readonly Runtime[]): CaptureSession {
   const renders: LoggedRender[] = [];
   const seen = new Map<string, number>();
-  const hook = (r: Render) => {
+  // The runtime behind each log entry: `explain()` has to be asked of the
+  // runtime that actually rendered the message, not of whichever island came
+  // first (RFC 0005 §5.2).
+  const owners: Array<Runtime | undefined> = [];
+  const errors: RuntimeError[] = [];
+  const rts: Runtime[] = [];
+  const offs: Array<() => void> = [];
+  const hook = (r: Render, rt: Runtime) => {
     const d = digest(r.values);
     const key = JSON.stringify([r.id, r.locale ?? null, d, r.output]);
     let index = seen.get(key);
     if (index === undefined) {
       index = renders.push({ id: r.id, locale: r.locale, digest: d }) - 1;
+      owners[index] = rt;
       seen.set(key, index);
     }
     return mark(index, r.output);
   };
-  const offs = (Array.isArray(runtimes) ? runtimes : [runtimes as Runtime]).map((rt) =>
-    rt.onRender(hook),
-  );
+  const attach = (rt: Runtime) => {
+    rts.push(rt);
+    offs.push(
+      rt.onRender((r) => hook(r, rt)),
+      // The error-channel drain (RFC 0005 §3.7): the channel is already
+      // there and already suppresses repeats, so listening adds no
+      // telemetry path — nothing leaves the page but the capture.
+      rt.onError((e) => void (errors.length < 500 && errors.push(e))),
+    );
+  };
+  (Array.isArray(runtimes) ? runtimes : [runtimes as Runtime]).forEach(attach);
   let active = true;
   return {
     renders,
-    collect: (root) => collectRegions(renders, root),
+    errors,
+    collect(root, options) {
+      const hosts: Host[] = [];
+      const capture = collectRegions(renders, root, (h) => void hosts.push(h));
+      const { probes, metrics } = probe(capture, hosts, { runtimes: rts, owners, errors }, options);
+      return { ...capture, probes, metrics };
+    },
     add(rt) {
-      if (active) offs.push(rt.onRender(hook));
+      if (active) attach(rt);
     },
     stop() {
       if (!active) return;
