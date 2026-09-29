@@ -62,6 +62,7 @@ generate:
   vue: src/glossa/glossa-vue.ts
   react: src/glossa/glossa-react.ts
   go: internal/msg/messages.go
+  dart: lib/glossa/messages.dart
 extract:
   include: ["src/**/*.{ts,vue}", "**/*.go"]
   exclude: ["src/glossa/**"]

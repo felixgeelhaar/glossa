@@ -2,6 +2,12 @@
 include: package:lints/recommended.yaml
 
 analyzer:
+  # The Flutter layer is its own package (`flutter/`, `glossa_flutter`):
+  # it needs the Flutter SDK to resolve, and this package must not, so
+  # that `dart pub get`, `dart analyze` and `dart test` keep working
+  # without Flutter. Analyse it with `flutter analyze` from `flutter/`.
+  exclude:
+    - flutter/**
   language:
     strict-casts: true
     strict-inference: true

@@ -8,7 +8,10 @@ that need a file system or a socket live in the separate entry point
 `package:glossa/io.dart`. Designed in
 [RFC 0005 §6](../../docs/rfcs/0005-quality.md).
 
-## What works today (waves 1 and 2)
+The Flutter widgets are a separate package, [`flutter/`](./flutter)
+(`glossa_flutter`), so that this one never depends on the Flutter SDK.
+
+## What works today (waves 1 to 3)
 
 | SPEC | Here |
 |---|---|
@@ -20,6 +23,7 @@ that need a file system or a socket live in the separate entry point
 | §4.2 fallback chain | `fallbackChain`: explicit edges depth-first, truncations, `"*"`, the source locale, cycles stopped at the first repeat |
 | §4.3 message resolution | `Localizer.t` formats with the locale the message was **found** in |
 | §5 formatting | `formatMessage` / `formatToParts`: a MessageFormat 2 interpreter over the precompiled data model. No parser. Formatting never throws |
+| §5 markup | `partsToTree` and `partsToHtml`: the shared safe-tag contract ([`markup.json`](../testdata/markup.json)). Only `safeTags` become elements, markup options are always dropped, so a translation can't add a link |
 | §6 observability | `explain()` returns the SPEC document verbatim; `GlossaClient.errors` is the error channel with the six types and 60-second repeat suppression, and it spans every release of a runtime's life. **No telemetry** |
 
 ```dart
@@ -72,19 +76,53 @@ and wants no loader at all.
   pure function over sendable data, run through `Isolate.run` on the VM and
   AOT (so Flutter drops no frame) and inline on the web, which has no isolates.
 
+## Flutter
+
+[`flutter/`](./flutter) is the package `glossa_flutter`: `GlossaText`, the
+safe tags as `InlineSpan`s, `explain()` and the error channel through a
+`GlossaScope`, and the asset-bundle layout. Its README has the details.
+
+It is separate rather than a `package:glossa/flutter.dart` entry point
+because a Flutter dependency here would break `dart pub get`, `dart test`
+and `dart compile js` for every host without the Flutter SDK — including
+this package's CI job. `flutter/` is excluded from
+`analysis_options.yaml` so `dart analyze` never tries to resolve
+`package:flutter`; run `flutter analyze` from `flutter/` instead.
+
+**The core is Flutter-free, and that is checked**: nothing below `lib/`
+imports `package:flutter`, and `tool/web_compile.dart` compiles the
+package for the web, which no Flutter import survives.
+
+## Typed accessors
+
+`glossa generate` writes them from the same argument metadata that feeds
+TypeScript and Go, when `glossa.yaml` has `generate.dart`:
+
+```yaml
+generate:
+  dart: lib/glossa/messages.dart
+  # dart_runtime: package:glossa/glossa.dart   # the default
+```
+
+```dart
+final messages = Messages.of(glossa);
+messages.checkout.pay(amount: order.total);
+MessageIds.checkoutPay;                        // for explain(), GlossaText
+```
+
+The generated file carries `// dart format off`, because the generator
+(Go, in `platform/internal/cli/codegen/dart.go`) lays it out itself and
+cannot run `dart_style`; a reformat would make `glossa generate --check`
+fail for ever after.
+
 ## What is coming
 
-- **Wave 3 — Flutter.** `package:glossa/flutter.dart`, a `GlossaText` that turns
-  formatted parts into a `Text.rich`, and the
-  [`markup.json`](../testdata/markup.json) safe-tag contract. Markup already
-  reaches `parts()` as `MarkupPart`; nothing renders it yet.
-- **Wave 3 — a web store.** `ReleaseStore` is an interface and
-  `MemoryReleaseStore` and `FileReleaseStore` implement it; an IndexedDB one
-  for Flutter web is still missing, so a web build keeps its release in memory
-  and reloads it from the edge on every start.
-- `glossa generate`'s typed accessors for Dart.
-- Background refresh has the SPEC §3 timer but no app-resume or visibility
-  hook; those belong with the Flutter layer.
+- **A web store.** `ReleaseStore` is an interface and `MemoryReleaseStore`
+  and `FileReleaseStore` implement it; an IndexedDB one for Flutter web is
+  still missing, so a web build keeps its release in memory and reloads it
+  from the edge on every start.
+- The RFC 0005 §6.4 size and startup budgets, measured and enforced
+  (wave 4).
 
 ## Running the fixtures
 
@@ -104,7 +142,10 @@ dart analyze --fatal-infos      # the CI bar
 dart compile js -o .dart_tool/web_compile.js tool/web_compile.dart
 ```
 
-CI runs the same three commands on a pinned SDK in the `runtimes-dart` job.
+CI runs the same commands on a pinned SDK in the `runtimes-dart` job. The
+Flutter package has **no CI job yet** (RFC 0005 §13, wave 4); run
+`flutter pub get`, `flutter analyze --fatal-infos` and `flutter test` in
+[`flutter/`](./flutter) by hand.
 
 | Suite | Source | Status |
 |---|---|---|
@@ -114,6 +155,7 @@ CI runs the same three commands on a pinned SDK in the `runtimes-dart` job.
 | `test/jcs_test.dart` | RFC 8785 §3.2.2–3.2.3 and Appendix B, plus number vectors from Node 22 (V8) | — |
 | `test/ed25519_test.dart` | RFC 8032 §7.1, plus the rejections | — |
 | `test/runtime_format_test.dart` | `messageformat/testdata/glossa/runtime-format.json` | 89 of 130; 41 skipped, each with its reason |
+| `test/markup_test.dart` | `runtimes/testdata/markup.json` | every case, **no skips** |
 | `test/locale_test.dart` | mirrors `runtimes/go/locale_test.go` and the JS locale suite | — |
 
 A bug found here becomes a fixture first (SPEC §7).

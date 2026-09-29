@@ -87,6 +87,19 @@ func TestGoGolden(t *testing.T) {
 	}
 }
 
+func TestDartGolden(t *testing.T) {
+	src, warnings := codegen.Dart(entries(t), codegen.DartOptions{Runtime: "package:glossa/glossa.dart", Source: "locales/en.json"})
+	golden(t, "messages.dart.txt", src)
+	var keys []string
+	for _, w := range warnings {
+		keys = append(keys, w.Key)
+	}
+	// The accessor paths are TypeScript's, so the warnings are too.
+	if strings.Join(keys, ",") != "checkout.payment_failed,nav.home" {
+		t.Errorf("warnings = %+v", warnings)
+	}
+}
+
 func TestNamesMapAccessorsBackToKeys(t *testing.T) {
 	keys := []string{"checkout.pay", "checkout.payment_failed", "cart.items"}
 	ts := codegen.TSNames(keys)
@@ -309,3 +322,69 @@ func main() {
 		t.Fatalf("generated Go doesn't compile: %v\n%s\n%s", err, out, src)
 	}
 }
+
+// TestGeneratedDartAnalyzes analyses the generated module and a consumer
+// of it against the real Dart runtime in a scratch package, and checks
+// that `dart format` leaves the generated file alone — it carries
+// `// dart format off`, because this generator lays it out itself and a
+// reformat would make `glossa generate --check` fail for ever after.
+func TestGeneratedDartAnalyzes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("resolves a scratch package")
+	}
+	dart, err := exec.LookPath("dart")
+	if err != nil {
+		t.Skip("dart not installed: install the Dart SDK to analyse generated Dart")
+	}
+	root := repoRoot(t)
+	src, _ := codegen.Dart(entries(t), codegen.DartOptions{Runtime: "package:glossa/glossa.dart", Source: "locales/en.json"})
+	dir := t.TempDir()
+	write := func(name, body string) {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("pubspec.yaml", "name: scratch\nenvironment:\n  sdk: ^3.13.0\ndependencies:\n  glossa:\n    path: "+
+		filepath.ToSlash(filepath.Join(root, "runtimes", "dart"))+"\n")
+	write("lib/messages.dart", string(src))
+	write("lib/consumer.dart", dartConsumer)
+
+	for _, step := range [][]string{
+		{"pub", "get"},
+		{"analyze", "--fatal-infos"},
+		{"format", "--output=none", "--set-exit-if-changed", "lib/messages.dart"},
+	} {
+		cmd := exec.Command(dart, step...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("dart %s: %v\n%s\n%s", strings.Join(step, " "), err, out, src)
+		}
+	}
+}
+
+const dartConsumer = `import 'package:glossa/glossa.dart';
+
+import 'messages.dart';
+
+/// Every accessor, with the argument types the generator chose.
+String demo(GlossaClient client) {
+  final messages = Messages.of(client);
+  return messages.checkout.pay(amount: 12.5) +
+      messages.cart.items(count: 3) +
+      messages.cart.checkout() +
+      messages.athlete.greeting(gender: 'female', name: 'Lina') +
+      messages.order.shipped(date: DateTime.now(), time: DateTime.now()) +
+      messages.checkout.paymentFailed(reason: 'declined') +
+      messages.nav.home.title(defaultText: 'Home title') +
+      messages.legal.type(type: 'x') +
+      MessageIds.checkoutPay;
+}
+
+/// The accessors also bind to a bare translate function, which is how a
+/// Flutter app reaches them (GlossaScope.of(context).t).
+String withLocalizer(Localizer localizer) =>
+    Messages(localizer.t).cart.checkout();
+`

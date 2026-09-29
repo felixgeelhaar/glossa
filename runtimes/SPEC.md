@@ -10,7 +10,7 @@ This is the contract between the delivery plane (the Release context and `glossa
 |---|---|---|
 | JS / TS | [`js/runtime`](./js/runtime) (plus `elements`, `vue`, `react`, `astro`, `unplugin`, `capture`, `overlay`) | all of it |
 | Go | [`go`](./go) | all of it |
-| Dart / Flutter | [`dart`](./dart) | §1 decoding and verification, §2–§3 loading, §4 negotiation and fallback, §5 formatting (no HTML/markup renderer yet), §6 `explain()` and the error channel. The Flutter widgets and the `markup.json` safe-tag rendering are in progress ([RFC 0005 §6](../docs/rfcs/0005-quality.md)) |
+| Dart / Flutter | [`dart`](./dart) (core) and [`dart/flutter`](./dart/flutter) (`glossa_flutter`) | all of it. The core is pure Dart — no Flutter import, so it compiles for the web and for AOT; `glossa_flutter` adds `GlossaText`, the `markup.json` safe tags as `InlineSpan`s and the asset-bundle layout ([RFC 0005 §6](../docs/rfcs/0005-quality.md)) |
 
 ## 1. Artifacts
 
