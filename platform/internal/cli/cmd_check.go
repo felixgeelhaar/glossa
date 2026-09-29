@@ -374,7 +374,7 @@ func (inv *invocation) checkRun(ctx context.Context, cfg *config.Config, f check
 		run.degraded = true
 		return run, nil
 	}
-	policy, err := inv.fetchPolicy(ctx, cfg, projectPolicySource{info: p.info})
+	policy, err := inv.fetchPolicy(ctx, cfg, projectPolicySource{client: p.client, scope: p.scope, settings: p.info.Settings.CheckPolicy})
 	if err != nil {
 		return nil, err
 	}

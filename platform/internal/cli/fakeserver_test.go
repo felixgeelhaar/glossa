@@ -30,7 +30,11 @@ type fakeServer struct {
 	// checkPolicy is the project's stored check policy, as the contract
 	// renders it; nil leaves settings.check_policy out of the response,
 	// the way a server that predates the setting would.
-	checkPolicy  map[string]any
+	checkPolicy map[string]any
+	// policyDoc is what GET …/check-policy answers. nil leaves the
+	// route 404, the way a server that predates the endpoint would, so
+	// a test that does not set one exercises the settings fallback.
+	policyDoc    map[string]any
 	sourceLocale string
 	locales      []string // including the source
 	messages     map[string]*fakeMessage
@@ -78,6 +82,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 	p := "/v1/tenants/ten_1/projects/prj_1"
 	mux.HandleFunc("GET /v1/tenants", f.tenants)
 	mux.HandleFunc("GET /v1/tenants/ten_1/projects", f.projects)
+	mux.HandleFunc("GET "+p+"/check-policy", f.getCheckPolicy)
 	mux.HandleFunc("GET "+p+"/locales", f.listLocales)
 	mux.HandleFunc("POST "+p+"/locales", f.addLocale)
 	mux.HandleFunc("GET "+p+"/fallback-graph", func(w http.ResponseWriter, _ *http.Request) {
@@ -401,4 +406,18 @@ func (f *fakeServer) countRequests(prefix string) int {
 		}
 	}
 	return n
+}
+
+// getCheckPolicy answers the project's check-policy document, or 404
+// when the test set none — which is what an older server does, and what
+// sends `glossa check` to settings.check_policy instead.
+func (f *fakeServer) getCheckPolicy(w http.ResponseWriter, _ *http.Request) {
+	f.mu.Lock()
+	doc := f.policyDoc
+	f.mu.Unlock()
+	if doc == nil {
+		problemResp(w, http.StatusNotFound, "not_found", "no check policy endpoint")
+		return
+	}
+	writeJSONResp(w, http.StatusOK, doc)
 }

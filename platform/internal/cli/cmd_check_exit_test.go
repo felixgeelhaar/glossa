@@ -378,3 +378,53 @@ func hasLayer(ls []domain.Layer, l domain.Layer) bool {
 	}
 	return false
 }
+
+// TestCheckGradesAgainstTheServedPolicyDocument proves `glossa check`
+// reads the policy from `GET …/check-policy` and not from the three
+// fields of settings.check_policy.
+//
+// The two are set to disagree: the settings say nothing fails, the
+// document says a missing translation is an error. Only one of them can
+// produce the verdict, and it must be the document — otherwise the
+// rules, environments and version the policy API exists to carry never
+// reach the run.
+func TestCheckGradesAgainstTheServedPolicyDocument(t *testing.T) {
+	srv, w := pushed(t)
+	srv.checkPolicy = map[string]any{"require_complete": "none", "fail_on": "never", "missing_translations": "warning"}
+	srv.policyDoc = map[string]any{
+		"version": 11,
+		"document": map[string]any{
+			"schema":               "glossa.check-policy/v1",
+			"require_complete":     "all",
+			"fail_on":              "error",
+			"missing_translations": "error",
+		},
+	}
+
+	var doc checkJSON
+	w.json(&doc, "check").want(t, ExitCheckFailed)
+	if doc.Policy.Source != "server" {
+		t.Errorf("policy source = %q, want server", doc.Policy.Source)
+	}
+	if doc.Policy.Version != 11 {
+		t.Errorf("policy version = %d, want 11 (the document's, not settings')", doc.Policy.Version)
+	}
+}
+
+// TestCheckFallsBackToSettingsOnAnOlderServer: a server without the
+// endpoint answers 404, which is not a failure. The three stored fields
+// still decide, exactly as they did before the policy API existed.
+func TestCheckFallsBackToSettingsOnAnOlderServer(t *testing.T) {
+	srv, w := pushed(t)
+	srv.policyDoc = nil // the route 404s
+	srv.checkPolicy = map[string]any{"require_complete": "all", "fail_on": "error", "missing_translations": "error"}
+
+	var doc checkJSON
+	w.json(&doc, "check").want(t, ExitCheckFailed)
+	if doc.Policy.Source != "server" {
+		t.Errorf("policy source = %q, want server", doc.Policy.Source)
+	}
+	if doc.Policy.Version != 0 {
+		t.Errorf("policy version = %d, want 0 (settings carry none)", doc.Policy.Version)
+	}
+}

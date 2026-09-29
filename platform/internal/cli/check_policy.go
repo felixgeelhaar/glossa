@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -84,17 +85,45 @@ type policyCache struct {
 	Policy    checkpolicy.Policy `json:"policy"`
 }
 
-// projectPolicySource reads the policy the project stores.
+// projectPolicySource reads the project's check-policy document from
+// the server.
 //
-// It is what a server can say today: the three fields of
-// `settings.check_policy`, which read as a version-0 document that
-// decides every question exactly as it did before M4.
-type projectPolicySource struct{ info remote.Project }
+// It asks `GET …/check-policy`, which answers the whole document —
+// rules, environments and the version that decided the run. A project
+// that never saved one reads as version 0, whose three base fields mean
+// exactly what they meant before M4, so nothing about an untouched
+// project changes.
+//
+// A server that predates the endpoint answers 404. That is not a
+// failure: the built-in default stands and the run says the policy is
+// its own, the same answer this gave before the endpoint existed.
+type projectPolicySource struct {
+	client *remote.Client
+	scope  remote.Scope
+	// settings is the project's stored check_policy, read from the
+	// project itself. It is the fallback for a server too old to have
+	// the endpoint.
+	settings *apiclient.CheckPolicy
+}
 
-func (s projectPolicySource) FetchPolicy(context.Context) (checkpolicy.Policy, error) {
-	cp := s.info.Settings.CheckPolicy
+func (s projectPolicySource) FetchPolicy(ctx context.Context) (checkpolicy.Policy, error) {
+	p, err := s.client.CheckPolicy(ctx, s.scope)
+	if err == nil {
+		return p, nil
+	}
+	var ae *remote.APIError
+	if !errors.As(err, &ae) || ae.Status != http.StatusNotFound {
+		return checkpolicy.Policy{}, err
+	}
+	return s.policyFromSettings()
+}
+
+// policyFromSettings reads the three fields of settings.check_policy,
+// which is all a server without the endpoint can say.
+func (s projectPolicySource) policyFromSettings() (checkpolicy.Policy, error) {
+	cp := s.settings
 	if cp == nil {
-		// A server that predates the setting. The built-in default
+		// A server that predates the setting too. The built-in default
 		// stands, and the run says the policy is its own.
 		return checkpolicy.Policy{}, errNoStoredPolicy
 	}
