@@ -231,14 +231,16 @@ jobs:
       # `glossa generate --lang dart` emits code against this runtime, and
       # TestGeneratedDartAnalyzes checks that it resolves, analyses and
       # survives `dart format`. The Go jobs have no Dart SDK, so it used
-      # to skip silently everywhere; this job has one, and CI=true (which
-      # GitHub sets) turns a missing SDK into a failure there.
+      # to skip silently everywhere; this job has one and asks for it by
+      # name, so a missing SDK fails here and nowhere else.
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: platform/go.mod
           cache-dependency-path: platform/go.sum
       - name: the generated Dart compiles against this runtime
         working-directory: platform
+        env:
+          GLOSSA_REQUIRE_DART: "1"
         run: go test -run TestGeneratedDart -count=1 -v ./internal/cli/codegen/...
 
   runtimes-flutter:
