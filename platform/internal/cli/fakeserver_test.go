@@ -44,6 +44,7 @@ type fakeServer struct {
 	io           *fakeInterchange
 	ctx          *fakeContext
 	branches     *fakeBranches
+	qa           *fakeQuality
 	gh           *fakeGitHub
 	ci           *fakeCI
 	requests     []string
@@ -77,7 +78,7 @@ type fakeTranslation struct {
 
 func newFakeServer(t *testing.T) *fakeServer {
 	f := &fakeServer{t: t, reviewRequired: true, sourceLocale: "en", locales: []string{"en"},
-		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange(), ctx: newFakeContext(), branches: newFakeBranches(), gh: newFakeGitHub(), ci: &fakeCI{}}
+		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange(), ctx: newFakeContext(), branches: newFakeBranches(), gh: newFakeGitHub(), ci: &fakeCI{}, qa: newFakeQuality()}
 	mux := http.NewServeMux()
 	p := "/v1/tenants/ten_1/projects/prj_1"
 	mux.HandleFunc("GET /v1/tenants", f.tenants)
@@ -100,6 +101,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 	f.routeInterchange(mux)
 	f.routeContext(mux, p)
 	f.routeBranches(mux, p)
+	f.routeQuality(mux, p)
 	f.routeGitHub(mux)
 	f.routeCI(mux)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

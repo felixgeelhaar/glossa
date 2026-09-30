@@ -1482,6 +1482,187 @@ export const strings = {
       actions: "Actions",
     },
     readOnly: "You can read this project's findings, but accepting one needs the developer role.",
+    // ── the quality sections ───────────────────────────────────────
+    sections: "Quality sections",
+    sectionFindings: "Findings",
+    sectionPolicy: "Check policy",
+    sectionWaivers: "Waivers",
+    manageWaivers: "Manage waivers",
+    // ── the waiver screen (RFC 0005 §9) ────────────────────────────
+    waiversPageLead:
+      "Every waiver this project has ever made, standing or not. A waiver is the only way a finding stops failing a check, " +
+      "so this list is the whole of what the project has agreed to live with — and why.",
+    waiverStanding: (n: number) => (n === 1 ? "1 standing" : `${n.toLocaleString()} standing`),
+    waiverPast: (n: number) => (n === 1 ? "1 revoked or expired" : `${n.toLocaleString()} revoked or expired`),
+    waiverUnexaminedCount: (n: number) =>
+      n === 1 ? "1 accepts nothing that is still found" : `${n.toLocaleString()} accept nothing that is still found`,
+    waiverExpiringCount: (n: number) => (n === 1 ? "1 expires within 30 days" : `${n.toLocaleString()} expire within 30 days`),
+    waiverFilters: "Filter waivers",
+    waiverState: "State",
+    waiverStateAny: "Standing and past",
+    waiverStateActive: "Standing only",
+    waiverStateInactive: "Revoked or expired only",
+    waiverFingerprint: "Fingerprint",
+    waiverFingerprintPlaceholder: "f_7c1a3e9b40d2f815",
+    waiverMatched: (n: number) => (n === 1 ? "1 waiver matches." : `${n.toLocaleString()} waivers match.`),
+    waiverNoMatches: "No waiver matches these filters.",
+    waiverTruncated: (n: number) => `Showing the first ${n.toLocaleString()} waivers.`,
+    waiversReadOnly: "You can read this project's waivers, but taking one back needs the developer role.",
+  },
+  /**
+   * The check-policy editor (RFC 0005 §4). Two ideas carry the whole
+   * screen and every string below serves one of them: **order is
+   * meaning** — the rule naming more fields wins and ties go to the
+   * later rule — and **nobody saves blind**: the impact preview is
+   * answered before the save, never after it.
+   */
+  policy: {
+    title: "Check policy",
+    lead:
+      "What `glossa check` and the pull-request check decide by. The server is the source of truth: a developer can tighten " +
+      "or loosen their own loop with glossa.yaml, and the pull-request check ignores it.",
+    loading: "Reading the policy…",
+    version: (v: number) => (v === 0 ? "No policy saved yet — the built-in default grades" : `Version ${v}`),
+    versionNever: "Every locale must be complete, an untranslated key in one is an error, and errors fail the check.",
+    savedBy: (who: string, when: string) => `Saved by ${who}, ${when}`,
+    graceUntil: (when: string, pinned: number) =>
+      `Pull requests opened before this version keep grading against version ${pinned} until ${when}.`,
+    graceNone: "This version grades every check at once. No pull request is pinned to an older one.",
+    readOnly: "You can read this policy, but changing it needs the developer role.",
+    // ── the base fields ────────────────────────────────────────────
+    baseTitle: "What the check requires",
+    baseLead: "The three fields every project starts from. A policy with no rules and no environments decides exactly what these say.",
+    requireComplete: "Locales that must be complete",
+    requirement: {
+      all: "Every locale the project has",
+      listed: "Only the locales listed below",
+      none: "No locale has to be complete",
+    } as Record<string, string>,
+    requireCompleteLocales: "The locales that must be complete",
+    requireCompleteEmpty: "Pick at least one locale, or choose “No locale has to be complete”.",
+    failOn: "The lowest severity that fails a check",
+    failOnName: { error: "Errors fail", warning: "Warnings fail too", never: "Nothing fails — the check only reports" } as Record<string, string>,
+    missingTranslations: "An untranslated key in a locale that must be complete",
+    missingName: { error: "Is an error", warning: "Is a warning" } as Record<string, string>,
+    missingHint:
+      "Teams that translate after merging set this to a warning and keep every locale required: the check still lists what is untranslated without blocking the pull request.",
+    // ── rules ──────────────────────────────────────────────────────
+    rulesTitle: "Rules, in the order they are read",
+    rulesLead:
+      "A rule selects on layer, code, locale, namespace and environment — any subset — and says what those findings are worth. " +
+      "The rule naming more fields wins. When two rules name the same number of fields and can both match one finding, the later one wins, " +
+      "which is why this list is ordered and reorderable rather than a set.",
+    noRules: "No rules. Every finding stands at the severity its layer gave it.",
+    addRule: "Add a rule",
+    ruleAdded: (n: number, total: number) => `A rule was added at position ${n} of ${total}.`,
+    ruleHeading: (n: number, total: number) => `Rule ${n} of ${total}`,
+    ruleSelects: "Selects",
+    ruleSelectsEverything: "every finding",
+    ruleField: { layer: "Layer", code: "Rule code", locale: "Locale", namespace: "Namespace", environment: "Environment" } as Record<string, string>,
+    ruleFieldAny: "Any",
+    ruleFieldNone: "—",
+    ruleCodePlaceholder: "term_forbidden",
+    ruleNamespacePlaceholder: "legal",
+    ruleEnvironmentPlaceholder: "production",
+    ruleSeverity: "Worth",
+    ruleSeverityName: {
+      error: "Error — fails the check",
+      warning: "Warning — reported, does not fail",
+      off: "Off — not computed at all",
+    } as Record<string, string>,
+    ruleOffHint: "“Off” means the layer is not run for what this rule selects, so nothing is reported or counted — and the project does not pay for QA it ignores.",
+    ruleMode: "Rollout",
+    ruleModeName: {
+      enforce: "Enforce — may fail a check",
+      warn: "Warn only — reports, never fails a check",
+    } as Record<string, string>,
+    ruleModeWarnHint:
+      "Warn is the on-ramp for a stricter rule: it computes and reports at this severity but cannot change any verdict. Ship it, watch the number, then flip it to enforce.",
+    ruleAdvisoryError:
+      "The linguistic layer is decided by a model, so no rule may raise it to an error — a build never fails on an opinion. The server refuses this rule.",
+    // ── order, said in words ───────────────────────────────────────
+    specificity: (named: number) =>
+      named === 0 ? "Names no field, so it is the least specific rule there is." : named === 1 ? "Names 1 field." : `Names ${named} fields.`,
+    orderFree: "Nothing else here is equally specific and overlapping, so this rule's position does not change any verdict.",
+    orderBeatenBy: (n: number) =>
+      `Rule ${n} is equally specific, can match the same findings and comes later, so rule ${n} decides them instead of this one.`,
+    orderBeats: (list: string) => `It is equally specific to ${list} and comes later, so it decides against ${list === "rule 1" ? "it" : "them"}.`,
+    orderShadowed: (n: number) => `Rule ${n} has exactly this selector and comes later, so this rule decides nothing at all. Delete it or move it after rule ${n}.`,
+    ruleList: (ns: number[]) => ns.map((n) => `rule ${n}`).join(", "),
+    moveUp: "Move up",
+    moveDown: "Move down",
+    moveUpFor: (n: number) => ` rule ${n}`,
+    moveDownFor: (n: number) => ` rule ${n}`,
+    moved: (from: number, to: number, total: number) => `Moved from position ${from} to position ${to} of ${total}.`,
+    removeRule: "Remove",
+    removeRuleFor: (n: number) => ` rule ${n}`,
+    ruleRemoved: (n: number) => `Rule ${n} was removed.`,
+    // ── environments ───────────────────────────────────────────────
+    environmentsTitle: "Environments",
+    environmentsLead:
+      "What one environment asks for beyond the base. Release enforces the completeness requirement at publish; an environment that names none inherits the document's.",
+    noEnvironments: "No environment asks for anything beyond the base.",
+    addEnvironment: "Add an environment",
+    environmentName: "Name",
+    environmentNamePlaceholder: "production",
+    environmentNameRequired: "Name the environment.",
+    environmentDuplicate: "Two blocks cannot name the same environment.",
+    environmentInherit: "Inherit the base requirement",
+    environmentReview: "A release must be approved to publish here",
+    removeEnvironment: "Remove",
+    removeEnvironmentFor: (name: string) => ` the ${name || "unnamed"} environment`,
+    // ── the preview, before the save ───────────────────────────────
+    previewTitle: "What this change would do",
+    previewLead:
+      "Measured against the findings this project already has, before anything is stored. This is the whole point of the button: " +
+      "nobody should discover a policy change by way of forty red pull requests.",
+    preview: "Preview the impact",
+    previewing: "Measuring…",
+    previewNeeded: "Preview the impact first. The numbers below are what the save would do.",
+    previewStale: "The policy changed since this preview. Preview it again before saving.",
+    previewUnchanged: "This is the policy that already grades. There is nothing to save.",
+    previewMeasured: (findings: number, runs: number) =>
+      `Measured against ${findings === 1 ? "1 stored finding" : `${findings.toLocaleString()} stored findings`} from ${runs === 1 ? "1 run" : `${runs.toLocaleString()} runs`} — the newest run of each ref checked recently.`,
+    previewNothingToMeasure: "This project has no stored findings yet, so there is nothing to measure this against. The policy still saves.",
+    impactRaised: "Findings that would count for more",
+    impactLowered: "Findings that would count for less",
+    impactSilenced: "Findings that would stop being computed",
+    impactNewlyFailing: "Findings that would newly fail a check",
+    impactNoLongerFailing: "Findings that would stop failing a check",
+    impactOpenPullRequests: "Open pull requests that would newly fail",
+    impactNone: "Nothing changes.",
+    impactOpenPullRequestsHint:
+      "These are the people who would wake up to a red pull request they did not cause. A grace pins them to the version they opened under.",
+    impactRefs: (refs: string) => `Would newly fail: ${refs}`,
+    impactRefsFixed: (refs: string) => `Would stop failing: ${refs}`,
+    impactRulesTitle: "Per rule",
+    impactRulesLead: "A rule that changed nothing is listed too: that is exactly what a reader wants to know before saving.",
+    impactColumns: { rule: "Rule", selector: "Selects", matched: "Decided", changed: "Changed", failing: "Newly failing" },
+    impactRuleUnchanged: "Changed nothing",
+    // ── the save ───────────────────────────────────────────────────
+    saveTitle: "Save it",
+    save: (v: number) => `Save version ${v}`,
+    saving: "Saving…",
+    saved: (v: number) => `Version ${v} is the policy now.`,
+    graceDays: "Pin open pull requests for",
+    graceDaysUnit: "days",
+    graceDaysHint:
+      "A pull request opened before this save keeps grading against the version it was opened under for this long. 14 days is the default, because it should protect the people who did not cause the change. 0 pins nothing, which is what a policy that only loosens wants.",
+    graceDaysRange: "Between 0 and 90 days.",
+    discard: "Discard my changes",
+    discarded: "Your changes are discarded. This is the policy that grades.",
+    unsaved: "You have unsaved changes.",
+    // ── history ────────────────────────────────────────────────────
+    historyTitle: "How this policy got to be what it is",
+    historyLead: "Every save, newest first. “Who tightened terminology to an error, and when?” has an answer that outlives the version that carried it.",
+    noHistory: "No version has been saved through this screen yet.",
+    historyColumns: { version: "Version", document: "What it said", by: "Saved by", when: "When", actions: "Actions" },
+    historyGrace: (when: string) => `pinned until ${when}`,
+    historyLoad: "Load into the editor",
+    historyLoadFor: (v: number) => ` version ${v}`,
+    historyLoaded: (v: number) => `Version ${v} is loaded in the editor. Nothing is saved until you preview and save it.`,
+    summary: (requirement: string, failOn: string, rules: number) =>
+      `${requirement} · ${failOn} · ${rules === 1 ? "1 rule" : `${rules.toLocaleString()} rules`}`,
   },
   /**
    * The health surfaces (RFC 0005 §8). Every "none" string below is a

@@ -113,19 +113,19 @@ func (e AIJobState) Valid() bool {
 
 // Defines values for AINamespaceTag.
 const (
-	Legal     AINamespaceTag = "legal"
-	Marketing AINamespaceTag = "marketing"
-	Sensitive AINamespaceTag = "sensitive"
+	AINamespaceTagLegal     AINamespaceTag = "legal"
+	AINamespaceTagMarketing AINamespaceTag = "marketing"
+	AINamespaceTagSensitive AINamespaceTag = "sensitive"
 )
 
 // Valid indicates whether the value is a known member of the AINamespaceTag enum.
 func (e AINamespaceTag) Valid() bool {
 	switch e {
-	case Legal:
+	case AINamespaceTagLegal:
 		return true
-	case Marketing:
+	case AINamespaceTagMarketing:
 		return true
-	case Sensitive:
+	case AINamespaceTagSensitive:
 		return true
 	default:
 		return false
@@ -1248,6 +1248,69 @@ func (e IntegrationKind) Valid() bool {
 	case Termbase:
 		return true
 	case Tm:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LinguisticFailureCode.
+const (
+	LinguisticFailureCodeBudgetExceeded  LinguisticFailureCode = "budget_exceeded"
+	LinguisticFailureCodeInternal        LinguisticFailureCode = "internal"
+	LinguisticFailureCodeInvalidOutput   LinguisticFailureCode = "invalid_output"
+	LinguisticFailureCodeLayerOff        LinguisticFailureCode = "layer_off"
+	LinguisticFailureCodeNoRoute         LinguisticFailureCode = "no_route"
+	LinguisticFailureCodeProviderConsent LinguisticFailureCode = "provider_consent"
+	LinguisticFailureCodeProviderError   LinguisticFailureCode = "provider_error"
+	LinguisticFailureCodeSensitive       LinguisticFailureCode = "sensitive"
+)
+
+// Valid indicates whether the value is a known member of the LinguisticFailureCode enum.
+func (e LinguisticFailureCode) Valid() bool {
+	switch e {
+	case LinguisticFailureCodeBudgetExceeded:
+		return true
+	case LinguisticFailureCodeInternal:
+		return true
+	case LinguisticFailureCodeInvalidOutput:
+		return true
+	case LinguisticFailureCodeLayerOff:
+		return true
+	case LinguisticFailureCodeNoRoute:
+		return true
+	case LinguisticFailureCodeProviderConsent:
+		return true
+	case LinguisticFailureCodeProviderError:
+		return true
+	case LinguisticFailureCodeSensitive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LinguisticJobState.
+const (
+	LinguisticJobStateCancelled LinguisticJobState = "cancelled"
+	LinguisticJobStateFailed    LinguisticJobState = "failed"
+	LinguisticJobStateQueued    LinguisticJobState = "queued"
+	LinguisticJobStateRunning   LinguisticJobState = "running"
+	LinguisticJobStateSucceeded LinguisticJobState = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the LinguisticJobState enum.
+func (e LinguisticJobState) Valid() bool {
+	switch e {
+	case LinguisticJobStateCancelled:
+		return true
+	case LinguisticJobStateFailed:
+		return true
+	case LinguisticJobStateQueued:
+		return true
+	case LinguisticJobStateRunning:
+		return true
+	case LinguisticJobStateSucceeded:
 		return true
 	default:
 		return false
@@ -4930,6 +4993,118 @@ type KnowledgeImportJobRequest struct {
 	Mode     *ImportMode `json:"mode,omitempty"`
 }
 
+// LinguisticFailureCode Why a job ended where it did. The first four are spelled exactly
+// as Intelligence spells the same refusals on a translation job,
+// because they are the same refusals: the tenant has not consented
+// to sending text to a provider, its monthly AI budget is spent,
+// every namespace the job selected is tagged `sensitive`, or no
+// provider is configured. `invalid_output` is a model answer that
+// did not parse into (code, span, explanation, optional
+// suggestion), and `layer_off` a project whose policy switches the
+// layer off.
+type LinguisticFailureCode string
+
+// LinguisticJob One explicit or batch linguistic review (RFC 0005 §3.8): what it
+// covers, where it stands, and what became of it. Its findings are
+// always `warning` and a policy may not raise them to `error`.
+type LinguisticJob struct {
+	// CheckRun The check run the findings were recorded in; absent while the job has produced none. Read them with `listFindings?run=…`.
+	CheckRun *Id `json:"check_run,omitempty"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// FailureCode Why a job ended where it did. The first four are spelled exactly
+	// as Intelligence spells the same refusals on a translation job,
+	// because they are the same refusals: the tenant has not consented
+	// to sending text to a provider, its monthly AI budget is spent,
+	// every namespace the job selected is tagged `sensitive`, or no
+	// provider is configured. `invalid_output` is a model answer that
+	// did not parse into (code, span, explanation, optional
+	// suggestion), and `layer_off` a project whose policy switches the
+	// layer off.
+	FailureCode *LinguisticFailureCode `json:"failure_code,omitempty"`
+
+	// FailureDetail The sentence that says what to change; present with `failure_code`.
+	FailureDetail *string `json:"failure_detail,omitempty"`
+
+	// Findings The findings stored.
+	Findings int `json:"findings"`
+
+	// FinishedAt RFC 3339, UTC.
+	FinishedAt *Timestamp `json:"finished_at,omitempty"`
+
+	// Id An opaque identifier.
+	Id  Id     `json:"id"`
+	Ref string `json:"ref"`
+
+	// Reviewed The translations the model saw.
+	Reviewed int `json:"reviewed"`
+
+	// Scope What one job reviews. `locales` is required — a review is of a
+	// translation, and there is no translation without a locale — and
+	// `namespace`, `key_prefix` and `keys` narrow the catalog it
+	// covers. Messages under a namespace tagged `sensitive` are never
+	// included, whatever this says.
+	Scope LinguisticScope `json:"scope"`
+
+	// SkippedSensitive Messages left out because their namespace is tagged `sensitive` and is never sent to a provider. Counted and named, never silently dropped.
+	SkippedSensitive int `json:"skipped_sensitive"`
+
+	// StartedAt RFC 3339, UTC.
+	StartedAt *Timestamp `json:"started_at,omitempty"`
+
+	// State Where a linguistic-QA job stands. `queued` → `running` →
+	// `succeeded` or `failed`; a job that has not finished can be
+	// cancelled.
+	State LinguisticJobState `json:"state"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// LinguisticJobCreate One linguistic review to run.
+type LinguisticJobCreate struct {
+	// Ref The branch or environment the review is of. Its findings are recorded in a check run of it.
+	Ref string `json:"ref"`
+
+	// Scope What one job reviews. `locales` is required — a review is of a
+	// translation, and there is no translation without a locale — and
+	// `namespace`, `key_prefix` and `keys` narrow the catalog it
+	// covers. Messages under a namespace tagged `sensitive` are never
+	// included, whatever this says.
+	Scope LinguisticScope `json:"scope"`
+}
+
+// LinguisticJobList A page of a project's linguistic-QA jobs, newest first.
+type LinguisticJobList struct {
+	Items         []LinguisticJob `json:"items"`
+	NextPageToken *string         `json:"next_page_token,omitempty"`
+}
+
+// LinguisticJobState Where a linguistic-QA job stands. `queued` → `running` →
+// `succeeded` or `failed`; a job that has not finished can be
+// cancelled.
+type LinguisticJobState string
+
+// LinguisticScope What one job reviews. `locales` is required — a review is of a
+// translation, and there is no translation without a locale — and
+// `namespace`, `key_prefix` and `keys` narrow the catalog it
+// covers. Messages under a namespace tagged `sensitive` are never
+// included, whatever this says.
+type LinguisticScope struct {
+	// KeyPrefix Only the keys under this prefix.
+	KeyPrefix *string `json:"key_prefix,omitempty"`
+
+	// Keys Individual messages; absent is the whole selection.
+	Keys    *[]MessageKey `json:"keys,omitempty"`
+	Locales []Locale      `json:"locales"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+}
+
 // Locale A BCP 47 language tag. Stored and returned canonicalized
 // (`en_us` → `en-US`, `iw` → `he`).
 //
@@ -7496,6 +7671,9 @@ type ImportJobPath = Id
 // InstallationPath An opaque identifier.
 type InstallationPath = Id
 
+// LinguisticJobPath An opaque identifier.
+type LinguisticJobPath = Id
+
 // LocalePath A BCP 47 language tag. Stored and returned canonicalized
 // (`en_us` → `en-US`, `iw` → `he`).
 //
@@ -8108,6 +8286,20 @@ type ListFindingsParams struct {
 	Waived *bool `form:"waived,omitempty" json:"waived,omitempty"`
 }
 
+// ListLinguisticJobsParams defines parameters for ListLinguisticJobs.
+type ListLinguisticJobsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken          `form:"page_token,omitempty" json:"page_token,omitempty"`
+	State     *LinguisticJobState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateLinguisticJobParams defines parameters for CreateLinguisticJob.
+type CreateLinguisticJobParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // ListLocalesParams defines parameters for ListLocales.
 type ListLocalesParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -8708,6 +8900,9 @@ type PutFallbackGraphJSONRequestBody = PutFallbackGraph
 
 // CreateInContextGrantJSONRequestBody defines body for CreateInContextGrant for application/json ContentType.
 type CreateInContextGrantJSONRequestBody = CreateInContextGrant
+
+// CreateLinguisticJobJSONRequestBody defines body for CreateLinguisticJob for application/json ContentType.
+type CreateLinguisticJobJSONRequestBody = LinguisticJobCreate
 
 // AddLocaleJSONRequestBody defines body for AddLocale for application/json ContentType.
 type AddLocaleJSONRequestBody = AddLocale
@@ -11714,6 +11909,137 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
 	CreateInContextGrant(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateInContextGrantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLinguisticJobs A project's linguistic-QA jobs, newest first
+	//
+	// `state` narrows to `queued`, `running`, `succeeded`, `failed` or
+	// `cancelled`. A list does not follow a running job — one page
+	// should not fan out into a poll per row — so a job's state here
+	// is as of its last read; `getLinguisticJob` brings one up to
+	// date. Needs `catalog.read`. Problem codes: `invalid_query`
+	// (400), `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `ListLinguisticJobs` operationId).
+	ListLinguisticJobs(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListLinguisticJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLinguisticJobWithBody Review translations with a model (the linguistic layer)
+	//
+	// The `linguistic` layer is the one layer that needs a model, and
+	// that makes it **a job**, triggered explicitly or on a batch, and
+	// never a check: `glossa check` never calls an AI provider
+	// (RFC 0005 §14 decision 2), which is what keeps the check free,
+	// offline-capable and deterministic. A check *reports* the
+	// linguistic findings a job stored; it never computes one.
+	//
+	// **Its findings are advisory.** They are `warning`, and a check
+	// policy may not raise them to `error` — a rule that names the
+	// layer at `error` is refused when the policy is saved
+	// (`invalid_check_policy`), and a wildcard rule that raises
+	// everything without naming it is clamped back to `warning` when
+	// the finding is graded. A model's opinion never fails a build; a
+	// real mistranslation gates through a human in the review queue,
+	// which is where it belongs. Codes: `meaning-divergence`,
+	// `tone-mismatch`, `grammar-suspected`, `inconsistent-phrasing`.
+	//
+	// The job inherits M2's rules whole (RFC 0003 §3.1, §7): the
+	// provider port and routing policy, the tenant's **sending
+	// consent**, the **`sensitive` namespace rule** — a namespace
+	// tagged `sensitive` is never sent to a provider, and the messages
+	// under one are counted in `skipped_sensitive` rather than
+	// silently dropped — and the existing per-tenant **AI budget**.
+	// A job refused by one of those is created and answered as
+	// `failed`, with `failure_code` saying which: `provider_consent`,
+	// `budget_exceeded`, `sensitive`, `no_route`. That is how
+	// Intelligence's own jobs report the same four refusals, and it
+	// keeps the refusal on the record instead of in a 4xx nobody
+	// kept.
+	//
+	// Its findings are recorded in one check run of `ref`, readable
+	// through `listFindings?run=…` once `check_run` is set. They are
+	// tenant data and never leave the control plane for the edge.
+	//
+	// Needs `catalog.write`: the job records a check run and spends
+	// the tenant's AI budget. Problem codes:
+	// `linguistic_unavailable` (503: the deployment wires no
+	// reviewer), `linguistic_layer_off` (409: the project's policy
+	// switches the layer off, so it does not compute it and does not
+	// pay for it), `invalid_linguistic_scope` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `CreateLinguisticJob` operationId).
+	CreateLinguisticJobWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateLinguisticJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLinguisticJob Review translations with a model (the linguistic layer)
+	//
+	// The `linguistic` layer is the one layer that needs a model, and
+	// that makes it **a job**, triggered explicitly or on a batch, and
+	// never a check: `glossa check` never calls an AI provider
+	// (RFC 0005 §14 decision 2), which is what keeps the check free,
+	// offline-capable and deterministic. A check *reports* the
+	// linguistic findings a job stored; it never computes one.
+	//
+	// **Its findings are advisory.** They are `warning`, and a check
+	// policy may not raise them to `error` — a rule that names the
+	// layer at `error` is refused when the policy is saved
+	// (`invalid_check_policy`), and a wildcard rule that raises
+	// everything without naming it is clamped back to `warning` when
+	// the finding is graded. A model's opinion never fails a build; a
+	// real mistranslation gates through a human in the review queue,
+	// which is where it belongs. Codes: `meaning-divergence`,
+	// `tone-mismatch`, `grammar-suspected`, `inconsistent-phrasing`.
+	//
+	// The job inherits M2's rules whole (RFC 0003 §3.1, §7): the
+	// provider port and routing policy, the tenant's **sending
+	// consent**, the **`sensitive` namespace rule** — a namespace
+	// tagged `sensitive` is never sent to a provider, and the messages
+	// under one are counted in `skipped_sensitive` rather than
+	// silently dropped — and the existing per-tenant **AI budget**.
+	// A job refused by one of those is created and answered as
+	// `failed`, with `failure_code` saying which: `provider_consent`,
+	// `budget_exceeded`, `sensitive`, `no_route`. That is how
+	// Intelligence's own jobs report the same four refusals, and it
+	// keeps the refusal on the record instead of in a 4xx nobody
+	// kept.
+	//
+	// Its findings are recorded in one check run of `ref`, readable
+	// through `listFindings?run=…` once `check_run` is set. They are
+	// tenant data and never leave the control plane for the edge.
+	//
+	// Needs `catalog.write`: the job records a check run and spends
+	// the tenant's AI budget. Problem codes:
+	// `linguistic_unavailable` (503: the deployment wires no
+	// reviewer), `linguistic_layer_off` (409: the project's policy
+	// switches the layer off, so it does not compute it and does not
+	// pay for it), `invalid_linguistic_scope` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `CreateLinguisticJob` operationId).
+	CreateLinguisticJob(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateLinguisticJobParams, body CreateLinguisticJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLinguisticJob One linguistic-QA job, brought up to date
+	//
+	// A job that has been handed over is followed on read: a review
+	// that has finished has its findings recorded, once, and
+	// `check_run` then names the run they are in. Recording is
+	// idempotent — a job that already names a run never records a
+	// second — so polling a finished job cannot double a project's
+	// findings. Needs `catalog.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job} (the `GetLinguisticJob` operationId).
+	GetLinguisticJob(ctx context.Context, tenant TenantPath, project ProjectPath, linguisticJob LinguisticJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelLinguisticJob Stop a linguistic-QA job that has not finished
+	//
+	// Only a job that is still `queued` or `running` can be stopped.
+	// Cancelling is not a way to undo findings: a finding a job
+	// already recorded stays, and is waived rather than deleted
+	// (RFC 0005 §14 decision 5). Needs `catalog.write`. Problem code:
+	// `linguistic_job_not_cancellable` (409).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job}/cancellation (the `CancelLinguisticJob` operationId).
+	CancelLinguisticJob(ctx context.Context, tenant TenantPath, project ProjectPath, linguisticJob LinguisticJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLocales A project's locales, the source locale included
 	//
@@ -17630,6 +17956,187 @@ func (c *Client) CreateInContextGrantWithBody(ctx context.Context, tenant Tenant
 // Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
 func (c *Client) CreateInContextGrant(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateInContextGrantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateInContextGrantRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListLinguisticJobs A project's linguistic-QA jobs, newest first
+//
+// `state` narrows to `queued`, `running`, `succeeded`, `failed` or
+// `cancelled`. A list does not follow a running job — one page
+// should not fan out into a poll per row — so a job's state here
+// is as of its last read; `getLinguisticJob` brings one up to
+// date. Needs `catalog.read`. Problem codes: `invalid_query`
+// (400), `invalid_page_size`, `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `ListLinguisticJobs` operationId).
+func (c *Client) ListLinguisticJobs(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListLinguisticJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLinguisticJobsRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateLinguisticJobWithBody Review translations with a model (the linguistic layer)
+//
+// The `linguistic` layer is the one layer that needs a model, and
+// that makes it **a job**, triggered explicitly or on a batch, and
+// never a check: `glossa check` never calls an AI provider
+// (RFC 0005 §14 decision 2), which is what keeps the check free,
+// offline-capable and deterministic. A check *reports* the
+// linguistic findings a job stored; it never computes one.
+//
+// **Its findings are advisory.** They are `warning`, and a check
+// policy may not raise them to `error` — a rule that names the
+// layer at `error` is refused when the policy is saved
+// (`invalid_check_policy`), and a wildcard rule that raises
+// everything without naming it is clamped back to `warning` when
+// the finding is graded. A model's opinion never fails a build; a
+// real mistranslation gates through a human in the review queue,
+// which is where it belongs. Codes: `meaning-divergence`,
+// `tone-mismatch`, `grammar-suspected`, `inconsistent-phrasing`.
+//
+// The job inherits M2's rules whole (RFC 0003 §3.1, §7): the
+// provider port and routing policy, the tenant's **sending
+// consent**, the **`sensitive` namespace rule** — a namespace
+// tagged `sensitive` is never sent to a provider, and the messages
+// under one are counted in `skipped_sensitive` rather than
+// silently dropped — and the existing per-tenant **AI budget**.
+// A job refused by one of those is created and answered as
+// `failed`, with `failure_code` saying which: `provider_consent`,
+// `budget_exceeded`, `sensitive`, `no_route`. That is how
+// Intelligence's own jobs report the same four refusals, and it
+// keeps the refusal on the record instead of in a 4xx nobody
+// kept.
+//
+// Its findings are recorded in one check run of `ref`, readable
+// through `listFindings?run=…` once `check_run` is set. They are
+// tenant data and never leave the control plane for the edge.
+//
+// Needs `catalog.write`: the job records a check run and spends
+// the tenant's AI budget. Problem codes:
+// `linguistic_unavailable` (503: the deployment wires no
+// reviewer), `linguistic_layer_off` (409: the project's policy
+// switches the layer off, so it does not compute it and does not
+// pay for it), `invalid_linguistic_scope` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `CreateLinguisticJob` operationId).
+func (c *Client) CreateLinguisticJobWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateLinguisticJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLinguisticJobRequestWithBody(c.Server, tenant, project, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateLinguisticJob Review translations with a model (the linguistic layer)
+//
+// The `linguistic` layer is the one layer that needs a model, and
+// that makes it **a job**, triggered explicitly or on a batch, and
+// never a check: `glossa check` never calls an AI provider
+// (RFC 0005 §14 decision 2), which is what keeps the check free,
+// offline-capable and deterministic. A check *reports* the
+// linguistic findings a job stored; it never computes one.
+//
+// **Its findings are advisory.** They are `warning`, and a check
+// policy may not raise them to `error` — a rule that names the
+// layer at `error` is refused when the policy is saved
+// (`invalid_check_policy`), and a wildcard rule that raises
+// everything without naming it is clamped back to `warning` when
+// the finding is graded. A model's opinion never fails a build; a
+// real mistranslation gates through a human in the review queue,
+// which is where it belongs. Codes: `meaning-divergence`,
+// `tone-mismatch`, `grammar-suspected`, `inconsistent-phrasing`.
+//
+// The job inherits M2's rules whole (RFC 0003 §3.1, §7): the
+// provider port and routing policy, the tenant's **sending
+// consent**, the **`sensitive` namespace rule** — a namespace
+// tagged `sensitive` is never sent to a provider, and the messages
+// under one are counted in `skipped_sensitive` rather than
+// silently dropped — and the existing per-tenant **AI budget**.
+// A job refused by one of those is created and answered as
+// `failed`, with `failure_code` saying which: `provider_consent`,
+// `budget_exceeded`, `sensitive`, `no_route`. That is how
+// Intelligence's own jobs report the same four refusals, and it
+// keeps the refusal on the record instead of in a 4xx nobody
+// kept.
+//
+// Its findings are recorded in one check run of `ref`, readable
+// through `listFindings?run=…` once `check_run` is set. They are
+// tenant data and never leave the control plane for the edge.
+//
+// Needs `catalog.write`: the job records a check run and spends
+// the tenant's AI budget. Problem codes:
+// `linguistic_unavailable` (503: the deployment wires no
+// reviewer), `linguistic_layer_off` (409: the project's policy
+// switches the layer off, so it does not compute it and does not
+// pay for it), `invalid_linguistic_scope` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `CreateLinguisticJob` operationId).
+func (c *Client) CreateLinguisticJob(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateLinguisticJobParams, body CreateLinguisticJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLinguisticJobRequest(c.Server, tenant, project, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetLinguisticJob One linguistic-QA job, brought up to date
+//
+// A job that has been handed over is followed on read: a review
+// that has finished has its findings recorded, once, and
+// `check_run` then names the run they are in. Recording is
+// idempotent — a job that already names a run never records a
+// second — so polling a finished job cannot double a project's
+// findings. Needs `catalog.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job} (the `GetLinguisticJob` operationId).
+func (c *Client) GetLinguisticJob(ctx context.Context, tenant TenantPath, project ProjectPath, linguisticJob LinguisticJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLinguisticJobRequest(c.Server, tenant, project, linguisticJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CancelLinguisticJob Stop a linguistic-QA job that has not finished
+//
+// Only a job that is still `queued` or `running` can be stopped.
+// Cancelling is not a way to undo findings: a finding a job
+// already recorded stays, and is waived rather than deleted
+// (RFC 0005 §14 decision 5). Needs `catalog.write`. Problem code:
+// `linguistic_job_not_cancellable` (409).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job}/cancellation (the `CancelLinguisticJob` operationId).
+func (c *Client) CancelLinguisticJob(ctx context.Context, tenant TenantPath, project ProjectPath, linguisticJob LinguisticJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelLinguisticJobRequest(c.Server, tenant, project, linguisticJob)
 	if err != nil {
 		return nil, err
 	}
@@ -27686,6 +28193,263 @@ func NewCreateInContextGrantRequestWithBody(server string, tenant TenantPath, pr
 	return req, nil
 }
 
+// NewListLinguisticJobsRequest constructs an http.Request for the ListLinguisticJobs method
+func NewListLinguisticJobsRequest(server string, tenant TenantPath, project ProjectPath, params *ListLinguisticJobsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/linguistic-jobs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateLinguisticJobRequest calls the generic CreateLinguisticJob builder with application/json body
+func NewCreateLinguisticJobRequest(server string, tenant TenantPath, project ProjectPath, params *CreateLinguisticJobParams, body CreateLinguisticJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLinguisticJobRequestWithBody(server, tenant, project, params, "application/json", bodyReader)
+}
+
+// NewCreateLinguisticJobRequestWithBody constructs an http.Request for the CreateLinguisticJob method, with any body, and a specified content type
+func NewCreateLinguisticJobRequestWithBody(server string, tenant TenantPath, project ProjectPath, params *CreateLinguisticJobParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/linguistic-jobs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetLinguisticJobRequest constructs an http.Request for the GetLinguisticJob method
+func NewGetLinguisticJobRequest(server string, tenant TenantPath, project ProjectPath, linguisticJob LinguisticJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "linguistic_job", linguisticJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/linguistic-jobs/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCancelLinguisticJobRequest constructs an http.Request for the CancelLinguisticJob method
+func NewCancelLinguisticJobRequest(server string, tenant TenantPath, project ProjectPath, linguisticJob LinguisticJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "linguistic_job", linguisticJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/linguistic-jobs/%s/cancellation", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListLocalesRequest constructs an http.Request for the ListLocales method
 func NewListLocalesRequest(server string, tenant TenantPath, project ProjectPath, params *ListLocalesParams) (*http.Request, error) {
 	var err error
@@ -35930,6 +36694,143 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/in-context-grants (the `CreateInContextGrant` operationId).
 	CreateInContextGrantWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateInContextGrantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateInContextGrantResponse, error)
+
+	// ListLinguisticJobsWithResponse A project's linguistic-QA jobs, newest first
+	//
+	// `state` narrows to `queued`, `running`, `succeeded`, `failed` or
+	// `cancelled`. A list does not follow a running job — one page
+	// should not fan out into a poll per row — so a job's state here
+	// is as of its last read; `getLinguisticJob` brings one up to
+	// date. Needs `catalog.read`. Problem codes: `invalid_query`
+	// (400), `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `ListLinguisticJobs` operationId).
+	ListLinguisticJobsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListLinguisticJobsParams, reqEditors ...RequestEditorFn) (*ListLinguisticJobsResponse, error)
+
+	// CreateLinguisticJobWithBodyWithResponse Review translations with a model (the linguistic layer)
+	//
+	// The `linguistic` layer is the one layer that needs a model, and
+	// that makes it **a job**, triggered explicitly or on a batch, and
+	// never a check: `glossa check` never calls an AI provider
+	// (RFC 0005 §14 decision 2), which is what keeps the check free,
+	// offline-capable and deterministic. A check *reports* the
+	// linguistic findings a job stored; it never computes one.
+	//
+	// **Its findings are advisory.** They are `warning`, and a check
+	// policy may not raise them to `error` — a rule that names the
+	// layer at `error` is refused when the policy is saved
+	// (`invalid_check_policy`), and a wildcard rule that raises
+	// everything without naming it is clamped back to `warning` when
+	// the finding is graded. A model's opinion never fails a build; a
+	// real mistranslation gates through a human in the review queue,
+	// which is where it belongs. Codes: `meaning-divergence`,
+	// `tone-mismatch`, `grammar-suspected`, `inconsistent-phrasing`.
+	//
+	// The job inherits M2's rules whole (RFC 0003 §3.1, §7): the
+	// provider port and routing policy, the tenant's **sending
+	// consent**, the **`sensitive` namespace rule** — a namespace
+	// tagged `sensitive` is never sent to a provider, and the messages
+	// under one are counted in `skipped_sensitive` rather than
+	// silently dropped — and the existing per-tenant **AI budget**.
+	// A job refused by one of those is created and answered as
+	// `failed`, with `failure_code` saying which: `provider_consent`,
+	// `budget_exceeded`, `sensitive`, `no_route`. That is how
+	// Intelligence's own jobs report the same four refusals, and it
+	// keeps the refusal on the record instead of in a 4xx nobody
+	// kept.
+	//
+	// Its findings are recorded in one check run of `ref`, readable
+	// through `listFindings?run=…` once `check_run` is set. They are
+	// tenant data and never leave the control plane for the edge.
+	//
+	// Needs `catalog.write`: the job records a check run and spends
+	// the tenant's AI budget. Problem codes:
+	// `linguistic_unavailable` (503: the deployment wires no
+	// reviewer), `linguistic_layer_off` (409: the project's policy
+	// switches the layer off, so it does not compute it and does not
+	// pay for it), `invalid_linguistic_scope` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `CreateLinguisticJob` operationId).
+	CreateLinguisticJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateLinguisticJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLinguisticJobResponse, error)
+
+	// CreateLinguisticJobWithResponse Review translations with a model (the linguistic layer)
+	//
+	// The `linguistic` layer is the one layer that needs a model, and
+	// that makes it **a job**, triggered explicitly or on a batch, and
+	// never a check: `glossa check` never calls an AI provider
+	// (RFC 0005 §14 decision 2), which is what keeps the check free,
+	// offline-capable and deterministic. A check *reports* the
+	// linguistic findings a job stored; it never computes one.
+	//
+	// **Its findings are advisory.** They are `warning`, and a check
+	// policy may not raise them to `error` — a rule that names the
+	// layer at `error` is refused when the policy is saved
+	// (`invalid_check_policy`), and a wildcard rule that raises
+	// everything without naming it is clamped back to `warning` when
+	// the finding is graded. A model's opinion never fails a build; a
+	// real mistranslation gates through a human in the review queue,
+	// which is where it belongs. Codes: `meaning-divergence`,
+	// `tone-mismatch`, `grammar-suspected`, `inconsistent-phrasing`.
+	//
+	// The job inherits M2's rules whole (RFC 0003 §3.1, §7): the
+	// provider port and routing policy, the tenant's **sending
+	// consent**, the **`sensitive` namespace rule** — a namespace
+	// tagged `sensitive` is never sent to a provider, and the messages
+	// under one are counted in `skipped_sensitive` rather than
+	// silently dropped — and the existing per-tenant **AI budget**.
+	// A job refused by one of those is created and answered as
+	// `failed`, with `failure_code` saying which: `provider_consent`,
+	// `budget_exceeded`, `sensitive`, `no_route`. That is how
+	// Intelligence's own jobs report the same four refusals, and it
+	// keeps the refusal on the record instead of in a 4xx nobody
+	// kept.
+	//
+	// Its findings are recorded in one check run of `ref`, readable
+	// through `listFindings?run=…` once `check_run` is set. They are
+	// tenant data and never leave the control plane for the edge.
+	//
+	// Needs `catalog.write`: the job records a check run and spends
+	// the tenant's AI budget. Problem codes:
+	// `linguistic_unavailable` (503: the deployment wires no
+	// reviewer), `linguistic_layer_off` (409: the project's policy
+	// switches the layer off, so it does not compute it and does not
+	// pay for it), `invalid_linguistic_scope` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `CreateLinguisticJob` operationId).
+	CreateLinguisticJobWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateLinguisticJobParams, body CreateLinguisticJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLinguisticJobResponse, error)
+
+	// GetLinguisticJobWithResponse One linguistic-QA job, brought up to date
+	//
+	// A job that has been handed over is followed on read: a review
+	// that has finished has its findings recorded, once, and
+	// `check_run` then names the run they are in. Recording is
+	// idempotent — a job that already names a run never records a
+	// second — so polling a finished job cannot double a project's
+	// findings. Needs `catalog.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job} (the `GetLinguisticJob` operationId).
+	GetLinguisticJobWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, linguisticJob LinguisticJobPath, reqEditors ...RequestEditorFn) (*GetLinguisticJobResponse, error)
+
+	// CancelLinguisticJobWithResponse Stop a linguistic-QA job that has not finished
+	//
+	// Only a job that is still `queued` or `running` can be stopped.
+	// Cancelling is not a way to undo findings: a finding a job
+	// already recorded stays, and is waived rather than deleted
+	// (RFC 0005 §14 decision 5). Needs `catalog.write`. Problem code:
+	// `linguistic_job_not_cancellable` (409).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job}/cancellation (the `CancelLinguisticJob` operationId).
+	CancelLinguisticJobWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, linguisticJob LinguisticJobPath, reqEditors ...RequestEditorFn) (*CancelLinguisticJobResponse, error)
 
 	// ListLocalesWithResponse A project's locales, the source locale included
 	//
@@ -46593,6 +47494,310 @@ func (r CreateInContextGrantResponse) ContentType() string {
 	return ""
 }
 
+type ListLinguisticJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LinguisticJobList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListLinguisticJobsResponse) GetJSON200() *LinguisticJobList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListLinguisticJobsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListLinguisticJobsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListLinguisticJobsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListLinguisticJobsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListLinguisticJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLinguisticJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLinguisticJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLinguisticJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateLinguisticJobResponse201Headers the declared response headers of an HTTP 201 response for CreateLinguisticJob
+type CreateLinguisticJobResponse201Headers struct {
+	Location *string
+}
+
+type CreateLinguisticJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LinguisticJob
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *LinguisticJob
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateLinguisticJobResponse201Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CreateLinguisticJobResponse) GetJSON200() *LinguisticJob {
+	return r.JSON200
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateLinguisticJobResponse) GetJSON201() *LinguisticJob {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateLinguisticJobResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateLinguisticJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateLinguisticJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateLinguisticJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateLinguisticJobResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateLinguisticJobResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r CreateLinguisticJobResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateLinguisticJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLinguisticJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLinguisticJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateLinguisticJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetLinguisticJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LinguisticJob
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetLinguisticJobResponse) GetJSON200() *LinguisticJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetLinguisticJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetLinguisticJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetLinguisticJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetLinguisticJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLinguisticJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLinguisticJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetLinguisticJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CancelLinguisticJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LinguisticJob
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelLinguisticJobResponse) GetJSON200() *LinguisticJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CancelLinguisticJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CancelLinguisticJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CancelLinguisticJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CancelLinguisticJobResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CancelLinguisticJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelLinguisticJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelLinguisticJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CancelLinguisticJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListLocalesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -55771,6 +56976,173 @@ func (c *ClientWithResponses) CreateInContextGrantWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseCreateInContextGrantResponse(rsp)
+}
+
+// ListLinguisticJobsWithResponse A project's linguistic-QA jobs, newest first
+//
+// `state` narrows to `queued`, `running`, `succeeded`, `failed` or
+// `cancelled`. A list does not follow a running job — one page
+// should not fan out into a poll per row — so a job's state here
+// is as of its last read; `getLinguisticJob` brings one up to
+// date. Needs `catalog.read`. Problem codes: `invalid_query`
+// (400), `invalid_page_size`, `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `ListLinguisticJobs` operationId).
+func (c *ClientWithResponses) ListLinguisticJobsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListLinguisticJobsParams, reqEditors ...RequestEditorFn) (*ListLinguisticJobsResponse, error) {
+	rsp, err := c.ListLinguisticJobs(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLinguisticJobsResponse(rsp)
+}
+
+// CreateLinguisticJobWithBodyWithResponse Review translations with a model (the linguistic layer)
+//
+// The `linguistic` layer is the one layer that needs a model, and
+// that makes it **a job**, triggered explicitly or on a batch, and
+// never a check: `glossa check` never calls an AI provider
+// (RFC 0005 §14 decision 2), which is what keeps the check free,
+// offline-capable and deterministic. A check *reports* the
+// linguistic findings a job stored; it never computes one.
+//
+// **Its findings are advisory.** They are `warning`, and a check
+// policy may not raise them to `error` — a rule that names the
+// layer at `error` is refused when the policy is saved
+// (`invalid_check_policy`), and a wildcard rule that raises
+// everything without naming it is clamped back to `warning` when
+// the finding is graded. A model's opinion never fails a build; a
+// real mistranslation gates through a human in the review queue,
+// which is where it belongs. Codes: `meaning-divergence`,
+// `tone-mismatch`, `grammar-suspected`, `inconsistent-phrasing`.
+//
+// The job inherits M2's rules whole (RFC 0003 §3.1, §7): the
+// provider port and routing policy, the tenant's **sending
+// consent**, the **`sensitive` namespace rule** — a namespace
+// tagged `sensitive` is never sent to a provider, and the messages
+// under one are counted in `skipped_sensitive` rather than
+// silently dropped — and the existing per-tenant **AI budget**.
+// A job refused by one of those is created and answered as
+// `failed`, with `failure_code` saying which: `provider_consent`,
+// `budget_exceeded`, `sensitive`, `no_route`. That is how
+// Intelligence's own jobs report the same four refusals, and it
+// keeps the refusal on the record instead of in a 4xx nobody
+// kept.
+//
+// Its findings are recorded in one check run of `ref`, readable
+// through `listFindings?run=…` once `check_run` is set. They are
+// tenant data and never leave the control plane for the edge.
+//
+// Needs `catalog.write`: the job records a check run and spends
+// the tenant's AI budget. Problem codes:
+// `linguistic_unavailable` (503: the deployment wires no
+// reviewer), `linguistic_layer_off` (409: the project's policy
+// switches the layer off, so it does not compute it and does not
+// pay for it), `invalid_linguistic_scope` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `CreateLinguisticJob` operationId).
+func (c *ClientWithResponses) CreateLinguisticJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateLinguisticJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLinguisticJobResponse, error) {
+	rsp, err := c.CreateLinguisticJobWithBody(ctx, tenant, project, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLinguisticJobResponse(rsp)
+}
+
+// CreateLinguisticJobWithResponse Review translations with a model (the linguistic layer)
+//
+// The `linguistic` layer is the one layer that needs a model, and
+// that makes it **a job**, triggered explicitly or on a batch, and
+// never a check: `glossa check` never calls an AI provider
+// (RFC 0005 §14 decision 2), which is what keeps the check free,
+// offline-capable and deterministic. A check *reports* the
+// linguistic findings a job stored; it never computes one.
+//
+// **Its findings are advisory.** They are `warning`, and a check
+// policy may not raise them to `error` — a rule that names the
+// layer at `error` is refused when the policy is saved
+// (`invalid_check_policy`), and a wildcard rule that raises
+// everything without naming it is clamped back to `warning` when
+// the finding is graded. A model's opinion never fails a build; a
+// real mistranslation gates through a human in the review queue,
+// which is where it belongs. Codes: `meaning-divergence`,
+// `tone-mismatch`, `grammar-suspected`, `inconsistent-phrasing`.
+//
+// The job inherits M2's rules whole (RFC 0003 §3.1, §7): the
+// provider port and routing policy, the tenant's **sending
+// consent**, the **`sensitive` namespace rule** — a namespace
+// tagged `sensitive` is never sent to a provider, and the messages
+// under one are counted in `skipped_sensitive` rather than
+// silently dropped — and the existing per-tenant **AI budget**.
+// A job refused by one of those is created and answered as
+// `failed`, with `failure_code` saying which: `provider_consent`,
+// `budget_exceeded`, `sensitive`, `no_route`. That is how
+// Intelligence's own jobs report the same four refusals, and it
+// keeps the refusal on the record instead of in a 4xx nobody
+// kept.
+//
+// Its findings are recorded in one check run of `ref`, readable
+// through `listFindings?run=…` once `check_run` is set. They are
+// tenant data and never leave the control plane for the edge.
+//
+// Needs `catalog.write`: the job records a check run and spends
+// the tenant's AI budget. Problem codes:
+// `linguistic_unavailable` (503: the deployment wires no
+// reviewer), `linguistic_layer_off` (409: the project's policy
+// switches the layer off, so it does not compute it and does not
+// pay for it), `invalid_linguistic_scope` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs (the `CreateLinguisticJob` operationId).
+func (c *ClientWithResponses) CreateLinguisticJobWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *CreateLinguisticJobParams, body CreateLinguisticJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLinguisticJobResponse, error) {
+	rsp, err := c.CreateLinguisticJob(ctx, tenant, project, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLinguisticJobResponse(rsp)
+}
+
+// GetLinguisticJobWithResponse One linguistic-QA job, brought up to date
+//
+// A job that has been handed over is followed on read: a review
+// that has finished has its findings recorded, once, and
+// `check_run` then names the run they are in. Recording is
+// idempotent — a job that already names a run never records a
+// second — so polling a finished job cannot double a project's
+// findings. Needs `catalog.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job} (the `GetLinguisticJob` operationId).
+func (c *ClientWithResponses) GetLinguisticJobWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, linguisticJob LinguisticJobPath, reqEditors ...RequestEditorFn) (*GetLinguisticJobResponse, error) {
+	rsp, err := c.GetLinguisticJob(ctx, tenant, project, linguisticJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLinguisticJobResponse(rsp)
+}
+
+// CancelLinguisticJobWithResponse Stop a linguistic-QA job that has not finished
+//
+// Only a job that is still `queued` or `running` can be stopped.
+// Cancelling is not a way to undo findings: a finding a job
+// already recorded stays, and is waived rather than deleted
+// (RFC 0005 §14 decision 5). Needs `catalog.write`. Problem code:
+// `linguistic_job_not_cancellable` (409).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job}/cancellation (the `CancelLinguisticJob` operationId).
+func (c *ClientWithResponses) CancelLinguisticJobWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, linguisticJob LinguisticJobPath, reqEditors ...RequestEditorFn) (*CancelLinguisticJobResponse, error) {
+	rsp, err := c.CancelLinguisticJob(ctx, tenant, project, linguisticJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelLinguisticJobResponse(rsp)
 }
 
 // ListLocalesWithResponse A project's locales, the source locale included
@@ -65516,6 +66888,256 @@ func ParseCreateInContextGrantResponse(rsp *http.Response) (*CreateInContextGran
 			return nil, err
 		}
 		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLinguisticJobsResponse parses an HTTP response from a ListLinguisticJobsWithResponse call
+func ParseListLinguisticJobsResponse(rsp *http.Response) (*ListLinguisticJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLinguisticJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LinguisticJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateLinguisticJobResponse parses an HTTP response from a CreateLinguisticJobWithResponse call
+func ParseCreateLinguisticJobResponse(rsp *http.Response) (*CreateLinguisticJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLinguisticJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LinguisticJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest LinguisticJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateLinguisticJobResponse201Headers
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetLinguisticJobResponse parses an HTTP response from a GetLinguisticJobWithResponse call
+func ParseGetLinguisticJobResponse(rsp *http.Response) (*GetLinguisticJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLinguisticJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LinguisticJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelLinguisticJobResponse parses an HTTP response from a CancelLinguisticJobWithResponse call
+func ParseCancelLinguisticJobResponse(rsp *http.Response) (*CancelLinguisticJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelLinguisticJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LinguisticJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
 
 	}
 

@@ -4849,6 +4849,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/linguistic-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A project's linguistic-QA jobs, newest first
+         * @description `state` narrows to `queued`, `running`, `succeeded`, `failed` or
+         *     `cancelled`. A list does not follow a running job — one page
+         *     should not fan out into a poll per row — so a job's state here
+         *     is as of its last read; `getLinguisticJob` brings one up to
+         *     date. Needs `catalog.read`. Problem codes: `invalid_query`
+         *     (400), `invalid_page_size`, `invalid_page_token` (400).
+         */
+        get: operations["listLinguisticJobs"];
+        put?: never;
+        /**
+         * Review translations with a model (the linguistic layer)
+         * @description The `linguistic` layer is the one layer that needs a model, and
+         *     that makes it **a job**, triggered explicitly or on a batch, and
+         *     never a check: `glossa check` never calls an AI provider
+         *     (RFC 0005 §14 decision 2), which is what keeps the check free,
+         *     offline-capable and deterministic. A check *reports* the
+         *     linguistic findings a job stored; it never computes one.
+         *
+         *     **Its findings are advisory.** They are `warning`, and a check
+         *     policy may not raise them to `error` — a rule that names the
+         *     layer at `error` is refused when the policy is saved
+         *     (`invalid_check_policy`), and a wildcard rule that raises
+         *     everything without naming it is clamped back to `warning` when
+         *     the finding is graded. A model's opinion never fails a build; a
+         *     real mistranslation gates through a human in the review queue,
+         *     which is where it belongs. Codes: `meaning-divergence`,
+         *     `tone-mismatch`, `grammar-suspected`, `inconsistent-phrasing`.
+         *
+         *     The job inherits M2's rules whole (RFC 0003 §3.1, §7): the
+         *     provider port and routing policy, the tenant's **sending
+         *     consent**, the **`sensitive` namespace rule** — a namespace
+         *     tagged `sensitive` is never sent to a provider, and the messages
+         *     under one are counted in `skipped_sensitive` rather than
+         *     silently dropped — and the existing per-tenant **AI budget**.
+         *     A job refused by one of those is created and answered as
+         *     `failed`, with `failure_code` saying which: `provider_consent`,
+         *     `budget_exceeded`, `sensitive`, `no_route`. That is how
+         *     Intelligence's own jobs report the same four refusals, and it
+         *     keeps the refusal on the record instead of in a 4xx nobody
+         *     kept.
+         *
+         *     Its findings are recorded in one check run of `ref`, readable
+         *     through `listFindings?run=…` once `check_run` is set. They are
+         *     tenant data and never leave the control plane for the edge.
+         *
+         *     Needs `catalog.write`: the job records a check run and spends
+         *     the tenant's AI budget. Problem codes:
+         *     `linguistic_unavailable` (503: the deployment wires no
+         *     reviewer), `linguistic_layer_off` (409: the project's policy
+         *     switches the layer off, so it does not compute it and does not
+         *     pay for it), `invalid_linguistic_scope` (400).
+         */
+        post: operations["createLinguisticJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A linguistic-QA job `id`. */
+                linguistic_job: components["parameters"]["LinguisticJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One linguistic-QA job, brought up to date
+         * @description A job that has been handed over is followed on read: a review
+         *     that has finished has its findings recorded, once, and
+         *     `check_run` then names the run they are in. Recording is
+         *     idempotent — a job that already names a run never records a
+         *     second — so polling a finished job cannot double a project's
+         *     findings. Needs `catalog.read`.
+         */
+        get: operations["getLinguisticJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A linguistic-QA job `id`. */
+                linguistic_job: components["parameters"]["LinguisticJobPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a linguistic-QA job that has not finished
+         * @description Only a job that is still `queued` or `running` can be stopped.
+         *     Cancelling is not a way to undo findings: a finding a job
+         *     already recorded stays, and is waived rather than deleted
+         *     (RFC 0005 §14 decision 5). Needs `catalog.write`. Problem code:
+         *     `linguistic_job_not_cancellable` (409).
+         */
+        post: operations["cancelLinguisticJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/branches": {
         parameters: {
             query?: never;
@@ -8016,6 +8152,79 @@ export interface components {
             next_page_token?: string;
         };
         /**
+         * @description Where a linguistic-QA job stands. `queued` → `running` →
+         *     `succeeded` or `failed`; a job that has not finished can be
+         *     cancelled.
+         * @enum {string}
+         */
+        LinguisticJobState: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+        /**
+         * @description Why a job ended where it did. The first four are spelled exactly
+         *     as Intelligence spells the same refusals on a translation job,
+         *     because they are the same refusals: the tenant has not consented
+         *     to sending text to a provider, its monthly AI budget is spent,
+         *     every namespace the job selected is tagged `sensitive`, or no
+         *     provider is configured. `invalid_output` is a model answer that
+         *     did not parse into (code, span, explanation, optional
+         *     suggestion), and `layer_off` a project whose policy switches the
+         *     layer off.
+         * @enum {string}
+         */
+        LinguisticFailureCode: "provider_consent" | "budget_exceeded" | "sensitive" | "no_route" | "invalid_output" | "provider_error" | "layer_off" | "internal";
+        /**
+         * @description What one job reviews. `locales` is required — a review is of a
+         *     translation, and there is no translation without a locale — and
+         *     `namespace`, `key_prefix` and `keys` narrow the catalog it
+         *     covers. Messages under a namespace tagged `sensitive` are never
+         *     included, whatever this says.
+         */
+        LinguisticScope: {
+            locales: components["schemas"]["Locale"][];
+            namespace?: components["schemas"]["Namespace"];
+            /** @description Only the keys under this prefix. */
+            key_prefix?: string;
+            /** @description Individual messages; absent is the whole selection. */
+            keys?: components["schemas"]["MessageKey"][];
+        };
+        /** @description One linguistic review to run. */
+        LinguisticJobCreate: {
+            /** @description The branch or environment the review is of. Its findings are recorded in a check run of it. */
+            ref: string;
+            scope: components["schemas"]["LinguisticScope"];
+        };
+        /**
+         * @description One explicit or batch linguistic review (RFC 0005 §3.8): what it
+         *     covers, where it stands, and what became of it. Its findings are
+         *     always `warning` and a policy may not raise them to `error`.
+         */
+        LinguisticJob: {
+            id: components["schemas"]["Id"];
+            ref: string;
+            scope: components["schemas"]["LinguisticScope"];
+            state: components["schemas"]["LinguisticJobState"];
+            /** @description The check run the findings were recorded in; absent while the job has produced none. Read them with `listFindings?run=…`. */
+            check_run?: components["schemas"]["Id"];
+            /** @description The findings stored. */
+            findings: number;
+            /** @description Messages left out because their namespace is tagged `sensitive` and is never sent to a provider. Counted and named, never silently dropped. */
+            skipped_sensitive: number;
+            /** @description The translations the model saw. */
+            reviewed: number;
+            failure_code?: components["schemas"]["LinguisticFailureCode"];
+            /** @description The sentence that says what to change; present with `failure_code`. */
+            failure_detail?: string;
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            started_at?: components["schemas"]["Timestamp"];
+            finished_at?: components["schemas"]["Timestamp"];
+        };
+        /** @description A page of a project's linguistic-QA jobs, newest first. */
+        LinguisticJobList: {
+            items: components["schemas"]["LinguisticJob"][];
+            next_page_token?: string;
+        };
+        /**
          * @description What asked for the run.
          * @enum {string}
          */
@@ -8783,6 +8992,8 @@ export interface components {
         CheckRunPath: components["schemas"]["Id"];
         /** @description A waiver `id`. */
         WaiverPath: components["schemas"]["Id"];
+        /** @description A linguistic-QA job `id`. */
+        LinguisticJobPath: components["schemas"]["Id"];
         /** @description A check-policy version number, as `listCheckPolicyVersions` gives it. */
         CheckPolicyVersionPath: number;
         /** @description A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's. */
@@ -15254,6 +15465,149 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listLinguisticJobs: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                state?: components["schemas"]["LinguisticJobState"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of linguistic-QA jobs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinguisticJobList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createLinguisticJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinguisticJobCreate"];
+            };
+        };
+        responses: {
+            /** @description The job this `Idempotency-Key` already made. A review costs money, so a retry finds it instead of starting a second one. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinguisticJob"];
+                };
+            };
+            /** @description The job, as it stands after the preflight. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinguisticJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getLinguisticJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A linguistic-QA job `id`. */
+                linguistic_job: components["parameters"]["LinguisticJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinguisticJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cancelLinguisticJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A linguistic-QA job `id`. */
+                linguistic_job: components["parameters"]["LinguisticJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job, cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinguisticJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listBranches: {

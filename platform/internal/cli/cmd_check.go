@@ -146,9 +146,15 @@ type checkJSON struct {
 	// request and the server report.
 	Findings []domain.Finding `json:"findings"`
 	Explain  []explainJSON    `json:"explain,omitempty"`
-	Errors   int              `json:"errors"`
-	Warnings int              `json:"warnings"`
-	Waived   int              `json:"waived"`
+	// Fixes are --fix's: every finding that carried a structured fix,
+	// whether it was applied, and why not where it wasn't. The counts
+	// and the conclusion below are the run's *before* them — the check
+	// graded what it found, and claiming otherwise would mean grading a
+	// project nobody has checked.
+	Fixes    []fixJSON `json:"fixes,omitempty"`
+	Errors   int       `json:"errors"`
+	Warnings int       `json:"warnings"`
+	Waived   int       `json:"waived"`
 	// Conclusion is the run's verdict, spelled as a check run spells it.
 	Conclusion domain.Conclusion `json:"conclusion"`
 	Passed     bool              `json:"passed"`
@@ -159,6 +165,8 @@ type checkFlags struct {
 	offline     bool
 	terminology bool
 	explain     bool
+	// fix applies the structured fixes the findings carry (check_fix.go).
+	fix bool
 	// layers is what --layer selected, nil when it selected nothing and
 	// every layer the policy leaves on runs.
 	layers []string
@@ -182,7 +190,7 @@ func (f checkFlags) wantsTerminology() bool {
 }
 
 func runCheck(ctx context.Context, inv *invocation, args []string) error {
-	fs := inv.flags("check [--offline] [--terminology] [--layer=<layer>] [--explain-policy] " +
+	fs := inv.flags("check [--offline] [--terminology] [--layer=<layer>] [--explain-policy] [--fix] " +
 		"[--require-complete=de,en|none] [--fail-on=error|warning|never]")
 	offline := fs.Bool("offline", false, "check the local catalogs instead of the server's project")
 	terms := fs.Bool("terminology", false, "also check the translations against the termbase (needs the server)")
@@ -191,6 +199,9 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 		"default: every layer the policy leaves on)")
 	explain := fs.Bool("explain-policy", false,
 		"say, per finding, which policy rule gave it its severity and whether that rule can fail the run")
+	fix := fs.Bool("fix", false,
+		"apply the structured fixes the findings carry, to the local catalogs — only the ones that name "+
+			"exact text; the rest are reported with why")
 	require := fs.String("require-complete", "",
 		"locales that must be complete (comma-separated, or none; default: glossa.yaml's check.require_complete, else the project's check policy)")
 	failOn := fs.String("fail-on", "",
@@ -202,7 +213,8 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	if err != nil {
 		return err
 	}
-	f := checkFlags{offline: *offline, terminology: *terms, explain: *explain, require: *require, failOn: *failOn}
+	f := checkFlags{offline: *offline, terminology: *terms, explain: *explain, fix: *fix,
+		require: *require, failOn: *failOn}
 	if f.layers, err = selectedLayers(inv, layers); err != nil {
 		return err
 	}
@@ -221,6 +233,12 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	run.unavailable = append(run.unavailable, unavailable...)
 	report := qa.Run(run.snapshot, policy, checkers...)
 	out := checkDocument(run, report, policy, overrides, f)
+	if f.fix {
+		// After the run is graded and before it is printed: --fix edits
+		// what the check found, and what the check found is what it
+		// reports. The exit code stays the run's own (checkExit).
+		out.Fixes = inv.applyFixes(cfg, report.Findings)
+	}
 	if err := inv.emit(out, func(p *printer) { printCheck(p, run, out, report) }); err != nil {
 		return err
 	}
@@ -737,6 +755,7 @@ func printCheck(p *printer, run *checkSubject, out checkJSON, r qualityapp.Repor
 	if out.Explain != nil {
 		printExplain(p, out.Explain)
 	}
+	printFixes(p, out.Fixes)
 	p.line("")
 	if out.Passed {
 		p.line("%s", p.ok("Localization check passed."))

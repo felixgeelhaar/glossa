@@ -47,6 +47,10 @@ type fakeStore struct {
 	sighted      map[uuid.UUID][]string
 	lastPrevious uuid.UUID
 
+	// linguistic is the linguistic-QA job table (migration 0038); its
+	// methods are in linguistic_test.go, beside the tests that use them.
+	linguistic map[uuid.UUID]domain.LinguisticJob
+
 	// trend is the findings-by-day rollup a test set, and rolledUp the
 	// days a recorded run restated.
 	trend    []domain.DailyFindings

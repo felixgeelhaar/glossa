@@ -67,8 +67,10 @@ import (
 	previewapp "github.com/felixgeelhaar/glossa/platform/internal/preview/app"
 	qualitycatalog "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/catalog"
 	qualityapi "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/httpapi"
+	qualityintelligence "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/intelligence"
 	qualitymetrics "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/metrics"
 	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
+	qualityreview "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/review"
 	qualitysnapshot "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/snapshot"
 	qualitysummary "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/summary"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
@@ -393,6 +395,35 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		Deployments: qualitysummary.NewPublishes(release),
 		Checks:      qualitysummary.NewPullRequestChecks(integration),
 	})
+	// The linguistic layer is the one layer that needs a model, so it is
+	// a job and its model call is Intelligence's (RFC 0005 §3.8). This
+	// port carries the preflight — the tenant's sending consent, the
+	// existing monthly AI budget and the project's `sensitive`
+	// namespaces, each read from the context that owns it — and the
+	// review itself sits behind the Reviewer below.
+	//
+	// That Reviewer is the seam between the job and the layer: the job
+	// asks for a scope, the layer reviews one translation, and the
+	// batcher expands the first into the second. It reads the catalog
+	// through Catalog, the translations through Localization and the
+	// terms and style through Knowledge — each an authorized use case of
+	// the service that owns the data, so a review sees exactly what its
+	// caller could have read through the API. New answering nil (no
+	// Intelligence service) is still `linguistic_unavailable`: "no model
+	// looked" is not "a model looked and found nothing".
+	reviewer, err := qualityreview.New(qualityreview.Deps{
+		Catalog:      qualityreview.NewCatalog(catalog),
+		Localization: qualityreview.NewLocalization(localization),
+		// Intelligence's own adapter onto Knowledge: one implementation
+		// of "the terms and the style guide for this pair", shared with
+		// the translation agent rather than written a second time.
+		Knowledge:    intelligencesources.NewKnowledge(knowledge),
+		Intelligence: qualityreview.NewIntelligence(intelligence),
+	}, qualityreview.WithLogger(deps.logger))
+	if err != nil {
+		return contexts{}, err
+	}
+	quality.SetLinguist(qualityintelligence.New(intelligence, reviewer))
 	// One adapter per context, wired to both the read and the write
 	// ports it satisfies: MCP is a second façade on these services, so a
 	// tool and the endpoint beside it call the same use case.

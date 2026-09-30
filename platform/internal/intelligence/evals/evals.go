@@ -92,7 +92,9 @@ func LoadCases(dir string) ([]Case, error) {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() && path != dir && (d.Name() == "cassettes" || d.Name() == "scripted") {
+		// "linguistic" holds the linguistic layer's own golden set, which
+		// LoadReviewCases reads; it is not a translation case.
+		if d.IsDir() && path != dir && (d.Name() == "cassettes" || d.Name() == "scripted" || d.Name() == "linguistic") {
 			return filepath.SkipDir
 		}
 		if d.IsDir() || filepath.Ext(path) != ".json" || filepath.Dir(path) == dir {

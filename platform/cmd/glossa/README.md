@@ -160,8 +160,11 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `context push <file>` | Uploads a `glossa.usages/v1` document — `@glossa/unplugin`'s `.glossa/usages.json`, or a saved `extract --json` — to the project's context builds (`POST …/context-builds`, RFC 0004 §2). `--source plugin\|extract\|runtime\|capture` names the collector; by default `extract` when the document's tool is `glossa`, else `plugin`. Prints the build and how many usages name keys the catalog doesn't know; the same document again is "Already uploaded" (the server answers with the first build). Whether a build is of the default branch is the project's `default_branch` setting, not the uploader's say. A document the server refuses (`invalid_usages`, `too_many_usages`, `unknown_application`, `invalid_source`, `payload_too_large`) exits 2. |
 | `capture` | Screenshots the pages of the capture plan (`capture:` in glossa.yaml) in headless Chrome, with `scout`, at every viewport and locale, and records where each message renders (RFC 0004 §3.1–§3.2): one `glossa.captures/v1` document (schema: `runtimes/testdata/schemas/captures.v1.schema.json`) with a full-page PNG per (route, viewport, locale), in a fixed order (route, URL, locale, the plan's viewport order). Before the page's scripts run it injects `@glossa/capture`'s agent, which hooks every `@glossa/runtime` on the page; after load (and the route's playbook) it waits until the DOM is quiet. It refuses a page whose runtime reports a `production` manifest (`production_page`), has no active release (`environment_unknown`), has no runtime (`no_runtime`) or doesn't render the requested locale (`locale_mismatch`), and blacks out `data-glossa-redact` elements before the screenshot (their regions are `visible: false`). Without `--upload` the manifest (`captures.json`) and the images (`<sha256>.png`) go to `capture.output` or `--out`; with `--upload` they're posted to the Captures API. The coverage report lists the messages with a current usage of the application (the branch's view) but no visible region; it reads the Context API, so `--no-coverage` is needed offline. Application, commit and branch are found like `extract`'s (`capture.application` first). `--cdp` (or `GLOSSA_CAPTURE_CDP`) attaches to a browser you started yourself instead of launching one — see "Attaching to a browser" below. A page that fails to load, a refusal, no Chrome (`no_browser`) or an endpoint it won't attach to (`invalid_cdp_endpoint`, `cdp_unreachable`) exits 2. |
 | `generate` | Typed accessors from the catalog's argument metadata. `--check` writes nothing and exits 1 when the files are stale; `--from-server` uses the server's messages. |
-| `check` | Runs the Quality library's layers over the project (RFC 0005 §3) and lets the check policy grade what they found: `structure` (every message and translation parses), `parity` (a translation fits its source — arguments, selectors, plural categories, markup), `completeness` (missing and outdated translations) and, with `--terminology`, `terminology`. Findings are `glossa.finding/v1` findings, the same shape the pull request and the server report. `--offline` checks the local catalogs against the cached policy. `--layer <name>` (repeatable, or comma-separated) runs only those layers; an unknown name exits 2 and a layer this run can't compute is named and exits 4. `--explain-policy` says, per finding, which rule gave it its severity and whether that rule can fail the run. `--require-complete=de,en\|none`, `--fail-on=error\|warning\|never`; without them, the project's check policy. |
-| `status` | Coverage per locale: translated, approved, needs review, draft, outdated, missing. One request: the server's `translation-stats`. `--offline` counts the local catalogs. |
+| `check` | Runs the Quality library's layers over the project (RFC 0005 §3) and lets the check policy grade what they found: `structure` (every message and translation parses), `parity` (a translation fits its source — arguments, selectors, plural categories, markup), `completeness` (missing and outdated translations) and, with `--terminology`, `terminology`. Findings are `glossa.finding/v1` findings, the same shape the pull request and the server report. `--offline` checks the local catalogs against the cached policy. `--layer <name>` (repeatable, or comma-separated) runs only those layers; an unknown name exits 2 and a layer this run can't compute is named and exits 4. `--explain-policy` says, per finding, which rule gave it its severity and whether that rule can fail the run. `--require-complete=de,en\|none`, `--fail-on=error\|warning\|never`; without them, the project's check policy. `--fix` applies the structured fixes the findings carry (see *Fixing what a finding describes*). |
+| `findings` | The findings the server stored, with RFC 0005 §2.1's filters: `--layer --severity --code --locale --namespace --message --waived[=false]`, and which run to read — `--branch --commit --run --limit`. It consumes the Quality API and recomputes nothing: the layers that need a capture, a termbase or a provider ran on the server. The human output prints each finding's fingerprint, which is what `glossa waive` takes. |
+| `waive` | Accept a finding: `glossa waive <fingerprint> --reason "why this is fine"`, with `--scope project\|branch --ref --expires --source-revision`. **The reason is required.** `--list [--fingerprint --layer --code --message --active[=false] --limit]` shows the project's waivers, `--revoke <id>` takes one back. |
+| `policy` | The check policy as a file: `show`, `diff --file policy.yaml` (the impact preview — how many stored findings change severity and how many open pull requests would newly fail, per rule — storing nothing), `export [--file]`, `import --file [--grace-days n] [--dry-run]`. `--file -` is stdin or stdout. |
+| `status` | Coverage per locale: translated, approved, needs review, draft, outdated, missing. One request: the server's `translation-stats`. `--offline` counts the local catalogs. `--quality` prints the seven numbers of RFC 0005 §8 instead — the same ones the dashboard shows — with `--locale`, `--environment` and `--since`. |
 | `diff` | Local catalogs vs the server by canonical model (so MF1 spelling changes aren't changes). `--exit-code`. |
 | `locales`, `messages`, `namespaces` | Lists. `messages --prefix --namespace --missing-in --outdated-in --state active\|obsolete\|all`; `namespaces`: each namespace with its active and obsolete message counts (`GET …/namespaces`) |
 | `import --format xliff\|json\|po\|tmx\|tbx <file>` | Imports an interchange file through the server's import jobs: a dry run unless `--apply` (merge) or `--overwrite`; conflicts and invalid items as `file:line:column` (see *Import and export*). |
@@ -259,14 +262,102 @@ some layers ran and some couldn't — the findings are reported, the
 layers that didn't run are named, and CI decides. A run that both failed
 the policy and lost a layer exits 1.
 
+### Fixing what a finding describes
+
+`check --fix` applies the structured fixes findings carry, to the local
+catalogs. Its whole discipline is one sentence: **apply only what a fix
+actually describes.**
+
+| Fix | What happens |
+|---|---|
+| `replace` with a `hint` | The message becomes that text. |
+| `shorten` with a `hint` | The same: the hint is the shortened text. Without one the fix names a length and no words, so it is reported and not applied — shortening is a decision about the words. |
+| `use-term` with a `hint` and a target span | The span's bytes become the term, in place. Applied only while the catalog still reads exactly the subject the layer found at those offsets: a span is an offset into the text the layer saw, and text that has moved on makes the same offsets point at different words. |
+| `adopt-source-change` | Never applied. It asks for a translation made against the new source, which is a translation and not an edit; `glossa translate` or a translator makes one. |
+
+A waived finding is never touched — somebody accepted it on purpose. A
+run applies at most one fix per message, because a second fix's span was
+measured against the text the first one replaced; the rest are reported
+and the command says to run again. Every fix, applied or not, is in
+`--json`'s `fixes` with its reason, and an edited catalog is written in
+the canonical form `glossa pull` uses (sorted keys, two-space indent).
+
+The verdict a `--fix` run prints is the run's own, from *before* the
+edits, and so is its exit code: the check graded what it found, and a
+green exit would be grading a project nobody has checked. Run `glossa
+check` again to confirm.
+
+## Findings, waivers and the policy as a file
+
+`glossa findings` lists what the server stored — including the layers
+`glossa check` never computes, because they need a capture, a termbase
+or a provider (RFC 0005 §2.2). It prints each finding's **fingerprint**,
+which is its identity across the terminal, the pull request and the
+server, and the argument the next command takes.
+
+`glossa waive <fingerprint> --reason "…"` accepts one finding. The
+reason is required, and refused locally before the request goes out: a
+waived finding is still computed, still reported at severity `waived`
+and counted on its own, and the reason is what makes it reviewable
+later. A waiver without one is a suppression nobody has to justify. A
+waiver is made against the source revision the finding carries and dies
+when the source moves past it; `--scope branch` limits it to one branch
+(the CI branch unless `--ref` names another), and `--expires
+2026-12-31` retires it at the end of that day. `--list` shows the
+project's waivers with what each accepts, and `--revoke <id>` takes one
+back.
+
+`glossa policy export --file policy.yaml` and `glossa policy import
+--file policy.yaml` are how the document becomes reviewable in a pull
+request without making the policy a property of a commit — the server
+stays the source of truth (RFC 0005 §4.2). The file holds what the
+policy *says*; `version`, `effective_from`, `grace_until` and `previous`
+are the server's, and a file carrying them is refused rather than
+quietly stripped. `import` works with a GitHub Actions credential, so a
+workflow needs no stored secret.
+
+`glossa policy diff --file policy.yaml` answers §4.3's question before
+anyone saves anything: which parts of the document change, how many
+stored findings move severity, and — the number that decides whether a
+policy ships with a grace — how many **open pull requests would newly
+fail**, per rule. It stores nothing.
+
+```text
+check policy v7 → the document you passed
+WHAT                  NOW      WOULD BE
+missing_translations  warning  error
+rules[1]              layer=terminology, namespace=legal → error (enforce)  layer=terminology → error (enforce)
+
+Impact  measured against 210 stored findings from 12 runs
+  34 raised · 2 lowered · 5 no longer computed
+  ! 34 findings start failing a run
+  ✗ 40 open pull requests would newly fail
+    ship the rules in `mode: warn` first, or save with --grace-days, so nobody is failed for something they did not do
+```
+
+## `status --quality`: not measured is not zero
+
+`glossa status --quality` prints RFC 0005 §8's seven numbers from the
+server's summary endpoint, so the terminal and the dashboard cannot
+disagree about how healthy a project is (intent §45, §46).
+
+The rule that matters is that a number nobody computed is **absent**
+from `--json` and named in `unmeasured` with why, and printed in the
+human output as `not measured — <reason>` where a number would go. A
+`0 %` for "nobody has measured this" would be the same lie a dashboard
+would tell, somewhere harder to notice. The same holds one level down: a
+percentile over an empty sample and a pass rate over no graded check are
+absent, not 0. Per locale, every layer is listed available or not, so a
+layer a locale cannot run never reads as a clean one (intent §41).
+
 ## Exit codes
 
 | Code | Meaning |
 |---|---|
 | 0 | OK |
 | 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import) |
-| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`) |
-| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2. `check` only gets here when there is no cached policy either: with `.glossa/policy.json` it runs against the local catalogs and exits 0 or 1 |
+| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`), `waive` with no reason (`waiver_needs_a_reason`) or something that isn't a fingerprint, a policy file that can't be read or isn't a document (`policy_file_unreadable`, `invalid_policy_file`), and a policy the server refuses as invalid (`invalid_check_policy`, `invalid_severity`, `unknown_layer`, `advisory_layer`, `unknown_locale`, `invalid_environment`, `invalid_waiver`) |
+| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2. `check` only gets here when there is no cached policy either: with `.glossa/policy.json` it runs against the local catalogs and exits 0 or 1; `waive --revoke` on a waiver that isn't there (`waiver_not_found`), `policy show`/`export` against a server whose Quality context predates the endpoint (`no_check_policy`) |
 | 4 | Partial failure: `check` ran some layers and couldn't run others (they're named in the output, never dropped in silence); `push` or `import --from v0` went through but some items failed; `translate --wait`: some jobs failed; `import --format`, `export`, `jobs show --wait`: the job failed or was cancelled |
 
 Errors print what happened, where, why and how to fix it:
@@ -300,8 +391,17 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.context.push/v1` | `{file, source, replayed, build: {id, application_id, commit, branch, on_default_branch, source, tool: {name, version}, digest, usages, unknown_keys, created_by, created_at}}` (the API's `ContextBuild`) |
 | `glossa.cli.capture/v1` | `{application, commit, branch, captures: [{route, url, locale, viewport: {width, height, deviceScaleFactor?}, image: {sha256, width, height}, renders, regions, visible, redacted, truncated}], output?: {dir, manifest, images}, upload?: {build, captures, images_stored, images_deduplicated, unknown_keys, replayed}, coverage: {messages, captured, not_captured: [{key, usages, file, line, routes?}]} \| null}` (`capture`; the regions themselves are in the manifest) |
 | `glossa.cli.generate/v1` | `{source, messages, check, files: [{path, kind, changed}], warnings: [{key, reason}]}` |
-| `glossa.cli.check/v2` | `{policy: {require_complete (null = all), fail_on, missing_translations, source (server \| cache \| default), version?, overridden?, offline?, fetched_at?, grace?: {previous_version, until}}, origin, messages, invalid_messages, locales: [{code, is_source, required, messages, translated, missing, outdated, errors, warnings, waived, complete}], layers, skipped_layers, unavailable_layers: [{layer, why}], findings: [`glossa.finding/v1`], explain?: [{fingerprint, layer, code, severity, rule: {index, selector, severity, mode} \| null, mode, fails, why}], errors, warnings, waived, conclusion, passed}` — a finding is the Quality context's own (`runtimes/testdata/schemas/finding.v1.schema.json`), with its locus, spans and evidence intact |
+| `glossa.cli.check/v2` | `{policy: {require_complete (null = all), fail_on, missing_translations, source (server \| cache \| default), version?, overridden?, offline?, fetched_at?, grace?: {previous_version, until}}, origin, messages, invalid_messages, locales: [{code, is_source, required, messages, translated, missing, outdated, errors, warnings, waived, complete}], layers, skipped_layers, unavailable_layers: [{layer, why}], findings: [`glossa.finding/v1`], explain?: [{fingerprint, layer, code, severity, rule: {index, selector, severity, mode} \| null, mode, fails, why}], fixes?: [{fingerprint, layer, code, kind, locale?, key?, applied, file?, from?, to?, why?}] (`--fix`; the counts and the conclusion are the run's from before them), errors, warnings, waived, conclusion, passed}` — a finding is the Quality context's own (`runtimes/testdata/schemas/finding.v1.schema.json`), with its locus, spans and evidence intact |
+| `glossa.cli.findings/v1` | `{run: {id, ref, commit?, trigger, conclusion?, policy_version, layers, started_at} \| null, counts: {errors, warnings, waived} (the whole run's, whatever the filters selected), findings: [`glossa.finding/v1`], truncated}` |
+| `glossa.cli.waive/v1` | `{action: created \| unchanged \| revoked, waiver: Waiver}` |
+| `glossa.cli.waivers/v1` | `{waivers: [Waiver]}` (newest first) |
+| `glossa.cli.policy/v1` | `{version, policy: `glossa.check-policy/v1`, created_by?, created_at?, grace?: {previous_version, until}}` (`policy show`) |
+| `glossa.check-policy/v1` | `policy export` without `--file` writes the document itself — YAML, or JSON with `--json` — which is exactly what `policy import` reads: `{schema, require_complete (null = every locale, [] = none), fail_on, missing_translations, environments?: {name: {require_complete?, require_review?}}, rules?: [{layer?, code?, locale?, namespace?, environment?, severity, mode?}]}` |
+| `glossa.cli.policy.export/v1` | `{file, policy: `glossa.check-policy/v1`}` (`policy export --file`) |
+| `glossa.cli.policy.diff/v1` | `{from_version, from, to (both `glossa.check-policy/v1`), changes: [{what, from, to}], impact: Impact}` |
+| `glossa.cli.policy.import/v1` | `{dry_run, file, version, policy, impact: Impact, grace?: {previous_version, until}}` |
 | `glossa.cli.status/v1` | `{origin, messages, locales: [{code, direction, is_source, translated, approved, needs_review, draft, rejected, outdated, missing, coverage}]}` |
+| `glossa.cli.status.quality/v1` | `{project_id, environment, locale?, since, computed_at, cached, run: {…} \| null, numbers: {coverage?, findings?, ai?, queue?, context?, lead_time?, checks?, by_layer?}, locales: [{code, direction, is_source, coverage?, findings?, ai?, queue?, lead_time?, layers: [{layer, available, checked, unavailable?, findings?}]}], unmeasured: [{number, reason}]}` — **every number is optional, and an absent one means nobody measured it**, never 0; `unmeasured` says why |
 | `glossa.cli.diff/v1` | `{source: {locale, added, changed: [{key, local, server}], removed, unchanged}, translations: [same], identical}` |
 | `glossa.cli.locales/v1` | `{locales: [{code, direction, is_source}], fallback}` |
 | `glossa.cli.messages/v1` | `{messages: [{key, namespace, state, source_revision, text, syntax, arguments: [{name, type}], description?}]}` |
@@ -356,6 +456,11 @@ The release shapes share:
 - `Ref`: `{id, version}`
 - `Environment`: `{name, release: Ref | null, policy: {states, include_outdated}, updated_at}`
 - `DeliveryKey`: `{id, name, key, scope: {environments, branches}, created_at, revoked_at?}`
+
+The Quality shapes share:
+
+- `Waiver`: `{id, fingerprint, reason, scope (project | branch), ref?, source_revision, active, expires_at?, revoked_at?, created_by, created_at, accepts: {layer?, code?, locale?, key?, namespace?, message?} | null}` — `accepts` is read from the most recent stored finding carrying the fingerprint, and is null where none does any more, which is exactly the unexamined waiver a dashboard should show
+- `Impact` (RFC 0005 §4.3): `{findings, runs, raised, lowered, silenced, newly_failing, no_longer_failing, open_pull_requests, newly_failing_refs, no_longer_failing_refs, rules: [{rule (its index in the candidate's rules), selector, severity, mode, matched, changed, newly_failing}]}`
 
 The Git connection shapes share:
 

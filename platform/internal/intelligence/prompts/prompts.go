@@ -28,6 +28,11 @@ const (
 	Translate = "translate"
 	Repair    = "repair"
 	Assess    = "assess"
+	// Linguistic is the linguistic QA review (RFC 0005 §3.8). It is a
+	// prompt of its own and not a mode of assess: assess asks how likely
+	// a reviewer approves a draft the agent just wrote, and this asks
+	// what is wrong with a translation that already exists.
+	Linguistic = "linguistic"
 )
 
 // Template is one versioned prompt.
