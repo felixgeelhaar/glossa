@@ -306,6 +306,24 @@ func (s *scenario) seedCatalogs() {
 	orphan := s.owner.do(http.MethodGet, s.projectPath("/messages/"+keyOrphan), nil, http.StatusOK, nil).Get("ETag")
 	s.owner.do(http.MethodPost, s.projectPath("/messages/"+keyOrphan+"/obsoletion"),
 		map[string]any{}, http.StatusOK, nil, "If-Match", orphan)
+	// Localization learns of the obsoletion from Catalog's event, and a
+	// check reads its orphans from Localization's projection — as every
+	// bulk translation read does. The projection is eventual, and the
+	// base push left a backlog of events ahead of this one; CI runs its
+	// check after the push, not in the same second, and so does this.
+	caught, state := softly(2*time.Minute, func() (bool, string) {
+		var page struct {
+			Items []struct {
+				Key string `json:"key"`
+			} `json:"items"`
+		}
+		s.owner.do(http.MethodGet, s.projectPath("/translations?locale=en&message_state=obsolete&key_prefix="+
+			url.QueryEscape(keyOrphan)), nil, http.StatusOK, &page)
+		return len(page.Items) > 0, fmt.Sprintf("%d translations listed as obsolete", len(page.Items))
+	})
+	if !caught {
+		s.gap("12.2", "Localization never saw `%s` obsoleted, so no check can find its translations: %s", keyOrphan, state)
+	}
 
 	// The build's usages, with the one key no catalog has.
 	var usages contextPushJSON

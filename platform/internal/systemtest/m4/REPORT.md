@@ -8,23 +8,18 @@ browser, or from the runtime's own test suites. RFC 0005 §12.
 
 ## The verdict
 
-**7 of the 8 exit criteria hold.**
+**8 of the 8 exit criteria hold.**
 
 | § | Criterion | Verdict |
 |---|---|---|
 | 12.1 | A fixture repository with real CI | met |
-| 12.2 | Findings across layers | **not met** |
+| 12.2 | Findings across layers | met |
 | 12.3 | The PR check agrees | met |
 | 12.4 | Waivers and policy rollout | met |
 | 12.5 | Release gate | met |
 | 12.6 | MCP | met |
 | 12.7 | Flutter | met |
 | 12.8 | Dashboard | met |
-
-What is missing, in one line each:
-
-- **§12.2**: completeness: no finding with `unknown-key`
-  - no `unknown-key` finding names `src/pages/CheckoutPage.vue:31`, and none can while the pull request renders the run CI recorded. Against a server project the terminal never emits `unknown-key` at all: the completeness layer emits it for a translation whose key no active message has (quality/layers/completeness.go), and `snapshot.FromServer` reads only the translations of active messages (`MessageState: "active"`) and joins them to active messages by ID, so the translations of the obsoleted `help.legacy.title` never reach the layer — on this fixture or any other. `BranchUsages.Where` would locate such a finding at its `file:line` when the key has a usage (integration/app `locate`), but there is none to locate. The usage shape §12.2 describes is emitted only by the pull-request check's fallback view (integration/app/check_report.go's `findings`), which runs when CI recorded no run for the commit; this commit has one. An amendment reading "a translation with no active message, located by Context" would describe something the product does not do, so it was not written: the case needs either the snapshot to carry the translations of obsolete messages (a product change) or a criterion that asks for the offline shape — a target catalog key the source catalog lacks, located at its catalog file and no line
 
 ## §12.1 — a fixture repository with real CI
 
@@ -48,7 +43,8 @@ The seeded defects, and the layer each is for:
 | `checkout.roll.help`: the German source drops its `{#link}`; every locale but Japanese follows it | `parity` |
 | three French translations that were never written (`cart.flour.title`, `cart.shipping.title`, `cart.tray.title`) | `completeness` |
 | two German sources that move under their Japanese (`home.allergen.title`, `products.bun.title`) | `completeness` |
-| `checkout.pickup.reminder`, used at `src/pages/CheckoutPage.vue:31` and in no catalog | `completeness` |
+| `help.legacy.title`: its message is obsoleted while its translations stay, and the help page still asks for it at `src/pages/HelpPage.vue:23` | `completeness` |
+| `checkout.pickup.reminder`, used at `src/pages/CheckoutPage.vue:31` and in no catalog — Context's unknown key, which `glossa context push` counts | — |
 | `legal.privacy.notice` (namespace `legal`), whose French uses the forbidden `vie privée` | `terminology` |
 | `cart.basket.title`, whose Spanish does not use the preferred `carrito` | `terminology` |
 | `checkout.bagel.title` with `max_length: 20` and a French translation over it | `length` (see below) |
@@ -61,17 +57,17 @@ finding v4 would fail it on is the Japanese pay button, which clips on every bra
 ## §12.2 — findings across layers
 
 `glossa check --terminology --explain-policy --json` graded the project against policy v3 from the server
-and exited **1**: conclusion `failure`, **4 errors, 557 warnings, 0 waived** over 157 active messages.
+and exited **1**: conclusion `failure`, **4 errors, 558 warnings, 0 waived** over 156 active messages.
 
 | Locale | Required | Translated | Missing | Outdated | Errors | Warnings | Complete |
 |---|---|---:|---:|---:|---:|---:|---|
-| `de` _(source)_ | no | 157 | 0 | 0 | 0 | 40 | yes |
-| `ar` | no | 1 | 156 | 0 | 0 | 157 | no |
-| `de-AT` | no | 1 | 156 | 0 | 0 | 158 | no |
-| `en` | yes | 157 | 0 | 0 | 0 | 27 | yes |
-| `es` | no | 157 | 0 | 0 | 0 | 82 | yes |
-| `fr` | no | 154 | 3 | 1 | 3 | 90 | no |
-| `ja` | no | 157 | 0 | 3 | 1 | 3 | yes |
+| `de` _(source)_ | no | 156 | 0 | 0 | 0 | 40 | yes |
+| `ar` | no | 1 | 155 | 0 | 0 | 156 | no |
+| `de-AT` | no | 1 | 155 | 0 | 0 | 157 | no |
+| `en` | yes | 156 | 0 | 0 | 0 | 28 | yes |
+| `es` | no | 156 | 0 | 0 | 0 | 82 | yes |
+| `fr` | no | 153 | 3 | 1 | 3 | 91 | no |
+| `ja` | no | 156 | 0 | 3 | 1 | 4 | yes |
 
 The layers the run computed: `completeness`, `length`, `locale`, `parity`, `source`, `structure`, `style`, `terminology`.
 
@@ -81,10 +77,10 @@ The layers the run computed: `completeness`, `length`, `locale`, `parity`, `sour
 |---|---|---|---|
 | ✅ `structure` | one translation whose MF2 doesn't parse | 1 from `glossa check --offline` (`invalid-translation`); the server refused both writes of text that does not parse (`invalid_message`) and kept what it had, so no stored message can carry one | `invalid-translation` |
 | ✅ `parity` | one French translation missing `{$amount}`, one Japanese one adding markup the source doesn't have | 2 findings (2 error, 0 warning) | `markup-extra`, `missing-argument` |
-| ❌ `completeness` | three missing `fr`, two outdated `ja`, one unknown key with its file:line | no finding with `unknown-key` | `missing-translation`, `outdated-translation` |
+| ✅ `completeness` | three missing `fr`, two outdated `ja`, one unknown key with its file:line | 321 findings (0 error, 321 warning); `unknown-key` on `help.legacy.title` at `src/pages/HelpPage.vue:23` on the pull request | `missing-translation`, `outdated-translation`, `unknown-key` |
 | ✅ `terminology` | one `term_forbidden` in `legal` (error), one `term_missing` elsewhere (warning) | 10 findings (1 error, 9 warning) | `term_forbidden`, `term_missing` |
 | ✅ `style` | one German translation using `du` under a `Sie` guide | 1 findings (0 error, 1 warning) | `formality-mismatch` |
-| ✅ `length` | one French button over its `max_length`, one over its region's width | 245 findings (1 error, 244 warning) | `expansion-excessive`, `expansion-suspicious`, `layout-overflow-predicted`, `max-length-exceeded` |
+| ✅ `length` | one French button over its `max_length`, one over its region's width | 244 findings (1 error, 243 warning) | `expansion-excessive`, `expansion-suspicious`, `layout-overflow-predicted`, `max-length-exceeded` |
 | ✅ `locale` | one French translation writing `1,234.50`, one Arabic one with a stray U+202B | 27 findings (0 error, 27 warning) | `bidi-stray-control`, `number-convention`, `spacing-convention` |
 | ✅ `source` | one `3 item(s)` and one `ambiguous-short` | 40 findings (0 error, 40 warning) | `ambiguous-short`, `manual-plural`, `missing-description` |
 | ✅ `visual` | a real one: Chrome over the fixture, the Japanese checkout button clips | 1 findings (0 error, 1 warning) | `text-clipped` |
@@ -105,17 +101,18 @@ finding names was read back through the API and the stored screenshot cropped to
 
 | Message | Locale | Capture | Region | Box (CSS px) | Screenshot | Crop | Distinct colours |
 |---|---|---|---|---|---|---|---:|
-| `checkout.crust.label` | `ja` | `01a0f40` | `r_17` | 119×18 at (105, 675) | 1280×1303 (136301 bytes) | 119×18 px | 115 |
+| `checkout.crust.label` | `ja` | `01a0f44` | `r_17` | 119×18 at (105, 675) | 1280×1303 (136301 bytes) | 119×18 px | 115 |
 
-- `glossa context push` uploaded 151 usages, one of them `checkout.pickup.reminder` at `src/pages/CheckoutPage.vue:31` — a key no catalog has.
-- The head commit revises 5 German sources; the French `checkout.payment.activity` keeps its text and loses `{$amount}`, and the Japanese `checkout.roll.help` keeps the link the source dropped.
+- `glossa context push` uploaded 152 usages, one of them `checkout.pickup.reminder` at `src/pages/CheckoutPage.vue:31` — a key no catalog has.
+- The head commit revises 4 German sources; the French `checkout.payment.activity` keeps its text and loses `{$amount}`, and the Japanese `checkout.roll.help` keeps the link the source dropped.
 - `de-AT`'s effective style guide asks for the formal form of address (`Sie`).
 - The termbase holds `Datenschutz` → forbidden French `vie privée` (legal) and `Warenkorb` → preferred Spanish `carrito`.
-- `glossa check --json` exited 1 with conclusion `failure`: 4 errors, 557 warnings, 0 waived, graded against policy v3 from the server.
-- All 561 findings validate against `glossa.finding/v1` (schema, fingerprint, layer, code, severity, locus).
+- `glossa check --json` exited 1 with conclusion `failure`: 4 errors, 558 warnings, 0 waived, graded against policy v3 from the server.
+- All 562 findings validate against `glossa.finding/v1` (schema, fingerprint, layer, code, severity, locus).
 - The visual layer is real: `glossa capture --check` drove Chrome over `/kasse` in German and Japanese at 1280×800, and the Japanese pay button clipped — 1 `text-clipped` finding(s) on the Japanese capture (0 on the German one), and the server stored 1 probe findings with the upload.
-- The region the finding names (`r_17` on capture `01a0f40`) was read back through the API and the stored screenshot cropped to it: 119×18 CSS px at (105, 675) → 119×18 pixels of a 1280×1303 screenshot, 115 distinct colours.
+- The region the finding names (`r_17` on capture `01a0f44`) was read back through the API and the stored screenshot cropped to it: 119×18 CSS px at (105, 675) → 119×18 pixels of a 1280×1303 screenshot, 115 distinct colours.
 - No single command computes all nine layers: `glossa check --terminology` has the terminology layer and no browser, `glossa capture --check` has the visual layer and takes no `--terminology` flag. The table below counts both runs of the workflow together.
+- `help.legacy.title` was obsoleted while its translations stayed: `glossa check` reported `unknown-key` in `en`, `es`, `fr`, `ja`, each a warning against the obsolete message's ID (`01a0f44`), and the pull request annotated it at `src/pages/HelpPage.vue:23` — the line the help page still asks for the key on, from the build's usages.
 
 ## §12.3 — the PR check agrees (the exit criterion)
 
@@ -123,7 +120,7 @@ Pull request #11 on `acme/shop`, head `6b28d05`, opened by a signed `pull_reques
 fixtures sign. Nothing creates a check run through `/v1` — `openCheck` is reached only from webhook
 processing — so the test does what a product does and assumes no API shortcut.
 
-The check run: `Glossa`, completed/`failure`, "3 problems and 632 warnings", 153 annotations over 13 PATCHes, 1 sticky comment.
+The check run: `Glossa`, completed/`failure`, "3 problems and 633 warnings", 200 annotations over 5 PATCHes, 1 sticky comment.
 
 The terminal's side is `glossa capture --check` on this commit — the workflow's run that carries every layer the server can have.
 
@@ -131,10 +128,10 @@ The terminal's side is `glossa capture --check` on this commit — the workflow'
 |---|---|---|---|
 | conclusion | failure | failure | ✅ |
 | errors | 3 | 3 | ✅ |
-| warnings | 632 | 632 | ✅ |
+| warnings | 633 | 633 | ✅ |
 | waived | 0 | 0 | ✅ |
-| layer `completeness` (e/w/x) | 0/319/0 | 0/319/0 | ✅ |
-| layer `length` (e/w/x) | 1/244/0 | 1/244/0 | ✅ |
+| layer `completeness` (e/w/x) | 0/321/0 | 0/321/0 | ✅ |
+| layer `length` (e/w/x) | 1/243/0 | 1/243/0 | ✅ |
 | layer `locale` (e/w/x) | 0/27/0 | 0/27/0 | ✅ |
 | layer `parity` (e/w/x) | 2/0/0 | 2/0/0 | ✅ |
 | layer `source` (e/w/x) | 0/40/0 | 0/40/0 | ✅ |
@@ -150,18 +147,18 @@ Two surfaces, one verdict.
 | What | What happened |
 |---|---|
 | a waiver with a blank reason | 400 `waiver_reason_required` — the reason is required and non-empty |
-| waive `term_missing` (`f_fa5bd`) with a reason | waiver `01a0f40`, scope `project`, against source revision 1 |
-| re-run `glossa check` | the finding is `waived`; 557→556 warnings, 0→1 waived, conclusion `failure`→`failure` |
+| waive `term_missing` (`f_2e988`) with a reason | waiver `01a0f44`, scope `project`, against source revision 1 |
+| re-run `glossa check` | the finding is `waived`; 558→557 warnings, 0→1 waived, conclusion `failure`→`failure` |
 | change the German source behind it | the finding is `warning` again: the waiver was made against source revision 1 and the finding is now at 2 |
-| waive the `number-convention` on `checkout.total.label` (`f_ff6c8`) | `waived`, against source revision 1 |
+| waive the `number-convention` on `checkout.total.label` (`f_1dd2e`) | `waived`, against source revision 1 |
 | change the German source behind **that** one | `warning` again: the waiver was made against source revision 1 and the finding is now at 2 — waived against a German that no longer ships |
 
 ### The rollout
 
 | What | What happened |
 |---|---|
-| `POST …/check-policy` with `dry_run: true` | 1262 stored findings examined over 2 runs: 2 raised, 0 lowered, 0 silenced; 2 findings newly failing, on `feature/opening-hours`; **1 open pull requests** would newly fail: #10 `feature/opening-hours` <http://127.0.0.1:54416/acme/shop/pull/10> |
-| save v4 with a 14-day grace | v3 keeps grading the pull requests opened before it, until 2026-10-14T20:35:06.848027Z |
+| `POST …/check-policy` with `dry_run: true` | 1263 stored findings examined over 2 runs: 2 raised, 0 lowered, 0 silenced; 2 findings newly failing, on `feature/opening-hours`; **1 open pull requests** would newly fail: #10 `feature/opening-hours` <http://127.0.0.1:63839/acme/shop/pull/10> |
+| save v4 with a 14-day grace | v3 keeps grading the pull requests opened before it, until 2026-10-14T21:52:10.197834Z |
 | the open pull request (`feature/checkout-copy`, opened under v3) | still graded against v3, and its summary says so: “Graded against the project's check policy v3 — the version this pull request was opened under.” |
 | the pull request the preview named (#10, `feature/opening-hours`, opened under v3) | a new commit after the save: still graded against v3, and still `success` — the grace keeps it green until it closes or the grace runs out |
 | a pull request opened after the save (`feature/pickup-copy`) | graded against v4 and `failure`: the visual layer carries 1 errors |
@@ -172,10 +169,10 @@ Pull request #10 (`feature/opening-hours`) was opened and checked while `main` s
 
 | What | What happened |
 |---|---|
-| publish to `production` with `fr` incomplete | 409 `policy_not_met` — release: the environment's check policy is not met: production: fr must be complete and is 3 of 157 messages short |
+| publish to `production` with `fr` incomplete | 409 `policy_not_met` — release: the environment's check policy is not met: production: fr must be complete and is 3 of 156 messages short |
 | force it with no reason | 400 `force_reason_required` |
-| force it with a reason | 201 — release `01a0f40`, version 1 |
-| the record | deployment #1 by `person:01a0f406-fca7-7e86-b892-c7fc3623fd02`, `forced: true`, with the reason it was forced for |
+| force it with a reason | 201 — release `01a0f44`, version 1 |
+| the record | deployment #1 by `person:01a0f44d-7c2c-78e5-b8b7-7b6dd8bc9ed1`, `forced: true`, with the reason it was forced for |
 
 ## §12.6 — MCP
 
@@ -286,7 +283,7 @@ OK — 343.1 kB of 400.0 kB, the delta over a baseline that already has package:
   What the budget is: 150 kB was §6.4's original figure and nothing meets it by this method. Wave 4 replaced it with 400.0 kB deliberately, after measuring. See RFC 0005 §6.4 and §15, question 6, which records the decision and its reasoning.
 ```
 
-Measured in 102 s on this machine.
+Measured in 107 s on this machine.
 
 **Startup** — measured and recorded, not gated on wall clock: §6.4's numbers are written for a mid-range
 Android device and neither a laptop nor a CI runner is one. What the tool does enforce are the two
@@ -301,17 +298,17 @@ manifest under test: 202594 bytes (control: 19621 bytes)
 the shared fixture verifies against its own key: yes
 
 warm cache: 500 messages, 87360 artifact bytes on disk
-activation from the persisted store: 5.575 ms
+activation from the persisted store: 9.319 ms
 
 — §6.4 device budgets, recorded ————————————————————————————
-  verify 200 kB manifest + signature        18.26 ms   (within the 30 ms budget)
-  first t() after a warm cache               0.10 ms   (within the 5 ms budget)
-  longest event-loop stall on activation     2.54 ms   (within the 16.7 ms budget)
-  (steady state after warm-up: verification 18.04 ms, canonicalization 7.78 ms of it.)
+  verify 200 kB manifest + signature        17.54 ms   (within the 30 ms budget)
+  first t() after a warm cache               0.09 ms   (within the 5 ms budget)
+  longest event-loop stall on activation     2.55 ms   (within the 16.7 ms budget)
+  (steady state after warm-up: verification 17.74 ms, canonicalization 7.42 ms of it.)
   These are wall clock on this machine. §6.4 names a mid-range Android device; neither a laptop nor a CI runner is one, so none of the three fails this program. The device numbers belong to the M4 exit report (§12).
 
 — enforced, because they hold on every machine ——————————————
-  canonicalization cost per byte, 202594 B over 19621 B  ×0.98 (linear is ×1.00, ceiling ×3.00)
+  canonicalization cost per byte, 202594 B over 19621 B  ×0.95 (linear is ×1.00, ceiling ×3.00)
   first t() ÷ one verification  0.5 % (ceiling 25 %)
 
 OK — both enforced properties hold.
@@ -323,13 +320,13 @@ Measured in 3 s on this machine.
 
 | Number (RFC 0005 §8) | What the API reported |
 |---|---|
-| Coverage: translated / outdated / missing | {messages:942,missing:315,outdated:4,translated:627} |
-| Outstanding findings by layer and severity, plus waived | {errors:4,waived:0,warnings:634} |
+| Coverage: translated / outdated / missing | {messages:936,missing:313,outdated:4,translated:623} |
+| Outstanding findings by layer and severity, plus waived | {errors:4,waived:0,warnings:635} |
 | AI acceptance rate and mean edit distance | {acceptance_rate:0,accepted:0,decisions:0,edited:0,mean_edit_distance:0,rejected:0} |
 | Review queue depth and age | {depth:0} |
-| Context coverage: usages and visible regions | {active_messages:157,with_region:0,with_usage:150} |
-| Lead time, p50/p90 | {p50_seconds:17.69676,p90_seconds:17.73679,samples:305} |
-| Check health: pass rate and median time to a conclusion | {failed:2,latency:{p50_seconds:9.482346,p90_seconds:14.7248932,samples:3},median_seconds:9.482346,neutral:0,pass_rate:0.… |
+| Context coverage: usages and visible regions | {active_messages:156,with_region:0,with_usage:150} |
+| Lead time, p50/p90 | {p50_seconds:21.062125,p90_seconds:21.105297,samples:305} |
+| Check health: pass rate and median time to a conclusion | {failed:2,latency:{p50_seconds:9.56077,p90_seconds:13.8104132,samples:3},median_seconds:9.56077,neutral:0,pass_rate:0.33… |
 
 `studio/e2e/m4/quality-exit.spec.ts` signed in against **this** server, opened `/t/…/p/…/quality`, found seven stats in the
 health header, and asserted each rendered value against the summary above — computing the expected
