@@ -1483,6 +1483,99 @@ export const strings = {
     },
     readOnly: "You can read this project's findings, but accepting one needs the developer role.",
   },
+  /**
+   * The health surfaces (RFC 0005 §8). Every "none" string below is a
+   * sentence rather than a zero, because the difference between "we
+   * looked and it is fine" and "nobody looked" is the only thing a
+   * health screen is for.
+   */
+  health: {
+    title: "Project health",
+    lead:
+      "Seven numbers, for the project and for every locale. A number nobody has measured says so rather than " +
+      "showing a zero, and a check that cannot run for a language never reads as one that passed.",
+    notMeasured: "Not measured",
+    unreported: "This server does not report the quality summary yet, so none of these numbers are known.",
+    unreadable: "The quality summary could not be read, so none of these numbers are known. They are unknown, not zero.",
+    loading: "Measuring…",
+    computed: (when: string) => `Measured ${when}`,
+    reload: "Measure again",
+    // ── the seven numbers (§8's table, in its order) ────────────────
+    coverage: "Coverage",
+    coverageDetail: (translated: number, outdated: number, missing: number) =>
+      `${translated.toLocaleString()} translated · ${outdated.toLocaleString()} outdated · ${missing.toLocaleString()} missing`,
+    coverageNone: "There are no active messages to cover yet.",
+    findings: "Open findings",
+    findingsValue: (errors: number, warnings: number) =>
+      `${errors === 1 ? "1 error" : `${errors.toLocaleString()} errors`}, ${warnings === 1 ? "1 warning" : `${warnings.toLocaleString()} warnings`}`,
+    findingsDetail: (waived: number, run: string) =>
+      `${waived === 1 ? "1 waived" : `${waived.toLocaleString()} waived`}, counted on its own · from the run on ${run}`,
+    neverChecked: "Never checked",
+    neverCheckedDetail: "Nothing has been checked yet, so no layer here is known to be clean.",
+    ai: "AI acceptance",
+    aiDetail: (decisions: number, distance: string) =>
+      `${decisions === 1 ? "1 decision" : `${decisions.toLocaleString()} decisions`} · mean edit distance ${distance}`,
+    aiNone: "No AI suggestion has been accepted, edited or rejected yet.",
+    queue: "Review queue",
+    queueDepth: (n: number) => (n === 1 ? "1 waiting" : `${n.toLocaleString()} waiting`),
+    queueEmpty: "Nothing waiting",
+    queueAge: (p50: string, p90: string) => `Half have waited under ${p50}, nine in ten under ${p90}.`,
+    queueAgeNone: "Nothing is waiting, so there is no age to report.",
+    context: "Context coverage",
+    contextValue: (usage: string) => `${usage} have a usage`,
+    contextDetail: (region: string, messages: number) =>
+      `${region} also have a visible region · ${messages.toLocaleString()} active messages`,
+    contextNone: "No build has been uploaded, so nothing is known about where messages appear.",
+    leadTime: "Lead time",
+    leadTimeValue: (p50: string) => `Half within ${p50}`,
+    leadTimeDetail: (p90: string, samples: number) =>
+      `Nine in ten within ${p90} · over ${samples.toLocaleString()} published translations`,
+    leadTimeNone: "Nothing has gone from a source change to a published translation yet.",
+    checks: "Check health",
+    checksValue: (rate: string) => `${rate} of checks pass`,
+    checksDetail: (runs: number, median: string) =>
+      `${runs === 1 ? "1 run" : `${runs.toLocaleString()} runs`} · median ${median} to a conclusion`,
+    checksDetailNoMedian: (runs: number) => (runs === 1 ? "1 run" : `${runs.toLocaleString()} runs`),
+    checksNone: "No check has run against a pull request yet.",
+    // ── the per-locale row ──────────────────────────────────────────
+    localesTitle: "Per locale",
+    localesLead: "The same numbers for each language, and which checks can run for it at all.",
+    localesNone: "This project has no locales yet.",
+    localeSource: "Source",
+    localeHeading: (code: string) => `Locale ${code}`,
+    errorsValue: (n: number) => (n === 1 ? "1 open error" : `${n.toLocaleString()} open errors`),
+    errorsNone: "No open errors",
+    warningsValue: (n: number) => (n === 1 ? "1 warning" : `${n.toLocaleString()} warnings`),
+    queueAgeLabel: "Queue age",
+    queueAgeValue: (p50: string) => `Half wait under ${p50}`,
+    // ── layer availability (intent §41) ─────────────────────────────
+    layersTitle: "Checks that can run here",
+    layersSummary: (available: number, total: number) =>
+      available === total
+        ? `All ${total} checks can run for this locale.`
+        : `${available} of ${total} checks can run for this locale. The rest are listed as not available, which is not the same as clean.`,
+    layersLegend:
+      "“Clean” means the check ran here and found nothing. “Not available” means it cannot run for this language at all, " +
+      "and “not checked” means it could have run and this run did not — neither of those is a pass.",
+    layerName: (name: string, state: string) => `${name}: ${state}`,
+    layerState: {
+      clean: "Clean",
+      "not-checked": "Not checked",
+      unavailable: "Not available",
+      unknown: "Not reported",
+    } as Record<string, string>,
+    layerErrors: (n: number) => (n === 1 ? "1 error" : `${n.toLocaleString()} errors`),
+    layerWarnings: (n: number) => (n === 1 ? "1 warning" : `${n.toLocaleString()} warnings`),
+    layerUnavailable: {
+      unsupported_locale: "No rules or data exist for this language.",
+      not_configured: "Nothing is set up for it yet.",
+      no_evidence: "It needs evidence this locale has none of.",
+    } as Record<string, string>,
+    layerUnknown: "The summary did not mention this check, so nothing is known about it.",
+    layerNotChecked: "It can run here. The newest run did not run it.",
+    // ── the project navigation's one number ─────────────────────────
+    navErrors: (n: number) => (n === 1 ? "1 open error" : `${n.toLocaleString()} open errors`),
+  },
   shortcuts: {
     title: "Keyboard shortcuts",
     lead: "Studio is built for the keyboard. Chords use ⌘ on macOS and Ctrl elsewhere.",
