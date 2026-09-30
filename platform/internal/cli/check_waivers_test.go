@@ -22,12 +22,25 @@ import (
 
 // theFinding is the one finding of a `pushed` project's check: de has
 // nothing in it and the default policy fails on that.
+// theFinding is the fixture's missing German translation — the error
+// these tests waive.
+//
+// It selects rather than taking the only finding, because the fixture's
+// own source copy legitimately draws warnings from the layers that read
+// it (`"Welcome"` is one word with no description). Asserting a count
+// here would make this test fail whenever a layer starts finding
+// something new, which is the opposite of what it is about: what is
+// under test is that a waiver moves *this* finding to `waived` and out
+// of the error count.
 func theFinding(t *testing.T, out checkJSON) domain.Finding {
 	t.Helper()
-	if len(out.Findings) != 1 {
-		t.Fatalf("findings = %+v, want the one missing translation", out.Findings)
+	for _, f := range out.Findings {
+		if f.Layer == domain.LayerCompleteness && f.Code == "missing-translation" {
+			return f
+		}
 	}
-	return out.Findings[0]
+	t.Fatalf("findings = %+v, want the missing German translation among them", out.Findings)
+	return domain.Finding{}
 }
 
 func TestCheckAppliesTheProjectsWaivers(t *testing.T) {
