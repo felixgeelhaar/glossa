@@ -632,6 +632,13 @@ func selectorText(s checkpolicy.Selector) string {
 
 // terminologyCheckers is the terminology layer: every translation but
 // rejected ones, checked against the server's termbase.
+//
+// The findings are identified against the snapshot before they are
+// reported. The termbase check answers by key, and a finding's identity
+// is hashed over the catalog message ID (RFC 0005 §2.1) — which the PR
+// check's own terminology findings carry, so without this the terminal
+// and the pull request would print two fingerprints for one finding. The
+// layer reads the server, so there is always an ID to resolve.
 func (inv *invocation) terminologyCheckers(ctx context.Context, p *project, s *snapshot.Snapshot) (qa.Checker, error) {
 	var locales []string
 	for _, l := range s.TargetLocales() {
@@ -641,7 +648,7 @@ func (inv *invocation) terminologyCheckers(ctx context.Context, p *project, s *s
 	if err != nil {
 		return nil, err
 	}
-	return qa.Precomputed(domain.LayerTerminology, report.QA()), nil
+	return qa.Precomputed(domain.LayerTerminology, qa.Project(s).Identify(report.QA())), nil
 }
 
 // snapshot reads the project from the server, or the local catalogs.

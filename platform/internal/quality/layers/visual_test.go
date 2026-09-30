@@ -177,6 +177,18 @@ func TestIdentifyGivesAProbeFindingTheCatalogsMessageID(t *testing.T) {
 	if got := p.Identify([]domain.Finding{named})[0].Locus.Message; got != "msg_elsewhere" {
 		t.Errorf("message = %q, want the one the caller already knew", got)
 	}
+
+	// A finding its layer already minted — the terminology layer's, which
+	// arrives from the server sealed — is re-minted: its identity moved
+	// with its locus, and a print over the key is a stale one.
+	minted := domain.New(clipped("checkout.pay"))
+	got := p.Identify([]domain.Finding{minted})[0]
+	if got.Fingerprint == minted.Fingerprint {
+		t.Error("the fingerprint stayed over the key after the locus named the message")
+	}
+	if want := domain.Fingerprint(got.Layer, got.Code, got.Locus, got.Subject); got.Fingerprint != want {
+		t.Errorf("fingerprint = %s, want %s", got.Fingerprint, want)
+	}
 }
 
 // The identity reaches the fingerprint: the same probe finding

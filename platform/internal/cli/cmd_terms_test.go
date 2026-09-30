@@ -171,15 +171,26 @@ func TestTermsCheckFindsForbiddenTerms(t *testing.T) {
 	// glossa check --terminology adds the layer to structural QA.
 	var chk checkJSON
 	w.json(&chk, "check", "--terminology", "--require-complete=none").want(t, ExitCheckFailed)
-	found := false
+	var forbidden domain.Finding
 	for _, f := range chk.Findings {
 		if f.Layer == domain.LayerTerminology && f.Code == "term_forbidden" &&
 			f.Locus.Locale == "de" && f.Locus.Key == "cart.checkout" {
-			found = true
+			forbidden = f
 		}
 	}
-	if !found || chk.Errors != 1 {
+	if forbidden.Code == "" || chk.Errors != 1 {
 		t.Errorf("check --terminology = %+v", chk)
+	}
+	// The termbase answers by key; the identity a waiver is written
+	// against is the catalog message ID, and the pull request's own
+	// terminology findings carry it. The terminal must print the same
+	// fingerprint (RFC 0005 §2.1).
+	if forbidden.Locus.Message != "msg_cart.checkout" {
+		t.Errorf("locus = %+v, want the catalog message ID the snapshot resolved", forbidden.Locus)
+	}
+	if want := domain.Fingerprint(domain.LayerTerminology, "term_forbidden",
+		domain.Locus{Message: "msg_cart.checkout", Locale: "de"}, forbidden.Subject); forbidden.Fingerprint != want {
+		t.Errorf("fingerprint = %s, want the print over the message ID (%s)", forbidden.Fingerprint, want)
 	}
 	srv.mu.Lock()
 	before := srv.kn.termPages
