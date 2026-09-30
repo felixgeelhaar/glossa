@@ -66,7 +66,15 @@ func percentile(sorted []time.Duration, p float64) time.Duration {
 		return sorted[lo]
 	}
 	frac := pos - float64(lo)
-	return sorted[lo] + time.Duration(float64(sorted[hi]-sorted[lo])*frac)
+	// Round, never truncate. A Duration conversion truncates toward
+	// zero, so an interpolation that lands a hair under a whole
+	// nanosecond loses one — and whether it lands under depends on the
+	// architecture, because Go fuses multiply-add on arm64 and not on
+	// amd64. The p90 of 1s…10s came out 9.1s on one and 9.099999999s on
+	// the other. Rounding is also the faithful reading of
+	// percentile_cont, which interpolates exactly and leaves the
+	// nanosecond to the caller.
+	return sorted[lo] + time.Duration(math.Round(float64(sorted[hi]-sorted[lo])*frac))
 }
 
 // seconds converts a float of seconds to a Duration without losing the
