@@ -20,7 +20,7 @@
  * It consumes the Quality API and changes nothing about it.
  */
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import { useQuality, type Findings } from "../../api/quality";
 import type { CheckRun, Finding, Waiver } from "../../api/quality-schemas";
 import ErrorAlert from "../../components/ErrorAlert.vue";
@@ -28,6 +28,7 @@ import FindingItem from "../../components/quality/FindingItem.vue";
 import HealthHeader from "../../components/quality/HealthHeader.vue";
 import LocaleHealth from "../../components/quality/LocaleHealth.vue";
 import QualityFilters from "../../components/quality/QualityFilters.vue";
+import QualitySections from "../../components/quality/QualitySections.vue";
 import WaiveDialog from "../../components/quality/WaiveDialog.vue";
 import WaiverTable from "../../components/quality/WaiverTable.vue";
 import { unmeasured } from "../../lib/health";
@@ -161,6 +162,8 @@ async function revoke(waiver: Waiver, finding?: Finding): Promise<void> {
       <button type="button" class="btn" :disabled="loading" @click="refresh">{{ s.reload }}</button>
     </div>
 
+    <QualitySections :tenant="tenant" :project-id="projectId" />
+
     <p v-if="!canWaive" class="alert" data-testid="quality-read-only">{{ s.readOnly }}</p>
     <ErrorAlert :error="error" />
     <p v-if="status" class="alert alert-ok" role="status" data-testid="quality-status">{{ status }}</p>
@@ -242,7 +245,10 @@ async function revoke(waiver: Waiver, finding?: Finding): Promise<void> {
 
       <!-- ── the waivers, and taking one back ─────────────────── -->
       <section class="stack-sm" aria-labelledby="waivers-h">
-        <h2 id="waivers-h">{{ s.waiversTitle }}</h2>
+        <div class="waivers-head">
+          <h2 id="waivers-h">{{ s.waiversTitle }}</h2>
+          <RouterLink :to="{ name: 'waivers', params: { tenant, project: projectId } }" data-testid="quality-manage-waivers">{{ s.manageWaivers }}</RouterLink>
+        </div>
         <p class="muted">{{ s.waiversLead }}</p>
         <WaiverTable :waivers="waivers" :can-revoke="canWaive" :busy="busy" :person="person" @revoke="revoke" />
       </section>
@@ -283,6 +289,13 @@ async function revoke(waiver: Waiver, finding?: Finding): Promise<void> {
 .summary {
   font-size: var(--kl-text-sm);
   font-weight: normal;
+}
+.waivers-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kl-space-3);
+  align-items: baseline;
+  justify-content: space-between;
 }
 .findings {
   list-style: none;

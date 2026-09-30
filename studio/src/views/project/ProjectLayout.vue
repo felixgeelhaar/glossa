@@ -120,7 +120,12 @@ const errors = computed(() => openErrors(health.value?.project.findings));
           :key="t.name"
           :to="{ name: t.name, params: { tenant, project: projectId } }"
           class="tab"
-          :class="{ 'router-link-active': (t.name === 'releases' && route.name === 'release') || (t.name === 'files' && (route.name === 'import' || route.name === 'import-job')) }"
+          :class="{
+            'router-link-active':
+              (t.name === 'releases' && route.name === 'release') ||
+              (t.name === 'files' && (route.name === 'import' || route.name === 'import-job')) ||
+              (t.name === 'quality' && (route.name === 'check-policy' || route.name === 'waivers')),
+          }"
         >
           {{ t.label }}
           <span

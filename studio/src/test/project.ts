@@ -9,6 +9,7 @@ import { IN_CONTEXT, type InContextPort } from "../api/in-context";
 import { INTEGRATION, type IntegrationPort } from "../api/integration";
 import { INTELLIGENCE, type IntelligencePort } from "../api/intelligence";
 import { KNOWLEDGE, type KnowledgePort } from "../api/knowledge";
+import { CHECK_POLICY, type CheckPolicyPort } from "../api/policy";
 import { QUALITY, type QualityPort } from "../api/quality";
 import { QUALITY_SUMMARY, type QualitySummaryPort } from "../api/quality-summary";
 import type { QualitySummary } from "../api/quality-summary-schemas";
@@ -19,7 +20,13 @@ import { refreshSession } from "../session/session";
 import { PROJECT, type HealthState, type ProjectContext } from "../views/project/context";
 
 const Empty = defineComponent({ template: "<div />" });
-const ROUTE_NAMES: Record<string, string> = { "releases/:release": "release", "files/import": "import", "files/imports/:job": "import-job" };
+const ROUTE_NAMES: Record<string, string> = {
+  "releases/:release": "release",
+  "files/import": "import",
+  "files/imports/:job": "import-job",
+  "quality/policy": "check-policy",
+  "quality/waivers": "waivers",
+};
 
 const ME = {
   person: { id: "me", email: "me@example.com", email_verified: true, totp_enabled: false, individual_tenant_id: "t", created_at: "2026-09-01T00:00:00Z" },
@@ -74,6 +81,7 @@ export interface ScreenOptions {
   inContext?: InContextPort;
   integration?: IntegrationPort;
   quality?: QualityPort;
+  checkPolicy?: CheckPolicyPort;
   qualitySummary?: QualitySummaryPort;
   /** The summary the project context already holds, as ProjectLayout would have loaded it. */
   health?: QualitySummary;
@@ -104,7 +112,22 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   await refreshSession();
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: ["releases", "releases/:release", "settings", "translate", "review", "terms", "style", "ai", "quality", "files", "files/import", "files/imports/:job"]
+    routes: [
+      "releases",
+      "releases/:release",
+      "settings",
+      "translate",
+      "review",
+      "terms",
+      "style",
+      "ai",
+      "quality",
+      "quality/policy",
+      "quality/waivers",
+      "files",
+      "files/import",
+      "files/imports/:job",
+    ]
       .map((p) => ({ path: `/t/:tenant/p/:project/${p}`, name: ROUTE_NAMES[p] ?? p, component: Empty }))
       .concat([
         { path: "/t/:tenant", name: "projects", component: Empty },
@@ -120,6 +143,7 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   if (options.intelligence) provide[INTELLIGENCE as symbol] = options.intelligence;
   if (options.integration) provide[INTEGRATION as symbol] = options.integration;
   if (options.quality) provide[QUALITY as symbol] = options.quality;
+  if (options.checkPolicy) provide[CHECK_POLICY as symbol] = options.checkPolicy;
   if (options.qualitySummary) provide[QUALITY_SUMMARY as symbol] = options.qualitySummary;
   if (options.context) provide[CONTEXT as symbol] = options.context;
   if (options.github) provide[GITHUB as symbol] = options.github;
