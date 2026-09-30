@@ -513,6 +513,51 @@ func (e CapturesManifestSchema) Valid() bool {
 	}
 }
 
+// Defines values for CapturesManifestFindingLayer.
+const (
+	CapturesManifestFindingLayerVisual CapturesManifestFindingLayer = "visual"
+)
+
+// Valid indicates whether the value is a known member of the CapturesManifestFindingLayer enum.
+func (e CapturesManifestFindingLayer) Valid() bool {
+	switch e {
+	case CapturesManifestFindingLayerVisual:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CapturesManifestFindingSchema.
+const (
+	CapturesManifestFindingSchemaGlossaFindingv1 CapturesManifestFindingSchema = "glossa.finding/v1"
+)
+
+// Valid indicates whether the value is a known member of the CapturesManifestFindingSchema enum.
+func (e CapturesManifestFindingSchema) Valid() bool {
+	switch e {
+	case CapturesManifestFindingSchemaGlossaFindingv1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CapturesManifestFindingSeverity.
+const (
+	CapturesManifestFindingSeverityWarning CapturesManifestFindingSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the CapturesManifestFindingSeverity enum.
+func (e CapturesManifestFindingSeverity) Valid() bool {
+	switch e {
+	case CapturesManifestFindingSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CheckPolicyFailOn.
 const (
 	CheckPolicyFailOnError   CheckPolicyFailOn = "error"
@@ -872,13 +917,13 @@ func (e ExportOptionsLayout) Valid() bool {
 
 // Defines values for FindingSchema.
 const (
-	GlossaFindingv1 FindingSchema = "glossa.finding/v1"
+	FindingSchemaGlossaFindingv1 FindingSchema = "glossa.finding/v1"
 )
 
 // Valid indicates whether the value is a known member of the FindingSchema enum.
 func (e FindingSchema) Valid() bool {
 	switch e {
-	case GlossaFindingv1:
+	case FindingSchemaGlossaFindingv1:
 		return true
 	default:
 		return false
@@ -2944,6 +2989,12 @@ type CaptureBox struct {
 	Y      int `json:"y"`
 }
 
+// CaptureFindingList A page of the findings on one capture, as they stand now.
+type CaptureFindingList struct {
+	Items         []Finding `json:"items"`
+	NextPageToken *string   `json:"next_page_token,omitempty"`
+}
+
 // CaptureImage defines model for CaptureImage.
 type CaptureImage struct {
 	// Digest SHA-256 (hex) of the stored (re-encoded) PNG; its `ETag`.
@@ -2985,6 +3036,14 @@ type CaptureUpload struct {
 
 	// Captures The build's captures.
 	Captures int `json:"captures"`
+
+	// Findings The visual findings the upload's captures carried that were
+	// stored (RFC 0005 §5). 0 on a replay, when the manifest
+	// carried none, and when the project's check policy switched
+	// the `visual` layer off — `off` means the project does not
+	// compute a layer, so it does not pay to store it either.
+	// Read them back with `listCaptureFindings`.
+	Findings int `json:"findings"`
 
 	// ImagesDeduplicated Images whose pixels the project had stored already (0 on a replay).
 	ImagesDeduplicated int `json:"images_deduplicated"`
@@ -3030,7 +3089,12 @@ type CapturesManifestSchema string
 
 // CapturesManifestCapture defines model for CapturesManifestCapture.
 type CapturesManifestCapture struct {
-	Image struct {
+	// Findings What the visual probe pass found on this capture
+	// (RFC 0005 §5), measured live in the page while it was open.
+	// Optional: a capture taken without probes carries none, and
+	// an empty list means the probes ran and found nothing.
+	Findings *[]CapturesManifestFinding `json:"findings,omitempty"`
+	Image    struct {
 		Height int `json:"height"`
 
 		// Sha256 Lowercase hex SHA-256 of the uploaded PNG; the name of its part.
@@ -3057,6 +3121,65 @@ type CapturesManifestCapture struct {
 		Width             int      `json:"width"`
 	} `json:"viewport"`
 }
+
+// CapturesManifestFinding One `glossa.finding/v1` finding as the page can write it. Two
+// members of that shape are deliberately absent, because the page
+// cannot know them and a guess would be worse than a gap: the
+// `fingerprint`, which hashes the catalog message ID a browser
+// never has — one minted in the page would not be the one the
+// server computes, and waivers against it would silently stop
+// applying — and `locus.capture`, which the server mints. The
+// ingest completes both.
+type CapturesManifestFinding struct {
+	Code string `json:"code"`
+
+	// Evidence What the probe measured, free-form per code; at most 4096 bytes of JSON.
+	Evidence *map[string]interface{} `json:"evidence,omitempty"`
+
+	// Layer A capture's findings are the visual layer's.
+	Layer CapturesManifestFindingLayer `json:"layer"`
+
+	// Locus As much of the finding's locus as the page knows.
+	Locus struct {
+		// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+		//
+		// Examples: checkout.payment.submit
+		Key *MessageKey `json:"key,omitempty"`
+
+		// Locale A BCP 47 language tag. Stored and returned canonicalized
+		// (`en_us` → `en-US`, `iw` → `he`).
+		//
+		//
+		// Examples: de, pt-BR, zh-Hant-TW
+		Locale *Locale `json:"locale,omitempty"`
+
+		// Region `r_<index into this capture's `regions`>`. The ingest
+		// pairs it with the capture it is on; a region this
+		// capture doesn't have is refused.
+		Region *string `json:"region,omitempty"`
+	} `json:"locus"`
+	Message string                        `json:"message"`
+	Schema  CapturesManifestFindingSchema `json:"schema"`
+
+	// Severity Always `warning`. A visual finding becomes eligible for
+	// `error` only when the same fingerprint appears in two
+	// consecutive captures (RFC 0005 §5.2), which only the server
+	// can see, and a page may not grade itself.
+	Severity CapturesManifestFindingSeverity `json:"severity"`
+	Subject  *string                         `json:"subject,omitempty"`
+}
+
+// CapturesManifestFindingLayer A capture's findings are the visual layer's.
+type CapturesManifestFindingLayer string
+
+// CapturesManifestFindingSchema defines model for CapturesManifestFinding.Schema.
+type CapturesManifestFindingSchema string
+
+// CapturesManifestFindingSeverity Always `warning`. A visual finding becomes eligible for
+// `error` only when the same fingerprint appears in two
+// consecutive captures (RFC 0005 §5.2), which only the server
+// can see, and a page may not grade itself.
+type CapturesManifestFindingSeverity string
 
 // CapturesManifestRegion Where a rendered message is, by `key` (a component's host element) or by `index` into `renders` (a marked t() string); exactly one of them.
 type CapturesManifestRegion struct {
@@ -7382,6 +7505,17 @@ type CreateCapturesMultipartBody struct {
 	AdditionalProperties map[string]openapi_types.File `json:"-"`
 }
 
+// ListCaptureFindingsParams defines parameters for ListCaptureFindings.
+type ListCaptureFindingsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Region One region of the capture (`r_0`), as `locus.region` names it.
+	Region *string `form:"region,omitempty" json:"region,omitempty"`
+}
+
 // GetCaptureImageParams defines parameters for GetCaptureImage.
 type GetCaptureImageParams struct {
 	// IfNoneMatch The `ETag` of a cached copy.
@@ -10310,6 +10444,24 @@ type ClientInterface interface {
 	// body is at most 200 MB: split a larger capture plan over several
 	// uploads (one per application, or per locale).
 	//
+	// A capture may carry the **visual probe pass's findings**
+	// (RFC 0005 §5): what the page measured about itself while it was
+	// still open. They are validated here and stored as ordinary
+	// quality findings, at layer `visual`, in one check run of the
+	// build's branch and commit — not with the capture. A page may
+	// only report what a page can see, at severity `warning` (only the
+	// server can promote a finding, and only when the same fingerprint
+	// appears in two consecutive captures), about a region that really
+	// is on that capture. The server completes the two members the
+	// page cannot know: the **fingerprint**, computed over the catalog
+	// message the key resolved to, and **`locus.capture`**. At most
+	// 500 findings per capture and 10 000 per upload
+	// (`too_many_findings`); a plan that finds more is split, as one
+	// over 200 MB is. The project's check policy decides what they are
+	// worth and whether they are computed at all: `visual: off` stores
+	// none. `findings` in the response says how many were stored, and
+	// `listCaptureFindings` reads them back.
+	//
 	// The upload records a build with `source` `capture`: whether it is
 	// of the default branch is the project's `settings.default_branch`.
 	// Region keys are resolved to message IDs now; the keys the catalog
@@ -10331,7 +10483,7 @@ type ClientInterface interface {
 	// CI). Problem codes: `invalid_request` (not a multipart body),
 	// `invalid_captures` (a malformed body or manifest, or parts that
 	// don't match it), `too_many_captures`, `too_many_regions`,
-	// `invalid_image`, `unknown_application` (400),
+	// `too_many_findings`, `invalid_image`, `unknown_application` (400),
 	// `payload_too_large`, `image_too_large`,
 	// `storage_quota_exceeded` (413), `rate_limited` (429),
 	// `storage_unavailable` (503).
@@ -10340,6 +10492,32 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/captures (the `CreateCaptures` operationId).
 	CreateCapturesWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListCaptureFindings The visual findings on one capture
+	//
+	// What the visual probe pass found on this screenshot
+	// (RFC 0005 §5), in the one finding shape every layer emits, with
+	// `locus.capture` and `locus.region` naming the box on the image:
+	// Studio crops the stored image around the region and outlines it,
+	// and `glossa capture --check` reads the same list.
+	//
+	// A capture's findings are read here and not through
+	// `listFindings`, which reads one check run — the run that saw
+	// this screenshot is the one that ingested it, while the project's
+	// newest run is usually a later check of the catalog, which never
+	// saw it.
+	//
+	// Waivers are applied on read, as everywhere: a waived finding is
+	// still listed, at severity `waived`, naming the waiver that
+	// accepted it. The order is stable — the run, then the region,
+	// then the row — and the cursor is that order's key, so a page
+	// never shifts. A capture with no findings, and one that was never
+	// probed, both read as an empty list: only a malformed capture ID
+	// is a `404`. Needs `catalog.read`. Problem codes:
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/findings (the `ListCaptureFindings` operationId).
+	ListCaptureFindings(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *ListCaptureFindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetCaptureImage A capture's image
 	//
@@ -15683,6 +15861,24 @@ func (c *Client) ListBranchProposals(ctx context.Context, tenant TenantPath, pro
 // body is at most 200 MB: split a larger capture plan over several
 // uploads (one per application, or per locale).
 //
+// A capture may carry the **visual probe pass's findings**
+// (RFC 0005 §5): what the page measured about itself while it was
+// still open. They are validated here and stored as ordinary
+// quality findings, at layer `visual`, in one check run of the
+// build's branch and commit — not with the capture. A page may
+// only report what a page can see, at severity `warning` (only the
+// server can promote a finding, and only when the same fingerprint
+// appears in two consecutive captures), about a region that really
+// is on that capture. The server completes the two members the
+// page cannot know: the **fingerprint**, computed over the catalog
+// message the key resolved to, and **`locus.capture`**. At most
+// 500 findings per capture and 10 000 per upload
+// (`too_many_findings`); a plan that finds more is split, as one
+// over 200 MB is. The project's check policy decides what they are
+// worth and whether they are computed at all: `visual: off` stores
+// none. `findings` in the response says how many were stored, and
+// `listCaptureFindings` reads them back.
+//
 // The upload records a build with `source` `capture`: whether it is
 // of the default branch is the project's `settings.default_branch`.
 // Region keys are resolved to message IDs now; the keys the catalog
@@ -15704,7 +15900,7 @@ func (c *Client) ListBranchProposals(ctx context.Context, tenant TenantPath, pro
 // CI). Problem codes: `invalid_request` (not a multipart body),
 // `invalid_captures` (a malformed body or manifest, or parts that
 // don't match it), `too_many_captures`, `too_many_regions`,
-// `invalid_image`, `unknown_application` (400),
+// `too_many_findings`, `invalid_image`, `unknown_application` (400),
 // `payload_too_large`, `image_too_large`,
 // `storage_quota_exceeded` (413), `rate_limited` (429),
 // `storage_unavailable` (503).
@@ -15714,6 +15910,42 @@ func (c *Client) ListBranchProposals(ctx context.Context, tenant TenantPath, pro
 // Corresponds with POST /v1/tenants/{tenant}/projects/{project}/captures (the `CreateCaptures` operationId).
 func (c *Client) CreateCapturesWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateCapturesRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListCaptureFindings The visual findings on one capture
+//
+// What the visual probe pass found on this screenshot
+// (RFC 0005 §5), in the one finding shape every layer emits, with
+// `locus.capture` and `locus.region` naming the box on the image:
+// Studio crops the stored image around the region and outlines it,
+// and `glossa capture --check` reads the same list.
+//
+// A capture's findings are read here and not through
+// `listFindings`, which reads one check run — the run that saw
+// this screenshot is the one that ingested it, while the project's
+// newest run is usually a later check of the catalog, which never
+// saw it.
+//
+// Waivers are applied on read, as everywhere: a waived finding is
+// still listed, at severity `waived`, naming the waiver that
+// accepted it. The order is stable — the run, then the region,
+// then the row — and the cursor is that order's key, so a page
+// never shifts. A capture with no findings, and one that was never
+// probed, both read as an empty list: only a malformed capture ID
+// is a `404`. Needs `catalog.read`. Problem codes:
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/findings (the `ListCaptureFindings` operationId).
+func (c *Client) ListCaptureFindings(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *ListCaptureFindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCaptureFindingsRequest(c.Server, tenant, project, capture, params)
 	if err != nil {
 		return nil, err
 	}
@@ -24737,6 +24969,105 @@ func NewCreateCapturesRequestWithBody(server string, tenant TenantPath, project 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListCaptureFindingsRequest constructs an http.Request for the ListCaptureFindings method
+func NewListCaptureFindingsRequest(server string, tenant TenantPath, project ProjectPath, capture CapturePath, params *ListCaptureFindingsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "capture", capture, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/captures/%s/findings", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -33965,6 +34296,24 @@ type ClientWithResponsesInterface interface {
 	// body is at most 200 MB: split a larger capture plan over several
 	// uploads (one per application, or per locale).
 	//
+	// A capture may carry the **visual probe pass's findings**
+	// (RFC 0005 §5): what the page measured about itself while it was
+	// still open. They are validated here and stored as ordinary
+	// quality findings, at layer `visual`, in one check run of the
+	// build's branch and commit — not with the capture. A page may
+	// only report what a page can see, at severity `warning` (only the
+	// server can promote a finding, and only when the same fingerprint
+	// appears in two consecutive captures), about a region that really
+	// is on that capture. The server completes the two members the
+	// page cannot know: the **fingerprint**, computed over the catalog
+	// message the key resolved to, and **`locus.capture`**. At most
+	// 500 findings per capture and 10 000 per upload
+	// (`too_many_findings`); a plan that finds more is split, as one
+	// over 200 MB is. The project's check policy decides what they are
+	// worth and whether they are computed at all: `visual: off` stores
+	// none. `findings` in the response says how many were stored, and
+	// `listCaptureFindings` reads them back.
+	//
 	// The upload records a build with `source` `capture`: whether it is
 	// of the default branch is the project's `settings.default_branch`.
 	// Region keys are resolved to message IDs now; the keys the catalog
@@ -33986,7 +34335,7 @@ type ClientWithResponsesInterface interface {
 	// CI). Problem codes: `invalid_request` (not a multipart body),
 	// `invalid_captures` (a malformed body or manifest, or parts that
 	// don't match it), `too_many_captures`, `too_many_regions`,
-	// `invalid_image`, `unknown_application` (400),
+	// `too_many_findings`, `invalid_image`, `unknown_application` (400),
 	// `payload_too_large`, `image_too_large`,
 	// `storage_quota_exceeded` (413), `rate_limited` (429),
 	// `storage_unavailable` (503).
@@ -33995,6 +34344,34 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/captures (the `CreateCaptures` operationId).
 	CreateCapturesWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCapturesResponse, error)
+
+	// ListCaptureFindingsWithResponse The visual findings on one capture
+	//
+	// What the visual probe pass found on this screenshot
+	// (RFC 0005 §5), in the one finding shape every layer emits, with
+	// `locus.capture` and `locus.region` naming the box on the image:
+	// Studio crops the stored image around the region and outlines it,
+	// and `glossa capture --check` reads the same list.
+	//
+	// A capture's findings are read here and not through
+	// `listFindings`, which reads one check run — the run that saw
+	// this screenshot is the one that ingested it, while the project's
+	// newest run is usually a later check of the catalog, which never
+	// saw it.
+	//
+	// Waivers are applied on read, as everywhere: a waived finding is
+	// still listed, at severity `waived`, naming the waiver that
+	// accepted it. The order is stable — the run, then the region,
+	// then the row — and the cursor is that order's key, so a page
+	// never shifts. A capture with no findings, and one that was never
+	// probed, both read as an empty list: only a malformed capture ID
+	// is a `404`. Needs `catalog.read`. Problem codes:
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/findings (the `ListCaptureFindings` operationId).
+	ListCaptureFindingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *ListCaptureFindingsParams, reqEditors ...RequestEditorFn) (*ListCaptureFindingsResponse, error)
 
 	// GetCaptureImageWithResponse A capture's image
 	//
@@ -43220,6 +43597,75 @@ func (r CreateCapturesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r CreateCapturesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListCaptureFindingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CaptureFindingList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListCaptureFindingsResponse) GetJSON200() *CaptureFindingList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListCaptureFindingsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListCaptureFindingsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListCaptureFindingsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListCaptureFindingsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListCaptureFindingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCaptureFindingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCaptureFindingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListCaptureFindingsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -53273,6 +53719,24 @@ func (c *ClientWithResponses) ListBranchProposalsWithResponse(ctx context.Contex
 // body is at most 200 MB: split a larger capture plan over several
 // uploads (one per application, or per locale).
 //
+// A capture may carry the **visual probe pass's findings**
+// (RFC 0005 §5): what the page measured about itself while it was
+// still open. They are validated here and stored as ordinary
+// quality findings, at layer `visual`, in one check run of the
+// build's branch and commit — not with the capture. A page may
+// only report what a page can see, at severity `warning` (only the
+// server can promote a finding, and only when the same fingerprint
+// appears in two consecutive captures), about a region that really
+// is on that capture. The server completes the two members the
+// page cannot know: the **fingerprint**, computed over the catalog
+// message the key resolved to, and **`locus.capture`**. At most
+// 500 findings per capture and 10 000 per upload
+// (`too_many_findings`); a plan that finds more is split, as one
+// over 200 MB is. The project's check policy decides what they are
+// worth and whether they are computed at all: `visual: off` stores
+// none. `findings` in the response says how many were stored, and
+// `listCaptureFindings` reads them back.
+//
 // The upload records a build with `source` `capture`: whether it is
 // of the default branch is the project's `settings.default_branch`.
 // Region keys are resolved to message IDs now; the keys the catalog
@@ -53294,7 +53758,7 @@ func (c *ClientWithResponses) ListBranchProposalsWithResponse(ctx context.Contex
 // CI). Problem codes: `invalid_request` (not a multipart body),
 // `invalid_captures` (a malformed body or manifest, or parts that
 // don't match it), `too_many_captures`, `too_many_regions`,
-// `invalid_image`, `unknown_application` (400),
+// `too_many_findings`, `invalid_image`, `unknown_application` (400),
 // `payload_too_large`, `image_too_large`,
 // `storage_quota_exceeded` (413), `rate_limited` (429),
 // `storage_unavailable` (503).
@@ -53308,6 +53772,40 @@ func (c *ClientWithResponses) CreateCapturesWithBodyWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseCreateCapturesResponse(rsp)
+}
+
+// ListCaptureFindingsWithResponse The visual findings on one capture
+//
+// What the visual probe pass found on this screenshot
+// (RFC 0005 §5), in the one finding shape every layer emits, with
+// `locus.capture` and `locus.region` naming the box on the image:
+// Studio crops the stored image around the region and outlines it,
+// and `glossa capture --check` reads the same list.
+//
+// A capture's findings are read here and not through
+// `listFindings`, which reads one check run — the run that saw
+// this screenshot is the one that ingested it, while the project's
+// newest run is usually a later check of the catalog, which never
+// saw it.
+//
+// Waivers are applied on read, as everywhere: a waived finding is
+// still listed, at severity `waived`, naming the waiver that
+// accepted it. The order is stable — the run, then the region,
+// then the row — and the cursor is that order's key, so a page
+// never shifts. A capture with no findings, and one that was never
+// probed, both read as an empty list: only a malformed capture ID
+// is a `404`. Needs `catalog.read`. Problem codes:
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/findings (the `ListCaptureFindings` operationId).
+func (c *ClientWithResponses) ListCaptureFindingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, capture CapturePath, params *ListCaptureFindingsParams, reqEditors ...RequestEditorFn) (*ListCaptureFindingsResponse, error) {
+	rsp, err := c.ListCaptureFindings(ctx, tenant, project, capture, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCaptureFindingsResponse(rsp)
 }
 
 // GetCaptureImageWithResponse A capture's image
@@ -62171,6 +62669,60 @@ func ParseCreateCapturesResponse(rsp *http.Response) (*CreateCapturesResponse, e
 			headers.IdempotentReplayed = &value
 		}
 		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListCaptureFindingsResponse parses an HTTP response from a ListCaptureFindingsWithResponse call
+func ParseListCaptureFindingsResponse(rsp *http.Response) (*ListCaptureFindingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCaptureFindingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CaptureFindingList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
 	}
 
 	return response, nil

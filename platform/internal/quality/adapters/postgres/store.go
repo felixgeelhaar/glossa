@@ -283,6 +283,33 @@ func (s *store) ListFindings(ctx context.Context, run domain.CheckRun, f app.Fin
 	return out, nil
 }
 
+// ListCaptureFindings pages the findings on one capture, optionally on
+// one of its regions. It reads across runs rather than through the
+// project's newest, because the run that saw this screenshot is the one
+// that ingested it (RFC 0005 §5).
+func (s *store) ListCaptureFindings(
+	ctx context.Context, project, capture uuid.UUID, region, after string, limit int, now time.Time,
+) ([]app.FindingRecord, error) {
+	rows, err := s.q.ListCaptureFindings(ctx, qualitysql.ListCaptureFindingsParams{
+		ProjectID: project, CaptureID: uuid.NullUUID{UUID: capture, Valid: true}, Region: region,
+		Now: now, After: after, MaxRows: int32Of(limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.FindingRecord, len(rows))
+	for i, r := range rows {
+		// The two queries select the same columns in the same order, so
+		// one mapper reads both rows.
+		rec, err := finding(qualitysql.ListRunFindingsRow(r))
+		if err != nil {
+			return nil, err
+		}
+		out[i] = rec
+	}
+	return out, nil
+}
+
 func finding(r qualitysql.ListRunFindingsRow) (app.FindingRecord, error) {
 	f := domain.Finding{
 		Schema: domain.Schema, Fingerprint: r.Fingerprint, Layer: domain.Layer(r.Layer), Code: r.Code,

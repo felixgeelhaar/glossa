@@ -243,6 +243,42 @@ func (a *API) ListFindings(ctx context.Context, req apiv1.ListFindingsRequestObj
 	return out, nil
 }
 
+// ListCaptureFindings pages the visual findings on one capture, with
+// today's waivers applied: what Studio outlines on the stored
+// screenshot (RFC 0005 §5.2).
+//
+// A capture that carries no findings — and one nobody ever probed —
+// reads as an empty page, because "nothing was found here" and "nothing
+// looked here" are both true statements about a capture Quality holds
+// no findings for, and neither is a 404. Only an ID that cannot name a
+// capture is.
+func (a *API) ListCaptureFindings(
+	ctx context.Context, req apiv1.ListCaptureFindingsRequestObject,
+) (apiv1.ListCaptureFindingsResponseObject, error) {
+	project, err := projectID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	capture, err := pathID(req.Capture, app.ErrCaptureNotFound)
+	if err != nil {
+		return nil, err
+	}
+	page, err := pagination.Parse(req.Params.PageSize, req.Params.PageToken)
+	if err != nil {
+		return nil, err
+	}
+	rows, next, err := a.svc.ListCaptureFindings(ctx, project,
+		app.CaptureFindingQuery{Capture: capture, Region: deref(req.Params.Region)}, page)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := apiv1.ListCaptureFindings200JSONResponse{Items: make([]apiv1.Finding, len(rows)), NextPageToken: next}
+	for i, f := range rows {
+		out.Items[i] = toFinding(f.Finding)
+	}
+	return out, nil
+}
+
 // ── waivers ─────────────────────────────────────────────────────────
 
 func toWaiver(w app.WaiverRecord) apiv1.Waiver {

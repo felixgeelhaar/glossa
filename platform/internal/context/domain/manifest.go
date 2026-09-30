@@ -77,6 +77,11 @@ type DocumentCapture struct {
 	Image    DocumentImage    `json:"image"`
 	Renders  []DocumentRender `json:"renders"`
 	Regions  []DocumentRegion `json:"regions"`
+	// Findings is what the visual probe pass found on this capture
+	// (RFC 0005 §5). Absent where the capture was taken without probes,
+	// and omitted from the canonical form when it is, so a manifest
+	// written before the probe pass keeps the digest it had.
+	Findings []DocumentFinding `json:"findings,omitempty"`
 }
 
 // DocumentViewport is a capture's viewport in CSS pixels.
@@ -145,13 +150,28 @@ func (u CaptureUpload) Parts() []Image {
 	return out
 }
 
-// Keys returns the distinct keys of every capture's regions.
+// Keys returns the distinct keys of every capture's regions and visual
+// findings: what one lookup resolves to message IDs at ingest.
 func (u CaptureUpload) Keys() []string {
 	var all []Region
 	for _, c := range u.Captures {
 		all = append(all, c.Regions...)
+		for _, f := range c.Findings {
+			if f.Key != "" {
+				all = append(all, Region{Key: f.Key})
+			}
+		}
 	}
 	return RegionKeys(all)
+}
+
+// FindingCount is how many visual findings the upload carries.
+func (u CaptureUpload) FindingCount() int {
+	n := 0
+	for _, c := range u.Captures {
+		n += len(c.Findings)
+	}
+	return n
 }
 
 // ParseCaptures reads and validates a glossa.captures/v1 manifest by
@@ -206,6 +226,7 @@ func (doc CapturesDocument) validate() (CaptureUpload, error) {
 	up := CaptureUpload{Upload: header, Captures: make([]CaptureInput, len(doc.Captures))}
 	shots := map[shot]bool{}
 	images := map[Digest]Image{}
+	findings := 0
 	for i, dc := range doc.Captures {
 		c, err := dc.parse()
 		if err != nil {
@@ -222,6 +243,14 @@ func (doc CapturesDocument) validate() (CaptureUpload, error) {
 		}
 		images[c.Image.Digest] = c.Image
 		up.Captures[i] = c
+		// One upload becomes one check run, and a run holds at most
+		// 10 000 findings (RFC 0005 §10). A plan that finds more is
+		// split, as one past 200 MB is; truncating would make the number
+		// a dashboard shows untrue.
+		if findings += len(c.Findings); findings > MaxFindingsPerUpload {
+			return CaptureUpload{}, fmt.Errorf("%w: an upload carries at most %d visual findings; split the capture plan",
+				ErrTooManyFindings, MaxFindingsPerUpload)
+		}
 	}
 	return up, nil
 }
@@ -229,7 +258,7 @@ func (doc CapturesDocument) validate() (CaptureUpload, error) {
 // wrapAt places err at a path of the manifest; the limits' own errors
 // stay as they are.
 func wrapAt(path string, err error) error {
-	if errors.Is(err, ErrTooManyRegions) {
+	if errors.Is(err, ErrTooManyRegions) || errors.Is(err, ErrTooManyFindings) {
 		return err
 	}
 	return fmt.Errorf("%w: %s: %v", ErrInvalidCaptures, path, err)
@@ -269,13 +298,39 @@ func (dc DocumentCapture) parse() (CaptureInput, error) {
 			return CaptureInput{}, fmt.Errorf("regions[%d]: %v", i, err)
 		}
 	}
+	findings, err := dc.findings(len(regions))
+	if err != nil {
+		return CaptureInput{}, err
+	}
 	in := CaptureInput{
 		Route: dc.Route, Viewport: Viewport{Width: dc.Viewport.Width, Height: dc.Viewport.Height}, Locale: locale,
-		Image: img, Regions: regions,
+		Image: img, Regions: regions, Findings: findings,
 	}
 	// The domain's own rules (viewports of at most 10 000 pixels a side,
 	// images of at most 40 megapixels) apply to every capture.
 	return in, in.validate()
+}
+
+// findings validates a capture's visual findings against the regions it
+// carries. A capture with no findings member has none: the probe pass
+// is optional, and a capture taken without it says nothing about
+// whether anything on it was clipped.
+func (dc DocumentCapture) findings(regions int) ([]VisualFinding, error) {
+	if len(dc.Findings) == 0 {
+		return nil, nil
+	}
+	if len(dc.Findings) > MaxFindingsPerCapture {
+		return nil, fmt.Errorf("%w: a capture carries at most %d visual findings", ErrTooManyFindings, MaxFindingsPerCapture)
+	}
+	out := make([]VisualFinding, len(dc.Findings))
+	for i, df := range dc.Findings {
+		f, err := df.parse(regions)
+		if err != nil {
+			return nil, fmt.Errorf("findings[%d]: %v", i, err)
+		}
+		out[i] = f
+	}
+	return out, nil
 }
 
 func validURL(s string) bool {

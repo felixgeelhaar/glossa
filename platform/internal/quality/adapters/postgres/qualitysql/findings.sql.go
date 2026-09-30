@@ -209,6 +209,154 @@ func (q *Queries) InsertFindings(ctx context.Context, arg InsertFindingsParams) 
 	return err
 }
 
+const listCaptureFindings = `-- name: ListCaptureFindings :many
+WITH graded AS (
+    SELECT f.id, f.fingerprint, f.layer, f.code, f.severity, f.message_id, f.message_key, f.locale, f.namespace,
+           f.translation_revision, f.file, f.line, f.col, f.route, f.component, f.capture_id, f.region,
+           f.span_side, f.span_start, f.span_end, f.explanation, f.subject, f.detail, f.evidence, f.fix,
+           f.source_revision,
+           coalesce(w.id, '00000000-0000-0000-0000-000000000000'::uuid) AS waiver_id,
+           (w.id IS NOT NULL)::boolean AS is_waived,
+           (CASE WHEN w.id IS NOT NULL THEN 'waived' ELSE f.severity END)::text AS effective_severity,
+           concat_ws(E'\x01', r.id::text, f.region, f.id::text) AS sort_key
+    FROM quality_findings f
+    JOIN quality_check_runs r ON r.id = f.run_id
+    LEFT JOIN LATERAL (
+        SELECT w.id
+        FROM quality_waivers w
+        WHERE w.project_id = f.project_id AND w.fingerprint = f.fingerprint AND w.revoked_at IS NULL
+          AND (w.expires_at IS NULL OR w.expires_at > $4::timestamptz)
+          AND (w.scope = 'project' OR w.ref = r.ref)
+          AND (f.source_revision IS NULL OR f.source_revision = w.source_revision)
+        ORDER BY (w.scope = 'branch') DESC, w.created_at DESC, w.id
+        LIMIT 1
+    ) w ON true
+    WHERE f.project_id = $5 AND f.capture_id = $6
+)
+SELECT id, fingerprint, layer, code, severity, message_id, message_key, locale, namespace, translation_revision, file, line, col, route, component, capture_id, region, span_side, span_start, span_end, explanation, subject, detail, evidence, fix, source_revision, waiver_id, is_waived, effective_severity, sort_key FROM graded
+WHERE ($1::text = '' OR region = $1::text)
+  AND ($2::text = '' OR sort_key COLLATE "C" > $2::text)
+ORDER BY sort_key COLLATE "C"
+LIMIT $3
+`
+
+type ListCaptureFindingsParams struct {
+	Region    string
+	After     string
+	MaxRows   int32
+	Now       time.Time
+	ProjectID uuid.UUID
+	CaptureID uuid.NullUUID
+}
+
+type ListCaptureFindingsRow struct {
+	ID                  uuid.UUID
+	Fingerprint         string
+	Layer               string
+	Code                string
+	Severity            string
+	MessageID           uuid.NullUUID
+	MessageKey          string
+	Locale              string
+	Namespace           string
+	TranslationRevision uuid.NullUUID
+	File                string
+	Line                pgtype.Int4
+	Col                 pgtype.Int4
+	Route               string
+	Component           string
+	CaptureID           uuid.NullUUID
+	Region              string
+	SpanSide            pgtype.Text
+	SpanStart           pgtype.Int4
+	SpanEnd             pgtype.Int4
+	Explanation         string
+	Subject             string
+	Detail              string
+	Evidence            []byte
+	Fix                 []byte
+	SourceRevision      pgtype.Int4
+	WaiverID            uuid.UUID
+	IsWaived            bool
+	EffectiveSeverity   string
+	SortKey             string
+}
+
+// A page of the findings on one capture (RFC 0005 §5.2, §13 wave 4),
+// graded against the waivers that are live now, exactly as a run's
+// findings are.
+//
+// A capture's findings are read on their own, not through the project's
+// newest run: they were recorded by the run that ingested that capture,
+// and the project's newest run is usually a later check of the catalog
+// that never saw this screenshot. Studio asks "what is wrong on this
+// picture", and `region` narrows the answer to one outlined box.
+//
+// The waiver's reach is the ref of the run the finding belongs to,
+// which the join carries, so a branch-scoped waiver applies here for
+// the same branch it applies for anywhere else.
+//
+// The order key is byte-ordered ("C") and unique — the run, then the
+// region, then the row — and it is both what the rows are ordered by
+// and what the cursor carries, so a page never shifts.
+func (q *Queries) ListCaptureFindings(ctx context.Context, arg ListCaptureFindingsParams) ([]ListCaptureFindingsRow, error) {
+	rows, err := q.db.Query(ctx, listCaptureFindings,
+		arg.Region,
+		arg.After,
+		arg.MaxRows,
+		arg.Now,
+		arg.ProjectID,
+		arg.CaptureID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCaptureFindingsRow
+	for rows.Next() {
+		var i ListCaptureFindingsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Fingerprint,
+			&i.Layer,
+			&i.Code,
+			&i.Severity,
+			&i.MessageID,
+			&i.MessageKey,
+			&i.Locale,
+			&i.Namespace,
+			&i.TranslationRevision,
+			&i.File,
+			&i.Line,
+			&i.Col,
+			&i.Route,
+			&i.Component,
+			&i.CaptureID,
+			&i.Region,
+			&i.SpanSide,
+			&i.SpanStart,
+			&i.SpanEnd,
+			&i.Explanation,
+			&i.Subject,
+			&i.Detail,
+			&i.Evidence,
+			&i.Fix,
+			&i.SourceRevision,
+			&i.WaiverID,
+			&i.IsWaived,
+			&i.EffectiveSeverity,
+			&i.SortKey,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRunFindings = `-- name: ListRunFindings :many
 WITH graded AS (
     SELECT f.id, f.fingerprint, f.layer, f.code, f.severity, f.message_id, f.message_key, f.locale, f.namespace,

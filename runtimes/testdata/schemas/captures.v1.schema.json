@@ -79,7 +79,46 @@
         "regions": {
           "type": "array",
           "items": { "$ref": "#/$defs/region" }
+        },
+        "findings": {
+          "description": "What the visual probe pass found on this capture (RFC 0005 §5), measured live in the page while it was open. Optional: a capture taken without probes carries none, and an empty list means the probes ran and found nothing. At most 500 per capture.",
+          "type": "array",
+          "maxItems": 500,
+          "items": { "$ref": "#/$defs/finding" }
         }
+      }
+    },
+    "finding": {
+      "description": "One glossa.finding/v1 finding as the page can write it (finding.v1.schema.json). Two members of that shape are deliberately absent, because the page cannot know them and a guess would be worse than a gap: `fingerprint`, which hashes the catalog message ID a browser never has, and `locus.capture`, which the server mints. The ingest completes both.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "layer", "code", "severity", "locus", "message"],
+      "properties": {
+        "schema": { "const": "glossa.finding/v1" },
+        "layer": { "description": "A capture's findings are the visual layer's.", "const": "visual" },
+        "code": { "$ref": "https://glossa.dev/schemas/finding/v1.json#/properties/code" },
+        "severity": {
+          "description": "Always `warning`: a visual finding becomes eligible for `error` only when the same fingerprint appears in two consecutive captures (RFC 0005 §5.2), which only the server can see, and a page may not grade itself.",
+          "const": "warning"
+        },
+        "locus": {
+          "description": "As much of the finding's locus as the page knows. The server adds the capture, and resolves the key to a catalog message.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "key": { "$ref": "https://glossa.dev/schemas/usages/v1.json#/$defs/usage/properties/key" },
+            "locale": { "$ref": "#/$defs/capture/properties/locale" },
+            "region": {
+              "description": "`r_<index into this capture's regions>`; the ingest pairs it with the capture it is on.",
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^r_(?:0|[1-9][0-9]*)$"
+            }
+          }
+        },
+        "message": { "$ref": "https://glossa.dev/schemas/finding/v1.json#/properties/message" },
+        "subject": { "$ref": "https://glossa.dev/schemas/finding/v1.json#/properties/subject" },
+        "evidence": { "$ref": "https://glossa.dev/schemas/finding/v1.json#/properties/evidence" }
       }
     },
     "region": {

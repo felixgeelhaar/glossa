@@ -120,6 +120,10 @@ type CaptureInput struct {
 	Locale   bcp47.Tag
 	Image    Image
 	Regions  []Region
+	// Findings are the visual probe pass's findings about this capture
+	// (RFC 0005 §5). They are Quality's, not the capture's: NewCapture
+	// leaves them here, and the ingest hands them on.
+	Findings []VisualFinding
 }
 
 func (in CaptureInput) validate() error {

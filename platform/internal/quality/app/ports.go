@@ -21,6 +21,11 @@ var (
 	ErrCheckRunNotFound = errors.New("quality: no such check run in the project")
 	// ErrWaiverNotFound is a waiver that isn't this project's.
 	ErrWaiverNotFound = errors.New("quality: no such waiver in the project")
+	// ErrCaptureNotFound is a capture the path cannot name. Quality
+	// holds no captures — Context does — so this is only ever a
+	// malformed ID: a capture with no findings reads as an empty list,
+	// which is the true answer.
+	ErrCaptureNotFound = errors.New("quality: no such capture")
 	// ErrInvalidQuery means a list's filter is malformed.
 	ErrInvalidQuery = errors.New("quality: invalid query")
 	// ErrPreGradedFinding is a finding handed in at severity `waived`.
@@ -220,6 +225,12 @@ type Store interface {
 	// ListFindings pages a run's findings, graded against the waivers
 	// live at now and ordered stably.
 	ListFindings(ctx context.Context, run domain.CheckRun, f FindingFilter, after string, limit int, now time.Time) ([]FindingRecord, error)
+	// ListCaptureFindings pages the findings on one capture — all of
+	// them, or one region's — across runs, graded against the waivers
+	// live at now and ordered stably.
+	ListCaptureFindings(
+		ctx context.Context, project, capture uuid.UUID, region, after string, limit int, now time.Time,
+	) ([]FindingRecord, error)
 	// CountFindings sums a run's findings as they stand at now.
 	CountFindings(ctx context.Context, run domain.CheckRun, now time.Time) (domain.Counts, error)
 	// LatestFinding is the most recent stored finding carrying a

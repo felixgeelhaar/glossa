@@ -24,7 +24,10 @@ func schemaErrors(t *testing.T, raw []byte) error {
 	c := jsonschema.NewCompiler()
 	c.AssertFormat()
 	for id, name := range map[string]string{
-		"https://glossa.dev/schemas/usages/v1.json":   "usages.v1.schema.json",
+		"https://glossa.dev/schemas/usages/v1.json": "usages.v1.schema.json",
+		// A capture's findings are glossa.finding/v1 findings, minus the
+		// two members the page cannot know (RFC 0005 §5).
+		"https://glossa.dev/schemas/finding/v1.json":  "finding.v1.schema.json",
 		"https://glossa.dev/schemas/captures/v1.json": "captures.v1.schema.json",
 	} {
 		f, err := os.Open(filepath.Join(dir, name))
