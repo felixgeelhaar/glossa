@@ -390,6 +390,16 @@ func words(s string) []string {
 
 // mentions reports whether text has a word starting with term (the
 // server tolerates short inflections).
+// termSpan is where term occurs in text, in bytes. mentions() found it
+// by word prefix, so the span is the term's own length from there.
+func termSpan(text, term string) (int, int) {
+	i := strings.Index(strings.ToLower(text), strings.ToLower(term))
+	if i < 0 {
+		return 0, min(len(term), len(text))
+	}
+	return i, i + len(term)
+}
+
 func mentions(text, term string) bool {
 	for _, w := range words(text) {
 		if strings.HasPrefix(w, strings.ToLower(term)) && len(w)-len(term) <= 2 {
@@ -496,8 +506,14 @@ func (f *fakeServer) termFindings(source, sourceLocale, target, targetLocale str
 				if t.status == "deprecated" {
 					sev = "warning"
 				}
-				findings = append(findings, map[string]any{"code": "term_forbidden", "severity": sev, "side": "target", "text": t.text,
-					"start": 0, "end": len(t.text), "suggestions": suggestions, "concept_id": c.id, "term_id": t.id,
+				// The offsets are where the term actually is, as the real
+				// termbase reports them: a span that pointed at the start
+				// of every string would make anything reading one — the
+				// overlay's underline, `glossa check --fix` — right only
+				// by accident.
+				start, end := termSpan(q.Target, t.text)
+				findings = append(findings, map[string]any{"code": "term_forbidden", "severity": sev, "side": "target", "text": q.Target[start:end],
+					"start": start, "end": end, "suggestions": suggestions, "concept_id": c.id, "term_id": t.id,
 					"message": fmt.Sprintf("%q is %s", t.text, t.status)})
 			}
 		}
