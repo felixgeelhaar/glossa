@@ -139,8 +139,14 @@ func TestCheckSaysWhenItCannotReadTheWaivers(t *testing.T) {
 	w.run("waive", theFinding(t, before).Fingerprint, "--reason", "German ships next quarter").want(t, ExitOK)
 	w.json(&checkJSON{}, "check").want(t, ExitOK)
 
+	// Exit 4: offline the style layer has no effective style guide to
+	// grade against either, and a run that lost a layer says so. What
+	// this test is about is the waivers, and nothing failed the policy.
 	var out checkJSON
-	w.json(&out, "check", "--offline").want(t, ExitOK)
+	w.json(&out, "check", "--offline").want(t, ExitPartial)
+	if !out.Passed {
+		t.Errorf("an unread waiver list is not a failed check: %+v", out)
+	}
 	if out.Waivers.Applied || out.Waivers.Waived != 0 || out.Waivers.Live != 0 {
 		t.Fatalf("waivers = %+v, want them unapplied offline", out.Waivers)
 	}
@@ -148,7 +154,7 @@ func TestCheckSaysWhenItCannotReadTheWaivers(t *testing.T) {
 		t.Errorf("why = %q, want it to say what is out of reach", out.Waivers.Why)
 	}
 	r := w.run("check", "--offline")
-	r.want(t, ExitOK)
+	r.want(t, ExitPartial)
 	if !strings.Contains(r.stdout, "waivers were not applied") {
 		t.Errorf("output is silent about the waivers it could not read:\n%s", r.stdout)
 	}

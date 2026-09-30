@@ -57,6 +57,10 @@ type Policy = checkpolicy.Policy
 // Checker is one layer of QA.
 type Checker = layers.Checker
 
+// StyleGuide is the mechanical half of a locale's effective style
+// guide, which is all the style layer grades (RFC 0005 §3.2).
+type StyleGuide = layers.StyleGuide
+
 // Default is the deterministic QA every check runs.
 func Default() []Checker { return layers.Default() }
 
@@ -82,6 +86,28 @@ func RunProject(p *layers.Project, policy Policy, checkers ...Checker) Report {
 	return qualityapp.Run(p, policy, checkers...)
 }
 
+// Option is something a run knows about the project beyond its
+// snapshot.
+type Option func(*layers.Project)
+
+// WithStyles carries the effective style guides the run resolved, by
+// locale — what the style layer grades against, and what it has nothing
+// to say without.
+//
+// The server's own snapshot port fills the same map through its own
+// Styles port (quality/adapters/snapshot.WithStyles); this is the
+// terminal's side of it, so the two surfaces grade one project against
+// one set of guides. A locale missing from the map is a locale with no
+// mechanical guide, which the layer reads as "nothing to check against"
+// — not as a clean bill.
+func WithStyles(g map[string]StyleGuide) Option {
+	return func(p *layers.Project) {
+		if len(g) > 0 {
+			p.Styles = g
+		}
+	}
+}
+
 // Project is the snapshot as a layer sees it.
 //
 // The catalog message IDs come with it. A snapshot read from the server
@@ -92,7 +118,11 @@ func RunProject(p *layers.Project, policy Policy, checkers ...Checker) Report {
 // A snapshot read from the local catalogs has no IDs, and there a
 // finding is fingerprinted by key — the honest answer offline, where no
 // catalog said what the key is called.
-func Project(s *snapshot.Snapshot) *layers.Project {
+//
+// What a snapshot cannot carry comes in as an Option: the effective
+// style guides are resolved per locale against the server, not read out
+// of the catalogs, so a run that has them hands them over here.
+func Project(s *snapshot.Snapshot, opts ...Option) *layers.Project {
 	p := &layers.Project{
 		Origin: s.Origin, SourceLocale: s.SourceLocale,
 		Translations: make(map[string]map[string]layers.Translation, len(s.Translations)),
@@ -124,6 +154,9 @@ func Project(s *snapshot.Snapshot) *layers.Project {
 			}
 		}
 		p.Translations[locale] = out
+	}
+	for _, o := range opts {
+		o(p)
 	}
 	return p
 }

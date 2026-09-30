@@ -141,7 +141,10 @@ func TestCheckOfflineUsesTheLocalPolicy(t *testing.T) {
 	if doc.Policy.Source != "default" || doc.Policy.FailOn != "error" {
 		t.Errorf("policy = %+v", doc.Policy)
 	}
-	w.json(&doc, "check", "--offline", "--fail-on=never").want(t, ExitOK)
+	// Nothing fails the run any more; it exits 4 rather than 0 because
+	// offline the style layer has no effective style guide to grade
+	// against, and a layer that could not run is named.
+	w.json(&doc, "check", "--offline", "--fail-on=never").want(t, ExitPartial)
 	if doc.Policy.FailOn != "never" {
 		t.Errorf("fail_on = %q, want never", doc.Policy.FailOn)
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
 )
 
 // `glossa check` on the Quality library (RFC 0005 §13 wave 3).
@@ -254,10 +255,14 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	if err != nil {
 		return err
 	}
+	// The style layer's guides are resolved after the policy, because
+	// the policy decides whether the layer runs at all and a layer
+	// nobody is going to compute is not worth a read per locale.
+	inv.readStyles(ctx, run, f, policy)
 	checkers, unavailable := run.checkers(f)
 	run.unavailable = append(run.unavailable, unavailable...)
 	run.startedAt = time.Now().UTC()
-	report := run.waive(qa.Run(run.snapshot, policy, checkers...), policy)
+	report := run.waive(qa.RunProject(run.project(), policy, checkers...), policy)
 	out := checkDocument(run, report, policy, overrides, f)
 	// The record is filed before --fix edits anything: the check graded
 	// what it found, and a record of the fixed catalog would be a record
@@ -334,6 +339,11 @@ type checkSubject struct {
 	// extra are the layers only the server can compute, already
 	// computed (terminology).
 	extra []qa.Checker
+	// styles are the effective style guides by target locale, which the
+	// style layer grades against and only the server can resolve
+	// (check_style.go). nil where this run could not read them, and the
+	// layer is named in unavailable rather than left to look clean.
+	styles map[string]qa.StyleGuide
 	// unavailable are the layers the run was asked for and could not
 	// compute.
 	unavailable []unavailableJSON
@@ -363,6 +373,12 @@ type checkSubject struct {
 	startedAt time.Time
 }
 
+// project is what this run grades: the snapshot, plus what a snapshot
+// cannot carry.
+func (s *checkSubject) project() *layers.Project {
+	return qa.Project(s.snapshot, qa.WithStyles(s.styles))
+}
+
 // checkers are the layers this run computes, and the ones it was asked
 // for and cannot.
 //
@@ -375,6 +391,13 @@ func (s *checkSubject) checkers(f checkFlags) ([]qa.Checker, []unavailableJSON) 
 	available := append(qa.Default(), s.extra...)
 	var out []qa.Checker
 	for _, c := range available {
+		// A layer already named as one this run could not compute does
+		// not run: a checker with nothing to check against would report
+		// nothing, and "nothing" from a layer that never ran is exactly
+		// the green nobody may be shown (RFC 0005 §4.4).
+		if hasUnavailable(s.unavailable, c.Layer()) {
+			continue
+		}
 		if f.wantsLayer(c.Layer()) {
 			out = append(out, c)
 			continue

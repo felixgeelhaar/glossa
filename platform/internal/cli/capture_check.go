@@ -52,6 +52,12 @@ func (inv *invocation) startCheck(ctx context.Context, cfg *config.Config) (*cap
 	if err != nil {
 		return nil, err
 	}
+	// The style layer's guides, on the same terms as `glossa check`'s
+	// (check_style.go): read here, before Chrome starts, because a run
+	// that cannot compute a layer should say so before it captures forty
+	// pages. Without them this command would grade every project's style
+	// against nothing and call it clean.
+	inv.readStyles(ctx, run, f, policy)
 	return &captureCheck{run: run, policy: policy, overrides: overrides, flags: f}, nil
 }
 
@@ -64,7 +70,7 @@ func (inv *invocation) startCheck(ctx context.Context, cfg *config.Config) (*cap
 // behind for the next one.
 func (inv *invocation) finishCheck(cfg *config.Config, application string, out *captureJSON) *checkJSON {
 	c := out.checked
-	project := qa.Project(c.run.snapshot)
+	project := c.run.project()
 	// The boxes this run measured are the length layer's layout budget
 	// (RFC 0005 §3.3): a region's width over the characters that filled
 	// it is the advance that region's font gave a character, and that
