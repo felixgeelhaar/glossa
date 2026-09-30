@@ -59,6 +59,7 @@ const tabs = [
   { name: "terms", label: strings.nav.termbase },
   { name: "style", label: strings.nav.style },
   { name: "locales", label: strings.nav.locales },
+  { name: "quality", label: strings.nav.quality },
   { name: "releases", label: strings.nav.releases },
   { name: "files", label: strings.nav.files },
   { name: "ai", label: strings.nav.ai },
