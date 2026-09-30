@@ -650,6 +650,20 @@ which covers CLDR descendants); approving or rejecting
 `translations.review` for the locale. No token scope grants review, so
 with `review_required` a token's writes wait for a human.
 
+One narrow path does not ask for `translations.read`:
+`Service.CheckPolicyLocaleCodes`, reached only through
+`coverage.PolicyLocales`, which Catalog validates a check policy's
+`require_complete` against while saving it. The caller has already
+proved `catalog.write` on the project, and that a locale it named
+exists is that write's own invariant — not a read of Localization, and
+it discloses nothing the caller could not learn from the
+`invalid_check_policy` it would get back. It is what lets CI import a
+policy that names locales with the CI ceiling (`catalog.read` and
+`catalog.write`). It returns locale codes and nothing else, it runs in
+tenant scope like every other read, and it is not a general way around
+`translations.read`: everything a caller reads still goes through
+`ListLocales`.
+
 ### What Release reads
 
 A release is built from two application reads, each one tenant

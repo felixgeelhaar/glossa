@@ -227,6 +227,41 @@ func TestWaivedFindingsSurviveEveryCandidate(t *testing.T) {
 	}
 }
 
+// TestCIImportsAPolicyThatNamesLocales is `glossa policy import` from
+// CI, the whole way down: a CI token holds catalog.read and
+// catalog.write and nothing else, and a require_complete that names
+// locales has to save with exactly that. Validating those locales
+// against Localization is the write's own invariant check, not a read
+// the caller has to be entitled to separately — but it is still a
+// check, so a locale the project lacks is refused.
+func TestCIImportsAPolicyThatNamesLocales(t *testing.T) {
+	h := newHarness(t)
+	project := h.project(t, "demo")
+	h.addLocale(t, project, "de")
+	ci := h.ci()
+
+	saved, err := h.svc.SavePolicy(ci, project, app.SavePolicy{
+		Policy: checkpolicy.Policy{RequireComplete: []string{"de"}, FailOn: checkpolicy.Error},
+	})
+	if err != nil {
+		t.Fatalf("CI imports a policy naming locales: %v", err)
+	}
+	if !saved.State.Policy.Requires("de") || saved.State.Policy.Requires("fr") {
+		t.Errorf("saved policy requires %v", saved.State.Policy.RequireComplete)
+	}
+	state, err := h.svc.CheckPolicy(ci, project)
+	if err != nil || !state.Policy.Requires("de") {
+		t.Errorf("CI reads back %+v, %v", state.Policy, err)
+	}
+
+	_, err = h.svc.SavePolicy(ci, project, app.SavePolicy{
+		Policy: checkpolicy.Policy{RequireComplete: []string{"ja"}, FailOn: checkpolicy.Error},
+	})
+	if !errors.Is(err, checkpolicy.ErrUnknownLocale) {
+		t.Errorf("CI names a locale the project lacks = %v, want ErrUnknownLocale", err)
+	}
+}
+
 // TestPolicyWriteNeedsCatalogWrite: changing what a project's check
 // concludes is a catalog write; reading the policy is a catalog read.
 func TestPolicyWriteNeedsCatalogWrite(t *testing.T) {

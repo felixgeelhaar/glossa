@@ -182,6 +182,61 @@ func (s *Service) ListLocales(ctx context.Context, project uuid.UUID, page pagin
 	return items, next, nil
 }
 
+// CheckPolicyLocaleCodes lists a project's locale codes, the source
+// locale included, for one purpose: the invariant check inside another
+// context's own write. Catalog validates a check policy's
+// require_complete against the project's locales rather than against
+// its own tables, because locales are Localization's (RFC 0002 §4), and
+// that check runs while the caller is saving the policy.
+//
+// It checks catalog.write — the permission the write it serves has
+// already proved — and deliberately not translations.read. Checking
+// that a locale a writer named exists is an internal invariant, not a
+// user-facing read: it discloses nothing the caller could not learn by
+// saving the policy and reading `invalid_check_policy` back. Requiring
+// translations.read on top would mean a CI token (catalog.read and
+// catalog.write, the whole CI ceiling) could not write a policy naming
+// locales, which is policy-as-code's whole point.
+//
+// It is narrow on purpose and may not be widened. It returns locale
+// codes and nothing else — no direction, no timestamps, no counts and
+// no translated text — and it runs in tenant scope like every other
+// read, so row-level security still confines it. It is not a general
+// way around translations.read: anything a caller *reads* goes through
+// ListLocales, which keeps asking for it.
+func (s *Service) CheckPolicyLocaleCodes(ctx context.Context, project uuid.UUID) ([]string, error) {
+	if err := authz.Require(ctx, authz.CatalogWrite); err != nil {
+		return nil, err
+	}
+	p, err := s.catalog.Project(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+	var codes []string
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		ls, err := st.AllLocales(ctx, project)
+		if err != nil {
+			return err
+		}
+		codes = make([]string, 0, len(ls)+1)
+		for _, l := range ls {
+			codes = append(codes, l.Code.String())
+		}
+		// The source locale exists from the project's creation, even
+		// while the row that records it hasn't been written yet
+		// (ListLocales says the same).
+		if !slices.Contains(codes, p.SourceLocale.String()) {
+			codes = append(codes, p.SourceLocale.String())
+		}
+		slices.Sort(codes)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return codes, nil
+}
+
 func sortedLocales(ls []domain.Locale) []domain.Locale {
 	slices.SortFunc(ls, func(a, b domain.Locale) int { return strings.Compare(a.Code.String(), b.Code.String()) })
 	return ls

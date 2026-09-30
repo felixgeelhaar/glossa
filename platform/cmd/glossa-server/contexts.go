@@ -265,7 +265,13 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	translationPort := coverage.New(localization)
 	catalog.SetCoverage(translationPort)
 	catalog.SetImpact(translationPort)
-	catalog.SetLocales(translationPort)
+	// The locales a check policy's require_complete may name are
+	// validated through a port of their own, not through translationPort:
+	// the check belongs to the catalog.write that is saving the policy,
+	// so it must not also demand translations.read (a CI token holds
+	// catalog.read and catalog.write, and policy-as-code is a CI job).
+	// coverage.PolicyLocales says what that path may not be used for.
+	catalog.SetLocales(coverage.NewPolicyLocales(localization))
 	catalog.SetProjection(projection.New(localization))
 	if err := localization.Subscribe(events); err != nil {
 		return contexts{}, err

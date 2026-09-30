@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/coverage"
 	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
@@ -20,6 +21,9 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	localizationcatalog "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/catalog"
+	localizationpg "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/postgres"
+	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
 	qualitycatalog "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/catalog"
 	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
@@ -50,6 +54,7 @@ func (c *clock) advance(d time.Duration) { c.t = c.t.Add(d) }
 // harness wires Catalog and Quality the way the composition root does.
 type harness struct {
 	catalog *catalogapp.Service
+	locales *localizationapp.Service
 	svc     *app.Service
 	tenant  tenancy.ID
 	clock   *clock
@@ -73,8 +78,13 @@ func harnessFor(t *testing.T, slug string) *harness {
 	uow := db.NewUnitOfWork(env.App)
 	clk := newClock()
 	cat := catalogapp.New(catalogpg.NewTransactor(uow), catalogapp.WithClock(clk.now))
+	loc := localizationapp.New(localizationpg.NewTransactor(uow), localizationcatalog.New(cat))
+	// As the composition root wires it: a policy's required locales are
+	// validated against Localization through the port that answers to
+	// the write's own catalog.write, not to translations.read.
+	cat.SetLocales(coverage.NewPolicyLocales(loc))
 	svc := app.NewService(qualitypg.NewTransactor(uow), qualitycatalog.New(cat), app.WithClock(clk.now))
-	return &harness{catalog: cat, svc: svc, tenant: tenant, clock: clk}
+	return &harness{catalog: cat, locales: loc, svc: svc, tenant: tenant, clock: clk}
 }
 
 func (h *harness) developer() context.Context {
@@ -83,6 +93,18 @@ func (h *harness) developer() context.Context {
 
 func (h *harness) translator() context.Context {
 	return authztest.Member(context.Background(), h.tenant, []string{"translator"}, "de")
+}
+
+// ci acts as a repository's CI token: catalog.read and catalog.write,
+// and nothing else — what `glossa policy import` runs as.
+func (h *harness) ci() context.Context { return authztest.CIToken(context.Background(), h.tenant) }
+
+// addLocale gives the project a target locale.
+func (h *harness) addLocale(t *testing.T, project uuid.UUID, code string) {
+	t.Helper()
+	if _, _, err := h.locales.AddLocale(h.developer(), project, code); err != nil {
+		t.Fatalf("add locale %s: %v", code, err)
+	}
 }
 
 // project creates a project and returns its ID.
