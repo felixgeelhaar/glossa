@@ -42,7 +42,7 @@ func New(reg prometheus.Registerer) *Metrics {
 		reg: reg,
 		calls: register(reg, prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "glossa_mcp_tool_calls_total",
-			Help: "MCP tool calls, by tool, the session's toolset (read or write) and outcome: ok, denied (authorization, the session's toolset, or the rate limit), invalid (unknown tool or bad arguments), error.",
+			Help: "MCP tool calls, by tool, the session's toolset (read, write or publish) and outcome: ok, denied (authorization, the session's toolset, or the rate limit), invalid (unknown tool or bad arguments), error.",
 		}, []string{"tool", "scope", "outcome"})),
 		sessions: register(reg, prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "glossa_mcp_sessions_total",
@@ -87,7 +87,7 @@ func (m *Metrics) ToolCalled(tool string, toolset domain.Toolset, outcome domain
 	if !slices.Contains(domain.Outcomes(), outcome) {
 		outcome = domain.OutcomeError
 	}
-	if toolset != domain.ToolsetWrite {
+	if !slices.Contains(domain.Toolsets(), toolset) {
 		toolset = domain.ToolsetRead
 	}
 	m.calls.WithLabelValues(tool, toolset.String(), outcome.String()).Inc()

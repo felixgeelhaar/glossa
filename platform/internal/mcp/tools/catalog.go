@@ -24,6 +24,10 @@ var selectors = []string{
 	// The write tools' own selectors. `text`, `source`, `description`
 	// and anything else that can carry message text stays out.
 	"syntax", "base_revision", "source_revision", "max_length", "select",
+	// The release tools'. An idempotency key is a client's own opaque
+	// string and is exactly what makes a replayed publish legible in the
+	// ledger; `note` is free text a person wrote and stays out.
+	"idempotency_key",
 }
 
 // CatalogSearchName is the catalog search tool's wire name.

@@ -15,6 +15,13 @@ var (
 	// ErrWriteNotGranted means a write session was asked for on a token
 	// that does not carry the write scope.
 	ErrWriteNotGranted = errors.New("mcp: the token does not carry the write scope")
+	// ErrPublishNotGranted means a publish session was asked for on a
+	// token that does not carry the publish scope. It is its own error
+	// rather than a widened ErrWriteNotGranted because the scopes are
+	// orthogonal: `write` does not imply `publish` and never has
+	// (identity/domain: a publish token carries PermReleasesPublish and
+	// nothing else beyond read).
+	ErrPublishNotGranted = errors.New("mcp: the token does not carry the publish scope")
 	// ErrToolNotInSession means the tool exists but belongs to a toolset
 	// this session did not open — the second of the two locks on a write
 	// (RFC 0005 §7.2).

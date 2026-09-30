@@ -53,6 +53,9 @@ func Read(s Sources) []app.Tool {
 // `check_run` is not here. It changes nothing and stores nothing, so it
 // is a read tool (RFC 0005 §7.3 gives it the `read` scope) and a
 // read-only session runs it.
+//
+// The release tools are not here either. `publish` is its own scope,
+// and so its own toolset: see Publish.
 func Write(s Sources) []app.Tool {
 	var out []app.Tool
 	if s.Messages != nil {
@@ -70,7 +73,8 @@ func Write(s Sources) []app.Tool {
 	return out
 }
 
-// All returns every tool a deployment serves, read then write. It is
-// what a server registers: the toolset gate, not the registry, decides
-// which of them a session may call.
-func All(s Sources) []app.Tool { return append(Read(s), Write(s)...) }
+// All returns every tool a deployment serves, one toolset at a time:
+// read, then write, then publish. It is what a server registers — the
+// toolset gate, not the registry, decides which of them a session may
+// call.
+func All(s Sources) []app.Tool { return append(append(Read(s), Write(s)...), Publish(s)...) }

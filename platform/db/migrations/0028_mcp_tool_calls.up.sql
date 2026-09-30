@@ -13,9 +13,12 @@
 --                     tenant can already see, revoke and expire.
 --   session_id        the MCP session the call arrived on, so a run of
 --                     calls reads as one conversation.
---   toolset           'read' or 'write': which session was opened. A
---                     write tool needs the token's scope *and* a write
---                     session, and the row says which it ran in.
+--   toolset           'read', 'write' or 'publish': which session was
+--                     opened. A tool that changes something needs the
+--                     token's scope *and* a session opened with that
+--                     toolset, and the row says which it ran in. The
+--                     three mirror the token scopes MCP accepts; `admin`
+--                     is not among them and is exposed nowhere.
 --   tool / outcome    what was called and how it ended.
 --   arguments         the *shape* of the arguments, never their content:
 --                     {"key": "string(len=27)", "locale": "de"}. A tool
@@ -43,7 +46,7 @@ CREATE TABLE mcp_tool_calls (
     session_id  text        NOT NULL CHECK (char_length(session_id) BETWEEN 1 AND 128),
     actor       text        NOT NULL CHECK (char_length(actor) BETWEEN 1 AND 128),
     token_id    uuid        NOT NULL,
-    toolset     text        NOT NULL CHECK (toolset IN ('read', 'write')),
+    toolset     text        NOT NULL CHECK (toolset IN ('read', 'write', 'publish')),
     tool        text        NOT NULL CHECK (char_length(tool) BETWEEN 1 AND 128),
     outcome     text        NOT NULL CHECK (outcome IN ('ok', 'denied', 'invalid', 'error')),
     arguments   jsonb       NOT NULL DEFAULT '{}'::jsonb

@@ -398,6 +398,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		Proposals:    mcpTranslations,
 		Locales:      mcpTranslations,
 		Translator:   mcpsources.NewIntelligence(intelligence),
+		Releases:     mcpsources.NewReleases(release),
 	})
 	return c, nil
 }

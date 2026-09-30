@@ -26,7 +26,6 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
 )
 
@@ -179,13 +178,22 @@ func (s *Service) Authenticate(ctx context.Context, bearer string) (Caller, erro
 }
 
 // AllowToolset reports whether caller may open the toolset it asked
-// for. A write session needs the token's write scope; a read session
-// needs nothing beyond a token, because every scope implies read.
+// for: it is the *first* of the two locks. A read session needs nothing
+// beyond a token, because every scope implies read; any other toolset
+// needs the scope that toolset mirrors — `write` for the write tools,
+// `publish` for the release tools. The two are orthogonal, so a write
+// token cannot open a publish session however much it can change.
 func (s *Service) AllowToolset(caller Caller, want domain.Toolset) error {
-	if want == domain.ToolsetWrite && !slices.Contains(caller.Scopes, identity.ScopeWrite) {
-		return domain.ErrWriteNotGranted
+	if want == domain.ToolsetRead {
+		return nil
 	}
-	return nil
+	if slices.Contains(caller.Scopes, want.Scope()) {
+		return nil
+	}
+	if want == domain.ToolsetPublish {
+		return domain.ErrPublishNotGranted
+	}
+	return domain.ErrWriteNotGranted
 }
 
 // Open binds a session to the caller's tenant. The tenant is the
