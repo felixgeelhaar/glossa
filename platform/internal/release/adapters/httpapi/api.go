@@ -149,9 +149,16 @@ func (a *API) PromoteRelease(ctx context.Context, req apiv1.PromoteReleaseReques
 	if err != nil {
 		return nil, mapError(app.ErrReleaseNotInProject)
 	}
-	// The request carries no force yet: `force` and `force_reason` on
-	// this body are the spec's to add, as they are on the publish body.
-	e, err := a.svc.Promote(ctx, project, req.Environment, release, app.PromoteInput{})
+	// A promote is gated exactly as a publish is, and overridable on
+	// exactly the same terms: only with a reason, which the deployment
+	// records. A gate the API could refuse but nobody could override
+	// gets routed around by switching the requirement off, which leaves
+	// no record at all (RFC 0005 §4.1).
+	in := app.PromoteInput{Force: req.Body.Force != nil && *req.Body.Force}
+	if req.Body.ForceReason != nil {
+		in.ForceReason = *req.Body.ForceReason
+	}
+	e, err := a.svc.Promote(ctx, project, req.Environment, release, in)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -196,6 +203,14 @@ func (a *API) ListDeployments(ctx context.Context, req apiv1.ListDeploymentsRequ
 		out.Items[i] = apiv1.Deployment{
 			Number: d.Number, ReleaseId: d.ReleaseID.String(), PreviousReleaseId: optionalID(d.Previous),
 			Action: apiv1.DeploymentAction(d.Action), Author: d.By, CreatedAt: d.CreatedAt,
+			Forced: d.Override.Forced,
+		}
+		// The reason is present exactly when the deployment was forced.
+		// Recording an override nobody can read back would make the
+		// history look policed while the exception stayed invisible,
+		// which is worse than no gate at all (RFC 0005 §4.1).
+		if d.Override.Forced {
+			out.Items[i].ForceReason = apiconv.Ptr(d.Override.Reason)
 		}
 	}
 	return out, nil
@@ -271,9 +286,13 @@ func (a *API) PublishRelease(ctx context.Context, req apiv1.PublishReleaseReques
 	if req.Params.IdempotencyKey != nil {
 		key = *req.Params.IdempotencyKey
 	}
-	in := app.PublishInput{Environment: req.Body.Environment}
+	in := app.PublishInput{Environment: req.Body.Environment,
+		Force: req.Body.Force != nil && *req.Body.Force}
 	if req.Body.Note != nil {
 		in.Note = *req.Body.Note
+	}
+	if req.Body.ForceReason != nil {
+		in.ForceReason = *req.Body.ForceReason
 	}
 	r, replayed, err := a.svc.Publish(ctx, project, in, key)
 	if err != nil {
