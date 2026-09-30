@@ -577,9 +577,12 @@ The **fallback graph** is exactly the manifest's `fallback` object,
 validated against the project's locales and refused if cyclic. A
 **translation** (message × locale) is the projection of an append-only
 **revision** log; every revision carries provenance (`origin`:
-human, ai, translation_memory, machine_translation, import, adaptation;
-`origin_detail`; the principal) and the source revision it was made
-against. Outdated is derived — `source_revision <` the message's current
+human, ai, agent, translation_memory, machine_translation, import,
+adaptation; `origin_detail`; the principal) and the source revision it
+was made against. `ai` is the platform translating on a person's behalf
+and `agent` is an autonomous agent writing through MCP on a long-lived
+token (RFC 0005 §7.3): a different act, so a different origin, and one
+a query can select on. Outdated is derived — `source_revision <` the message's current
 one — and never stored. Every write is checked with
 `messageformat.CheckCompat` against the source revision it claims: error
 findings reject it (`422 structural_qa_failed` with `findings`),

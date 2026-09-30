@@ -5636,7 +5636,7 @@ export interface components {
         /** @enum {string} */
         ReviewState: "draft" | "needs_review" | "approved" | "rejected";
         /** @enum {string} */
-        Origin: "human" | "ai" | "translation_memory" | "machine_translation" | "import" | "adaptation";
+        Origin: "human" | "ai" | "agent" | "translation_memory" | "machine_translation" | "import" | "adaptation";
         QAFinding: {
             /** @description Stable finding code, e.g. `missing-argument`, `max-length-exceeded`. */
             code: string;

@@ -1383,6 +1383,7 @@ func (e MetaSignInMethods) Valid() bool {
 // Defines values for Origin.
 const (
 	OriginAdaptation         Origin = "adaptation"
+	OriginAgent              Origin = "agent"
 	OriginAi                 Origin = "ai"
 	OriginHuman              Origin = "human"
 	OriginImport             Origin = "import"
@@ -1394,6 +1395,8 @@ const (
 func (e Origin) Valid() bool {
 	switch e {
 	case OriginAdaptation:
+		return true
+	case OriginAgent:
 		return true
 	case OriginAi:
 		return true

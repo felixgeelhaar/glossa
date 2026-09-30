@@ -8431,7 +8431,10 @@ components:
       enum: [draft, needs_review, approved, rejected]
     Origin:
       type: string
-      enum: [human, ai, translation_memory, machine_translation, import, adaptation]
+      # `ai` is the platform translating on a person's behalf; `agent` is
+      # an autonomous agent writing through MCP on a long-lived token
+      # (RFC 0005 §7.3) — a different act, and so a different origin.
+      enum: [human, ai, agent, translation_memory, machine_translation, import, adaptation]
     QAFinding:
       type: object
       required: [code, severity, message]

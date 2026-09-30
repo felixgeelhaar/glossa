@@ -188,3 +188,48 @@ func TestTranslationStatsOverHTTP(t *testing.T) {
 	s.do(call{method: "GET", path: strings.Replace(tp.path, "/projects/", "/projects/0", 1) + "/translation-stats", bearer: tp.token}).
 		want(t, http.StatusNotFound, "not_found")
 }
+
+// `agent` is a first-class origin on the wire (RFC 0005 §7.3): it goes
+// in through the contract, comes back out of the translation and stands
+// in the revision log as itself, not as `ai` with a JSON hint. The enum
+// grew by exactly one value, so anything else is still refused.
+func TestAgentOriginOverHTTP(t *testing.T) {
+	tp := newTranslatedProject(t)
+	s := tp.s
+	path := tp.path + "/messages/checkout.total/translations/de"
+	s.do(call{method: "PUT", path: path, cookie: tp.ada.cookie, csrf: tp.ada.csrf,
+		body: map[string]any{"text": "Gesamt", "state": "needs_review", "origin": "agent",
+			"origin_detail": map[string]any{"via": "mcp", "tool": "translation_propose"}}}).
+		want(t, http.StatusCreated, "")
+
+	var tr struct {
+		Origin string `json:"origin"`
+		State  string `json:"state"`
+	}
+	r := s.do(call{method: "GET", path: path, cookie: tp.ada.cookie})
+	r.want(t, http.StatusOK, "")
+	r.decode(t, &tr)
+	if tr.Origin != "agent" || tr.State != "needs_review" {
+		t.Errorf("translation = %+v, want an agent's proposal", tr)
+	}
+
+	var log struct {
+		Items []struct {
+			Origin       string         `json:"origin"`
+			OriginDetail map[string]any `json:"origin_detail"`
+		} `json:"items"`
+	}
+	r = s.do(call{method: "GET", path: path + "/revisions", cookie: tp.ada.cookie})
+	r.want(t, http.StatusOK, "")
+	r.decode(t, &log)
+	if len(log.Items) != 1 || log.Items[0].Origin != "agent" {
+		t.Fatalf("revision log = %s", r.body)
+	}
+	if log.Items[0].OriginDetail["via"] != "mcp" || log.Items[0].OriginDetail["tool"] != "translation_propose" {
+		t.Errorf("origin_detail = %v: it still says which surface and tool", log.Items[0].OriginDetail)
+	}
+
+	s.do(call{method: "PUT", path: tp.path + "/messages/checkout.total/translations/fr",
+		cookie: tp.ada.cookie, csrf: tp.ada.csrf, body: map[string]any{"text": "Total", "origin": "robot"}}).
+		want(t, http.StatusBadRequest, "invalid_origin")
+}
