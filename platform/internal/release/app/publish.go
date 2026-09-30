@@ -91,30 +91,35 @@ func (s *Service) Publish(ctx context.Context, project uuid.UUID, in PublishInpu
 	return rel, false, nil
 }
 
-// gate holds the publish to what the project's check policy asks of
-// this environment (RFC 0005 §4.1): the locales that must be complete
-// there and the review state its text must have reached. The policy is
-// read through Release's Source port — Catalog's application service —
-// never out of Catalog's tables.
+// policyGate resolves what the project's check policy asks of one
+// environment (RFC 0005 §4.1): the locales that must be complete there
+// and the review state its text must have reached. Publishing and
+// promoting both go through it, so the two paths cannot decide the
+// question differently.
 //
-// It returns the override to record. A publish that meets the gate
-// records none even when the caller passed one: "forced" in an
-// environment's history means the policy was overridden, so it must not
-// appear where there was nothing to override.
-func (s *Service) gate(ctx context.Context, project uuid.UUID, env domain.Environment, built domain.Built, override domain.Override) (domain.Override, error) {
+// The policy is read through Release's Source port — Catalog's
+// application service — never out of Catalog's tables, and always
+// before a transaction opens: Catalog runs its own, and nesting them is
+// how deadlocks are built.
+func (s *Service) policyGate(ctx context.Context, project uuid.UUID, environment string) (domain.PolicyGate, error) {
 	doc, err := s.source.CheckPolicy(ctx, project)
+	if err != nil {
+		return domain.PolicyGate{}, err
+	}
+	return domain.NewPolicyGate(doc, environment), nil
+}
+
+// gate holds the publish to the environment's check policy and returns
+// the override to record.
+func (s *Service) gate(ctx context.Context, project uuid.UUID, env domain.Environment, built domain.Built, override domain.Override) (domain.Override, error) {
+	g, err := s.policyGate(ctx, project, env.Name)
 	if err != nil {
 		return domain.Override{}, err
 	}
-	err = domain.NewPolicyGate(doc, env.Name).Check(env.Policy, built)
-	switch {
-	case err == nil:
-		return domain.Override{}, nil
-	case override.Forced:
-		return override, nil
-	default:
-		return domain.Override{}, err
-	}
+	// env.Policy is what the release is being built under, which is what
+	// a stored release records as its own: the gate sees the same pair
+	// of facts here as it does on promote.
+	return g.Enforce(env.Policy, built.Content, built.Stats, override)
 }
 
 // prepare ensures the environments exist and returns the target one, or

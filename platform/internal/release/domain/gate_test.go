@@ -2,6 +2,8 @@ package domain_test
 
 import (
 	"errors"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
@@ -9,15 +11,26 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
-// built is a release shipping messages source messages, with the
-// locales it ships and how many of them each carries.
-func built(messages int, locales map[string]int) domain.Built {
-	b := domain.Built{Stats: domain.Stats{Messages: messages, Locales: map[string]domain.LocaleStats{}}}
-	for code, n := range locales {
-		b.Stats.Locales[code] = domain.LocaleStats{Messages: n}
-		b.Content.Locales = append(b.Content.Locales, domain.Locale{Code: code, Direction: "ltr"})
+// shipped is a release of messages source messages, with the locales it
+// ships and how many of them each carries. Built and Release both hand
+// the gate the same pair, which is the point.
+type shipped struct {
+	content domain.Content
+	stats   domain.Stats
+}
+
+func built(messages int, locales map[string]int) shipped {
+	out := shipped{stats: domain.Stats{Messages: messages, Locales: map[string]domain.LocaleStats{}}}
+	for _, code := range slices.Sorted(maps.Keys(locales)) {
+		out.stats.Locales[code] = domain.LocaleStats{Messages: locales[code]}
+		out.content.Locales = append(out.content.Locales, domain.Locale{Code: code, Direction: "ltr"})
 	}
-	return b
+	return out
+}
+
+// check asks the gate about a release built under p.
+func check(g domain.PolicyGate, p domain.Policy, s shipped) error {
+	return g.Check(p, s.content, s.stats)
 }
 
 // approvedOnly is what production and staging ship.
@@ -35,7 +48,7 @@ func TestPolicyGateUnnamedEnvironmentIsNotGated(t *testing.T) {
 	if g.Bound {
 		t.Fatalf("staging is gated by a policy that does not name it: %+v", g)
 	}
-	if err := g.Check(everything, built(10, map[string]int{"en": 10, "de": 3})); err != nil {
+	if err := check(g, everything, built(10, map[string]int{"en": 10, "de": 3})); err != nil {
 		t.Fatalf("Check = %v, want nil", err)
 	}
 }
@@ -45,7 +58,7 @@ func TestPolicyGateRefusesAnIncompleteLocale(t *testing.T) {
 		"production": {RequireComplete: checkpolicy.RequiredLocales("de", "en")},
 	}}
 	g := domain.NewPolicyGate(doc, "production")
-	err := g.Check(approvedOnly, built(10, map[string]int{"en": 10, "de": 7, "fr": 1}))
+	err := check(g, approvedOnly, built(10, map[string]int{"en": 10, "de": 7, "fr": 1}))
 	if !errors.Is(err, domain.ErrPolicyNotMet) {
 		t.Fatalf("Check = %v, want ErrPolicyNotMet", err)
 	}
@@ -61,7 +74,7 @@ func TestPolicyGateRefusesAnIncompleteLocale(t *testing.T) {
 	}
 	// Complete in both required locales publishes, however far behind
 	// the locales the environment does not require are.
-	if err := g.Check(approvedOnly, built(10, map[string]int{"en": 10, "de": 10, "fr": 0})); err != nil {
+	if err := check(g, approvedOnly, built(10, map[string]int{"en": 10, "de": 10, "fr": 0})); err != nil {
 		t.Fatalf("Check = %v, want nil", err)
 	}
 }
@@ -75,7 +88,7 @@ func TestPolicyGateRequireCompleteNullIsEveryLocale(t *testing.T) {
 	if g.RequireComplete != nil {
 		t.Fatalf("RequireComplete = %v, want nil (every locale)", g.RequireComplete)
 	}
-	err := g.Check(approvedOnly, built(4, map[string]int{"en": 4, "de": 4, "fr": 3}))
+	err := check(g, approvedOnly, built(4, map[string]int{"en": 4, "de": 4, "fr": 3}))
 	if !errors.Is(err, domain.ErrPolicyNotMet) {
 		t.Fatalf("Check = %v, want ErrPolicyNotMet: null means every locale, fr among them", err)
 	}
@@ -95,7 +108,7 @@ func TestPolicyGateInheritsTheDocumentsRequireComplete(t *testing.T) {
 		t.Fatalf("RequireComplete = %v, want [de] inherited from the document", g.RequireComplete)
 	}
 	// fr is nowhere near complete and is not required anywhere.
-	if err := g.Check(approvedOnly, built(4, map[string]int{"en": 4, "de": 4, "fr": 0})); err != nil {
+	if err := check(g, approvedOnly, built(4, map[string]int{"en": 4, "de": 4, "fr": 0})); err != nil {
 		t.Fatalf("Check = %v, want nil: only de is required", err)
 	}
 }
@@ -110,7 +123,7 @@ func TestPolicyGateInheritsEveryLocaleWhenTheDocumentSaysSo(t *testing.T) {
 	if g.RequireComplete != nil {
 		t.Fatalf("RequireComplete = %v, want nil (every locale)", g.RequireComplete)
 	}
-	if err := g.Check(approvedOnly, built(4, map[string]int{"en": 4, "fr": 3})); !errors.Is(err, domain.ErrPolicyNotMet) {
+	if err := check(g, approvedOnly, built(4, map[string]int{"en": 4, "fr": 3})); !errors.Is(err, domain.ErrPolicyNotMet) {
 		t.Fatalf("Check = %v, want ErrPolicyNotMet", err)
 	}
 }
@@ -123,7 +136,7 @@ func TestPolicyGateEmptyRequireCompleteRequiresNothing(t *testing.T) {
 	if !g.Bound {
 		t.Fatal("the policy names development, so it is gated")
 	}
-	if err := g.Check(everything, built(9, map[string]int{"en": 9, "de": 0})); err != nil {
+	if err := check(g, everything, built(9, map[string]int{"en": 9, "de": 0})); err != nil {
 		t.Fatalf("Check = %v, want nil: an empty list requires no locale", err)
 	}
 }
@@ -136,14 +149,14 @@ func TestPolicyGateEnforcesRequireReview(t *testing.T) {
 	complete := built(3, map[string]int{"en": 3, "de": 3})
 	// An environment shipping drafts has not reached approved, however
 	// complete it is.
-	err := g.Check(everything, complete)
+	err := check(g, everything, complete)
 	if !errors.Is(err, domain.ErrPolicyNotMet) {
 		t.Fatalf("Check = %v, want ErrPolicyNotMet", err)
 	}
 	if !strings.Contains(err.Error(), checkpolicy.ReviewApproved) {
 		t.Errorf("the refusal does not name the review state: %s", err)
 	}
-	if err := g.Check(approvedOnly, complete); err != nil {
+	if err := check(g, approvedOnly, complete); err != nil {
 		t.Fatalf("Check = %v, want nil: approved-only text has reached approved", err)
 	}
 }
@@ -153,7 +166,7 @@ func TestPolicyGateRequiresALocaleTheReleaseDoesNotShip(t *testing.T) {
 		"production": {RequireComplete: checkpolicy.RequiredLocales("ja")},
 	}}
 	g := domain.NewPolicyGate(doc, "production")
-	if err := g.Check(approvedOnly, built(2, map[string]int{"en": 2})); !errors.Is(err, domain.ErrPolicyNotMet) {
+	if err := check(g, approvedOnly, built(2, map[string]int{"en": 2})); !errors.Is(err, domain.ErrPolicyNotMet) {
 		t.Fatalf("Check = %v, want ErrPolicyNotMet", err)
 	}
 }
@@ -194,5 +207,33 @@ func TestNewOverride(t *testing.T) {
 	long := strings.Repeat("ü", domain.MaxForceReasonLen+1)
 	if _, err := domain.NewOverride(long); !errors.Is(err, domain.ErrInvalidForceReason) {
 		t.Errorf("NewOverride(long) = %v, want ErrInvalidForceReason", err)
+	}
+}
+
+func TestPolicyGateEnforce(t *testing.T) {
+	doc := checkpolicy.Policy{Environments: map[string]checkpolicy.Environment{
+		"production": {RequireComplete: checkpolicy.RequiredLocales("de")},
+	}}
+	g := domain.NewPolicyGate(doc, "production")
+	short, complete := built(4, map[string]int{"en": 4, "de": 1}), built(4, map[string]int{"en": 4, "de": 4})
+	forced, err := domain.NewOverride("the launch is tomorrow")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Unmet and not forced: refused, and nothing to record.
+	if ov, err := g.Enforce(approvedOnly, short.content, short.stats, domain.Override{}); !errors.Is(err, domain.ErrPolicyNotMet) || ov.Forced {
+		t.Fatalf("Enforce = %+v, %v, want ErrPolicyNotMet", ov, err)
+	}
+	// Unmet and forced: through, and the reason is what gets recorded.
+	ov, err := g.Enforce(approvedOnly, short.content, short.stats, forced)
+	if err != nil || !ov.Forced || ov.Reason != "the launch is tomorrow" {
+		t.Fatalf("Enforce = %+v, %v, want the override recorded", ov, err)
+	}
+	// Met: nothing recorded, however the caller asked. "Forced" in a
+	// history means the policy was overridden, not that somebody passed
+	// a flag.
+	if ov, err := g.Enforce(approvedOnly, complete.content, complete.stats, forced); err != nil || ov.Forced || ov.Reason != "" {
+		t.Fatalf("Enforce = %+v, %v, want no override on a release that meets the gate", ov, err)
 	}
 }

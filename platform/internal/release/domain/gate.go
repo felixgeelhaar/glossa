@@ -126,30 +126,38 @@ func (e *PolicyNotMetError) Error() string {
 // Unwrap makes the error ErrPolicyNotMet.
 func (e *PolicyNotMetError) Unwrap() error { return ErrPolicyNotMet }
 
-// Check reports why a release built under shipped may not publish into
-// the gate's environment, or nil. shipped is the environment's
-// eligibility policy — which review states its releases carry.
-func (g PolicyGate) Check(shipped Policy, b Built) error {
+// Check reports why a release may not move into the gate's environment,
+// or nil.
+//
+// It is asked of the release rather than of the build, so that
+// publishing and promoting cannot drift: a Built answers with
+// (env.Policy, b.Content, b.Stats) — env.Policy is what it is being
+// built under — and a stored Release with (r.Policy, r.Content,
+// r.Stats). builtUnder is the eligibility policy the text in front of
+// the gate was selected by, which is what decides whether it has
+// reached a review state; content lists the locales it ships and stats
+// how much of the catalog each one holds.
+func (g PolicyGate) Check(builtUnder Policy, content Content, stats Stats) error {
 	if !g.Bound {
 		return nil
 	}
 	var unmet []Unmet
-	for _, locale := range g.required(b) {
-		ls, ok := b.Stats.Locales[locale]
+	for _, locale := range g.required(content) {
+		ls, ok := stats.Locales[locale]
 		switch {
 		case !ok:
 			unmet = append(unmet, Unmet{Locale: locale,
 				Detail: fmt.Sprintf("%s must be complete and the release does not ship it", locale)})
-		case ls.Messages < b.Stats.Messages:
+		case ls.Messages < stats.Messages:
 			unmet = append(unmet, Unmet{Locale: locale,
 				Detail: fmt.Sprintf("%s must be complete and is %d of %d messages short",
-					locale, b.Stats.Messages-ls.Messages, b.Stats.Messages)})
+					locale, stats.Messages-ls.Messages, stats.Messages)})
 		}
 	}
-	if g.RequireReview != "" && !shipped.Reached(g.RequireReview) {
+	if g.RequireReview != "" && !builtUnder.Reached(g.RequireReview) {
 		unmet = append(unmet, Unmet{Detail: fmt.Sprintf(
-			"the environment requires %s text and its policy ships %s",
-			g.RequireReview, strings.Join(shipped.States, ", "))})
+			"the environment requires %s text and the release ships %s",
+			g.RequireReview, strings.Join(builtUnder.States, ", "))})
 	}
 	if len(unmet) == 0 {
 		return nil
@@ -157,15 +165,35 @@ func (g PolicyGate) Check(shipped Policy, b Built) error {
 	return &PolicyNotMetError{Environment: g.Environment, Unmet: unmet}
 }
 
+// Enforce is Check with the caller's override applied, and is what both
+// the publish path and the promote path use, so that "forced" means one
+// thing.
+//
+// It returns the override to record: none when the gate is met — even
+// when the caller passed one, because "forced" in an environment's
+// history must mean the policy was overridden and not that somebody
+// passed a flag — the caller's when it was not met and they forced it,
+// and otherwise the refusal.
+func (g PolicyGate) Enforce(builtUnder Policy, content Content, stats Stats, override Override) (Override, error) {
+	switch err := g.Check(builtUnder, content, stats); {
+	case err == nil:
+		return Override{}, nil
+	case override.Forced:
+		return override, nil
+	default:
+		return Override{}, err
+	}
+}
+
 // required lists the locales that must be complete, sorted, so a
 // refusal reads the same every time.
-func (g PolicyGate) required(b Built) []string {
+func (g PolicyGate) required(content Content) []string {
 	var out []string
 	if g.RequireComplete != nil {
 		out = slices.Clone(g.RequireComplete)
 	} else {
-		out = make([]string, 0, len(b.Content.Locales))
-		for _, l := range b.Content.Locales {
+		out = make([]string, 0, len(content.Locales))
+		for _, l := range content.Locales {
 			out = append(out, l.Code)
 		}
 	}

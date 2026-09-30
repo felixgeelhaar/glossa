@@ -193,7 +193,7 @@ func TestPromoteRefusalExplainsThePolicies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = h.svc.Promote(ctx, p, "production", dev.ID)
+	_, err = h.svc.Promote(ctx, p, "production", dev.ID, app.PromoteInput{})
 	var ie *domain.IneligibleError
 	if !errors.As(err, &ie) || ie.From != "development" || ie.Version != dev.Version || !strings.Contains(err.Error(), "staging") {
 		t.Fatalf("promote dev → production: %v", err)
@@ -203,7 +203,7 @@ func TestPromoteRefusalExplainsThePolicies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if prod, err := h.svc.Promote(ctx, p, "production", stg.ID); err != nil || prod.Current != stg.ID {
+	if prod, err := h.svc.Promote(ctx, p, "production", stg.ID, app.PromoteInput{}); err != nil || prod.Current != stg.ID {
 		t.Fatalf("promote staging → production: %v", err)
 	}
 	if m, _ := h.served(t, p, "production"); m.Release.ID != stg.ID.String() {
