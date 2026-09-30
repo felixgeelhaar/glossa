@@ -253,6 +253,7 @@ func (s *store) AppendDeployment(ctx context.Context, d domain.Deployment) error
 	return storeError(s.q.InsertDeployment(ctx, releasesql.InsertDeploymentParams{
 		ProjectID: d.ProjectID, Environment: d.Environment, Number: int32Of(d.Number), ReleaseID: d.ReleaseID,
 		PreviousReleaseID: nullID(d.Previous), Action: string(d.Action), CreatedBy: d.By, CreatedAt: d.CreatedAt,
+		Forced: d.Override.Forced, ForceReason: d.Override.Reason,
 	}))
 }
 
@@ -273,6 +274,7 @@ func (s *store) Deployments(ctx context.Context, project uuid.UUID, environment 
 		out[i] = domain.Deployment{
 			ProjectID: r.ProjectID, Environment: r.Environment, Number: int(r.Number), ReleaseID: r.ReleaseID,
 			Previous: r.PreviousReleaseID.UUID, Action: domain.Action(r.Action), By: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
+			Override: domain.Override{Forced: r.Forced, Reason: r.ForceReason},
 		}
 	}
 	return out, nil

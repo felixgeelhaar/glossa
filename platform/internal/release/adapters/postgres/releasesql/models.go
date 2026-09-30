@@ -37,6 +37,8 @@ type ReleaseDeployment struct {
 	Action            string
 	CreatedBy         string
 	CreatedAt         time.Time
+	Forced            bool
+	ForceReason       string
 }
 
 type ReleaseEnvironment struct {

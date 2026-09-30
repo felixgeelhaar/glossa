@@ -128,7 +128,7 @@ func (s *Service) pointer(ctx context.Context, project uuid.UUID, name string,
 		if previous == rel.ID {
 			return nil
 		}
-		if err := s.move(ctx, st, &env, rel, action, by); err != nil {
+		if err := s.move(ctx, st, &env, rel, action, by, domain.Override{}); err != nil {
 			return err
 		}
 		moved = true

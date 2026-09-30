@@ -307,4 +307,8 @@ type Deployment struct {
 	Action    Action
 	By        string
 	CreatedAt time.Time
+	// Override records a publish that went out although the
+	// environment's check policy refused it, and why (RFC 0005 §4.1).
+	// Its zero value is every deployment that met the gate or had none.
+	Override Override
 }

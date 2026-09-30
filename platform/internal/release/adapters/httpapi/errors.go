@@ -24,6 +24,7 @@ var problems = []struct {
 	{app.ErrEnvironmentExists, 409, "environment_exists", "the project already has an environment with that name"},
 	{app.ErrStaleVersion, 409, problem.CodeConflict, "the resource changed concurrently; retry"},
 	{domain.ErrIneligible, 409, "release_ineligible", ""},
+	{domain.ErrPolicyNotMet, 409, "policy_not_met", ""},
 	{domain.ErrNoRollbackTarget, 409, "no_rollback_target", ""},
 	{domain.ErrNotInHistory, 409, "not_in_history", ""},
 	{domain.ErrKeyRevoked, 409, "key_revoked", ""},
@@ -39,6 +40,8 @@ var problems = []struct {
 	{domain.ErrInvalidEnvironment, 400, "invalid_environment", ""},
 	{domain.ErrInvalidPolicy, 400, "invalid_policy", ""},
 	{domain.ErrInvalidNote, 400, "invalid_note", ""},
+	{domain.ErrForceNeedsReason, 400, "force_reason_required", ""},
+	{domain.ErrInvalidForceReason, 400, "invalid_force_reason", ""},
 	{domain.ErrInvalidKeyName, 400, "invalid_key_name", ""},
 	{delivery.ErrInvalidScope, 400, "invalid_key_scope", ""},
 }

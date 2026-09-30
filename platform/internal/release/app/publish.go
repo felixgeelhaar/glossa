@@ -18,6 +18,11 @@ import (
 type PublishInput struct {
 	Environment string
 	Note        string
+	// Force publishes although the environment's check policy refuses it
+	// (RFC 0005 §4.1). ForceReason is mandatory with it and is recorded
+	// in the environment's deployment history.
+	Force       bool
+	ForceReason string
 }
 
 // Publish builds a release of the project under the environment's
@@ -29,6 +34,11 @@ type PublishInput struct {
 // happens before the transaction that records the release. Artifacts
 // are content-addressed, so uploading one that exists is skipped:
 // publishing an unchanged catalog uploads nothing.
+//
+// Between the build and the upload stands the project's check policy
+// (RFC 0005 §4.1): a release that does not meet what the environment
+// requires of it is refused with domain.ErrPolicyNotMet, and goes out
+// only when in.Force carries a reason the deployment records.
 func (s *Service) Publish(ctx context.Context, project uuid.UUID, in PublishInput, idemKey string) (domain.Release, bool, error) {
 	by, err := s.checkProject(ctx, project, authz.ReleasesPublish)
 	if err != nil {
@@ -37,6 +47,15 @@ func (s *Service) Publish(ctx context.Context, project uuid.UUID, in PublishInpu
 	name, err := domain.ParseEnvironmentName(in.Environment)
 	if err != nil {
 		return domain.Release{}, false, err
+	}
+	// A force is refused for want of a reason before anything is read or
+	// built: the caller learns it the moment they ask, not after the
+	// expensive part.
+	var override domain.Override
+	if in.Force {
+		if override, err = domain.NewOverride(in.ForceReason); err != nil {
+			return domain.Release{}, false, err
+		}
 	}
 	id, keyed, err := idempotentID("release.publish", project.String(), by, idemKey)
 	if err != nil {
@@ -53,10 +72,15 @@ func (s *Service) Publish(ctx context.Context, project uuid.UUID, in PublishInpu
 	if err != nil {
 		return domain.Release{}, false, err
 	}
+	// The gate before the upload: a publish the policy refuses writes no
+	// artifacts.
+	if override, err = s.gate(ctx, project, env, built, override); err != nil {
+		return domain.Release{}, false, err
+	}
 	if built.Stats.NewArtifacts, err = s.upload(ctx, project, built.Artifacts); err != nil {
 		return domain.Release{}, false, err
 	}
-	rel, replayed, err := s.record(ctx, id, project, env, built, in.Note, by)
+	rel, replayed, err := s.record(ctx, id, project, env, built, in.Note, by, override)
 	if err != nil || replayed {
 		if replayed {
 			return s.replay(rel, in)
@@ -65,6 +89,32 @@ func (s *Service) Publish(ctx context.Context, project uuid.UUID, in PublishInpu
 	}
 	s.syncNow(ctx, project, name)
 	return rel, false, nil
+}
+
+// gate holds the publish to what the project's check policy asks of
+// this environment (RFC 0005 §4.1): the locales that must be complete
+// there and the review state its text must have reached. The policy is
+// read through Release's Source port — Catalog's application service —
+// never out of Catalog's tables.
+//
+// It returns the override to record. A publish that meets the gate
+// records none even when the caller passed one: "forced" in an
+// environment's history means the policy was overridden, so it must not
+// appear where there was nothing to override.
+func (s *Service) gate(ctx context.Context, project uuid.UUID, env domain.Environment, built domain.Built, override domain.Override) (domain.Override, error) {
+	doc, err := s.source.CheckPolicy(ctx, project)
+	if err != nil {
+		return domain.Override{}, err
+	}
+	err = domain.NewPolicyGate(doc, env.Name).Check(env.Policy, built)
+	switch {
+	case err == nil:
+		return domain.Override{}, nil
+	case override.Forced:
+		return override, nil
+	default:
+		return domain.Override{}, err
+	}
 }
 
 // prepare ensures the environments exist and returns the target one, or
@@ -153,7 +203,7 @@ func (s *Service) upload(ctx context.Context, project uuid.UUID, artifacts []dom
 }
 
 // record commits the release and the pointer move in one transaction.
-func (s *Service) record(ctx context.Context, id, project uuid.UUID, target domain.Environment, built domain.Built, note, by string) (domain.Release, bool, error) {
+func (s *Service) record(ctx context.Context, id, project uuid.UUID, target domain.Environment, built domain.Built, note, by string, override domain.Override) (domain.Release, bool, error) {
 	var (
 		rel      domain.Release
 		replayed bool
@@ -186,7 +236,7 @@ func (s *Service) record(ctx context.Context, id, project uuid.UUID, target doma
 			replayed = true
 			return err
 		}
-		if err := s.move(ctx, st, &env, rel, domain.ActionPublish, by); err != nil {
+		if err := s.move(ctx, st, &env, rel, domain.ActionPublish, by, override); err != nil {
 			return err
 		}
 		return st.Publish(ctx, outbox.Event{
@@ -209,8 +259,10 @@ func findEnvironment(envs []domain.Environment, name string) (domain.Environment
 	return domain.Environment{}, false
 }
 
-// move points env at rel and appends the deployment to its history.
-func (s *Service) move(ctx context.Context, st Store, env *domain.Environment, rel domain.Release, action domain.Action, by string) error {
+// move points env at rel and appends the deployment to its history,
+// carrying the override that let the move past the environment's check
+// policy, if any.
+func (s *Service) move(ctx context.Context, st Store, env *domain.Environment, rel domain.Release, action domain.Action, by string, override domain.Override) error {
 	previous, expected := env.Current, env.Version
 	if !env.Point(rel.ID, s.now()) {
 		return nil
@@ -224,7 +276,7 @@ func (s *Service) move(ctx context.Context, st Store, env *domain.Environment, r
 	}
 	return st.AppendDeployment(ctx, domain.Deployment{
 		ProjectID: env.ProjectID, Environment: env.Name, Number: n + 1, ReleaseID: rel.ID, Previous: previous,
-		Action: action, By: by, CreatedAt: env.UpdatedAt,
+		Action: action, By: by, CreatedAt: env.UpdatedAt, Override: override,
 	})
 }
 
