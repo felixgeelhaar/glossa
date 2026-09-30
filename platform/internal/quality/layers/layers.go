@@ -247,12 +247,13 @@ type Checker interface {
 // no browser and no provider.
 //
 // A layer with nothing to read is silent, not absent. The length layer
-// with no measured regions computes no layout budget and reports
+// with no measured regions computes no layout budget, and the locale
+// layer in a locale whose conventions it has no data for reports
 // nothing — the honest answer, and not a green one, because the run
 // still names the layer in Report.Layers and a reader can tell "clean"
 // from "not looked at".
 func Default() []Checker {
-	return []Checker{Structure{}, Parity{}, Completeness{}, Length{}}
+	return []Checker{Structure{}, Parity{}, Completeness{}, Length{}, LocaleLayer{}}
 }
 
 // Precomputed is a Checker reporting findings computed elsewhere, such

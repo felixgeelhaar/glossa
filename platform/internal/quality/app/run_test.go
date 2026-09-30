@@ -97,7 +97,8 @@ func TestRunReportsCompatAndMissingTranslations(t *testing.T) {
 	// M1 ones here, and a run that quietly stopped computing one would
 	// be the one failure mode a check may never have.
 	want := []domain.Layer{
-		domain.LayerStructure, domain.LayerParity, domain.LayerCompleteness, domain.LayerLength,
+		domain.LayerStructure, domain.LayerParity, domain.LayerCompleteness,
+		domain.LayerLength, domain.LayerLocale,
 	}
 	if !slices.Equal(r.Layers, want) {
 		t.Errorf("layers = %v, want %v", r.Layers, want)
