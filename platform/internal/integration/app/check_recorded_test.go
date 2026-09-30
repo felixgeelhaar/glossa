@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -225,6 +226,39 @@ func TestAnOrphanedTranslationIsAnnotatedWhereTheCodeStillUsesItsKey(t *testing.
 	if rep.Errors != cli.Counts.Errors || rep.Warnings != cli.Counts.Warnings || rep.Conclusion != string(cli.Conclusion) {
 		t.Errorf("pull request %s %d/%d, terminal %s %d/%d", rep.Conclusion, rep.Errors, rep.Warnings,
 			cli.Conclusion, cli.Counts.Errors, cli.Counts.Warnings)
+	}
+}
+
+// TestTheAnnotationBudgetIsSpentOnDistinctAnnotations: GitHub is sent
+// each annotation once (UnsentAnnotations), so an annotation repeated on
+// a line — a missing translation in six locales reads the same on the
+// key's usage — is one annotation. The cap counts what is sent; spending
+// it on repeats would silently drop the distinct ones behind them.
+func TestTheAnnotationBudgetIsSpentOnDistinctAnnotations(t *testing.T) {
+	var fs []quality.Finding
+	for i := range app.MaxAnnotations + 10 {
+		fs = append(fs, quality.New(quality.Finding{
+			Layer: quality.LayerCompleteness, Code: checkpolicy.CodeMissingTranslation, Severity: checkpolicy.Warning,
+			Locus:   quality.Locus{Key: "home.title", Locale: fmt.Sprintf("x%03d", i)},
+			Message: "missing translation",
+		}))
+	}
+	fs = append(fs, quality.New(quality.Finding{
+		Layer: quality.LayerCompleteness, Code: checkpolicy.CodeUnknownKey, Severity: checkpolicy.Warning,
+		Locus:   quality.Locus{Message: "m-legacy", Key: "help.legacy.title", Locale: "fr"},
+		Message: "translation of a message the catalog has obsoleted",
+	}))
+	run := app.RecordedRun{ID: uuid.New(), Ref: branchName, Commit: headSHA, Trigger: string(quality.TriggerCLI),
+		PolicyVersion: 7, Layers: []quality.Layer{quality.LayerCompleteness}, Findings: fs}
+	rep := app.BuildCheckReport(app.CheckInput{
+		Policy: checkpolicy.Policy{Version: 7, FailOn: checkpolicy.Error}, Recorded: &run,
+		Status: app.BranchStatus{Name: branchName, Outdated: map[string]int{}},
+		Usages: app.BranchUsages{Where: map[string]app.UsageSite{
+			"home.title": {File: "src/Home.vue", Line: 3}, "help.legacy.title": {File: "src/Help.vue", Line: 23},
+		}},
+	})
+	if len(rep.Annotations) != 2 || rep.Annotations[1].Path != "src/Help.vue" {
+		t.Errorf("%d annotations, want the repeated one once and the orphan's", len(rep.Annotations))
 	}
 }
 

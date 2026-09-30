@@ -608,8 +608,15 @@ func localeTable(in CheckInput) string {
 // A waived finding is annotated too, at `notice`: it is accepted, so it
 // must not look like a live warning, and it is not hidden, so it must
 // not vanish from the one place a reviewer is actually looking.
+//
+// The cap counts distinct annotations — what GitHub is actually sent,
+// since UnsentAnnotations sends each (path, line, message) once. A
+// finding repeated on one line, such as a missing translation in six
+// locales at the key's usage, is one annotation, and letting its repeats
+// spend the budget would drop the distinct findings behind them.
 func annotations(fs []quality.Finding) []CheckAnnotation {
 	var out []CheckAnnotation
+	seen := map[string]bool{}
 	for _, f := range fs {
 		if !f.Located() || len(out) == MaxAnnotations {
 			continue
@@ -628,6 +635,11 @@ func annotations(fs []quality.Finding) []CheckAnnotation {
 		message := f.Message
 		if f.Severity == quality.Waived {
 			message = "waived: " + message
+		}
+		if key := domain.AnnotationFingerprint(f.Locus.File, f.Locus.Line, message); seen[key] {
+			continue
+		} else {
+			seen[key] = true
 		}
 		out = append(out, CheckAnnotation{
 			Path: f.Locus.File, StartLine: f.Locus.Line, EndLine: f.Locus.Line, Level: level,
