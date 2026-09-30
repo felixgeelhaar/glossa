@@ -35,16 +35,41 @@ import (
 // reports "local"; a run on the server reports this.
 const Origin = "server"
 
-// Port implements app.Snapshot over the two contexts that hold a
-// project's text.
+// Styles resolves a locale's effective style guide, reduced to the
+// mechanical fields the style layer grades (RFC 0005 §3.2). It is
+// optional: a server built without it runs every other layer, and the
+// style layer reports nothing because there is nothing to check
+// against — which the run says, by naming the layer it ran.
+//
+// *style.Port satisfies it.
+type Styles interface {
+	EffectiveStyle(ctx context.Context, project uuid.UUID, locale string) (layers.StyleGuide, bool)
+}
+
+// Port implements app.Snapshot over the contexts that hold a project's
+// text and the rules it is written to.
 type Port struct {
 	catalog      *catalogapp.Service
 	localization *localizationapp.Service
+	styles       Styles
+}
+
+// Option configures a Port.
+type Option func(*Port)
+
+// WithStyles gives the port the effective style guides, which is what
+// the style layer has nothing to say without.
+func WithStyles(s Styles) Option {
+	return func(p *Port) { p.styles = s }
 }
 
 // New returns the port.
-func New(c *catalogapp.Service, l *localizationapp.Service) *Port {
-	return &Port{catalog: c, localization: l}
+func New(c *catalogapp.Service, l *localizationapp.Service, opts ...Option) *Port {
+	p := &Port{catalog: c, localization: l}
+	for _, o := range opts {
+		o(p)
+	}
+	return p
 }
 
 var _ app.Snapshot = (*Port)(nil)
@@ -73,6 +98,20 @@ func (p *Port) Snapshot(ctx context.Context, project uuid.UUID) (app.ProjectSnap
 	}
 	for _, l := range trs.Locales {
 		out.Locales = append(out.Locales, layers.Locale{Code: l.Code.String(), IsSource: l.IsSource})
+		if l.IsSource || p.styles == nil {
+			continue
+		}
+		// A guide that states no mechanical rule is not recorded, so the
+		// style layer can tell a locale it has rules for from one it
+		// does not. A resolution that fails is the same case: the layer
+		// says nothing rather than grading against a guide it could not
+		// read.
+		if g, ok := p.styles.EffectiveStyle(ctx, project, l.Code.String()); ok {
+			if out.Styles == nil {
+				out.Styles = map[string]layers.StyleGuide{}
+			}
+			out.Styles[l.Code.String()] = g
+		}
 	}
 	keys := make(map[uuid.UUID]catalogdomain.Message, len(src.Messages))
 	for _, m := range src.Messages {

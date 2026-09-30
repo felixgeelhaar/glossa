@@ -72,6 +72,7 @@ import (
 	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
 	qualityreview "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/review"
 	qualitysnapshot "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/snapshot"
+	qualitystyle "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/style"
 	qualitysummary "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/summary"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
@@ -316,7 +317,14 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		// The server-side check reads the project through Catalog's and
 		// Localization's own services, so it sees exactly what its
 		// caller could read through the API (RFC 0005 §2.2).
-		qualityapp.WithSnapshot(qualitysnapshot.New(catalog, localization)))
+		// The server-side check also reads the effective style guides,
+		// because the style layer grades their mechanical fields and has
+		// nothing to say without them (RFC 0005 §3.2). They come through
+		// Intelligence's adapter onto Knowledge, which already resolves
+		// the tenant → project → locale → namespace stack: a second
+		// resolution would be a second answer.
+		qualityapp.WithSnapshot(qualitysnapshot.New(catalog, localization,
+			qualitysnapshot.WithStyles(qualitystyle.New(intelligencesources.NewKnowledge(knowledge))))))
 	usageContext := contextapp.New(contextpg.NewTransactor(uow), contextcatalog.New(catalog),
 		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger),
 		contextapp.WithLimiter(ratelimit.New(contextUploadLimit())), contextapp.WithMetrics(contextmetrics.New(deps.registerer)),

@@ -134,6 +134,75 @@ type Region struct {
 	AdvancePerRunePx float64
 }
 
+// StyleGuide is the mechanical half of a locale's effective style guide
+// (RFC 0003 §2.3), which is the only half the style layer checks.
+//
+// The guide's prose rules are deliberately absent from this type. RFC
+// 0005 §3.2 is explicit that they are prompt material for the
+// translation agent and evidence for the linguistic layer, not rules a
+// regular expression may grade: "a regex over a rationale would be a
+// lie about what the system knows". A type that cannot carry them is a
+// type that cannot lie about them.
+type StyleGuide struct {
+	// Version identifies the merged guide, for provenance in a finding's
+	// evidence.
+	Version string
+	// Formality is "formal", "informal" or empty.
+	Formality string
+	// Pronouns are the forms of address the guide asks for ("Sie",
+	// "vous"); Forbidden the ones it rules out ("du", "tu"). A guide
+	// that states a formality and names no forms gets the locale's own,
+	// from FormalityForms.
+	Pronouns  []string
+	Forbidden []string
+	// QuoteOpen and QuoteClose are the quotation marks the guide asks
+	// for. Empty means it says nothing about them.
+	QuoteOpen  string
+	QuoteClose string
+	// Dash is the dash the guide asks for between words; Ellipsis the
+	// ellipsis character it asks for instead of three full stops.
+	Dash     string
+	Ellipsis string
+	// SpaceBeforeUnit says whether a number and its unit are separated.
+	// Nil means the guide says nothing.
+	SpaceBeforeUnit *bool
+	// Decimal and Group are the separators the guide states *beyond*
+	// CLDR: a project that writes its numbers one way whatever the
+	// locale's default is. Empty defers to the locale layer, which is
+	// where CLDR's own answer is graded — the two layers must not both
+	// grade the same character.
+	Decimal string
+	Group   string
+	// DateOrder is the date convention the guide states beyond CLDR:
+	// "ymd", "dmy" or "mdy". Empty says nothing.
+	DateOrder string
+	// ForbidTrailingSpace, ForbidDoubleSpace and ForbidAddedFinalStop
+	// are RFC 0005 §3.2's punctuation rules. The last is measured
+	// against the source — a full stop the source does not have — and
+	// not against a list of sentences.
+	ForbidTrailingSpace  bool
+	ForbidDoubleSpace    bool
+	ForbidAddedFinalStop bool
+}
+
+// Stated reports whether the guide states any mechanical rule at all.
+// A guide that is nothing but prose rules is a guide this layer has
+// nothing to check, and saying so is not the same as saying the
+// translations are clean.
+func (g StyleGuide) Stated() bool {
+	switch {
+	case g.Formality != "", len(g.Pronouns) > 0, len(g.Forbidden) > 0:
+		return true
+	case g.QuoteOpen != "", g.Dash != "", g.Ellipsis != "", g.SpaceBeforeUnit != nil:
+		return true
+	case g.Decimal != "", g.Group != "", g.DateOrder != "":
+		return true
+	case g.ForbidTrailingSpace, g.ForbidDoubleSpace, g.ForbidAddedFinalStop:
+		return true
+	}
+	return false
+}
+
 // Project is the catalog a layer checks: its locales, its active source
 // messages and their translations.
 type Project struct {
@@ -153,8 +222,19 @@ type Project struct {
 	// simply not computed: a check that guessed at pixels it never
 	// measured would be worse than one that says nothing.
 	Regions []Region
+	// Styles are the effective style guides by locale, already resolved
+	// through the tenant → project → locale → namespace stack. A locale
+	// with no guide is a locale the style layer has nothing to say
+	// about.
+	Styles map[string]StyleGuide
 
 	index map[string]int
+}
+
+// Style is locale's effective style guide, and whether there is one.
+func (p *Project) Style(locale string) (StyleGuide, bool) {
+	g, ok := p.Styles[locale]
+	return g, ok
 }
 
 // SourceLocaleOf is the project's source locale as a Locale, and
@@ -279,14 +359,22 @@ type Checker interface {
 // needs nothing but the project it is handed — no network, no database,
 // no browser and no provider.
 //
-// A layer with nothing to read is silent, not absent. The length layer
-// with no measured regions computes no layout budget, and the locale
-// layer in a locale whose conventions it has no data for reports
-// nothing — the honest answer, and not a green one, because the run
-// still names the layer in Report.Layers and a reader can tell "clean"
-// from "not looked at".
+// Seven of the ten layers of RFC 0005 §3 are here. The three that are
+// not are the three that cannot be: `terminology` asks the server's
+// termbase, `visual` is measured in a browser and `linguistic` is a
+// model's opinion, so all three arrive as Precomputed findings from the
+// caller that could fetch them.
+//
+// A layer with nothing to read is silent, not absent. The style layer
+// with no guide, the length layer with no measured regions and the
+// locale layer in a locale whose conventions it has no data for all
+// report nothing — the honest answer, and not a green one, because the
+// run still names the layer in Report.Layers and a reader can tell
+// "clean" from "not looked at".
 func Default() []Checker {
-	return []Checker{Structure{}, Parity{}, Completeness{}, Length{}, LocaleLayer{}, Source{}}
+	return []Checker{
+		Structure{}, Parity{}, Completeness{}, Style{}, Length{}, LocaleLayer{}, Source{},
+	}
 }
 
 // Precomputed is a Checker reporting findings computed elsewhere, such
