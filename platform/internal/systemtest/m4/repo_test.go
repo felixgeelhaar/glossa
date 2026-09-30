@@ -41,6 +41,15 @@ const (
 	// laterCommit opens the second pull request of §12.4, the one that
 	// grades against policy v4.
 	laterCommit = "9e35c7104bd2af68135e0c9b7f24ad80516e3b92"
+
+	// The second sighting of each branch's captures. A visual finding is
+	// a warning on first sighting and evidence only when the same
+	// fingerprint comes back in the *next* capture of the same route,
+	// viewport and locale (RFC 0005 §5.2) — and the upload is idempotent
+	// per commit, so a second capture of the same commit replays and is
+	// not a second sighting. These are the commits that make it one.
+	headCommit2  = "c41a7b6e05d29f83716be24c0a5df9138e6b7204"
+	laterCommit2 = "2d8e0c53f7a916b4e0d3852a6cf147b90e35da76"
 )
 
 const (
@@ -72,6 +81,21 @@ const (
 	keyTermMissing = "cart.basket.title"
 	// keyMaxLength carries a max_length the French translation exceeds.
 	keyMaxLength = "checkout.bagel.title"
+	// keyNumberFormat is the French translation that writes `1,234.50`
+	// where French writes `1 234,50`.
+	keyNumberFormat = "checkout.total.label"
+	// keyBidi is the Arabic translation carrying a stray U+202B.
+	keyBidi = "checkout.rtl.notice"
+	// keyManualPlural is the German source writing its plural by hand.
+	keyManualPlural = "checkout.pickup.notice"
+	// keyAmbiguousShort is the one-word source with no description.
+	keyAmbiguousShort = "checkout.pay.label"
+	// keyInformal is the Austrian German translation using `du` where
+	// the locale's style guide asks for `Sie`.
+	keyInformal = "account.greeting.body"
+	// keyOrphan is obsoleted after its translations are written, which
+	// is what leaves a translation whose key no source message has.
+	keyOrphan = "help.legacy.title"
 	// keyUnknown is used by the build and is in no catalog.
 	keyUnknown     = "checkout.pickup.reminder"
 	unknownFile    = "src/pages/CheckoutPage.vue"
@@ -107,6 +131,26 @@ const (
 	// maxLengthFrench is longer than the max_length the test sets on
 	// keyMaxLength.
 	maxLengthFrench = "ajouter un bagel au panier maintenant"
+
+	// §3.4's two cases. The French writes the number the English way;
+	// the Arabic carries a bidi control the runtime would have supplied
+	// itself.
+	numberFrench = "Total : 1,234.50 €"
+	bidiArabic   = "‫تنبيه من اليمين إلى اليسار"
+
+	// §3.5's two cases, both in the German source: a plural written by
+	// hand, and a one-word message with no description and nothing else
+	// to say what it is.
+	manualPluralSource   = "3 Artikel(n) sind abholbereit"
+	ambiguousShortSource = "Bezahlen"
+
+	// §3.2's case: the locale's style guide asks for `Sie`, and the
+	// translation says `du`.
+	informalAustrian = "Willkommen zurück, du hast neue Bestellungen."
+
+	// layoutFrench is too wide for the 132 px box the capture measures
+	// for the pay button, which is what predicts the overflow.
+	layoutFrench = "Croûte chaude et croustillante du jour"
 )
 
 // The termbase §12.2's two terminology cases need.
@@ -164,14 +208,33 @@ func (r *repo) write(t *testing.T, c catalogs) {
 	}
 }
 
-// locales are the repository's, source first.
-var repoLocales = []string{"de", "en", "es", "fr", "ja"}
+// repoLocales are the repository's, source first.
+//
+// `ar` and `de-AT` are M4's. Two of §12.2's nine cases are about a
+// language the M3 application does not ship — a stray bidi control in
+// Arabic, and `du` under a `Sie` guide, which needs German to be a
+// *target* and not the source. Each carries exactly the one translation
+// its case needs, so the check reports the rest of their catalogs as
+// missing. That is the truth about the fixture, and the per-locale
+// table below says it plainly rather than the fixture pretending to a
+// completeness it does not have.
+var repoLocales = []string{"de", "en", "es", "fr", "ja", "ar", "de-AT"}
+
+// styledLocale is the locale whose effective style guide asks for the
+// formal form of address.
+const styledLocale = "de-AT"
 
 func readCatalogs(t *testing.T, dir string) catalogs {
 	t.Helper()
 	out := catalogs{}
 	for _, l := range repoLocales {
 		raw, err := os.ReadFile(filepath.Join(dir, "locales", l+".json"))
+		if os.IsNotExist(err) {
+			// A locale M4 adds: the M3 application ships no catalog for
+			// it, and seedBase writes the one translation it is here for.
+			out[l] = map[string]string{}
+			continue
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -197,6 +260,58 @@ func seedBase(c catalogs) {
 		delete(c["fr"], k)
 	}
 	c["fr"][keyMaxLength] = maxLengthFrench
+
+	// §3.3's second case: a French translation the pay button's measured
+	// box cannot hold. The box is measured in German and Japanese and
+	// the prediction is made for French, which is what the layer is for.
+	c["fr"][keyButton] = layoutFrench
+
+	// §3.4, the locale layer.
+	set(c, keyNumberFormat, map[string]string{
+		"de": "Gesamtsumme: 1.234,50 €", "en": "Total: 1,234.50 €",
+		"es": "Total: 1.234,50 €", "fr": numberFrench, "ja": "合計: 1,234.50 €",
+	})
+	set(c, keyBidi, map[string]string{
+		"de": "Hinweis von rechts nach links", "en": "Right-to-left notice",
+		"es": "Aviso de derecha a izquierda", "fr": "Avis de droite à gauche",
+		"ja": "右から左への注意", "ar": bidiArabic,
+	})
+
+	// §3.5, the source layer. Both cases are the German source's, so the
+	// translations below are beside the point and correct anyway.
+	set(c, keyManualPlural, map[string]string{
+		"de": manualPluralSource, "en": "3 item(s) are ready for pickup",
+		"es": "3 artículo(s) listos para recoger", "fr": "3 article(s) prêts à être retirés",
+		"ja": "3件の商品が受け取り可能です",
+	})
+	set(c, keyAmbiguousShort, map[string]string{
+		"de": ambiguousShortSource, "en": "Pay", "es": "Pagar", "fr": "Payer", "ja": "支払う",
+	})
+
+	// §3.2, the style layer: German as a target, under a guide that asks
+	// for `Sie`.
+	set(c, keyInformal, map[string]string{
+		"de":         "Willkommen zurück bei Brotwerk.",
+		"en":         "Welcome back to Brotwerk.",
+		"es":         "Bienvenido de nuevo a Brotwerk.",
+		"fr":         "Bienvenue à nouveau chez Brotwerk.",
+		"ja":         "ブロートヴェルクへおかえりなさい。",
+		styledLocale: informalAustrian,
+	})
+
+	// The key whose source is obsoleted after the push, which is what
+	// leaves its translations orphaned (`unknown-key`).
+	set(c, keyOrphan, map[string]string{
+		"de": "Alte Hilfeseite", "en": "Old help page", "es": "Página de ayuda antigua",
+		"fr": "Ancienne page d’aide", "ja": "古いヘルプページ",
+	})
+}
+
+// set writes one message's source and translations into the catalogs.
+func set(c catalogs, key string, texts map[string]string) {
+	for locale, text := range texts {
+		c[locale][key] = text
+	}
 }
 
 // seedHead is the pull request's commit: the German source moves under

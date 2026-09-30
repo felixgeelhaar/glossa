@@ -8,7 +8,7 @@ browser, or from the runtime's own test suites. RFC 0005 §12.
 
 ## The verdict
 
-**4 of the 8 exit criteria hold.**
+**5 of the 8 exit criteria hold.**
 
 | § | Criterion | Verdict |
 |---|---|---|
@@ -16,30 +16,21 @@ browser, or from the runtime's own test suites. RFC 0005 §12.
 | 12.2 | Findings across layers | **not met** |
 | 12.3 | The PR check agrees | **not met** |
 | 12.4 | Waivers and policy rollout | **not met** |
-| 12.5 | Release gate | **not met** |
+| 12.5 | Release gate | met |
 | 12.6 | MCP | met |
 | 12.7 | Flutter | met |
 | 12.8 | Dashboard | met |
 
 What is missing, in one line each:
 
-- **§12.2**: the region the finding names cannot be read back and cropped, because **no visual finding ever reaches the server**: `glossa capture --upload` writes a `glossa.captures/v1` manifest whose `Capture` struct (cli/capture/document.go) has `route`, `url`, `viewport`, `locale`, `image`, `renders` and `regions` — and no `findings`. The probe pass measures them (the run above found the clip), `glossa capture --check` grades them locally, and the upload drops them. The server is ready for them: `CapturesManifestFinding` is in the API and `context/app.recordFindings` hands them to Quality, but `up.FindingCount()` is always 0. The server stored 0 visual findings, and 0 probe findings were reported as uploaded
-  - structure: no finding. `structure` reports text that did not survive parsing, and no write path can store such text: localization/app.Service.prepare parses every translation and QAResult.Gate refuses one with error-severity findings, and `glossa push` refuses an invalid source message. The layer is therefore unreachable against a server project and reachable only from `glossa check --offline` over local catalogs (which this test also runs, below)
+- **§12.2**: structure: no finding. `structure` reports text that did not survive parsing, and no write path can store such text: localization/app.Service.prepare parses every translation and QAResult.Gate refuses one with error-severity findings, and `glossa push` refuses an invalid source message. The layer is therefore unreachable against a server project and reachable only from `glossa check --offline` over local catalogs (which this test also runs, below)
   - completeness: no finding with `unknown-key`
-  - style: no finding, because the layer does not exist: there is no `quality/layers/style.go`, `layers.Default()` returns Structure, Parity and Completeness only, and nothing anywhere emits `formality-mismatch`. RFC 0005 §13's wave-2 slice ("`style` layer over the effective style guide") has not landed
-  - length: no finding under this layer. The only length rule that exists is `max-length-exceeded`, computed by localization/domain.CheckStructure when a translation is written and surfaced by the **parity** layer from the stored warning — so the one case that works is reported under the wrong layer, and `expansion-excessive` and `layout-overflow-predicted` are not computed at all. RFC 0005 §13's wave-1 `length` slice has not landed
-  - locale: no finding, because the layer does not exist: there is no `quality/layers/locale.go` and nothing emits `number-convention` or `bidi-stray-control`. RFC 0005 §13's wave-1 `locale` slice has not landed
-  - source: no finding, because the layer does not exist: there is no `quality/layers/source.go` and nothing emits `manual-plural` or `ambiguous-short`. RFC 0005 §13's wave-1 `source` slice has not landed
-  - no `unknown-key` finding names `src/pages/CheckoutPage.vue:31`. `glossa check`'s completeness layer emits `unknown-key` only for a stored translation whose key has no source message (quality/layers/completeness.go), and its locus carries no file or line, because the CLI does not enrich a locus from Context. The finding §12.2 describes — a usage of a key the catalog does not have, with its `file:line` — is emitted only by the pull-request check, from the usages document (integration/app/check_report.go's `findings`)
+  - style: no finding **from the terminal**, and the fixture is not why: `de-AT`'s effective style guide states register `formal` (pronoun "Sie") and its one translation says `du`. `glossa check` cannot see that, because `cli/qa.Project` builds a `layers.Project` with **no `Styles` map at all** — it copies locales, messages and translations and never resolves the effective style guide — so `layers.Style.Check` finds no guide for any locale and returns before it reads a word. The server's own snapshot does resolve it (`quality/adapters/snapshot` fills `Styles` from `quality/adapters/style.Port.EffectiveStyle`), so the layer is built and reachable there; the terminal is simply not wired to it
+  - no `unknown-key` finding names `src/pages/CheckoutPage.vue:31`, and the fixture cannot make one. The code means two different things on the two surfaces, and neither is §12.2's. `glossa check`'s completeness layer emits it for a stored *translation* whose key no active message has (quality/layers/completeness.go) — which a check can never see, because `snapshot.FromServer` asks for translations with `MessageState: "active"`, so obsoleting the source (this test obsoletes `help.legacy.title` after pushing its translations) takes the translations out of the snapshot with it. The finding §12.2 describes — a *usage* of a key the catalog does not have, carrying the `file:line` the product asks for it on — is emitted only by the pull-request check, from the usages document (integration/app/check_report.go's `findings`), and the check run for this commit does carry it
   - every terminology finding carries an empty `locus.namespace`, so policy v3's rule `{layer: terminology, namespace: legal, severity: error}` can never select one: `checkpolicy.Selector` matches on `locus.namespace`, and the terminology layer does not set it (cli/terminology and the server's termbase check answer by key and locale). The `legal` namespace's terminology is an error here only because `term_forbidden` is already one by default
 - **§12.3**: the terminal and the pull request do not reach the same verdict, and the reason is structural rather than a fixture accident. `glossa check` **recomputes every layer over the whole project** — `snapshot.FromServer` reads the active messages and every translation, and `quality/app.RunIn` runs Structure, Parity and Completeness over all of them. The pull-request check **reads what is already stored, for the branch's own keys only**: `integration/adapters/sources.Checks.qaFindings` returns nothing at all when the branch proposes no new key and no source change (`len(branchKeys) == 0`), and otherwise returns the warnings Localization kept when each translation was *written* plus a live terminology check. A parity break a later source revision created is stored nowhere, so the pull request cannot see it; and missing and outdated translations are rolled up to **one finding per locale** on the pull request against **one per message and locale** in the terminal. Two surfaces, two scopes, two arithmetics. The rows above are where that shows.
-- **§12.4**: the waived finding is still `warning` in `glossa check`, because **the check never reads the project's waivers**: nothing in `cli/cmd_check.go` fetches them, and `quality/app.RunIn` — the function the CLI, the capture check and Studio all call — takes findings and a policy and no waivers at all. `domain.Waivers` is applied in exactly one place, `quality/app.RecordRun` (runs.go:91), which is the server recording a check run. A waiver therefore changes no local check's counts and no local conclusion, which is what §12.4 asks it to change
-  - waived went from 0 to 0, want one more
-  - the impact preview says 0 open pull requests would newly fail, want at least the one that is open. It examined 0 stored findings over 0 runs and raised 0 of them; newly-failing refs: []. The preview reads *stored* findings, and the only findings this project has stored are the capture ingest's — so a policy change is previewed against whatever happens to have been recorded, not against what a check would compute
-  - the new pull request concluded `success`; with `visual` at `enforce` and a clipped button on its commit it has to fail. It cannot, for the same reason §12.2's crop cannot: the capture manifest has no `findings` field, so no visual finding is ever stored, so the pull-request check has none to grade and `visual: enforce` gates nothing
-- **§12.5**: a forced publish with no reason was refused as `policy_not_met`, not `force_reason_required`, because **the publish endpoint does not read `force` at all**: `release/adapters/httpapi.API.PublishRelease` builds `app.PublishInput{Environment, Note}` and drops `req.Body.Force` and `req.Body.ForceReason`, although `app.Service.Publish` implements the override and `openapi.yaml`'s `PublishRelease` carries both fields. No publish can be forced through the API today
-  - the forced publish failed: HTTP 409: {"type":"urn:glossa:problem:policy_not_met","title":"Conflict","status":409,"code":"policy_not_met","detail":"release: the environment's check policy is not met: production: fr must be complete and is 3 of 151 messages short"}
-
+- **§12.4**: the waived `term_missing` does not come back when its German source changes, and it cannot: the terminology layer's findings carry no `source_revision` at all (`glossa check` reported this one with none), and `domain.Waiver.Stale` is false whenever the finding's revision is absent — nothing to disagree with. A waiver on a terminology finding therefore never expires. The rule itself works, on a layer that does record the revision: see the second waiver below
+  - the new pull request was graded against v4, as it should be, and still concluded `success`. The server has 1 stored visual findings (1 × text-clipped error) for this branch, so the promotion is not what is missing: the pull-request check **never reads a stored Quality finding**. `integration/adapters/sources.Checks.qaFindings` is the warnings Localization kept with each translation plus a live terminology check, and a visual finding is neither — so nothing the capture ingest stored can reach a check run, and `visual: enforce` gates nothing. This is the §12.3 divergence again, on the path §12.4 needs.
 
 ## §12.1 — a fixture repository with real CI
 
@@ -53,7 +44,7 @@ runs the workflow's commands, and never writes to the committed M3 fixture.
 The project's check policy is **v3**: `require_complete: [de, en]`, `terminology` an error in the
 `legal` namespace, `visual` in `warn`, and a `production` environment that also requires `fr`.
 
-`glossa push --translations` reported 752 created, 0 failed, 0 revised, 0 unchanged, 0 updated.
+`glossa push --translations` reported 784 created, 0 failed, 0 revised, 0 unchanged, 0 updated.
 
 The seeded defects, and the layer each is for:
 
@@ -72,17 +63,19 @@ The seeded defects, and the layer each is for:
 ## §12.2 — findings across layers
 
 `glossa check --terminology --explain-policy --json` graded the project against policy v3 from the server
-and exited **1**: conclusion `failure`, **3 errors, 16 warnings, 0 waived** over 151 active messages.
+and exited **1**: conclusion `failure`, **4 errors, 556 warnings, 0 waived** over 157 active messages.
 
 | Locale | Required | Translated | Missing | Outdated | Errors | Warnings | Complete |
 |---|---|---:|---:|---:|---:|---:|---|
-| `de` _(source)_ | no | 151 | 0 | 0 | 0 | 0 | yes |
-| `en` | yes | 151 | 0 | 0 | 0 | 0 | yes |
-| `es` | no | 151 | 0 | 0 | 0 | 8 | yes |
-| `fr` | no | 148 | 3 | 1 | 2 | 5 | no |
-| `ja` | no | 151 | 0 | 3 | 1 | 3 | yes |
+| `de` _(source)_ | no | 157 | 0 | 0 | 0 | 40 | yes |
+| `ar` | no | 1 | 156 | 0 | 0 | 157 | no |
+| `de-AT` | no | 1 | 156 | 0 | 0 | 157 | no |
+| `en` | yes | 157 | 0 | 0 | 0 | 27 | yes |
+| `es` | no | 157 | 0 | 0 | 0 | 82 | yes |
+| `fr` | no | 154 | 3 | 1 | 3 | 90 | no |
+| `ja` | no | 157 | 0 | 3 | 1 | 3 | yes |
 
-The layers the run computed: `completeness`, `parity`, `structure`, `terminology`.
+The layers the run computed: `completeness`, `length`, `locale`, `parity`, `source`, `structure`, `style`, `terminology`.
 
 ### The nine cases §12.2 names
 
@@ -92,10 +85,10 @@ The layers the run computed: `completeness`, `parity`, `structure`, `terminology
 | ✅ `parity` | one French translation missing `{$amount}`, one Japanese one adding markup the source doesn't have | 2 findings (2 error, 0 warning) | `markup-extra`, `missing-argument` |
 | ❌ `completeness` | three missing `fr`, two outdated `ja`, one unknown key with its file:line | no finding with `unknown-key` | `missing-translation`, `outdated-translation` |
 | ✅ `terminology` | one `term_forbidden` in `legal` (error), one `term_missing` elsewhere (warning) | 10 findings (1 error, 9 warning) | `term_forbidden`, `term_missing` |
-| ❌ `style` | one German translation using `du` under a `Sie` guide | no finding, because the layer does not exist: there is no `quality/layers/style.go`, `layers.Default()` returns Structure, Parity and Completeness only, and nothing anywhere emits `formality-mismatch`. RFC 0005 §13's wave-2 slice ("`style` layer over the effective style guide") has not landed | — |
-| ❌ `length` | one French button over its `max_length`, one over its region's width | no finding under this layer. The only length rule that exists is `max-length-exceeded`, computed by localization/domain.CheckStructure when a translation is written and surfaced by the **parity** layer from the stored warning — so the one case that works is reported under the wrong layer, and `expansion-excessive` and `layout-overflow-predicted` are not computed at all. RFC 0005 §13's wave-1 `length` slice has not landed | — |
-| ❌ `locale` | one French translation writing `1,234.50`, one Arabic one with a stray U+202B | no finding, because the layer does not exist: there is no `quality/layers/locale.go` and nothing emits `number-convention` or `bidi-stray-control`. RFC 0005 §13's wave-1 `locale` slice has not landed | — |
-| ❌ `source` | one `3 item(s)` and one `ambiguous-short` | no finding, because the layer does not exist: there is no `quality/layers/source.go` and nothing emits `manual-plural` or `ambiguous-short`. RFC 0005 §13's wave-1 `source` slice has not landed | — |
+| ❌ `style` | one German translation using `du` under a `Sie` guide | no finding **from the terminal**, and the fixture is not why: `de-AT`'s effective style guide states register `formal` (pronoun "Sie") and its one translation says `du`. `glossa check` cannot see that, because `cli/qa.Project` builds a `layers.Project` with **no `Styles` map at all** — it copies locales, messages and translations and never resolves the effective style guide — so `layers.Style.Check` finds no guide for any locale and returns before it reads a word. The server's own snapshot does resolve it (`quality/adapters/snapshot` fills `Styles` from `quality/adapters/style.Port.EffectiveStyle`), so the layer is built and reachable there; the terminal is simply not wired to it | — |
+| ✅ `length` | one French button over its `max_length`, one over its region's width | 245 findings (1 error, 244 warning) | `expansion-excessive`, `expansion-suspicious`, `layout-overflow-predicted`, `max-length-exceeded` |
+| ✅ `locale` | one French translation writing `1,234.50`, one Arabic one with a stray U+202B | 27 findings (0 error, 27 warning) | `bidi-stray-control`, `number-convention`, `spacing-convention` |
+| ✅ `source` | one `3 item(s)` and one `ambiguous-short` | 40 findings (0 error, 40 warning) | `ambiguous-short`, `manual-plural`, `missing-description` |
 | ✅ `visual` | a real one: Chrome over the fixture, the Japanese checkout button clips | 1 findings (0 error, 1 warning) | `text-clipped` |
 
 **The `structure` layer, and why a server project cannot show one.** `glossa check --offline` over a local
@@ -105,14 +98,22 @@ It cannot appear against the server, and that is not a fixture problem: every wr
 error-severity findings, and `glossa push` refuses an invalid source message — so no stored message or
 translation can fail to parse. The layer is reachable only offline today.
 
-**The visual layer.** no region was cropped: the server stored 0 visual findings, so there is no region to read back.
+**The visual layer.** `glossa capture --check` drove the headless Chrome this test started over `/kasse` in German and Japanese
+at 1280×800, twice (the two-sighting rule of §5.2). The Japanese pay button clipped. The region the
+finding names was read back through the API and the stored screenshot cropped to it:
+
+| Message | Locale | Capture | Region | Box (CSS px) | Screenshot | Crop | Distinct colours |
+|---|---|---|---|---|---|---|---:|
+| `checkout.crust.label` | `ja` | `01a0f38` | `r_17` | 119×18 at (105, 675) | 1280×1303 (136301 bytes) | 119×18 px | 115 |
 
 - `glossa context push` uploaded 151 usages, one of them `checkout.pickup.reminder` at `src/pages/CheckoutPage.vue:31` — a key no catalog has.
-- The head commit revises 4 German sources; the French `checkout.payment.activity` keeps its text and loses `{$amount}`, and the Japanese `checkout.roll.help` keeps the link the source dropped.
+- The head commit revises 5 German sources; the French `checkout.payment.activity` keeps its text and loses `{$amount}`, and the Japanese `checkout.roll.help` keeps the link the source dropped.
+- `de-AT`'s effective style guide asks for the formal form of address (`Sie`).
 - The termbase holds `Datenschutz` → forbidden French `vie privée` (legal) and `Warenkorb` → preferred Spanish `carrito`.
-- `glossa check --json` exited 1 with conclusion `failure`: 3 errors, 16 warnings, 0 waived, graded against policy v3 from the server.
-- All 19 findings validate against `glossa.finding/v1` (schema, fingerprint, layer, code, severity, locus).
-- The visual layer is real: `glossa capture --check` drove Chrome over `/kasse` in German and Japanese at 1280×800, and the Japanese pay button clipped — 1 `text-clipped` finding(s) on the Japanese capture (0 on the German one), and the server stored 0 probe findings with the upload.
+- `glossa check --json` exited 1 with conclusion `failure`: 4 errors, 556 warnings, 0 waived, graded against policy v3 from the server.
+- All 560 findings validate against `glossa.finding/v1` (schema, fingerprint, layer, code, severity, locus).
+- The visual layer is real: `glossa capture --check` drove Chrome over `/kasse` in German and Japanese at 1280×800, and the Japanese pay button clipped — 1 `text-clipped` finding(s) on the Japanese capture (0 on the German one), and the server stored 1 probe findings with the upload.
+- The region the finding names (`r_17` on capture `01a0f38`) was read back through the API and the stored screenshot cropped to it: 119×18 CSS px at (105, 675) → 119×18 pixels of a 1280×1303 screenshot, 115 distinct colours.
 - No single command computes all nine layers: `glossa check --terminology` has the terminology layer and no browser, `glossa capture --check` has the visual layer and takes no `--terminology` flag. The table below counts both runs of the workflow together.
 
 ## §12.3 — the PR check agrees (the exit criterion)
@@ -121,18 +122,21 @@ Pull request #11 on `acme/shop`, head `6b28d05`, opened by a signed `pull_reques
 fixtures sign. Nothing creates a check run through `/v1` — `openCheck` is reached only from webhook
 processing — so the test does what a product does and assumes no API shortcut.
 
-The check run: `Glossa`, completed/`success`, "1 warning", 1 annotations over 50 PATCHes, 1 sticky comment.
+The check run: `Glossa`, completed/`success`, "1 warning", 1 annotations over 48 PATCHes, 1 sticky comment.
 
 The terminal's side is `glossa capture --check` — the workflow's run that carries every layer the server can have.
 
 | | the terminal | the pull request's check run | |
 |---|---|---|---|
 | conclusion | failure | success | ❌ |
-| errors | 2 | 0 | ❌ |
-| warnings | 8 | 1 | ❌ |
+| errors | 3 | 0 | ❌ |
+| warnings | 631 | 1 | ❌ |
 | waived | 0 | 0 | ✅ |
-| layer `completeness` (e/w/x) | 0/7/0 | 0/1/0 | ❌ |
+| layer `completeness` (e/w/x) | 0/319/0 | 0/1/0 | ❌ |
+| layer `length` (e/w/x) | 1/244/0 | 0/0/0 | ❌ |
+| layer `locale` (e/w/x) | 0/27/0 | 0/0/0 | ❌ |
 | layer `parity` (e/w/x) | 2/0/0 | 0/0/0 | ❌ |
+| layer `source` (e/w/x) | 0/40/0 | 0/0/0 | ❌ |
 | layer `visual` (e/w/x) | 0/1/0 | 0/0/0 | ❌ |
 
 The two surfaces do not agree. That is the criterion M4 is decided by, and it is the row(s) marked ❌
@@ -145,27 +149,30 @@ above that decide it.
 | What | What happened |
 |---|---|
 | a waiver with a blank reason | 400 `waiver_reason_required` — the reason is required and non-empty |
-| waive `term_missing` (`f_16a7c`) with a reason | waiver `01a0f32`, scope `project`, against source revision 0 |
-| re-run `glossa check` | the finding is `warning`; 16→16 warnings, 0→0 waived, conclusion `failure`→`failure` |
-| change the German source behind it | the finding is `warning` again: the waiver was made against source revision 0 and the finding is now at 0 |
+| waive `term_missing` (`f_58a37`) with a reason | waiver `01a0f38`, scope `project`, against source revision 0 |
+| re-run `glossa check` | the finding is `waived`; 556→555 warnings, 0→1 waived, conclusion `failure`→`failure` |
+| change the German source behind it | still `waived` — a terminology finding carries no `source_revision`, so its waiver has nothing to go stale against |
+| waive the `number-convention` on `checkout.total.label` (`f_6d999`) | `waived`, against source revision 1 |
+| change the German source behind **that** one | `warning` again: the waiver was made against source revision 1 and the finding is now at 2 — waived against a German that no longer ships |
 
 ### The rollout
 
 | What | What happened |
 |---|---|
-| `POST …/check-policy` with `dry_run: true` | 0 stored findings examined over 0 runs: 0 raised, 0 lowered, 0 silenced; 0 refs newly failing (—); **0 open pull requests** would newly fail |
-| save v4 with a 14-day grace | v3 keeps grading the pull requests opened before it, until 2026-10-14T16:38:59.651995Z |
+| `POST …/check-policy` with `dry_run: true` | 1 stored findings examined over 1 runs: 1 raised, 0 lowered, 0 silenced; 1 refs newly failing (`feature/checkout-copy`); **1 open pull requests** would newly fail |
+| save v4 with a 14-day grace | v3 keeps grading the pull requests opened before it, until 2026-10-14T18:09:23.328833Z |
 | the open pull request (`feature/checkout-copy`, opened under v3) | still graded against v3, and its summary says so: “Graded against the project's check policy v3 — the version this pull request was opened under.” |
 
 The preview counts the pull requests that would newly fail and names the **refs**, not the pull requests: `CheckPolicyImpact` carries `newly_failing_refs` (strings) and `open_pull_requests` (an integer). §12.4 asks the preview to *name* the one pull request that would newly fail; today a reader gets its branch and a count, and has to look the number up. The ref→PR mapping exists server-side (`Catalog.OpenPullRequests`) and is used only to compute the count.
-
-The preview counted 0 open pull requests, not one.
 
 ## §12.5 — the release gate
 
 | What | What happened |
 |---|---|
-| publish to `production` with `fr` incomplete | 409 `policy_not_met` — release: the environment's check policy is not met: production: fr must be complete and is 3 of 151 messages short |
+| publish to `production` with `fr` incomplete | 409 `policy_not_met` — release: the environment's check policy is not met: production: fr must be complete and is 3 of 157 messages short |
+| force it with no reason | 400 `force_reason_required` |
+| force it with a reason | 201 — release `01a0f38`, version 1 |
+| the record | deployment #1 by `person:01a0f381-a812-7680-8157-1fb04368cb0d`, `forced: true`, with the reason it was forced for |
 
 ## §12.6 — MCP
 
@@ -276,7 +283,7 @@ OK — 343.1 kB of 400.0 kB, the delta over a baseline that already has package:
   What the budget is: 150 kB was §6.4's original figure and nothing meets it by this method. Wave 4 replaced it with 400.0 kB deliberately, after measuring. See RFC 0005 §6.4 and §15, question 6, which records the decision and its reasoning.
 ```
 
-Measured in 130 s on this machine.
+Measured in 104 s on this machine.
 
 **Startup** — measured and recorded, not gated on wall clock: §6.4's numbers are written for a mid-range
 Android device and neither a laptop nor a CI runner is one. What the tool does enforce are the two
@@ -291,41 +298,41 @@ manifest under test: 202594 bytes (control: 19621 bytes)
 the shared fixture verifies against its own key: yes
 
 warm cache: 500 messages, 87360 artifact bytes on disk
-activation from the persisted store: 8.771 ms
+activation from the persisted store: 6.388 ms
 
 — §6.4 device budgets, recorded ————————————————————————————
-  verify 200 kB manifest + signature        20.10 ms   (within the 30 ms budget)
-  first t() after a warm cache               0.12 ms   (within the 5 ms budget)
-  longest event-loop stall on activation     4.81 ms   (within the 16.7 ms budget)
-  (steady state after warm-up: verification 22.51 ms, canonicalization 8.59 ms of it.)
+  verify 200 kB manifest + signature        16.54 ms   (within the 30 ms budget)
+  first t() after a warm cache               0.10 ms   (within the 5 ms budget)
+  longest event-loop stall on activation     2.55 ms   (within the 16.7 ms budget)
+  (steady state after warm-up: verification 15.63 ms, canonicalization 6.39 ms of it.)
   These are wall clock on this machine. §6.4 names a mid-range Android device; neither a laptop nor a CI runner is one, so none of the three fails this program. The device numbers belong to the M4 exit report (§12).
 
 — enforced, because they hold on every machine ——————————————
-  canonicalization cost per byte, 202594 B over 19621 B  ×0.97 (linear is ×1.00, ceiling ×3.00)
-  first t() ÷ one verification  0.5 % (ceiling 25 %)
+  canonicalization cost per byte, 202594 B over 19621 B  ×0.94 (linear is ×1.00, ceiling ×3.00)
+  first t() ÷ one verification  0.6 % (ceiling 25 %)
 
 OK — both enforced properties hold.
 ```
 
-Measured in 5 s on this machine.
+Measured in 3 s on this machine.
 
 ## §12.8 — the dashboard
 
 | Number (RFC 0005 §8) | What the API reported |
 |---|---|
-| Coverage: translated / outdated / missing | {messages:604,missing:3,outdated:4,translated:601} |
-| Outstanding findings by layer and severity, plus waived | not measured — nothing has been checked in this project yet |
+| Coverage: translated / outdated / missing | {messages:942,missing:315,outdated:4,translated:627} |
+| Outstanding findings by layer and severity, plus waived | {errors:1,waived:0,warnings:0} |
 | AI acceptance rate and mean edit distance | {acceptance_rate:0,accepted:0,decisions:0,edited:0,mean_edit_distance:0,rejected:0} |
 | Review queue depth and age | {depth:0} |
-| Context coverage: usages and visible regions | {active_messages:151,with_region:0,with_usage:150} |
-| Lead time, p50/p90 | not measured — the environment "production" has published nothing since 2026-08-31T16:41:26Z |
-| Check health: pass rate and median time to a conclusion | {failed:0,latency:{p50_seconds:16.818562499,p90_seconds:18.818042900000002,samples:2},median_seconds:16.818562499,neutra… |
+| Context coverage: usages and visible regions | {active_messages:157,with_region:0,with_usage:150} |
+| Lead time, p50/p90 | {p50_seconds:12.063679,p90_seconds:12.102208,samples:305} |
+| Check health: pass rate and median time to a conclusion | {failed:0,latency:{p50_seconds:11.688874,p90_seconds:13.9709892,samples:2},median_seconds:11.688874,neutral:0,pass_rate:… |
 
 `studio/e2e/m4/quality-exit.spec.ts` signed in against **this** server, opened `/t/…/p/…/quality`, found seven stats in the
 health header, and asserted each rendered value against the summary above — computing the expected
 rendering from the API's JSON with plain `Intl` rather than by calling Studio's own formatters, so the
 comparison cannot agree with itself. A number the API did not measure has to read "Not measured" and
-carry `data-measured="false"`; a zero there would be a claim the API never made. (5 s)
+carry `data-measured="false"`; a zero there would be a claim the API never made. (4 s)
 
 ## No provider, no network
 

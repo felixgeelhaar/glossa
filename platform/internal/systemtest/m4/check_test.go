@@ -274,6 +274,14 @@ func (s *scenario) seedCatalogs() {
 	s.owner.do(http.MethodPatch, s.projectPath("/messages/"+keyMaxLength),
 		map[string]any{"max_length": maxLength}, http.StatusOK, nil, "If-Match", etag)
 
+	// The source of `keyOrphan` goes away while its translations stay,
+	// which is the only way a stored translation ends up naming a key no
+	// active message has — the `unknown-key` the completeness layer
+	// reports.
+	orphan := s.owner.do(http.MethodGet, s.projectPath("/messages/"+keyOrphan), nil, http.StatusOK, nil).Get("ETag")
+	s.owner.do(http.MethodPost, s.projectPath("/messages/"+keyOrphan+"/obsoletion"),
+		map[string]any{}, http.StatusOK, nil, "If-Match", orphan)
+
 	// The build's usages, with the one key no catalog has.
 	var usages contextPushJSON
 	s.ci.ok(&usages, "context", "push", "usages.json")
@@ -323,6 +331,15 @@ func (s *scenario) seedTermbase() {
 			{"locale": "es", "text": termPreferredES, "status": "preferred", "part_of_speech": "noun"},
 		},
 	}, http.StatusCreated, nil)
+	// The style guide §12.2's `style` case needs: Austrian German is
+	// written in the formal form of address, and one translation is not.
+	s.owner.do(http.MethodPost, s.tenantPath("/style-guides"), map[string]any{
+		"project_id": s.project, "locale": styledLocale, "name": "Brotwerk, Österreich",
+		"fields": map[string]any{
+			"formality": map[string]any{"register": "formal", "pronoun": "Sie"},
+		},
+	}, http.StatusCreated, nil)
+	s.note("12.2", "`%s`'s effective style guide asks for the formal form of address (`Sie`).", styledLocale)
 	s.note("12.2", "The termbase holds `%s` → forbidden French `%s` (legal) and `%s` → preferred Spanish `%s`.",
 		termConceptPrivacy, termForbiddenFR, termConceptBasket, termPreferredES)
 }
@@ -431,10 +448,14 @@ func (s *scenario) nineLayers() {
 			[]string{"missing-translation", "outdated-translation", "unknown-key"}},
 		{domain.LayerTerminology, "one `term_forbidden` in `legal` (error), one `term_missing` elsewhere (warning)",
 			[]string{"term_forbidden", "term_missing"}},
-		{domain.LayerStyle, "one German translation using `du` under a `Sie` guide", nil},
-		{domain.LayerLength, "one French button over its `max_length`, one over its region's width", nil},
-		{domain.LayerLocale, "one French translation writing `1,234.50`, one Arabic one with a stray U+202B", nil},
-		{domain.LayerSource, "one `3 item(s)` and one `ambiguous-short`", nil},
+		{domain.LayerStyle, "one German translation using `du` under a `Sie` guide",
+			[]string{"formality-mismatch"}},
+		{domain.LayerLength, "one French button over its `max_length`, one over its region's width",
+			[]string{"max-length-exceeded", "layout-overflow-predicted"}},
+		{domain.LayerLocale, "one French translation writing `1,234.50`, one Arabic one with a stray U+202B",
+			[]string{"number-convention", "bidi-stray-control"}},
+		{domain.LayerSource, "one `3 item(s)` and one `ambiguous-short`",
+			[]string{"manual-plural", "ambiguous-short"}},
 		{domain.LayerVisual, "a real one: Chrome over the fixture, the Japanese checkout button clips", []string{"text-clipped"}},
 	}
 	for _, w := range wants {
@@ -456,6 +477,9 @@ func (s *scenario) nineLayers() {
 			if v.Why == "" {
 				v.Why = "the layer produced nothing"
 			}
+		}
+		if v.Layer == domain.LayerStyle && !v.OK {
+			v.Why = s.whyNoStyle()
 		}
 		if !v.OK {
 			s.gap("12.2", "%s: %s", w.layer, v.Why)
@@ -480,12 +504,17 @@ func (s *scenario) nineLayers() {
 	// the product uses it on. Two meanings, one code — and the one
 	// §12.2 describes ("with its file:line") is the pull request's.
 	if !hasLocated(findings, "unknown-key", unknownFile, unknownLine) {
-		s.gap("12.2", "no `unknown-key` finding names `%s:%d`. `glossa check`'s completeness layer emits "+
-			"`unknown-key` only for a stored translation whose key has no source message "+
-			"(quality/layers/completeness.go), and its locus carries no file or line, because the CLI does not "+
-			"enrich a locus from Context. The finding §12.2 describes — a usage of a key the catalog does not "+
-			"have, with its `file:line` — is emitted only by the pull-request check, from the usages document "+
-			"(integration/app/check_report.go's `findings`)", unknownFile, unknownLine)
+		s.gap("12.2", "no `unknown-key` finding names `%s:%d`, and the fixture cannot make one. The code means "+
+			"two different things on the two surfaces, and neither is §12.2's. `glossa check`'s completeness "+
+			"layer emits it for a stored *translation* whose key no active message has "+
+			"(quality/layers/completeness.go) — which a check can never see, because "+
+			"`snapshot.FromServer` asks for translations with `MessageState: \"active\"`, so obsoleting the "+
+			"source (this test obsoletes `%s` after pushing its translations) takes the translations out of "+
+			"the snapshot with it. The finding §12.2 describes — a *usage* of a key the catalog does not "+
+			"have, carrying the `file:line` the product asks for it on — is emitted only by the pull-request "+
+			"check, from the usages document (integration/app/check_report.go's `findings`), and the check "+
+			"run for this commit does carry it",
+			unknownFile, unknownLine, keyOrphan)
 	}
 	// Terminology's two cases have to land on the right side of the
 	// policy: an error in `legal`, a warning everywhere else.
@@ -511,6 +540,46 @@ func (s *scenario) nineLayers() {
 	}
 }
 
+// whyNoStyle tells a fixture that does not trigger the style layer from
+// a surface that cannot run it.
+//
+// The difference matters and is not guessable from the CLI alone. The
+// server's own snapshot resolves the effective style guide per locale
+// (quality/adapters/snapshot fills `Project.Styles`); the CLI's does
+// not. So the test asks the server, through the one read-only surface
+// that computes a check rather than reading a stored one — MCP's
+// `check_run` — and reports which of the two it is.
+func (s *scenario) whyNoStyle() string {
+	var guide struct {
+		Fields struct {
+			Formality *struct {
+				Register string `json:"register"`
+				Pronoun  string `json:"pronoun"`
+			} `json:"formality"`
+		} `json:"fields"`
+		Sources []map[string]any `json:"sources"`
+	}
+	path := "/v1/tenants/" + s.tenant + "/effective-style-guide?project=" + s.project + "&locale=" + url.QueryEscape(styledLocale)
+	if _, err := s.owner.try(http.MethodGet, path, nil, http.StatusOK, &guide); err != nil {
+		return fmt.Sprintf("the layer produced nothing, and `%s`'s effective style guide could not be read: %v",
+			styledLocale, err)
+	}
+	if guide.Fields.Formality == nil || guide.Fields.Formality.Register != "formal" {
+		return fmt.Sprintf("no finding, and the fixture is why: `%s`'s effective style guide states no formal "+
+			"register (%d source guides merged), so the layer has no rule to grade `du` against",
+			styledLocale, len(guide.Sources))
+	}
+	return fmt.Sprintf("no finding **from the terminal**, and the fixture is not why: `%s`'s effective style "+
+		"guide states register `%s` (pronoun %q) and its one translation says `du`. `glossa check` cannot see "+
+		"that, because `cli/qa.Project` builds a `layers.Project` with **no `Styles` map at all** — it copies "+
+		"locales, messages and translations and never resolves the effective style guide — so "+
+		"`layers.Style.Check` finds no guide for any locale and returns before it reads a word. The server's "+
+		"own snapshot does resolve it (`quality/adapters/snapshot` fills `Styles` from "+
+		"`quality/adapters/style.Port.EffectiveStyle`), so the layer is built and reachable there; the "+
+		"terminal is simply not wired to it",
+		styledLocale, guide.Fields.Formality.Register, guide.Fields.Formality.Pronoun)
+}
+
 // layerGap says, for a layer that produced nothing, why. These are the
 // precise, load-bearing sentences of this report: a criterion that
 // cannot be met has to say what is missing, not merely that something
@@ -521,22 +590,6 @@ var layerGap = map[domain.Layer]string{
 		"QAResult.Gate refuses one with error-severity findings, and `glossa push` refuses an " +
 		"invalid source message. The layer is therefore unreachable against a server project and " +
 		"reachable only from `glossa check --offline` over local catalogs (which this test also runs, below)",
-	domain.LayerStyle: "no finding, because the layer does not exist: there is no `quality/layers/style.go`, " +
-		"`layers.Default()` returns Structure, Parity and Completeness only, and nothing anywhere " +
-		"emits `formality-mismatch`. RFC 0005 §13's wave-2 slice (\"`style` layer over the effective " +
-		"style guide\") has not landed",
-	domain.LayerLength: "no finding under this layer. The only length rule that exists is " +
-		"`max-length-exceeded`, computed by localization/domain.CheckStructure when a translation is " +
-		"written and surfaced by the **parity** layer from the stored warning — so the one case that " +
-		"works is reported under the wrong layer, and `expansion-excessive` and " +
-		"`layout-overflow-predicted` are not computed at all. RFC 0005 §13's wave-1 `length` slice has " +
-		"not landed",
-	domain.LayerLocale: "no finding, because the layer does not exist: there is no `quality/layers/locale.go` " +
-		"and nothing emits `number-convention` or `bidi-stray-control`. RFC 0005 §13's wave-1 `locale` " +
-		"slice has not landed",
-	domain.LayerSource: "no finding, because the layer does not exist: there is no `quality/layers/source.go` " +
-		"and nothing emits `manual-plural` or `ambiguous-short`. RFC 0005 §13's wave-1 `source` slice " +
-		"has not landed",
 }
 
 func missingCodes(want, got []string) []string {

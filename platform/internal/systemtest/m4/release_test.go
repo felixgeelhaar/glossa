@@ -104,7 +104,7 @@ func (s *scenario) releaseGate() {
 		s.gap("12.5", "a forced publish with no reason was refused as `policy_not_met`, not "+
 			"`force_reason_required`: the gate ran before the force was read, so the request's `force` did "+
 			"not reach `app.Service.Publish` (`release/adapters/httpapi.API.PublishRelease`)")
-	case asAPIError(err, &ae):
+	case asAPIError(err, &ae) && ae.code() != "force_reason_required":
 		s.gap("12.5", "a forced publish with no reason was refused as %q, want force_reason_required", ae.code())
 	default:
 		s.releaseRows = append(s.releaseRows, step{

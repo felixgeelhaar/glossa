@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -122,6 +124,18 @@ func (s *scenario) waivers() {
 	switch {
 	case reborn == nil:
 		s.gap("12.4", "the finding did not come back after its source revision changed")
+	case reborn.Severity == domain.Waived && target.SourceRevision == nil:
+		// Precisely why, not merely that.
+		s.gap("12.4", "the waived `term_missing` does not come back when its German source changes, and it "+
+			"cannot: the terminology layer's findings carry no `source_revision` at all "+
+			"(`glossa check` reported this one with none), and `domain.Waiver.Stale` is false whenever the "+
+			"finding's revision is absent — nothing to disagree with. A waiver on a terminology finding "+
+			"therefore never expires. The rule itself works, on a layer that does record the revision: see "+
+			"the second waiver below")
+		s.waiverSteps = append(s.waiverSteps, step{
+			What: "change the German source behind it",
+			Then: "still `waived` — a terminology finding carries no `source_revision`, so its waiver has " +
+				"nothing to go stale against"})
 	case reborn.Severity == domain.Waived:
 		s.gap("12.4", "the finding is still waived after its source revision changed (waiver at revision %d, "+
 			"finding at %v)", waiver.SourceRevision, reborn.SourceRevision)
@@ -131,9 +145,11 @@ func (s *scenario) waivers() {
 			Then: fmt.Sprintf("the finding is `%s` again: the waiver was made against source revision %d and the "+
 				"finding is now at %d", reborn.Severity, waiver.SourceRevision, deref(reborn.SourceRevision))})
 	}
-	if back.Waived != before.Waived {
-		s.gap("12.4", "after the source moved, waived is %d, want %d again", back.Waived, before.Waived)
-	}
+
+	// The rule §12.4 is really about, on a layer that pins its findings
+	// to a source revision: waive it, move the German under it, and it
+	// comes back.
+	s.expiringWaiver(back)
 
 	// `glossa waive --list` is the other surface on the same waiver.
 	var listed struct {
@@ -144,9 +160,110 @@ func (s *scenario) waivers() {
 		} `json:"waivers"`
 	}
 	s.ci.ok(&listed, "waive", "--list")
-	if len(listed.Waivers) != 1 || listed.Waivers[0].Reason != reason {
-		s.gap("12.4", "`glossa waive --list` shows %d waivers, want the one with its reason", len(listed.Waivers))
+	found := false
+	for _, w := range listed.Waivers {
+		if w.Reason == reason && w.Active {
+			found = true
+		}
 	}
+	if !found {
+		s.gap("12.4", "`glossa waive --list` shows %d waivers and none of them is the active one this test "+
+			"made with its reason", len(listed.Waivers))
+	}
+}
+
+// expiringWaiver is the second half of §12.4's waiver rule: a finding
+// that records the source revision it was made against, waived, and
+// then reopened by a source change. The locale layer's findings carry
+// one, so this is where the rule can be shown rather than described.
+func (s *scenario) expiringWaiver(before checkJSON) {
+	var target *domain.Finding
+	for i, f := range before.Findings {
+		if f.Layer == domain.LayerLocale && f.Code == "number-convention" &&
+			f.Locus.Key == keyNumberFormat && f.SourceRevision != nil {
+			target = &before.Findings[i]
+			break
+		}
+	}
+	if target == nil {
+		s.gap("12.4", "no `number-convention` finding on `%s` carries a source revision, so the waiver's "+
+			"expiry rule cannot be shown on any layer", keyNumberFormat)
+		return
+	}
+	const reason = "The French price list is generated from the ERP and writes its own separators."
+	var waiver struct {
+		ID             string `json:"id"`
+		SourceRevision int    `json:"source_revision"`
+	}
+	s.owner.do(http.MethodPost, s.projectPath("/waivers"), map[string]any{
+		"fingerprint": target.Fingerprint, "reason": reason, "source_revision": *target.SourceRevision,
+	}, http.StatusCreated, &waiver)
+
+	waived := s.check()
+	got := findingByFingerprint(waived.Findings, target.Fingerprint)
+	if got == nil || got.Severity != domain.Waived {
+		s.gap("12.4", "the `number-convention` waiver did not take: the finding is %s", severityOf(got))
+		return
+	}
+	s.waiverSteps = append(s.waiverSteps, step{
+		What: fmt.Sprintf("waive the `number-convention` on `%s` (`%s`)", keyNumberFormat, short(target.Fingerprint)),
+		Then: fmt.Sprintf("`waived`, against source revision %d", waiver.SourceRevision)})
+
+	// The German the translator waived is not the German that now ships.
+	s.repo.head["de"][keyNumberFormat] = "Gesamtsumme inklusive Versand: 1.234,50 €"
+	s.repo.write(s.t, s.repo.head)
+	s.ci.run("push", "--translations", "--json")
+
+	after := s.check()
+	reborn := findingByFingerprint(after.Findings, target.Fingerprint)
+	switch {
+	case reborn == nil:
+		s.gap("12.4", "the `number-convention` finding vanished instead of coming back")
+	case reborn.Severity == domain.Waived:
+		s.gap("12.4", "the `number-convention` finding is still waived after its source revision moved from "+
+			"%d to %d", waiver.SourceRevision, deref(reborn.SourceRevision))
+	default:
+		s.waiverSteps = append(s.waiverSteps, step{
+			What: "change the German source behind **that** one",
+			Then: fmt.Sprintf("`%s` again: the waiver was made against source revision %d and the finding is "+
+				"now at %d — waived against a German that no longer ships", reborn.Severity,
+				waiver.SourceRevision, deref(reborn.SourceRevision))})
+	}
+}
+
+// storedVisual says what the server holds for a branch's visual layer,
+// so a gap can tell "nothing was promoted" from "nothing reads it".
+func (s *scenario) storedVisual(branch string) string {
+	fs := queryFindings(s.owner, s.projectPath("/findings"),
+		url.Values{"layer": {string(domain.LayerVisual)}, "branch": {branch}})
+	if len(fs) == 0 {
+		return "no stored visual finding"
+	}
+	counts := map[string]int{}
+	for _, f := range fs {
+		counts[f.Code+" "+string(f.Severity)]++
+	}
+	return fmt.Sprintf("%d stored visual findings (%s)", len(fs), counts2(counts))
+}
+
+func counts2(m map[string]int) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, fmt.Sprintf("%d × %s", m[k], k))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func severityOf(f *domain.Finding) string {
+	if f == nil {
+		return "gone from the run"
+	}
+	return "`" + string(f.Severity) + "`"
 }
 
 func deref(p *int) int {
@@ -292,9 +409,12 @@ func (s *scenario) policyRollout() {
 	s.ci.run("push", "--translations", "--branch", laterBranch, "--pr", strconv.Itoa(laterPRNumber),
 		"--commit", laterCommit, "--json")
 	s.branchUsages(laterBranch, laterCommit, "usages.pr2.json")
-	for range 2 {
+	// Two sightings, at two commits: a visual finding is evidence only
+	// when the same fingerprint comes back in the next capture of the
+	// same scope, and the upload replays a commit it has already seen.
+	for _, commit := range []string{laterCommit, laterCommit2} {
 		s.ci.run("capture", "--check", "--upload", "--no-coverage", "--base-url", s.appURL,
-			"--commit", laterCommit, "--branch", laterBranch, "--json")
+			"--commit", commit, "--branch", laterBranch, "--json")
 	}
 
 	later, done := s.waitForCheck(laterCommit)
@@ -305,10 +425,14 @@ func (s *scenario) policyRollout() {
 		s.gap("12.4", "the new pull request was graded against %q, want v%d",
 			firstLineContaining(later.Summary, "check policy v"), newVersion)
 	case later.Conclusion != "failure":
-		s.gap("12.4", "the new pull request concluded `%s`; with `visual` at `enforce` and a clipped button on "+
-			"its commit it has to fail. The chain to check is the one §12.2 checks: the capture manifest's "+
-			"`findings`, the visual findings the ingest stored, and the two sightings a promotion to `error` "+
-			"needs", later.Conclusion)
+		s.gap("12.4", "the new pull request was graded against v%d, as it should be, and still concluded `%s`. "+
+			"The server has %s for this branch, so the promotion is not what is missing: the pull-request "+
+			"check **never reads a stored Quality finding**. "+
+			"`integration/adapters/sources.Checks.qaFindings` is the warnings Localization kept with each "+
+			"translation plus a live terminology check, and a visual finding is neither — so nothing the "+
+			"capture ingest stored can reach a check run, and `visual: enforce` gates nothing. This is the "+
+			"§12.3 divergence again, on the path §12.4 needs.",
+			newVersion, later.Conclusion, s.storedVisual(laterBranch))
 	default:
 		visual := parseLayerTable(later.Summary)[domain.LayerVisual]
 		s.policySteps = append(s.policySteps, step{

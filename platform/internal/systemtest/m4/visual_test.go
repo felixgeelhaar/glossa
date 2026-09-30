@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -116,9 +117,9 @@ func (s *scenario) captureAndCheck() {
 
 	var out captureJSON
 	uploaded := 0
-	for sighting := 1; sighting <= 2; sighting++ {
+	for sighting, commit := range []string{headCommit, headCommit2} {
 		res := s.ci.run("capture", "--check", "--upload", "--no-coverage",
-			"--base-url", app.URL, "--commit", headCommit, "--branch", prBranch, "--json")
+			"--base-url", app.URL, "--commit", commit, "--branch", prBranch, "--json")
 		if err := json.Unmarshal([]byte(res.stdout), &out); err != nil {
 			s.gap("12.2", "`glossa capture --check` printed no document (exit %d): %s", res.code, res.stderr)
 			return
@@ -130,7 +131,7 @@ func (s *scenario) captureAndCheck() {
 			uploaded = out.Upload.Findings
 		}
 		if res.code != int(cli.ExitCheckFailed) {
-			s.note("12.2", "`glossa capture --check` (sighting %d) exited %d.", sighting, res.code)
+			s.note("12.2", "`glossa capture --check` (sighting %d, `%s`) exited %d.", sighting+1, short(commit), res.code)
 		}
 	}
 	s.cliCapture = out
@@ -237,9 +238,15 @@ func (s *scenario) cropRegion() {
 
 	// Where the region is: the message's captures, the one the finding
 	// names.
+	// The branch matters: the endpoint answers with the captures of the
+	// *current* builds, and this capture was taken by the pull
+	// request's CI.
 	var mc messageCaptures
-	s.owner.do(http.MethodGet, s.projectPath("/messages/"+finding.Locus.Key+"/captures"), nil, http.StatusOK, &mc)
+	s.owner.do(http.MethodGet, s.projectPath("/messages/"+finding.Locus.Key+"/captures?branch="+url.QueryEscape(prBranch)),
+		nil, http.StatusOK, &mc)
+	var ids []string
 	for _, c := range mc.Captures {
+		ids = append(ids, short(c.ID)+" "+c.Locale)
 		if c.ID != finding.Locus.Capture {
 			continue
 		}
@@ -254,7 +261,9 @@ func (s *scenario) cropRegion() {
 		}
 	}
 	if s.crop.Box.Width == 0 {
-		s.gap("12.2", "the API gave no region box for capture %s of %s", finding.Locus.Capture, finding.Locus.Key)
+		s.gap("12.2", "the API gave no region box for capture %s of `%s`; `…/messages/%s/captures?branch=%s` "+
+			"answered with %d captures (%s)", short(finding.Locus.Capture), finding.Locus.Key,
+			finding.Locus.Key, prBranch, len(mc.Captures), strings.Join(ids, ", "))
 		s.crop.Why = "no region box"
 		return
 	}
