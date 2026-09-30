@@ -50,6 +50,11 @@ func (s VisualScope) Key() string {
 // and not the catalog's message ID, so a fingerprint computed there
 // would not be the one the server computes) and with the locus's route
 // and capture left for the caller to fill.
+//
+// The message ID is the caller's too, and it is not optional: a caller
+// that can resolve the key resolves it before promoting — Project.Identify
+// in `glossa capture --check`, the upload itself at the capture ingest —
+// because the fingerprint PromoteVisual mints is hashed over it.
 type Probed struct {
 	Scope    VisualScope
 	Findings []domain.Finding

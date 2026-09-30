@@ -71,12 +71,27 @@ type Report = qualityapp.Report
 
 // Run checks s with the checkers and sums what they found.
 func Run(s *snapshot.Snapshot, p Policy, checkers ...Checker) Report {
-	return qualityapp.Run(Project(s), p, checkers...)
+	return RunProject(Project(s), p, checkers...)
 }
 
-// Project is the snapshot as a layer sees it. The CLI's snapshot holds
-// no message IDs — it is read by key — so a finding from an offline
-// check is fingerprinted by key (domain.Fingerprint).
+// RunProject checks an already-built project, for a caller that needed
+// it before the run: `glossa capture --check` resolves its probe
+// findings' keys against the project (layers.Project.Identify) before it
+// promotes them, and the run must grade that very project.
+func RunProject(p *layers.Project, policy Policy, checkers ...Checker) Report {
+	return qualityapp.Run(p, policy, checkers...)
+}
+
+// Project is the snapshot as a layer sees it.
+//
+// The catalog message IDs come with it. A snapshot read from the server
+// carries one per message, and a layer puts it in the finding's locus,
+// which is what domain.Fingerprint hashes a finding's identity over: the
+// terminal and the server therefore compute the same fingerprint for the
+// same finding, and a waiver made against either matches the other.
+// A snapshot read from the local catalogs has no IDs, and there a
+// finding is fingerprinted by key — the honest answer offline, where no
+// catalog said what the key is called.
 func Project(s *snapshot.Snapshot) *layers.Project {
 	p := &layers.Project{
 		Origin: s.Origin, SourceLocale: s.SourceLocale,
@@ -87,7 +102,7 @@ func Project(s *snapshot.Snapshot) *layers.Project {
 	}
 	for _, m := range s.Messages {
 		p.Messages = append(p.Messages, layers.Message{
-			Key: m.Key, Namespace: m.Namespace, Revision: m.Revision, Model: m.Model,
+			ID: m.ID, Key: m.Key, Namespace: m.Namespace, Revision: m.Revision, Model: m.Model,
 			Invalid: invalid(m.Invalid), File: m.File,
 		})
 	}

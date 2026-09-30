@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
@@ -226,38 +228,48 @@ func TestRecordVisualFindingsLeavesAFirstSightingAWarning(t *testing.T) {
 	}
 }
 
-// Cross-surface identity (RFC 0005 §2.1): the fingerprint `glossa
-// capture --check` computes for a visual finding and the one the
-// capture ingest computes for the same finding must be the same, or a
-// waiver made on one surface silently stops matching on the other.
+// Cross-surface identity (RFC 0005 §2.1): the fingerprint the CLI
+// computes for a finding and the one the server computes for the same
+// finding must be the same, or a waiver made on one surface silently
+// stops matching on the other.
 //
-// Both now run the same rule — layers.PromoteVisual seals and
-// fingerprints on both sides — so the route, the viewport, the region,
-// the capture, the evidence and the sighting count provably do not
-// disturb the identity, and a locale the page left open is filled from
-// the capture's scope the same way on both.
+// Both hash the identity §2.1 names: the *catalog message ID* where the
+// caller can resolve one, and the key where it cannot. The server always
+// resolves one. The CLI resolves one from the snapshot it just read, so
+// the route, the viewport, the region, the capture, the evidence and the
+// sighting count provably do not disturb the identity, and a locale the
+// page left open is filled from the capture's scope the same way on both.
 //
-// The one thing that does differ is deliberate and documented in
-// domain.Fingerprint: the hash is over the *catalog message ID* where
-// the caller has one and over the key where it does not. The server
-// always has the ID; `glossa check` offline has only keys. See the
-// second case: it is the identity a rename survives, and closing the
-// gap means giving the CLI's snapshot the message IDs, not changing
-// what the server hashes.
+// A run that resolves no ID — `glossa check --offline` over the local
+// catalogs, or a key the catalog has never seen — falls back to the key
+// on both surfaces (domain.Fingerprint). Its fingerprints are honest
+// among themselves and do not match a server print of the same finding:
+// nobody holds a waiver offline, and the ID is the identity a rename
+// survives.
 func TestTheCLIAndTheIngestFingerprintAVisualFindingTheSameWay(t *testing.T) {
 	scope := layers.VisualScope{Route: "/checkout", Width: 390, Height: 844, Locale: "fr"}
-	// What the page wrote: no fingerprint, no capture, no locale.
+	// What the page wrote: no fingerprint, no capture, no locale and no
+	// message ID — a browser holds keys, not the catalog.
 	probe := domain.Finding{
 		Layer: domain.LayerVisual, Code: "text-clipped", Severity: domain.Warning,
 		Locus:   domain.Locus{Key: "checkout.pay", Region: "r_0"},
 		Message: "Clipped: 412x20 px of text in 358x20 px.",
 	}
-	cli, _ := layers.PromoteVisual(nil, []layers.Probed{{Scope: scope, Findings: []domain.Finding{probe}}},
-		checkpolicy.DefaultVisualThresholds())
-	if len(cli.Findings) != 1 {
-		t.Fatalf("the CLI found %d", len(cli.Findings))
+
+	// `glossa capture --check`: the snapshot resolves the probe's key
+	// against the catalog it read, and PromoteVisual seals the rest.
+	cli := func(s *snapshot.Snapshot) domain.Finding {
+		t.Helper()
+		v, _ := layers.PromoteVisual(nil,
+			[]layers.Probed{{Scope: scope, Findings: qa.Project(s).Identify([]domain.Finding{probe})}},
+			checkpolicy.DefaultVisualThresholds())
+		if len(v.Findings) != 1 {
+			t.Fatalf("the CLI found %d", len(v.Findings))
+		}
+		return v.Findings[0]
 	}
 
+	// The capture ingest, which resolved the key before the upload.
 	ingested := func(message uuid.UUID) domain.Finding {
 		t.Helper()
 		store := recordingStore()
@@ -274,20 +286,113 @@ func TestTheCLIAndTheIngestFingerprintAVisualFindingTheSameWay(t *testing.T) {
 
 	// A key the catalog does not know: both surfaces hash the key, and
 	// the fingerprints are equal.
-	if got := ingested(uuid.Nil); got.Fingerprint != cli.Findings[0].Fingerprint {
-		t.Errorf("the ingest computed %s and the CLI %s for the same finding", got.Fingerprint, cli.Findings[0].Fingerprint)
+	if got, want := ingested(uuid.Nil).Fingerprint, cli(cliProject(t)).Fingerprint; got != want {
+		t.Errorf("the ingest computed %s and the CLI %s for a finding about a key the catalog has never seen", got, want)
 	}
-	// A key the catalog knows: the server hashes the message ID, which
-	// is the identity RFC 0005 §2.1 names and the one a rename
-	// survives. An offline check cannot compute it, so the two differ
-	// until the CLI's snapshot carries message IDs.
-	resolved := ingested(messageID)
-	if resolved.Fingerprint == cli.Findings[0].Fingerprint {
-		t.Error("the server hashed the key; it has the message ID and should hash that")
+	// A key the catalog knows — which is every key, online. Both hash
+	// the catalog message ID, the identity a key rename survives.
+	resolved := cli(cliProject(t, cliMessage(t, messageID.String(), "checkout.pay", "Pay {amount, number}")))
+	if got := ingested(messageID).Fingerprint; got != resolved.Fingerprint {
+		t.Errorf("the ingest computed %s and the CLI %s for the same finding", got, resolved.Fingerprint)
 	}
 	if want := clippedPrint(); resolved.Fingerprint != want {
-		t.Errorf("fingerprint = %s, want %s", resolved.Fingerprint, want)
+		t.Errorf("the CLI computed %s, want the print over the message ID (%s)", resolved.Fingerprint, want)
 	}
+	if resolved.Locus.Message != messageID.String() {
+		t.Errorf("locus = %+v, want the catalog message ID the snapshot resolved", resolved.Locus)
+	}
+}
+
+// The divergence was never about the visual layer: a `glossa check`
+// finding hashed the key too. The deterministic layers read the message
+// ID off the project (layers.Message.ID), so the terminal and the
+// server agree about a parity finding as well.
+func TestTheCLIAndTheServerFingerprintACheckFindingTheSameWay(t *testing.T) {
+	const key, source, translated = "checkout.pay", "Pay {amount, number}", "Bezahlen"
+
+	// `glossa check` online, through the CLI's own adapter.
+	terminal := qa.Run(cliProject(t, cliMessage(t, messageID.String(), key, source),
+		cliTranslation(t, key, "de", translated)), checkpolicy.Policy{}, qa.Default()...)
+	// The server, as internal/quality/adapters/snapshot builds it from
+	// Catalog and Localization: the same catalog, keyed by the same IDs.
+	server := app.Run(&layers.Project{
+		Origin: "server", SourceLocale: "en",
+		Locales:  []layers.Locale{{Code: "en", IsSource: true}, {Code: "de"}},
+		Messages: []layers.Message{withID(msg(t, key, source), messageID.String())},
+		Translations: map[string]map[string]layers.Translation{
+			"de": {key: tr(t, key, "de", translated)},
+		},
+	}, checkpolicy.Policy{}, layers.Default()...)
+
+	got, want := parityFinding(t, terminal), parityFinding(t, server)
+	if got.Code != want.Code {
+		t.Fatalf("the CLI found %s and the server %s", got.Code, want.Code)
+	}
+	if got.Fingerprint != want.Fingerprint {
+		t.Errorf("the CLI computed %s and the server %s for the same %s finding on %s",
+			got.Fingerprint, want.Fingerprint, got.Code, got.Locus.Key)
+	}
+	if got.Locus.Message != messageID.String() {
+		t.Errorf("locus = %+v, want the catalog message ID `glossa check` now carries", got.Locus)
+	}
+}
+
+// parityFinding is the run's one parity finding: `Bezahlen` drops the
+// source's `amount`.
+func parityFinding(t *testing.T, r app.Report) domain.Finding {
+	t.Helper()
+	for _, f := range r.Findings {
+		if f.Layer == domain.LayerParity {
+			return f
+		}
+	}
+	t.Fatalf("no parity finding among %d findings", len(r.Findings))
+	return domain.Finding{}
+}
+
+// cliProject is the CLI's read model of the project, as `glossa check`
+// and `glossa capture --check` read it from the server: one source
+// locale, one target, and the messages and translations given.
+func cliProject(t *testing.T, parts ...func(*snapshot.Snapshot)) *snapshot.Snapshot {
+	t.Helper()
+	s := &snapshot.Snapshot{
+		Origin: "server", SourceLocale: "en",
+		Locales:      []snapshot.Locale{{Code: "en", IsSource: true}, {Code: "de"}},
+		Translations: map[string]map[string]snapshot.Translation{"de": {}},
+	}
+	for _, p := range parts {
+		p(s)
+	}
+	return s
+}
+
+// cliMessage is a source message in the snapshot, with the catalog ID
+// the server gave it.
+func cliMessage(t *testing.T, id, key, text string) func(*snapshot.Snapshot) {
+	t.Helper()
+	model, args, invalid := snapshot.Parse("mf1", text, "en")
+	return func(s *snapshot.Snapshot) {
+		s.Messages = append(s.Messages,
+			snapshot.Message{ID: id, Key: key, Text: text, Model: model, Arguments: args, Invalid: invalid})
+	}
+}
+
+// cliTranslation is a translation in the snapshot, read by key as the
+// CLI reads it.
+func cliTranslation(t *testing.T, key, locale, text string) func(*snapshot.Snapshot) {
+	t.Helper()
+	model, _, invalid := snapshot.Parse("mf1", text, locale)
+	return func(s *snapshot.Snapshot) {
+		s.Translations[locale][key] = snapshot.Translation{
+			Key: key, Locale: locale, Text: text, Model: model, Invalid: invalid, State: "approved",
+		}
+	}
+}
+
+// withID is a layers message with the catalog ID the server always has.
+func withID(m layers.Message, id string) layers.Message {
+	m.ID = id
+	return m
 }
 
 // A run holds at most 10 000 findings (RFC 0005 §10): a page that

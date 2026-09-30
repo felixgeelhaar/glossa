@@ -63,20 +63,27 @@ func (inv *invocation) startCheck(ctx context.Context, cfg *config.Config) (*cap
 // behind for the next one.
 func (inv *invocation) finishCheck(cfg *config.Config, application string, out *captureJSON) *checkJSON {
 	c := out.checked
+	project := qa.Project(c.run.snapshot)
 	visual, seen := layers.PromoteVisual(
-		inv.readSightings(cfg, application), probed(out.shots), c.policy.Visual())
+		inv.readSightings(cfg, application), probed(project, out.shots), c.policy.Visual())
 	inv.writeSightings(cfg, application, seen)
 	c.run.extra = append(c.run.extra, visual)
 	checkers, unavailable := c.run.checkers(c.flags)
 	c.run.unavailable = append(c.run.unavailable, unavailable...)
-	c.report = qa.Run(c.run.snapshot, c.policy, checkers...)
+	c.report = qa.RunProject(project, c.policy, checkers...)
 	doc := checkDocument(c.run, c.report, c.policy, c.overrides, c.flags)
 	return &doc
 }
 
 // probed is each capture's probe findings under the scope the
 // two-sighting rule counts in.
-func probed(shots []capture.Shot) []layers.Probed {
+//
+// The project identifies them first. A probe ran in a browser and named
+// the key it rendered; the catalog message ID a finding's identity is
+// hashed over is here, in the snapshot this run read, and putting it in
+// the locus is what makes the fingerprint the terminal prints the one the
+// server stores (layers.Project.Identify).
+func probed(p *layers.Project, shots []capture.Shot) []layers.Probed {
 	out := make([]layers.Probed, 0, len(shots))
 	for _, s := range shots {
 		out = append(out, layers.Probed{
@@ -84,7 +91,7 @@ func probed(shots []capture.Shot) []layers.Probed {
 				Route: s.Capture.Route, Width: s.Capture.Viewport.Width,
 				Height: s.Capture.Viewport.Height, Locale: s.Capture.Locale,
 			},
-			Findings: s.Probes,
+			Findings: p.Identify(s.Probes),
 		})
 	}
 	return out

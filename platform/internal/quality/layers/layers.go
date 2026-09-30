@@ -106,6 +106,36 @@ func (p *Project) Message(key string) (*Message, bool) {
 	return &p.Messages[i], true
 }
 
+// Identify gives findings measured outside the layers the catalog
+// identity their fingerprint is hashed over: the message ID of the key
+// each one names, where this project knows one (RFC 0005 §2.1).
+//
+// The visual layer is the caller. Its measurements are taken in a
+// browser, which holds keys and not the catalog, so a probe finding
+// arrives with a key alone — and a fingerprint over a key is not the one
+// the server computes for the same finding, which would leave a waiver
+// made in the terminal not matching the pull request. The capture ingest
+// does the same thing on its side, where the key was resolved before the
+// upload (app.CaptureFindings.findings).
+//
+// A finding that already names a message is left alone, and so is one
+// whose key this project has never seen: that one keeps falling back to
+// the key, which is what domain.Fingerprint does with an empty message.
+// Findings are copied, never edited in place, and the fingerprint is not
+// recomputed here — PromoteVisual seals and mints them.
+func (p *Project) Identify(fs []domain.Finding) []domain.Finding {
+	out := make([]domain.Finding, 0, len(fs))
+	for _, f := range fs {
+		if f.Locus.Message == "" && f.Locus.Key != "" {
+			if m, ok := p.Message(f.Locus.Key); ok {
+				f.Locus.Message = m.ID
+			}
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
 // TargetLocales are the locales other than the source.
 func (p *Project) TargetLocales() []Locale {
 	var out []Locale

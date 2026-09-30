@@ -121,6 +121,17 @@ func TestCaptureCheckReportsTheVisualLayer(t *testing.T) {
 	case f.Sightings() != 1 || !f.Provisional():
 		t.Errorf("sightings = %d, provisional %v", f.Sightings(), f.Provisional())
 	}
+	// The probe named a key; the snapshot resolved it to the catalog
+	// message ID, which is what the fingerprint is hashed over — so the
+	// print the terminal shows is the print the capture ingest stores and
+	// a waiver written against either matches the other (RFC 0005 §2.1).
+	if f.Locus.Message != "msg_home.title" {
+		t.Errorf("locus = %+v, want the catalog message ID the snapshot resolved", f.Locus)
+	}
+	if want := domain.Fingerprint(domain.LayerVisual, "text-clipped",
+		domain.Locus{Message: "msg_home.title", Locale: "en"}, ""); f.Fingerprint != want {
+		t.Errorf("fingerprint = %s, want the server's over the message ID (%s)", f.Fingerprint, want)
+	}
 	if !slices.Contains(doc.Check.Layers, domain.LayerVisual) {
 		t.Errorf("layers = %v, want the visual one among them", doc.Check.Layers)
 	}

@@ -142,3 +142,68 @@ func TestACaptureIsCappedAtTheThreshold(t *testing.T) {
 		t.Errorf("findings = %d, want the cap of 2", len(v.Findings))
 	}
 }
+
+// A probe finding is identified against the project before it is
+// promoted: a browser named the key it rendered, and the fingerprint is
+// hashed over the catalog message ID (RFC 0005 §2.1). Without this step
+// the terminal's print is not the server's and a waiver made on one
+// surface stops matching on the other.
+func TestIdentifyGivesAProbeFindingTheCatalogsMessageID(t *testing.T) {
+	p := &layers.Project{Messages: []layers.Message{
+		{ID: "msg_1", Key: "checkout.pay"},
+		{Key: "checkout.total"}, // offline: the local catalogs know no IDs
+	}}
+	in := []domain.Finding{
+		clipped("checkout.pay"),
+		clipped("checkout.total"),
+		clipped("checkout.gone"), // a key the catalog has never seen
+	}
+	out := p.Identify(in)
+	for i, want := range []string{"msg_1", "", ""} {
+		if out[i].Locus.Message != want {
+			t.Errorf("%s identified as %q, want %q", out[i].Locus.Key, out[i].Locus.Message, want)
+		}
+		if out[i].Locus.Key != in[i].Locus.Key || out[i].Code != in[i].Code {
+			t.Errorf("identifying changed the finding: %+v", out[i])
+		}
+	}
+	// A finding that already names a message keeps it, and the input is
+	// never edited in place.
+	if in[0].Locus.Message != "" {
+		t.Errorf("Identify edited its input: %+v", in[0].Locus)
+	}
+	named := clipped("checkout.pay")
+	named.Locus.Message = "msg_elsewhere"
+	if got := p.Identify([]domain.Finding{named})[0].Locus.Message; got != "msg_elsewhere" {
+		t.Errorf("message = %q, want the one the caller already knew", got)
+	}
+}
+
+// The identity reaches the fingerprint: the same probe finding
+// identified against a project that knows the ID and one that does not
+// prints differently, and the first print is the server's.
+func TestAnIdentifiedProbeFindingPrintsAsTheServerPrintsIt(t *testing.T) {
+	online := &layers.Project{Messages: []layers.Message{{ID: "msg_1", Key: "checkout.pay"}}}
+	offline := &layers.Project{Messages: []layers.Message{{Key: "checkout.pay"}}}
+	printOf := func(p *layers.Project) string {
+		t.Helper()
+		v, _ := layers.PromoteVisual(nil,
+			[]layers.Probed{{Scope: phone(), Findings: p.Identify([]domain.Finding{clipped("checkout.pay")})}},
+			thresholds())
+		return only(t, v).Fingerprint
+	}
+	want := domain.Fingerprint(domain.LayerVisual, "text-clipped",
+		domain.Locus{Message: "msg_1", Locale: "de"}, "")
+	if got := printOf(online); got != want {
+		t.Errorf("fingerprint = %s, want the print over the message ID (%s)", got, want)
+	}
+	// An offline run falls back to the key. Its prints are consistent
+	// among themselves and deliberately not the server's: no ID was
+	// resolved, and nobody holds a waiver offline.
+	if got := printOf(offline); got == want {
+		t.Error("a project with no message IDs printed the server's fingerprint")
+	} else if key := domain.Fingerprint(domain.LayerVisual, "text-clipped",
+		domain.Locus{Key: "checkout.pay", Locale: "de"}, ""); got != key {
+		t.Errorf("fingerprint = %s, want the fallback over the key (%s)", got, key)
+	}
+}
