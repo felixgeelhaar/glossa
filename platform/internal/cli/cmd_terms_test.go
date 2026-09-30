@@ -204,3 +204,79 @@ func TestTermsCheckFindsForbiddenTerms(t *testing.T) {
 	}
 	w.run("check", "--terminology", "--offline").want(t, ExitUsage)
 }
+
+// A terminology finding carries its message's namespace, and a policy
+// rule that selects on one can therefore select it.
+//
+// This is the whole point of filling it. `{layer: terminology,
+// namespace: legal, severity: …}` matched nothing while every
+// terminology finding's `locus.namespace` was empty, so a project could
+// write the rule, read it back from `glossa policy show`, and have it do
+// nothing at all. A selector that silently matches nothing is worse than
+// one that errors.
+func TestTerminologyFindingsCarryTheirNamespace(t *testing.T) {
+	check := func(t *testing.T, namespace string, rules ...map[string]any) checkJSON {
+		t.Helper()
+		srv, w := seeded(t)
+		termbase(t, w)
+		w.write("locales/de.json", `{"cart.checkout": "Zum Einkaufswagen"}`)
+		w.run("push", "--translations").want(t, ExitOK)
+		doc := map[string]any{"schema": "glossa.check-policy/v1", "require_complete": "none",
+			"fail_on": "error", "missing_translations": "error"}
+		if len(rules) > 0 {
+			doc["rules"] = rules
+		}
+		srv.mu.Lock()
+		srv.messages["cart.checkout"].namespace = namespace
+		srv.policyDoc = map[string]any{"version": 3, "document": doc}
+		srv.mu.Unlock()
+		var out checkJSON
+		w.json(&out, "check", "--terminology")
+		return out
+	}
+	forbidden := func(t *testing.T, doc checkJSON) domain.Finding {
+		t.Helper()
+		for _, f := range doc.Findings {
+			if f.Layer == domain.LayerTerminology && f.Code == "term_forbidden" {
+				return f
+			}
+		}
+		t.Fatalf("no terminology finding in %+v", doc.Findings)
+		return domain.Finding{}
+	}
+
+	// Without a rule: the finding is an error because that is the
+	// code's own severity, and it names the namespace it is in.
+	plain := forbidden(t, check(t, "legal"))
+	if plain.Locus.Namespace != "legal" {
+		t.Errorf("locus = %+v, want the message's namespace", plain.Locus)
+	}
+	if plain.Severity != domain.Error {
+		t.Errorf("severity = %s, want the code's own", plain.Severity)
+	}
+
+	// With the rule: the selector matches, and the severity it states
+	// is the one the finding gets. Nothing but the namespace can have
+	// decided that.
+	ruled := forbidden(t, check(t, "legal",
+		map[string]any{"layer": "terminology", "namespace": "legal", "severity": "warning"}))
+	if ruled.Severity != domain.Warning {
+		t.Errorf("severity = %s, want the rule's — the namespace selector still matches nothing", ruled.Severity)
+	}
+	if ruled.Fingerprint != plain.Fingerprint {
+		t.Errorf("the severity moved the print: %s vs %s", ruled.Fingerprint, plain.Fingerprint)
+	}
+
+	// And it is really the namespace that decides: the same rule over
+	// another namespace leaves the finding alone.
+	other := forbidden(t, check(t, "marketing",
+		map[string]any{"layer": "terminology", "namespace": "legal", "severity": "warning"}))
+	if other.Severity != domain.Error || other.Locus.Namespace != "marketing" {
+		t.Errorf("a legal rule graded a marketing finding: %+v", other)
+	}
+	// The namespace is context, not identity: the three runs are three
+	// namespaces and one print (RFC 0005 §2.1).
+	if other.Fingerprint != plain.Fingerprint {
+		t.Errorf("the namespace moved the print: %s vs %s", other.Fingerprint, plain.Fingerprint)
+	}
+}

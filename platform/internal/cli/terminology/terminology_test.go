@@ -100,3 +100,57 @@ func TestRunReturnsTheServersError(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// onePage answers with a single translation's findings in namespace.
+func onePage(namespace string) Fetcher {
+	return func(_ context.Context, _ remote.TermFindingsQuery, fn func(remote.TermFindingsPage) error) error {
+		return fn(remote.TermFindingsPage{Checked: map[string]int{"de": 1}, Items: []remote.TranslationFindings{
+			{MessageKey: "terms.accept", Namespace: namespace, Locale: "de",
+				Findings: []remote.TermFinding{finding("error")}},
+		}})
+	}
+}
+
+// The namespace the server reports crosses into the finding's locus.
+//
+// It is what a policy rule selects on: `{layer: terminology, namespace:
+// legal, severity: error}` can only ever match a finding that carries
+// one, and a selector that silently matches nothing is worse than one
+// that errors — the policy reads as if it does something.
+func TestTheNamespaceReachesTheLocus(t *testing.T) {
+	r, err := Run(context.Background(), Options{Locales: []string{"de"}}, onePage("legal"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Findings) != 1 || r.Findings[0].Namespace != "legal" {
+		t.Fatalf("report = %+v", r.Findings)
+	}
+	qf := r.QA()
+	if len(qf) != 1 || qf[0].Locus.Namespace != "legal" {
+		t.Fatalf("locus = %+v, want the namespace the server reported", qf[0].Locus)
+	}
+}
+
+// And it does not move the fingerprint. `locus.namespace` is not one of
+// the five hashed parts (RFC 0005 §2.1), so filling it is context and
+// never identity: every waiver written against a terminology finding
+// before it was filled still matches after.
+func TestTheNamespaceDoesNotMoveTheFingerprint(t *testing.T) {
+	prints := map[string]string{}
+	for _, ns := range []string{"", "legal", "marketing"} {
+		r, err := Run(context.Background(), Options{Locales: []string{"de"}}, onePage(ns))
+		if err != nil {
+			t.Fatal(err)
+		}
+		prints[ns] = r.QA()[0].Fingerprint
+	}
+	if prints[""] != prints["legal"] || prints[""] != prints["marketing"] {
+		t.Errorf("the namespace moved the print: %v", prints)
+	}
+	// And it is the print the five parts alone give.
+	want := domain.Fingerprint(domain.LayerTerminology, "term_forbidden",
+		domain.Locus{Key: "terms.accept", Locale: "de"}, "Einkaufswagen")
+	if prints["legal"] != want {
+		t.Errorf("fingerprint = %s, want %s", prints["legal"], want)
+	}
+}

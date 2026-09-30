@@ -33,6 +33,12 @@ type Finding struct {
 	Severity string `json:"severity"` // error or warning
 	Locale   string `json:"locale"`
 	Key      string `json:"key"`
+	// Namespace is the message's bundle. It travels with the finding
+	// because a policy rule selects on it — `{layer: terminology,
+	// namespace: legal, severity: error}` can only match a finding that
+	// carries one — and a selector that silently matches nothing is
+	// worse than one that errors.
+	Namespace string `json:"namespace"`
 	// Side is where the span is: source (term_missing: the source term)
 	// or target (term_forbidden: the term used).
 	Side  string `json:"side"`
@@ -96,7 +102,7 @@ func Run(ctx context.Context, opts Options, fetch Fetcher) (Report, error) {
 				}
 				for _, f := range it.Findings {
 					r.Findings = append(r.Findings, Finding{Code: string(f.Code), Severity: string(f.Severity), Locale: it.Locale,
-						Key: it.MessageKey, Side: string(f.Side), Text: f.Text, Start: f.Start, End: f.End,
+						Key: it.MessageKey, Namespace: it.Namespace, Side: string(f.Side), Text: f.Text, Start: f.Start, End: f.End,
 						Suggestions: nonNil(f.Suggestions), ConceptID: f.ConceptId, TermID: f.TermId, Message: f.Message})
 					if f.Severity == "error" {
 						lr.Errors++
@@ -146,6 +152,12 @@ func nonNil(s []string) []string {
 // dropped all four on the way to `glossa check`, which is why a
 // terminology finding could never underline anything or become an
 // annotation.
+//
+// The namespace survives it too, and it is context rather than
+// identity: `locus.namespace` is not one of the five parts
+// domain.Fingerprint hashes, so filling it selects the policy rules
+// that were written for it without moving a single print, and every
+// waiver already stored against a terminology finding still matches.
 func (r Report) QA() []domain.Finding {
 	out := make([]domain.Finding, 0, len(r.Findings))
 	for _, f := range r.Findings {
@@ -153,7 +165,7 @@ func (r Report) QA() []domain.Finding {
 		if f.Severity == string(domain.Error) {
 			severity = domain.Error
 		}
-		locus := domain.Locus{Key: f.Key, Locale: f.Locale}
+		locus := domain.Locus{Key: f.Key, Namespace: f.Namespace, Locale: f.Locale}
 		if f.Side != "" {
 			locus.Span = &domain.Span{Side: domain.Side(f.Side), Start: f.Start, End: f.End}
 		}
