@@ -155,15 +155,21 @@ type policySaved struct {
 }
 
 type policyImpact struct {
-	Findings            int      `json:"findings"`
-	Runs                int      `json:"runs"`
-	Raised              int      `json:"raised"`
-	Lowered             int      `json:"lowered"`
-	Silenced            int      `json:"silenced"`
-	NewlyFailing        int      `json:"newly_failing"`
-	NoLongerFailing     int      `json:"no_longer_failing"`
-	OpenPullRequests    int      `json:"open_pull_requests"`
-	NewlyFailingRefs    []string `json:"newly_failing_refs"`
+	Findings         int      `json:"findings"`
+	Runs             int      `json:"runs"`
+	Raised           int      `json:"raised"`
+	Lowered          int      `json:"lowered"`
+	Silenced         int      `json:"silenced"`
+	NewlyFailing     int      `json:"newly_failing"`
+	NoLongerFailing  int      `json:"no_longer_failing"`
+	OpenPullRequests int      `json:"open_pull_requests"`
+	NewlyFailingRefs []string `json:"newly_failing_refs"`
+	// PullRequests names the ones OpenPullRequests counts.
+	PullRequests []struct {
+		Ref    string `json:"ref"`
+		Number int    `json:"number"`
+		URL    string `json:"url"`
+	} `json:"newly_failing_pull_requests"`
 	NoLongerFailingRefs []string `json:"no_longer_failing_refs"`
 	Rules               []struct {
 		Rule         int            `json:"rule"`

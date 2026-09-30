@@ -419,6 +419,40 @@ func (s *GitHubService) Connections(ctx context.Context, f ConnectionFilter) ([]
 	return out, err
 }
 
+// PullRequestURLs returns where each of a project's numbered pull
+// requests is on the web: on the repository connected to the project,
+// at the App's web host. It is what lets the policy impact preview
+// (RFC 0005 §4.3) link to the pull request that would newly fail.
+//
+// A number it cannot place is absent from the map, never guessed: a
+// project with no connection has nowhere to point, and one connected to
+// two different repositories has two, so a bare number cannot say which.
+// Two paths of one repository are one place.
+func (s *GitHubService) PullRequestURLs(ctx context.Context, project uuid.UUID, numbers []int) (map[int]string, error) {
+	conns, err := s.Connections(ctx, ConnectionFilter{Project: &project})
+	if err != nil {
+		return nil, err
+	}
+	out := map[int]string{}
+	var repository int64
+	var name string
+	for _, c := range conns {
+		if repository != 0 && c.RepositoryID != repository {
+			return out, nil
+		}
+		repository, name = c.RepositoryID, c.RepositoryName
+	}
+	if repository == 0 {
+		return out, nil
+	}
+	for _, n := range numbers {
+		if u := s.gh.PullRequestURL(name, n); u != "" {
+			out[n] = u
+		}
+	}
+	return out, nil
+}
+
 // Connection returns one Git connection.
 func (s *GitHubService) Connection(ctx context.Context, id uuid.UUID) (domain.GitConnection, error) {
 	if err := authz.Require(ctx, authz.IntegrationRead); err != nil {

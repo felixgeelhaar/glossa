@@ -8705,8 +8705,32 @@ export interface components {
             open_pull_requests: number;
             /** @description The refs whose verdict turns from passing to failing. */
             newly_failing_refs?: string[];
+            /**
+             * @description The open pull requests `open_pull_requests` counts, named: each
+             *     one among `newly_failing_refs` that has an open pull request,
+             *     with its number and, where the project's repository is known,
+             *     where it is. The count says how many people would wake up to a
+             *     red pull request; this is what lets whoever saves the policy go
+             *     and tell them. Absent when there are none.
+             */
+            newly_failing_pull_requests?: components["schemas"]["CheckPolicyPullRequest"][];
             no_longer_failing_refs?: string[];
             rules: components["schemas"]["CheckPolicyRuleImpact"][];
+        };
+        /** @description An open pull request a candidate check policy would newly fail (RFC 0005 §4.3). */
+        CheckPolicyPullRequest: {
+            /** @description The pull request's branch. */
+            ref: string;
+            /** @description The pull request's number on its repository. */
+            number: number;
+            /**
+             * Format: uri
+             * @description Where the pull request is on the web: the repository connected
+             *     to the project, at the GitHub App's web host. Absent when no
+             *     repository is connected, when the project is connected to more
+             *     than one, or when the caller may not read the integration.
+             */
+            url?: string;
         };
         CheckPolicySaved: {
             /** @description Nothing was stored. */

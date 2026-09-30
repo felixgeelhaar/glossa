@@ -3561,6 +3561,14 @@ type CheckPolicyImpact struct {
 	// NewlyFailing Findings that fail under the candidate and did not before.
 	NewlyFailing int `json:"newly_failing"`
 
+	// NewlyFailingPullRequests The open pull requests `open_pull_requests` counts, named: each
+	// one among `newly_failing_refs` that has an open pull request,
+	// with its number and, where the project's repository is known,
+	// where it is. The count says how many people would wake up to a
+	// red pull request; this is what lets whoever saves the policy go
+	// and tell them. Absent when there are none.
+	NewlyFailingPullRequests *[]CheckPolicyPullRequest `json:"newly_failing_pull_requests,omitempty"`
+
 	// NewlyFailingRefs The refs whose verdict turns from passing to failing.
 	NewlyFailingRefs    *[]string `json:"newly_failing_refs,omitempty"`
 	NoLongerFailing     int       `json:"no_longer_failing"`
@@ -3587,6 +3595,21 @@ type CheckPolicyImpact struct {
 // (`all`), only those in `locales` (`listed`), or none of them.
 // `listed` with an empty `locales` is stored as `none`.
 type CheckPolicyLocaleRequirement string
+
+// CheckPolicyPullRequest An open pull request a candidate check policy would newly fail (RFC 0005 §4.3).
+type CheckPolicyPullRequest struct {
+	// Number The pull request's number on its repository.
+	Number int `json:"number"`
+
+	// Ref The pull request's branch.
+	Ref string `json:"ref"`
+
+	// Url Where the pull request is on the web: the repository connected
+	// to the project, at the GitHub App's web host. Absent when no
+	// repository is connected, when the project is connected to more
+	// than one, or when the caller may not read the integration.
+	Url *string `json:"url,omitempty"`
+}
 
 // CheckPolicyRule One line of the policy document (RFC 0005 §4.1): what it
 // selects, what that is worth, and whether it may fail a run yet.

@@ -321,9 +321,9 @@ func (s *scenario) policyRollout() {
 	s.policySteps = append(s.policySteps, step{
 		What: "`POST …/check-policy` with `dry_run: true`",
 		Then: fmt.Sprintf("%d stored findings examined over %d runs: %d raised, %d lowered, %d silenced; "+
-			"%d refs newly failing (%s); **%d open pull requests** would newly fail",
+			"%d refs newly failing (%s); **%d open pull requests** would newly fail: %s",
 			im.Findings, im.Runs, im.Raised, im.Lowered, im.Silenced,
-			im.NewlyFailing, codeList(im.NewlyFailingRefs), im.OpenPullRequests)})
+			im.NewlyFailing, codeList(im.NewlyFailingRefs), im.OpenPullRequests, namedPullRequests(im))})
 	switch {
 	case im.OpenPullRequests < 1:
 		s.gap("12.4", "the impact preview says %d open pull requests would newly fail, want at least the one "+
@@ -341,12 +341,20 @@ func (s *scenario) policyRollout() {
 	case !contains(im.NewlyFailingRefs, prBranch):
 		s.gap("12.4", "the impact preview's newly-failing refs are %v, want `%s` among them", im.NewlyFailingRefs, prBranch)
 	}
-	// The known shortfall, stated rather than worked around.
-	s.note("12.4", "The preview counts the pull requests that would newly fail and names the **refs**, not the "+
-		"pull requests: `CheckPolicyImpact` carries `newly_failing_refs` (strings) and `open_pull_requests` "+
-		"(an integer). §12.4 asks the preview to *name* the one pull request that would newly fail; today a "+
-		"reader gets its branch and a count, and has to look the number up. The ref→PR mapping exists "+
-		"server-side (`Catalog.OpenPullRequests`) and is used only to compute the count.")
+	// §12.4 asks the preview to *name* the pull request, not count it:
+	// every one it counts is named, by number, with where it is on the
+	// repository the project is connected to.
+	if len(im.PullRequests) != im.OpenPullRequests {
+		s.gap("12.4", "the impact preview counts %d open pull requests and names %d: %s",
+			im.OpenPullRequests, len(im.PullRequests), namedPullRequests(im))
+	}
+	for _, pr := range im.PullRequests {
+		want := fmt.Sprintf("/%s/pull/%d", repositoryName, pr.Number)
+		if !strings.HasSuffix(pr.URL, want) {
+			s.gap("12.4", "the impact preview names pull request #%d (`%s`) at %q, want its address on `%s` "+
+				"(…%s)", pr.Number, pr.Ref, pr.URL, repositoryName, want)
+		}
+	}
 	if im.OpenPullRequests != 1 {
 		s.note("12.4", "The preview counted %d open pull requests, not one.", im.OpenPullRequests)
 	}
@@ -446,6 +454,23 @@ func (s *scenario) policyRollout() {
 				newVersion, later.Conclusion, visual.Errors)})
 	}
 	s.policyVersion = newVersion
+}
+
+// namedPullRequests is the preview's pull requests as a reader gets
+// them: number, branch and address.
+func namedPullRequests(im policyImpact) string {
+	if len(im.PullRequests) == 0 {
+		return "none named"
+	}
+	parts := make([]string, 0, len(im.PullRequests))
+	for _, pr := range im.PullRequests {
+		link := "no address"
+		if pr.URL != "" {
+			link = "<" + pr.URL + ">"
+		}
+		parts = append(parts, fmt.Sprintf("#%d `%s` %s", pr.Number, pr.Ref, link))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func contains(items []string, want string) bool {

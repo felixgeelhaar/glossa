@@ -12151,12 +12151,37 @@ components:
           type: array
           items: { type: string }
           description: The refs whose verdict turns from passing to failing.
+        newly_failing_pull_requests:
+          type: array
+          items: { $ref: "#/components/schemas/CheckPolicyPullRequest" }
+          description: |
+            The open pull requests `open_pull_requests` counts, named: each
+            one among `newly_failing_refs` that has an open pull request,
+            with its number and, where the project's repository is known,
+            where it is. The count says how many people would wake up to a
+            red pull request; this is what lets whoever saves the policy go
+            and tell them. Absent when there are none.
         no_longer_failing_refs:
           type: array
           items: { type: string }
         rules:
           type: array
           items: { $ref: "#/components/schemas/CheckPolicyRuleImpact" }
+    CheckPolicyPullRequest:
+      type: object
+      required: [ref, number]
+      description: An open pull request a candidate check policy would newly fail (RFC 0005 §4.3).
+      properties:
+        ref: { type: string, description: The pull request's branch. }
+        number: { type: integer, minimum: 1, description: The pull request's number on its repository. }
+        url:
+          type: string
+          format: uri
+          description: |
+            Where the pull request is on the web: the repository connected
+            to the project, at the GitHub App's web host. Absent when no
+            repository is connected, when the project is connected to more
+            than one, or when the caller may not read the integration.
     CheckPolicySaved:
       type: object
       required: [dry_run, policy, impact]

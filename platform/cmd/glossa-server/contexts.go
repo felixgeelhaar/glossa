@@ -70,6 +70,7 @@ import (
 	qualityintelligence "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/intelligence"
 	qualitymetrics "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/metrics"
 	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
+	qualitypullrequests "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/pullrequests"
 	qualityreview "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/review"
 	qualitysnapshot "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/snapshot"
 	qualitystyle "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/style"
@@ -386,6 +387,9 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	c.integrationAPI = integrationapi.New(integration, gh)
 	if gh != nil {
+		// The impact preview links to the pull request a policy would
+		// newly fail (RFC 0005 §4.3); only Integration knows where it is.
+		quality.SetPullRequestLinks(qualitypullrequests.New(gh))
 		if err := gh.SubscribeChecks(events); err != nil {
 			return contexts{}, err
 		}

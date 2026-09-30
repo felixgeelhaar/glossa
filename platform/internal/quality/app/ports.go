@@ -92,6 +92,18 @@ type Catalog interface {
 	OpenPullRequests(ctx context.Context, project uuid.UUID) (map[string]int, error)
 }
 
+// PullRequestLinks says where a project's pull requests are on the web,
+// so the impact preview can link to the one that would newly fail
+// (RFC 0005 §4.3) instead of printing a number to look up. Integration
+// answers it from the repository connected to the project.
+type PullRequestLinks interface {
+	// PullRequestURLs returns the web address of each of numbers. A
+	// number it cannot place is absent from the map; an error is a
+	// failure to look, and an authz denial means the caller may not
+	// read the integration.
+	PullRequestURLs(ctx context.Context, project uuid.UUID, numbers []int) (map[int]string, error)
+}
+
 // StoredPolicy is the project's check policy as Catalog holds it.
 type StoredPolicy struct {
 	// Policy is the document that grades, history and all.

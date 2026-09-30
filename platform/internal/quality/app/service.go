@@ -62,9 +62,14 @@ type Service struct {
 	// ErrLinguistUnavailable rather than answering an empty list, which
 	// would read as a clean bill of health nobody issued.
 	linguist Linguist
-	tracer   trace.Tracer
-	logger   *slog.Logger
-	now      func() time.Time
+	// links says where the project's pull requests are, so the impact
+	// preview can link to the one it would newly fail. Nil where no
+	// GitHub integration is wired; the preview then names each pull
+	// request by its number alone.
+	links  PullRequestLinks
+	tracer trace.Tracer
+	logger *slog.Logger
+	now    func() time.Time
 }
 
 // tracerName names Quality's spans' instrumentation scope.
