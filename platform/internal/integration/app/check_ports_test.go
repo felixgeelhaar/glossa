@@ -216,7 +216,15 @@ type memSources struct {
 	// `glossa check` found and the server stored, which is what the
 	// pull request renders (RFC 0005 §12.3).
 	recorded map[string]app.RecordedRun
-	manifest string
+	// recordedBefore is a project that has recorded a run of some other
+	// commit, one the test does not otherwise care about. It makes the
+	// check wait for this commit's run.
+	recordedBefore bool
+	// historyAsked counts how often the check asked whether the project
+	// records runs at all, so a test can hold it to asking only when the
+	// answer matters.
+	historyAsked int
+	manifest     string
 }
 
 func newMemSources() *memSources {
@@ -242,6 +250,15 @@ func (m *memSources) RecordedRun(_ context.Context, _ uuid.UUID, commit string) 
 	defer m.mu.Unlock()
 	run, ok := m.recorded[commit]
 	return run, ok, nil
+}
+
+// RecordsRuns answers whether the project has ever recorded a run: any
+// run on the record, of any commit.
+func (m *memSources) RecordsRuns(context.Context, uuid.UUID) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.historyAsked++
+	return m.recordedBefore || len(m.recorded) > 0, nil
 }
 
 func (m *memSources) set(fn func(*memSources)) {

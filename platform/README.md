@@ -1213,7 +1213,11 @@ not the place for a call back to GitHub. The check worker claims that
 row (`FOR UPDATE SKIP LOCKED`, leased), creates the **Glossa** check run
 as `queued` for the head SHA, and completes it once that commit's
 `glossa push`, its usages build **and its `glossa check` run** have been
-ingested. Readiness is **derived, never remembered**: the branch's head
+ingested — the run only in a project known to record them, one that has
+recorded a reported run of any commit before (RFC 0005 §14 decision 11).
+A project that never has is not waited for: it reports its labelled
+reduced view as soon as the push and the usages are in, and a run that
+lands later re-renders it. Readiness is **derived, never remembered**: the branch's head
 commit says the push landed, a current build on that commit says the
 usages did, and a recorded check run of that commit says the check ran,
 so an event that arrives twice, late or never changes nothing. If none

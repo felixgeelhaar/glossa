@@ -159,6 +159,18 @@ func (s *store) LatestCheckRun(ctx context.Context, project uuid.UUID, f app.Run
 	return checkRun(r), nil
 }
 
+func (s *store) HasCheckRunOf(ctx context.Context, project uuid.UUID, triggers []domain.Trigger) (bool, error) {
+	names := make([]string, len(triggers))
+	for i, t := range triggers {
+		names[i] = string(t)
+	}
+	found, err := s.q.HasCheckRunOf(ctx, qualitysql.HasCheckRunOfParams{ProjectID: project, RunTriggers: names})
+	if err != nil {
+		return false, storeError(err)
+	}
+	return found, nil
+}
+
 func (s *store) ListCheckRuns(ctx context.Context, project uuid.UUID, f app.RunFilter, after *app.RunCursor, limit int) ([]domain.CheckRun, error) {
 	p := qualitysql.ListCheckRunsParams{
 		ProjectID: project, Ref: f.Ref, CommitSha: f.Commit, Conclusion: f.Conclusion, RunTrigger: f.Trigger,

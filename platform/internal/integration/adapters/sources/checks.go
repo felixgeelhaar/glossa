@@ -138,6 +138,17 @@ func (c *Checks) RecordedRun(ctx context.Context, project uuid.UUID, commit stri
 	return out, true, nil
 }
 
+// RecordsRuns implements app.CheckSources: whether the project has ever
+// recorded a reported run, read as one existence check through
+// Quality's service. A deployment without Quality records nothing, so
+// its checks never wait for a run.
+func (c *Checks) RecordsRuns(ctx context.Context, project uuid.UUID) (bool, error) {
+	if c.quality == nil {
+		return false, nil
+	}
+	return c.quality.HasReportedRun(ctx, project)
+}
+
 // reportedRun is the newest run of this commit that somebody *reported*
 // — `glossa check` in CI, the pull-request check, or an explicit API
 // call — and never one of the server's own jobs.

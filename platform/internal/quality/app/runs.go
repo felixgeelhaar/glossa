@@ -168,6 +168,29 @@ func (s *Service) ListCheckRuns(ctx context.Context, project uuid.UUID, f RunFil
 	return items, next, nil
 }
 
+// HasReportedRun reports whether the project has ever recorded a
+// reported run — one of ReportableTriggers, of any ref and any commit —
+// among the runs retention still keeps.
+//
+// It is how the Glossa pull-request check learns that a repository's
+// CI runs `glossa check`, and so whether a commit without a run yet is
+// worth waiting for (RFC 0005 §14 decision 11). `capture` and `write`
+// runs are the server's own and say nothing about the repository's CI.
+// It is asked on every readiness pass, so it is one existence check and
+// never a listing.
+func (s *Service) HasReportedRun(ctx context.Context, project uuid.UUID) (bool, error) {
+	if err := s.read(ctx, project); err != nil {
+		return false, err
+	}
+	var found bool
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		var err error
+		found, err = st.HasCheckRunOf(ctx, project, ReportableTriggers)
+		return err
+	})
+	return found, err
+}
+
 // validate refuses a filter value outside the vocabulary, so a typo
 // answers 400 rather than silently matching nothing.
 func (f RunFilter) validate() error {

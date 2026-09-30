@@ -34,6 +34,18 @@ WHERE project_id = sqlc.arg(project_id)
 ORDER BY started_at DESC, id DESC
 LIMIT sqlc.arg(max_rows);
 
+-- name: HasCheckRunOf :one
+-- Whether the project has any run by one of these triggers: what the
+-- pull-request check asks to learn that a repository's CI runs `glossa
+-- check` (RFC 0005 §14 decision 11). EXISTS stops at the first matching
+-- row, and the project_id prefix of quality_check_runs_ref bounds the
+-- walk to this project's runs within retention.
+SELECT EXISTS (
+    SELECT 1 FROM quality_check_runs
+    WHERE project_id = sqlc.arg(project_id)
+      AND trigger = ANY (sqlc.arg(run_triggers)::text[])
+) AS found;
+
 -- name: LatestCheckRun :one
 -- The newest run matching the same filters: what a findings list reads
 -- when the caller names a branch or a commit instead of a run.

@@ -290,6 +290,9 @@ type Store interface {
 	LatestCheckRun(ctx context.Context, project uuid.UUID, f RunFilter) (domain.CheckRun, error)
 	// ListCheckRuns pages a project's runs, newest first.
 	ListCheckRuns(ctx context.Context, project uuid.UUID, f RunFilter, after *RunCursor, limit int) ([]domain.CheckRun, error)
+	// HasCheckRunOf reports whether the project has any run by one of
+	// triggers: an existence check, never a read of the rows.
+	HasCheckRunOf(ctx context.Context, project uuid.UUID, triggers []domain.Trigger) (bool, error)
 	// ListFindings pages a run's findings, graded against the waivers
 	// live at now and ordered stably.
 	ListFindings(ctx context.Context, run domain.CheckRun, f FindingFilter, after string, limit int, now time.Time) ([]FindingRecord, error)

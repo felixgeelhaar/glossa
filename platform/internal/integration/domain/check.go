@@ -66,17 +66,17 @@ type CheckTarget struct {
 	// CheckWait runs out.
 	//
 	// Recorded is the one RFC 0005 §12.3 adds. The pull request renders
-	// the run CI recorded rather than computing a second one, so until
-	// that run exists there is nothing for it to render.
+	// the run CI recorded rather than computing a second one, so in a
+	// project known to record runs there is nothing to render until it
+	// exists. A project that has never recorded one is not waited for,
+	// and completes on the first two (RFC 0005 §14 decision 11; the rule
+	// lives with the worker).
 	Pushed   bool `json:"pushed,omitempty"`
 	Usages   bool `json:"usages,omitempty"`
 	Recorded bool `json:"recorded,omitempty"`
 	// Conclusion is what the run last reported.
 	Conclusion string `json:"conclusion,omitempty"`
 }
-
-// Ready reports whether this head SHA's CI has done all three.
-func (t CheckTarget) Ready() bool { return t.Pushed && t.Usages && t.Recorded }
 
 // Sent reports whether fingerprint has already been appended to the
 // current check run.

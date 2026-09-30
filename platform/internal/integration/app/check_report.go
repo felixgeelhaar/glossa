@@ -347,12 +347,17 @@ func checkTitle(r CheckReport) string {
 // both asking a per-layer question (RFC 0005 §2.1, §12.3).
 func checkSummary(in CheckInput, r CheckReport) string {
 	var b strings.Builder
+	// Where the findings came from is the summary's first line, before
+	// anything about the branch: a reduced view is now what a project
+	// that does not run `glossa check` gets straight away rather than
+	// after a thirty-minute wait, so it is common, and a reader must not
+	// have to get past the headline to learn it is not the check CI ran.
+	writeProvenance(&b, r)
 	fmt.Fprintf(&b, "**%s** proposes %s and %s; %s.\n\n",
 		mdCode(in.Status.Name),
 		plural(len(in.Status.NewKeys), "new key", "new keys"),
 		plural(len(in.Status.SourceProposals), "source change", "source changes"),
 		plural(len(in.Status.Removed), "key is gone", "keys are gone"))
-	writeProvenance(&b, r)
 	b.WriteString(localeTable(in))
 	b.WriteString(layerTable(r))
 	writeLayerGroups(&b, r)

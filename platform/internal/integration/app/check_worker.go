@@ -410,16 +410,39 @@ func (s *GitHubService) upsertStickyComment(ctx context.Context, c *domain.Check
 // catalogs, uploaded the build's usages, and recorded a `glossa check`
 // run.
 //
-// The third is new with RFC 0005 §12.3 and belongs with the other two.
-// The pull request renders the run CI recorded, so a commit whose check
-// has not run yet is a commit with nothing to render — exactly as a
-// commit whose messages have not been pushed is a commit with nothing
-// to check. It waits the same CheckWait, and when the wait runs out
-// with a push and usages but no run, the report falls back to
-// Integration's own reduced view and says so.
-type checkReadiness struct{ pushed, usages, recorded bool }
+// The third is new with RFC 0005 §12.3, and it is waited for only where
+// a run is coming. The pull request renders the run CI recorded, so for
+// a project whose CI runs `glossa check`, a commit whose run has not
+// landed is a commit whose verdict is on its way: the check waits the
+// same CheckWait for it, and when the wait runs out with a push and
+// usages but no run it falls back to Integration's reduced view and
+// says so.
+//
+// A project that has never recorded a run is not waited for
+// (expectsRun is false). Its CI does not run `glossa check`, so a run
+// is not coming, and waiting thirty minutes for one would leave every
+// such pull request silent for half an hour — which is what this
+// condition did to every such project when it was first added, and what
+// M3's exit test caught. It
+// reports the labelled reduced view as soon as the push and the usages
+// are in, as the check did before it rendered recorded runs.
+//
+// "Has ever recorded a run" is learned from the record rather than
+// configured, and it has one honest edge: a repository's first pull
+// request after adding `glossa check` to its CI is still a project with
+// no run on the record. It is not waited for, so it reports the
+// labelled reduced view first; when its run lands,
+// `quality.check_run.recorded` wakes the check and it is re-rendered
+// from the run — which can move the verdict. From its next pull request
+// on the project records runs, and the check waits. The reverse can
+// happen through Quality's 90-day retention: once every reported run a
+// project made has been swept (the newest run of each ref is kept), it
+// is no longer waited for.
+type checkReadiness struct{ pushed, usages, recorded, expectsRun bool }
 
-func (r checkReadiness) complete() bool { return r.pushed && r.usages && r.recorded }
+func (r checkReadiness) complete() bool {
+	return r.uploaded() && (r.recorded || !r.expectsRun)
+}
 
 // uploaded reports whether this commit's CI uploaded anything at all.
 // A commit with a push and usages but no recorded run has CI; it just
@@ -477,6 +500,15 @@ func (s *GitHubService) checkInput(ctx context.Context, c *domain.Check, conn do
 		if sameCommit(commit, c.HeadSHA) {
 			ready.usages = true
 			break
+		}
+	}
+	// Whether to wait for a run is only a question once there is
+	// something to report and no run to render, so the project's history
+	// is read then and never otherwise: a check waiting on its push, or
+	// one whose run is already in, costs nothing more.
+	if ready.uploaded() && !ready.recorded {
+		if ready.expectsRun, err = s.sources.RecordsRuns(ctx, conn.ProjectID); err != nil {
+			return in, ready, err
 		}
 	}
 	return in, ready, nil

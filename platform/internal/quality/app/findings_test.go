@@ -74,6 +74,7 @@ type fakeStore struct {
 	lastTrendTo   time.Time
 	lastRunFilter app.FindingFilter
 	lastRun       app.RunFilter
+	lastTriggers  []domain.Trigger
 	lastAfter     string
 	lastLimit     int
 	lastNow       time.Time
@@ -220,6 +221,18 @@ func (f *fakeStore) ListCheckRuns(
 		return f.runs[:limit], nil
 	}
 	return f.runs, nil
+}
+
+// HasCheckRunOf answers from the runs a test set, and remembers the
+// triggers it was asked about.
+func (f *fakeStore) HasCheckRunOf(_ context.Context, _ uuid.UUID, triggers []domain.Trigger) (bool, error) {
+	f.lastTriggers = triggers
+	for _, r := range f.runs {
+		if slices.Contains(triggers, r.Trigger) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (f *fakeStore) InsertPolicyVersion(_ context.Context, v app.PolicyVersion) (bool, error) {

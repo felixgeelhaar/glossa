@@ -93,6 +93,7 @@ func TestTheCheckWaitsForTheRunBeforeItReports(t *testing.T) {
 
 	f := newFixture(t)
 	f.connected(t)
+	f.recordsRuns()
 	f.openPR(t, "pull_request.opened", "d-open")
 	f.ci(headSHA)
 	f.sources.set(func(m *memSources) { serverView(m, commit, policy) })
@@ -113,6 +114,102 @@ func TestTheCheckWaitsForTheRunBeforeItReports(t *testing.T) {
 	if run.Status != app.CheckCompleted || run.Conclusion != string(cli.Conclusion) {
 		t.Fatalf("check run = %+v, want the terminal's %q", run, cli.Conclusion)
 	}
+}
+
+// TestAProjectThatRecordsRunsWaitsForThisCommitsRun: the check waits
+// for a recorded run only where the project is known to record them —
+// it has recorded one before, of any commit. Such a project's CI runs
+// `glossa check`, so a commit whose run has not landed yet is a commit
+// whose verdict is on its way, and reporting the reduced view first
+// would be the green-then-red the wait exists to prevent.
+func TestAProjectThatRecordsRunsWaitsForThisCommitsRun(t *testing.T) {
+	f := newFixture(t)
+	f.connected(t)
+	// An earlier commit's run: the project records them.
+	f.recorded("0123456789abcdef0123456789abcdef01234567", app.RecordedRun{
+		ID: uuid.New(), Ref: branchName, Trigger: string(quality.TriggerCLI),
+	})
+	f.openPR(t, "pull_request.opened", "d-open")
+	f.ci(headSHA)
+	f.runCheck(t)
+
+	if run := f.theCheck(t); run.Status != app.CheckQueued {
+		t.Fatalf("check run = %+v: this project records `glossa check` runs, and this commit's has not landed", run)
+	}
+}
+
+// TestAProjectThatHasNeverRecordedARunReportsAtOnce closes the
+// regression the third readiness condition introduced.
+//
+// A project whose CI pushes and uploads usages but has never recorded a
+// `glossa check` run — every product that adopted Glossa before RFC
+// 0005 — must not wait thirty minutes for a run that is not coming. It
+// reports as soon as the push and the usages are in, as it did before
+// the check rendered recorded runs, and the summary's first line says
+// this is Glossa's reduced view and not the check CI ran.
+//
+// It also pins the edge honestly: the first pull request after a
+// repository adds `glossa check` to its CI is such a project. It gets
+// the labelled reduced view first, and when its run lands the check is
+// re-rendered from it.
+func TestAProjectThatHasNeverRecordedARunReportsAtOnce(t *testing.T) {
+	policy := checkpolicy.Policy{Version: 7, FailOn: checkpolicy.Error}
+	commit := checkoutBranch(t)
+	cli := qa.Run(commit, policy, qa.Default()...)
+
+	f := newFixture(t)
+	f.connected(t)
+	f.openPR(t, "pull_request.opened", "d-open")
+	f.ci(headSHA)
+	f.sources.set(func(m *memSources) { serverView(m, commit, policy) })
+	f.runCheck(t) // the clock does not move: no wait
+
+	run := f.theCheck(t)
+	if run.Status != app.CheckCompleted {
+		t.Fatalf("check run = %+v: a project that has never recorded a run waited for one", run)
+	}
+	first, _, _ := strings.Cut(strings.TrimSpace(run.Summary), "\n")
+	if !strings.Contains(first, app.ReducedViewNotice) {
+		t.Fatalf("the summary's first line does not say this is the reduced view:\n%s", run.Summary)
+	}
+	if !strings.Contains(f.theComment(t).Body, app.ReducedViewNotice) {
+		t.Fatalf("the sticky comment does not say which verdict this is:\n%s", f.theComment(t).Body)
+	}
+
+	// The project's first run lands: the check renders it, reduced no
+	// longer.
+	f.recorded(headSHA, recordedRunOf(cli, branchName))
+	if err := f.wakeCheck(); err != nil {
+		t.Fatal(err)
+	}
+	f.runCheck(t)
+	run = f.theCheck(t)
+	if strings.Contains(run.Summary, app.ReducedViewNotice) || run.Conclusion != string(cli.Conclusion) {
+		t.Fatalf("check run = %+v: once the run is recorded the check renders it, want %q",
+			run, cli.Conclusion)
+	}
+}
+
+// TestTheCheckAsksAboutHistoryOnlyWhenItDecidesSomething: whether the
+// project records runs is asked on the readiness path, so it is asked
+// only when the answer can change something — the push and the usages
+// are in, and this commit has no run of its own.
+func TestTheCheckAsksAboutHistoryOnlyWhenItDecidesSomething(t *testing.T) {
+	f := newFixture(t)
+	f.connected(t)
+	f.openPR(t, "pull_request.opened", "d-open")
+	f.runCheck(t) // nothing uploaded yet
+	f.recorded(headSHA, app.RecordedRun{ID: uuid.New(), Ref: branchName, Trigger: string(quality.TriggerCLI)})
+	f.ci(headSHA)
+	if err := f.wakeCheck(); err != nil {
+		t.Fatal(err)
+	}
+	f.runCheck(t) // this commit's own run is in
+	f.sources.set(func(m *memSources) {
+		if m.historyAsked != 0 {
+			t.Errorf("asked whether the project records runs %d times; the answer changed nothing", m.historyAsked)
+		}
+	})
 }
 
 // TestARenderedRunIsAnnotatedWhereTheProductUsesTheKey: a finding

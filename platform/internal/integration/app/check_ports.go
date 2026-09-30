@@ -188,6 +188,14 @@ type CheckSources interface {
 	// false where nothing has recorded one. It is Quality's, read
 	// through this port and never out of Quality's tables.
 	RecordedRun(ctx context.Context, project uuid.UUID, commit string) (RecordedRun, bool, error)
+	// RecordsRuns reports whether the project has ever recorded a
+	// reported check run — `glossa check` in CI, the pull-request check
+	// or an explicit API call, of any commit — among the runs Quality
+	// still keeps. It is how the check knows this repository's CI runs
+	// `glossa check`, and so whether a commit without a run yet is worth
+	// waiting for. It is asked on the readiness path: a yes-or-no, one
+	// bounded read, never a listing.
+	RecordsRuns(ctx context.Context, project uuid.UUID) (bool, error)
 	// Policy is the project's check policy — the same `require_complete`
 	// and `fail_on` as `glossa check` (RFC 0004 §6.4).
 	Policy(ctx context.Context, project uuid.UUID) (checkpolicy.Policy, error)

@@ -77,11 +77,17 @@ func (f *fixture) ci(headCommit string) {
 // commit. It is what the check renders.
 func (f *fixture) recorded(commit string, run app.RecordedRun) { f.sources.record(commit, run) }
 
+// recordsRuns is a project whose CI has recorded a `glossa check` run
+// before — of some earlier commit. The check then knows this
+// repository's CI runs `glossa check`, and waits for this commit's run.
+func (f *fixture) recordsRuns() { f.sources.set(func(m *memSources) { m.recordedBefore = true }) }
+
 // withoutACheckRun is CI that pushes the catalogs and uploads the
 // usages but never runs `glossa check` — a repository that has adopted
-// half of Glossa. The check waits its thirty minutes for the run, and
-// then reports what Integration can see for itself, saying in the
-// summary that that is what it is doing.
+// half of Glossa. Past the thirty-minute wait the check reports what
+// Integration can see for itself, saying in the summary that that is
+// what it is doing — whether or not the project had been waited for
+// (see recordsRuns).
 func (f *fixture) withoutACheckRun() { f.clock = f.clock.Add(domain.CheckWait + time.Minute) }
 
 // wakeCheck is what quality.check_run.recorded does to the queue: the
