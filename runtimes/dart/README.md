@@ -121,8 +121,6 @@ fail for ever after.
   and `FileReleaseStore` implement it; an IndexedDB one for Flutter web is
   still missing, so a web build keeps its release in memory and reloads it
   from the edge on every start.
-- The RFC 0005 §6.4 size and startup budgets, measured and enforced
-  (wave 4).
 
 ## Running the fixtures
 
@@ -142,10 +140,12 @@ dart analyze --fatal-infos      # the CI bar
 dart compile js -o .dart_tool/web_compile.js tool/web_compile.dart
 ```
 
-CI runs the same commands on a pinned SDK in the `runtimes-dart` job. The
-Flutter package has **no CI job yet** (RFC 0005 §13, wave 4); run
-`flutter pub get`, `flutter analyze --fatal-infos` and `flutter test` in
-[`flutter/`](./flutter) by hand.
+CI runs the same commands on a pinned SDK in the `runtimes-dart` job,
+which also compiles for the web and for AOT, runs the startup budgets
+below, and runs `TestGeneratedDartAnalyzes` from the `platform` module —
+the check that `glossa generate --lang dart` still emits code this
+runtime accepts. The Flutter package has its own job, `runtimes-flutter`,
+on a pinned Flutter release; see [`flutter/README.md`](./flutter).
 
 | Suite | Source | Status |
 |---|---|---|
@@ -159,6 +159,41 @@ Flutter package has **no CI job yet** (RFC 0005 §13, wave 4); run
 | `test/locale_test.dart` | mirrors `runtimes/go/locale_test.go` and the JS locale suite | — |
 
 A bug found here becomes a fixture first (SPEC §7).
+
+## Budgets (RFC 0005 §6.4)
+
+```sh
+cd runtimes/dart
+dart compile exe tool/startup_budget.dart -o .dart_tool/startup_budget
+.dart_tool/startup_budget
+```
+
+AOT, not `dart run`, because AOT is what ships. The tool verifies a
+200 kB manifest and its signature, starts a client from a warm persisted
+cache of 500 messages, renders the first message, and watches the event
+loop for a stall longer than a frame.
+
+**What it enforces, and what it only records.** §6.4's three numbers —
+30 ms to verify, 5 ms to the first `t()`, no jank frame — are *device*
+budgets: it names a mid-range Android phone. A CI runner is not one, and
+neither is a developer's laptop, so the tool prints those three against
+their budgets and does not fail on them. The device numbers belong to the
+M4 exit report (§12.7), which runs on a device.
+
+What it does fail on are two properties that hold on every machine, and
+that a regression breaks on all of them at once:
+
+- canonicalization stays **linear** in the size of the manifest;
+- the first `t()` after a warm cache costs a small fraction of one
+  signature verification — i.e. the runtime verifies a release when it
+  activates it, and not again per message.
+
+The size half of §6.4 belongs to the Flutter package: see
+[`flutter/README.md`](./flutter). The web and AOT half is
+`tool/web_compile.dart`, `dart compile exe` and
+[`test/purity_test.dart`](./test/purity_test.dart), which fails on an
+import of `package:flutter`, `dart:io` outside `lib/io.dart`,
+`dart:mirrors` or `dart:ffi`.
 
 ## What the host's CLDR decides
 

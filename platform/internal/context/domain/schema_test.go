@@ -240,13 +240,15 @@ func TestParseUploadAcceptsEveryFixtureDocument(t *testing.T) {
 	}
 }
 
-// capturesSchema compiles captures.v1.schema.json with the usages
-// schema it refers to by $id.
+// capturesSchema compiles captures.v1.schema.json with the schemas it
+// refers to by $id: usages, and finding — a capture's findings are
+// glossa.finding/v1 findings, minus the two members the page cannot
+// know (RFC 0005 §5).
 func capturesSchema(t *testing.T) *jsonschema.Schema {
 	t.Helper()
 	c := jsonschema.NewCompiler()
 	c.AssertFormat()
-	for _, name := range []string{"usages", "captures"} {
+	for _, name := range []string{"usages", "finding", "captures"} {
 		f, err := os.Open(testdata(t, "schemas", name+".v1.schema.json"))
 		if err != nil {
 			t.Fatal(err)
@@ -273,6 +275,8 @@ var (
 	r1  = at(c0, "regions", 1)
 	r2  = at(c0, "regions", 2)
 	rl0 = at(c0, "renders", 0)
+	f0  = at(c0, "findings", 0)
+	f2  = at(c0, "findings", 2)
 )
 
 // captureVariants are the edges of the captures schema's rules.
@@ -328,6 +332,26 @@ var captureVariants = []variant{
 	{"image over 40 megapixels", at(c0, "image"), map[string]any{"sha256": strings.Repeat("a", 64), "width": 8000, "height": 5001}},
 	{"viewport 10001 wide", at(c0, "viewport", "width"), 10001},
 	{"region index outside the render log", at(r1, "index"), 7},
+	// The visual probe pass's findings (RFC 0005 §5).
+	{"no findings", at(c0, "findings"), deleted},
+	{"empty findings", at(c0, "findings"), []any{}},
+	{"finding with a fingerprint", at(f0, "fingerprint"), "f_0123456789abcdef"},
+	{"finding with a capture in its locus", at(f0, "locus", "capture"), "0192f5c2-0000-7000-8000-00000000c0de"},
+	{"finding of another layer", at(f0, "layer"), "length"},
+	{"finding at error severity", at(f0, "severity"), "error"},
+	{"finding code with a capital", at(f0, "code"), "textClipped"},
+	{"finding without a message", at(f0, "message"), deleted},
+	{"empty finding message", at(f0, "message"), ""},
+	{"finding locus with no members", at(f0, "locus"), map[string]any{}},
+	{"finding key that isn't a message key", at(f0, "locus", "key"), "Cart Checkout"},
+	{"finding locale with an underscore", at(f2, "locus", "locale"), "de_DE"},
+	{"region name that isn't an index", at(f0, "locus", "region"), "cart.checkout"},
+	{"region name with a leading zero", at(f0, "locus", "region"), "r_01"},
+	{"region outside this capture's regions", at(f0, "locus", "region"), "r_4"},
+	{"finding subject", at(f0, "subject"), "cart.total"},
+	{"finding evidence that isn't an object", at(f0, "evidence"), []any{1, 2}},
+	{"finding evidence of 5 kB", at(f0, "evidence"), map[string]any{"text": strings.Repeat("x", 5000)}},
+	{"extra finding field", at(f0, "promoted"), true},
 }
 
 // captureDeviations are the variants where ParseCaptures deliberately
@@ -345,6 +369,23 @@ var captureDeviations = map[string]string{
 	// "Every region index refers to one entry" of the render log: the
 	// schema says so in prose; the server holds uploads to it.
 	"region index outside the render log": "refused",
+	// Undefined members are ignored within v1 here too. The schema
+	// refuses a `fingerprint` and a `locus.capture` on a capture's
+	// finding — they are the two the ingest completes, because only the
+	// server knows the catalog message ID one hashes and the capture the
+	// other names — and the parser ignores them like any other member it
+	// doesn't define. Either way the stored finding carries the
+	// server's, so a page can never mint a fingerprint that a waiver
+	// would then fail to match.
+	"finding with a fingerprint":          "ignored",
+	"finding with a capture in its locus": "ignored",
+	"extra finding field":                 "ignored",
+	// A finding whose region is not a region of this capture could never
+	// be drawn on it, and the schema's dependentRequired makes the
+	// ingest pair the two (RFC 0005 §2.1).
+	"region outside this capture's regions": "refused",
+	// The evidence object is free-form per code; its size is not.
+	"finding evidence of 5 kB": "refused",
 }
 
 func TestParseCapturesAgreesWithTheSchemaOnVariants(t *testing.T) {

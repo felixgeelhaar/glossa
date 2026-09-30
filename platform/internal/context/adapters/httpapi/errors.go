@@ -34,6 +34,7 @@ var problems = []struct {
 	{domain.ErrManifestTooLarge, http.StatusRequestEntityTooLarge, problem.CodePayloadTooLarge, ""},
 	{domain.ErrTooManyCaptures, http.StatusBadRequest, "too_many_captures", ""},
 	{domain.ErrTooManyRegions, http.StatusBadRequest, "too_many_regions", ""},
+	{domain.ErrTooManyFindings, http.StatusBadRequest, "too_many_findings", ""},
 	{domain.ErrInvalidCaptures, http.StatusBadRequest, "invalid_captures", ""},
 	{domain.ErrImageTooLarge, http.StatusRequestEntityTooLarge, "image_too_large", ""},
 	// 413 like image_too_large: what the request carries is too much for

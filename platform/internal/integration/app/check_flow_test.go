@@ -156,8 +156,14 @@ func TestCheckFailsOnAnInvalidMessageAndAnnotatesIt(t *testing.T) {
 	if !found {
 		t.Fatalf("no failure annotation at src/checkout/PaymentFooter.vue:42: %+v", run.Annotations)
 	}
-	// The summary is Markdown with a table per locale.
-	for _, want := range []string{"| Locale |", "| de |", "| fr |", "Invalid messages", "checkout.total"} {
+	// The summary is Markdown with a table per locale, a table of the
+	// counts per layer, and the findings under the layer that found
+	// them (RFC 0005 §13, wave 4).
+	for _, want := range []string{
+		"| Locale |", "| de |", "| fr |",
+		"**Findings by layer**", "| structure | 1 | 0 | 0 |", "| **Total** | **3** | **1** | **0** |",
+		"**Structure** (1 error)", "**Completeness** (2 errors, 1 warning)", "checkout.total",
+	} {
 		if !strings.Contains(run.Summary, want) {
 			t.Fatalf("summary does not mention %q:\n%s", want, run.Summary)
 		}

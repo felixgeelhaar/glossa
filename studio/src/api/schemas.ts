@@ -14,7 +14,8 @@ export const Role = z.enum(["owner", "admin", "developer", "translator", "review
 export const Syntax = z.enum(["mf1", "mf2"]);
 export const Direction = z.enum(["ltr", "rtl"]);
 export const ReviewState = z.enum(["draft", "needs_review", "approved", "rejected"]);
-export const Origin = z.enum(["human", "ai", "translation_memory", "machine_translation", "import", "adaptation"]);
+/** `ai`: the platform translating for a person. `agent`: an autonomous agent writing through MCP (RFC 0005 §7.3). */
+export const Origin = z.enum(["human", "ai", "agent", "translation_memory", "machine_translation", "import", "adaptation"]);
 /** `proposed`: new on an open branch (RFC 0004 §4.1); shown like `active`, with a pill. */
 export const MessageState = z.enum(["active", "proposed", "obsolete"]);
 export const Platform = z.enum(["web", "api", "ios", "android", "other"]);

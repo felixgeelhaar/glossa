@@ -22,6 +22,7 @@ var problems = []struct {
 	{app.ErrProjectNotFound, http.StatusNotFound, problem.CodeNotFound, "no such project"},
 	{app.ErrCheckRunNotFound, http.StatusNotFound, problem.CodeNotFound, "no such check run"},
 	{app.ErrWaiverNotFound, http.StatusNotFound, problem.CodeNotFound, "no such waiver"},
+	{app.ErrCaptureNotFound, http.StatusNotFound, problem.CodeNotFound, "no such capture"},
 	{app.ErrNotFound, http.StatusNotFound, problem.CodeNotFound, "no such resource"},
 	{app.ErrInvalidQuery, http.StatusBadRequest, "invalid_query", ""},
 	{app.ErrTooManyFindings, http.StatusBadRequest, "too_many_findings", ""},

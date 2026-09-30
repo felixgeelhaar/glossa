@@ -26,6 +26,30 @@ SELECT * FROM context_captures
 WHERE build_id = sqlc.arg(build_id) AND route = sqlc.arg(route) AND viewport_width = sqlc.arg(viewport_width)
   AND viewport_height = sqlc.arg(viewport_height) AND locale = sqlc.arg(locale);
 
+-- name: GetPreviousCaptureOfScope :one
+-- The capture this application showed last of one (route, viewport,
+-- locale): the previous sighting the two-sighting rule of RFC 0005 §5.2
+-- counts against.
+--
+-- The scope is the application's and not the branch's, because the rule
+-- is flake control and not blame: a finding two consecutive captures of
+-- the same page agree on is not a font that was installed on one runner
+-- and missing on the next, whichever branch each capture came from. It
+-- is also what `glossa capture --check`'s own record does, whose
+-- .glossa/visual-sightings.json is keyed by application and scope and
+-- outlives a branch switch; the two must not quietly differ.
+--
+-- The upload that asks has not stored its captures yet, so the newest
+-- row here is the one immediately before it.
+SELECT c.id
+FROM context_captures c
+JOIN context_builds b ON b.id = c.build_id
+WHERE c.project_id = sqlc.arg(project_id) AND b.application_id = sqlc.arg(application_id)
+  AND c.route = sqlc.arg(route) AND c.viewport_width = sqlc.arg(viewport_width)
+  AND c.viewport_height = sqlc.arg(viewport_height) AND c.locale = sqlc.arg(locale)
+ORDER BY c.created_at DESC, c.id DESC
+LIMIT 1;
+
 -- name: CountBuildCaptures :one
 SELECT count(*) FROM context_captures WHERE build_id = sqlc.arg(build_id);
 

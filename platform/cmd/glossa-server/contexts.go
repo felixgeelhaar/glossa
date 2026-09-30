@@ -23,6 +23,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/context/adapters/imaging"
 	contextmetrics "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/metrics"
 	contextpg "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/postgres"
+	contextquality "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/quality"
 	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
 	contextdomain "github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/ghoidc"
@@ -264,7 +265,13 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	translationPort := coverage.New(localization)
 	catalog.SetCoverage(translationPort)
 	catalog.SetImpact(translationPort)
-	catalog.SetLocales(translationPort)
+	// The locales a check policy's require_complete may name are
+	// validated through a port of their own, not through translationPort:
+	// the check belongs to the catalog.write that is saving the policy,
+	// so it must not also demand translations.read (a CI token holds
+	// catalog.read and catalog.write, and policy-as-code is a CI job).
+	// coverage.PolicyLocales says what that path may not be used for.
+	catalog.SetLocales(coverage.NewPolicyLocales(localization))
 	catalog.SetProjection(projection.New(localization))
 	if err := localization.Subscribe(events); err != nil {
 		return contexts{}, err
@@ -279,12 +286,23 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err := release.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
+	// Quality is built before Context, because a capture upload hands it
+	// the visual findings the upload carries (RFC 0005 §5.1) and a
+	// constructor argument says that dependency once, where a setter
+	// would leave it possible to forget.
+	quality := qualityapp.NewService(qualitypg.NewTransactor(uow), qualitycatalog.New(catalog),
+		qualityapp.WithLogger(deps.logger), qualityapp.WithMetrics(qualitymetrics.New(deps.registerer)),
+		qualityapp.WithTracerProvider(deps.tracer),
+		// The server-side check reads the project through Catalog's and
+		// Localization's own services, so it sees exactly what its
+		// caller could read through the API (RFC 0005 §2.2).
+		qualityapp.WithSnapshot(qualitysnapshot.New(catalog, localization)))
 	usageContext := contextapp.New(contextpg.NewTransactor(uow), contextcatalog.New(catalog),
 		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger),
 		contextapp.WithLimiter(ratelimit.New(contextUploadLimit())), contextapp.WithMetrics(contextmetrics.New(deps.registerer)),
 		contextapp.WithImages(deps.objects, imaging.New("", imaging.DefaultDecodeBudget)),
 		contextapp.WithDeleteBatch(deps.purge.BatchSize), contextapp.WithStorageQuota(deps.context.StorageQuotaBytes),
-		contextapp.WithTracerProvider(deps.tracer))
+		contextapp.WithTracerProvider(deps.tracer), contextapp.WithFindings(contextquality.New(quality)))
 	if err := usageContext.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
@@ -295,13 +313,6 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err := intelligence.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
-	quality := qualityapp.NewService(qualitypg.NewTransactor(uow), qualitycatalog.New(catalog),
-		qualityapp.WithLogger(deps.logger), qualityapp.WithMetrics(qualitymetrics.New(deps.registerer)),
-		qualityapp.WithTracerProvider(deps.tracer),
-		// The server-side check reads the project through Catalog's and
-		// Localization's own services, so it sees exactly what its
-		// caller could read through the API (RFC 0005 §2.2).
-		qualityapp.WithSnapshot(qualitysnapshot.New(catalog, localization)))
 	aiAPI, err := intelligenceapi.New(intelligence)
 	if err != nil {
 		return contexts{}, err

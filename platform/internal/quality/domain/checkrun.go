@@ -63,9 +63,10 @@ var (
 // MaxRefLength bounds a run's ref, matching the column.
 const MaxRefLength = 255
 
-// commitSHA is a full lowercase Git object name; a run that is not
-// about a commit carries none.
-var commitSHA = regexp.MustCompile(`^[0-9a-f]{40}$`)
+// commitSHA is a full lowercase Git object name — SHA-1 or SHA-256, as
+// every other upload in the platform spells one (a usages document, a
+// captures manifest). A run that is not about a commit carries none.
+var commitSHA = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
 
 // Counts are a run's findings by how they ended up. Waived is counted
 // on its own and is never part of Errors or Warnings, so the number a

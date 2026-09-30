@@ -139,6 +139,13 @@ type Target struct {
 	// Advisory marks a finding a model decided. It is never raised to
 	// Error, whatever a rule asks for.
 	Advisory bool
+	// Provisional marks a finding that is not yet evidence: a visual
+	// finding seen fewer times than VisualThresholds.PromoteAfterSightings
+	// asks for (RFC 0005 §5.2). Like an advisory one, its severity is
+	// never raised to Error — a single sighting of a text metric that
+	// moves with font availability cannot be allowed to fail a build,
+	// however strict the policy is.
+	Provisional bool
 }
 
 // Decision is what the policy decided about one target, and why.
@@ -150,10 +157,12 @@ type Decision struct {
 	// -1 when no rule matched and the layer's own severity stands. It is
 	// what `glossa check --explain-policy` prints.
 	Rule int
-	// Clamped says a rule asked for Error on an advisory layer and got
-	// Warning instead (RFC 0005 §14 decision 10). Validation rejects a
-	// rule that names such a layer outright; this catches the wildcard
-	// that raises everything without naming it.
+	// Clamped says a rule asked for Error on a finding that may not have
+	// one and got Warning instead: an advisory layer's (RFC 0005 §14
+	// decision 10), or a visual finding on its first sighting (§5.2).
+	// Validation rejects a rule that names an advisory layer outright;
+	// this catches the wildcard that raises everything without naming
+	// it, and the sighting a rule cannot know about.
 	Clamped bool
 }
 
@@ -193,7 +202,7 @@ func (p Policy) Decide(t Target) Decision {
 	if best >= 0 {
 		d.Severity, d.Mode, d.Rule = p.Rules[best].Severity, p.Rules[best].mode(), best
 	}
-	if (t.Advisory || Advisory(t.Layer)) && d.Severity == Error {
+	if (t.Advisory || Advisory(t.Layer) || t.Provisional) && d.Severity == Error {
 		d.Severity, d.Clamped = Warning, true
 	}
 	return d

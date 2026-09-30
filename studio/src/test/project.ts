@@ -3,11 +3,13 @@ import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { vi } from "vitest";
 import { computed, defineComponent, ref, type Component } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
+import { CONTEXT, type ContextPort } from "../api/context";
 import { GITHUB, type GitHubPort } from "../api/github";
 import { IN_CONTEXT, type InContextPort } from "../api/in-context";
 import { INTEGRATION, type IntegrationPort } from "../api/integration";
 import { INTELLIGENCE, type IntelligencePort } from "../api/intelligence";
 import { KNOWLEDGE, type KnowledgePort } from "../api/knowledge";
+import { QUALITY, type QualityPort } from "../api/quality";
 import { RELEASES, type ReleasesPort } from "../api/releases";
 import type { Project, ProjectLocale, Role } from "../api/schemas";
 import { grantFor } from "../session/permissions";
@@ -63,6 +65,8 @@ export interface ScreenOptions {
   github?: GitHubPort;
   inContext?: InContextPort;
   integration?: IntegrationPort;
+  quality?: QualityPort;
+  context?: ContextPort;
   roles?: Role[];
   /** Locale scope of the member (translators, reviewers). */
   memberLocales?: string[];
@@ -89,7 +93,7 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   await refreshSession();
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: ["releases", "releases/:release", "settings", "translate", "review", "terms", "style", "ai", "files", "files/import", "files/imports/:job"]
+    routes: ["releases", "releases/:release", "settings", "translate", "review", "terms", "style", "ai", "quality", "files", "files/import", "files/imports/:job"]
       .map((p) => ({ path: `/t/:tenant/p/:project/${p}`, name: ROUTE_NAMES[p] ?? p, component: Empty }))
       .concat([
         { path: "/t/:tenant", name: "projects", component: Empty },
@@ -104,6 +108,8 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   if (options.knowledge) provide[KNOWLEDGE as symbol] = options.knowledge;
   if (options.intelligence) provide[INTELLIGENCE as symbol] = options.intelligence;
   if (options.integration) provide[INTEGRATION as symbol] = options.integration;
+  if (options.quality) provide[QUALITY as symbol] = options.quality;
+  if (options.context) provide[CONTEXT as symbol] = options.context;
   if (options.github) provide[GITHUB as symbol] = options.github;
   if (options.inContext) provide[IN_CONTEXT as symbol] = options.inContext;
   const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });

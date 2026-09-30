@@ -20,8 +20,11 @@ const ajv = new Ajv2020({ allErrors: true, strict: false });
 ajv.addFormat("uri", (s: string) => URL.canParse(s));
 ajv.addFormat("uuid", /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i);
 ajv.addSchema(schema("usages.v1.schema.json"));
+// captures.v1 refers to finding.v1: a capture's `findings` are that shape
+// minus the two members the page cannot know (RFC 0005 §5).
+ajv.addSchema(schema("finding.v1.schema.json"));
 const validate = ajv.compile(schema("captures.v1.schema.json"));
-const validateFinding = ajv.compile(schema("finding.v1.schema.json"));
+const validateFinding = ajv.getSchema("https://glossa.dev/schemas/finding/v1.json")!;
 
 /** A capture the server could have minted, for the locus a probe leaves open. */
 export const CAPTURE = "0192f5c2-0000-7000-8000-00000000c0de";

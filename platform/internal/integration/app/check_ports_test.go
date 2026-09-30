@@ -59,6 +59,13 @@ func (m *memChecks) Open(_ context.Context, in domain.Check) (domain.Check, erro
 	row.Branch, row.TenantID, row.InstallationID = in.Branch, in.TenantID, in.InstallationID
 	// The event says where the head lives now, as the upsert does.
 	row.FromFork = in.FromFork
+	// When the pull request was opened does not move with a new commit,
+	// or a policy's grace would run a little further out with every
+	// push. A row that never learned it takes the event's, which is what
+	// COALESCE does in the upsert.
+	if row.OpenedAt.IsZero() {
+		row.OpenedAt = in.OpenedAt
+	}
 	row.State, row.CompletedAt, row.Attempts, row.Failure = domain.CheckQueued, nil, 0, ""
 	row.AvailableAt, row.UpdatedAt = in.AvailableAt, in.UpdatedAt
 	return *row, nil

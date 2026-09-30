@@ -155,8 +155,8 @@ fail.
 
 ## Running the tests
 
-There is **no CI job for this package yet** (RFC 0005 §13, wave 4). Run it
-locally, with the Flutter stable channel:
+The `runtimes-flutter` CI job runs exactly these, on a pinned Flutter
+release:
 
 ```sh
 cd runtimes/dart/flutter
@@ -174,8 +174,73 @@ A widget test's body runs against a fake clock, so the loader's first pass
 has to happen inside `tester.runAsync` — `test/glossa_text_test.dart`'s
 `offlineClient` does that, and every test here goes through it.
 
+## The size budget (RFC 0005 §6.4)
+
+```sh
+cd runtimes/dart/flutter
+dart run tool/size_budget.dart            # host desktop target
+dart run tool/size_budget.dart --platform linux --report size.txt
+```
+
+It scaffolds a throwaway Flutter app in a temporary directory and builds
+it three times from one pubspec:
+
+- `plain.dart` — bare Flutter, one hard-coded string;
+- `host.dart` — the same app plus what a Glossa client leans on that an
+  app of this kind already has: `package:intl` formatting numbers,
+  currency, percentages, dates and plurals, an `HttpClient` call, a file
+  read and write;
+- `glossa.dart` — a realistic client: edge, delivery key, persisted
+  store, HTTP transport, signing keys, bundled release, `GlossaScope`,
+  `GlossaText`, `explain()` and the error channel.
+
+§6.4 names the delta as its method, and the delta is what is gated:
+**`glossa` minus `host`**, what adopting Glossa costs an app that was
+already making network calls and already formatting numbers and dates.
+
+The realism of the third entry point is load-bearing. Dart's AOT tree
+shaker is a global fixpoint: a client with no transport, no bundle and an
+empty in-memory store can never activate a release, so the compiler
+proves the catalog, the formatter and `package:intl` unreachable and
+drops all of them. A fixture like that measures **17 kB** and means
+nothing. The tool therefore refuses *either* baseline that carries a byte
+of ours, and refuses a Glossa build that carries too few.
+
+Measured on macOS arm64, Flutter 3.47.5, per architecture:
+
+| | |
+|---|---|
+| **adopting Glossa, over a realistic baseline** | **343.1 kB** of 400 kB — the gated number |
+| over a bare Flutter app (no `intl`, no networking) | 1048.8 kB |
+| the same, excluding `package:intl` | 879.8 kB |
+| `package:intl` and its CLDR data | 169.0 kB |
+| `package:glossa` + `package:glossa_flutter`, attributed | 133.7 kB |
+
+**Read the second row beside the first.** The gated number assumes a
+baseline. An app with no networking and no `intl` pays 1048.8 kB, and
+that is the figure intent §33 is really about. The gap is mostly not our
+code: the `dart:io` HTTP client a transport needs (229 kB of `dart:io`
+and `dart:_http`), `package:intl` (169 kB), the `dart:core` BigInt
+arithmetic the pure-Dart Ed25519 verifier needs (82 kB), `package:crypto`
+(16 kB). The baseline carries those because an app of that kind already
+does. The tool prints all five figures, the full per-library
+decomposition, and the assumption its verdict rests on, on every run.
+
+**150 kB was §6.4's original number and nothing meets it by this method**
+— not 343 kB, not 880 kB. Wave 4 measured first and replaced it with
+400 kB deliberately; the rejected alternative was to keep 150 kB and gate
+the attributed 133.7 kB instead, which would have left ~880 kB outside
+the gate in a section written to stop exactly that. RFC 0005 §15,
+question 6 records the decision and its reasoning. Bringing the number
+down is a separate thread against the M4 exit measurement: the two
+candidates are the BigInt Ed25519 verifier and the non-optional `dart:io`
+transport.
+
+The startup half of §6.4 lives in the core package —
+[`../tool/startup_budget.dart`](../tool/startup_budget.dart) — because
+none of it needs Flutter.
+
 ## Not here yet
 
-- The §6.4 size and startup budgets, measured and enforced (wave 4).
 - An IndexedDB `ReleaseStore` for Flutter web; a web build keeps its
   release in memory and reloads it from the edge on every start.

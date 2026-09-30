@@ -65,7 +65,7 @@ var (
 
 // ProposeTranslation implements tools.TranslationWriter: Localization's
 // own translation write, with the review state pinned to
-// ProposedState and the provenance recorded as AI-written, with the
+// ProposedState and the provenance recorded as agent-written, with the
 // tool that wrote it.
 func (a *Translations) ProposeTranslation(
 	ctx context.Context, project uuid.UUID, in tools.TranslationProposal,
@@ -89,10 +89,15 @@ func (a *Translations) ProposeTranslation(
 		localizationapp.TranslationInput{
 			Text: in.Text, Syntax: in.Syntax, SourceRevision: in.SourceRevision,
 			// The two fields that make this a proposal and not an edit.
-			State:  &state,
-			Origin: string(localizationdomain.OriginAI),
-			// The detail says how the text arrived, never who the model
-			// was: no provider crosses MCP (RFC 0005 §7.4).
+			State: &state,
+			// `agent`, not `ai` (RFC 0005 §7.3): an autonomous agent
+			// writing through a long-lived token is a different act from
+			// a person clicking "translate with AI", and the revision log
+			// has to be able to say which without reading JSON.
+			Origin: string(localizationdomain.OriginAgent),
+			// The detail says which agent surface and tool the text
+			// arrived through, never who the model was: no provider
+			// crosses MCP (RFC 0005 §7.4).
 			OriginDetail: json.RawMessage(`{"via":"mcp","tool":"translation_propose"}`),
 		}, ifMatch)
 	if err != nil {

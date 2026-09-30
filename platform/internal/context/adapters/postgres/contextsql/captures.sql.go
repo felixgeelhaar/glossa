@@ -104,6 +104,54 @@ func (q *Queries) GetCaptureByShot(ctx context.Context, arg GetCaptureByShotPara
 	return i, err
 }
 
+const getPreviousCaptureOfScope = `-- name: GetPreviousCaptureOfScope :one
+SELECT c.id
+FROM context_captures c
+JOIN context_builds b ON b.id = c.build_id
+WHERE c.project_id = $1 AND b.application_id = $2
+  AND c.route = $3 AND c.viewport_width = $4
+  AND c.viewport_height = $5 AND c.locale = $6
+ORDER BY c.created_at DESC, c.id DESC
+LIMIT 1
+`
+
+type GetPreviousCaptureOfScopeParams struct {
+	ProjectID      uuid.UUID
+	ApplicationID  uuid.UUID
+	Route          string
+	ViewportWidth  int32
+	ViewportHeight int32
+	Locale         string
+}
+
+// The capture this application showed last of one (route, viewport,
+// locale): the previous sighting the two-sighting rule of RFC 0005 §5.2
+// counts against.
+//
+// The scope is the application's and not the branch's, because the rule
+// is flake control and not blame: a finding two consecutive captures of
+// the same page agree on is not a font that was installed on one runner
+// and missing on the next, whichever branch each capture came from. It
+// is also what `glossa capture --check`'s own record does, whose
+// .glossa/visual-sightings.json is keyed by application and scope and
+// outlives a branch switch; the two must not quietly differ.
+//
+// The upload that asks has not stored its captures yet, so the newest
+// row here is the one immediately before it.
+func (q *Queries) GetPreviousCaptureOfScope(ctx context.Context, arg GetPreviousCaptureOfScopeParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getPreviousCaptureOfScope,
+		arg.ProjectID,
+		arg.ApplicationID,
+		arg.Route,
+		arg.ViewportWidth,
+		arg.ViewportHeight,
+		arg.Locale,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getTenantImageBytes = `-- name: GetTenantImageBytes :one
 SELECT coalesce(sum(bytes), 0)::bigint AS stored_bytes
 FROM (SELECT max(image_bytes) AS bytes FROM context_captures GROUP BY project_id, image_digest) AS images

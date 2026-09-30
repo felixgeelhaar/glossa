@@ -168,3 +168,77 @@ func TestPrecomputedFindingsKeepTheirLayer(t *testing.T) {
 		t.Error("an error finding passed the check")
 	}
 }
+
+// The catalog message ID travels from the snapshot into every finding's
+// locus, in every layer, because that is what a finding's identity is
+// hashed over (domain.Fingerprint). It is what makes `glossa check`
+// online print the fingerprint the server stores, so a waiver made in
+// the terminal matches the pull request.
+func TestTheMessageIDReachesEveryFindingsLocus(t *testing.T) {
+	s := project()
+	for i := range s.Messages {
+		s.Messages[i].ID = "msg_" + s.Messages[i].Key
+	}
+	s.Messages = append(s.Messages, withID(msg("broken", "{oops"), "msg_broken"))
+	outdated := tr("cart.items", "de", "{count, plural, one {# Artikel} other {# Artikel}}")
+	outdated.Outdated = true
+	s.Translations["de"]["cart.items"] = outdated
+	s.Translations["de"]["gone"] = tr("gone", "de", "Weg")
+
+	layersSeen := map[domain.Layer]bool{}
+	for _, f := range qa.Run(s, qa.Policy{}, qa.Default()...).Findings {
+		layersSeen[f.Layer] = true
+		switch {
+		case f.Locus.Key == "":
+			// A finding about the project rather than a message.
+		case f.Code == qa.CodeUnknownKey:
+			// No source message has this key, so there is no ID to hash:
+			// the fallback to the key is the only honest identity.
+			if f.Locus.Message != "" {
+				t.Errorf("an unknown key was identified: %+v", f.Locus)
+			}
+		case f.Locus.Message != "msg_"+f.Locus.Key:
+			t.Errorf("%s on %s: locus = %+v, want the catalog message ID", f.Code, f.Locus.Key, f.Locus)
+		}
+	}
+	for _, want := range []domain.Layer{domain.LayerStructure, domain.LayerParity, domain.LayerCompleteness} {
+		if !layersSeen[want] {
+			t.Fatalf("the %q layer reported nothing, so it proved nothing: %v", want, layersSeen)
+		}
+	}
+}
+
+// Offline there are no IDs: the local catalogs know keys. Every locus
+// falls back to the key, exactly as domain.Fingerprint documents, and
+// the prints an offline run shows are consistent among themselves and
+// deliberately not the server's — nobody holds a waiver offline, and a
+// key rename is a new finding there.
+func TestAnOfflineRunFingerprintsByKey(t *testing.T) {
+	offline := qa.Run(project(), qa.Policy{}, qa.Default()...)
+	online := project()
+	for i := range online.Messages {
+		online.Messages[i].ID = "msg_" + online.Messages[i].Key
+	}
+	prints := map[string]string{}
+	for _, f := range qa.Run(online, qa.Policy{}, qa.Default()...).Findings {
+		prints[f.Code+" "+f.Locus.Key+" "+f.Locus.Locale+" "+f.Subject] = f.Fingerprint
+	}
+	for _, f := range offline.Findings {
+		if f.Locus.Message != "" {
+			t.Errorf("an offline finding carried a message ID: %+v", f.Locus)
+		}
+		if f.Fingerprint == "" {
+			t.Errorf("an offline finding has no fingerprint: %+v", f)
+		}
+		if same, ok := prints[f.Code+" "+f.Locus.Key+" "+f.Locus.Locale+" "+f.Subject]; ok && same == f.Fingerprint {
+			t.Errorf("%s on %s printed the same offline as online (%s); the ID was not hashed",
+				f.Code, f.Locus.Key, f.Fingerprint)
+		}
+	}
+}
+
+// withID is a snapshot message with the catalog ID the server gives it.
+func withID(m snapshot.Message, id string) snapshot.Message {
+	m.ID = id
+	return m
+}

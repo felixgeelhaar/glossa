@@ -152,10 +152,11 @@ func (s *Service) UpdateProject(ctx context.Context, id domain.ProjectID, ifMatc
 // requiredLocales is the project's locales when the write names locales
 // that must be complete, and nil otherwise.
 //
-// Nothing is read unless a policy actually names one: reading them
-// needs translations.read, which a CI token (catalog.read and
-// catalog.write, nothing else) does not hold, and CI writes projects
-// without ever touching this setting.
+// Nothing is read unless a policy actually names one, and what is read
+// is read inside this write's own authorization: the port answers to
+// the catalog.write already proved above, never to translations.read,
+// so a CI token (catalog.read and catalog.write, nothing else) can
+// write a policy that names locales.
 func (s *Service) requiredLocales(ctx context.Context, id domain.ProjectID, settings *domain.Settings) ([]string, error) {
 	if s.locales == nil || settings == nil || settings.CheckPolicy == nil ||
 		len(settings.CheckPolicy.RequireComplete) == 0 {

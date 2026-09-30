@@ -125,6 +125,12 @@ func TestFromServerDecodesModelsAndTranslations(t *testing.T) {
 	if m.Model == nil || len(m.Arguments) != 1 || m.Arguments[0].Selector == nil || m.Revision != 2 {
 		t.Errorf("message = %+v", m)
 	}
+	// The catalog message ID comes with the message. A finding's identity
+	// is hashed over it (domain.Fingerprint), so an online `glossa check`
+	// fingerprints a finding the way the server fingerprints it.
+	if m.ID != "m1" {
+		t.Errorf("message ID = %q, want the catalog's", m.ID)
+	}
 	tr := s.Translations["de"]["cart.items"]
 	if tr.Model == nil || !tr.Outdated || tr.State != "approved" || len(tr.Warnings) != 1 || tr.Warnings[0].Detail != "one" || tr.Key != "cart.items" {
 		t.Errorf("translation = %+v", tr)

@@ -411,13 +411,18 @@ func (s *GitHubService) checkInput(ctx context.Context, c *domain.Check, conn do
 		return in, ready, err
 	}
 	// The policy's grace is measured from the moment it was saved, so
-	// the report needs both times and reads neither itself. OpenedAt is
-	// still the zero time here: the queue row does not record when the
-	// pull request was opened, so every check grades against the
-	// project's current version — which is exactly today's behaviour.
-	// Wave 4's PR-check slice, which rebuilds this report on the layered
-	// findings, is where the opened-at joins the row.
-	in.Now = s.now()
+	// the report needs both times and reads neither itself: when this
+	// pull request was opened (GitHub's own `created_at`, kept on the
+	// row by migration 0033) and when the check runs. A pull request
+	// older than a stricter policy keeps grading against the version it
+	// was opened under until the grace ends, and the summary says which
+	// version it used and when that ends (RFC 0005 §4.3).
+	//
+	// A row written before 0033 carries the zero time, and so does a
+	// payload that named no `created_at`. That is "nobody recorded
+	// when", and the project's current version grades it — the behaviour
+	// every check had before this column existed.
+	in.OpenedAt, in.Now = c.OpenedAt, s.now()
 	if in.Status, err = s.sources.BranchStatus(ctx, conn.ProjectID, c.Branch); err != nil {
 		return in, ready, err
 	}

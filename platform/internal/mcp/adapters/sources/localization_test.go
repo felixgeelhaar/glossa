@@ -306,20 +306,26 @@ func TestRepeatingAProposalDoesNotUnapproveIt(t *testing.T) {
 	}
 }
 
-// TestAProposalIsRecordedAsAgentWritten: the provenance says the text
-// came through MCP and not from a person, and carries no provider.
+// TestAProposalIsRecordedAsAgentWritten: the provenance says an agent
+// wrote the text — not a person, and not a person asking for AI (RFC
+// 0005 §7.3). `agent` is the origin itself, so the revision log can be
+// filtered on it; the detail still says which agent surface and tool,
+// and still names no provider.
 func TestAProposalIsRecordedAsAgentWritten(t *testing.T) {
 	a, store, project, ctx := newTranslations(t, false)
 	got, err := a.ProposeTranslation(ctx, project, proposal())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Origin != string(localizationdomain.OriginAI) {
-		t.Errorf("origin = %q, want ai", got.Origin)
+	if got.Origin != string(localizationdomain.OriginAgent) {
+		t.Errorf("origin = %q, want agent", got.Origin)
+	}
+	if got.Origin == string(localizationdomain.OriginAI) {
+		t.Error("an agent's write is recorded as `ai`, which is what this change undoes")
 	}
 	prov := store.revisions[0].Provenance
-	if prov.Origin != localizationdomain.OriginAI {
-		t.Errorf("the revision's origin = %q, want ai", prov.Origin)
+	if prov.Origin != localizationdomain.OriginAgent {
+		t.Errorf("the revision's origin = %q, want agent", prov.Origin)
 	}
 	if string(prov.Detail) != `{"via":"mcp","tool":"translation_propose"}` {
 		t.Errorf("origin detail = %s", prov.Detail)

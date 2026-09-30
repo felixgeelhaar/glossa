@@ -37,13 +37,29 @@ type fakeStore struct {
 	runs     []domain.CheckRun
 	versions []app.PolicyVersion
 
+	// records lets the store take a write; without it a write is a bug
+	// on the path under test. recorded and inserted are what it took.
+	records  bool
+	recorded domain.CheckRun
+	inserted []domain.Finding
+	// sighted is what each capture's stored findings fingerprint: the
+	// previous sighting of a scope.
+	sighted      map[uuid.UUID][]string
+	lastPrevious uuid.UUID
+
 	// What the last ListFindings and run lookup passed down.
 	lastRunFilter app.FindingFilter
 	lastRun       app.RunFilter
 	lastAfter     string
 	lastLimit     int
 	lastNow       time.Time
+	lastCapture   uuid.UUID
+	lastRegion    string
 }
+
+// recordingStore takes writes and has no waivers: the store a capture
+// upload's findings are recorded into.
+func recordingStore() *fakeStore { return &fakeStore{records: true} }
 
 func (f *fakeStore) LatestCheckRun(_ context.Context, _ uuid.UUID, filter app.RunFilter) (domain.CheckRun, error) {
 	f.lastRun = filter
@@ -84,10 +100,40 @@ func (f *fakeStore) CountFindings(context.Context, domain.CheckRun, time.Time) (
 	return f.run.Counts, nil
 }
 
-// The rest of the port is not on this path; reaching one is the bug.
-func (f *fakeStore) InsertCheckRun(context.Context, domain.CheckRun) error { panic("not on this path") }
-func (f *fakeStore) InsertFindings(context.Context, uuid.UUID, uuid.UUID, []domain.Finding) error {
-	panic("not on this path")
+// ListCaptureFindings hands back the rows a test set, and remembers
+// what it was asked for: the query does the filtering, and what the
+// service must get right is which capture and region it asks about.
+func (f *fakeStore) ListCaptureFindings(
+	_ context.Context, _, capture uuid.UUID, region, after string, limit int, now time.Time,
+) ([]app.FindingRecord, error) {
+	f.lastCapture, f.lastRegion, f.lastAfter, f.lastLimit, f.lastNow = capture, region, after, limit, now
+	return f.rows, nil
+}
+
+// CaptureFingerprints is what the previous capture of a scope showed,
+// as a test set it: the state the two-sighting rule counts against.
+func (f *fakeStore) CaptureFingerprints(_ context.Context, _, capture uuid.UUID) ([]string, error) {
+	f.lastPrevious = capture
+	return f.sighted[capture], nil
+}
+
+// InsertCheckRun and InsertFindings record what a run stored, for the
+// tests that are about what the service wrote rather than what it read.
+// A store that never expects a write panics instead (recordingStore).
+func (f *fakeStore) InsertCheckRun(_ context.Context, r domain.CheckRun) error {
+	if !f.records {
+		panic("not on this path")
+	}
+	f.recorded = r
+	return nil
+}
+
+func (f *fakeStore) InsertFindings(_ context.Context, _, _ uuid.UUID, fs []domain.Finding) error {
+	if !f.records {
+		panic("not on this path")
+	}
+	f.inserted = append(f.inserted, fs...)
+	return nil
 }
 
 // ListCheckRuns returns the runs the impact preview is measured
@@ -160,7 +206,10 @@ func (f *fakeStore) RevokeWaiver(context.Context, uuid.UUID, uuid.UUID, time.Tim
 }
 
 func (f *fakeStore) LiveWaivers(context.Context, uuid.UUID, time.Time) ([]domain.Waiver, error) {
-	panic("not on this path")
+	if !f.records {
+		panic("not on this path")
+	}
+	return nil, nil
 }
 
 type fakeTx struct{ store *fakeStore }

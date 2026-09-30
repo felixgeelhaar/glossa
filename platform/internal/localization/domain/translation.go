@@ -99,9 +99,17 @@ func (p WritePolicy) StateOnWrite(requested *ReviewState, canReview bool) (Revie
 type Origin string
 
 // Origins.
+//
+// OriginAI and OriginAgent are both machine-written, and they are not
+// the same act. `ai` is a person asking the platform to translate for
+// them; `agent` is an autonomous agent writing through a long-lived
+// token, which is what an MCP write is (RFC 0005 §7.3). Telling them
+// apart is the revision log's job, so it is an origin of its own and
+// not a field inside OriginDetail.
 const (
 	OriginHuman              Origin = "human"
 	OriginAI                 Origin = "ai"
+	OriginAgent              Origin = "agent"
 	OriginTranslationMemory  Origin = "translation_memory"
 	OriginMachineTranslation Origin = "machine_translation"
 	OriginImport             Origin = "import"
@@ -113,7 +121,8 @@ func ParseOrigin(s string, def Origin) (Origin, error) {
 	switch Origin(s) {
 	case "":
 		return def, nil
-	case OriginHuman, OriginAI, OriginTranslationMemory, OriginMachineTranslation, OriginImport, OriginAdaptation:
+	case OriginHuman, OriginAI, OriginAgent, OriginTranslationMemory, OriginMachineTranslation,
+		OriginImport, OriginAdaptation:
 		return Origin(s), nil
 	}
 	return "", fmt.Errorf("%w: %q", ErrInvalidOrigin, s)

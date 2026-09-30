@@ -106,6 +106,45 @@ func (p *Project) Message(key string) (*Message, bool) {
 	return &p.Messages[i], true
 }
 
+// Identify gives findings measured outside the layers the catalog
+// identity their fingerprint is hashed over: the message ID of the key
+// each one names, where this project knows one (RFC 0005 §2.1).
+//
+// Two layers need it. The visual layer's measurements are taken in a
+// browser, which holds keys and not the catalog, so a probe finding
+// arrives with a key alone; the terminology layer's come from the
+// server's termbase check, which reports keys as well. A fingerprint
+// over a key is not the one the server computes for the same finding,
+// which would leave a waiver made in the terminal not matching the pull
+// request. Both of the server's own paths resolve the ID before they
+// mint — app.CaptureFindings.findings at the capture ingest, the
+// integration context's terminology findings for the PR check — and this
+// is how the CLI resolves it.
+//
+// A finding that already names a message is left alone, and so is one
+// whose key this project has never seen: that one keeps falling back to
+// the key, which is what domain.Fingerprint does with an empty message.
+//
+// Findings are copied, never edited in place. A finding that was already
+// minted is re-minted, because its identity moved with its locus; one
+// that carries no fingerprint yet is left for its layer to mint (the
+// visual layer's probe findings, which PromoteVisual seals first).
+func (p *Project) Identify(fs []domain.Finding) []domain.Finding {
+	out := make([]domain.Finding, 0, len(fs))
+	for _, f := range fs {
+		if f.Locus.Message == "" && f.Locus.Key != "" {
+			if m, ok := p.Message(f.Locus.Key); ok && m.ID != "" {
+				f.Locus.Message = m.ID
+				if f.Fingerprint != "" {
+					f = domain.New(f)
+				}
+			}
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
 // TargetLocales are the locales other than the source.
 func (p *Project) TargetLocales() []Locale {
 	var out []Locale

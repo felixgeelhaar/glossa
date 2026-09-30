@@ -36,6 +36,12 @@ type Invalid struct {
 
 // Message is a source message.
 type Message struct {
+	// ID is the catalog message's ID, which a snapshot read from the
+	// server always has. It is what a finding's identity is hashed over
+	// (domain.Fingerprint), so the terminal and the server fingerprint
+	// the same finding the same way. It is empty for a snapshot read
+	// from the local catalogs, which know keys and not IDs.
+	ID          string
 	Key         string
 	Namespace   string
 	Description string
@@ -297,7 +303,7 @@ func FromServer(ctx context.Context, r Reader, scope remote.Scope, sourceLocale 
 }
 
 func fromRemoteMessage(m remote.Message) Message {
-	out := Message{Key: m.Key, Namespace: m.Namespace, Description: m.Description, Text: m.Source.Text,
+	out := Message{ID: m.Id, Key: m.Key, Namespace: m.Namespace, Description: m.Description, Text: m.Source.Text,
 		Syntax: string(m.Source.Syntax), Revision: m.SourceRevision}
 	model, err := DecodeModel(m.Source.Model)
 	if err != nil {

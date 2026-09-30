@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
@@ -590,7 +592,12 @@ func explainWhy(policy checkpolicy.Policy, f domain.Finding, d checkpolicy.Decis
 	default:
 		fmt.Fprintf(&b, "; fail_on is %s, so it doesn't fail the run", policy.FailOn)
 	}
-	if d.Clamped {
+	switch {
+	case d.Clamped && f.Provisional():
+		fmt.Fprintf(&b, "; clamped to warning: seen %s, and a visual finding is evidence only once the same"+
+			" fingerprint comes back in the next capture of the same route, viewport and locale",
+			plural(f.Sightings(), "time", "times"))
+	case d.Clamped:
 		b.WriteString("; clamped to warning: a build never fails on a model's opinion")
 	}
 	return b.String()
@@ -625,6 +632,13 @@ func selectorText(s checkpolicy.Selector) string {
 
 // terminologyCheckers is the terminology layer: every translation but
 // rejected ones, checked against the server's termbase.
+//
+// The findings are identified against the snapshot before they are
+// reported. The termbase check answers by key, and a finding's identity
+// is hashed over the catalog message ID (RFC 0005 §2.1) — which the PR
+// check's own terminology findings carry, so without this the terminal
+// and the pull request would print two fingerprints for one finding. The
+// layer reads the server, so there is always an ID to resolve.
 func (inv *invocation) terminologyCheckers(ctx context.Context, p *project, s *snapshot.Snapshot) (qa.Checker, error) {
 	var locales []string
 	for _, l := range s.TargetLocales() {
@@ -634,7 +648,7 @@ func (inv *invocation) terminologyCheckers(ctx context.Context, p *project, s *s
 	if err != nil {
 		return nil, err
 	}
-	return qa.Precomputed(domain.LayerTerminology, report.QA()), nil
+	return qa.Precomputed(domain.LayerTerminology, qa.Project(s).Identify(report.QA())), nil
 }
 
 // snapshot reads the project from the server, or the local catalogs.
@@ -704,8 +718,18 @@ func printCheck(p *printer, run *checkSubject, out checkJSON, r qualityapp.Repor
 		}
 		printFindings(p, fs, false)
 	}
-	for locale, fs := range byLocale { // e.g. a required locale the project lacks
-		p.line("%s %s", p.fail(), locale)
+	// What is left is a locale the per-locale loop did not print: a
+	// required locale the project lacks, or the source locale, which a
+	// layer that reads a screen rather than a translation can find
+	// something in. In a stable order, and marked by what was found —
+	// the visual layer puts warnings here, and a warning is not a ✗.
+	for _, locale := range slices.Sorted(maps.Keys(byLocale)) {
+		fs := byLocale[locale]
+		if countSeverity(fs, domain.Error) == 0 {
+			p.line("%s %s", p.caution(), locale)
+		} else {
+			p.line("%s %s", p.fail(), locale)
+		}
 		printFindings(p, fs, false)
 	}
 	printFindings(p, other, true)

@@ -166,6 +166,59 @@ func TestCaptureTheFixtureApp(t *testing.T) {
 	}
 }
 
+// The visual probe pass in a real browser (RFC 0005 §5): the thresholds
+// `glossa capture` hands the page are the check policy's, and what comes
+// back is findings and line-box metrics.
+//
+// The fixture app renders the ja page's search placeholder from de, so
+// `explain()` has something true to say and `untranslated-on-screen` has
+// something to report. The second run proves the thresholds *arrive*:
+// the same page, the same probes, a cap of none.
+func TestCaptureProbesWithThePolicysThresholds(t *testing.T) {
+	app := capturetest.NewApp(t)
+	cfg := load(t, "  base_url: "+app.URL+
+		"\n  locales: [ja]\n  locale: { query: lang }\n  viewports: [{ width: 1280, height: 800 }]\n  routes: [{ route: / }]\n", nil)
+	plan, err := capture.NewPlan(cfg, "", env(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	endpoint := capturetest.StartChrome(t)
+	thresholds := &capture.ProbeOptions{Slack: 1, Overlap: 25, Tolerance: 0, Max: 500}
+	shots, err := capture.Run(context.Background(), plan, capture.Options{CDP: endpoint, Probe: thresholds})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(shots) != 1 {
+		t.Fatalf("captures = %d", len(shots))
+	}
+	s := shots[0]
+	if s.Metrics["home.title"] < 1 {
+		t.Errorf("metrics = %v, want a line count for every text region", s.Metrics)
+	}
+	var codes []string
+	for _, f := range s.Probes {
+		codes = append(codes, f.Code)
+		if f.Schema != "glossa.finding/v1" || f.Layer != "visual" || f.Severity != "warning" || f.Locus.Region == "" {
+			t.Errorf("probe finding = %+v", f)
+		}
+	}
+	if !strings.Contains(strings.Join(codes, ","), "untranslated-on-screen") {
+		t.Errorf("probes = %v, want the placeholder the ja page takes from de", codes)
+	}
+
+	// The same page with a cap of none: the page measured against what it
+	// was given, so the thresholds crossed the wire.
+	capped, err := capture.Run(context.Background(), plan, capture.Options{
+		CDP: endpoint, Probe: &capture.ProbeOptions{Slack: 1, Overlap: 25, Max: 0},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(capped[0].Probes) != 0 {
+		t.Errorf("a capture capped at no findings reported %d", len(capped[0].Probes))
+	}
+}
+
 func TestCaptureRefusesAProductionPage(t *testing.T) {
 	app := capturetest.NewApp(t)
 	cfg := load(t, "  base_url: "+app.URL+"\n  routes:\n    - { route: /, url: '/?env=production' }\n", nil)

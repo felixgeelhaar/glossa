@@ -334,6 +334,19 @@ func TestGeneratedDartAnalyzes(t *testing.T) {
 	}
 	dart, err := exec.LookPath("dart")
 	if err != nil {
+		// A silent skip is how "the generated Dart compiles" stayed
+		// unverified: the Go jobs have no Dart SDK, so this test never
+		// ran anywhere. One job installs one and asks for it by name —
+		// the same rule `capturetest.StartChrome` applies to Chrome.
+		//
+		// The flag is GLOSSA_REQUIRE_DART and not CI, because every job
+		// sets CI: keying on it made this fail in the platform job,
+		// which has no SDK and is not the job that owns this check. One
+		// job demands the SDK; everywhere else says plainly why it
+		// skipped.
+		if os.Getenv("GLOSSA_REQUIRE_DART") == "1" {
+			t.Fatalf("GLOSSA_REQUIRE_DART=1 and no Dart SDK on PATH: %v", err)
+		}
 		t.Skip("dart not installed: install the Dart SDK to analyse generated Dart")
 	}
 	root := repoRoot(t)

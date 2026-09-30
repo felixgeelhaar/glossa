@@ -96,6 +96,65 @@ WHERE (sqlc.arg(layer)::text = '' OR layer = sqlc.arg(layer)::text)
 ORDER BY sort_key COLLATE "C"
 LIMIT sqlc.arg(max_rows);
 
+-- name: ListCaptureFindings :many
+-- A page of the findings on one capture (RFC 0005 §5.2, §13 wave 4),
+-- graded against the waivers that are live now, exactly as a run's
+-- findings are.
+--
+-- A capture's findings are read on their own, not through the project's
+-- newest run: they were recorded by the run that ingested that capture,
+-- and the project's newest run is usually a later check of the catalog
+-- that never saw this screenshot. Studio asks "what is wrong on this
+-- picture", and `region` narrows the answer to one outlined box.
+--
+-- The waiver's reach is the ref of the run the finding belongs to,
+-- which the join carries, so a branch-scoped waiver applies here for
+-- the same branch it applies for anywhere else.
+--
+-- The order key is byte-ordered ("C") and unique — the run, then the
+-- region, then the row — and it is both what the rows are ordered by
+-- and what the cursor carries, so a page never shifts.
+WITH graded AS (
+    SELECT f.id, f.fingerprint, f.layer, f.code, f.severity, f.message_id, f.message_key, f.locale, f.namespace,
+           f.translation_revision, f.file, f.line, f.col, f.route, f.component, f.capture_id, f.region,
+           f.span_side, f.span_start, f.span_end, f.explanation, f.subject, f.detail, f.evidence, f.fix,
+           f.source_revision,
+           coalesce(w.id, '00000000-0000-0000-0000-000000000000'::uuid) AS waiver_id,
+           (w.id IS NOT NULL)::boolean AS is_waived,
+           (CASE WHEN w.id IS NOT NULL THEN 'waived' ELSE f.severity END)::text AS effective_severity,
+           concat_ws(E'\x01', r.id::text, f.region, f.id::text) AS sort_key
+    FROM quality_findings f
+    JOIN quality_check_runs r ON r.id = f.run_id
+    LEFT JOIN LATERAL (
+        SELECT w.id
+        FROM quality_waivers w
+        WHERE w.project_id = f.project_id AND w.fingerprint = f.fingerprint AND w.revoked_at IS NULL
+          AND (w.expires_at IS NULL OR w.expires_at > sqlc.arg(now)::timestamptz)
+          AND (w.scope = 'project' OR w.ref = r.ref)
+          AND (f.source_revision IS NULL OR f.source_revision = w.source_revision)
+        ORDER BY (w.scope = 'branch') DESC, w.created_at DESC, w.id
+        LIMIT 1
+    ) w ON true
+    WHERE f.project_id = sqlc.arg(project_id) AND f.capture_id = sqlc.arg(capture_id)
+)
+SELECT * FROM graded
+WHERE (sqlc.arg(region)::text = '' OR region = sqlc.arg(region)::text)
+  AND (sqlc.arg(after)::text = '' OR sort_key COLLATE "C" > sqlc.arg(after)::text)
+ORDER BY sort_key COLLATE "C"
+LIMIT sqlc.arg(max_rows);
+
+-- name: ListCaptureFingerprints :many
+-- The distinct fingerprints one capture's findings carry: what the
+-- previous capture of a scope saw, which is the whole state the
+-- two-sighting rule of RFC 0005 §5.2 needs (`layers.Seen`).
+--
+-- The server reads it from the findings it already stores, where
+-- `glossa capture --check` reads it from .glossa/visual-sightings.json:
+-- the same record, one of them durable and shared by every runner.
+SELECT DISTINCT fingerprint
+FROM quality_findings
+WHERE project_id = sqlc.arg(project_id) AND capture_id = sqlc.arg(capture_id);
+
 -- name: GetLatestFinding :one
 -- The most recent stored finding carrying a fingerprint (run ids are
 -- time-ordered UUIDv7): what a waiver is about, and the source revision

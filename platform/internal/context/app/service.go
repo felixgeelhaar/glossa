@@ -26,6 +26,9 @@ type Service struct {
 	metrics   Metrics
 	objects   Objects
 	images    ImageNormalizer
+	// findings is Quality, for the visual findings a capture upload
+	// carries. Nil where the deployment doesn't wire it.
+	findings Findings
 	// deleteBatch bounds the object-store deletes one purge issues at a
 	// time.
 	deleteBatch int
@@ -107,6 +110,18 @@ func WithImages(objects Objects, normalizer ImageNormalizer) Option {
 
 // WithMetrics records ingests and coverage (NoMetrics by default).
 func WithMetrics(m Metrics) Option { return func(s *Service) { s.metrics = m } }
+
+// WithFindings hands a capture upload's visual findings to Quality
+// (RFC 0005 §5.1). Without it an upload's findings are validated and
+// dropped: a deployment that does not run Quality still takes captures,
+// and says so by answering `findings: 0`.
+func WithFindings(f Findings) Option {
+	return func(s *Service) {
+		if f != nil {
+			s.findings = f
+		}
+	}
+}
 
 // Option configures a Service.
 type Option func(*Service)

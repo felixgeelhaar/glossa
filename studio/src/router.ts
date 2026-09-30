@@ -61,6 +61,7 @@ export const routes: RouteRecordRaw[] = [
           { path: "ai", name: "ai", component: () => import("./views/project/AiSettingsView.vue"), meta: { title: "AI settings" } },
           { path: "locales", name: "locales", component: () => import("./views/project/LocalesView.vue"), meta: { title: "Locales" } },
           { path: "settings", name: "settings", component: () => import("./views/project/SettingsView.vue"), meta: { title: "Settings" } },
+          { path: "quality", name: "quality", component: () => import("./views/project/QualityView.vue"), meta: { title: "Quality" } },
           { path: "releases", name: "releases", component: () => import("./views/project/ReleasesView.vue"), meta: { title: "Releases" } },
           { path: "releases/:release", name: "release", component: () => import("./views/project/ReleaseDetailView.vue"), meta: { title: "Release" } },
           { path: "files", name: "files", component: () => import("./views/project/ImportExportView.vue"), meta: { title: "Import & export" } },

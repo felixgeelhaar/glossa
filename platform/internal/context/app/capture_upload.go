@@ -14,6 +14,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
@@ -53,6 +54,11 @@ type CapturesIngested struct {
 	// UnknownKeys are the region keys the catalog didn't know, in order
 	// (stored with a null message ID, like usages).
 	UnknownKeys []string
+	// Findings counts the visual findings the upload's captures carried
+	// that Quality stored (RFC 0005 §5.1). It is 0 on a replay, when the
+	// upload carried none, when the project's policy switched the visual
+	// layer off, and in a deployment that does not run Quality.
+	Findings int
 	// Replayed is true when the same manifest was uploaded before for
 	// the application and commit: nothing changed and Build is the first
 	// upload's.
@@ -104,11 +110,19 @@ func (s *Service) IngestCaptures(ctx context.Context, in IngestCaptures) (_ Capt
 	var (
 		captures []domain.Capture
 		out      CapturesIngested
+		findings int
 	)
 	if err == nil {
 		var unknown []string
 		if captures, unknown, err = s.newCaptures(ctx, b, up, rec.images); err == nil {
-			out, err = s.insertCaptures(ctx, b, captures, unknown)
+			// The findings go to Quality before the captures are stored,
+			// so a failure to record them leaves nothing behind: the
+			// upload is idempotent by its manifest, and a retry after a
+			// half-done ingest would replay the build and could never
+			// add the findings it lost.
+			if findings, err = s.recordFindings(ctx, b, up, captures); err == nil {
+				out, err = s.insertCaptures(ctx, b, captures, unknown)
+			}
 		}
 	}
 	if err != nil {
@@ -116,13 +130,14 @@ func (s *Service) IngestCaptures(ctx context.Context, in IngestCaptures) (_ Capt
 		return CapturesIngested{}, err
 	}
 	if !out.Replayed {
-		out.ImagesStored, out.ImagesDeduplicated = rec.stored, rec.deduplicated
+		out.ImagesStored, out.ImagesDeduplicated, out.Findings = rec.stored, rec.deduplicated, findings
 	}
 	s.recordCaptures(ctx, out, regionCount(captures), rec.bytes)
 	s.recordStorage(ctx, rec.stored0+rec.bytes)
 	trace.SpanFromContext(ctx).SetAttributes(
 		attribute.String("glossa.build_id", out.Build.ID.String()),
 		attribute.Int("glossa.captures", out.Captures),
+		attribute.Int("glossa.visual_findings", out.Findings),
 		attribute.Int("glossa.regions", regionCount(captures)),
 		attribute.Int("glossa.images_stored", out.ImagesStored),
 		attribute.Int("glossa.images_deduplicated", out.ImagesDeduplicated),
@@ -343,6 +358,11 @@ func (s *Service) newCaptures(ctx context.Context, b domain.Build, up domain.Cap
 	for i, in := range up.Captures {
 		in.Image = images[in.Image.Digest]
 		in.Regions = slices.Clone(in.Regions)
+		// The upload's findings are resolved in place: they stay on the
+		// manifest rather than on the capture, because a finding is
+		// Quality's and a capture is Context's, and recordFindings reads
+		// them back beside the capture this loop mints.
+		domain.ResolveFindings(up.Captures[i].Findings, ids)
 		c, err := domain.NewCapture(b.ProjectID, b.ID, in, b.CreatedBy, b.CreatedAt)
 		if err != nil {
 			return nil, nil, err
@@ -361,6 +381,67 @@ func (s *Service) newCaptures(ctx context.Context, b domain.Build, up domain.Cap
 	}
 	slices.Sort(keys)
 	return out, keys, nil
+}
+
+// recordFindings hands the upload's visual findings to Quality, each
+// beside the capture it is on (RFC 0005 §5.1, §13 wave 4).
+//
+// captures is parallel to up.Captures, so the capture the ingest just
+// minted is the capture a manifest entry's findings are about — which
+// is the whole reason this runs here and not in the browser: `r_3`
+// means nothing until something knows which capture it is `r_3` of.
+func (s *Service) recordFindings(
+	ctx context.Context, b domain.Build, up domain.CaptureUpload, captures []domain.Capture,
+) (int, error) {
+	if s.findings == nil || up.FindingCount() == 0 {
+		return 0, nil
+	}
+	in := RecordFindings{Project: b.ProjectID, Ref: b.Branch.String(), Commit: b.Commit.String(), At: b.CreatedAt}
+	for i, c := range captures {
+		if fs := up.Captures[i].Findings; len(fs) > 0 {
+			in.Captures = append(in.Captures, CaptureFindings{
+				Capture: c.ID, Route: c.Route, Viewport: c.Viewport, Locale: c.Locale.String(), Findings: fs,
+			})
+		}
+	}
+	if err := s.previousCaptures(ctx, b, in.Captures); err != nil {
+		return 0, err
+	}
+	return s.findings.RecordFindings(ctx, in)
+}
+
+// previousCaptures fills in each scope's previous capture: the one this
+// application showed last of the same route, viewport and locale. It is
+// the state the two-sighting rule needs, and the server has it because
+// it keeps every capture's findings — where `glossa capture --check`
+// has to keep a file in the workspace and a CI runner that throws the
+// workspace away promotes nothing.
+//
+// A scope nobody has captured before leaves Previous at uuid.Nil, and
+// its findings are first sightings. So does a lookup that fails: this
+// runs before anything is stored, and losing a promotion is the safe
+// direction where losing the upload is not.
+func (s *Service) previousCaptures(ctx context.Context, b domain.Build, captures []CaptureFindings) error {
+	if len(captures) == 0 {
+		return nil
+	}
+	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		for i, c := range captures {
+			locale, err := bcp47.Parse(c.Locale)
+			if err != nil {
+				continue
+			}
+			previous, err := st.PreviousCaptureOfScope(ctx, b.ProjectID, b.ApplicationID, c.Route, c.Viewport, locale)
+			switch {
+			case errors.Is(err, ErrNotFound):
+				continue
+			case err != nil:
+				return err
+			}
+			captures[i].Previous = previous
+		}
+		return nil
+	})
 }
 
 // insertCaptures stores b with its captures in one unit of work and

@@ -4131,6 +4131,34 @@ export interface paths {
          *     body is at most 200 MB: split a larger capture plan over several
          *     uploads (one per application, or per locale).
          *
+         *     A capture may carry the **visual probe pass's findings**
+         *     (RFC 0005 §5): what the page measured about itself while it was
+         *     still open. They are validated here and stored as ordinary
+         *     quality findings, at layer `visual`, in one check run of the
+         *     build's branch and commit — not with the capture. A page may
+         *     only report what a page can see, at severity `warning` (only the
+         *     server can promote a finding, and only when the same fingerprint
+         *     appears in two consecutive captures), about a region that really
+         *     is on that capture. The server completes the two members the
+         *     page cannot know: the **fingerprint**, computed over the catalog
+         *     message the key resolved to, and **`locus.capture`**. At most
+         *     500 findings per capture and 10 000 per upload
+         *     (`too_many_findings`); a plan that finds more is split, as one
+         *     over 200 MB is. The project's check policy decides what they are
+         *     worth and whether they are computed at all: `visual: off` stores
+         *     none. `findings` in the response says how many were stored, and
+         *     `listCaptureFindings` reads them back.
+         *
+         *     Each finding is counted against the capture this application
+         *     took last of the same route, viewport and locale, whatever
+         *     branch that one came from: a fingerprint that capture showed too
+         *     is a **second sighting** and carries `evidence.sightings: 2`,
+         *     which is what makes it evidence a policy rule may raise to
+         *     `error` (RFC 0005 §5.2). A first sighting is a warning no rule
+         *     can raise, because headless Chrome's text metrics move with font
+         *     availability and a build must not go red on a font. The count is
+         *     the server's: nothing an upload says can influence it.
+         *
          *     The upload records a build with `source` `capture`: whether it is
          *     of the default branch is the project's `settings.default_branch`.
          *     Region keys are resolved to message IDs now; the keys the catalog
@@ -4152,7 +4180,7 @@ export interface paths {
          *     CI). Problem codes: `invalid_request` (not a multipart body),
          *     `invalid_captures` (a malformed body or manifest, or parts that
          *     don't match it), `too_many_captures`, `too_many_regions`,
-         *     `invalid_image`, `unknown_application` (400),
+         *     `too_many_findings`, `invalid_image`, `unknown_application` (400),
          *     `payload_too_large`, `image_too_large`,
          *     `storage_quota_exceeded` (413), `rate_limited` (429),
          *     `storage_unavailable` (503).
@@ -4188,6 +4216,57 @@ export interface paths {
          *     retention deleted the image), `storage_unavailable` (503).
          */
         get: operations["getCaptureImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/captures/{capture}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A capture `id`. */
+                capture: components["parameters"]["CapturePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The visual findings on one capture
+         * @description What the visual probe pass found on this screenshot
+         *     (RFC 0005 §5), in the one finding shape every layer emits, with
+         *     `locus.capture` and `locus.region` naming the box on the image:
+         *     Studio crops the stored image around the region and outlines it,
+         *     and `glossa capture --check` reads the same list.
+         *
+         *     A capture's findings are read here and not through
+         *     `listFindings`, which reads one check run — the run that saw
+         *     this screenshot is the one that ingested it, while the project's
+         *     newest run is usually a later check of the catalog, which never
+         *     saw it.
+         *
+         *     `evidence.sightings` is how many consecutive captures of this
+         *     route, viewport and locale have shown the finding. Below the
+         *     two the flake-control rule asks for (RFC 0005 §5.2) it is a
+         *     warning no policy rule can raise, however strict the policy.
+         *
+         *     Waivers are applied on read, as everywhere: a waived finding is
+         *     still listed, at severity `waived`, naming the waiver that
+         *     accepted it. The order is stable — the run, then the region,
+         *     then the row — and the cursor is that order's key, so a page
+         *     never shifts. A capture with no findings, and one that was never
+         *     probed, both read as an empty list: only a malformed capture ID
+         *     is a `404`. Needs `catalog.read`. Problem codes:
+         *     `invalid_page_size`, `invalid_page_token` (400).
+         */
+        get: operations["listCaptureFindings"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5636,7 +5715,7 @@ export interface components {
         /** @enum {string} */
         ReviewState: "draft" | "needs_review" | "approved" | "rejected";
         /** @enum {string} */
-        Origin: "human" | "ai" | "translation_memory" | "machine_translation" | "import" | "adaptation";
+        Origin: "human" | "ai" | "agent" | "translation_memory" | "machine_translation" | "import" | "adaptation";
         QAFinding: {
             /** @description Stable finding code, e.g. `missing-argument`, `max-length-exceeded`. */
             code: string;
@@ -7547,6 +7626,56 @@ export interface components {
             /** @description The session's render log; every region `index` names one entry. */
             renders: components["schemas"]["CapturesManifestRender"][];
             regions: components["schemas"]["CapturesManifestRegion"][];
+            /**
+             * @description What the visual probe pass found on this capture
+             *     (RFC 0005 §5), measured live in the page while it was open.
+             *     Optional: a capture taken without probes carries none, and
+             *     an empty list means the probes ran and found nothing.
+             */
+            findings?: components["schemas"]["CapturesManifestFinding"][];
+        };
+        /**
+         * @description One `glossa.finding/v1` finding as the page can write it. Two
+         *     members of that shape are deliberately absent, because the page
+         *     cannot know them and a guess would be worse than a gap: the
+         *     `fingerprint`, which hashes the catalog message ID a browser
+         *     never has — one minted in the page would not be the one the
+         *     server computes, and waivers against it would silently stop
+         *     applying — and `locus.capture`, which the server mints. The
+         *     ingest completes both.
+         */
+        CapturesManifestFinding: {
+            /** @enum {string} */
+            schema: "glossa.finding/v1";
+            /**
+             * @description A capture's findings are the visual layer's.
+             * @enum {string}
+             */
+            layer: "visual";
+            code: string;
+            /**
+             * @description Always `warning`. A visual finding becomes eligible for
+             *     `error` only when the same fingerprint appears in two
+             *     consecutive captures (RFC 0005 §5.2), which only the server
+             *     can see, and a page may not grade itself.
+             * @enum {string}
+             */
+            severity: "warning";
+            /** @description As much of the finding's locus as the page knows. */
+            locus: {
+                key?: components["schemas"]["MessageKey"];
+                locale?: components["schemas"]["Locale"];
+                /**
+                 * @description `r_<index into this capture's `regions`>`. The ingest
+                 *     pairs it with the capture it is on; a region this
+                 *     capture doesn't have is refused.
+                 */
+                region?: string;
+            };
+            message: string;
+            subject?: string;
+            /** @description What the probe measured, free-form per code; at most 4096 bytes of JSON. */
+            evidence?: Record<string, never>;
         };
         CapturesManifestRender: {
             index: number;
@@ -7589,6 +7718,15 @@ export interface components {
             images_deduplicated: number;
             /** @description The region keys the catalog doesn't know, in order (stored without a message). */
             unknown_keys: string[];
+            /**
+             * @description The visual findings the upload's captures carried that were
+             *     stored (RFC 0005 §5). 0 on a replay, when the manifest
+             *     carried none, and when the project's check policy switched
+             *     the `visual` layer off — `off` means the project does not
+             *     compute a layer, so it does not pay to store it either.
+             *     Read them back with `listCaptureFindings`.
+             */
+            findings: number;
         };
         CaptureViewport: {
             /** @description CSS pixels. */
@@ -7742,6 +7880,11 @@ export interface components {
             run?: components["schemas"]["CheckRun"];
             /** @description The whole run with today's waivers applied, whatever the filters select. */
             counts: components["schemas"]["CheckRunCounts"];
+            next_page_token?: string;
+        };
+        /** @description A page of the findings on one capture, as they stand now. */
+        CaptureFindingList: {
+            items: components["schemas"]["Finding"][];
             next_page_token?: string;
         };
         /**
@@ -14198,6 +14341,43 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];
+        };
+    };
+    listCaptureFindings: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description One region of the capture (`r_0`), as `locus.region` names it. */
+                region?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A capture `id`. */
+                capture: components["parameters"]["CapturePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the capture's findings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptureFindingList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listMessageCaptures: {
