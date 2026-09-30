@@ -78,7 +78,7 @@ func (inv *invocation) finishCheck(cfg *config.Config, application string, out *
 	c.run.extra = append(c.run.extra, visual)
 	checkers, unavailable := c.run.checkers(c.flags)
 	c.run.unavailable = append(c.run.unavailable, unavailable...)
-	c.report = qa.RunProject(project, c.policy, checkers...)
+	c.report = c.run.waive(qa.RunProject(project, c.policy, checkers...), c.policy)
 	doc := checkDocument(c.run, c.report, c.policy, c.overrides, c.flags)
 	return &doc
 }

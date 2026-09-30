@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
@@ -331,6 +333,46 @@ func (c *Client) Waivers(ctx context.Context, s Scope, f WaiverFilter, limit int
 		}
 		token = r.JSON200.NextPageToken
 	}
+}
+
+// LiveWaivers reads the waivers that stand now, as the domain type that
+// applies them (domain.Waivers).
+//
+// It is what a locally graded run needs to reach the same counts the
+// server reaches: `glossa check` computes its own findings, and a
+// finding the project has accepted must come back waived there too, or
+// the terminal and the pull request disagree about a decision somebody
+// already made and wrote a reason for (RFC 0005 §2.3).
+func (c *Client) LiveWaivers(ctx context.Context, s Scope) ([]domain.Waiver, error) {
+	live := true
+	ws, err := c.Waivers(ctx, s, WaiverFilter{Active: &live}, 0)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Waiver, 0, len(ws))
+	for _, w := range ws {
+		out = append(out, WaiverFromWire(w))
+	}
+	return out, nil
+}
+
+// WaiverFromWire reads a waiver back into the domain type the CLI, the
+// pull-request check and the server share.
+//
+// Everything the matching rule reads comes over verbatim — the
+// fingerprint, the scope and its branch, the source revision it was made
+// against, and when it was revoked or expires. An ID that does not parse
+// leaves the waiver with a nil one; it still covers what it covers, and
+// the finding it waives names uuid.Nil rather than nothing.
+func WaiverFromWire(w Waiver) domain.Waiver {
+	out := domain.Waiver{
+		Fingerprint: w.Fingerprint, Reason: w.Reason, Scope: domain.WaiverScope(w.Scope),
+		Ref: derefOr(w.Ref), SourceRevision: w.SourceRevision,
+		CreatedBy: w.CreatedBy, CreatedAt: w.CreatedAt,
+		ExpiresAt: w.ExpiresAt, RevokedAt: w.RevokedAt,
+	}
+	out.ID, _ = uuid.Parse(w.Id)
+	return out
 }
 
 // RevokeWaiver takes a waiver back; the findings it accepted are

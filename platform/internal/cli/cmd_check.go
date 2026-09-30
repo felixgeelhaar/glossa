@@ -157,10 +157,13 @@ type checkJSON struct {
 	Fixes []fixJSON `json:"fixes,omitempty"`
 	// Record is what became of putting this run on the project's record
 	// (check_record.go); absent when recording was never asked for.
-	Record   *recordJSON `json:"record,omitempty"`
-	Errors   int         `json:"errors"`
-	Warnings int         `json:"warnings"`
-	Waived   int         `json:"waived"`
+	Record *recordJSON `json:"record,omitempty"`
+	// Waivers is what the project's waivers did to this run, and — when
+	// they could not be read — why they did nothing (check_waivers.go).
+	Waivers  checkWaiversJSON `json:"waivers"`
+	Errors   int              `json:"errors"`
+	Warnings int              `json:"warnings"`
+	Waived   int              `json:"waived"`
 	// Conclusion is the run's verdict, spelled as a check run spells it.
 	Conclusion domain.Conclusion `json:"conclusion"`
 	Passed     bool              `json:"passed"`
@@ -254,7 +257,7 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	checkers, unavailable := run.checkers(f)
 	run.unavailable = append(run.unavailable, unavailable...)
 	run.startedAt = time.Now().UTC()
-	report := qa.Run(run.snapshot, policy, checkers...)
+	report := run.waive(qa.Run(run.snapshot, policy, checkers...), policy)
 	out := checkDocument(run, report, policy, overrides, f)
 	// The record is filed before --fix edits anything: the check graded
 	// what it found, and a record of the fixed catalog would be a record
@@ -348,6 +351,14 @@ type checkSubject struct {
 	// graded (check_record.go). Both are nil offline.
 	client *remote.Client
 	scope  remote.Scope
+	// waivers are the project's live waivers, applied to what this run
+	// found (check_waivers.go).
+	waivers []domain.Waiver
+	// waiversWhy says why they could not be applied; "" when they were.
+	waiversWhy string
+	// ref is the branch this run is of, which is how far a
+	// branch-scoped waiver reaches.
+	ref string
 	// startedAt is when the layers began, which the recorded run keeps.
 	startedAt time.Time
 }
@@ -410,7 +421,11 @@ func hasUnavailable(us []unavailableJSON, l domain.Layer) bool {
 // server out of reach *and* no cache).
 func (inv *invocation) checkRun(ctx context.Context, cfg *config.Config, f checkFlags) (*checkSubject, error) {
 	if f.offline {
-		return inv.localRun(cfg, f, nil)
+		run, err := inv.localRun(cfg, f, nil)
+		if err == nil {
+			run.waiversWhy = "--offline has no server to read the project's waivers from"
+		}
+		return run, err
 	}
 	p, err := inv.connectWith(ctx, cfg)
 	if err != nil {
@@ -426,6 +441,7 @@ func (inv *invocation) checkRun(ctx context.Context, cfg *config.Config, f check
 			return nil, lerr
 		}
 		run.degraded = true
+		run.waiversWhy = "the server was out of reach, so the project's waivers could not be read"
 		return run, nil
 	}
 	policy, err := inv.fetchPolicy(ctx, cfg, projectPolicySource{client: p.client, scope: p.scope, settings: p.info.Settings.CheckPolicy})
@@ -438,8 +454,9 @@ func (inv *invocation) checkRun(ctx context.Context, cfg *config.Config, f check
 	}
 	run := &checkSubject{
 		snapshot: s, label: fmt.Sprintf("%s on %s", p.info.Slug, cfg.Server), policy: policy,
-		client: p.client, scope: p.scope,
+		client: p.client, scope: p.scope, ref: detectBuild(ctx, inv.env.getenv, cfg.Dir()).Branch,
 	}
+	inv.readWaivers(ctx, run)
 	if f.wantsTerminology() {
 		extra, err := inv.terminologyCheckers(ctx, p, s)
 		switch {
@@ -568,7 +585,7 @@ func checkDocument(
 		Layers: nonNilList(r.Layers), Skipped: nonNilList(append(r.Skipped, run.deselected...)),
 		Unavailable: nonNilList(run.unavailable), Findings: nonNilList(r.Findings),
 		Errors: r.Counts.Errors, Warnings: r.Counts.Warnings, Waived: r.Counts.Waived,
-		Conclusion: r.Conclusion, Passed: r.Passed(),
+		Conclusion: r.Conclusion, Passed: r.Passed(), Waivers: run.waiversDocument(r),
 		Policy: policyJSON{
 			RequireComplete: policy.RequireComplete, FailOn: string(policy.FailOn),
 			MissingTranslations: string(policy.MissingTranslations), Source: run.policy.Origin,
@@ -791,6 +808,7 @@ func printCheck(p *printer, run *checkSubject, out checkJSON, r qualityapp.Repor
 		printExplain(p, out.Explain)
 	}
 	printFixes(p, out.Fixes)
+	printCheckWaivers(p, out.Waivers)
 	printRecord(p, out.Record)
 	p.line("")
 	if out.Passed {

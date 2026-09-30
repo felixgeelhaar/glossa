@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
@@ -65,6 +67,16 @@ func newFakeQuality() *fakeQuality { return &fakeQuality{} }
 func (f *fakeQuality) nextID(prefix string) string {
 	f.seq++
 	return prefix + "_" + strconv.Itoa(f.seq)
+}
+
+// nextWaiverID mints what the server mints. A waiver's id is a UUID
+// there, and `glossa check` parses it to apply the waiver with
+// domain.Waivers — so a fake handing out `wv_1` would let the CLI's
+// reading of a waiver id drift from the server's writing of one without
+// a test noticing.
+func (f *fakeQuality) nextWaiverID() string {
+	f.seq++
+	return uuid.NewSHA1(uuid.Nil, []byte("waiver/"+strconv.Itoa(f.seq))).String()
 }
 
 func (f *fakeServer) routeQuality(mux *http.ServeMux, p string) {
@@ -291,7 +303,7 @@ func (f *fakeServer) createWaiver(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	wv := &fakeWaiver{
-		id: f.qa.nextID("wv"), fingerprint: body.Fingerprint, reason: body.Reason, scope: scope,
+		id: f.qa.nextWaiverID(), fingerprint: body.Fingerprint, reason: body.Reason, scope: scope,
 		ref: body.Ref, sourceRevision: revision, expiresAt: body.ExpiresAt, createdAt: time.Now().UTC(),
 	}
 	f.qa.waivers = append(f.qa.waivers, wv)
