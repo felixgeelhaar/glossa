@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -110,8 +111,13 @@ const (
 	// the locale's style guide asks for `Sie`.
 	keyInformal = "account.greeting.body"
 	// keyOrphan is obsoleted after its translations are written, which
-	// is what leaves a translation whose key no source message has.
-	keyOrphan = "help.legacy.title"
+	// is what leaves a translation whose key no source message has —
+	// and the help page still asks for it, at orphanFile:orphanLine.
+	// That is §12.2's located `unknown-key`: code using a key whose
+	// message no longer exists.
+	keyOrphan  = "help.legacy.title"
+	orphanFile = "src/pages/HelpPage.vue"
+	orphanLine = 23
 	// keyUnknown is used by the build and is in no catalog.
 	keyUnknown     = "checkout.pickup.reminder"
 	unknownFile    = "src/pages/CheckoutPage.vue"
@@ -213,6 +219,7 @@ func materialize(t *testing.T, dir string) *repo {
 	r.head = seedHead(r.base)
 	r.write(t, r.base)
 	seedUnknownKey(t, dir)
+	seedOrphanUsage(t, dir)
 	return r
 }
 
@@ -386,6 +393,15 @@ func seedHead(base catalogs) catalogs {
 	for _, k := range outdatedJapanese {
 		delete(c["ja"], k)
 	}
+
+	// completeness: the message the catalog obsoletes is gone from this
+	// commit's catalogs too — the way a developer deletes a message —
+	// while the help page still asks for it. Left in, `glossa push`
+	// would upsert the key and reactivate the message
+	// (catalog/app.upsert), and there would be nothing orphaned to find.
+	for l := range c {
+		delete(c[l], keyOrphan)
+	}
 	return c
 }
 
@@ -413,6 +429,45 @@ func seedUnknownKey(t *testing.T, dir string) {
 		"column": 9, "component": unknownCompont, "route": "/kasse", "kind": "t",
 	})
 	doc["commit"] = baseCommit
+	writeJSON(t, path, doc)
+}
+
+// seedOrphanUsage makes the help page ask for keyOrphan — in its
+// source, on the line the usage names, and in the build's usages — so
+// that when the catalog obsoletes the message, the product is still
+// asking for it. The line is written into the materialized page rather
+// than only claimed in usages.json: a `file:line` the file does not
+// have would be a location nobody could open.
+func seedOrphanUsage(t *testing.T, dir string) {
+	t.Helper()
+	page := filepath.Join(dir, orphanFile)
+	raw, err := os.ReadFile(page)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(raw), "\n")
+	at := slices.Index(lines, "  </section>")
+	if at+1 != orphanLine {
+		t.Fatalf("%s closes its section on line %d, and the orphan's usage is written for line %d",
+			orphanFile, at+1, orphanLine)
+	}
+	lines = slices.Insert(lines, at, `    <p class="line">{{ $t("`+keyOrphan+`") }}</p>`)
+	if err := os.WriteFile(page, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "usages.json")
+	if raw, err = os.ReadFile(path); err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	usages, _ := doc["usages"].([]any)
+	doc["usages"] = append(usages, map[string]any{
+		"key": keyOrphan, "file": orphanFile, "line": orphanLine,
+		"column": 28, "component": "HelpPage", "route": "/hilfe", "kind": "t",
+	})
 	writeJSON(t, path, doc)
 }
 

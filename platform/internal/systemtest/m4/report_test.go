@@ -91,7 +91,10 @@ func (s *scenario) reportFixture(b *bytes.Buffer) {
 	w("| `%s`: the German source drops its `{#link}`; every locale but Japanese follows it | `parity` |\n", keyMarkup)
 	w("| three French translations that were never written (`%s`) | `completeness` |\n", strings.Join(missingFrench, "`, `"))
 	w("| two German sources that move under their Japanese (`%s`) | `completeness` |\n", strings.Join(outdatedJapanese, "`, `"))
-	w("| `%s`, used at `%s:%d` and in no catalog | `completeness` |\n", keyUnknown, unknownFile, unknownLine)
+	w("| `%s`: its message is obsoleted while its translations stay, and the help page still asks for it at `%s:%d` | `completeness` |\n",
+		keyOrphan, orphanFile, orphanLine)
+	w("| `%s`, used at `%s:%d` and in no catalog — Context's unknown key, which `glossa context push` counts | — |\n",
+		keyUnknown, unknownFile, unknownLine)
 	w("| `%s` (namespace `legal`), whose French uses the forbidden `%s` | `terminology` |\n", keyForbidden, termForbiddenFR)
 	w("| `%s`, whose Spanish does not use the preferred `%s` | `terminology` |\n", keyTermMissing, termPreferredES)
 	w("| `%s` with `max_length: %d` and a French translation over it | `length` (see below) |\n", keyMaxLength, maxLength)

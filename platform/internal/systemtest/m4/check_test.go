@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -501,6 +502,16 @@ func (s *scenario) nineLayers() {
 				v.OK = false
 				v.Why = "no finding with " + codeList(missing)
 			}
+			// §12.2 as amended in wave 7: the unknown key is a
+			// translation of a message the catalog obsoleted, and it
+			// has its file:line where the code still asks for the key.
+			if w.layer == domain.LayerCompleteness && v.OK {
+				if located, why := s.unknownKey(findings); why != "" {
+					v.OK, v.Why = false, why
+				} else {
+					v.Got += "; " + located
+				}
+			}
 		default:
 			v.Got, v.Why = "none", "the layer produced nothing"
 		}
@@ -523,28 +534,6 @@ func (s *scenario) nineLayers() {
 		s.gap("12.2", "completeness found %d outdated Japanese translations (%s), want at least the %d whose "+
 			"German source moved under them (%s)", len(outdated), codeList(outdated),
 			len(outdatedJapanese), codeList(outdatedJapanese))
-	}
-	// The unknown key. `glossa check`'s `unknown-key` is a *translation*
-	// whose key no active message has; the pull-request check's own
-	// fallback view emits one for a *usage* of a key no catalog has,
-	// with its file and line. §12.2 asks for the second shape, and the
-	// check now renders the first surface's run (§14 decision 11).
-	if !hasLocated(findings, "unknown-key", unknownFile, unknownLine) {
-		s.gap("12.2", "no `unknown-key` finding names `%s:%d`, and none can while the pull request renders the "+
-			"run CI recorded. Against a server project the terminal never emits `unknown-key` at all: the "+
-			"completeness layer emits it for a translation whose key no active message has "+
-			"(quality/layers/completeness.go), and `snapshot.FromServer` reads only the translations of active "+
-			"messages (`MessageState: \"active\"`) and joins them to active messages by ID, so the translations "+
-			"of the obsoleted `%s` never reach the layer — on this fixture or any other. `BranchUsages.Where` "+
-			"would locate such a finding at its `file:line` when the key has a usage (integration/app "+
-			"`locate`), but there is none to locate. The usage shape §12.2 describes is emitted only by the "+
-			"pull-request check's fallback view (integration/app/check_report.go's `findings`), which runs "+
-			"when CI recorded no run for the commit; this commit has one. An amendment reading \"a translation "+
-			"with no active message, located by Context\" would describe something the product does not do, "+
-			"so it was not written: the case needs either the snapshot to carry the translations of obsolete "+
-			"messages (a product change) or a criterion that asks for the offline shape — a target catalog "+
-			"key the source catalog lacks, located at its catalog file and no line",
-			unknownFile, unknownLine, keyOrphan)
 	}
 	// Terminology's two cases have to land on the right side of the
 	// policy: an error in `legal`, a warning everywhere else.
@@ -679,13 +668,85 @@ func captureFindings(c captureJSON) []domain.Finding {
 	return c.Check.Findings
 }
 
-func hasLocated(fs []domain.Finding, code, file string, line int) bool {
-	for _, f := range fs {
-		if f.Code == code && f.Locus.File == file && f.Locus.Line == line {
-			return true
+// unknownKey is §12.2's `unknown-key`, as amended in wave 7: a
+// translation whose message the catalog obsoleted, reported by the
+// terminal under the obsolete message's ID, and located by the pull
+// request at the line where the code still asks for the key.
+//
+// It answers what was found, or why the case does not hold.
+func (s *scenario) unknownKey(findings []domain.Finding) (string, string) {
+	var msg struct {
+		ID    string `json:"id"`
+		State string `json:"state"`
+	}
+	s.owner.do(http.MethodGet, s.projectPath("/messages/"+keyOrphan), nil, http.StatusOK, &msg)
+	if msg.State != "obsolete" {
+		return "", fmt.Sprintf("`%s` is `%s`, not obsolete, so nothing left its translations behind", keyOrphan, msg.State)
+	}
+	// The terminal: one warning per translation the obsolete message
+	// left behind, each identified by the message's ID — the identity
+	// the server computes, so a waiver holds across surfaces.
+	locales := map[string]bool{}
+	for _, f := range findings {
+		if f.Code != "unknown-key" || f.Locus.Key != keyOrphan {
+			continue
+		}
+		if f.Locus.Message != msg.ID || f.Severity != domain.Warning {
+			return "", fmt.Sprintf("`unknown-key` on `%s` in `%s` is %s against message `%s`; want a warning "+
+				"against the obsolete message's ID `%s`", keyOrphan, f.Locus.Locale, f.Severity, f.Locus.Message, msg.ID)
+		}
+		locales[f.Locus.Locale] = true
+	}
+	var want []string
+	for l, texts := range s.repo.base {
+		if l != "de" && texts[keyOrphan] != "" {
+			want = append(want, l)
 		}
 	}
-	return false
+	sort.Strings(want)
+	for _, l := range want {
+		if !locales[l] {
+			return "", fmt.Sprintf("the terminal reports no `unknown-key` for `%s`'s %s translation, which "+
+				"its obsoleted message left behind (reported: %s)", keyOrphan, l, codeList(sortedSet(locales)))
+		}
+	}
+	// The pull request: the run CI recorded, located by Context at the
+	// line the help page still asks for the key on.
+	title := "unknown-key: " + keyOrphan
+	ok, state := softly(3*time.Minute, func() (bool, string) {
+		for _, r := range s.d.github.CheckRuns(repositoryID) {
+			if r.HeadSHA != headCommit || r.Name != "Glossa" {
+				continue
+			}
+			for _, a := range r.Annotations {
+				if a.Path == orphanFile && a.StartLine == orphanLine && a.Title == title {
+					return a.AnnotationLevel == "warning", "annotated at level " + a.AnnotationLevel
+				}
+			}
+			return false, fmt.Sprintf("%s/%s with %d annotations, none of them `%s` at %s:%d",
+				r.Status, r.Conclusion, len(r.Annotations), title, orphanFile, orphanLine)
+		}
+		return false, "no check run for the head commit"
+	})
+	if !ok {
+		return "", fmt.Sprintf("the terminal reports `unknown-key` on `%s` in %s, and the pull request does not "+
+			"put it at `%s:%d`, where the help page still asks for the key: %s",
+			keyOrphan, codeList(want), orphanFile, orphanLine, state)
+	}
+	s.note("12.2", "`%s` was obsoleted while its translations stayed: `glossa check` reported `unknown-key` in %s, "+
+		"each a warning against the obsolete message's ID (`%s`), and the pull request annotated it at `%s:%d` — "+
+		"the line the help page still asks for the key on, from the build's usages.",
+		keyOrphan, codeList(want), short(msg.ID), orphanFile, orphanLine)
+	return fmt.Sprintf("`unknown-key` on `%s` at `%s:%d` on the pull request", keyOrphan, orphanFile, orphanLine), ""
+}
+
+func sortedSet(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func onKey(fs []domain.Finding, layer domain.Layer, code, key string, want domain.Severity) bool {
