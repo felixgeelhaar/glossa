@@ -238,6 +238,19 @@ type Store interface {
 	CaptureFingerprints(ctx context.Context, project, capture uuid.UUID) ([]string, error)
 	// CountFindings sums a run's findings as they stand at now.
 	CountFindings(ctx context.Context, run domain.CheckRun, now time.Time) (domain.Counts, error)
+	// CountFindingsByLayer sums a run's findings per locale and layer as
+	// they stand at now, in one pass. A layer that reported nothing is
+	// not in the result; CheckRun.Layers is what says which layers ran
+	// at all.
+	CountFindingsByLayer(ctx context.Context, run domain.CheckRun, now time.Time) ([]domain.LocaleLayerCount, error)
+	// RollUpFindingsByDay restates one UTC day of the project's
+	// findings-by-layer rollup from the findings themselves (migration
+	// 0035). It is a recomputation, so calling it twice for the same day
+	// is the same as calling it once.
+	RollUpFindingsByDay(ctx context.Context, project uuid.UUID, day time.Time) error
+	// FindingsByDay reads the rollup between two UTC days, inclusive,
+	// oldest first. A day with no rows was never checked.
+	FindingsByDay(ctx context.Context, project uuid.UUID, from, to time.Time) ([]domain.DailyFindings, error)
 	// LatestFinding is the most recent stored finding carrying a
 	// fingerprint; found is false where none does.
 	LatestFinding(ctx context.Context, project uuid.UUID, fingerprint string) (summary FindingSummary, found bool, err error)

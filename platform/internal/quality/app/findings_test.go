@@ -47,7 +47,14 @@ type fakeStore struct {
 	sighted      map[uuid.UUID][]string
 	lastPrevious uuid.UUID
 
+	// trend is the findings-by-day rollup a test set, and rolledUp the
+	// days a recorded run restated.
+	trend    []domain.DailyFindings
+	rolledUp []time.Time
+
 	// What the last ListFindings and run lookup passed down.
+	lastTrendFrom time.Time
+	lastTrendTo   time.Time
 	lastRunFilter app.FindingFilter
 	lastRun       app.RunFilter
 	lastAfter     string
@@ -98,6 +105,47 @@ func (f *fakeStore) ListFindings(
 
 func (f *fakeStore) CountFindings(context.Context, domain.CheckRun, time.Time) (domain.Counts, error) {
 	return f.run.Counts, nil
+}
+
+// CountFindingsByLayer groups whatever rows a test set by locale and
+// layer, so the summary reads a breakdown that sums to the counts
+// beside it.
+func (f *fakeStore) CountFindingsByLayer(
+	_ context.Context, _ domain.CheckRun, _ time.Time,
+) ([]domain.LocaleLayerCount, error) {
+	byLocale := map[string][]domain.Finding{}
+	for _, r := range f.rows {
+		byLocale[r.Locus.Locale] = append(byLocale[r.Locus.Locale], r.Finding)
+	}
+	locales := make([]string, 0, len(byLocale))
+	for locale := range byLocale {
+		locales = append(locales, locale)
+	}
+	slices.Sort(locales)
+	var out []domain.LocaleLayerCount
+	for _, locale := range locales {
+		for _, c := range domain.ByLayer(byLocale[locale]) {
+			out = append(out, domain.LocaleLayerCount{Locale: locale, LayerCount: c})
+		}
+	}
+	return out, nil
+}
+
+// RollUpFindingsByDay records the day a run restated.
+func (f *fakeStore) RollUpFindingsByDay(_ context.Context, _ uuid.UUID, day time.Time) error {
+	if !f.records {
+		panic("not on this path")
+	}
+	f.rolledUp = append(f.rolledUp, day.UTC())
+	return nil
+}
+
+// FindingsByDay hands back the trend a test set.
+func (f *fakeStore) FindingsByDay(
+	_ context.Context, _ uuid.UUID, from, to time.Time,
+) ([]domain.DailyFindings, error) {
+	f.lastTrendFrom, f.lastTrendTo = from, to
+	return f.trend, nil
 }
 
 // ListCaptureFindings hands back the rows a test set, and remembers

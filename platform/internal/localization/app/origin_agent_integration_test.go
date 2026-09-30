@@ -5,6 +5,7 @@ package app_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"testing"
 
@@ -141,6 +142,63 @@ func TestOriginSelectsAgentWritesApartFromAIWrites(t *testing.T) {
 	if n := count(t,
 		"SELECT count(*) FROM localization_translation_revisions WHERE origin = 'agent'"); n != 1 {
 		t.Errorf("agent revisions = %d, want 1", n)
+	}
+}
+
+// TestTheListingFiltersByOrigin is the same question through the API
+// rather than through SQL. AGENTS.md: anything that matters is
+// reachable through the API, not only through the admin UI — and until
+// wave 5 the difference between what an agent wrote and what the
+// platform wrote on a person's behalf was answerable only by somebody
+// with a psql prompt.
+func TestTheListingFiltersByOrigin(t *testing.T) {
+	h := newHarness(t)
+	p := h.setup(t, false, []string{"de"}, map[string]string{
+		"home.title":   "Welcome",
+		"checkout.pay": "Pay now",
+		"cart.items":   "Your cart",
+	})
+	ctx := h.developer()
+	write := func(key, text string, origin domain.Origin, detail string) {
+		t.Helper()
+		in := app.TranslationInput{Text: text, Origin: string(origin)}
+		if detail != "" {
+			in.OriginDetail = json.RawMessage(detail)
+		}
+		if _, _, err := h.svc.PutTranslation(ctx, p, key, "de", in, nil); err != nil {
+			t.Fatalf("write %s: %v", key, err)
+		}
+	}
+	write("home.title", "Willkommen", domain.OriginAgent, mcpDetail)
+	write("checkout.pay", "Jetzt zahlen", domain.OriginAI, `{"model":"a-model"}`)
+	write("cart.items", "Dein Warenkorb", domain.OriginHuman, "")
+
+	list := func(origins ...string) []string {
+		t.Helper()
+		return listAll(t, h, ctx, p, app.TranslationFilter{Locales: []string{"de"}, Origins: origins}, 50)
+	}
+	// The one that matters: `agent` and `ai` are different answers, and
+	// neither contains the other.
+	if got := list("agent"); len(got) != 1 || got[0] != "home.title/de" {
+		t.Errorf("origin=agent listed %v, want [home.title/de]", got)
+	}
+	if got := list("ai"); len(got) != 1 || got[0] != "checkout.pay/de" {
+		t.Errorf("origin=ai listed %v, want [checkout.pay/de] and not the agent's", got)
+	}
+	// Repeating the filter unions, like every other repeatable one.
+	if got := list("agent", "ai"); len(got) != 2 {
+		t.Errorf("origin=agent&origin=ai listed %v, want both", got)
+	}
+	// No filter is not "human": it is everything.
+	if got := list(); len(got) != 3 {
+		t.Errorf("no origin filter listed %v, want all three", got)
+	}
+	// A typo is a 400 and not a silent empty page, so nobody reads
+	// "nothing an agent wrote" off a misspelt filter.
+	_, _, err := h.svc.ListProjectTranslations(ctx, p,
+		app.TranslationFilter{Locales: []string{"de"}, Origins: []string{"agents"}}, firstPage())
+	if !errors.Is(err, domain.ErrInvalidOrigin) {
+		t.Errorf("a misspelt origin answered %v, want ErrInvalidOrigin", err)
 	}
 }
 

@@ -287,6 +287,76 @@ func (q *Queries) InsertTranslationRevision(ctx context.Context, arg InsertTrans
 	return err
 }
 
+const leadTimeSamples = `-- name: LeadTimeSamples :many
+SELECT t.locale, m.updated_at AS source_changed_at, min(r.created_at)::timestamptz AS translated_at
+FROM localization_messages m
+JOIN localization_translations t ON t.message_id = m.message_id AND t.project_id = m.project_id
+JOIN localization_translation_revisions r ON r.translation_id = t.id AND r.source_revision >= m.source_revision
+WHERE m.project_id = $1 AND m.state = 'active'
+  AND t.source_revision >= m.source_revision
+  AND t.state = ANY ($2::text[])
+  AND m.updated_at >= $3
+  AND (cardinality($4::text[]) = 0 OR t.locale = ANY ($4::text[]))
+GROUP BY t.locale, m.message_id, m.updated_at
+ORDER BY m.updated_at DESC
+LIMIT $5
+`
+
+type LeadTimeSamplesParams struct {
+	ProjectID uuid.UUID
+	States    []string
+	Since     time.Time
+	Locales   []string
+	MaxRows   int32
+}
+
+type LeadTimeSamplesRow struct {
+	Locale          string
+	SourceChangedAt time.Time
+	TranslatedAt    time.Time
+}
+
+// The Localization half of the lead time (RFC 0005 §8): for each active
+// message whose source last moved inside the window, when it moved and
+// when a translation in one of the shipping review states first caught
+// up with it. The Release half — when that translation went live — is
+// another context's fact and is joined outside SQL.
+//
+// localization_messages.updated_at is when the source revision the row
+// carries arrived here. Only messages whose translation is current
+// (t.source_revision >= m.source_revision) qualify: an outdated
+// translation has not caught up, and a lead time for work that is not
+// finished would be a guess dressed as a measurement.
+//
+// Bounded by max_rows over the whole project, newest source change
+// first, so a project with a million messages still answers in a page
+// and the sample is the recent work rather than the oldest.
+func (q *Queries) LeadTimeSamples(ctx context.Context, arg LeadTimeSamplesParams) ([]LeadTimeSamplesRow, error) {
+	rows, err := q.db.Query(ctx, leadTimeSamples,
+		arg.ProjectID,
+		arg.States,
+		arg.Since,
+		arg.Locales,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LeadTimeSamplesRow
+	for rows.Next() {
+		var i LeadTimeSamplesRow
+		if err := rows.Scan(&i.Locale, &i.SourceChangedAt, &i.TranslatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTranslationRevisions = `-- name: ListTranslationRevisions :many
 SELECT tenant_id, translation_id, revision, kind, syntax, text, model, state, origin, origin_detail, author, source_revision, findings, created_at FROM localization_translation_revisions
 WHERE translation_id = $1 AND revision < $2
@@ -652,15 +722,19 @@ WHERE m.project_id = $1
   AND (m.key, m.message_id, t.locale) > ($3::text, $4::uuid,
                                          $5::text)
   AND ($6::text[] IS NULL OR t.state = ANY ($6::text[]))
-  AND ($7::boolean IS NULL OR (t.source_revision < m.source_revision) = $7)
-  AND ($8::text IS NULL OR m.namespace = $8)
-  AND ($9::text IS NULL OR m.state = $9)
-  AND ($10::text IS NULL OR m.key LIKE $10)
+  -- Provenance, exactly as the column records it. ` + "`" + `agent` + "`" + ` and ` + "`" + `ai` + "`" + ` are
+  -- different origins since migration 0032 and this is what makes the
+  -- difference readable through the API rather than only in SQL.
+  AND ($7::text[] IS NULL OR t.origin = ANY ($7::text[]))
+  AND ($8::boolean IS NULL OR (t.source_revision < m.source_revision) = $8)
+  AND ($9::text IS NULL OR m.namespace = $9)
+  AND ($10::text IS NULL OR m.state = $10)
+  AND ($11::text IS NULL OR m.key LIKE $11)
   -- Exactly these keys, for the messages on one screen: a key_prefix
   -- equal to a key would also match everything below it.
-  AND ($11::text[] IS NULL OR m.key = ANY ($11::text[]))
+  AND ($12::text[] IS NULL OR m.key = ANY ($12::text[]))
 ORDER BY m.key, m.message_id, t.locale
-LIMIT $12
+LIMIT $13
 `
 
 type PageProjectTranslationsParams struct {
@@ -670,6 +744,7 @@ type PageProjectTranslationsParams struct {
 	AfterMessage uuid.UUID
 	AfterLocale  string
 	States       []string
+	Origins      []string
 	Outdated     pgtype.Bool
 	Namespace    pgtype.Text
 	MessageState pgtype.Text
@@ -713,6 +788,7 @@ func (q *Queries) PageProjectTranslations(ctx context.Context, arg PageProjectTr
 		arg.AfterMessage,
 		arg.AfterLocale,
 		arg.States,
+		arg.Origins,
 		arg.Outdated,
 		arg.Namespace,
 		arg.MessageState,

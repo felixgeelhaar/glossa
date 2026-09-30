@@ -296,6 +296,11 @@ export const Deployment = z.object({
   action: DeploymentAction,
   author: z.string(),
   created_at: timestamp,
+  // The environment's completeness requirement was not met and somebody
+  // went ahead anyway. The exception is the record: such a deployment
+  // always carries its reason.
+  forced: z.boolean(),
+  force_reason: z.string().optional(),
 });
 
 export const ReleaseLocale = z.object({ code: z.string(), direction: Direction });

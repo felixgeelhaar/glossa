@@ -132,6 +132,10 @@ WHERE m.project_id = sqlc.arg(project_id)
   AND (m.key, m.message_id, t.locale) > (sqlc.arg(after_key)::text, sqlc.arg(after_message)::uuid,
                                          sqlc.arg(after_locale)::text)
   AND (sqlc.narg(states)::text[] IS NULL OR t.state = ANY (sqlc.narg(states)::text[]))
+  -- Provenance, exactly as the column records it. `agent` and `ai` are
+  -- different origins since migration 0032 and this is what makes the
+  -- difference readable through the API rather than only in SQL.
+  AND (sqlc.narg(origins)::text[] IS NULL OR t.origin = ANY (sqlc.narg(origins)::text[]))
   AND (sqlc.narg(outdated)::boolean IS NULL OR (t.source_revision < m.source_revision) = sqlc.narg(outdated))
   AND (sqlc.narg(namespace)::text IS NULL OR m.namespace = sqlc.narg(namespace))
   AND (sqlc.narg(message_state)::text IS NULL OR m.state = sqlc.narg(message_state))
@@ -206,3 +210,32 @@ WHERE t.project_id = sqlc.arg(project_id) AND t.message_id = ANY (sqlc.arg(messa
   AND t.state <> 'rejected' AND t.source_revision >= m.source_revision
 GROUP BY t.locale
 ORDER BY t.locale;
+
+-- name: LeadTimeSamples :many
+-- The Localization half of the lead time (RFC 0005 §8): for each active
+-- message whose source last moved inside the window, when it moved and
+-- when a translation in one of the shipping review states first caught
+-- up with it. The Release half — when that translation went live — is
+-- another context's fact and is joined outside SQL.
+--
+-- localization_messages.updated_at is when the source revision the row
+-- carries arrived here. Only messages whose translation is current
+-- (t.source_revision >= m.source_revision) qualify: an outdated
+-- translation has not caught up, and a lead time for work that is not
+-- finished would be a guess dressed as a measurement.
+--
+-- Bounded by max_rows over the whole project, newest source change
+-- first, so a project with a million messages still answers in a page
+-- and the sample is the recent work rather than the oldest.
+SELECT t.locale, m.updated_at AS source_changed_at, min(r.created_at)::timestamptz AS translated_at
+FROM localization_messages m
+JOIN localization_translations t ON t.message_id = m.message_id AND t.project_id = m.project_id
+JOIN localization_translation_revisions r ON r.translation_id = t.id AND r.source_revision >= m.source_revision
+WHERE m.project_id = sqlc.arg(project_id) AND m.state = 'active'
+  AND t.source_revision >= m.source_revision
+  AND t.state = ANY (sqlc.arg(states)::text[])
+  AND m.updated_at >= sqlc.arg(since)
+  AND (cardinality(sqlc.arg(locales)::text[]) = 0 OR t.locale = ANY (sqlc.arg(locales)::text[]))
+GROUP BY t.locale, m.message_id, m.updated_at
+ORDER BY m.updated_at DESC
+LIMIT sqlc.arg(max_rows);

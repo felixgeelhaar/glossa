@@ -1509,6 +1509,78 @@ func (e QAFindingSeverity) Valid() bool {
 	}
 }
 
+// Defines values for QualitySummarySchema.
+const (
+	GlossaQualitySummaryv1 QualitySummarySchema = "glossa.quality-summary/v1"
+)
+
+// Valid indicates whether the value is a known member of the QualitySummarySchema enum.
+func (e QualitySummarySchema) Valid() bool {
+	switch e {
+	case GlossaQualitySummaryv1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QualitySummaryLayerUnavailable.
+const (
+	NoEvidence        QualitySummaryLayerUnavailable = "no_evidence"
+	NotConfigured     QualitySummaryLayerUnavailable = "not_configured"
+	UnsupportedLocale QualitySummaryLayerUnavailable = "unsupported_locale"
+)
+
+// Valid indicates whether the value is a known member of the QualitySummaryLayerUnavailable enum.
+func (e QualitySummaryLayerUnavailable) Valid() bool {
+	switch e {
+	case NoEvidence:
+		return true
+	case NotConfigured:
+		return true
+	case UnsupportedLocale:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QualityUnmeasuredNumber.
+const (
+	QualityUnmeasuredNumberAi            QualityUnmeasuredNumber = "ai"
+	QualityUnmeasuredNumberChecks        QualityUnmeasuredNumber = "checks"
+	QualityUnmeasuredNumberContext       QualityUnmeasuredNumber = "context"
+	QualityUnmeasuredNumberCoverage      QualityUnmeasuredNumber = "coverage"
+	QualityUnmeasuredNumberFindings      QualityUnmeasuredNumber = "findings"
+	QualityUnmeasuredNumberFindingsByDay QualityUnmeasuredNumber = "findings_by_day"
+	QualityUnmeasuredNumberLeadTime      QualityUnmeasuredNumber = "lead_time"
+	QualityUnmeasuredNumberQueue         QualityUnmeasuredNumber = "queue"
+)
+
+// Valid indicates whether the value is a known member of the QualityUnmeasuredNumber enum.
+func (e QualityUnmeasuredNumber) Valid() bool {
+	switch e {
+	case QualityUnmeasuredNumberAi:
+		return true
+	case QualityUnmeasuredNumberChecks:
+		return true
+	case QualityUnmeasuredNumberContext:
+		return true
+	case QualityUnmeasuredNumberCoverage:
+		return true
+	case QualityUnmeasuredNumberFindings:
+		return true
+	case QualityUnmeasuredNumberFindingsByDay:
+		return true
+	case QualityUnmeasuredNumberLeadTime:
+		return true
+	case QualityUnmeasuredNumberQueue:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReleaseProblemCode.
 const (
 	NotReleasable ReleaseProblemCode = "not_releasable"
@@ -3987,6 +4059,14 @@ type Deployment struct {
 	// CreatedAt RFC 3339, UTC.
 	CreatedAt Timestamp `json:"created_at"`
 
+	// ForceReason Why it went ahead; present exactly when `forced`.
+	ForceReason *string `json:"force_reason,omitempty"`
+
+	// Forced True where the environment's completeness requirement was
+	// not met and somebody went ahead anyway. The exception is the
+	// record: such a deployment always carries its reason.
+	Forced bool `json:"forced"`
+
 	// Number Counts the environment's deployments from 1.
 	Number int `json:"number"`
 
@@ -5496,6 +5576,18 @@ type ProjectTranslationList struct {
 
 // Promotion defines model for Promotion.
 type Promotion struct {
+	// Force Promote although the environment's completeness requirement
+	// is not met (`policy_not_met`). Promotion is gated exactly as
+	// publishing is: a release that may not be published straight
+	// to production may not reach it by the side door either. It
+	// needs a `force_reason`, and the deployment records both.
+	Force *bool `json:"force,omitempty"`
+
+	// ForceReason Why the requirement was set aside. Required with `force`
+	// (`force_reason_required`) and refused without it
+	// (`invalid_force_reason`).
+	ForceReason *string `json:"force_reason,omitempty"`
+
 	// ReleaseId An opaque identifier.
 	ReleaseId Id `json:"release_id"`
 }
@@ -5548,7 +5640,20 @@ type PublishRelease struct {
 	// name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
 	// branch environments.
 	Environment EnvironmentName `json:"environment"`
-	Note        *string         `json:"note,omitempty"`
+
+	// Force Publish although the environment's completeness requirement
+	// is not met (`policy_not_met`). It needs a `force_reason`,
+	// and the deployment records both, so the exception is part of
+	// the history. A gate with no escape hatch gets routed around
+	// by switching the requirement off, which leaves no record at
+	// all.
+	Force *bool `json:"force,omitempty"`
+
+	// ForceReason Why the requirement was set aside. Required with `force`
+	// (`force_reason_required`) and refused without it
+	// (`invalid_force_reason`).
+	ForceReason *string `json:"force_reason,omitempty"`
+	Note        *string `json:"note,omitempty"`
 }
 
 // PutAIPrices defines model for PutAIPrices.
@@ -5606,6 +5711,360 @@ type QAProblem struct {
 	// Type Examples: urn:glossa:problem:slug_taken
 	Type string `json:"type"`
 }
+
+// QualityAcceptance Number 3 — what people did with the machine's suggestions
+// (Intelligence). `decisions` is accepted plus rejected, the
+// denominator of the rate, so a rate with nothing behind it cannot
+// be mistaken for a bad one. `mean_edit_distance` counts a
+// suggestion accepted as it is as 0, and the project's is pooled
+// over accepted suggestions rather than averaged over locales.
+type QualityAcceptance struct {
+	AcceptanceRate float64 `json:"acceptance_rate"`
+	Accepted       int     `json:"accepted"`
+	Decisions      int     `json:"decisions"`
+
+	// Edited Of the accepted: how many were changed first.
+	Edited           int     `json:"edited"`
+	MeanEditDistance float64 `json:"mean_edit_distance"`
+	Rejected         int     `json:"rejected"`
+}
+
+// QualityCheckHealth Number 7 — the pull-request check's record over the window
+// (Integration). `pass_rate` is successes over the checks that
+// passed or failed; `neutral` is in neither half, because it is
+// what a check concludes when it had nothing to grade. The rate
+// and `latency` are absent where nothing concluded.
+type QualityCheckHealth struct {
+	Failed int `json:"failed"`
+
+	// Latency The same measurement with its p90 and sample size.
+	Latency *QualityPercentiles `json:"latency,omitempty"`
+
+	// MedianSeconds The median from the pull-request event to the conclusion.
+	MedianSeconds *float64 `json:"median_seconds,omitempty"`
+	Neutral       int      `json:"neutral"`
+	PassRate      *float64 `json:"pass_rate,omitempty"`
+
+	// Runs Checks that reached a verdict in the window.
+	Runs      int `json:"runs"`
+	Succeeded int `json:"succeeded"`
+}
+
+// QualityContextCoverage Number 5 — how much of the catalog the product's own code and
+// screenshots account for (Context), on the default branch.
+// `active_messages` is the denominator; a project with none has no
+// coverage to report, which is neither 0 % nor 100 %.
+type QualityContextCoverage struct {
+	ActiveMessages int `json:"active_messages"`
+
+	// WithRegion Active messages with a visible region on a capture of a current build.
+	WithRegion int `json:"with_region"`
+
+	// WithUsage Active messages with a usage in a current build.
+	WithUsage int `json:"with_usage"`
+}
+
+// QualityCoverage Number 1 — how much of the catalog is translated (Localization).
+type QualityCoverage struct {
+	// Messages The active messages this is a share of.
+	Messages int `json:"messages"`
+	Missing  int `json:"missing"`
+
+	// Outdated Usable translations made against an older source revision.
+	Outdated   int `json:"outdated"`
+	Translated int `json:"translated"`
+}
+
+// QualityDayFindings defines model for QualityDayFindings.
+type QualityDayFindings struct {
+	Day      openapi_types.Date `json:"day"`
+	Findings int                `json:"findings"`
+
+	// Layer Which layer found it (RFC 0005 §3). Selectable by name in the policy and on the command line.
+	Layer FindingLayer `json:"layer"`
+}
+
+// QualityLayerCounts defines model for QualityLayerCounts.
+type QualityLayerCounts struct {
+	// Counts Findings by how they ended up. `waived` is counted on its own
+	// and is never part of `errors` or `warnings`, so the number a
+	// dashboard shows is true.
+	Counts CheckRunCounts `json:"counts"`
+
+	// Layer Which layer found it (RFC 0005 §3). Selectable by name in the policy and on the command line.
+	Layer FindingLayer `json:"layer"`
+}
+
+// QualityLocaleHealth The same numbers for one locale, and which layers are available
+// for it. There is no `context` here: a usage is a place in the
+// product's code and a region a box on a screenshot, and neither
+// belongs to a locale.
+type QualityLocaleHealth struct {
+	// Ai Number 3 — what people did with the machine's suggestions
+	// (Intelligence). `decisions` is accepted plus rejected, the
+	// denominator of the rate, so a rate with nothing behind it cannot
+	// be mistaken for a bad one. `mean_edit_distance` counts a
+	// suggestion accepted as it is as 0, and the project's is pooled
+	// over accepted suggestions rather than averaged over locales.
+	Ai *QualityAcceptance `json:"ai,omitempty"`
+
+	// Code A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Code Locale `json:"code"`
+
+	// Coverage Number 1 — how much of the catalog is translated (Localization).
+	Coverage *QualityCoverage `json:"coverage,omitempty"`
+
+	// Direction Derived from the locale's (likely) script.
+	Direction Direction `json:"direction"`
+
+	// Findings Findings by how they ended up. `waived` is counted on its own
+	// and is never part of `errors` or `warnings`, so the number a
+	// dashboard shows is true.
+	Findings *CheckRunCounts `json:"findings,omitempty"`
+	IsSource bool            `json:"is_source"`
+
+	// Layers Every layer, available or not, in report order.
+	Layers []QualitySummaryLayer `json:"layers"`
+
+	// LeadTime The p50 and p90 of a sample of durations, in seconds, with the
+	// size of the sample. It is present only where something was
+	// measured: an empty sample has no median, and a zero would say
+	// "no wait" where the truth is "nothing waited".
+	LeadTime *QualityPercentiles `json:"lead_time,omitempty"`
+
+	// Queue Number 4 — the review queue (Intelligence). `depth` is always
+	// measured; `age` is how long what is in it has been waiting, and
+	// an empty queue has none. The project's `age` is present only
+	// where one locale is in scope: the percentiles of several queues
+	// cannot be pooled from their percentiles.
+	Queue *QualityQueue `json:"queue,omitempty"`
+}
+
+// QualityPercentiles The p50 and p90 of a sample of durations, in seconds, with the
+// size of the sample. It is present only where something was
+// measured: an empty sample has no median, and a zero would say
+// "no wait" where the truth is "nothing waited".
+type QualityPercentiles struct {
+	P50Seconds float64 `json:"p50_seconds"`
+	P90Seconds float64 `json:"p90_seconds"`
+	Samples    int     `json:"samples"`
+}
+
+// QualityProjectHealth The seven numbers for the project as a whole. `coverage` counts
+// the target locales only — the source locale is complete by
+// definition, and counting it would flatter every project by one
+// locale's worth. `checks` has no locale, because a pull request
+// is about a commit and not a language.
+type QualityProjectHealth struct {
+	// Ai Number 3 — what people did with the machine's suggestions
+	// (Intelligence). `decisions` is accepted plus rejected, the
+	// denominator of the rate, so a rate with nothing behind it cannot
+	// be mistaken for a bad one. `mean_edit_distance` counts a
+	// suggestion accepted as it is as 0, and the project's is pooled
+	// over accepted suggestions rather than averaged over locales.
+	Ai *QualityAcceptance `json:"ai,omitempty"`
+
+	// ByLayer The findings broken down by layer, in report order. A layer that found nothing is not a row.
+	ByLayer *[]QualityLayerCounts `json:"by_layer,omitempty"`
+
+	// Checks Number 7 — the pull-request check's record over the window
+	// (Integration). `pass_rate` is successes over the checks that
+	// passed or failed; `neutral` is in neither half, because it is
+	// what a check concludes when it had nothing to grade. The rate
+	// and `latency` are absent where nothing concluded.
+	Checks *QualityCheckHealth `json:"checks,omitempty"`
+
+	// Context Number 5 — how much of the catalog the product's own code and
+	// screenshots account for (Context), on the default branch.
+	// `active_messages` is the denominator; a project with none has no
+	// coverage to report, which is neither 0 % nor 100 %.
+	Context *QualityContextCoverage `json:"context,omitempty"`
+
+	// Coverage Number 1 — how much of the catalog is translated (Localization).
+	Coverage *QualityCoverage `json:"coverage,omitempty"`
+
+	// Findings Findings by how they ended up. `waived` is counted on its own
+	// and is never part of `errors` or `warnings`, so the number a
+	// dashboard shows is true.
+	Findings *CheckRunCounts `json:"findings,omitempty"`
+
+	// LeadTime The p50 and p90 of a sample of durations, in seconds, with the
+	// size of the sample. It is present only where something was
+	// measured: an empty sample has no median, and a zero would say
+	// "no wait" where the truth is "nothing waited".
+	LeadTime *QualityPercentiles `json:"lead_time,omitempty"`
+
+	// Queue Number 4 — the review queue (Intelligence). `depth` is always
+	// measured; `age` is how long what is in it has been waiting, and
+	// an empty queue has none. The project's `age` is present only
+	// where one locale is in scope: the percentiles of several queues
+	// cannot be pooled from their percentiles.
+	Queue *QualityQueue `json:"queue,omitempty"`
+
+	// Run The check run the findings came from — the project's newest.
+	Run *QualitySummaryRun `json:"run,omitempty"`
+}
+
+// QualityQueue Number 4 — the review queue (Intelligence). `depth` is always
+// measured; `age` is how long what is in it has been waiting, and
+// an empty queue has none. The project's `age` is present only
+// where one locale is in scope: the percentiles of several queues
+// cannot be pooled from their percentiles.
+type QualityQueue struct {
+	// Age The p50 and p90 of a sample of durations, in seconds, with the
+	// size of the sample. It is present only where something was
+	// measured: an empty sample has no median, and a zero would say
+	// "no wait" where the truth is "nothing waited".
+	Age   *QualityPercentiles `json:"age,omitempty"`
+	Depth int                 `json:"depth"`
+}
+
+// QualitySummary The seven numbers of a project's localization health, for the
+// project as a whole and per locale, plus the findings-by-day
+// trend.
+//
+// Every number is optional, and an absent one was **not
+// measured** — never zero. `unmeasured` names each one that is
+// missing with the reason. `findings` absent means nothing was
+// ever checked; `findings.errors: 0` means a run looked and found
+// none, and a client that rendered the first as `0` would be
+// reporting the absence of a check as the absence of problems.
+type QualitySummary struct {
+	// Cached True where the summary is a previous computation served
+	// again. `computed_at` is when it was computed either way.
+	Cached bool `json:"cached"`
+
+	// ComputedAt RFC 3339, UTC.
+	ComputedAt Timestamp `json:"computed_at"`
+
+	// Environment Where "published" meant, for the lead time.
+	Environment EnvironmentName `json:"environment"`
+
+	// ExpiresAt When this summary stops being served from the cache.
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// FindingsByDay Findings by layer per day — the one trend M4 keeps, rolled up in
+	// Quality's own table because Quality owns the data. A day counts
+	// each finding once by fingerprint, however many runs saw it. A
+	// layer appears on a day only where a run that day ran it, so a
+	// missing row means "not looked at" and a row with `0` means
+	// "looked at and clean"; a day with no run has no rows at all.
+	FindingsByDay *QualityTrend `json:"findings_by_day,omitempty"`
+
+	// Locale The locale the rows were narrowed to; absent for all of them.
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// Locales One row per locale any number mentioned, by code.
+	Locales []QualityLocaleHealth `json:"locales"`
+
+	// Project The seven numbers for the project as a whole. `coverage` counts
+	// the target locales only — the source locale is complete by
+	// definition, and counting it would flatter every project by one
+	// locale's worth. `checks` has no locale, because a pull request
+	// is about a commit and not a language.
+	Project QualityProjectHealth `json:"project"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id                   `json:"project_id"`
+	Schema    QualitySummarySchema `json:"schema"`
+
+	// Since The start of the window the windowed numbers were measured over.
+	Since Timestamp `json:"since"`
+
+	// Unmeasured Every number absent above, with why. Empty when all eight
+	// were computed.
+	Unmeasured []QualityUnmeasured `json:"unmeasured"`
+}
+
+// QualitySummarySchema defines model for QualitySummary.Schema.
+type QualitySummarySchema string
+
+// QualitySummaryLayer One layer for one locale (intent §41). `available` is asked
+// before grading and answered from the project's check policy, so
+// a layer that cannot run here is never drawn as one that ran and
+// passed. `checked` says the newest run actually computed it, and
+// only a checked layer carries `findings` — a layer nobody ran
+// found nothing in the sense that says nothing.
+type QualitySummaryLayer struct {
+	Available bool `json:"available"`
+	Checked   bool `json:"checked"`
+
+	// Findings Findings by how they ended up. `waived` is counted on its own
+	// and is never part of `errors` or `warnings`, so the number a
+	// dashboard shows is true.
+	Findings *CheckRunCounts `json:"findings,omitempty"`
+
+	// Layer Which layer found it (RFC 0005 §3). Selectable by name in the policy and on the command line.
+	Layer FindingLayer `json:"layer"`
+
+	// Unavailable Why it cannot run here. `unsupported_locale`: the policy
+	// switches it off for this locale while leaving it on for
+	// others. `not_configured`: the policy switches it off
+	// throughout the project. `no_evidence`: the policy asks for
+	// it and the newest run did not compute it — it had no
+	// capture, no termbase or no provider to compute it from, or
+	// the run that produced these numbers was narrowed to other
+	// layers.
+	Unavailable *QualitySummaryLayerUnavailable `json:"unavailable,omitempty"`
+}
+
+// QualitySummaryLayerUnavailable Why it cannot run here. `unsupported_locale`: the policy
+// switches it off for this locale while leaving it on for
+// others. `not_configured`: the policy switches it off
+// throughout the project. `no_evidence`: the policy asks for
+// it and the newest run did not compute it — it had no
+// capture, no termbase or no provider to compute it from, or
+// the run that produced these numbers was narrowed to other
+// layers.
+type QualitySummaryLayerUnavailable string
+
+// QualitySummaryRun The check run the findings came from — the project's newest.
+type QualitySummaryRun struct {
+	Commit *string `json:"commit,omitempty"`
+
+	// Conclusion The run's verdict, spelled as the pull-request check spells it.
+	// `neutral` is a run that could not grade itself: no policy, or no
+	// catalog to check.
+	Conclusion *CheckRunConclusion `json:"conclusion,omitempty"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Layers The layers that run actually computed, which is what tells "clean" from "not looked at".
+	Layers        []FindingLayer `json:"layers"`
+	PolicyVersion int            `json:"policy_version"`
+	Ref           string         `json:"ref"`
+
+	// StartedAt RFC 3339, UTC.
+	StartedAt Timestamp `json:"started_at"`
+}
+
+// QualityTrend Findings by layer per day — the one trend M4 keeps, rolled up in
+// Quality's own table because Quality owns the data. A day counts
+// each finding once by fingerprint, however many runs saw it. A
+// layer appears on a day only where a run that day ran it, so a
+// missing row means "not looked at" and a row with `0` means
+// "looked at and clean"; a day with no run has no rows at all.
+type QualityTrend struct {
+	Days []QualityDayFindings `json:"days"`
+	From openapi_types.Date   `json:"from"`
+	To   openapi_types.Date   `json:"to"`
+}
+
+// QualityUnmeasured One number the summary could not compute, and why.
+type QualityUnmeasured struct {
+	Number QualityUnmeasuredNumber `json:"number"`
+	Reason string                  `json:"reason"`
+}
+
+// QualityUnmeasuredNumber defines model for QualityUnmeasured.Number.
+type QualityUnmeasuredNumber string
 
 // Registration defines model for Registration.
 type Registration struct {
@@ -7768,6 +8227,22 @@ type RegisterPreviewOriginParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// GetQualitySummaryParams defines parameters for GetQualitySummary.
+type GetQualitySummaryParams struct {
+	// Locale Narrow every per-locale number to this locale.
+	Locale *Locale `form:"locale,omitempty" json:"locale,omitempty"`
+
+	// Environment Where "published" means, for the lead time. Absent,
+	// `production`.
+	Environment *EnvironmentName `form:"environment,omitempty" json:"environment,omitempty"`
+
+	// Since The start of the window for the AI decisions, the lead-time
+	// samples, the check health and the trend. Absent, 30 days
+	// ago — the same default `getAIMetrics` uses, so a caller who
+	// reads both sees one month in both.
+	Since *Timestamp `form:"since,omitempty" json:"since,omitempty"`
+}
+
 // ListReleasesParams defines parameters for ListReleases.
 type ListReleasesParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -7829,6 +8304,16 @@ type ListProjectTranslationsParams struct {
 
 	// State Only translations in these review states; repeatable.
 	State *[]ReviewState `form:"state,omitempty" json:"state,omitempty"`
+
+	// Origin Only translations with these provenances; repeatable. `ai`
+	// is the platform translating on a person's behalf and `agent`
+	// an autonomous agent writing through MCP on a long-lived
+	// token — different origins since they became different
+	// values, and this is what makes the difference answerable
+	// without SQL. Translations written through MCP before `agent`
+	// existed keep `ai` and are not rewritten; their
+	// `origin_detail` still says `{"via": "mcp"}`.
+	Origin *[]Origin `form:"origin,omitempty" json:"origin,omitempty"`
 
 	// Outdated `true`: only outdated translations; `false`: only current ones.
 	Outdated  *bool      `form:"outdated,omitempty" json:"outdated,omitempty"`
@@ -10996,10 +11481,19 @@ type ClientInterface interface {
 	// differs. Promoting the release already served changes nothing,
 	// so a retry is safe. A branch release is never promoted
 	// (`branch_release_not_promotable`): it holds text that exists only
-	// on its branch. Needs `releases.publish`. Problem codes:
-	// `release_not_found` (404), `release_ineligible`,
-	// `branch_release_not_promotable` (409), `storage_unavailable`
-	// (503).
+	// on its branch.
+	//
+	// The environment's completeness requirement applies here exactly
+	// as it does to a publish, because a release that may not be
+	// published straight to production may not reach it by the side
+	// door either: a promotion that would not meet it is refused with
+	// `policy_not_met` and can be overridden with `force` and a
+	// `force_reason`, which the deployment records.
+	//
+	// Needs `releases.publish`. Problem codes: `force_reason_required`,
+	// `invalid_force_reason` (400), `release_not_found` (404),
+	// `release_ineligible`, `branch_release_not_promotable`,
+	// `policy_not_met` (409), `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -11017,10 +11511,19 @@ type ClientInterface interface {
 	// differs. Promoting the release already served changes nothing,
 	// so a retry is safe. A branch release is never promoted
 	// (`branch_release_not_promotable`): it holds text that exists only
-	// on its branch. Needs `releases.publish`. Problem codes:
-	// `release_not_found` (404), `release_ineligible`,
-	// `branch_release_not_promotable` (409), `storage_unavailable`
-	// (503).
+	// on its branch.
+	//
+	// The environment's completeness requirement applies here exactly
+	// as it does to a publish, because a release that may not be
+	// published straight to production may not reach it by the side
+	// door either: a promotion that would not meet it is refused with
+	// `policy_not_met` and can be overridden with `force` and a
+	// `force_reason`, which the deployment records.
+	//
+	// Needs `releases.publish`. Problem codes: `force_reason_required`,
+	// `invalid_force_reason` (400), `release_not_found` (404),
+	// `release_ineligible`, `branch_release_not_promotable`,
+	// `policy_not_met` (409), `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -11628,6 +12131,59 @@ type ClientInterface interface {
 	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/preview-origins/{preview_origin} (the `UnregisterPreviewOrigin` operationId).
 	UnregisterPreviewOrigin(ctx context.Context, tenant TenantPath, project ProjectPath, previewOrigin PreviewOriginPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetQualitySummary The seven numbers of a project's localization health
+	//
+	// Seven numbers and no more (RFC 0005 §8), because a dashboard
+	// nobody reads is worse than a check that fails: coverage;
+	// outstanding findings by layer and severity, plus waived; AI
+	// acceptance rate and mean edit distance; the review queue's depth
+	// and age; context coverage — the share of active messages with a
+	// usage and with a visible region; lead time from a source change
+	// to a published translation; and the pull-request check's pass
+	// rate and time to a conclusion. Plus the one trend M4 keeps,
+	// findings by layer per day.
+	//
+	// Every number is computed from the owning context's own tables on
+	// **this** request and cached for 60 seconds (`computed_at`,
+	// `expires_at`). There is no time-series store behind it: a
+	// summary is a measurement of at most a minute ago, not a history.
+	//
+	// The document is pivoted the way it is read: one `project` health
+	// row and one `locales[]` row per locale, each carrying the same
+	// numbers, rather than seven lists a client would have to join by
+	// locale code. A locale row also says which layers are
+	// **available** for it, so an unsupported layer never reads as a
+	// green one (intent §41).
+	//
+	// **A number that could not be computed is absent, never zero**,
+	// and `unmeasured` names every one that is missing with the
+	// reason — a source this deployment does not run, a permission the
+	// caller does not hold, a project nothing has ever checked, an
+	// environment that has published nothing in the window. `findings`
+	// absent means nothing was ever checked; `findings.errors: 0`
+	// means a run looked and found none. Inside a number the same rule
+	// holds: a review queue of depth `0` is measured and has no `age`,
+	// a window with no concluded check has no `pass_rate`, and a layer
+	// the newest run did not compute carries no counts.
+	//
+	// `locale` narrows the rows to one locale; a locale no number
+	// mentioned still gets its row, because "this locale has nothing"
+	// is an answer. `checks` is not per locale — a pull request is
+	// about a commit, not a language — and neither is `context`: a
+	// usage is a place in the product's code and a region a box on a
+	// screenshot.
+	//
+	// The caller needs `catalog.read`. Each source then checks its own
+	// permission (`translations.read`, `intelligence.read`,
+	// `releases.read`, `integration.read`), and one the caller does
+	// not hold costs that number and not the page: a translator
+	// without `intelligence.read` still sees coverage and findings,
+	// and is told which numbers were not theirs to see. Problem codes:
+	// `invalid_query` (400: an unknown locale or environment name).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/quality-summary (the `GetQualitySummary` operationId).
+	GetQualitySummary(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetQualitySummaryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListReleaseSigningKeys The public keys manifests are signed with
 	//
 	// Configure runtimes with these (runtimes/SPEC.md §1.3). Active
@@ -11656,9 +12212,20 @@ type ClientInterface interface {
 	// uploads nothing. A branch environment (`kind: branch`) is built
 	// from the main catalog plus its branch's overlay; it publishes
 	// itself when the branch changes, so publishing one by hand is
-	// rarely needed. Needs `releases.publish`. Problem codes:
-	// `invalid_environment`, `invalid_note` (400), `not_releasable`
-	// (422), `storage_unavailable` (503).
+	// rarely needed.
+	//
+	// An environment can require the locales it ships to be complete.
+	// A publish that would not meet it is refused with
+	// `policy_not_met`, whose detail names the locales that are short
+	// and by how much. It can be overridden with `force` and a
+	// `force_reason`, which the deployment records; an override with
+	// no reason is `force_reason_required` and a reason with no
+	// override is `invalid_force_reason`.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_environment`,
+	// `invalid_note`, `force_reason_required`, `invalid_force_reason`
+	// (400), `policy_not_met` (409), `not_releasable` (422),
+	// `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -11675,9 +12242,20 @@ type ClientInterface interface {
 	// uploads nothing. A branch environment (`kind: branch`) is built
 	// from the main catalog plus its branch's overlay; it publishes
 	// itself when the branch changes, so publishing one by hand is
-	// rarely needed. Needs `releases.publish`. Problem codes:
-	// `invalid_environment`, `invalid_note` (400), `not_releasable`
-	// (422), `storage_unavailable` (503).
+	// rarely needed.
+	//
+	// An environment can require the locales it ships to be complete.
+	// A publish that would not meet it is refused with
+	// `policy_not_met`, whose detail names the locales that are short
+	// and by how much. It can be overridden with `force` and a
+	// `force_reason`, which the deployment records; an override with
+	// no reason is `force_reason_required` and a reason with no
+	// override is `invalid_force_reason`.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_environment`,
+	// `invalid_note`, `force_reason_required`, `invalid_force_reason`
+	// (400), `policy_not_met` (409), `not_releasable` (422),
+	// `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -11801,15 +12379,15 @@ type ClientInterface interface {
 	// to 20), across messages, ordered by message key and then locale,
 	// with the message's `key`, `namespace` and `message_state`, the
 	// `source_revision` it was made against and the derived `outdated`.
-	// Filters combine: `state` (repeatable review states), `outdated`,
-	// `namespace`, `key_prefix` and `message_state`. Locales the
-	// project no longer has list nothing. Keys and namespaces come
-	// from Localization's view of the catalog: current when a bulk
-	// upsert returns, and after other message writes once their events
-	// are processed (usually within a second). One query per
-	// page. Needs `translations.read`. Problem codes: `invalid_locale`,
-	// `too_many_locales`, `invalid_state`, `invalid_message_state`
-	// (400).
+	// Filters combine: `state` (repeatable review states), `origin`
+	// (repeatable provenance), `outdated`, `namespace`, `key_prefix`
+	// and `message_state`. Locales the project no longer has list
+	// nothing. Keys and namespaces come from Localization's view of
+	// the catalog: current when a bulk upsert returns, and after other
+	// message writes once their events are processed (usually within a
+	// second). One query per page. Needs `translations.read`. Problem
+	// codes: `invalid_locale`, `too_many_locales`, `invalid_state`,
+	// `invalid_origin`, `invalid_message_state` (400).
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
 	ListProjectTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -16718,10 +17296,19 @@ func (c *Client) ListDeployments(ctx context.Context, tenant TenantPath, project
 // differs. Promoting the release already served changes nothing,
 // so a retry is safe. A branch release is never promoted
 // (`branch_release_not_promotable`): it holds text that exists only
-// on its branch. Needs `releases.publish`. Problem codes:
-// `release_not_found` (404), `release_ineligible`,
-// `branch_release_not_promotable` (409), `storage_unavailable`
-// (503).
+// on its branch.
+//
+// The environment's completeness requirement applies here exactly
+// as it does to a publish, because a release that may not be
+// published straight to production may not reach it by the side
+// door either: a promotion that would not meet it is refused with
+// `policy_not_met` and can be overridden with `force` and a
+// `force_reason`, which the deployment records.
+//
+// Needs `releases.publish`. Problem codes: `force_reason_required`,
+// `invalid_force_reason` (400), `release_not_found` (404),
+// `release_ineligible`, `branch_release_not_promotable`,
+// `policy_not_met` (409), `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type.
 //
@@ -16749,10 +17336,19 @@ func (c *Client) PromoteReleaseWithBody(ctx context.Context, tenant TenantPath, 
 // differs. Promoting the release already served changes nothing,
 // so a retry is safe. A branch release is never promoted
 // (`branch_release_not_promotable`): it holds text that exists only
-// on its branch. Needs `releases.publish`. Problem codes:
-// `release_not_found` (404), `release_ineligible`,
-// `branch_release_not_promotable` (409), `storage_unavailable`
-// (503).
+// on its branch.
+//
+// The environment's completeness requirement applies here exactly
+// as it does to a publish, because a release that may not be
+// published straight to production may not reach it by the side
+// door either: a promotion that would not meet it is refused with
+// `policy_not_met` and can be overridden with `force` and a
+// `force_reason`, which the deployment records.
+//
+// Needs `releases.publish`. Problem codes: `force_reason_required`,
+// `invalid_force_reason` (400), `release_not_found` (404),
+// `release_ineligible`, `branch_release_not_promotable`,
+// `policy_not_met` (409), `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -17790,6 +18386,69 @@ func (c *Client) UnregisterPreviewOrigin(ctx context.Context, tenant TenantPath,
 	return c.Client.Do(req)
 }
 
+// GetQualitySummary The seven numbers of a project's localization health
+//
+// Seven numbers and no more (RFC 0005 §8), because a dashboard
+// nobody reads is worse than a check that fails: coverage;
+// outstanding findings by layer and severity, plus waived; AI
+// acceptance rate and mean edit distance; the review queue's depth
+// and age; context coverage — the share of active messages with a
+// usage and with a visible region; lead time from a source change
+// to a published translation; and the pull-request check's pass
+// rate and time to a conclusion. Plus the one trend M4 keeps,
+// findings by layer per day.
+//
+// Every number is computed from the owning context's own tables on
+// **this** request and cached for 60 seconds (`computed_at`,
+// `expires_at`). There is no time-series store behind it: a
+// summary is a measurement of at most a minute ago, not a history.
+//
+// The document is pivoted the way it is read: one `project` health
+// row and one `locales[]` row per locale, each carrying the same
+// numbers, rather than seven lists a client would have to join by
+// locale code. A locale row also says which layers are
+// **available** for it, so an unsupported layer never reads as a
+// green one (intent §41).
+//
+// **A number that could not be computed is absent, never zero**,
+// and `unmeasured` names every one that is missing with the
+// reason — a source this deployment does not run, a permission the
+// caller does not hold, a project nothing has ever checked, an
+// environment that has published nothing in the window. `findings`
+// absent means nothing was ever checked; `findings.errors: 0`
+// means a run looked and found none. Inside a number the same rule
+// holds: a review queue of depth `0` is measured and has no `age`,
+// a window with no concluded check has no `pass_rate`, and a layer
+// the newest run did not compute carries no counts.
+//
+// `locale` narrows the rows to one locale; a locale no number
+// mentioned still gets its row, because "this locale has nothing"
+// is an answer. `checks` is not per locale — a pull request is
+// about a commit, not a language — and neither is `context`: a
+// usage is a place in the product's code and a region a box on a
+// screenshot.
+//
+// The caller needs `catalog.read`. Each source then checks its own
+// permission (`translations.read`, `intelligence.read`,
+// `releases.read`, `integration.read`), and one the caller does
+// not hold costs that number and not the page: a translator
+// without `intelligence.read` still sees coverage and findings,
+// and is told which numbers were not theirs to see. Problem codes:
+// `invalid_query` (400: an unknown locale or environment name).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/quality-summary (the `GetQualitySummary` operationId).
+func (c *Client) GetQualitySummary(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetQualitySummaryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetQualitySummaryRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListReleaseSigningKeys The public keys manifests are signed with
 //
 // Configure runtimes with these (runtimes/SPEC.md §1.3). Active
@@ -17838,9 +18497,20 @@ func (c *Client) ListReleases(ctx context.Context, tenant TenantPath, project Pr
 // uploads nothing. A branch environment (`kind: branch`) is built
 // from the main catalog plus its branch's overlay; it publishes
 // itself when the branch changes, so publishing one by hand is
-// rarely needed. Needs `releases.publish`. Problem codes:
-// `invalid_environment`, `invalid_note` (400), `not_releasable`
-// (422), `storage_unavailable` (503).
+// rarely needed.
+//
+// An environment can require the locales it ships to be complete.
+// A publish that would not meet it is refused with
+// `policy_not_met`, whose detail names the locales that are short
+// and by how much. It can be overridden with `force` and a
+// `force_reason`, which the deployment records; an override with
+// no reason is `force_reason_required` and a reason with no
+// override is `invalid_force_reason`.
+//
+// Needs `releases.publish`. Problem codes: `invalid_environment`,
+// `invalid_note`, `force_reason_required`, `invalid_force_reason`
+// (400), `policy_not_met` (409), `not_releasable` (422),
+// `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type.
 //
@@ -17867,9 +18537,20 @@ func (c *Client) PublishReleaseWithBody(ctx context.Context, tenant TenantPath, 
 // uploads nothing. A branch environment (`kind: branch`) is built
 // from the main catalog plus its branch's overlay; it publishes
 // itself when the branch changes, so publishing one by hand is
-// rarely needed. Needs `releases.publish`. Problem codes:
-// `invalid_environment`, `invalid_note` (400), `not_releasable`
-// (422), `storage_unavailable` (503).
+// rarely needed.
+//
+// An environment can require the locales it ships to be complete.
+// A publish that would not meet it is refused with
+// `policy_not_met`, whose detail names the locales that are short
+// and by how much. It can be overridden with `force` and a
+// `force_reason`, which the deployment records; an override with
+// no reason is `force_reason_required` and a reason with no
+// override is `invalid_force_reason`.
+//
+// Needs `releases.publish`. Problem codes: `invalid_environment`,
+// `invalid_note`, `force_reason_required`, `invalid_force_reason`
+// (400), `policy_not_met` (409), `not_releasable` (422),
+// `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18083,15 +18764,15 @@ func (c *Client) GetTranslationStats(ctx context.Context, tenant TenantPath, pro
 // to 20), across messages, ordered by message key and then locale,
 // with the message's `key`, `namespace` and `message_state`, the
 // `source_revision` it was made against and the derived `outdated`.
-// Filters combine: `state` (repeatable review states), `outdated`,
-// `namespace`, `key_prefix` and `message_state`. Locales the
-// project no longer has list nothing. Keys and namespaces come
-// from Localization's view of the catalog: current when a bulk
-// upsert returns, and after other message writes once their events
-// are processed (usually within a second). One query per
-// page. Needs `translations.read`. Problem codes: `invalid_locale`,
-// `too_many_locales`, `invalid_state`, `invalid_message_state`
-// (400).
+// Filters combine: `state` (repeatable review states), `origin`
+// (repeatable provenance), `outdated`, `namespace`, `key_prefix`
+// and `message_state`. Locales the project no longer has list
+// nothing. Keys and namespaces come from Localization's view of
+// the catalog: current when a bulk upsert returns, and after other
+// message writes once their events are processed (usually within a
+// second). One query per page. Needs `translations.read`. Problem
+// codes: `invalid_locale`, `too_many_locales`, `invalid_state`,
+// `invalid_origin`, `invalid_message_state` (400).
 //
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/translations (the `ListProjectTranslations` operationId).
 func (c *Client) ListProjectTranslations(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListProjectTranslationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -28732,6 +29413,98 @@ func NewUnregisterPreviewOriginRequest(server string, tenant TenantPath, project
 	return req, nil
 }
 
+// NewGetQualitySummaryRequest constructs an http.Request for the GetQualitySummary method
+func NewGetQualitySummaryRequest(server string, tenant TenantPath, project ProjectPath, params *GetQualitySummaryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/quality-summary", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Environment != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "environment", *params.Environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Since != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "since", *params.Since, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListReleaseSigningKeysRequest constructs an http.Request for the ListReleaseSigningKeys method
 func NewListReleaseSigningKeysRequest(server string, tenant TenantPath, project ProjectPath) (*http.Request, error) {
 	var err error
@@ -29487,6 +30260,18 @@ func NewListProjectTranslationsRequest(server string, tenant TenantPath, project
 		if params.State != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Origin != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "origin", *params.Origin, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -34906,10 +35691,19 @@ type ClientWithResponsesInterface interface {
 	// differs. Promoting the release already served changes nothing,
 	// so a retry is safe. A branch release is never promoted
 	// (`branch_release_not_promotable`): it holds text that exists only
-	// on its branch. Needs `releases.publish`. Problem codes:
-	// `release_not_found` (404), `release_ineligible`,
-	// `branch_release_not_promotable` (409), `storage_unavailable`
-	// (503).
+	// on its branch.
+	//
+	// The environment's completeness requirement applies here exactly
+	// as it does to a publish, because a release that may not be
+	// published straight to production may not reach it by the side
+	// door either: a promotion that would not meet it is refused with
+	// `policy_not_met` and can be overridden with `force` and a
+	// `force_reason`, which the deployment records.
+	//
+	// Needs `releases.publish`. Problem codes: `force_reason_required`,
+	// `invalid_force_reason` (400), `release_not_found` (404),
+	// `release_ineligible`, `branch_release_not_promotable`,
+	// `policy_not_met` (409), `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -34927,10 +35721,19 @@ type ClientWithResponsesInterface interface {
 	// differs. Promoting the release already served changes nothing,
 	// so a retry is safe. A branch release is never promoted
 	// (`branch_release_not_promotable`): it holds text that exists only
-	// on its branch. Needs `releases.publish`. Problem codes:
-	// `release_not_found` (404), `release_ineligible`,
-	// `branch_release_not_promotable` (409), `storage_unavailable`
-	// (503).
+	// on its branch.
+	//
+	// The environment's completeness requirement applies here exactly
+	// as it does to a publish, because a release that may not be
+	// published straight to production may not reach it by the side
+	// door either: a promotion that would not meet it is refused with
+	// `policy_not_met` and can be overridden with `force` and a
+	// `force_reason`, which the deployment records.
+	//
+	// Needs `releases.publish`. Problem codes: `force_reason_required`,
+	// `invalid_force_reason` (400), `release_not_found` (404),
+	// `release_ineligible`, `branch_release_not_promotable`,
+	// `policy_not_met` (409), `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -35574,6 +36377,61 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/preview-origins/{preview_origin} (the `UnregisterPreviewOrigin` operationId).
 	UnregisterPreviewOriginWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, previewOrigin PreviewOriginPath, reqEditors ...RequestEditorFn) (*UnregisterPreviewOriginResponse, error)
 
+	// GetQualitySummaryWithResponse The seven numbers of a project's localization health
+	//
+	// Seven numbers and no more (RFC 0005 §8), because a dashboard
+	// nobody reads is worse than a check that fails: coverage;
+	// outstanding findings by layer and severity, plus waived; AI
+	// acceptance rate and mean edit distance; the review queue's depth
+	// and age; context coverage — the share of active messages with a
+	// usage and with a visible region; lead time from a source change
+	// to a published translation; and the pull-request check's pass
+	// rate and time to a conclusion. Plus the one trend M4 keeps,
+	// findings by layer per day.
+	//
+	// Every number is computed from the owning context's own tables on
+	// **this** request and cached for 60 seconds (`computed_at`,
+	// `expires_at`). There is no time-series store behind it: a
+	// summary is a measurement of at most a minute ago, not a history.
+	//
+	// The document is pivoted the way it is read: one `project` health
+	// row and one `locales[]` row per locale, each carrying the same
+	// numbers, rather than seven lists a client would have to join by
+	// locale code. A locale row also says which layers are
+	// **available** for it, so an unsupported layer never reads as a
+	// green one (intent §41).
+	//
+	// **A number that could not be computed is absent, never zero**,
+	// and `unmeasured` names every one that is missing with the
+	// reason — a source this deployment does not run, a permission the
+	// caller does not hold, a project nothing has ever checked, an
+	// environment that has published nothing in the window. `findings`
+	// absent means nothing was ever checked; `findings.errors: 0`
+	// means a run looked and found none. Inside a number the same rule
+	// holds: a review queue of depth `0` is measured and has no `age`,
+	// a window with no concluded check has no `pass_rate`, and a layer
+	// the newest run did not compute carries no counts.
+	//
+	// `locale` narrows the rows to one locale; a locale no number
+	// mentioned still gets its row, because "this locale has nothing"
+	// is an answer. `checks` is not per locale — a pull request is
+	// about a commit, not a language — and neither is `context`: a
+	// usage is a place in the product's code and a region a box on a
+	// screenshot.
+	//
+	// The caller needs `catalog.read`. Each source then checks its own
+	// permission (`translations.read`, `intelligence.read`,
+	// `releases.read`, `integration.read`), and one the caller does
+	// not hold costs that number and not the page: a translator
+	// without `intelligence.read` still sees coverage and findings,
+	// and is told which numbers were not theirs to see. Problem codes:
+	// `invalid_query` (400: an unknown locale or environment name).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/quality-summary (the `GetQualitySummary` operationId).
+	GetQualitySummaryWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetQualitySummaryParams, reqEditors ...RequestEditorFn) (*GetQualitySummaryResponse, error)
+
 	// ListReleaseSigningKeysWithResponse The public keys manifests are signed with
 	//
 	// Configure runtimes with these (runtimes/SPEC.md §1.3). Active
@@ -35606,9 +36464,20 @@ type ClientWithResponsesInterface interface {
 	// uploads nothing. A branch environment (`kind: branch`) is built
 	// from the main catalog plus its branch's overlay; it publishes
 	// itself when the branch changes, so publishing one by hand is
-	// rarely needed. Needs `releases.publish`. Problem codes:
-	// `invalid_environment`, `invalid_note` (400), `not_releasable`
-	// (422), `storage_unavailable` (503).
+	// rarely needed.
+	//
+	// An environment can require the locales it ships to be complete.
+	// A publish that would not meet it is refused with
+	// `policy_not_met`, whose detail names the locales that are short
+	// and by how much. It can be overridden with `force` and a
+	// `force_reason`, which the deployment records; an override with
+	// no reason is `force_reason_required` and a reason with no
+	// override is `invalid_force_reason`.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_environment`,
+	// `invalid_note`, `force_reason_required`, `invalid_force_reason`
+	// (400), `policy_not_met` (409), `not_releasable` (422),
+	// `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -35625,9 +36494,20 @@ type ClientWithResponsesInterface interface {
 	// uploads nothing. A branch environment (`kind: branch`) is built
 	// from the main catalog plus its branch's overlay; it publishes
 	// itself when the branch changes, so publishing one by hand is
-	// rarely needed. Needs `releases.publish`. Problem codes:
-	// `invalid_environment`, `invalid_note` (400), `not_releasable`
-	// (422), `storage_unavailable` (503).
+	// rarely needed.
+	//
+	// An environment can require the locales it ships to be complete.
+	// A publish that would not meet it is refused with
+	// `policy_not_met`, whose detail names the locales that are short
+	// and by how much. It can be overridden with `force` and a
+	// `force_reason`, which the deployment records; an override with
+	// no reason is `force_reason_required` and a reason with no
+	// override is `invalid_force_reason`.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_environment`,
+	// `invalid_note`, `force_reason_required`, `invalid_force_reason`
+	// (400), `policy_not_met` (409), `not_releasable` (422),
+	// `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -35763,15 +36643,15 @@ type ClientWithResponsesInterface interface {
 	// to 20), across messages, ordered by message key and then locale,
 	// with the message's `key`, `namespace` and `message_state`, the
 	// `source_revision` it was made against and the derived `outdated`.
-	// Filters combine: `state` (repeatable review states), `outdated`,
-	// `namespace`, `key_prefix` and `message_state`. Locales the
-	// project no longer has list nothing. Keys and namespaces come
-	// from Localization's view of the catalog: current when a bulk
-	// upsert returns, and after other message writes once their events
-	// are processed (usually within a second). One query per
-	// page. Needs `translations.read`. Problem codes: `invalid_locale`,
-	// `too_many_locales`, `invalid_state`, `invalid_message_state`
-	// (400).
+	// Filters combine: `state` (repeatable review states), `origin`
+	// (repeatable provenance), `outdated`, `namespace`, `key_prefix`
+	// and `message_state`. Locales the project no longer has list
+	// nothing. Keys and namespaces come from Localization's view of
+	// the catalog: current when a bulk upsert returns, and after other
+	// message writes once their events are processed (usually within a
+	// second). One query per page. Needs `translations.read`. Problem
+	// codes: `invalid_locale`, `too_many_locales`, `invalid_state`,
+	// `invalid_origin`, `invalid_message_state` (400).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -47549,6 +48429,75 @@ func (r UnregisterPreviewOriginResponse) ContentType() string {
 	return ""
 }
 
+type GetQualitySummaryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *QualitySummary
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetQualitySummaryResponse) GetJSON200() *QualitySummary {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r GetQualitySummaryResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetQualitySummaryResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetQualitySummaryResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetQualitySummaryResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetQualitySummaryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetQualitySummaryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetQualitySummaryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetQualitySummaryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListReleaseSigningKeysResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -54518,10 +55467,19 @@ func (c *ClientWithResponses) ListDeploymentsWithResponse(ctx context.Context, t
 // differs. Promoting the release already served changes nothing,
 // so a retry is safe. A branch release is never promoted
 // (`branch_release_not_promotable`): it holds text that exists only
-// on its branch. Needs `releases.publish`. Problem codes:
-// `release_not_found` (404), `release_ineligible`,
-// `branch_release_not_promotable` (409), `storage_unavailable`
-// (503).
+// on its branch.
+//
+// The environment's completeness requirement applies here exactly
+// as it does to a publish, because a release that may not be
+// published straight to production may not reach it by the side
+// door either: a promotion that would not meet it is refused with
+// `policy_not_met` and can be overridden with `force` and a
+// `force_reason`, which the deployment records.
+//
+// Needs `releases.publish`. Problem codes: `force_reason_required`,
+// `invalid_force_reason` (400), `release_not_found` (404),
+// `release_ineligible`, `branch_release_not_promotable`,
+// `policy_not_met` (409), `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -54545,10 +55503,19 @@ func (c *ClientWithResponses) PromoteReleaseWithBodyWithResponse(ctx context.Con
 // differs. Promoting the release already served changes nothing,
 // so a retry is safe. A branch release is never promoted
 // (`branch_release_not_promotable`): it holds text that exists only
-// on its branch. Needs `releases.publish`. Problem codes:
-// `release_not_found` (404), `release_ineligible`,
-// `branch_release_not_promotable` (409), `storage_unavailable`
-// (503).
+// on its branch.
+//
+// The environment's completeness requirement applies here exactly
+// as it does to a publish, because a release that may not be
+// published straight to production may not reach it by the side
+// door either: a promotion that would not meet it is refused with
+// `policy_not_met` and can be overridden with `force` and a
+// `force_reason`, which the deployment records.
+//
+// Needs `releases.publish`. Problem codes: `force_reason_required`,
+// `invalid_force_reason` (400), `release_not_found` (404),
+// `release_ineligible`, `branch_release_not_promotable`,
+// `policy_not_met` (409), `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -55450,6 +56417,67 @@ func (c *ClientWithResponses) UnregisterPreviewOriginWithResponse(ctx context.Co
 	return ParseUnregisterPreviewOriginResponse(rsp)
 }
 
+// GetQualitySummaryWithResponse The seven numbers of a project's localization health
+//
+// Seven numbers and no more (RFC 0005 §8), because a dashboard
+// nobody reads is worse than a check that fails: coverage;
+// outstanding findings by layer and severity, plus waived; AI
+// acceptance rate and mean edit distance; the review queue's depth
+// and age; context coverage — the share of active messages with a
+// usage and with a visible region; lead time from a source change
+// to a published translation; and the pull-request check's pass
+// rate and time to a conclusion. Plus the one trend M4 keeps,
+// findings by layer per day.
+//
+// Every number is computed from the owning context's own tables on
+// **this** request and cached for 60 seconds (`computed_at`,
+// `expires_at`). There is no time-series store behind it: a
+// summary is a measurement of at most a minute ago, not a history.
+//
+// The document is pivoted the way it is read: one `project` health
+// row and one `locales[]` row per locale, each carrying the same
+// numbers, rather than seven lists a client would have to join by
+// locale code. A locale row also says which layers are
+// **available** for it, so an unsupported layer never reads as a
+// green one (intent §41).
+//
+// **A number that could not be computed is absent, never zero**,
+// and `unmeasured` names every one that is missing with the
+// reason — a source this deployment does not run, a permission the
+// caller does not hold, a project nothing has ever checked, an
+// environment that has published nothing in the window. `findings`
+// absent means nothing was ever checked; `findings.errors: 0`
+// means a run looked and found none. Inside a number the same rule
+// holds: a review queue of depth `0` is measured and has no `age`,
+// a window with no concluded check has no `pass_rate`, and a layer
+// the newest run did not compute carries no counts.
+//
+// `locale` narrows the rows to one locale; a locale no number
+// mentioned still gets its row, because "this locale has nothing"
+// is an answer. `checks` is not per locale — a pull request is
+// about a commit, not a language — and neither is `context`: a
+// usage is a place in the product's code and a region a box on a
+// screenshot.
+//
+// The caller needs `catalog.read`. Each source then checks its own
+// permission (`translations.read`, `intelligence.read`,
+// `releases.read`, `integration.read`), and one the caller does
+// not hold costs that number and not the page: a translator
+// without `intelligence.read` still sees coverage and findings,
+// and is told which numbers were not theirs to see. Problem codes:
+// `invalid_query` (400: an unknown locale or environment name).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/quality-summary (the `GetQualitySummary` operationId).
+func (c *ClientWithResponses) GetQualitySummaryWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetQualitySummaryParams, reqEditors ...RequestEditorFn) (*GetQualitySummaryResponse, error) {
+	rsp, err := c.GetQualitySummary(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetQualitySummaryResponse(rsp)
+}
+
 // ListReleaseSigningKeysWithResponse The public keys manifests are signed with
 //
 // Configure runtimes with these (runtimes/SPEC.md §1.3). Active
@@ -55494,9 +56522,20 @@ func (c *ClientWithResponses) ListReleasesWithResponse(ctx context.Context, tena
 // uploads nothing. A branch environment (`kind: branch`) is built
 // from the main catalog plus its branch's overlay; it publishes
 // itself when the branch changes, so publishing one by hand is
-// rarely needed. Needs `releases.publish`. Problem codes:
-// `invalid_environment`, `invalid_note` (400), `not_releasable`
-// (422), `storage_unavailable` (503).
+// rarely needed.
+//
+// An environment can require the locales it ships to be complete.
+// A publish that would not meet it is refused with
+// `policy_not_met`, whose detail names the locales that are short
+// and by how much. It can be overridden with `force` and a
+// `force_reason`, which the deployment records; an override with
+// no reason is `force_reason_required` and a reason with no
+// override is `invalid_force_reason`.
+//
+// Needs `releases.publish`. Problem codes: `invalid_environment`,
+// `invalid_note`, `force_reason_required`, `invalid_force_reason`
+// (400), `policy_not_met` (409), `not_releasable` (422),
+// `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -55519,9 +56558,20 @@ func (c *ClientWithResponses) PublishReleaseWithBodyWithResponse(ctx context.Con
 // uploads nothing. A branch environment (`kind: branch`) is built
 // from the main catalog plus its branch's overlay; it publishes
 // itself when the branch changes, so publishing one by hand is
-// rarely needed. Needs `releases.publish`. Problem codes:
-// `invalid_environment`, `invalid_note` (400), `not_releasable`
-// (422), `storage_unavailable` (503).
+// rarely needed.
+//
+// An environment can require the locales it ships to be complete.
+// A publish that would not meet it is refused with
+// `policy_not_met`, whose detail names the locales that are short
+// and by how much. It can be overridden with `force` and a
+// `force_reason`, which the deployment records; an override with
+// no reason is `force_reason_required` and a reason with no
+// override is `invalid_force_reason`.
+//
+// Needs `releases.publish`. Problem codes: `invalid_environment`,
+// `invalid_note`, `force_reason_required`, `invalid_force_reason`
+// (400), `policy_not_met` (409), `not_releasable` (422),
+// `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -55711,15 +56761,15 @@ func (c *ClientWithResponses) GetTranslationStatsWithResponse(ctx context.Contex
 // to 20), across messages, ordered by message key and then locale,
 // with the message's `key`, `namespace` and `message_state`, the
 // `source_revision` it was made against and the derived `outdated`.
-// Filters combine: `state` (repeatable review states), `outdated`,
-// `namespace`, `key_prefix` and `message_state`. Locales the
-// project no longer has list nothing. Keys and namespaces come
-// from Localization's view of the catalog: current when a bulk
-// upsert returns, and after other message writes once their events
-// are processed (usually within a second). One query per
-// page. Needs `translations.read`. Problem codes: `invalid_locale`,
-// `too_many_locales`, `invalid_state`, `invalid_message_state`
-// (400).
+// Filters combine: `state` (repeatable review states), `origin`
+// (repeatable provenance), `outdated`, `namespace`, `key_prefix`
+// and `message_state`. Locales the project no longer has list
+// nothing. Keys and namespaces come from Localization's view of
+// the catalog: current when a bulk upsert returns, and after other
+// message writes once their events are processed (usually within a
+// second). One query per page. Needs `translations.read`. Problem
+// codes: `invalid_locale`, `too_many_locales`, `invalid_state`,
+// `invalid_origin`, `invalid_message_state` (400).
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -66026,6 +67076,60 @@ func ParseUnregisterPreviewOriginResponse(rsp *http.Response) (*UnregisterPrevie
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetQualitySummaryResponse parses an HTTP response from a GetQualitySummaryWithResponse call
+func ParseGetQualitySummaryResponse(rsp *http.Response) (*GetQualitySummaryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetQualitySummaryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest QualitySummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthenticated

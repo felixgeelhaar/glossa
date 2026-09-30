@@ -61,7 +61,16 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
   const move = (name: string, release: Release, action: Deployment["action"]) => {
     const e = envOf(name);
     const history = deployments.get(name) ?? [];
-    const d: Deployment = { number: history.length + 1, release_id: release.id, action, author, created_at: now() };
+    // The fake never overrides the completeness requirement, so every
+    // deployment it makes is an ordinary one.
+    const d: Deployment = {
+      number: history.length + 1,
+      release_id: release.id,
+      action,
+      author,
+      created_at: now(),
+      forced: false,
+    };
     if (e.env.current_release_id) d.previous_release_id = e.env.current_release_id;
     deployments.set(name, [d, ...history]);
     e.env = { ...e.env, current_release_id: release.id, updated_at: d.created_at };

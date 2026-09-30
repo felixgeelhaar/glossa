@@ -34,8 +34,15 @@ var (
 // combine; nil and empty mean "any".
 type TranslationFilter struct {
 	// Locales are the locales to list, 1 to MaxListedLocales.
-	Locales      []string
-	States       []string
+	Locales []string
+	States  []string
+	// Origins narrow by provenance (intent §22). `agent` — an
+	// autonomous agent writing through MCP — is an origin of its own
+	// since migration 0032, and this is what makes the difference
+	// readable through the API rather than only in SQL: anything that
+	// matters is reachable through the API, not only through the admin
+	// UI.
+	Origins      []string
 	Outdated     *bool
 	Namespace    *string
 	KeyPrefix    string
@@ -51,6 +58,7 @@ type TranslationFilter struct {
 type ProjectTranslationQuery struct {
 	Locales      []bcp47.Tag
 	States       []domain.ReviewState
+	Origins      []domain.Origin
 	Outdated     *bool
 	Namespace    *string
 	KeyPrefix    string
@@ -135,6 +143,16 @@ func (f TranslationFilter) query(page pagination.Page) (ProjectTranslationQuery,
 			return ProjectTranslationQuery{}, err
 		}
 		q.States = append(q.States, st)
+	}
+	for _, o := range f.Origins {
+		// "" is not a wildcard here: an empty member of a repeated
+		// filter is a typo, and ParseOrigin's default would silently
+		// turn it into "every human translation".
+		origin, err := domain.ParseOrigin(o, "")
+		if err != nil || origin == "" {
+			return ProjectTranslationQuery{}, fmt.Errorf("%w: %q", domain.ErrInvalidOrigin, o)
+		}
+		q.Origins = append(q.Origins, origin)
 	}
 	if f.MessageState != nil {
 		if *f.MessageState != "active" && *f.MessageState != "obsolete" {

@@ -1327,15 +1327,15 @@ export interface paths {
          *     to 20), across messages, ordered by message key and then locale,
          *     with the message's `key`, `namespace` and `message_state`, the
          *     `source_revision` it was made against and the derived `outdated`.
-         *     Filters combine: `state` (repeatable review states), `outdated`,
-         *     `namespace`, `key_prefix` and `message_state`. Locales the
-         *     project no longer has list nothing. Keys and namespaces come
-         *     from Localization's view of the catalog: current when a bulk
-         *     upsert returns, and after other message writes once their events
-         *     are processed (usually within a second). One query per
-         *     page. Needs `translations.read`. Problem codes: `invalid_locale`,
-         *     `too_many_locales`, `invalid_state`, `invalid_message_state`
-         *     (400).
+         *     Filters combine: `state` (repeatable review states), `origin`
+         *     (repeatable provenance), `outdated`, `namespace`, `key_prefix`
+         *     and `message_state`. Locales the project no longer has list
+         *     nothing. Keys and namespaces come from Localization's view of
+         *     the catalog: current when a bulk upsert returns, and after other
+         *     message writes once their events are processed (usually within a
+         *     second). One query per page. Needs `translations.read`. Problem
+         *     codes: `invalid_locale`, `too_many_locales`, `invalid_state`,
+         *     `invalid_origin`, `invalid_message_state` (400).
          */
         get: operations["listProjectTranslations"];
         put?: never;
@@ -1508,10 +1508,19 @@ export interface paths {
          *     differs. Promoting the release already served changes nothing,
          *     so a retry is safe. A branch release is never promoted
          *     (`branch_release_not_promotable`): it holds text that exists only
-         *     on its branch. Needs `releases.publish`. Problem codes:
-         *     `release_not_found` (404), `release_ineligible`,
-         *     `branch_release_not_promotable` (409), `storage_unavailable`
-         *     (503).
+         *     on its branch.
+         *
+         *     The environment's completeness requirement applies here exactly
+         *     as it does to a publish, because a release that may not be
+         *     published straight to production may not reach it by the side
+         *     door either: a promotion that would not meet it is refused with
+         *     `policy_not_met` and can be overridden with `force` and a
+         *     `force_reason`, which the deployment records.
+         *
+         *     Needs `releases.publish`. Problem codes: `force_reason_required`,
+         *     `invalid_force_reason` (400), `release_not_found` (404),
+         *     `release_ineligible`, `branch_release_not_promotable`,
+         *     `policy_not_met` (409), `storage_unavailable` (503).
          */
         post: operations["promoteRelease"];
         delete?: never;
@@ -1646,9 +1655,20 @@ export interface paths {
          *     uploads nothing. A branch environment (`kind: branch`) is built
          *     from the main catalog plus its branch's overlay; it publishes
          *     itself when the branch changes, so publishing one by hand is
-         *     rarely needed. Needs `releases.publish`. Problem codes:
-         *     `invalid_environment`, `invalid_note` (400), `not_releasable`
-         *     (422), `storage_unavailable` (503).
+         *     rarely needed.
+         *
+         *     An environment can require the locales it ships to be complete.
+         *     A publish that would not meet it is refused with
+         *     `policy_not_met`, whose detail names the locales that are short
+         *     and by how much. It can be overridden with `force` and a
+         *     `force_reason`, which the deployment records; an override with
+         *     no reason is `force_reason_required` and a reason with no
+         *     override is `invalid_force_reason`.
+         *
+         *     Needs `releases.publish`. Problem codes: `invalid_environment`,
+         *     `invalid_note`, `force_reason_required`, `invalid_force_reason`
+         *     (400), `policy_not_met` (409), `not_releasable` (422),
+         *     `storage_unavailable` (503).
          */
         post: operations["publishRelease"];
         delete?: never;
@@ -4758,6 +4778,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/quality-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The seven numbers of a project's localization health
+         * @description Seven numbers and no more (RFC 0005 §8), because a dashboard
+         *     nobody reads is worse than a check that fails: coverage;
+         *     outstanding findings by layer and severity, plus waived; AI
+         *     acceptance rate and mean edit distance; the review queue's depth
+         *     and age; context coverage — the share of active messages with a
+         *     usage and with a visible region; lead time from a source change
+         *     to a published translation; and the pull-request check's pass
+         *     rate and time to a conclusion. Plus the one trend M4 keeps,
+         *     findings by layer per day.
+         *
+         *     Every number is computed from the owning context's own tables on
+         *     **this** request and cached for 60 seconds (`computed_at`,
+         *     `expires_at`). There is no time-series store behind it: a
+         *     summary is a measurement of at most a minute ago, not a history.
+         *
+         *     The document is pivoted the way it is read: one `project` health
+         *     row and one `locales[]` row per locale, each carrying the same
+         *     numbers, rather than seven lists a client would have to join by
+         *     locale code. A locale row also says which layers are
+         *     **available** for it, so an unsupported layer never reads as a
+         *     green one (intent §41).
+         *
+         *     **A number that could not be computed is absent, never zero**,
+         *     and `unmeasured` names every one that is missing with the
+         *     reason — a source this deployment does not run, a permission the
+         *     caller does not hold, a project nothing has ever checked, an
+         *     environment that has published nothing in the window. `findings`
+         *     absent means nothing was ever checked; `findings.errors: 0`
+         *     means a run looked and found none. Inside a number the same rule
+         *     holds: a review queue of depth `0` is measured and has no `age`,
+         *     a window with no concluded check has no `pass_rate`, and a layer
+         *     the newest run did not compute carries no counts.
+         *
+         *     `locale` narrows the rows to one locale; a locale no number
+         *     mentioned still gets its row, because "this locale has nothing"
+         *     is an answer. `checks` is not per locale — a pull request is
+         *     about a commit, not a language — and neither is `context`: a
+         *     usage is a place in the product's code and a region a box on a
+         *     screenshot.
+         *
+         *     The caller needs `catalog.read`. Each source then checks its own
+         *     permission (`translations.read`, `intelligence.read`,
+         *     `releases.read`, `integration.read`), and one the caller does
+         *     not hold costs that number and not the page: a translator
+         *     without `intelligence.read` still sees coverage and findings,
+         *     and is told which numbers were not theirs to see. Problem codes:
+         *     `invalid_query` (400: an unknown locale or environment name).
+         */
+        get: operations["getQualitySummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/branches": {
         parameters: {
             query?: never;
@@ -5901,6 +5992,20 @@ export interface components {
         };
         Promotion: {
             release_id: components["schemas"]["Id"];
+            /**
+             * @description Promote although the environment's completeness requirement
+             *     is not met (`policy_not_met`). Promotion is gated exactly as
+             *     publishing is: a release that may not be published straight
+             *     to production may not reach it by the side door either. It
+             *     needs a `force_reason`, and the deployment records both.
+             */
+            force?: boolean;
+            /**
+             * @description Why the requirement was set aside. Required with `force`
+             *     (`force_reason_required`) and refused without it
+             *     (`invalid_force_reason`).
+             */
+            force_reason?: string;
         };
         Rollback: {
             release_id?: components["schemas"]["Id"];
@@ -5915,6 +6020,14 @@ export interface components {
             /** @description `person:<id>` or `token:<id>`. */
             author: string;
             created_at: components["schemas"]["Timestamp"];
+            /**
+             * @description True where the environment's completeness requirement was
+             *     not met and somebody went ahead anyway. The exception is the
+             *     record: such a deployment always carries its reason.
+             */
+            forced: boolean;
+            /** @description Why it went ahead; present exactly when `forced`. */
+            force_reason?: string;
         };
         DeploymentList: {
             items: components["schemas"]["Deployment"][];
@@ -5923,6 +6036,21 @@ export interface components {
         PublishRelease: {
             environment: components["schemas"]["EnvironmentName"];
             note?: string;
+            /**
+             * @description Publish although the environment's completeness requirement
+             *     is not met (`policy_not_met`). It needs a `force_reason`,
+             *     and the deployment records both, so the exception is part of
+             *     the history. A gate with no escape hatch gets routed around
+             *     by switching the requirement off, which leaves no record at
+             *     all.
+             */
+            force?: boolean;
+            /**
+             * @description Why the requirement was set aside. Required with `force`
+             *     (`force_reason_required`) and refused without it
+             *     (`invalid_force_reason`).
+             */
+            force_reason?: string;
         };
         ReleaseLocale: {
             code: components["schemas"]["Locale"];
@@ -8230,6 +8358,239 @@ export interface components {
             items: components["schemas"]["CheckPolicyVersion"][];
             next_page_token?: string;
         };
+        /**
+         * @description The seven numbers of a project's localization health, for the
+         *     project as a whole and per locale, plus the findings-by-day
+         *     trend.
+         *
+         *     Every number is optional, and an absent one was **not
+         *     measured** — never zero. `unmeasured` names each one that is
+         *     missing with the reason. `findings` absent means nothing was
+         *     ever checked; `findings.errors: 0` means a run looked and found
+         *     none, and a client that rendered the first as `0` would be
+         *     reporting the absence of a check as the absence of problems.
+         */
+        QualitySummary: {
+            /** @enum {string} */
+            schema: "glossa.quality-summary/v1";
+            project_id: components["schemas"]["Id"];
+            /** @description The locale the rows were narrowed to; absent for all of them. */
+            locale?: components["schemas"]["Locale"];
+            /** @description Where "published" meant, for the lead time. */
+            environment: components["schemas"]["EnvironmentName"];
+            /** @description The start of the window the windowed numbers were measured over. */
+            since: components["schemas"]["Timestamp"];
+            computed_at: components["schemas"]["Timestamp"];
+            /** @description When this summary stops being served from the cache. */
+            expires_at: components["schemas"]["Timestamp"];
+            /**
+             * @description True where the summary is a previous computation served
+             *     again. `computed_at` is when it was computed either way.
+             */
+            cached: boolean;
+            project: components["schemas"]["QualityProjectHealth"];
+            /** @description One row per locale any number mentioned, by code. */
+            locales: components["schemas"]["QualityLocaleHealth"][];
+            findings_by_day?: components["schemas"]["QualityTrend"];
+            /**
+             * @description Every number absent above, with why. Empty when all eight
+             *     were computed.
+             */
+            unmeasured: components["schemas"]["QualityUnmeasured"][];
+        };
+        /**
+         * @description The seven numbers for the project as a whole. `coverage` counts
+         *     the target locales only — the source locale is complete by
+         *     definition, and counting it would flatter every project by one
+         *     locale's worth. `checks` has no locale, because a pull request
+         *     is about a commit and not a language.
+         */
+        QualityProjectHealth: {
+            coverage?: components["schemas"]["QualityCoverage"];
+            findings?: components["schemas"]["CheckRunCounts"];
+            /** @description The findings broken down by layer, in report order. A layer that found nothing is not a row. */
+            by_layer?: components["schemas"]["QualityLayerCounts"][];
+            run?: components["schemas"]["QualitySummaryRun"];
+            ai?: components["schemas"]["QualityAcceptance"];
+            queue?: components["schemas"]["QualityQueue"];
+            context?: components["schemas"]["QualityContextCoverage"];
+            lead_time?: components["schemas"]["QualityPercentiles"];
+            checks?: components["schemas"]["QualityCheckHealth"];
+        };
+        /**
+         * @description The same numbers for one locale, and which layers are available
+         *     for it. There is no `context` here: a usage is a place in the
+         *     product's code and a region a box on a screenshot, and neither
+         *     belongs to a locale.
+         */
+        QualityLocaleHealth: {
+            code: components["schemas"]["Locale"];
+            direction: components["schemas"]["Direction"];
+            is_source: boolean;
+            coverage?: components["schemas"]["QualityCoverage"];
+            findings?: components["schemas"]["CheckRunCounts"];
+            ai?: components["schemas"]["QualityAcceptance"];
+            queue?: components["schemas"]["QualityQueue"];
+            lead_time?: components["schemas"]["QualityPercentiles"];
+            /** @description Every layer, available or not, in report order. */
+            layers: components["schemas"]["QualitySummaryLayer"][];
+        };
+        /** @description The check run the findings came from — the project's newest. */
+        QualitySummaryRun: {
+            id: components["schemas"]["Id"];
+            ref: string;
+            commit?: string;
+            policy_version: number;
+            conclusion?: components["schemas"]["CheckRunConclusion"];
+            started_at: components["schemas"]["Timestamp"];
+            /** @description The layers that run actually computed, which is what tells "clean" from "not looked at". */
+            layers: components["schemas"]["FindingLayer"][];
+        };
+        /**
+         * @description One layer for one locale (intent §41). `available` is asked
+         *     before grading and answered from the project's check policy, so
+         *     a layer that cannot run here is never drawn as one that ran and
+         *     passed. `checked` says the newest run actually computed it, and
+         *     only a checked layer carries `findings` — a layer nobody ran
+         *     found nothing in the sense that says nothing.
+         */
+        QualitySummaryLayer: {
+            layer: components["schemas"]["FindingLayer"];
+            available: boolean;
+            /**
+             * @description Why it cannot run here. `unsupported_locale`: the policy
+             *     switches it off for this locale while leaving it on for
+             *     others. `not_configured`: the policy switches it off
+             *     throughout the project. `no_evidence`: the policy asks for
+             *     it and the newest run did not compute it — it had no
+             *     capture, no termbase or no provider to compute it from, or
+             *     the run that produced these numbers was narrowed to other
+             *     layers.
+             * @enum {string}
+             */
+            unavailable?: "unsupported_locale" | "not_configured" | "no_evidence";
+            checked: boolean;
+            findings?: components["schemas"]["CheckRunCounts"];
+        };
+        /** @description One number the summary could not compute, and why. */
+        QualityUnmeasured: {
+            /** @enum {string} */
+            number: "coverage" | "findings" | "ai" | "queue" | "context" | "lead_time" | "checks" | "findings_by_day";
+            reason: string;
+        };
+        /**
+         * @description The p50 and p90 of a sample of durations, in seconds, with the
+         *     size of the sample. It is present only where something was
+         *     measured: an empty sample has no median, and a zero would say
+         *     "no wait" where the truth is "nothing waited".
+         */
+        QualityPercentiles: {
+            samples: number;
+            /** Format: double */
+            p50_seconds: number;
+            /** Format: double */
+            p90_seconds: number;
+        };
+        /** @description Number 1 — how much of the catalog is translated (Localization). */
+        QualityCoverage: {
+            /** @description The active messages this is a share of. */
+            messages: number;
+            translated: number;
+            /** @description Usable translations made against an older source revision. */
+            outdated: number;
+            missing: number;
+        };
+        QualityLayerCounts: {
+            layer: components["schemas"]["FindingLayer"];
+            counts: components["schemas"]["CheckRunCounts"];
+        };
+        /**
+         * @description Number 3 — what people did with the machine's suggestions
+         *     (Intelligence). `decisions` is accepted plus rejected, the
+         *     denominator of the rate, so a rate with nothing behind it cannot
+         *     be mistaken for a bad one. `mean_edit_distance` counts a
+         *     suggestion accepted as it is as 0, and the project's is pooled
+         *     over accepted suggestions rather than averaged over locales.
+         */
+        QualityAcceptance: {
+            decisions: number;
+            accepted: number;
+            /** @description Of the accepted: how many were changed first. */
+            edited: number;
+            rejected: number;
+            /** Format: double */
+            acceptance_rate: number;
+            /** Format: double */
+            mean_edit_distance: number;
+        };
+        /**
+         * @description Number 4 — the review queue (Intelligence). `depth` is always
+         *     measured; `age` is how long what is in it has been waiting, and
+         *     an empty queue has none. The project's `age` is present only
+         *     where one locale is in scope: the percentiles of several queues
+         *     cannot be pooled from their percentiles.
+         */
+        QualityQueue: {
+            depth: number;
+            age?: components["schemas"]["QualityPercentiles"];
+        };
+        /**
+         * @description Number 5 — how much of the catalog the product's own code and
+         *     screenshots account for (Context), on the default branch.
+         *     `active_messages` is the denominator; a project with none has no
+         *     coverage to report, which is neither 0 % nor 100 %.
+         */
+        QualityContextCoverage: {
+            active_messages: number;
+            /** @description Active messages with a usage in a current build. */
+            with_usage: number;
+            /** @description Active messages with a visible region on a capture of a current build. */
+            with_region: number;
+        };
+        /**
+         * @description Number 7 — the pull-request check's record over the window
+         *     (Integration). `pass_rate` is successes over the checks that
+         *     passed or failed; `neutral` is in neither half, because it is
+         *     what a check concludes when it had nothing to grade. The rate
+         *     and `latency` are absent where nothing concluded.
+         */
+        QualityCheckHealth: {
+            /** @description Checks that reached a verdict in the window. */
+            runs: number;
+            succeeded: number;
+            failed: number;
+            neutral: number;
+            /** Format: double */
+            pass_rate?: number;
+            /**
+             * Format: double
+             * @description The median from the pull-request event to the conclusion.
+             */
+            median_seconds?: number;
+            /** @description The same measurement with its p90 and sample size. */
+            latency?: components["schemas"]["QualityPercentiles"];
+        };
+        /**
+         * @description Findings by layer per day — the one trend M4 keeps, rolled up in
+         *     Quality's own table because Quality owns the data. A day counts
+         *     each finding once by fingerprint, however many runs saw it. A
+         *     layer appears on a day only where a run that day ran it, so a
+         *     missing row means "not looked at" and a row with `0` means
+         *     "looked at and clean"; a day with no run has no rows at all.
+         */
+        QualityTrend: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            days: components["schemas"]["QualityDayFindings"][];
+        };
+        QualityDayFindings: {
+            /** Format: date */
+            day: string;
+            layer: components["schemas"]["FindingLayer"];
+            findings: number;
+        };
     };
     responses: {
         /** @description Signed in. The session cookie is set. */
@@ -10474,6 +10835,17 @@ export interface operations {
                 locale: components["schemas"]["Locale"][];
                 /** @description Only translations in these review states; repeatable. */
                 state?: components["schemas"]["ReviewState"][];
+                /**
+                 * @description Only translations with these provenances; repeatable. `ai`
+                 *     is the platform translating on a person's behalf and `agent`
+                 *     an autonomous agent writing through MCP on a long-lived
+                 *     token — different origins since they became different
+                 *     values, and this is what makes the difference answerable
+                 *     without SQL. Translations written through MCP before `agent`
+                 *     existed keep `ai` and are not rewritten; their
+                 *     `origin_detail` still says `{"via": "mcp"}`.
+                 */
+                origin?: components["schemas"]["Origin"][];
                 /** @description `true`: only outdated translations; `false`: only current ones. */
                 outdated?: boolean;
                 namespace?: components["schemas"]["Namespace"];
@@ -14838,6 +15210,50 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    getQualitySummary: {
+        parameters: {
+            query?: {
+                /** @description Narrow every per-locale number to this locale. */
+                locale?: components["schemas"]["Locale"];
+                /**
+                 * @description Where "published" means, for the lead time. Absent,
+                 *     `production`.
+                 */
+                environment?: components["schemas"]["EnvironmentName"];
+                /**
+                 * @description The start of the window for the AI decisions, the lead-time
+                 *     samples, the check health and the trend. Absent, 30 days
+                 *     ago — the same default `getAIMetrics` uses, so a caller who
+                 *     reads both sees one month in both.
+                 */
+                since?: components["schemas"]["Timestamp"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The summary, as of `computed_at`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualitySummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listBranches: {

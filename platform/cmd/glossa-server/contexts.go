@@ -70,6 +70,7 @@ import (
 	qualitymetrics "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/metrics"
 	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
 	qualitysnapshot "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/snapshot"
+	qualitysummary "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/summary"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
 	releasepg "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/postgres"
@@ -380,6 +381,18 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		})
 	}
 	c.purgeJobs = newPurgeJobs(usageContext, catalog, c.githubInbox, c.githubChecks, deps.logger)
+	// The quality summary's four other sources (RFC 0005 §8). Quality is
+	// built before three of them, so this direction is wired here; it
+	// only reads, and each call is an authorized use case of the service
+	// that owns the number, so the summary shows exactly what its caller
+	// could have read endpoint by endpoint.
+	quality.SetSummarySources(qualityapp.SummarySources{
+		Coverage:    qualitysummary.NewTranslations(localization),
+		Suggestions: qualitysummary.NewSuggestions(intelligence),
+		Usage:       qualitysummary.NewUsages(usageContext),
+		Deployments: qualitysummary.NewPublishes(release),
+		Checks:      qualitysummary.NewPullRequestChecks(integration),
+	})
 	// One adapter per context, wired to both the read and the write
 	// ports it satisfies: MCP is a second façade on these services, so a
 	// tool and the endpoint beside it call the same use case.
