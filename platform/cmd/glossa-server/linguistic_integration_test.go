@@ -8,16 +8,21 @@ import (
 )
 
 // The linguistic-QA jobs API over HTTP (RFC 0005 §3.8, §9, wave 6):
-// routing, permissions and what a deployment with no reviewer answers.
+// routing, permissions, and what a tenant that never consented gets.
 //
-// The composition root wires the Linguist port with no Reviewer — the
-// linguistic layer itself is the other wave-6 slice — so a review here
-// is refused with `linguistic_unavailable` rather than answering a job
-// that found nothing. That distinction is the point: "no model looked"
-// and "a model looked and found nothing" are different statements, and
-// only one of them is a clean bill of health. The service's own tests
-// (internal/quality/app) drive the whole lifecycle against a fake
-// reviewer; nothing anywhere calls a provider.
+// The composition root now wires the whole seam — the preflight, the
+// batcher that expands a scope into translations, and the layer that
+// reviews one — so a review here is not `linguistic_unavailable`. It is
+// a job, on the record, `failed` with `provider_consent`: this tenant
+// has not enabled sending text to AI providers, and that is the first
+// of the three gates M2 already owns (RFC 0003 §7).
+//
+// **Nothing here reaches a provider**, and not because a reviewer is
+// missing: the refusal happens in the preflight, before any text is
+// selected, and the tenant has no provider configured to reach even if
+// it had consented. The seam's own tests (internal/quality/adapters/review)
+// and the service's (internal/quality/app) drive the whole lifecycle
+// against a faked layer.
 func TestLinguisticJobsAPIOverHTTP(t *testing.T) {
 	s := startServer(t)
 	ada := s.signIn("ada@example.com")
@@ -48,9 +53,27 @@ func TestLinguisticJobsAPIOverHTTP(t *testing.T) {
 	s.do(call{method: "GET", path: p + "/linguistic-jobs/not-a-uuid", cookie: ada.cookie}).
 		want(t, http.StatusNotFound, "not_found")
 
-	// This deployment wires no reviewer, so a review says so.
-	s.do(call{method: "POST", path: p + "/linguistic-jobs", cookie: ada.cookie, csrf: ada.csrf, body: body}).
-		want(t, http.StatusServiceUnavailable, "linguistic_unavailable")
+	// A review is asked for, and refused by the tenant's own settings.
+	// The refusal is a job — 201, `failed`, with the code that says what
+	// to change — because a refusal on the record is worth more than a
+	// 4xx nobody kept.
+	var refused struct {
+		State       string `json:"state"`
+		FailureCode string `json:"failure_code"`
+	}
+	created := s.do(call{method: "POST", path: p + "/linguistic-jobs", cookie: ada.cookie, csrf: ada.csrf, body: body})
+	created.want(t, http.StatusCreated, "")
+	created.decode(t, &refused)
+	if refused.State != "failed" || refused.FailureCode != "provider_consent" {
+		t.Errorf("job = %s/%s, want failed/provider_consent: %s", refused.State, refused.FailureCode, created.body)
+	}
+	// And it is on the record, where a list can find it.
+	r = s.do(call{method: "GET", path: p + "/linguistic-jobs?state=failed", cookie: ada.cookie})
+	r.want(t, http.StatusOK, "")
+	r.decode(t, &jobs)
+	if len(jobs.Items) != 1 {
+		t.Errorf("failed jobs = %s, want the one that was refused", r.body)
+	}
 
 	// The session cookie alone cannot ask for one, and a read token may
 	// look but not spend the tenant's AI budget.
