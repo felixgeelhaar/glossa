@@ -104,6 +104,12 @@ func Project(s *snapshot.Snapshot) *layers.Project {
 		p.Messages = append(p.Messages, layers.Message{
 			ID: m.ID, Key: m.Key, Namespace: m.Namespace, Revision: m.Revision, Model: m.Model,
 			Invalid: invalid(m.Invalid), File: m.File,
+			// The authored text and the limit come with the message
+			// because the length layer reads both: a span is in bytes of
+			// the authored text, and `max-length-exceeded` is computed
+			// from the limit rather than waited for. A local catalog
+			// carries neither, and there the layer reports what it can.
+			Text: m.Text, MaxLength: m.MaxLength,
 		})
 	}
 	for locale, trs := range s.Translations {
@@ -112,7 +118,7 @@ func Project(s *snapshot.Snapshot) *layers.Project {
 			out[key] = layers.Translation{
 				Key: t.Key, Locale: t.Locale, Model: t.Model, State: t.State,
 				SourceRevision: t.SourceRevision, Outdated: t.Outdated, Warnings: t.Warnings,
-				Invalid: invalid(t.Invalid), File: t.File,
+				Invalid: invalid(t.Invalid), File: t.File, Text: t.Text,
 			}
 		}
 		p.Translations[locale] = out

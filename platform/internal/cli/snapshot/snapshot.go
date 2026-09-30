@@ -45,12 +45,17 @@ type Message struct {
 	Key         string
 	Namespace   string
 	Description string
-	Text        string
-	Syntax      string
-	Revision    int
-	Model       *mf.Message
-	Arguments   []mf.Argument
-	Invalid     *Invalid
+	// MaxLength bounds the rendered translation in characters; 0 means
+	// none. The length layer computes `max-length-exceeded` from it, so
+	// a check run against the server finds the finding itself rather
+	// than waiting for the warning the server stored.
+	MaxLength int
+	Text      string
+	Syntax    string
+	Revision  int
+	Model     *mf.Message
+	Arguments []mf.Argument
+	Invalid   *Invalid
 	// File is the local catalog it came from ("" on the server).
 	File string
 }
@@ -305,6 +310,9 @@ func FromServer(ctx context.Context, r Reader, scope remote.Scope, sourceLocale 
 func fromRemoteMessage(m remote.Message) Message {
 	out := Message{ID: m.Id, Key: m.Key, Namespace: m.Namespace, Description: m.Description, Text: m.Source.Text,
 		Syntax: string(m.Source.Syntax), Revision: m.SourceRevision}
+	if m.MaxLength != nil {
+		out.MaxLength = *m.MaxLength
+	}
 	model, err := DecodeModel(m.Source.Model)
 	if err != nil {
 		out.Invalid = &Invalid{Code: "invalid-message", Detail: err.Error()}

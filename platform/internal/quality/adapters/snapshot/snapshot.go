@@ -79,7 +79,12 @@ func (p *Port) Snapshot(ctx context.Context, project uuid.UUID) (app.ProjectSnap
 		keys[uuid.UUID(m.ID)] = m
 		out.Messages = append(out.Messages, layers.Message{
 			ID: uuid.UUID(m.ID).String(), Key: string(m.Key), Namespace: string(m.Namespace),
-			Revision: m.Revision, Model: model(m.Source.Model),
+			Revision: m.Revision, Model: model(m.Source.Model), Text: m.Source.Text,
+			// The limit comes with the message because the length layer
+			// computes `max-length-exceeded` from it rather than waiting
+			// for the warning the server stored at write time
+			// (RFC 0005 §3.3).
+			MaxLength: maxLength(m.MaxLength),
 		})
 	}
 	for locale, byID := range trs.Translations {
@@ -105,6 +110,10 @@ func translation(key, locale string, sourceRevision int, v localizationapp.Trans
 		Key: key, Locale: locale, Model: model(v.Content.Model), State: string(v.State),
 		Revision: v.ID.String(), SourceRevision: v.SourceRevision,
 		Outdated: v.Translation.Outdated(sourceRevision),
+		// The authored text travels with the model because a finding's
+		// span is in bytes of *it* — the string a person edits — and not
+		// of the concatenation of the model's text elements.
+		Text: v.Content.Text,
 	}
 	// The warnings Localization stored with the text are findings only
 	// it can compute (max-length among them), and the parity layer
@@ -113,6 +122,14 @@ func translation(key, locale string, sourceRevision int, v localizationapp.Trans
 		t.Warnings = append(t.Warnings, w)
 	}
 	return t
+}
+
+// maxLength is the message's limit in characters, 0 for none.
+func maxLength(n *int) int {
+	if n == nil {
+		return 0
+	}
+	return *n
 }
 
 // model returns the parsed message, or nil where there is none — a

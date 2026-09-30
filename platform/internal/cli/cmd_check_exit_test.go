@@ -131,8 +131,8 @@ func TestCheckExitsFourWhenALayerCouldNotRun(t *testing.T) {
 	srv, w := pushed(t)
 	srv.checkPolicy = map[string]any{"require_complete": "none", "fail_on": "error", "missing_translations": "error"}
 	var doc checkJSON
-	w.json(&doc, "check", "--layer", "completeness,length").want(t, ExitPartial)
-	if len(doc.Unavailable) != 1 || doc.Unavailable[0].Layer != domain.LayerLength {
+	w.json(&doc, "check", "--layer", "completeness,linguistic").want(t, ExitPartial)
+	if len(doc.Unavailable) != 1 || doc.Unavailable[0].Layer != domain.LayerLinguistic {
 		t.Fatalf("unavailable = %+v", doc.Unavailable)
 	}
 	if doc.Unavailable[0].Why == "" {
@@ -141,8 +141,8 @@ func TestCheckExitsFourWhenALayerCouldNotRun(t *testing.T) {
 	if !doc.Passed {
 		t.Errorf("a layer that couldn't run is not a failed check: %+v", doc)
 	}
-	r := w.run("check", "--layer", "completeness,length")
-	if !strings.Contains(r.stdout, "length") {
+	r := w.run("check", "--layer", "completeness,linguistic")
+	if !strings.Contains(r.stdout, "linguistic") {
 		t.Errorf("the human output doesn't name the skipped layer:\n%s", r.stdout)
 	}
 }
@@ -152,7 +152,7 @@ func TestCheckExitsFourWhenALayerCouldNotRun(t *testing.T) {
 func TestCheckFailedBeatsPartial(t *testing.T) {
 	srv, w := pushed(t)
 	srv.checkPolicy = map[string]any{"require_complete": "all", "fail_on": "error", "missing_translations": "error"}
-	w.json(&checkJSON{}, "check", "--layer", "completeness,length").want(t, ExitCheckFailed)
+	w.json(&checkJSON{}, "check", "--layer", "completeness,linguistic").want(t, ExitCheckFailed)
 }
 
 // TestCheckLayerSelectsTheLayersThatRun: --layer is repeatable and

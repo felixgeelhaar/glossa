@@ -13,6 +13,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
 )
 
 // RunCheck is the server's side of `glossa check`: it reads the project
@@ -118,7 +119,7 @@ func TestRunCheckNeedsOnlyCatalogRead(t *testing.T) {
 	if rep.Conclusion != domain.ConclusionFailure || len(rep.Findings) == 0 {
 		t.Fatalf("report = %s with %d findings", rep.Conclusion, len(rep.Findings))
 	}
-	if len(rep.Layers) != 3 {
+	if len(rep.Layers) != len(layers.Default()) {
 		t.Fatalf("layers = %v, want every deterministic layer", rep.Layers)
 	}
 }

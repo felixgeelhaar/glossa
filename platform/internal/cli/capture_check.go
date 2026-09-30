@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
@@ -64,6 +65,13 @@ func (inv *invocation) startCheck(ctx context.Context, cfg *config.Config) (*cap
 func (inv *invocation) finishCheck(cfg *config.Config, application string, out *captureJSON) *checkJSON {
 	c := out.checked
 	project := qa.Project(c.run.snapshot)
+	// The boxes this run measured are the length layer's layout budget
+	// (RFC 0005 §3.3): a region's width over the characters that filled
+	// it is the advance that region's font gave a character, and that
+	// predicts another locale's width with no browser and no second
+	// capture. It is the cheap half of the visual layer, and this is
+	// the one command that has the measurements to do it.
+	project.Regions = measured(out.shots)
 	visual, seen := layers.PromoteVisual(
 		inv.readSightings(cfg, application), probed(project, out.shots), c.policy.Visual())
 	inv.writeSightings(cfg, application, seen)
@@ -93,6 +101,38 @@ func probed(p *layers.Project, shots []capture.Shot) []layers.Probed {
 			},
 			Findings: p.Identify(s.Probes),
 		})
+	}
+	return out
+}
+
+// measured is every visible region of this run's captures, as the
+// length layer reads them.
+//
+// Only visible regions, because a box that rendered zero-size or
+// off-screen measured nothing. The region id is its index in the
+// capture's own regions, which is the spelling the probe pass uses
+// (`r_${i}` in probes.ts) and the one the ingest keeps, so a predicted
+// overflow and a measured clip name the same box.
+func measured(shots []capture.Shot) []layers.Region {
+	var out []layers.Region
+	for _, s := range shots {
+		keys := make(map[int]string, len(s.Capture.Renders))
+		for _, r := range s.Capture.Renders {
+			keys[r.Index] = r.Key
+		}
+		for i, r := range s.Capture.Regions {
+			key := r.Key
+			if key == "" && r.Index != nil {
+				key = keys[*r.Index]
+			}
+			if key == "" || !r.Visible {
+				continue
+			}
+			out = append(out, layers.Region{
+				Key: key, Locale: s.Capture.Locale, ID: fmt.Sprintf("r_%d", i),
+				Width: r.Box.Width, Height: r.Box.Height,
+			})
+		}
 	}
 	return out
 }

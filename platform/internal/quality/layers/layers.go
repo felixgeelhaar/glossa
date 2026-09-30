@@ -52,6 +52,17 @@ type Message struct {
 	Model     *mf.Message
 	Invalid   *Invalid
 	File      string
+	// Text is the message as it was authored, in its own syntax. It is
+	// what a finding's span points into, in bytes; a caller that kept
+	// only the model leaves it empty, and its layers report no span
+	// rather than one into a string nobody has.
+	Text string
+	// MaxLength bounds the rendered translation in characters; 0 means
+	// the message has no limit. It is the constraint behind
+	// `max-length-exceeded`, which the length layer computes where the
+	// caller carries it and relays from the stored warning where it does
+	// not (RFC 0005 §3.3).
+	MaxLength int
 }
 
 // Translation is a message's text in one locale.
@@ -72,6 +83,37 @@ type Translation struct {
 	Warnings []mf.Finding
 	Invalid  *Invalid
 	File     string
+	// Text is the translation as it was authored, in its own syntax, and
+	// what a finding's span points into.
+	Text string
+}
+
+// Region is one rendered message's measured box on a capture: what the
+// layout budget of RFC 0005 §3.3 is computed from, without a browser.
+//
+// The box was measured while the page showed Locale's text, so the two
+// together are a font metric — the advance that region's font gave that
+// many characters — and that is the metric the length layer predicts
+// other locales' widths from. It is why a region carries the locale it
+// was measured in, and why a region measured over text nobody has is
+// not a metric at all.
+type Region struct {
+	// Key is the message that rendered in the box.
+	Key string
+	// Locale is the locale the page was rendered in when it was
+	// measured.
+	Locale string
+	// Capture and ID identify the region for the locus.
+	Capture string
+	ID      string
+	// Width and Height are the box, in CSS pixels and never device
+	// pixels (checkpolicy.LengthThresholds says why).
+	Width  float64
+	Height float64
+	// AdvancePerRunePx is the font's measured average advance per rune,
+	// where the caller took one directly. Zero means it did not, and the
+	// layer derives the metric from the box and the text it held.
+	AdvancePerRunePx float64
 }
 
 // Project is the catalog a layer checks: its locales, its active source
@@ -87,8 +129,31 @@ type Project struct {
 	Messages []Message
 	// Translations maps locale → key → translation.
 	Translations map[string]map[string]Translation
+	// Regions are the measured boxes of the captures the caller read,
+	// which is what the length layer's layout budget needs. A caller
+	// with no capture — `glossa check` — carries none, and the budget is
+	// simply not computed: a check that guessed at pixels it never
+	// measured would be worse than one that says nothing.
+	Regions []Region
 
 	index map[string]int
+}
+
+// RegionsFor are the measured regions of key, in a stable order.
+func (p *Project) RegionsFor(key string) []Region {
+	var out []Region
+	for _, r := range p.Regions {
+		if r.Key == key {
+			out = append(out, r)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Locale != out[j].Locale {
+			return out[i].Locale < out[j].Locale
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out
 }
 
 // Message returns the source message with key.
@@ -177,9 +242,18 @@ type Checker interface {
 	Check(p *Project, policy checkpolicy.Policy) []domain.Finding
 }
 
-// Default is the deterministic QA a check always runs: the three layers
-// that need nothing but the catalog.
-func Default() []Checker { return []Checker{Structure{}, Parity{}, Completeness{}} }
+// Default is the deterministic QA a check always runs: every layer that
+// needs nothing but the project it is handed — no network, no database,
+// no browser and no provider.
+//
+// A layer with nothing to read is silent, not absent. The length layer
+// with no measured regions computes no layout budget and reports
+// nothing — the honest answer, and not a green one, because the run
+// still names the layer in Report.Layers and a reader can tell "clean"
+// from "not looked at".
+func Default() []Checker {
+	return []Checker{Structure{}, Parity{}, Completeness{}, Length{}}
+}
 
 // Precomputed is a Checker reporting findings computed elsewhere, such
 // as the terminology layer, which asks the server.
