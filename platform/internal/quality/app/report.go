@@ -156,7 +156,7 @@ func (s *Service) ReportCheckRun(ctx context.Context, in ReportCheckRun) (run do
 	for _, f := range in.Findings {
 		sealed = append(sealed, f.seal(ids))
 	}
-	stored, err := s.catalog.CheckPolicy(ctx, in.Project)
+	stored, err := s.storedPolicy(ctx, in.Project)
 	if err != nil {
 		return domain.CheckRun{}, err
 	}

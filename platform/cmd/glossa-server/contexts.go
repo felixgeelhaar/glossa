@@ -153,8 +153,8 @@ type contexts struct {
 // newPurgeJobs builds the daily retention jobs over the two contexts that
 // have something to purge. Each logs what it did; a failure is the
 // scheduler's to count and retry at the next interval.
-func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, inbox *integrationapp.InboxWorker,
-	checks *integrationapp.CheckWorker, logger *slog.Logger,
+func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, quality *qualityapp.Service,
+	inbox *integrationapp.InboxWorker, checks *integrationapp.CheckWorker, logger *slog.Logger,
 ) []scheduler.Job {
 	jobs := []scheduler.Job{
 		{Name: "context.purge", Run: func(ctx context.Context) error {
@@ -164,6 +164,19 @@ func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, inbox
 					slog.String("tenant_id", p.Tenant.String()), slog.String("project_id", p.Project.String()),
 					slog.Int("builds", len(p.Builds)), slog.Int("captures", p.Captures),
 					slog.Int("images", p.ImagesDeleted))
+			}
+			return err
+		}},
+		// Quality's housekeeping (RFC 0005 §2.2, §2.3): the waivers whose
+		// date has passed, recorded rather than deleted, and the check
+		// runs past their 90 days, deleted with their findings — except
+		// a ref's newest, which every dashboard reads. The trend
+		// survives them in the findings-by-day rollup.
+		{Name: "quality.sweep", Run: func(ctx context.Context) error {
+			swept, err := quality.Sweep(ctx)
+			if swept.WaiversExpired > 0 || swept.RunsDeleted > 0 {
+				logger.InfoContext(ctx, "quality: sweep", slog.Int("tenants", swept.Tenants),
+					slog.Int("waivers_expired", swept.WaiversExpired), slog.Int("runs_deleted", swept.RunsDeleted))
 			}
 			return err
 		}},
@@ -296,6 +309,10 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	quality := qualityapp.NewService(qualitypg.NewTransactor(uow), qualitycatalog.New(catalog),
 		qualityapp.WithLogger(deps.logger), qualityapp.WithMetrics(qualitymetrics.New(deps.registerer)),
 		qualityapp.WithTracerProvider(deps.tracer),
+		// The daily sweep's cross-tenant half: which tenants hold an
+		// expired waiver or a check run past its 90 days (RFC 0005 §2.2,
+		// §2.3). It reads two timestamps and a tenant id, nothing else.
+		qualityapp.WithScanner(qualitypg.NewScanner(uow)),
 		// The server-side check reads the project through Catalog's and
 		// Localization's own services, so it sees exactly what its
 		// caller could read through the API (RFC 0005 §2.2).
@@ -382,7 +399,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 			DepthInterval: deps.github.CheckDepthInterval,
 		})
 	}
-	c.purgeJobs = newPurgeJobs(usageContext, catalog, c.githubInbox, c.githubChecks, deps.logger)
+	c.purgeJobs = newPurgeJobs(usageContext, catalog, quality, c.githubInbox, c.githubChecks, deps.logger)
 	// The quality summary's four other sources (RFC 0005 §8). Quality is
 	// built before three of them, so this direction is wired here; it
 	// only reads, and each call is an authorized use case of the service

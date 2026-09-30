@@ -65,7 +65,7 @@ func (s *Service) CheckPolicy(ctx context.Context, project uuid.UUID) (state Pol
 	if err := s.read(ctx, project); err != nil {
 		return PolicyState{}, err
 	}
-	stored, err := s.catalog.CheckPolicy(ctx, project)
+	stored, err := s.storedPolicy(ctx, project)
 	if err != nil {
 		return PolicyState{}, err
 	}
@@ -145,7 +145,7 @@ func (s *Service) SavePolicy(ctx context.Context, project uuid.UUID, in SavePoli
 	if err != nil {
 		return PolicySave{}, err
 	}
-	stored, err := s.catalog.CheckPolicy(ctx, project)
+	stored, err := s.storedPolicy(ctx, project)
 	if err != nil {
 		return PolicySave{}, err
 	}
@@ -183,6 +183,7 @@ func (s *Service) SavePolicy(ctx context.Context, project uuid.UUID, in SavePoli
 	if err != nil {
 		return PolicySave{}, err
 	}
+	s.metrics.PolicyVersionRead(project, next.Version)
 	s.logger.InfoContext(ctx, "check policy saved",
 		"project", project, "version", next.Version, "rules", len(next.Rules),
 		"newly_failing", impact.NewlyFailing, "open_pull_requests", impact.OpenPullRequests)

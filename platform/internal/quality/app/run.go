@@ -11,6 +11,7 @@ package app
 
 import (
 	"sort"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -61,6 +62,18 @@ type Report struct {
 	// Skipped are the layers the policy switched off, named rather than
 	// silently dropped: a check may never lose a layer in silence.
 	Skipped []domain.Layer
+	// Took is how long each layer that ran took, in the order of Layers.
+	// It is measured here because this is the only place every surface's
+	// layers actually run; what a server does with it is
+	// `glossa_quality_check_duration_seconds` (RFC 0005 §11), so a slow
+	// layer is visible before it is unbearable.
+	Took []LayerDuration
+}
+
+// LayerDuration is how long one layer of a run took.
+type LayerDuration struct {
+	Layer domain.Layer
+	For   time.Duration
 }
 
 // Passed reports whether the run's conclusion lets a build through.
@@ -93,7 +106,9 @@ func RunIn(p *layers.Project, policy checkpolicy.Policy, env string, checkers ..
 			continue
 		}
 		r.Layers = append(r.Layers, c.Layer())
+		at := time.Now()
 		r.Findings = append(r.Findings, c.Check(p, policy)...)
+		r.Took = append(r.Took, LayerDuration{Layer: c.Layer(), For: time.Since(at)})
 	}
 	sortFindings(r.Findings)
 	for _, m := range p.Messages {

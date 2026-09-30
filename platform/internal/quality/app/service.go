@@ -45,6 +45,11 @@ type Service struct {
 	// it, and RunCheck then answers ErrNoSnapshot rather than pretending
 	// a project is clean.
 	snapshot Snapshot
+	// scanner finds the tenants the daily sweep has work in, across
+	// tenants (system scope quality.sweep). Nil where the deployment
+	// does not wire it, and Sweep then says so rather than reporting a
+	// sweep that visited nobody.
+	scanner Scanner
 	// sources are the other contexts' ports the quality summary reads
 	// (RFC 0005 §8). Any of them may be nil, and that number is then
 	// reported as not measured rather than as zero.
@@ -134,6 +139,24 @@ func (s *Service) write(ctx context.Context, project uuid.UUID) (string, error) 
 	}
 	p, _ := authz.From(ctx)
 	return p.Actor.String(), nil
+}
+
+// storedPolicy reads the project's check policy and publishes its
+// version as `glossa_quality_policy_version{project}` (RFC 0005 §11).
+//
+// Every read goes through here rather than only the save, because the
+// gauge is about which document is grading right now: a replica that
+// has restarted and not yet seen a save would otherwise publish
+// nothing, and a deployment where the number matters most — two
+// versions live at once during a grace period (§4.3) — is exactly the
+// one where a gap is worst.
+func (s *Service) storedPolicy(ctx context.Context, project uuid.UUID) (StoredPolicy, error) {
+	stored, err := s.catalog.CheckPolicy(ctx, project)
+	if err != nil {
+		return StoredPolicy{}, err
+	}
+	s.metrics.PolicyVersionRead(project, stored.Policy.Version)
+	return stored, nil
 }
 
 func invalidPageToken() error {

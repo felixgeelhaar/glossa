@@ -445,7 +445,7 @@ func waiver(r qualitysql.QualityWaiver) domain.Waiver {
 		ID: r.ID, Project: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
 		Scope: domain.WaiverScope(r.Scope), Ref: r.Ref, SourceRevision: int(r.SourceRevision),
 		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(), ExpiresAt: timePtr(r.ExpiresAt),
-		RevokedAt: timePtr(r.RevokedAt),
+		ExpiredAt: timePtr(r.ExpiredAt), RevokedAt: timePtr(r.RevokedAt),
 	}
 }
 
@@ -461,7 +461,7 @@ func (s *store) UpsertWaiver(ctx context.Context, w domain.Waiver) (domain.Waive
 	return waiver(qualitysql.QualityWaiver{
 		ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
 		Scope: r.Scope, Ref: r.Ref, SourceRevision: r.SourceRevision, CreatedBy: r.CreatedBy,
-		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, RevokedAt: r.RevokedAt,
+		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, ExpiredAt: r.ExpiredAt, RevokedAt: r.RevokedAt,
 	}), r.Inserted, nil
 }
 
@@ -491,7 +491,7 @@ func (s *store) ListWaivers(ctx context.Context, project uuid.UUID, f app.Waiver
 		w := waiver(qualitysql.QualityWaiver{
 			ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
 			Scope: r.Scope, Ref: r.Ref, SourceRevision: r.SourceRevision, CreatedBy: r.CreatedBy,
-			CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, RevokedAt: r.RevokedAt,
+			CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, ExpiredAt: r.ExpiredAt, RevokedAt: r.RevokedAt,
 		})
 		out[i] = app.WaiverRecord{
 			Waiver: w,

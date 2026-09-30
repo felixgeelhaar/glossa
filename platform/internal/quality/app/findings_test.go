@@ -51,6 +51,15 @@ type fakeStore struct {
 	// methods are in linguistic_test.go, beside the tests that use them.
 	linguistic map[uuid.UUID]domain.LinguisticJob
 
+	// The daily sweep's half (RFC 0005 §13 wave 7): how many waivers
+	// and runs the store says it retired, and what it was asked.
+	expiring    int
+	oldRuns     int
+	sweepErr    error
+	sweptAt     time.Time
+	sweptCutoff time.Time
+	sweptLimit  int
+
 	// trend is the findings-by-day rollup a test set, and rolledUp the
 	// days a recorded run restated.
 	trend    []domain.DailyFindings

@@ -14,7 +14,7 @@ import (
 )
 
 const getWaiver = `-- name: GetWaiver :one
-SELECT id, tenant_id, project_id, fingerprint, reason, scope, ref, source_revision, created_by, created_at, expires_at, revoked_at FROM quality_waivers WHERE project_id = $1 AND id = $2
+SELECT id, tenant_id, project_id, fingerprint, reason, scope, ref, source_revision, created_by, created_at, expires_at, revoked_at, expired_at FROM quality_waivers WHERE project_id = $1 AND id = $2
 `
 
 type GetWaiverParams struct {
@@ -38,13 +38,14 @@ func (q *Queries) GetWaiver(ctx context.Context, arg GetWaiverParams) (QualityWa
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.RevokedAt,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
 
 const listLiveWaivers = `-- name: ListLiveWaivers :many
-SELECT id, tenant_id, project_id, fingerprint, reason, scope, ref, source_revision, created_by, created_at, expires_at, revoked_at FROM quality_waivers
-WHERE project_id = $1 AND revoked_at IS NULL
+SELECT id, tenant_id, project_id, fingerprint, reason, scope, ref, source_revision, created_by, created_at, expires_at, revoked_at, expired_at FROM quality_waivers
+WHERE project_id = $1 AND revoked_at IS NULL AND expired_at IS NULL
   AND (expires_at IS NULL OR expires_at > $2::timestamptz)
 `
 
@@ -54,6 +55,11 @@ type ListLiveWaiversParams struct {
 }
 
 // Every waiver that stands now, for grading a run as it is recorded.
+//
+// The date is what decides, not the sweep: a waiver stops accepting
+// findings the moment it expires, whether or not the daily job has run
+// yet, so a late job can never leave a dead waiver accepting anything.
+// expired_at is honoured alongside it and never instead of it.
 func (q *Queries) ListLiveWaivers(ctx context.Context, arg ListLiveWaiversParams) ([]QualityWaiver, error) {
 	rows, err := q.db.Query(ctx, listLiveWaivers, arg.ProjectID, arg.Now)
 	if err != nil {
@@ -76,6 +82,7 @@ func (q *Queries) ListLiveWaivers(ctx context.Context, arg ListLiveWaiversParams
 			&i.CreatedAt,
 			&i.ExpiresAt,
 			&i.RevokedAt,
+			&i.ExpiredAt,
 		); err != nil {
 			return nil, err
 		}
@@ -88,7 +95,7 @@ func (q *Queries) ListLiveWaivers(ctx context.Context, arg ListLiveWaiversParams
 }
 
 const listWaivers = `-- name: ListWaivers :many
-SELECT w.id, w.tenant_id, w.project_id, w.fingerprint, w.reason, w.scope, w.ref, w.source_revision, w.created_by, w.created_at, w.expires_at, w.revoked_at, coalesce(f.layer, '') AS finding_layer, coalesce(f.code, '') AS finding_code,
+SELECT w.id, w.tenant_id, w.project_id, w.fingerprint, w.reason, w.scope, w.ref, w.source_revision, w.created_by, w.created_at, w.expires_at, w.revoked_at, w.expired_at, coalesce(f.layer, '') AS finding_layer, coalesce(f.code, '') AS finding_code,
        coalesce(f.locale, '') AS finding_locale, coalesce(f.message_key, '') AS finding_message_key,
        coalesce(f.namespace, '') AS finding_namespace, coalesce(f.explanation, '') AS finding_explanation
 FROM quality_waivers w
@@ -105,7 +112,8 @@ WHERE w.project_id = $1
   AND ($4::text = '' OR f.code = $4::text)
   AND ($5::text = '' OR f.message_key = $5::text)
   AND ($6::boolean IS NULL
-       OR (w.revoked_at IS NULL AND (w.expires_at IS NULL OR w.expires_at > $7::timestamptz))
+       OR (w.revoked_at IS NULL AND w.expired_at IS NULL
+           AND (w.expires_at IS NULL OR w.expires_at > $7::timestamptz))
           = $6::boolean)
   AND ($8::timestamptz IS NULL
        OR (w.created_at, w.id) < ($8::timestamptz, $9::uuid))
@@ -139,6 +147,7 @@ type ListWaiversRow struct {
 	CreatedAt          time.Time
 	ExpiresAt          pgtype.Timestamptz
 	RevokedAt          pgtype.Timestamptz
+	ExpiredAt          pgtype.Timestamptz
 	FindingLayer       string
 	FindingCode        string
 	FindingLocale      string
@@ -186,6 +195,7 @@ func (q *Queries) ListWaivers(ctx context.Context, arg ListWaiversParams) ([]Lis
 			&i.CreatedAt,
 			&i.ExpiresAt,
 			&i.RevokedAt,
+			&i.ExpiredAt,
 			&i.FindingLayer,
 			&i.FindingCode,
 			&i.FindingLocale,
@@ -233,8 +243,9 @@ VALUES ($1, app_current_tenant(), $2, $3, $4,
         $10)
 ON CONFLICT (project_id, fingerprint, scope, ref) WHERE revoked_at IS NULL
 DO UPDATE SET reason = EXCLUDED.reason, source_revision = EXCLUDED.source_revision,
-              expires_at = EXCLUDED.expires_at, created_by = EXCLUDED.created_by
-RETURNING id, tenant_id, project_id, fingerprint, reason, scope, ref, source_revision, created_by, created_at, expires_at, revoked_at, (xmax = 0) AS inserted
+              expires_at = EXCLUDED.expires_at, created_by = EXCLUDED.created_by,
+              expired_at = NULL
+RETURNING id, tenant_id, project_id, fingerprint, reason, scope, ref, source_revision, created_by, created_at, expires_at, revoked_at, expired_at, (xmax = 0) AS inserted
 `
 
 type UpsertWaiverParams struct {
@@ -263,6 +274,7 @@ type UpsertWaiverRow struct {
 	CreatedAt      time.Time
 	ExpiresAt      pgtype.Timestamptz
 	RevokedAt      pgtype.Timestamptz
+	ExpiredAt      pgtype.Timestamptz
 	Inserted       bool
 }
 
@@ -278,6 +290,11 @@ type UpsertWaiverRow struct {
 // repeat restates the reason, the expiry and the source revision it is
 // made against. Revoking frees the slot, and the revoked row stays as
 // history.
+//
+// Restating clears expired_at: an expiry the sweep recorded is a
+// statement about the date the waiver used to carry, and this write
+// gives it a new one (or none). Leaving it set would make a waiver that
+// somebody has just renewed read as retired.
 func (q *Queries) UpsertWaiver(ctx context.Context, arg UpsertWaiverParams) (UpsertWaiverRow, error) {
 	row := q.db.QueryRow(ctx, upsertWaiver,
 		arg.ID,
@@ -305,6 +322,7 @@ func (q *Queries) UpsertWaiver(ctx context.Context, arg UpsertWaiverParams) (Ups
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.RevokedAt,
+		&i.ExpiredAt,
 		&i.Inserted,
 	)
 	return i, err

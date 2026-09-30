@@ -204,7 +204,7 @@ func (s *Service) RequestLinguisticReview(
 	if err != nil {
 		return domain.LinguisticJob{}, false, err
 	}
-	stored, err := s.catalog.CheckPolicy(ctx, project)
+	stored, err := s.storedPolicy(ctx, project)
 	if err != nil {
 		return domain.LinguisticJob{}, false, err
 	}
@@ -439,7 +439,7 @@ func (s *Service) recordLinguisticFindings(
 	if len(sealed) == 0 {
 		return uuid.Nil, 0, nil
 	}
-	stored, err := s.catalog.CheckPolicy(ctx, job.Project)
+	stored, err := s.storedPolicy(ctx, job.Project)
 	if err != nil {
 		return uuid.Nil, 0, err
 	}

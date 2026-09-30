@@ -109,9 +109,18 @@ type Metrics interface {
 	// CheckRunRecorded counts a run by what asked for it and what it
 	// concluded.
 	CheckRunRecorded(trigger domain.Trigger, conclusion domain.Conclusion)
+	// LayerChecked observes how long one layer took, so a slow layer is
+	// visible before it is unbearable (RFC 0005 §11).
+	LayerChecked(layer domain.Layer, d time.Duration)
 	// WaiverDecided counts a waiver by what became of the request:
-	// created, updated, revoked or refused.
+	// created, updated, revoked, refused or expired.
 	WaiverDecided(outcome string)
+	// VisualProbeRecorded counts one visual probe finding a capture
+	// upload handed in, by its code and what the ingest made of it.
+	VisualProbeRecorded(code, outcome string)
+	// PolicyVersionRead publishes the version of a project's stored
+	// check policy, so a dashboard can see which document is grading.
+	PolicyVersionRead(project uuid.UUID, version int)
 }
 
 // Waiver outcomes, as Metrics counts them.
@@ -120,6 +129,22 @@ const (
 	WaiverUpdated = "updated"
 	WaiverRevoked = "revoked"
 	WaiverRefused = "refused"
+	// WaiverExpired is the daily sweep recording an expiry. It is not a
+	// revocation: nobody decided anything today, a date passed.
+	WaiverExpired = "expired"
+)
+
+// Visual probe outcomes, as Metrics counts them (RFC 0005 §5.2).
+const (
+	// ProbeFirstSighting is a finding stored on its first sighting: a
+	// warning, not yet eligible for error.
+	ProbeFirstSighting = "first_sighting"
+	// ProbeConfirmed is a finding the two-sighting rule confirmed, which
+	// is what makes it eligible for error.
+	ProbeConfirmed = "confirmed"
+	// ProbeDropped is a finding the project's policy switched off, so
+	// nothing was stored for it.
+	ProbeDropped = "dropped"
 )
 
 // NoMetrics records nothing.
@@ -131,8 +156,17 @@ func (NoMetrics) FindingRecorded(domain.Layer, string, domain.Severity) {}
 // CheckRunRecorded implements Metrics.
 func (NoMetrics) CheckRunRecorded(domain.Trigger, domain.Conclusion) {}
 
+// LayerChecked implements Metrics.
+func (NoMetrics) LayerChecked(domain.Layer, time.Duration) {}
+
 // WaiverDecided implements Metrics.
 func (NoMetrics) WaiverDecided(string) {}
+
+// VisualProbeRecorded implements Metrics.
+func (NoMetrics) VisualProbeRecorded(string, string) {}
+
+// PolicyVersionRead implements Metrics.
+func (NoMetrics) PolicyVersionRead(uuid.UUID, int) {}
 
 // RunFilter narrows the check runs a list or a latest-run lookup sees.
 // Empty members don't filter.
@@ -287,6 +321,14 @@ type Store interface {
 	RevokeWaiver(ctx context.Context, project, id uuid.UUID, at time.Time) error
 	// LiveWaivers are the project's waivers that stand at now.
 	LiveWaivers(ctx context.Context, project uuid.UUID, now time.Time) ([]domain.Waiver, error)
+	// ExpireWaivers records the expiry of every waiver of the tenant
+	// whose date has passed and that nobody has revoked or recorded
+	// yet, and answers how many. It records; it never deletes.
+	ExpireWaivers(ctx context.Context, now time.Time) (int, error)
+	// DeleteExpiredCheckRuns deletes up to limit of the tenant's check
+	// runs that started before cutoff — findings and all — except the
+	// newest run of each ref, which is never swept whatever its age.
+	DeleteExpiredCheckRuns(ctx context.Context, cutoff time.Time, limit int) (int, error)
 	// InsertPolicyVersion appends one saved policy version to the
 	// project's history; stored is false where that version is already
 	// recorded, which makes a repeated save idempotent rather than an
