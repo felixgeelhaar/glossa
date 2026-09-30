@@ -48,7 +48,13 @@ func (a *Releases) Promote(
 	ctx context.Context, project uuid.UUID, environment string, id uuid.UUID,
 ) (tools.Deployed, error) {
 	before := a.serving(ctx, project, environment)
-	env, err := a.release.Promote(ctx, project, environment, id)
+	// The zero PromoteInput is "not forced". An MCP tool never offers to
+	// force the destination's check policy — no `force` argument exists
+	// in the schema or in the tools.Releases port — so a promotion an
+	// agent asks for is refused exactly as the policy says, and someone
+	// who means to override it does so where the reason can be attached
+	// to a person.
+	env, err := a.release.Promote(ctx, project, environment, id, releaseapp.PromoteInput{})
 	if err != nil {
 		return tools.Deployed{}, notFound(err, releaseNotFound...)
 	}
