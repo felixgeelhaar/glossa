@@ -67,6 +67,7 @@ import (
 	previewapp "github.com/felixgeelhaar/glossa/platform/internal/preview/app"
 	qualitycatalog "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/catalog"
 	qualityapi "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/httpapi"
+	qualityintelligence "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/intelligence"
 	qualitymetrics "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/metrics"
 	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
 	qualitysnapshot "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/snapshot"
@@ -393,6 +394,16 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		Deployments: qualitysummary.NewPublishes(release),
 		Checks:      qualitysummary.NewPullRequestChecks(integration),
 	})
+	// The linguistic layer is the one layer that needs a model, so it is
+	// a job and its model call is Intelligence's (RFC 0005 §3.8). This
+	// port carries the preflight — the tenant's sending consent, the
+	// existing monthly AI budget and the project's `sensitive`
+	// namespaces, each read from the context that owns it — and the
+	// review itself sits behind a Reviewer the wave-6 layer slice
+	// provides. Until one is wired, New answers nil and a review is
+	// refused with `linguistic_unavailable`: "no model looked" is not
+	// "a model looked and found nothing".
+	quality.SetLinguist(qualityintelligence.New(intelligence, nil))
 	// One adapter per context, wired to both the read and the write
 	// ports it satisfies: MCP is a second façade on these services, so a
 	// tool and the endpoint beside it call the same use case.

@@ -277,6 +277,28 @@ type Store interface {
 	// ListPolicyVersions pages the project's policy versions, newest
 	// first, continuing below after.
 	ListPolicyVersions(ctx context.Context, project uuid.UUID, after *int, limit int) ([]PolicyVersion, error)
+	// InsertLinguisticJob stores a new linguistic-QA job (migration
+	// 0038).
+	InsertLinguisticJob(ctx context.Context, j domain.LinguisticJob) error
+	// LinguisticJob reads one of the project's jobs
+	// (ErrLinguisticJobNotFound).
+	LinguisticJob(ctx context.Context, project, id uuid.UUID) (domain.LinguisticJob, error)
+	// ListLinguisticJobs pages a project's jobs, newest first, narrowed
+	// by state where one is given.
+	ListLinguisticJobs(
+		ctx context.Context, project uuid.UUID, state string, after *LinguisticCursor, limit int,
+	) ([]domain.LinguisticJob, error)
+	// UpdateLinguisticJob writes a job's progress; moved is false where
+	// the job had already finished, which is what settles a job exactly
+	// once when two readers reconcile it at the same moment.
+	UpdateLinguisticJob(ctx context.Context, j domain.LinguisticJob) (moved bool, err error)
+}
+
+// LinguisticCursor is where a page of linguistic-QA jobs (newest
+// first) continues.
+type LinguisticCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
 }
 
 // PolicyVersion is one saved version of a project's check policy: the

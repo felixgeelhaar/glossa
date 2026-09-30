@@ -51,9 +51,15 @@ type Service struct {
 	sources SummarySources
 	// summaries caches a computed summary for SummaryTTL.
 	summaries *summaryCache
-	tracer    trace.Tracer
-	logger    *slog.Logger
-	now       func() time.Time
+	// linguist is Intelligence's reviewer, which owns the model call the
+	// linguistic layer needs (RFC 0005 §3.8). Nil where the deployment
+	// does not wire one, and a review is then refused with
+	// ErrLinguistUnavailable rather than answering an empty list, which
+	// would read as a clean bill of health nobody issued.
+	linguist Linguist
+	tracer   trace.Tracer
+	logger   *slog.Logger
+	now      func() time.Time
 }
 
 // tracerName names Quality's spans' instrumentation scope.
