@@ -110,10 +110,8 @@ type messageCaptures struct {
 // the next capture of the same route, viewport and locale — which is
 // what §12.4's policy v4 then needs in order to fail a build.
 func (s *scenario) captureAndCheck() {
-	t := s.t
-	app := serveApp(t, filepath.Join(s.repo.dir, "built", "preview"))
-	s.appURL = app.URL
-	s.ci.env["GLOSSA_CAPTURE_CDP"] = s.chrome
+	s.startApp()
+	app := struct{ URL string }{s.appURL}
 
 	var out captureJSON
 	uploaded := 0
@@ -183,6 +181,18 @@ func (s *scenario) captureAndCheck() {
 			"Japanese capture (%d on the German one), and the server stored %d probe findings with the upload.",
 			ja, de, uploaded)
 	}
+}
+
+// startApp serves the fixture's preview build and points the capture at
+// the browser, once: the green pull request's CI captures before the
+// workflow's own check does.
+func (s *scenario) startApp() {
+	if s.appURL != "" {
+		return
+	}
+	app := serveApp(s.t, filepath.Join(s.repo.dir, "built", "preview"))
+	s.appURL = app.URL
+	s.ci.env["GLOSSA_CAPTURE_CDP"] = s.chrome
 }
 
 func totalRegions(out captureJSON) int {

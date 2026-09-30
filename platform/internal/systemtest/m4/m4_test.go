@@ -46,9 +46,15 @@ func TestM4Exit(t *testing.T) {
 	// 2. Findings across layers. The pull request is opened before the
 	// two checks run, so both surfaces grade the same commit on the
 	// same branch — which is what §12.3 then compares.
+	s.phase("§12.2 push the default branch's catalogs", s.pushBase)
+	s.phase("§12.3 connect the repository", s.connectRepository)
+	// 4, first half. The pull request §12.4's preview has to name: one
+	// that is green under v3, opened and checked while `main` is still
+	// the default branch's catalogs.
+	s.phase("§12.4 open a pull request that passes under v3", s.greenPullRequest)
 	s.phase("§12.2 push the seeded catalogs and the usages", s.seedCatalogs)
 	s.phase("§12.2 the termbase", s.seedTermbase)
-	s.phase("§12.3 connect the repository and open the pull request", s.openPullRequest)
+	s.phase("§12.3 open the pull request", s.openPullRequest)
 	s.phase("§12.2 run the workflow's check", s.runCheck)
 	s.phase("§12.2 capture the checkout route and check with it", s.captureAndCheck)
 	s.phase("§12.2 crop the clipped region out of the stored image", s.cropRegion)
@@ -150,6 +156,9 @@ type scenario struct {
 
 	cliCheck   checkJSON
 	cliCapture captureJSON
+	// greenRun is the green pull request's newest recorded run: the
+	// second sighting of its captures, graded under v3.
+	greenRun *checkJSON
 	// cliCaptureHead is the capture-and-check run of the pull request's
 	// own head commit — the run CI recorded for it, and therefore the
 	// one §12.3 compares the check run against.

@@ -277,14 +277,20 @@ type contextPushJSON struct {
 	Build    contextBuild `json:"build"`
 }
 
-// seedCatalogs pushes the repository twice: the default branch's
-// catalogs, then the pull request's, where the German source moves
-// under a French and a Japanese translation that do not follow it.
-func (s *scenario) seedCatalogs() {
-	t := s.t
+// pushBase pushes the default branch's catalogs: what `main` holds
+// before any pull request changes it.
+func (s *scenario) pushBase() {
 	var base pushJSON
 	s.ci.ok(&base, "push", "--translations")
 	s.pushed = base.Summary
+}
+
+// seedCatalogs seeds what the default branch's catalogs cannot say —
+// the message's max_length, the obsoleted source, the build's usages —
+// and pushes the pull request's catalogs, where the German source moves
+// under a French and a Japanese translation that do not follow it.
+func (s *scenario) seedCatalogs() {
+	t := s.t
 
 	// max_length is the message's, and only the server holds it. The
 	// French translation already exceeds it.

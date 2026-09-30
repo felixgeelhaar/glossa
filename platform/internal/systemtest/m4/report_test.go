@@ -96,6 +96,11 @@ func (s *scenario) reportFixture(b *bytes.Buffer) {
 	w("| `%s`, whose Spanish does not use the preferred `%s` | `terminology` |\n", keyTermMissing, termPreferredES)
 	w("| `%s` with `max_length: %d` and a French translation over it | `length` (see below) |\n", keyMaxLength, maxLength)
 	w("| the checkout pay button, 104 px wide and single-line, holding `%s` | `visual` |\n\n", keyButton)
+	w("And the pull request §12.4's impact preview has to name: #%d (`%s`), opened and checked by its CI\n",
+		greenPRNumber, greenBranch)
+	w("while `main` still held the default branch's catalogs. Its newest recorded run passes under v%d; the one\n",
+		s.gradedVersion)
+	w("finding v4 would fail it on is the Japanese pay button, which clips on every branch.\n\n")
 }
 
 func (s *scenario) reportLayers(b *bytes.Buffer) {

@@ -50,6 +50,11 @@ const (
 	// not a second sighting. These are the commits that make it one.
 	headCommit2  = "c41a7b6e05d29f83716be24c0a5df9138e6b7204"
 	laterCommit2 = "2d8e0c53f7a916b4e0d3852a6cf147b90e35da76"
+
+	// greenCommit and greenCommit2 are the green pull request's two
+	// commits (§12.4): two, for the same two-sighting reason.
+	greenCommit  = "7a0e3f5c19b84d62e0f1a9c3b57d28e4f6c0a913"
+	greenCommit2 = "e58b21c7d04a93f6b1e27c80d5f3a96b0c4e7d12"
 )
 
 const (
@@ -59,6 +64,17 @@ const (
 	// laterBranch is the pull request opened after policy v4 is saved.
 	laterBranch   = "feature/pickup-copy"
 	laterPRNumber = 12
+	// greenBranch is §12.4's pull request that passes today: opened, and
+	// checked by its CI, while `main` still held the default branch's
+	// catalogs — before the copy changes feature/checkout-copy brings.
+	// Its newest recorded run has no error under policy v3; its one
+	// finding that v4 would fail it on is the Japanese pay button, which
+	// clips on every branch because the stylesheet is the product's. It
+	// is what the impact preview has to name: the pull request that is
+	// green today and would be red tomorrow for something its author did
+	// not do.
+	greenBranch   = "feature/opening-hours"
+	greenPRNumber = 10
 	application   = "shop"
 )
 

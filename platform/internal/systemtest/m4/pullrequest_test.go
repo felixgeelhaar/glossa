@@ -140,11 +140,10 @@ func prEdits(branch, commit string, number int, openedAt time.Time) map[string]a
 	}
 }
 
-// openPullRequest connects the repository and opens the pull request
-// whose head commit is the one the CLI just graded.
+// openPullRequest opens the pull request whose head commit is the one
+// the CLI just graded.
 func (s *scenario) openPullRequest() {
 	t := s.t
-	s.connectRepository()
 	s.deliver("pull_request.opened", "m4-pr-opened", prEdits(prBranch, headCommit, prNumber, time.Now()))
 
 	eventually(t, 60*time.Second, "the branch to open", func() (bool, string) {
@@ -168,6 +167,90 @@ func (s *scenario) openPullRequest() {
 		"--commit", headCommit, "--json")
 	_ = out
 	s.branchUsages(prBranch, headCommit, "usages.pr.json")
+}
+
+// greenPullRequest opens §12.4's pull request that passes today, and
+// runs its CI the way the workflow does: its catalogs on its branch, its
+// build's usages, and `glossa capture --check --upload` at two commits —
+// the second sighting is what makes its clipped pay button evidence a
+// policy can gate on (§5.2).
+//
+// It runs while `main` holds the default branch's catalogs, which is
+// the whole of its shape: a pull request branched and checked before
+// feature/checkout-copy's copy changes, whose newest run is green under
+// v3 with the one visual warning v4 would turn into an error. Nothing
+// here is contrived to make it pass; if its run has an error under v3,
+// that is reported, and the preview then has nothing to newly fail.
+func (s *scenario) greenPullRequest() {
+	t := s.t
+	s.deliver("pull_request.opened", "m4-green-opened", prEdits(greenBranch, greenCommit, greenPRNumber, time.Now()))
+	eventually(t, 60*time.Second, "the green branch to open", func() (bool, string) {
+		for _, b := range list[struct {
+			Name  string `json:"name"`
+			State string `json:"state"`
+		}](s.owner, s.projectPath("/branches"), nil) {
+			if b.Name == greenBranch && b.State == "open" {
+				return true, ""
+			}
+		}
+		return false, "not yet"
+	})
+	s.startApp()
+	var out captureJSON
+	code := 0
+	// The workflow's steps, once per commit: the pull request's check
+	// on a commit waits for that commit's push, its usages and its
+	// recorded run, so a commit CI only captured would have a check
+	// that waits out CheckWait for the other two.
+	for _, commit := range []string{greenCommit, greenCommit2} {
+		s.ci.run("push", "--translations", "--branch", greenBranch, "--pr", strconv.Itoa(greenPRNumber),
+			"--commit", commit, "--json")
+		s.branchUsages(greenBranch, commit, "usages.green.json")
+		res := s.ci.run("capture", "--check", "--upload", "--no-coverage", "--base-url", s.appURL,
+			"--commit", commit, "--branch", greenBranch, "--json")
+		if err := json.Unmarshal([]byte(res.stdout), &out); err != nil {
+			s.gap("12.4", "the green pull request's `glossa capture --check` printed no document (exit %d): %s",
+				res.code, res.stderr)
+			return
+		}
+		code = res.code
+	}
+	if out.Check == nil {
+		s.gap("12.4", "the green pull request's `glossa capture --check` produced no check document")
+		return
+	}
+	s.greenRun = out.Check
+	clipped := 0
+	for _, f := range visualFindings(out.Check.Findings, "text-clipped") {
+		if f.Locus.Key == keyButton && f.Locus.Locale == "ja" {
+			clipped++
+		}
+	}
+	var errs []string
+	for _, f := range out.Check.Findings {
+		if f.Severity == domain.Error {
+			errs = append(errs, fmt.Sprintf("`%s/%s` on `%s` (%s)", f.Layer, f.Code, f.Locus.Key, f.Locus.Locale))
+		}
+	}
+	switch {
+	case !out.Check.Passed || len(errs) > 0:
+		s.gap("12.4", "the pull request meant to pass under v%d does not: `glossa capture --check` exited %d, "+
+			"conclusion `%s`, %d errors (%s). A policy change cannot *newly* fail a pull request that already "+
+			"fails, so the preview has nothing to name", s.policyVersion, code, out.Check.Conclusion,
+			out.Check.Errors, strings.Join(errs, "; "))
+	case clipped == 0:
+		s.gap("12.4", "the green pull request's run has no `text-clipped` on the Japanese pay button, so "+
+			"promoting `visual` would change nothing about it")
+	case out.Check.Record == nil || !out.Check.Record.Recorded:
+		s.gap("12.4", "the green pull request's run was not recorded, so the preview cannot measure against it: %s",
+			recordWhy(out.Check.Record))
+	default:
+		s.note("12.4", "Pull request #%d (`%s`) was opened and checked while `main` still held the default "+
+			"branch's catalogs: its newest recorded run (`%s`) concluded `%s` under v%d with %d errors and %d "+
+			"warnings, one of them the Japanese pay button's `text-clipped` — a warning under `visual: warn`, "+
+			"an error under `enforce`.", greenPRNumber, greenBranch, short(greenCommit2), out.Check.Conclusion,
+			s.policyVersion, out.Check.Errors, out.Check.Warnings)
+	}
 }
 
 // branchUsages uploads the build's usages for one branch and commit.

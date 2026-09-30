@@ -321,25 +321,45 @@ func (s *scenario) policyRollout() {
 	s.policySteps = append(s.policySteps, step{
 		What: "`POST …/check-policy` with `dry_run: true`",
 		Then: fmt.Sprintf("%d stored findings examined over %d runs: %d raised, %d lowered, %d silenced; "+
-			"%d refs newly failing (%s); **%d open pull requests** would newly fail: %s",
+			"%d findings newly failing, on %s; **%d open pull requests** would newly fail: %s",
 			im.Findings, im.Runs, im.Raised, im.Lowered, im.Silenced,
 			im.NewlyFailing, codeList(im.NewlyFailingRefs), im.OpenPullRequests, namedPullRequests(im))})
+	// "Newly" is the whole of it: the preview compares each ref's newest
+	// stored run under v3 with the same run under v4. The green pull
+	// request passes today and has the clipped button; the workflow's
+	// own pull request already fails under v3 (§12.2 seeds it to), so
+	// v4 cannot newly fail it and the preview must not say it does.
+	var green *struct {
+		Ref    string `json:"ref"`
+		Number int    `json:"number"`
+		URL    string `json:"url"`
+	}
+	for i, pr := range im.PullRequests {
+		if pr.Number == greenPRNumber {
+			green = &im.PullRequests[i]
+		}
+	}
 	switch {
-	case im.OpenPullRequests < 1:
-		s.gap("12.4", "the impact preview says %d open pull requests would newly fail, want at least the one "+
-			"that is open. It examined %d stored findings over %d runs and raised %d of them; newly-failing "+
-			"refs: %v. \"Newly\" is the whole of it: the preview compares each ref's newest stored run under "+
-			"the current document with the same run under the candidate, and `%s`'s newest run — the "+
-			"`glossa check` CI recorded, which the pull request now renders — **already fails** under v3 on "+
-			"`parity` and `length`. Promoting `visual` from `warn` to `enforce` therefore breaks no pull "+
-			"request that was green, because this one is not. §12.4 asks the preview to name the one pull "+
-			"request that would newly fail, and that needs a fixture whose open pull request passes today; "+
-			"§12.2 deliberately seeds one that does not. (Before the check rendered CI's run, the only "+
-			"findings this project stored were the capture ingest's visual-only run, which did pass — so "+
-			"the number this criterion used to read was an artefact of storing half a check.)",
-			im.OpenPullRequests, im.Findings, im.Runs, im.Raised, im.NewlyFailingRefs, prBranch)
-	case !contains(im.NewlyFailingRefs, prBranch):
-		s.gap("12.4", "the impact preview's newly-failing refs are %v, want `%s` among them", im.NewlyFailingRefs, prBranch)
+	case s.greenRun == nil || !s.greenRun.Passed:
+		s.gap("12.4", "the impact preview has no green pull request to name: the one meant to pass under v%d "+
+			"did not (see above), so %d open pull requests would newly fail (%s)",
+			s.policyVersion, im.OpenPullRequests, namedPullRequests(im))
+	case !contains(im.NewlyFailingRefs, greenBranch):
+		s.gap("12.4", "the impact preview's newly-failing refs are %v, want `%s` — green under v%d, with the "+
+			"clipped pay button v4 turns into an error — among them. It examined %d stored findings over %d "+
+			"runs and raised %d", im.NewlyFailingRefs, greenBranch, s.policyVersion, im.Findings, im.Runs, im.Raised)
+	case green == nil:
+		s.gap("12.4", "`%s` newly fails and the preview does not name its pull request #%d: %s",
+			greenBranch, greenPRNumber, namedPullRequests(im))
+	case green.Ref != greenBranch:
+		s.gap("12.4", "the preview names #%d on `%s`, want `%s`", green.Number, green.Ref, greenBranch)
+	}
+	if contains(im.NewlyFailingRefs, prBranch) {
+		s.gap("12.4", "the preview says `%s` would newly fail, and it already fails under v%d", prBranch, s.policyVersion)
+	}
+	if im.OpenPullRequests != 1 {
+		s.gap("12.4", "the preview counts %d open pull requests that would newly fail, want exactly the green "+
+			"one: %s", im.OpenPullRequests, namedPullRequests(im))
 	}
 	// §12.4 asks the preview to *name* the pull request, not count it:
 	// every one it counts is named, by number, with where it is on the
@@ -354,9 +374,6 @@ func (s *scenario) policyRollout() {
 			s.gap("12.4", "the impact preview names pull request #%d (`%s`) at %q, want its address on `%s` "+
 				"(…%s)", pr.Number, pr.Ref, pr.URL, repositoryName, want)
 		}
-	}
-	if im.OpenPullRequests != 1 {
-		s.note("12.4", "The preview counted %d open pull requests, not one.", im.OpenPullRequests)
 	}
 
 	// Now the save, with a grace that pins what is already open.
@@ -397,6 +414,29 @@ func (s *scenario) policyRollout() {
 			What: fmt.Sprintf("the open pull request (`%s`, opened under v%d)", prBranch, s.policyVersion),
 			Then: fmt.Sprintf("still graded against v%d, and its summary says so: “Graded against the project's "+
 				"check policy v%d — the version this pull request was opened under.”", s.policyVersion, s.policyVersion)})
+	}
+
+	// The pull request the preview named: opened under v3, a new commit
+	// after the save, and it stays green — the grace is what stops v4
+	// failing it for something its author did not do.
+	s.deliver("pull_request.synchronize", "m4-green-sync",
+		prEdits(greenBranch, greenCommit2, greenPRNumber, time.Now().Add(-3*time.Hour)))
+	kept, done := s.waitForCheck(greenCommit2)
+	switch {
+	case !done:
+		s.gap("12.4", "the green pull request's check never completed after the save")
+	case !strings.Contains(kept.Summary, fmt.Sprintf("check policy v%d", s.policyVersion)):
+		s.gap("12.4", "the green pull request, opened under v%d, was graded against %q after the save",
+			s.policyVersion, firstLineContaining(kept.Summary, "check policy v"))
+	case kept.Conclusion != "success":
+		s.gap("12.4", "the green pull request concluded `%s` after the save, under v%d: the grace did not "+
+			"keep it green", kept.Conclusion, s.policyVersion)
+	default:
+		s.policySteps = append(s.policySteps, step{
+			What: fmt.Sprintf("the pull request the preview named (#%d, `%s`, opened under v%d)",
+				greenPRNumber, greenBranch, s.policyVersion),
+			Then: fmt.Sprintf("a new commit after the save: still graded against v%d, and still `%s` — the "+
+				"grace keeps it green until it closes or the grace runs out", s.policyVersion, kept.Conclusion)})
 	}
 
 	// A new pull request gets v4 immediately, and the visual layer now
