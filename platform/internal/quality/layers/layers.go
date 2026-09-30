@@ -63,6 +63,24 @@ type Message struct {
 	// caller carries it and relays from the stored warning where it does
 	// not (RFC 0005 §3.3).
 	MaxLength int
+	// Description is what a translator is told about the message. The
+	// source layer reads its absence (RFC 0005 §3.5); no layer reads its
+	// contents.
+	Description string
+	// Usages are the places the product asks for the message, from
+	// Context (RFC 0004 §8). The source layer *refines* with them and
+	// never needs them: a caller with none — an offline `glossa check`
+	// over local catalogs — still gets the layer, and the findings say
+	// in their evidence what was not known.
+	Usages []Usage
+}
+
+// Usage is one place the product asks for a message.
+type Usage struct {
+	Route     string
+	Component string
+	File      string
+	Line      int
 }
 
 // Translation is a message's text in one locale.
@@ -137,6 +155,21 @@ type Project struct {
 	Regions []Region
 
 	index map[string]int
+}
+
+// SourceLocaleOf is the project's source locale as a Locale, and
+// whether the caller named one. The source layer runs on it and on
+// nothing else (RFC 0005 §3.5).
+func (p *Project) SourceLocaleOf() (Locale, bool) {
+	for _, l := range p.Locales {
+		if l.IsSource {
+			return l, true
+		}
+	}
+	if p.SourceLocale != "" {
+		return Locale{Code: p.SourceLocale, IsSource: true}, true
+	}
+	return Locale{}, false
 }
 
 // RegionsFor are the measured regions of key, in a stable order.
@@ -253,7 +286,7 @@ type Checker interface {
 // still names the layer in Report.Layers and a reader can tell "clean"
 // from "not looked at".
 func Default() []Checker {
-	return []Checker{Structure{}, Parity{}, Completeness{}, Length{}, LocaleLayer{}}
+	return []Checker{Structure{}, Parity{}, Completeness{}, Length{}, LocaleLayer{}, Source{}}
 }
 
 // Precomputed is a Checker reporting findings computed elsewhere, such

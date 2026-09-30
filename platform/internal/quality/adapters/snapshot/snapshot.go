@@ -82,9 +82,10 @@ func (p *Port) Snapshot(ctx context.Context, project uuid.UUID) (app.ProjectSnap
 			Revision: m.Revision, Model: model(m.Source.Model), Text: m.Source.Text,
 			// The limit comes with the message because the length layer
 			// computes `max-length-exceeded` from it rather than waiting
-			// for the warning the server stored at write time
-			// (RFC 0005 §3.3).
-			MaxLength: maxLength(m.MaxLength),
+			// for the warning the server stored at write time (RFC 0005
+			// §3.3), and the description because the source layer reads
+			// its absence (§3.5).
+			MaxLength: maxLength(m.MaxLength), Description: m.Description,
 		})
 	}
 	for locale, byID := range trs.Translations {

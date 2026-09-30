@@ -123,7 +123,13 @@ func TestCheckFailsOnMissingTranslationsAndHonorsPolicy(t *testing.T) {
 
 	var deOnly checkJSON
 	w.json(&deOnly, "check", "--require-complete=de").want(t, ExitOK)
-	if !deOnly.Passed || deOnly.Warnings != 1 {
+	// Four warnings: the Japanese key nobody translated, and the three
+	// the source layer has about the fixture's own copy — "Checkout" is
+	// one word with no description, and neither interpolating message
+	// says what its placeholder holds. They are warnings and the run
+	// passes, which is what RFC 0005 §3.5 asks for: source copy is the
+	// product team's call.
+	if !deOnly.Passed || deOnly.Warnings != 4 {
 		t.Errorf("de required = %+v", deOnly)
 	}
 	w.json(&checkJSON{}, "check", "--require-complete=de", "--fail-on=warning").want(t, ExitCheckFailed)
@@ -138,7 +144,11 @@ func TestCheckHumanOutputReadsLikeCI(t *testing.T) {
 	r := w.run("check")
 	r.want(t, ExitCheckFailed)
 	for _, want := range []string{"✓ 3 messages discovered", "✓ message structures valid", "✓ parity valid",
-		"✓ de complete", "✗ ja 1 missing", "checkout.pay  missing translation", "Localization check failed: 1 error, 0 warnings."} {
+		"✓ de complete", "✗ ja 1 missing", "checkout.pay  missing translation",
+		// The three source-layer warnings about the fixture's own copy
+		// are reported beside the error and do not change the verdict.
+		"ambiguous-short", "missing-description",
+		"Localization check failed: 1 error, 3 warnings."} {
 		if !strings.Contains(r.stdout, want) {
 			t.Errorf("output lacks %q:\n%s", want, r.stdout)
 		}
