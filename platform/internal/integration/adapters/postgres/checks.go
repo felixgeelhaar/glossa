@@ -52,6 +52,9 @@ func check(r integrationsql.IntegrationGithubCheck) domain.Check {
 		at := r.CompletedAt.Time.UTC()
 		c.CompletedAt = &at
 	}
+	if r.OpenedAt.Valid {
+		c.OpenedAt = r.OpenedAt.Time.UTC()
+	}
 	// A ledger we cannot read is a report we lost, never a check we
 	// cannot run: the worst it costs is a repeated annotation once.
 	_ = json.Unmarshal(r.Runs, &c.Targets)
@@ -78,7 +81,8 @@ func (c *Checks) Open(ctx context.Context, in domain.Check) (domain.Check, error
 		row, err := integrationsql.New(tx).OpenCheck(ctx, integrationsql.OpenCheckParams{
 			ID: in.ID, TenantID: in.TenantID, InstallationID: in.InstallationID,
 			RepositoryID: in.RepositoryID, PullRequest: int32(in.PullRequest), //nolint:gosec // a PR number fits
-			Branch: in.Branch, HeadSha: in.HeadSHA, FromFork: in.FromFork, Now: in.RequestedAt,
+			Branch: in.Branch, HeadSha: in.HeadSHA, FromFork: in.FromFork,
+			OpenedAt: timestamptz(in.OpenedAt), Now: in.RequestedAt,
 		})
 		if err != nil {
 			return err

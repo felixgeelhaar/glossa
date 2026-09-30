@@ -75,6 +75,15 @@ func ts(t *time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: *t, Valid: true}
 }
 
+// timestamptz is ts for a time the domain spells as a value, where the
+// zero time means "nobody recorded one" and the column is NULL.
+func timestamptz(t time.Time) pgtype.Timestamptz {
+	if t.IsZero() {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: t, Valid: true}
+}
+
 func tsPtr(t pgtype.Timestamptz) *time.Time {
 	if !t.Valid {
 		return nil

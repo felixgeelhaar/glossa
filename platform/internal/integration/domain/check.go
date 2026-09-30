@@ -147,6 +147,18 @@ type Check struct {
 	// written. It survives a new commit — the comment is the pull
 	// request's, not the commit's.
 	CommentID int64
+	// OpenedAt is GitHub's `pull_request.created_at`: when the pull
+	// request was opened, not when Glossa first heard of it. It is what
+	// a policy's grace is measured against, so that tightening a rule
+	// cannot turn a pull request red for something its author did not do
+	// (RFC 0005 §4.3).
+	//
+	// Like CommentID it survives a new commit: a push must not make the
+	// pull request younger, or its grace would run a little further out
+	// with every one. The zero time is "nobody recorded when" — a row
+	// written before migration 0033, or a check that is not a pull
+	// request's — and then the project's current policy grades it.
+	OpenedAt time.Time
 	// Targets is keyed by Git connection.
 	Targets map[uuid.UUID]CheckTarget
 	State   CheckState

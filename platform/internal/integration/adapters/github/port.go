@@ -58,6 +58,7 @@ func (w *Webhooks) Parse(d app.WebhookDelivery) (app.WebhookEvent, error) {
 		out.Action, out.RepositoryID = e.Action, e.Repository.ID
 		out.PullRequest, out.HeadRef, out.HeadSHA = e.Number, e.PullRequest.Head.Ref, e.PullRequest.Head.SHA
 		out.Merged, out.FromFork = e.PullRequest.Merged, e.FromFork()
+		out.PullRequestOpenedAt = e.PullRequest.CreatedAt.UTC()
 	case *CheckRunEvent:
 		out.Action, out.RepositoryID = e.Action, e.Repository.ID
 		out.HeadSHA, out.CheckRunID, out.CheckRunName = e.CheckRun.HeadSHA, e.CheckRun.ID, e.CheckRun.Name

@@ -3,6 +3,7 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // Event is a parsed webhook payload Glossa handles.
@@ -100,6 +101,12 @@ type PullRequest struct {
 	User           Account `json:"user"`
 	Head           GitRef  `json:"head"`
 	Base           GitRef  `json:"base"`
+	// CreatedAt is when the pull request was opened. It is the one fact
+	// a policy's grace is measured against (RFC 0005 §4.3), and it has
+	// to come from the payload: a pull request opened before the App was
+	// installed, or before the policy was saved, is exactly the case the
+	// grace exists for, and any clock of ours would call it new.
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // PullRequestEvent is `pull_request` (opened, synchronize, reopened,

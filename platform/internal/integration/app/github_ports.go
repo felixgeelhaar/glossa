@@ -93,6 +93,10 @@ type WebhookEvent struct {
 	HeadSHA     string
 	Merged      bool
 	FromFork    bool
+	// PullRequestOpenedAt is GitHub's `pull_request.created_at`, which a
+	// policy's grace is measured against (RFC 0005 §4.3). The zero time
+	// is a payload that carried none.
+	PullRequestOpenedAt time.Time
 	// Check run, on `check_run.rerequested`. The check worker is a later
 	// slice (RFC 0004 §6.4); these are what it will read.
 	CheckRunID   int64

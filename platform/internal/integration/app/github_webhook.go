@@ -466,6 +466,12 @@ func (s *GitHubService) openCheck(ctx context.Context, ev WebhookEvent, connecti
 		ID: uuid.Must(uuid.NewV7()), TenantID: tenantOf(ctx), InstallationID: ev.InstallationID,
 		RepositoryID: ev.RepositoryID, PullRequest: ev.PullRequest, Branch: ev.HeadRef, HeadSHA: ev.HeadSHA,
 		FromFork: ev.FromFork,
+		// GitHub's own `created_at`, never s.now(): the grace exists for
+		// a pull request older than the policy, and a clock of ours
+		// would call every one of them new (RFC 0005 §4.3). The queue
+		// keeps the first value it is given, so a `synchronize` does not
+		// make the pull request younger.
+		OpenedAt: ev.PullRequestOpenedAt,
 		State:    domain.CheckQueued, RequestedAt: now, AvailableAt: now, UpdatedAt: now,
 	})
 	if err != nil {
