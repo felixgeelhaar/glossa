@@ -94,6 +94,18 @@ func (s *scenario) fixtureRepository() {
 		"GLOSSA_TENANT":  s.tenant,
 		"GLOSSA_PROJECT": s.project,
 		"GLOSSA_TOKEN":   s.ciToken,
+		// This is a CI runner, and the workflow's steps have to run as
+		// ones: `glossa check` and `glossa capture --check` record their
+		// run by default in CI (RFC 0005 §9), and the run they record is
+		// what the pull request's check renders (§12.3). Without it the
+		// test would run the workflow's commands as a laptop does, and
+		// §12.3 would be measuring something no product does.
+		//
+		// The branch and the commit are not set here on purpose: the
+		// steps that are of a commit pass `--commit` and `--branch`
+		// themselves, as the workflow does, and a branch in the
+		// environment would silently retarget the pushes to `main`.
+		"CI": "true",
 	}}
 
 	// The workflow is what the test runs the commands of; it has to be
@@ -775,6 +787,31 @@ type checkJSON struct {
 	Waived      int               `json:"waived"`
 	Conclusion  domain.Conclusion `json:"conclusion"`
 	Passed      bool              `json:"passed"`
+	// Record is what became of putting this run on the project's record
+	// (RFC 0005 §9). It is the run the pull request's check renders
+	// (§12.3), so a run that was not recorded is a pull request with
+	// nothing of the terminal's to show.
+	Record *recordJSON `json:"record"`
+}
+
+// recordJSON is `glossa check`'s record block.
+type recordJSON struct {
+	Recorded   bool   `json:"recorded"`
+	Run        string `json:"run"`
+	Conclusion string `json:"conclusion"`
+	Why        string `json:"why"`
+}
+
+// recordWhy says why a run was not recorded, for a gap that has to
+// name the cause rather than the symptom.
+func recordWhy(r *recordJSON) string {
+	switch {
+	case r == nil:
+		return "recording was never asked for: this run did not think it was in CI"
+	case r.Why != "":
+		return r.Why
+	}
+	return "no reason given"
 }
 
 func layerNames(ls []domain.Layer) string {

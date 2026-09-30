@@ -227,13 +227,36 @@ func (s *scenario) agreement() {
 	// The CLI's side. The workflow runs two commands on one commit, and
 	// the second — `glossa capture --check` — is the one that has every
 	// layer the server has, because the visual layer needs a browser
-	// the plain check has no access to. That is the comparable run; the
+	// the plain check has no access to. That is the run CI records for
+	// this commit, and therefore the one the pull request renders; the
 	// plain `glossa check` document is §12.2's artifact.
 	cli := s.cliCheck
 	s.agreedWith = "`glossa check`"
-	if s.cliCapture.Check != nil {
+	switch {
+	case s.cliCaptureHead != nil && s.cliCaptureHead.Check != nil:
+		cli = *s.cliCaptureHead.Check
+		s.agreedWith = "`glossa capture --check` on this commit"
+		if rec := cli.Record; rec == nil || !rec.Recorded {
+			s.gap("12.3", "`glossa capture --check` did not record its run for this commit (%v), so there "+
+				"is no run for the pull request to render and the check can only show its own reduced view",
+				recordWhy(rec))
+		}
+	case s.cliCapture.Check != nil:
 		cli = *s.cliCapture.Check
 		s.agreedWith = "`glossa capture --check`"
+	}
+	switch {
+	case strings.Contains(run.Summary, "run CI recorded for this commit"):
+		s.note("12.3", "The check run renders the `glossa check` run CI recorded for `%s` — one computation, "+
+			"two presentations — rather than computing a second, narrower one of its own.", short(headCommit))
+	case strings.Contains(run.Summary, "No `glossa check` run was recorded for this commit"):
+		s.gap("12.3", "the check run says no `glossa check` run was recorded for this commit, so it is "+
+			"showing Glossa's own reduced view of the branch and not the run the terminal produced. That is "+
+			"the honest fallback, and it is not the exit criterion: §12.3 asks the two surfaces to agree, "+
+			"which they can only do when the pull request renders CI's run")
+	default:
+		s.gap("12.3", "the check run's summary says neither which run it rendered nor that it had none to "+
+			"render, so a reader cannot tell what was actually checked")
 	}
 	cliLayers := byLayer(cli.Findings)
 
@@ -271,21 +294,18 @@ func (s *scenario) agreement() {
 		})
 	}
 	if !allAgree(s.agreeRows) {
-		// The cause, once, rather than the symptom per row. It is not a
-		// fixture accident: the two surfaces compute different findings
-		// over different scopes.
-		s.gap("12.3", "the terminal and the pull request do not reach the same verdict, and the reason is "+
-			"structural rather than a fixture accident. `glossa check` **recomputes every layer over the "+
-			"whole project** — `snapshot.FromServer` reads the active messages and every translation, and "+
-			"`quality/app.RunIn` runs Structure, Parity and Completeness over all of them. The pull-request "+
-			"check **reads what is already stored, for the branch's own keys only**: "+
-			"`integration/adapters/sources.Checks.qaFindings` returns nothing at all when the branch proposes "+
-			"no new key and no source change (`len(branchKeys) == 0`), and otherwise returns the warnings "+
-			"Localization kept when each translation was *written* plus a live terminology check. A parity "+
-			"break a later source revision created is stored nowhere, so the pull request cannot see it; and "+
-			"missing and outdated translations are rolled up to **one finding per locale** on the pull "+
-			"request against **one per message and locale** in the terminal. Two surfaces, two scopes, two "+
-			"arithmetics. The rows above are where that shows.")
+		// The cause, once, rather than the symptom per row. The two
+		// surfaces are meant to be one computation rendered twice now —
+		// CI records what `glossa check` found and the pull request
+		// renders that run — so a disagreement can only be one of three
+		// things, and the row that differs says which.
+		s.gap("12.3", "the terminal and the pull request do not reach the same verdict. The check renders "+
+			"the run CI recorded for the commit (`integration/adapters/sources.Checks.RecordedRun` → "+
+			"`quality/app.ListFindings`), so the numbers can differ only where the rendering is not "+
+			"faithful: the run the check found is not the run compared here (another trigger, another "+
+			"commit, a later run of the same commit), the report adds or drops findings the run holds, or "+
+			"the version grading the pull request is not the version that graded the run (a policy grace, "+
+			"RFC 0005 §4.3 — the summary names the version it used). The rows above are where it shows.")
 		for _, row := range s.agreeRows {
 			if !row.Agrees {
 				s.t.Logf("  %s: `glossa check` %s, the check run %s", row.What, row.CLI, row.PR)

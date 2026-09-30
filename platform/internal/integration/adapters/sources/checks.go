@@ -20,6 +20,7 @@ import (
 	knowledgeapp "github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
 	knowledgedomain "github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
+	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
 	releasedelivery "github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
@@ -39,6 +40,11 @@ type Checks struct {
 	knowledge    *knowledgeapp.Service
 	usages       *contextapp.Service
 	release      *releaseapp.Service
+	// quality is where the run CI recorded is read from (RFC 0005
+	// §12.3), through Quality's own application service and never its
+	// tables. Nil in a deployment that does not wire it, and the check
+	// then always renders its reduced view — and says so.
+	quality *qualityapp.Service
 	// edgeURL is GLOSSA_EDGE_PUBLIC_URL; without one the comment names
 	// no manifest, because there is no address to give.
 	edgeURL string
@@ -51,6 +57,7 @@ type ChecksDeps struct {
 	Knowledge    *knowledgeapp.Service
 	Usages       *contextapp.Service
 	Release      *releaseapp.Service
+	Quality      *qualityapp.Service
 	EdgeURL      string
 }
 
@@ -58,7 +65,8 @@ type ChecksDeps struct {
 func NewChecks(d ChecksDeps) *Checks {
 	return &Checks{
 		catalog: d.Catalog, localization: d.Localization, knowledge: d.Knowledge,
-		usages: d.Usages, release: d.Release, edgeURL: strings.TrimRight(d.EdgeURL, "/"),
+		usages: d.Usages, release: d.Release, quality: d.Quality,
+		edgeURL: strings.TrimRight(d.EdgeURL, "/"),
 	}
 }
 
@@ -79,6 +87,85 @@ func (c *Checks) Policy(ctx context.Context, project uuid.UUID) (checkpolicy.Pol
 		return checkpolicy.Policy{}, err
 	}
 	return p.Settings.Policy(), nil
+}
+
+// maxRunPages bounds the read of a recorded run's findings. A run holds
+// at most quality's MaxRunFindings, and the page size is the API's, so
+// this is that ceiling expressed in pages rather than a limit of its
+// own: a run is read whole or reported as truncated, never quietly
+// shortened.
+const maxRunPages = qualityapp.MaxRunFindings / pagination.MaxPageSize
+
+// RecordedRun implements app.CheckSources: the newest check run
+// recorded for this commit, with its findings as they stand now.
+//
+// It is one read of one stored run — the same read `glossa findings`
+// and Studio's quality view make, through the same application service
+// — so the pull request cannot be looking at a different arithmetic
+// from theirs. The commit is the key: a branch moves under a pull
+// request, and the run that graded a commit is the run that graded that
+// commit forever (RFC 0005 §12.3).
+func (c *Checks) RecordedRun(ctx context.Context, project uuid.UUID, commit string) (app.RecordedRun, bool, error) {
+	if c.quality == nil || commit == "" {
+		return app.RecordedRun{}, false, nil
+	}
+	run, ok, err := c.reportedRun(ctx, project, commit)
+	if err != nil || !ok {
+		return app.RecordedRun{}, false, err
+	}
+	out := app.RecordedRun{
+		ID: run.ID, Ref: run.Ref, Commit: run.Commit, Trigger: string(run.Trigger),
+		PolicyVersion: run.PolicyVersion, Layers: run.Layers,
+		StartedAt: run.StartedAt, CompletedAt: run.CompletedAt,
+	}
+	page := pagination.Page{Size: pagination.MaxPageSize}
+	for range maxRunPages {
+		got, err := c.quality.ListFindings(ctx, project, qualityapp.FindingQuery{Run: run.ID}, page)
+		if err != nil {
+			return app.RecordedRun{}, false, err
+		}
+		for _, f := range got.Items {
+			out.Findings = append(out.Findings, f.Finding)
+		}
+		if got.Next == nil {
+			return out, true, nil
+		}
+		if page, err = pagination.Parse(&page.Size, got.Next); err != nil {
+			return app.RecordedRun{}, false, err
+		}
+	}
+	out.Truncated = true
+	return out, true, nil
+}
+
+// reportedRun is the newest run of this commit that somebody *reported*
+// — `glossa check` in CI, the pull-request check, or an explicit API
+// call — and never one of the server's own jobs.
+//
+// The distinction matters and is not a nicety. A capture upload records
+// a `capture` run of the same commit holding the visual pass and
+// nothing else, and the write-time job records a `write` run of the
+// catalog layers alone. Either would be "the newest run of this commit"
+// and neither is the check that gated the build; rendering one would
+// put a pull request on a partial verdict and call it the terminal's.
+func (c *Checks) reportedRun(ctx context.Context, project uuid.UUID, commit string) (quality.CheckRun, bool, error) {
+	var newest quality.CheckRun
+	var found bool
+	for _, trigger := range qualityapp.ReportableTriggers {
+		runs, _, err := c.quality.ListCheckRuns(ctx, project,
+			qualityapp.RunFilter{Commit: commit, Trigger: string(trigger)},
+			pagination.Page{Size: 1})
+		if err != nil {
+			return quality.CheckRun{}, false, err
+		}
+		if len(runs) == 0 {
+			continue
+		}
+		if !found || runs[0].StartedAt.After(newest.StartedAt) {
+			newest, found = runs[0], true
+		}
+	}
+	return newest, found, nil
 }
 
 // BranchStatus implements app.CheckSources.
@@ -374,11 +461,55 @@ func (c *Checks) BranchUsages(ctx context.Context, project uuid.UUID, branch str
 			return out, err
 		}
 	}
+	if out.Where, err = c.where(ctx, project, branch); err != nil {
+		return out, err
+	}
 	cov, err := c.usages.CaptureCoverage(ctx, project, branch)
 	if err != nil {
 		return out, err
 	}
 	out.Captured, out.NotCaptured = cov.Captured, cov.NotCaptured()
+	return out, nil
+}
+
+// maxSitePages bounds the scan for where each key is used. A check run
+// carries at most MaxAnnotations findings on the diff, so knowing where
+// two thousand keys live is already far more than can be shown; the
+// bound is there so a pathological branch cannot make the check page
+// forever.
+const maxSitePages = 20
+
+// where is one usage site per key the branch's build has, which is what
+// puts a finding on the diff.
+//
+// The first usage of a key wins. A key used in five components has five
+// true answers and the check can only annotate one line; taking the
+// first keeps the answer stable between renders, which matters more
+// than which of the five it is — an annotation that moved every time
+// the job ran would be sent again as a new one.
+func (c *Checks) where(ctx context.Context, project uuid.UUID, branch string) (map[string]app.UsageSite, error) {
+	out := map[string]app.UsageSite{}
+	page := pagination.Page{Size: pagination.MaxPageSize}
+	for range maxSitePages {
+		p, err := c.usages.ListUsages(ctx, project, branch, contextapp.UsageFilter{}, page)
+		if err != nil {
+			return nil, err
+		}
+		for _, u := range p.Usages {
+			if u.File == "" || u.Line <= 0 {
+				continue
+			}
+			if _, seen := out[u.Key]; !seen {
+				out[u.Key] = app.UsageSite{File: u.File, Line: u.Line}
+			}
+		}
+		if p.Next == nil {
+			return out, nil
+		}
+		if page, err = pagination.Parse(&page.Size, p.Next); err != nil {
+			return out, err
+		}
+	}
 	return out, nil
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
@@ -64,6 +65,9 @@ type fakeStore struct {
 	// days a recorded run restated.
 	trend    []domain.DailyFindings
 	rolledUp []time.Time
+
+	// published are the domain events the writes raised, in order.
+	published []outbox.Event
 
 	// What the last ListFindings and run lookup passed down.
 	lastTrendFrom time.Time
@@ -194,6 +198,16 @@ func (f *fakeStore) InsertFindings(_ context.Context, _, _ uuid.UUID, fs []domai
 		panic("not on this path")
 	}
 	f.inserted = append(f.inserted, fs...)
+	return nil
+}
+
+// Publish keeps the events a write raised, so a test can ask what the
+// rest of the platform was told.
+func (f *fakeStore) Publish(_ context.Context, e outbox.Event) error {
+	if !f.records {
+		panic("not on this path")
+	}
+	f.published = append(f.published, e)
 	return nil
 }
 

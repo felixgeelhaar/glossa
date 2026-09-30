@@ -1,0 +1,239 @@
+package app_test
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
+	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+)
+
+// Where the pull request's findings come from (RFC 0005 §12.3): the run
+// CI recorded for the commit, or — said out loud — Glossa's own reduced
+// view of the branch.
+
+// recordedRunOf is the run the server stores when CI records what
+// `glossa check` found (`createCheckRun`), read back as the check reads
+// it: the findings at the severity the policy gave them, with the
+// project's waivers applied, and the layers that actually ran.
+//
+// It carries no counts and no conclusion, because a stored run's counts
+// are history and the report grades again — against the version that
+// applies to *this* pull request, which is not always the version that
+// recorded the run (RFC 0005 §4.3).
+func recordedRunOf(r qa.Report, ref string) app.RecordedRun {
+	return app.RecordedRun{
+		ID: uuid.New(), Ref: ref, Commit: headSHA, Trigger: string(quality.TriggerCLI),
+		PolicyVersion: r.PolicyVersion, Layers: r.Layers, Findings: r.Findings,
+	}
+}
+
+// TestTheCheckSaysWhenItIsShowingItsOwnReducedView is the other half of
+// the exit criterion, and the half that keeps it honest.
+//
+// A repository that pushes its catalogs and uploads its usages but
+// never runs `glossa check` has no run to render. The check still
+// reports — a pull request with no verdict helps nobody — but what it
+// reports is a much weaker claim than "`glossa check` found nothing",
+// and it looks exactly the same. So it says so, in the check run and in
+// the comment. Falling back quietly would put the divergence this
+// milestone exists to remove back where nobody could see it.
+func TestTheCheckSaysWhenItIsShowingItsOwnReducedView(t *testing.T) {
+	f := newFixture(t)
+	f.connected(t)
+	f.openPR(t, "pull_request.opened", "d-open")
+	f.ci(headSHA)
+	f.withoutACheckRun()
+	f.sources.set(func(m *memSources) {
+		m.status.NewKeys = []string{"checkout.pay"}
+		m.quality.Untranslated = map[string]int{"de": 1, "fr": 1}
+	})
+	f.runCheck(t)
+
+	run := f.theCheck(t)
+	if run.Status != app.CheckCompleted {
+		t.Fatalf("check run = %+v: a repository with no `glossa check` still gets a verdict", run)
+	}
+	if !strings.Contains(run.Summary, app.ReducedViewNotice) {
+		t.Fatalf("the summary does not say no run was recorded:\n%s", run.Summary)
+	}
+	for _, want := range []string{"reduced view", "`length`", "`visual`", "Add `glossa check`"} {
+		if !strings.Contains(run.Summary, want) {
+			t.Fatalf("the summary does not say %q, so a reader cannot tell what was checked:\n%s",
+				want, run.Summary)
+		}
+	}
+	if strings.Contains(run.Summary, "run CI recorded for this commit") {
+		t.Fatalf("a reduced view claimed to be the run CI recorded:\n%s", run.Summary)
+	}
+	// The comment says it too: a reader who only ever opens the comment
+	// must not be left thinking this was the check CI ran.
+	if !strings.Contains(f.theComment(t).Body, app.ReducedViewNotice) {
+		t.Fatalf("the sticky comment does not say which verdict this is:\n%s", f.theComment(t).Body)
+	}
+}
+
+// TestTheCheckWaitsForTheRunBeforeItReports: the recorded run is the
+// third thing CI uploads, and the check waits for it as it waits for
+// the other two.
+//
+// Reporting the reduced view first and the real verdict a minute later
+// would mean a pull request that goes green and then red — the worst
+// possible order, because the green one is the one people merge on.
+func TestTheCheckWaitsForTheRunBeforeItReports(t *testing.T) {
+	policy := checkpolicy.Policy{Version: 7, FailOn: checkpolicy.Error}
+	commit := checkoutBranch(t)
+	cli := qa.Run(commit, policy, qa.Default()...)
+
+	f := newFixture(t)
+	f.connected(t)
+	f.openPR(t, "pull_request.opened", "d-open")
+	f.ci(headSHA)
+	f.sources.set(func(m *memSources) { serverView(m, commit, policy) })
+	f.runCheck(t)
+	if run := f.theCheck(t); run.Status != app.CheckQueued {
+		t.Fatalf("check run = %+v: the push and the usages are in, but no `glossa check` run is", run)
+	}
+
+	// The run lands, which is what quality.check_run.recorded wakes the
+	// check for.
+	f.recorded(headSHA, recordedRunOf(cli, branchName))
+	if err := f.wakeCheck(); err != nil {
+		t.Fatal(err)
+	}
+	f.runCheck(t)
+
+	run := f.theCheck(t)
+	if run.Status != app.CheckCompleted || run.Conclusion != string(cli.Conclusion) {
+		t.Fatalf("check run = %+v, want the terminal's %q", run, cli.Conclusion)
+	}
+}
+
+// TestARenderedRunIsAnnotatedWhereTheProductUsesTheKey: a finding
+// `glossa check` recorded carries no file, and the pull request puts it
+// on the diff anyway.
+//
+// A catalog is not a file, so nothing the terminal computes knows where
+// a message is rendered. Context does — that is what a usages upload is
+// — and filling the locus in at report time is what makes a check run
+// something a reviewer can act on rather than a list to cross-reference
+// by hand. It must not touch the numbers: the same run, located or not,
+// reaches the same verdict.
+func TestARenderedRunIsAnnotatedWhereTheProductUsesTheKey(t *testing.T) {
+	run := app.RecordedRun{
+		ID: uuid.New(), Ref: branchName, Commit: headSHA, Trigger: string(quality.TriggerCLI),
+		PolicyVersion: 7, Layers: []quality.Layer{quality.LayerParity},
+		Findings: []quality.Finding{quality.New(quality.Finding{
+			Layer: quality.LayerParity, Code: "missing-argument", Severity: checkpolicy.Error,
+			Locus:   quality.Locus{Key: "checkout.pay", Locale: "fr"},
+			Message: "{$amount} is gone",
+		})},
+	}
+	in := app.CheckInput{
+		Policy: checkpolicy.Policy{Version: 7, FailOn: checkpolicy.Error}, Recorded: &run,
+		Status: app.BranchStatus{Name: branchName, Outdated: map[string]int{}},
+		Usages: app.BranchUsages{
+			Where: map[string]app.UsageSite{"checkout.pay": {File: "src/Pay.vue", Line: 12}},
+		},
+	}
+	located := app.BuildCheckReport(in)
+	if len(located.Annotations) != 1 {
+		t.Fatalf("annotations = %+v, want the one the usages placed", located.Annotations)
+	}
+	if a := located.Annotations[0]; a.Path != "src/Pay.vue" || a.StartLine != 12 || a.Level != "failure" {
+		t.Fatalf("annotation = %+v, want a failure on src/Pay.vue:12", a)
+	}
+
+	// The same run with nowhere to put it: fewer annotations, the same
+	// verdict and the same arithmetic.
+	in.Usages.Where = nil
+	bare := app.BuildCheckReport(in)
+	if len(bare.Annotations) != 0 {
+		t.Fatalf("annotations = %+v, want none: nothing said where the key is used", bare.Annotations)
+	}
+	if bare.Conclusion != located.Conclusion || bare.Errors != located.Errors ||
+		bare.Warnings != located.Warnings || bare.Waived != located.Waived {
+		t.Fatalf("locating a finding moved the verdict: %q %d/%d/%d against %q %d/%d/%d",
+			bare.Conclusion, bare.Errors, bare.Warnings, bare.Waived,
+			located.Conclusion, located.Errors, located.Warnings, located.Waived)
+	}
+}
+
+// TestARunOfAnotherCommitIsNotThisCommitsVerdict: the check matches on
+// the commit and never on the branch.
+//
+// A branch moves under a pull request with every push. A run belongs to
+// the commit it graded, and grading a new commit with an older commit's
+// findings would be the same untruth as computing a second thing — it
+// would just be harder to notice.
+func TestARunOfAnotherCommitIsNotThisCommitsVerdict(t *testing.T) {
+	policy := checkpolicy.Policy{Version: 7, FailOn: checkpolicy.Error}
+	commit := checkoutBranch(t)
+	cli := qa.Run(commit, policy, qa.Default()...)
+	if cli.Conclusion != quality.ConclusionFailure {
+		t.Fatalf("the fixture passes `glossa check` (%+v); the test would prove nothing", cli.Counts)
+	}
+
+	f := newFixture(t)
+	f.connected(t)
+	f.openPR(t, "pull_request.opened", "d-open")
+	f.ci(headSHA)
+	f.withoutACheckRun()
+	f.sources.set(func(m *memSources) { m.policy = policy })
+	// The same branch, a commit ago. It must not grade this one.
+	f.recorded("0123456789abcdef0123456789abcdef01234567", recordedRunOf(cli, branchName))
+	f.runCheck(t)
+
+	run := f.theCheck(t)
+	if !strings.Contains(run.Summary, app.ReducedViewNotice) {
+		t.Fatalf("the check rendered a run of another commit:\n%s", run.Summary)
+	}
+	if run.Conclusion == app.ConclusionFailure {
+		t.Fatalf("this commit was failed by the run of a commit it is not: %+v", run)
+	}
+}
+
+// TestTheRenderedRunIsTheWholeReport: nothing the read model can see is
+// added to a recorded run.
+//
+// It is tempting to keep the unknown keys and the invalid messages —
+// the pull request is the only surface that has the usages document, so
+// they are real and they are useful. But adding them makes the numbers
+// differ from the terminal's again, and a roll-up per locale on top of
+// one finding per message counts the same gap twice. Whatever else the
+// pull request grows, it may not grow that.
+func TestTheRenderedRunIsTheWholeReport(t *testing.T) {
+	policy := checkpolicy.Policy{Version: 7, FailOn: checkpolicy.Error}
+	run := app.RecordedRun{
+		ID: uuid.New(), Ref: branchName, Commit: headSHA, Trigger: string(quality.TriggerCLI),
+		PolicyVersion: 7, Layers: []quality.Layer{quality.LayerParity},
+		Findings: []quality.Finding{quality.New(quality.Finding{
+			Layer: quality.LayerParity, Code: "missing-argument", Severity: checkpolicy.Warning,
+			Locus:   quality.Locus{Key: "checkout.pay", Locale: "fr"},
+			Message: "{$amount} is gone",
+		})},
+	}
+	rep := app.BuildCheckReport(app.CheckInput{
+		Policy: policy, Recorded: &run,
+		Status: app.BranchStatus{
+			Name: branchName, Outdated: map[string]int{"fr": 3},
+			Invalid: []app.InvalidMessage{{Key: "checkout.total", Code: "invalid_content", Detail: "unmatched"}},
+		},
+		Quality: app.BranchQuality{Locales: []string{"de", "fr"}, Untranslated: map[string]int{"de": 4}},
+		Usages:  app.BranchUsages{Unknown: []app.UnknownKey{{Key: "stray", File: "src/A.vue", Line: 1}}},
+	})
+	if len(rep.Findings) != 1 || rep.Findings[0].Code != "missing-argument" {
+		t.Fatalf("findings = %+v, want exactly the recorded run's one", rep.Findings)
+	}
+	if rep.Errors != 0 || rep.Warnings != 1 {
+		t.Fatalf("counts = %d errors, %d warnings; the branch status leaked into the verdict",
+			rep.Errors, rep.Warnings)
+	}
+	if rep.Conclusion != app.ConclusionSuccess {
+		t.Fatalf("conclusion = %q: nothing the recorded run did not find may fail this commit", rep.Conclusion)
+	}
+}

@@ -191,7 +191,7 @@ func runCaptureCmd(ctx context.Context, inv *invocation, args []string) error {
 		}
 	}
 	if f.check {
-		out.Check = inv.finishCheck(cfg, header.Application, out)
+		out.Check = inv.finishCheck(ctx, cfg, header, out)
 	}
 	if err := inv.emit(out, func(pr *printer) { printCapture(pr, out) }); err != nil {
 		return err

@@ -1212,20 +1212,40 @@ reopened writes a check row and nothing else — GitHub's ten seconds are
 not the place for a call back to GitHub. The check worker claims that
 row (`FOR UPDATE SKIP LOCKED`, leased), creates the **Glossa** check run
 as `queued` for the head SHA, and completes it once that commit's
-`glossa push` *and* its usages build have been ingested. Readiness is
-**derived, never remembered**: the branch's head commit says the push
-landed, a current build on that commit says the usages did, so an event
-that arrives twice, late or never changes nothing. If neither arrives
-within 30 minutes the check completes `neutral` with "no Glossa CI run
-for this commit"; a leased scheduler job (`integration.github.
-check_timeout`) makes the waiting rows due again and the worker — the
-one place that completes a check — concludes.
+`glossa push`, its usages build **and its `glossa check` run** have been
+ingested. Readiness is **derived, never remembered**: the branch's head
+commit says the push landed, a current build on that commit says the
+usages did, and a recorded check run of that commit says the check ran,
+so an event that arrives twice, late or never changes nothing. If none
+of it arrives within 30 minutes the check completes `neutral` with "no
+Glossa CI run for this commit"; if the push and the usages arrived but
+no run did, the check reports Glossa's own **reduced view** and says so
+(below). A leased scheduler job (`integration.github.check_timeout`)
+makes the waiting rows due again and the worker — the one place that
+completes a check — concludes.
 
-The report is the project's check policy applied to what the contexts
-say: new keys, the messages the last push could not accept, key
-conflicts, untranslated new keys per locale, the QA the server already
-holds (max\_length with the text, terminology from M2), unknown keys
-with their `file:line`, and what merging will make outdated. The policy
+**The report is the run CI recorded** (RFC 0005 §12.3). `glossa check`
+(and `glossa capture --check`, the same check with the visual layer)
+records what it found through `createCheckRun`; the check finds that run
+**by the commit**, not by the ref — a branch moves, a verdict belongs to
+the commit it graded — and renders it: conclusion, per-layer counts,
+annotations on the located findings, the waived listed apart, the policy
+version. One computation, two presentations, so the terminal and the
+pull request cannot disagree by construction. Only a run somebody
+*reported* counts (`cli`, `pull_request`, `api`): the capture upload and
+the write-time job record partial runs of the same commit, and rendering
+one would put a pull request on half a verdict. Quality is read through
+`app.CheckSources.RecordedRun`, never out of its tables.
+
+Where no run was recorded, the check falls back to what Integration can
+see for itself — new keys, the messages the last push could not accept,
+key conflicts, untranslated new keys per locale, the QA the server
+already holds (max\_length with the text, terminology from M2), unknown
+keys with their `file:line`, and what merging will make outdated — and
+**says in the summary and in the comment that that is what it is**, with
+the layers it does not cover named. A green check has to say what was
+actually checked; a silent fallback would be the old divergence, hidden.
+The policy
 is `glossa check`'s own — `kernel/checkpolicy` is the **policy document**
 (RFC 0005 §4.1) and its evaluator, and the CLI's `qa.Policy` is an alias
 of it, so the pull request and the terminal can never disagree. Beside
@@ -1256,8 +1276,9 @@ Two rules were learned the hard way and are enforced in the schema:
   comment rather than writing a second.
 
 `catalog.branch.pushed`, `context.build.ingested`,
-`localization.translation.revised` and `.reviewed` only **wake** the
-row (subscriber `integration.github_check`); `check_run.rerequested`
+`quality.check_run.recorded`, `localization.translation.revised` and
+`.reviewed` only **wake** the row (subscriber
+`integration.github_check`); `check_run.rerequested`
 clears its runs and wakes it. Metrics: `glossa_github_checks_total` and
 `glossa_github_check_latency_seconds` by conclusion (from the
 pull-request event to the completed check), `glossa_github_check_jobs_

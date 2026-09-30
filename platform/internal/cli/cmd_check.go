@@ -267,7 +267,7 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	// The record is filed before --fix edits anything: the check graded
 	// what it found, and a record of the fixed catalog would be a record
 	// of a project nobody has checked.
-	out.Record = inv.recordCheck(ctx, cfg, run, out, f)
+	out.Record = inv.recordCheck(ctx, run, out, f, detectBuild(ctx, inv.env.getenv, cfg.Dir()))
 	if f.fix {
 		// After the run is graded and before it is printed: --fix edits
 		// what the check found, and what the check found is what it

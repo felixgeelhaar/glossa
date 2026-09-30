@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres/qualitysql"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -34,11 +35,24 @@ func NewTransactor(uow *db.UnitOfWork) *Transactor { return &Transactor{uow: uow
 // InTenant implements app.Transactor.
 func (t *Transactor) InTenant(ctx context.Context, fn func(context.Context, app.Store) error) error {
 	return t.uow.InTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
-		return fn(ctx, &store{q: qualitysql.New(tx)})
+		return fn(ctx, &store{q: qualitysql.New(tx), tx: tx})
 	})
 }
 
-type store struct{ q *qualitysql.Queries }
+type store struct {
+	q *qualitysql.Queries
+	// tx is the same transaction the queries run in, kept so a domain
+	// event lands with the rows that raised it.
+	tx *db.TenantTx
+}
+
+// Publish implements app.Store: the event goes in the transaction that
+// wrote the run, so a rollback leaves no announcement of a run nobody
+// stored.
+func (s *store) Publish(ctx context.Context, e outbox.Event) error {
+	_, err := outbox.Publish(ctx, s.tx, e)
+	return err
+}
 
 var _ app.Store = (*store)(nil)
 

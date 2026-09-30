@@ -379,7 +379,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	gh, err := newGitHub(uow, checkSources{
 		catalog: catalog, localization: localization, knowledge: knowledge,
-		usages: usageContext, release: release,
+		usages: usageContext, release: release, quality: quality,
 	}, deps)
 	if err != nil {
 		return contexts{}, err
@@ -479,6 +479,9 @@ type checkSources struct {
 	knowledge    *knowledgeapp.Service
 	usages       *contextapp.Service
 	release      *releaseapp.Service
+	// quality holds the check runs CI records, which is what the pull
+	// request renders (RFC 0005 §12.3).
+	quality *qualityapp.Service
 }
 
 // newGitHub wires the GitHub integration (RFC 0004 §6) when the
@@ -522,7 +525,7 @@ func newGitHub(uow *db.UnitOfWork, src checkSources, deps contextDeps) (*integra
 		Checks:       integrationpg.NewChecks(uow),
 		Sources: integrationsources.NewChecks(integrationsources.ChecksDeps{
 			Catalog: src.catalog, Localization: src.localization, Knowledge: src.knowledge,
-			Usages: src.usages, Release: src.release, EdgeURL: deps.edgeURL,
+			Usages: src.usages, Release: src.release, Quality: src.quality, EdgeURL: deps.edgeURL,
 		}),
 		StudioURL:      deps.studioURL,
 		Metrics:        integrationmetrics.NewWebhooks(deps.registerer),

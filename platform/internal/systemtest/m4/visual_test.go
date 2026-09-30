@@ -130,6 +130,14 @@ func (s *scenario) captureAndCheck() {
 		if out.Upload != nil && out.Upload.Findings > uploaded {
 			uploaded = out.Upload.Findings
 		}
+		// The run of the *pull request's* head commit is the one the
+		// check renders (§12.3), so §12.3 compares against this
+		// document and not against the second sighting's, which is of
+		// another commit.
+		if commit == headCommit {
+			head := out
+			s.cliCaptureHead = &head
+		}
 		if res.code != int(cli.ExitCheckFailed) {
 			s.note("12.2", "`glossa capture --check` (sighting %d, `%s`) exited %d.", sighting+1, short(commit), res.code)
 		}
@@ -203,69 +211,78 @@ func (s *scenario) cropRegion() {
 		s.crop.Why = "there was no capture check to read a region from"
 		return
 	}
+	// Where the region is: the message's captures, the Japanese one.
+	// The branch matters: the endpoint answers with the captures of the
+	// *current* builds, and this capture was taken by the pull
+	// request's CI.
+	var mc messageCaptures
+	s.owner.do(http.MethodGet, s.projectPath("/messages/"+keyButton+"/captures?branch="+url.QueryEscape(prBranch)),
+		nil, http.StatusOK, &mc)
+	var ids []string
+	var captureID, route string
+	var region box
+	var imageW, imageH, viewportW int
+	for _, c := range mc.Captures {
+		ids = append(ids, short(c.ID)+" "+c.Locale)
+		if c.Locale != "ja" || len(c.Regions) == 0 {
+			continue
+		}
+		captureID, route, region = c.ID, c.Route, c.Regions[0].Box
+		imageW, imageH, viewportW = c.Image.Width, c.Image.Height, c.Viewport.Width
+	}
+	if captureID == "" || region.Width == 0 {
+		s.gap("12.2", "no Japanese capture of `%s` with a region box: `…/messages/%s/captures?branch=%s` "+
+			"answered with %d captures (%s)", keyButton, keyButton, prBranch, len(mc.Captures),
+			strings.Join(ids, ", "))
+		s.crop.Why = "no region box"
+		return
+	}
+
 	// The finding to crop is the server's, not the CLI's. A probe
 	// finding is minted in the page, where there is no capture yet —
 	// the CLI's own copy carries `locus.region` and an empty
 	// `locus.capture` — and the capture id is filled in at the ingest,
 	// which is where a finding becomes something Studio can point at an
 	// image.
+	//
+	// It is read off the **capture** and not out of `listFindings`,
+	// which reads one check run. The run that saw this screenshot is the
+	// one that ingested it; the project's newest run is the
+	// `glossa check` CI recorded — the run the pull request renders
+	// (§12.3) — and that one never saw an image, so its visual findings
+	// carry no capture and no region. `listCaptureFindings` says as
+	// much in its own description, and this is the query it is for.
 	var finding *domain.Finding
-	stored := queryFindings(s.owner, s.projectPath("/findings"), url.Values{"layer": {string(domain.LayerVisual)}})
+	stored := queryFindings(s.owner, s.projectPath("/captures/"+captureID+"/findings"), nil)
 	for i, f := range stored {
-		if f.Code == "text-clipped" && f.Locus.Locale == "ja" && f.Locus.Key == keyButton {
+		if f.Code == "text-clipped" && f.Locus.Key == keyButton {
 			finding = &stored[i]
 			break
 		}
 	}
 	if finding == nil {
-		s.crop.Why = fmt.Sprintf("the server stored %d visual findings, so there is no region to read back", len(stored))
-		s.gap("12.2", "the region the finding names cannot be read back and cropped: the server stored %d "+
-			"visual findings, and %d probe findings were reported as uploaded. `glossa capture --upload` "+
+		s.crop.Why = fmt.Sprintf("the capture carries %d findings, so there is no region to read back", len(stored))
+		s.gap("12.2", "the region the finding names cannot be read back and cropped: capture %s carries %d "+
+			"findings, and %d probe findings were reported as uploaded. `glossa capture --upload` "+
 			"carries the probe pass's findings on the manifest (`cli/capture.Findings`) and the ingest "+
 			"records them (`context/app.recordFindings`), so the break is in one of the three links "+
 			"between them: the manifest's `findings`, the key the ingest resolved, or the policy's "+
 			"grading of the visual layer",
-			len(stored), s.uploadedFindings)
+			short(captureID), len(stored), s.uploadedFindings)
 		return
 	}
 	s.crop.Key, s.crop.Locale = finding.Locus.Key, finding.Locus.Locale
 	s.crop.Capture, s.crop.Region = finding.Locus.Capture, finding.Locus.Region
-	if finding.Locus.Capture == "" || finding.Locus.Region == "" {
-		s.gap("12.2", "the visual finding names no capture and region, so nothing can be cropped: locus %+v", finding.Locus)
+	if finding.Locus.Capture != captureID || finding.Locus.Region == "" {
+		s.gap("12.2", "the visual finding does not name the capture and region it was measured on, so "+
+			"nothing can be cropped: locus %+v, capture %s", finding.Locus, short(captureID))
 		s.crop.Why = "the finding carries no capture or region"
 		return
 	}
-
-	// Where the region is: the message's captures, the one the finding
-	// names.
-	// The branch matters: the endpoint answers with the captures of the
-	// *current* builds, and this capture was taken by the pull
-	// request's CI.
-	var mc messageCaptures
-	s.owner.do(http.MethodGet, s.projectPath("/messages/"+finding.Locus.Key+"/captures?branch="+url.QueryEscape(prBranch)),
-		nil, http.StatusOK, &mc)
-	var ids []string
-	for _, c := range mc.Captures {
-		ids = append(ids, short(c.ID)+" "+c.Locale)
-		if c.ID != finding.Locus.Capture {
-			continue
-		}
-		if len(c.Regions) == 0 {
-			break
-		}
-		s.crop.Box = c.Regions[0].Box
-		s.crop.Route = c.Route
-		s.crop.ImageW, s.crop.ImageH = c.Image.Width, c.Image.Height
-		if c.Viewport.Width > 0 {
-			s.crop.Scale = float64(c.Image.Width) / float64(c.Viewport.Width)
-		}
-	}
-	if s.crop.Box.Width == 0 {
-		s.gap("12.2", "the API gave no region box for capture %s of `%s`; `…/messages/%s/captures?branch=%s` "+
-			"answered with %d captures (%s)", short(finding.Locus.Capture), finding.Locus.Key,
-			finding.Locus.Key, prBranch, len(mc.Captures), strings.Join(ids, ", "))
-		s.crop.Why = "no region box"
-		return
+	s.crop.Box, s.crop.Route = region, route
+	s.crop.ImageW, s.crop.ImageH = imageW, imageH
+	if viewportW > 0 {
+		s.crop.Scale = float64(imageW) / float64(viewportW)
 	}
 
 	raw, headers, err := s.owner.raw(s.projectPath("/captures/" + finding.Locus.Capture + "/image"))

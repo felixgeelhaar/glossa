@@ -319,9 +319,23 @@ func (s *GitHubService) reportConnection(ctx context.Context, c *domain.Check, t
 	if err != nil {
 		return "", "", err
 	}
-	t.Pushed, t.Usages = ready.pushed, ready.usages
+	t.Pushed, t.Usages, t.Recorded = ready.pushed, ready.usages, ready.recorded
 	switch {
 	case ready.complete():
+		rep := BuildCheckReport(in)
+		if err := s.writeCheckRun(ctx, target, &t, rep); err != nil {
+			return "", "", err
+		}
+		t.Conclusion = rep.Conclusion
+		c.SetTarget(conn.ID, t)
+		return StickyComment(conn.RepositoryName+pathSuffix(conn.Path), s.links(ctx, c, conn, in), in, rep), rep.Conclusion, nil
+	case c.Expired(s.now()) && ready.uploaded():
+		// CI is here — the catalogs and the usages arrived — but nothing
+		// recorded a `glossa check` run for this commit within the wait.
+		// The report is Integration's own reduced view, and it says so
+		// rather than passing itself off as the check CI ran
+		// (RFC 0005 §12.3). in.Recorded is nil, which is what makes it
+		// the reduced one.
 		rep := BuildCheckReport(in)
 		if err := s.writeCheckRun(ctx, target, &t, rep); err != nil {
 			return "", "", err
@@ -392,10 +406,25 @@ func (s *GitHubService) upsertStickyComment(ctx context.Context, c *domain.Check
 	return nil
 }
 
-// checkReadiness is what this commit's CI has uploaded.
-type checkReadiness struct{ pushed, usages bool }
+// checkReadiness is what this commit's CI has done: pushed the
+// catalogs, uploaded the build's usages, and recorded a `glossa check`
+// run.
+//
+// The third is new with RFC 0005 §12.3 and belongs with the other two.
+// The pull request renders the run CI recorded, so a commit whose check
+// has not run yet is a commit with nothing to render — exactly as a
+// commit whose messages have not been pushed is a commit with nothing
+// to check. It waits the same CheckWait, and when the wait runs out
+// with a push and usages but no run, the report falls back to
+// Integration's own reduced view and says so.
+type checkReadiness struct{ pushed, usages, recorded bool }
 
-func (r checkReadiness) complete() bool { return r.pushed && r.usages }
+func (r checkReadiness) complete() bool { return r.pushed && r.usages && r.recorded }
+
+// uploaded reports whether this commit's CI uploaded anything at all.
+// A commit with a push and usages but no recorded run has CI; it just
+// does not run `glossa check` yet, and there is a report to give it.
+func (r checkReadiness) uploaded() bool { return r.pushed && r.usages }
 
 // checkInput reads the report's sources and works out whether this
 // commit's CI has run.
@@ -423,6 +452,16 @@ func (s *GitHubService) checkInput(ctx context.Context, c *domain.Check, conn do
 	// when", and the project's current version grades it — the behaviour
 	// every check had before this column existed.
 	in.OpenedAt, in.Now = c.OpenedAt, s.now()
+	// The run CI recorded for *this commit*, not for the branch. A
+	// branch moves under a pull request with every push; the run that
+	// graded a commit belongs to that commit and always will, which is
+	// what makes "the same commit, two surfaces, one verdict" a
+	// statement anyone can check (RFC 0005 §12.3).
+	if run, ok, err := s.sources.RecordedRun(ctx, conn.ProjectID, c.HeadSHA); err != nil {
+		return in, ready, err
+	} else if ok {
+		in.Recorded, ready.recorded = &run, true
+	}
 	if in.Status, err = s.sources.BranchStatus(ctx, conn.ProjectID, c.Branch); err != nil {
 		return in, ready, err
 	}

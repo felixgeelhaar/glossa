@@ -328,10 +328,16 @@ func (s *scenario) policyRollout() {
 	case im.OpenPullRequests < 1:
 		s.gap("12.4", "the impact preview says %d open pull requests would newly fail, want at least the one "+
 			"that is open. It examined %d stored findings over %d runs and raised %d of them; newly-failing "+
-			"refs: %v. The preview reads *stored* findings, and the only findings this project has stored are "+
-			"the capture ingest's — so a policy change is previewed against whatever happens to have been "+
-			"recorded, not against what a check would compute",
-			im.OpenPullRequests, im.Findings, im.Runs, im.Raised, im.NewlyFailingRefs)
+			"refs: %v. \"Newly\" is the whole of it: the preview compares each ref's newest stored run under "+
+			"the current document with the same run under the candidate, and `%s`'s newest run — the "+
+			"`glossa check` CI recorded, which the pull request now renders — **already fails** under v3 on "+
+			"`parity` and `length`. Promoting `visual` from `warn` to `enforce` therefore breaks no pull "+
+			"request that was green, because this one is not. §12.4 asks the preview to name the one pull "+
+			"request that would newly fail, and that needs a fixture whose open pull request passes today; "+
+			"§12.2 deliberately seeds one that does not. (Before the check rendered CI's run, the only "+
+			"findings this project stored were the capture ingest's visual-only run, which did pass — so "+
+			"the number this criterion used to read was an artefact of storing half a check.)",
+			im.OpenPullRequests, im.Findings, im.Runs, im.Raised, im.NewlyFailingRefs, prBranch)
 	case !contains(im.NewlyFailingRefs, prBranch):
 		s.gap("12.4", "the impact preview's newly-failing refs are %v, want `%s` among them", im.NewlyFailingRefs, prBranch)
 	}
@@ -426,13 +432,12 @@ func (s *scenario) policyRollout() {
 			firstLineContaining(later.Summary, "check policy v"), newVersion)
 	case later.Conclusion != "failure":
 		s.gap("12.4", "the new pull request was graded against v%d, as it should be, and still concluded `%s`. "+
-			"The server has %s for this branch, so the promotion is not what is missing: the pull-request "+
-			"check **never reads a stored Quality finding**. "+
-			"`integration/adapters/sources.Checks.qaFindings` is the warnings Localization kept with each "+
-			"translation plus a live terminology check, and a visual finding is neither — so nothing the "+
-			"capture ingest stored can reach a check run, and `visual: enforce` gates nothing. This is the "+
-			"§12.3 divergence again, on the path §12.4 needs.",
-			newVersion, later.Conclusion, s.storedVisual(laterBranch))
+			"The server has %s for this branch. The check renders the run CI recorded for the commit, so "+
+			"either `glossa capture --check` recorded no run for `%s` (its `record` block says why), or the "+
+			"run it recorded holds no `visual` finding at error — which under `visual: enforce` means the "+
+			"finding was still provisional: the two-sighting rule (§5.2) clamps a first sighting to a "+
+			"warning, and a policy may not raise it.",
+			newVersion, later.Conclusion, s.storedVisual(laterBranch), short(laterCommit))
 	default:
 		visual := parseLayerTable(later.Summary)[domain.LayerVisual]
 		s.policySteps = append(s.policySteps, step{

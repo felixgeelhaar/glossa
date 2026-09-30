@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
@@ -355,6 +356,10 @@ type Store interface {
 	// the job had already finished, which is what settles a job exactly
 	// once when two readers reconcile it at the same moment.
 	UpdateLinguisticJob(ctx context.Context, j domain.LinguisticJob) (moved bool, err error)
+
+	// Publish records a domain event in the same transaction as the
+	// state change that raised it.
+	Publish(ctx context.Context, e outbox.Event) error
 }
 
 // LinguisticCursor is where a page of linguistic-QA jobs (newest

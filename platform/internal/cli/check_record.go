@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
@@ -95,8 +94,12 @@ func inCI(getenv func(string) string) bool {
 // It returns nil when the run was not meant to be recorded at all, so
 // `--json` carries a `record` member exactly when recording was asked
 // for — by a flag or by CI.
+// build is what this run is of: the branch it graded and the commit it
+// graded there. `glossa check` detects it; `glossa capture --check`
+// already resolved it for the capture document it is about to upload,
+// and hands that in, so the run and the captures name one commit.
 func (inv *invocation) recordCheck(
-	ctx context.Context, cfg *config.Config, run *checkSubject, out checkJSON, f checkFlags,
+	ctx context.Context, run *checkSubject, out checkJSON, f checkFlags, build buildRef,
 ) *recordJSON {
 	if !f.wantsRecord(inv.env.getenv) {
 		return nil
@@ -104,7 +107,6 @@ func (inv *invocation) recordCheck(
 	if why := run.cannotRecord(f); why != "" {
 		return &recordJSON{Why: why}
 	}
-	build := detectBuild(ctx, inv.env.getenv, cfg.Dir())
 	if !validBranch(build.Branch) {
 		return &recordJSON{Why: "a run is of a branch, and this one has none: set GLOSSA_BRANCH"}
 	}

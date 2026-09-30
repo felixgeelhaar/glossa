@@ -148,8 +148,12 @@ type scenario struct {
 	gradedVersion int
 	pushed        map[string]int
 
-	cliCheck         checkJSON
-	cliCapture       captureJSON
+	cliCheck   checkJSON
+	cliCapture captureJSON
+	// cliCaptureHead is the capture-and-check run of the pull request's
+	// own head commit — the run CI recorded for it, and therefore the
+	// one §12.3 compares the check run against.
+	cliCaptureHead   *captureJSON
 	cliLayers        map[domain.Layer]layerCount
 	layerStatus      []layerVerdict
 	crop             cropResult

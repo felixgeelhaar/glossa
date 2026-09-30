@@ -16,19 +16,21 @@ import (
 
 // Two surfaces, one verdict (RFC 0005 §12.3).
 //
-// This is the wave's exit criterion, not a nice-to-have: the same
+// This is the milestone's exit criterion, not a nice-to-have: the same
 // commit, graded by `glossa check` and by the Glossa pull-request check
 // through the fake GitHub of RFC 0004 §12, must reach the same
-// conclusion, the same error count and the same counts per layer. A
-// check that said one thing in a terminal and another on a pull request
-// would undo the property the whole Quality context was built for.
+// conclusion, the same error count and the same counts per layer.
 //
-// The test reaches across the two surfaces on purpose. It builds one
-// commit as the CLI's own snapshot, runs `qa.Run` — the line
-// `glossa check` runs — and derives what the server's Integration
-// adapters would report for that same commit, so the comparison is
-// between two renderings of one run rather than between two fixtures
-// someone kept in step by hand.
+// It is reached by construction rather than by agreement. The two
+// surfaces used to compute two different things and be tested for
+// equality: `glossa check` ran every layer over the whole project,
+// while the pull request read the warnings the server happened to hold
+// for the branch's own keys. Two computations tested for agreement will
+// disagree, and did. Now `glossa check` records what it found
+// (`createCheckRun`) and the pull request **renders that run**. One
+// computation, two presentations. What the tests below pin is that the
+// pull request adds nothing to the run, subtracts nothing from it, and
+// says plainly when there is no run to render.
 
 // checkoutBranch is the commit both surfaces grade: three new keys, one
 // of which does not parse, translations that are missing or
@@ -172,17 +174,28 @@ func TestThePullRequestAndTheTerminalReachTheSameVerdict(t *testing.T) {
 		t.Fatalf("counts = %+v, want the waiver honoured on the terminal too", cli.Counts)
 	}
 
-	// The pull request, through the fake GitHub.
+	// The pull request, through the fake GitHub. CI records what the
+	// terminal found, and the check renders that run — while the read
+	// model still says everything it used to, so what is pinned here is
+	// that the recorded run is what the report is made of and the
+	// narrower view no longer leaks into it.
 	f := newFixture(t)
 	f.connected(t)
 	f.openPR(t, "pull_request.opened", "d-open")
 	f.ci(headSHA)
 	f.sources.set(func(m *memSources) { serverView(m, commit, policy) })
+	f.recorded(headSHA, recordedRunOf(cli, branchName))
 	f.runCheck(t)
 
 	run := f.theCheck(t)
 	if run.Status != app.CheckCompleted {
 		t.Fatalf("check run = %+v, want it completed", run)
+	}
+	if !strings.Contains(run.Summary, "the `glossa check` run CI recorded for this commit") {
+		t.Fatalf("the summary does not say it is rendering the recorded run:\n%s", run.Summary)
+	}
+	if strings.Contains(run.Summary, app.ReducedViewNotice) {
+		t.Fatalf("a rendered run called itself a reduced view:\n%s", run.Summary)
 	}
 	if run.Conclusion != string(cli.Conclusion) {
 		t.Fatalf("the pull request concluded %q and the terminal %q", run.Conclusion, cli.Conclusion)
@@ -241,6 +254,7 @@ func TestTheTwoSurfacesAgreeWhenTheBranchIsFixed(t *testing.T) {
 		serverView(m, fixed, policy)
 		m.usages.Unknown = nil
 	})
+	f.recorded(headSHA, recordedRunOf(cli, branchName))
 	f.runCheck(t)
 
 	run := f.theCheck(t)

@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
@@ -107,7 +108,16 @@ func (s *Service) RecordCheckRun(ctx context.Context, in RecordRun) (run domain.
 		// with what it summarizes (RFC 0005 §8). It is a recomputation of
 		// the whole day, not an increment, so a retried write and a
 		// second run of the same day both land on the same numbers.
-		return st.RollUpFindingsByDay(ctx, in.Project, run.StartedAt)
+		if err := st.RollUpFindingsByDay(ctx, in.Project, run.StartedAt); err != nil {
+			return err
+		}
+		// And the run is announced, in the same transaction: the Glossa
+		// pull-request check renders the run CI recorded (RFC 0005
+		// §12.3), and nothing else would ever tell it one had arrived.
+		return st.Publish(ctx, outbox.Event{
+			Type: domain.EventCheckRunRecorded, AggregateType: domain.AggregateCheckRun,
+			AggregateID: run.ID.String(), Payload: domain.CheckRunRecordedOf(run),
+		})
 	})
 	if err != nil {
 		return domain.CheckRun{}, err
