@@ -390,3 +390,49 @@ describe("the probe pass as a whole", () => {
     expect(found(capture)).toEqual([["runtime-missing-message", "nope.two"]]);
   });
 });
+
+/**
+ * The thresholds are the check policy's (RFC 0005 §5.2). `glossa capture`
+ * reads them from the project's policy and hands them to `collect()`, so what
+ * a page measures against is what the project decided — the constants in
+ * probes.ts are only what a probe run without a driver falls back to.
+ */
+describe("the policy's thresholds", () => {
+  it("decide when a region counts as clipped", () => {
+    const rt = runtime("de");
+    session = startCapture(rt, { probe });
+    document.body.innerHTML = `<div id="box" style="overflow-x: hidden"><span id="t"></span></div>`;
+    document.getElementById("t")!.textContent = rt.t("profile.save");
+    undo.push(
+      layout({
+        box: { box: { x: 0, y: 0, width: 100, height: 20 }, client: [100, 20], scroll: [110, 20] },
+        t: { box: { x: 0, y: 0, width: 100, height: 20 } },
+      }),
+    );
+
+    // Ten CSS pixels of content over the box: clipped at the default slack…
+    expect(found(session.collect())).toEqual([["text-clipped", "profile.save"]]);
+    // …and not at a slack the policy widened.
+    expect(session.collect(document, { slack: 20 }).probes).toEqual([]);
+  });
+
+  it("decide when two regions overlap, and how many findings a capture may report", () => {
+    const rt = runtime("de");
+    session = startCapture(rt, { probe });
+    document.body.innerHTML = `<span id="a"></span><span id="b"></span>`;
+    document.getElementById("a")!.textContent = rt.t("profile.save");
+    document.getElementById("b")!.textContent = rt.t("settings.save");
+    undo.push(
+      layout({
+        a: { box: { x: 0, y: 0, width: 100, height: 20 } },
+        b: { box: { x: 50, y: 0, width: 100, height: 20 } },
+      }),
+    );
+
+    // Half of the smaller region: reported at the default quarter, and
+    // not at the three quarters a policy could ask for.
+    expect(found(session.collect())).toEqual([["region-overlap", "profile.save"]]);
+    expect(session.collect(document, { overlap: 75 }).probes).toEqual([]);
+    expect(session.collect(document, { max: 0 }).probes).toEqual([]);
+  });
+});
