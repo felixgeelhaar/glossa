@@ -84,12 +84,11 @@ func (s *scenario) waivers() {
 	case waived == nil:
 		s.gap("12.4", "the waived finding vanished from the check: a waived finding is still computed and still reported")
 	case waived.Severity != domain.Waived:
-		s.gap("12.4", "the waived finding is still `%s` in `glossa check`, because **the check never reads the "+
-			"project's waivers**: nothing in `cli/cmd_check.go` fetches them, and `quality/app.RunIn` — the "+
-			"function the CLI, the capture check and Studio all call — takes findings and a policy and no "+
-			"waivers at all. `domain.Waivers` is applied in exactly one place, `quality/app.RecordRun` "+
-			"(runs.go:91), which is the server recording a check run. A waiver therefore changes no local "+
-			"check's counts and no local conclusion, which is what §12.4 asks it to change", waived.Severity)
+		s.gap("12.4", "the waived finding is still `%s` in `glossa check`, so the terminal and the pull "+
+			"request disagree about a finding the project has accepted. `glossa check` reads the project's "+
+			"waivers (`cli/check_waivers.go`) and applies `domain.Waivers`, the same matcher "+
+			"`quality/app.RecordRun` applies — so either the fetch did not happen (the run's `waivers` block "+
+			"says why) or the two ends computed different fingerprints for this finding", waived.Severity)
 	case waived.Waiver != waiver.ID:
 		s.gap("12.4", "the waived finding names waiver %q, want %q", waived.Waiver, waiver.ID)
 	}
@@ -307,9 +306,9 @@ func (s *scenario) policyRollout() {
 			firstLineContaining(later.Summary, "check policy v"), newVersion)
 	case later.Conclusion != "failure":
 		s.gap("12.4", "the new pull request concluded `%s`; with `visual` at `enforce` and a clipped button on "+
-			"its commit it has to fail. It cannot, for the same reason §12.2's crop cannot: the capture "+
-			"manifest has no `findings` field, so no visual finding is ever stored, so the pull-request check "+
-			"has none to grade and `visual: enforce` gates nothing", later.Conclusion)
+			"its commit it has to fail. The chain to check is the one §12.2 checks: the capture manifest's "+
+			"`findings`, the visual findings the ingest stored, and the two sightings a promotion to `error` "+
+			"needs", later.Conclusion)
 	default:
 		visual := parseLayerTable(later.Summary)[domain.LayerVisual]
 		s.policySteps = append(s.policySteps, step{

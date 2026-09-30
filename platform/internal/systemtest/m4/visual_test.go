@@ -218,14 +218,12 @@ func (s *scenario) cropRegion() {
 	}
 	if finding == nil {
 		s.crop.Why = fmt.Sprintf("the server stored %d visual findings, so there is no region to read back", len(stored))
-		s.gap("12.2", "the region the finding names cannot be read back and cropped, because **no visual "+
-			"finding ever reaches the server**: `glossa capture --upload` writes a `glossa.captures/v1` "+
-			"manifest whose `Capture` struct (cli/capture/document.go) has `route`, `url`, `viewport`, "+
-			"`locale`, `image`, `renders` and `regions` — and no `findings`. The probe pass measures them "+
-			"(the run above found the clip), `glossa capture --check` grades them locally, and the upload "+
-			"drops them. The server is ready for them: `CapturesManifestFinding` is in the API and "+
-			"`context/app.recordFindings` hands them to Quality, but `up.FindingCount()` is always 0. "+
-			"The server stored %d visual findings, and %d probe findings were reported as uploaded",
+		s.gap("12.2", "the region the finding names cannot be read back and cropped: the server stored %d "+
+			"visual findings, and %d probe findings were reported as uploaded. `glossa capture --upload` "+
+			"carries the probe pass's findings on the manifest (`cli/capture.Findings`) and the ingest "+
+			"records them (`context/app.recordFindings`), so the break is in one of the three links "+
+			"between them: the manifest's `findings`, the key the ingest resolved, or the policy's "+
+			"grading of the visual layer",
 			len(stored), s.uploadedFindings)
 		return
 	}

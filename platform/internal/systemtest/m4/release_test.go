@@ -98,15 +98,12 @@ func (s *scenario) releaseGate() {
 	case err == nil:
 		s.gap("12.5", "a forced publish with no reason succeeded")
 	case asAPIError(err, &ae) && ae.code() == "policy_not_met":
-		// The precise shortfall, not a vague one: the application
-		// service implements the override, and the HTTP adapter never
-		// hands it the request's `force`.
+		// The precise shortfall, not a vague one: the two are answers to
+		// different questions, and a caller told `policy_not_met` about
+		// a forced publish has been told the override does not exist.
 		s.gap("12.5", "a forced publish with no reason was refused as `policy_not_met`, not "+
-			"`force_reason_required`, because **the publish endpoint does not read `force` at all**: "+
-			"`release/adapters/httpapi.API.PublishRelease` builds `app.PublishInput{Environment, Note}` and "+
-			"drops `req.Body.Force` and `req.Body.ForceReason`, although `app.Service.Publish` implements the "+
-			"override and `openapi.yaml`'s `PublishRelease` carries both fields. No publish can be forced "+
-			"through the API today")
+			"`force_reason_required`: the gate ran before the force was read, so the request's `force` did "+
+			"not reach `app.Service.Publish` (`release/adapters/httpapi.API.PublishRelease`)")
 	case asAPIError(err, &ae):
 		s.gap("12.5", "a forced publish with no reason was refused as %q, want force_reason_required", ae.code())
 	default:
