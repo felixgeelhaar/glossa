@@ -1,42 +1,37 @@
 /// The size half of the RFC 0005 §6.4 budgets, measured and enforced.
 ///
-/// §6.4: *the package's contribution to a release build, measured with
-/// `flutter build --analyze-size` against a fixture app with and without
-/// it, ≤ 150 kB excluding `package:intl`. `intl` carries its own CLDR and
-/// is measured and reported separately … because intent §33 says
-/// localization must not cost performance and a hidden megabyte is a
-/// lie.*
+/// §6.4 names its method: *the package's contribution to a release build,
+/// measured with `flutter build --analyze-size` against a fixture app
+/// with and without it.* That is a **delta**, and the delta is what this
+/// gates — the section exists to stop a hidden megabyte, so a gate that
+/// reads a number with most of the megabyte left out would work against
+/// it however honestly the rest is printed.
 ///
-/// So this builds a throwaway Flutter app twice from one pubspec:
+/// So this builds a throwaway Flutter app three times from one pubspec:
 ///
-/// * `plain.dart`, which imports neither package;
-/// * `glossa.dart`, a realistic client — an edge, a delivery key, a
+/// * `plain.dart` — bare Flutter, one hard-coded string;
+/// * `host.dart` — the same app with the things a Glossa client leans on
+///   that an app of this kind already has: `package:intl` formatting
+///   numbers, currency, percentages, dates and plurals, an `HttpClient`
+///   call, and a file read and write;
+/// * `glossa.dart` — a realistic client: an edge, a delivery key, a
 ///   persisted store, an HTTP transport, signing keys, a bundled release,
 ///   `GlossaScope`, `GlossaText`, `explain()` and the error channel.
+///
+/// **The gated number is `glossa` minus `host`**, per architecture: what
+/// adopting Glossa costs an app that was already making network calls and
+/// already formatting numbers and dates. `glossa` minus `plain` is
+/// printed beside it and is much larger — that is what an app with no
+/// networking and no `intl` would pay, and it is the number intent §33 is
+/// really about.
 ///
 /// The realism is not decoration. Dart's AOT tree shaker is a global
 /// fixpoint: a client with no transport, no bundle and an empty in-memory
 /// store can *never* activate a release, so the compiler proves the whole
 /// catalog, formatter and `package:intl` unreachable and drops them. Such
-/// a fixture measures 17 kB and means nothing. The `plain` build is what
-/// keeps that honest: it must show **zero** bytes for both packages,
-/// while the `glossa` build must show a lot.
-///
-/// **Two readings of §6.4, and the gate takes the kinder one.** The
-/// section names its method — "with and without it" — and that method is
-/// the *delta* between the two builds, which comes to roughly six times
-/// 150 kB once `package:intl` is taken out. The gate instead reads
-/// `--analyze-size`'s own per-library figure for the two packages, which
-/// does fit, and which is a defensible reading of "excluding
-/// `package:intl`" because `intl` is a line of its own in that same
-/// breakdown. It is not the only reading, and this program is not the
-/// place that decides between them: it prints both, says in as many
-/// words that the delta does not meet the budget, and leaves the choice
-/// to the owner (RFC 0005 §6.4, amended in wave 4).
-///
-/// So: what is enforced is the first number below; the rest are
-/// reported, because §6.4 asks for them and because a report that shows
-/// only the flattering number is the lie it warns about.
+/// a fixture measures 17 kB and means nothing. The two baselines keep
+/// that honest: neither may show a single byte of ours, and the `glossa`
+/// build must show a lot.
 ///
 /// Run it from `runtimes/dart/flutter`:
 ///
@@ -49,10 +44,17 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-/// §6.4's budget for the two packages' own code, in bytes.
-const int budgetBytes = 150 * 1000;
+/// §6.4's budget for adopting Glossa, in bytes, per architecture.
+///
+/// 150 kB was the original figure. Nothing meets it by the method §6.4
+/// names — the delta over a baseline with `intl` and an HTTP client is
+/// about 343 kB, and over a bare Flutter app about 1049 kB — so wave 4
+/// replaced it with 400 kB, set above today's number with room and not at
+/// a comfortable distance. Raising it again is an RFC change, not a
+/// constant change.
+const int budgetBytes = 400 * 1000;
 
-/// The packages whose code the budget covers.
+/// The packages the delta is attributed to when reporting.
 const List<String> ourPackages = ['package:glossa', 'package:glossa_flutter'];
 
 Future<void> main(List<String> args) async {
@@ -78,19 +80,23 @@ Future<void> main(List<String> args) async {
   try {
     await _scaffold(workspace, package, platform, say);
     final plain = await _build(workspace, platform, 'plain', say);
+    final host = await _build(workspace, platform, 'host', say);
     final withGlossa = await _build(workspace, platform, 'glossa', say);
 
     say('');
     say('— the fixture is honest ————————————————————————————————————');
-    final leaked = _sum(plain, ourPackages);
-    say('  bytes of ours in the app that does not use us: $leaked');
-    if (leaked != 0) {
-      _die(
-        'the baseline build carries $leaked bytes of Glossa; it should '
-        'carry none, so the delta below would be wrong.',
-      );
+    for (final baseline in {'plain': plain, 'host': host}.entries) {
+      final leaked = _sum(baseline.value, ourPackages);
+      say('  bytes of ours in ${baseline.key}, which does not use us: $leaked');
+      if (leaked != 0) {
+        _die(
+          'the ${baseline.key} build carries $leaked bytes of Glossa; it '
+          'should carry none, so every delta below would be wrong.',
+        );
+      }
     }
     final ours = _sum(withGlossa, ourPackages);
+    say('  bytes of ours in glossa, which does: $ours');
     if (ours < 20000) {
       _die(
         'the Glossa build carries only $ours bytes of Glossa. The tree '
@@ -101,72 +107,75 @@ Future<void> main(List<String> args) async {
     }
 
     final intl = _sum(withGlossa, const ['package:intl']);
-    final total = withGlossa.total - plain.total;
-    final totalWithoutIntl = total - intl;
+    final overHost = withGlossa.total - host.total;
+    final overPlain = withGlossa.total - plain.total;
+    final overPlainWithoutIntl = overPlain - intl;
 
     say('');
-    say('— enforced: the per-library reading of §6.4 ——————————————————');
-    _line(say, 'package:glossa + package:glossa_flutter', ours);
-    say('    budget ${_kb(budgetBytes)}, excluding package:intl (§6.4)');
+    say('— enforced: §6.4\'s own method, the delta ————————————————————');
+    _line(say, 'adopting Glossa, over a realistic baseline', overHost);
+    say('    budget ${_kb(budgetBytes)} (§6.4, set in wave 4)');
+    say('    The baseline already has package:intl formatting numbers and');
+    say('    dates and an HttpClient making a call — what most apps that');
+    say('    would adopt Glossa already carry.');
 
     say('');
-    say('— reported, because §6.4 asks and a hidden megabyte is a lie ——');
+    say('— reported, because a hidden megabyte is a lie ————————————————');
+    _line(say, 'over a bare Flutter app (no intl, no networking)', overPlain);
+    _line(say, 'the same, excluding package:intl', overPlainWithoutIntl);
     _line(say, 'package:intl (its own CLDR data)', intl);
-    _line(say, 'the whole app, with minus without', total);
-    _line(say, 'the same delta, excluding package:intl', totalWithoutIntl);
-    say('    Everything the app grew by: our code, package:intl, and what');
-    say('    we pull out of the SDK — BigInt for Ed25519, package:crypto,');
-    say('    dart:convert, the dart:io transport. Per architecture: this');
-    say('    is one slice, whatever the bundle packs.');
+    _line(say, 'package:glossa + package:glossa_flutter, attributed', ours);
+    say('    The first of these is what an app with neither would pay, and');
+    say('    it is the number intent §33 is about. The gap between it and');
+    say('    the gated one is the dart:io HTTP client a transport needs,');
+    say('    package:intl, the dart:core BigInt arithmetic behind the');
+    say('    pure-Dart Ed25519 verifier, and package:crypto — carried by');
+    say('    the baseline above because an app of this kind already has');
+    say('    them. Per architecture: one slice, whatever the bundle packs.');
     say('');
-    say('  where the growth went, by library:');
+    say('  where the growth over a bare app went, by library:');
     for (final entry in _delta(plain, withGlossa)) {
       say('    ${_kb(entry.value).padLeft(10)}  ${entry.key}');
     }
 
     say('');
-    if (ours <= budgetBytes) {
+    if (overHost <= budgetBytes) {
       say(
-        'OK — ${_kb(ours)} of ${_kb(budgetBytes)}, on the per-library '
-        'reading of §6.4. That verdict does not stand alone:',
+        'OK — ${_kb(overHost)} of ${_kb(budgetBytes)}, the delta over a '
+        'baseline that already has package:intl and an HTTP client. That '
+        'verdict does not stand alone:',
       );
     } else {
       say(
-        'FAIL — ${_kb(ours)} of ${_kb(budgetBytes)}: over by '
-        '${_kb(ours - budgetBytes)}, on the per-library reading of §6.4.',
+        'FAIL — ${_kb(overHost)} of ${_kb(budgetBytes)}: over by '
+        '${_kb(overHost - budgetBytes)}, on the delta over a baseline that '
+        'already has package:intl and an HTTP client.',
       );
     }
-    // The section names its method — "against a fixture app with and
-    // without it" — and that method is the delta, which is several times
-    // 150 kB. Whoever reads this log later must not be able to take the
-    // line above as "the budget is met" without meeting this one.
+    // 400 kB is a replacement, not the figure §6.4 was written with, and
+    // the gated delta assumes a baseline. Whoever reads this log later
+    // must not be able to take the line above as "Glossa costs 343 kB"
+    // without meeting these two.
     say(
-      '  §6.4 names the *delta* as its method. By that method the figure is '
-      '${_kb(totalWithoutIntl)} excluding package:intl, which does NOT meet '
-      '${_kb(budgetBytes)} — it is about '
-      '${(totalWithoutIntl / budgetBytes).toStringAsFixed(0)}× it. The gate '
-      'above reads the per-library figure instead, which is a defensible '
-      'reading of "excluding package:intl" (intl is a line of its own in '
-      'this same breakdown) but is not the only one. Which number the '
-      'budget means is an open question for the owner; RFC 0005 §6.4, '
-      'amended in wave 4, records it as open, and this gate does not '
-      'settle it.',
+      '  What it assumes: an app that already makes HTTP calls and already '
+      'formats numbers and dates. An app with neither pays '
+      '${_kb(overPlain)} — ${_kb(overPlainWithoutIntl)} of it outside '
+      'package:intl.',
     );
     say(
-      '  Most of the difference is not our code: the dart:io HTTP client a '
-      'transport needs, the dart:core BigInt arithmetic the pure-Dart '
-      'Ed25519 verifier uses, package:crypto, and shared stubs. Against a '
-      'baseline app that already makes HTTP calls and already formats '
-      'numbers and dates — which most apps do — the same measurement came '
-      'to about 343 kB rather than ${_kb(totalWithoutIntl)}.',
+      '  What the budget is: 150 kB was §6.4\'s original figure and nothing '
+      'meets it by this method. Wave 4 replaced it with '
+      '${_kb(budgetBytes)} deliberately, after measuring. See RFC 0005 '
+      '§6.4 and §15, question 6, which records the decision and its '
+      'reasoning.',
     );
     if (reportPath != null) {
       File(reportPath).writeAsStringSync(report.toString());
     }
-    code = ours <= budgetBytes ? 0 : 1;
+    code = overHost <= budgetBytes ? 0 : 1;
   } finally {
-    // Two release builds' worth of intermediates. `exit` skips `finally`,
-    // which is why the verdict travels out of the block instead.
+    // Three release builds' worth of intermediates. `exit` skips
+    // `finally`, which is why the verdict travels out of the block.
     workspace.deleteSync(recursive: true);
   }
   exit(code);
@@ -211,12 +220,18 @@ dependencies:
     sdk: flutter
   glossa_flutter:
     path: ${package.path}
+  # Direct, so host.dart can import it without going through us. It is
+  # the same resolved version the runtime uses, because one pubspec
+  # resolves once — the baseline and the Glossa build never differ in
+  # which CLDR data they could reach.
+  intl: any
 
 flutter:
   uses-material-design: true
 ''');
   File('$app/lib/main.dart').deleteSync();
   File('$app/lib/plain.dart').writeAsStringSync(_plainApp);
+  File('$app/lib/host.dart').writeAsStringSync(_hostApp);
   File('$app/lib/glossa.dart').writeAsStringSync(_glossaApp);
   await _run('flutter', ['pub', 'get'], app, say);
 }
@@ -236,6 +251,81 @@ class App extends StatelessWidget {
       body: Center(
         child: Text.rich(
           const TextSpan(text: 'Zur Kasse'),
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ),
+    ),
+  );
+}
+''';
+
+/// The baseline the budget is measured against: the same app, plus the
+/// things a Glossa client leans on that an app of this kind already has.
+///
+/// Every line here is chosen to reach a corner of the SDK or of
+/// `package:intl` that the runtime also reaches — the CLDR number, date
+/// and plural data its MF2 functions use, the `HttpClient` its transport
+/// is, the file I/O its persisted store is. What this app pulls in, the
+/// Glossa build is not charged for, because an app that was going to
+/// adopt Glossa was already paying it. What it does *not* pull in — the
+/// BigInt arithmetic behind Ed25519, `package:crypto`, the catalog and
+/// the formatter — is ours, and is the gated number.
+const String _hostApp = '''
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
+
+/// The backend call, and the cache file beside it.
+Future<String> fetch() async {
+  final client = HttpClient();
+  final request = await client.getUrl(Uri.parse('https://api.example.com/v1'));
+  request.headers.set('If-None-Match', '"m1"');
+  final response = await request.close();
+  final body = await response.transform(utf8.decoder).join();
+  final file = File('\${Directory.systemTemp.path}/cache.json');
+  await file.writeAsString(body, flush: true);
+  return file.readAsString();
+}
+
+/// The CLDR surface: the same corners package:glossa's MF2 functions use.
+String render() {
+  initializeDateFormatting();
+  final decimal = NumberFormat.decimalPattern('de').format(1234.5);
+  final currency = NumberFormat.currency(locale: 'de', name: 'EUR').format(9.99);
+  final percent = NumberFormat.percentPattern('de').format(0.25);
+  final date = DateFormat.yMMMd('de').add_Hms().format(DateTime.now());
+  final plural = Intl.pluralLogic(
+    3,
+    locale: 'de',
+    zero: 'zero',
+    one: 'one',
+    two: 'two',
+    few: 'few',
+    many: 'many',
+    other: 'other',
+  );
+  return '\$decimal \$currency \$percent \$date \$plural';
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  unawaited(fetch().then(debugPrint).catchError((Object _) {}));
+  runApp(const App());
+}
+
+class App extends StatelessWidget {
+  const App({super.key});
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    home: Scaffold(
+      body: Center(
+        child: Text.rich(
+          TextSpan(text: render()),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       ),

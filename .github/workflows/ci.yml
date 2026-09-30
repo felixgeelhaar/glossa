@@ -244,8 +244,8 @@ jobs:
   runtimes-flutter:
     name: Flutter runtime
     runs-on: ubuntu-latest
-    # Two release builds of a fixture app; the rest is seconds.
-    timeout-minutes: 30
+    # Three release builds of a fixture app; the rest is seconds.
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: runtimes/dart/flutter
@@ -281,8 +281,12 @@ jobs:
       - name: flutter test
         run: flutter test
       # RFC 0005 §6.4: the package's contribution to a release build,
-      # from a fixture app built with and without it. Enforced at 150 kB
-      # excluding package:intl; intl and the whole-app delta are printed
+      # from a fixture app built with and without it — which is the
+      # section's own method, so it is the thing gated. The number is the
+      # delta over a baseline that already has package:intl and an HTTP
+      # client, against 400 kB (150 kB was the original figure; nothing
+      # meets it by this method, and wave 4 replaced it). The bare-app
+      # delta, package:intl and the per-library decomposition are printed
       # beside it, because §6.4 asks for them by name.
       - name: §6.4 size budget
         run: dart run tool/size_budget.dart --platform linux --report "$RUNNER_TEMP/size-budget.txt"

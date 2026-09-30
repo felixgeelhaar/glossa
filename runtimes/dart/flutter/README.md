@@ -182,47 +182,59 @@ dart run tool/size_budget.dart            # host desktop target
 dart run tool/size_budget.dart --platform linux --report size.txt
 ```
 
-It scaffolds a throwaway Flutter app in a temporary directory, builds it
-twice from one pubspec — once from an entry point that imports neither
-package, once from a realistic client — and reads
-`flutter build --analyze-size`'s own per-library breakdown of the release
-snapshot.
+It scaffolds a throwaway Flutter app in a temporary directory and builds
+it three times from one pubspec:
 
-The realism of the second entry point is load-bearing. Dart's AOT tree
+- `plain.dart` — bare Flutter, one hard-coded string;
+- `host.dart` — the same app plus what a Glossa client leans on that an
+  app of this kind already has: `package:intl` formatting numbers,
+  currency, percentages, dates and plurals, an `HttpClient` call, a file
+  read and write;
+- `glossa.dart` — a realistic client: edge, delivery key, persisted
+  store, HTTP transport, signing keys, bundled release, `GlossaScope`,
+  `GlossaText`, `explain()` and the error channel.
+
+§6.4 names the delta as its method, and the delta is what is gated:
+**`glossa` minus `host`**, what adopting Glossa costs an app that was
+already making network calls and already formatting numbers and dates.
+
+The realism of the third entry point is load-bearing. Dart's AOT tree
 shaker is a global fixpoint: a client with no transport, no bundle and an
 empty in-memory store can never activate a release, so the compiler
 proves the catalog, the formatter and `package:intl` unreachable and
 drops all of them. A fixture like that measures **17 kB** and means
-nothing. The tool therefore refuses a baseline that carries any of our
-bytes, and refuses a Glossa build that carries too few.
+nothing. The tool therefore refuses *either* baseline that carries a byte
+of ours, and refuses a Glossa build that carries too few.
 
 Measured on macOS arm64, Flutter 3.47.5, per architecture:
 
 | | |
 |---|---|
-| `package:glossa` + `package:glossa_flutter` | **133.7 kB** of 150 kB — the gated number |
-| `package:intl` and its CLDR data | 169.0 kB — reported, per §6.4 |
-| the whole app, with minus without | 1048.8 kB |
-| the same delta, excluding `package:intl` | **879.8 kB** |
+| **adopting Glossa, over a realistic baseline** | **343.1 kB** of 400 kB — the gated number |
+| over a bare Flutter app (no `intl`, no networking) | 1048.8 kB |
+| the same, excluding `package:intl` | 879.8 kB |
+| `package:intl` and its CLDR data | 169.0 kB |
+| `package:glossa` + `package:glossa_flutter`, attributed | 133.7 kB |
 
-**Read the last row before the first.** §6.4 names its method — "against
-a fixture app with and without it" — and by that method the figure is
-879.8 kB excluding `package:intl`, which does **not** meet 150 kB; it
-misses by about six times. What CI gates is the first row, the
-per-library figure, which is a defensible reading of "excluding
-`package:intl`" (`intl` is a line of its own in that same breakdown) but
-is not the only one. **Which number the budget means is an open question
-for the owner** — RFC 0005 §15, question 6 — and a green job is not an
-answer to it. The tool prints all four rows and the caveat on every run.
+**Read the second row beside the first.** The gated number assumes a
+baseline. An app with no networking and no `intl` pays 1048.8 kB, and
+that is the figure intent §33 is really about. The gap is mostly not our
+code: the `dart:io` HTTP client a transport needs (229 kB of `dart:io`
+and `dart:_http`), `package:intl` (169 kB), the `dart:core` BigInt
+arithmetic the pure-Dart Ed25519 verifier needs (82 kB), `package:crypto`
+(16 kB). The baseline carries those because an app of that kind already
+does. The tool prints all five figures, the full per-library
+decomposition, and the assumption its verdict rests on, on every run.
 
-Most of the difference is not our code: on top of our 134 kB the app
-grows by `package:intl` (169 kB), the `dart:io` HTTP client the fixture
-supplies as a transport (229 kB of `dart:io` and `dart:_http`), the
-`dart:core` BigInt arithmetic the pure-Dart Ed25519 verifier needs
-(82 kB), `package:crypto` (16 kB), and shared snapshot data. An app that
-already makes HTTP calls and already formats numbers and dates pays much
-of that anyway: against a baseline fixture that does both, the same
-delta came to about **343 kB**.
+**150 kB was §6.4's original number and nothing meets it by this method**
+— not 343 kB, not 880 kB. Wave 4 measured first and replaced it with
+400 kB deliberately; the rejected alternative was to keep 150 kB and gate
+the attributed 133.7 kB instead, which would have left ~880 kB outside
+the gate in a section written to stop exactly that. RFC 0005 §15,
+question 6 records the decision and its reasoning. Bringing the number
+down is a separate thread against the M4 exit measurement: the two
+candidates are the BigInt Ed25519 verifier and the non-optional `dart:io`
+transport.
 
 The startup half of §6.4 lives in the core package —
 [`../tool/startup_budget.dart`](../tool/startup_budget.dart) — because
