@@ -488,6 +488,12 @@ func (s *scenario) nineLayers() {
 		v := layerVerdict{Layer: w.layer, Want: w.want, Codes: codes,
 			Got: fmt.Sprintf("%d findings (%d error, %d warning)", count.total(), count.Errors, count.Warnings)}
 		switch {
+		case w.layer == domain.LayerStructure && len(codes) == 0:
+			// §12.2 as amended in wave 7: a server project cannot hold
+			// text that does not parse, so the layer is proven where it
+			// can run and the refusal that makes it unreachable is
+			// asserted, not explained.
+			v = s.proveStructure(w.want)
 		case len(codes) > 0:
 			v.OK = true
 			missing := missingCodes(w.codes, codes)
@@ -496,11 +502,7 @@ func (s *scenario) nineLayers() {
 				v.Why = "no finding with " + codeList(missing)
 			}
 		default:
-			v.Got = "none"
-			v.Why = layerGap[w.layer]
-			if v.Why == "" {
-				v.Why = "the layer produced nothing"
-			}
+			v.Got, v.Why = "none", "the layer produced nothing"
 		}
 		if v.Layer == domain.LayerStyle && !v.OK {
 			v.Why = s.whyNoStyle()
@@ -523,21 +525,25 @@ func (s *scenario) nineLayers() {
 			len(outdatedJapanese), codeList(outdatedJapanese))
 	}
 	// The unknown key. `glossa check`'s `unknown-key` is a *translation*
-	// whose key has no source message; the pull-request check's is a
-	// *usage* of a key the catalog does not have, with the file and line
-	// the product uses it on. Two meanings, one code — and the one
-	// §12.2 describes ("with its file:line") is the pull request's.
+	// whose key no active message has; the pull-request check's own
+	// fallback view emits one for a *usage* of a key no catalog has,
+	// with its file and line. §12.2 asks for the second shape, and the
+	// check now renders the first surface's run (§14 decision 11).
 	if !hasLocated(findings, "unknown-key", unknownFile, unknownLine) {
-		s.gap("12.2", "no `unknown-key` finding names `%s:%d`, and the fixture cannot make one. The code means "+
-			"two different things on the two surfaces, and neither is §12.2's. `glossa check`'s completeness "+
-			"layer emits it for a stored *translation* whose key no active message has "+
-			"(quality/layers/completeness.go) — which a check can never see, because "+
-			"`snapshot.FromServer` asks for translations with `MessageState: \"active\"`, so obsoleting the "+
-			"source (this test obsoletes `%s` after pushing its translations) takes the translations out of "+
-			"the snapshot with it. The finding §12.2 describes — a *usage* of a key the catalog does not "+
-			"have, carrying the `file:line` the product asks for it on — is emitted only by the pull-request "+
-			"check, from the usages document (integration/app/check_report.go's `findings`), and the check "+
-			"run for this commit does carry it",
+		s.gap("12.2", "no `unknown-key` finding names `%s:%d`, and none can while the pull request renders the "+
+			"run CI recorded. Against a server project the terminal never emits `unknown-key` at all: the "+
+			"completeness layer emits it for a translation whose key no active message has "+
+			"(quality/layers/completeness.go), and `snapshot.FromServer` reads only the translations of active "+
+			"messages (`MessageState: \"active\"`) and joins them to active messages by ID, so the translations "+
+			"of the obsoleted `%s` never reach the layer — on this fixture or any other. `BranchUsages.Where` "+
+			"would locate such a finding at its `file:line` when the key has a usage (integration/app "+
+			"`locate`), but there is none to locate. The usage shape §12.2 describes is emitted only by the "+
+			"pull-request check's fallback view (integration/app/check_report.go's `findings`), which runs "+
+			"when CI recorded no run for the commit; this commit has one. An amendment reading \"a translation "+
+			"with no active message, located by Context\" would describe something the product does not do, "+
+			"so it was not written: the case needs either the snapshot to carry the translations of obsolete "+
+			"messages (a product change) or a criterion that asks for the offline shape — a target catalog "+
+			"key the source catalog lacks, located at its catalog file and no line",
 			unknownFile, unknownLine, keyOrphan)
 	}
 	// Terminology's two cases have to land on the right side of the
@@ -602,18 +608,6 @@ func (s *scenario) whyNoStyle() string {
 		"`quality/adapters/style.Port.EffectiveStyle`), so the layer is built and reachable there; the "+
 		"terminal is simply not wired to it",
 		styledLocale, guide.Fields.Formality.Register, guide.Fields.Formality.Pronoun)
-}
-
-// layerGap says, for a layer that produced nothing, why. These are the
-// precise, load-bearing sentences of this report: a criterion that
-// cannot be met has to say what is missing, not merely that something
-// is.
-var layerGap = map[domain.Layer]string{
-	domain.LayerStructure: "no finding. `structure` reports text that did not survive parsing, and no write path " +
-		"can store such text: localization/app.Service.prepare parses every translation and " +
-		"QAResult.Gate refuses one with error-severity findings, and `glossa push` refuses an " +
-		"invalid source message. The layer is therefore unreachable against a server project and " +
-		"reachable only from `glossa check --offline` over local catalogs (which this test also runs, below)",
 }
 
 func missingCodes(want, got []string) []string {
@@ -710,6 +704,101 @@ func anyNamespace(fs []domain.Finding, layer domain.Layer) bool {
 		}
 	}
 	return false
+}
+
+// structureProof is §12.2's `structure` case as amended in wave 7: the
+// layer's finding from `glossa check --offline`, and the server
+// refusing, at write time, the text that finding is about.
+type structureProof struct {
+	Offline      int
+	OfflineCodes string
+	// Refusals are the write paths asked to store text that does not
+	// parse, and what each answered.
+	Refusals []step
+}
+
+// proveStructure asserts both halves of the amended case. A translation
+// and a source revision that do not parse are sent through the API's
+// own write paths — the ones `glossa push` and Studio use — and each
+// must be refused with `invalid_message` and leave the stored text as
+// it was. The layer itself is then shown working where its input can
+// exist: a local catalog, checked offline.
+func (s *scenario) proveStructure(want string) layerVerdict {
+	const unparseable = ".input {$name" // unterminated: no MF2 parse
+	v := layerVerdict{Layer: domain.LayerStructure, Want: want}
+	var why []string
+
+	n, codes := s.offlineStructure()
+	s.structure.Offline, s.structure.OfflineCodes = n, codes
+	if n == 0 || !strings.Contains(codes, "invalid-translation") {
+		why = append(why, fmt.Sprintf("`glossa check --offline` over a catalog holding `%s` produced %d "+
+			"structure findings (%s), want `invalid-translation`", unparseable, n, codes))
+	}
+
+	// A translation that does not parse.
+	trPath := s.projectPath("/messages/" + keyAmbiguousShort + "/translations/es")
+	var before struct {
+		Text string `json:"text"`
+	}
+	etag := s.owner.do(http.MethodGet, trPath, nil, http.StatusOK, &before).Get("ETag")
+	why = append(why, s.refused("a Spanish translation of `"+keyAmbiguousShort+"`", http.MethodPut, trPath,
+		map[string]any{"text": unparseable, "syntax": "mf2"}, etag, before.Text)...)
+
+	// A source revision that does not parse.
+	msgPath := s.projectPath("/messages/" + keyAmbiguousShort)
+	var msg struct {
+		Source struct {
+			Text string `json:"text"`
+		} `json:"source"`
+	}
+	etag = s.owner.do(http.MethodGet, msgPath, nil, http.StatusOK, &msg).Get("ETag")
+	why = append(why, s.refused("the German source of `"+keyAmbiguousShort+"`", http.MethodPut, msgPath+"/source",
+		map[string]any{"text": unparseable, "syntax": "mf2"}, etag, msg.Source.Text)...)
+
+	if len(why) > 0 {
+		v.Got, v.Why = "none", strings.Join(why, "; ")
+		return v
+	}
+	v.OK = true
+	v.Codes = []string{"invalid-translation"}
+	v.Got = fmt.Sprintf("%d from `glossa check --offline` (%s); the server refused both writes of text that "+
+		"does not parse (`invalid_message`) and kept what it had, so no stored message can carry one", n, codes)
+	return v
+}
+
+// refused sends one write of text that does not parse and says what is
+// wrong if it was not refused, or if the stored text moved anyway.
+func (s *scenario) refused(what, method, path string, body map[string]any, etag, was string) []string {
+	_, err := s.owner.try(method, path, body, http.StatusOK, nil, "If-Match", etag)
+	var ae *apiError
+	switch {
+	case err == nil:
+		return []string{fmt.Sprintf("the server stored %s that does not parse", what)}
+	case !asAPIError(err, &ae):
+		return []string{fmt.Sprintf("writing %s: %v", what, err)}
+	case ae.status != http.StatusBadRequest || ae.code() != "invalid_message":
+		return []string{fmt.Sprintf("%s that does not parse was refused with %d `%s`, want 400 `invalid_message`",
+			what, ae.status, ae.code())}
+	}
+	s.structure.Refusals = append(s.structure.Refusals, step{
+		What: fmt.Sprintf("`%s` %s with `.input {$name`", method, what),
+		Then: fmt.Sprintf("%d `%s`", ae.status, ae.code())})
+	// Refused, and nothing moved: the stored text is the one before.
+	getPath := path
+	if strings.HasSuffix(path, "/source") {
+		getPath = strings.TrimSuffix(path, "/source")
+	}
+	var now struct {
+		Text   string `json:"text"`
+		Source struct {
+			Text string `json:"text"`
+		} `json:"source"`
+	}
+	s.owner.do(http.MethodGet, getPath, nil, http.StatusOK, &now)
+	if got := now.Text + now.Source.Text; got != was {
+		return []string{fmt.Sprintf("%s was refused and the stored text moved anyway: %q, was %q", what, got, was)}
+	}
+	return nil
 }
 
 // offlineStructure is the one place the structure layer can be seen:

@@ -143,13 +143,18 @@ func (s *scenario) reportLayers(b *bytes.Buffer) {
 	}
 	w("\n")
 
-	n, codes := s.offlineStructure()
-	w("**The `structure` layer, and why a server project cannot show one.** `glossa check --offline` over a local\n")
-	w("catalog holding text that does not parse produced **%d** structure finding(s) (%s), so the layer works.\n", n, codes)
-	w("It cannot appear against the server, and that is not a fixture problem: every write path parses first —\n")
-	w("`localization/app.Service.prepare` calls `mfcontent.Parse` and `QAResult.Gate` refuses a translation with\n")
-	w("error-severity findings, and `glossa push` refuses an invalid source message — so no stored message or\n")
-	w("translation can fail to parse. The layer is reachable only offline today.\n\n")
+	w("**The `structure` layer** (§12.2 as amended in wave 7). `glossa check --offline` over a local catalog\n")
+	w("holding text that does not parse produced **%d** structure finding(s) (%s): the layer works where its\n",
+		s.structure.Offline, s.structure.OfflineCodes)
+	w("input can exist. A server project cannot hold that input, and the test asserts why rather than saying\n")
+	w("so — every write path parses before it stores:\n\n")
+	if len(s.structure.Refusals) > 0 {
+		w("| Write | Answer |\n|---|---|\n")
+		for _, r := range s.structure.Refusals {
+			w("| %s | %s, and the stored text is unchanged |\n", r.What, r.Then)
+		}
+		w("\n")
+	}
 
 	w("**The visual layer.** ")
 	if s.crop.OK {

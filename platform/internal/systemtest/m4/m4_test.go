@@ -167,6 +167,8 @@ type scenario struct {
 	layerStatus      []layerVerdict
 	crop             cropResult
 	uploadedFindings int
+	// structure is how §12.2's `structure` case was proven.
+	structure structureProof
 
 	prCheck     checkRunView
 	prLayers    map[domain.Layer]layerCount
