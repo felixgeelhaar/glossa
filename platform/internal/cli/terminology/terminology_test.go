@@ -154,3 +154,63 @@ func TestTheNamespaceDoesNotMoveTheFingerprint(t *testing.T) {
 		t.Errorf("fingerprint = %s, want %s", prints["legal"], want)
 	}
 }
+
+// revisionPage answers with a single finding computed against source
+// revision rev.
+func revisionPage(rev int) Fetcher {
+	return func(_ context.Context, _ remote.TermFindingsQuery, fn func(remote.TermFindingsPage) error) error {
+		return fn(remote.TermFindingsPage{Checked: map[string]int{"de": 1}, Items: []remote.TranslationFindings{
+			{MessageKey: "terms.accept", Locale: "de", SourceRevision: rev,
+				Findings: []remote.TermFinding{finding("warning")}},
+		}})
+	}
+}
+
+// The source revision the server checked against reaches the finding.
+//
+// A waiver dies when the source it was made against moves (RFC 0005
+// §2.3), and domain.Waiver.Stale can only see that on a finding that
+// says which revision it was computed against. Without one, a waived
+// terminology finding never came back, whatever happened to the German
+// under it.
+func TestTheSourceRevisionReachesTheFinding(t *testing.T) {
+	r, err := Run(context.Background(), Options{Locales: []string{"de"}}, revisionPage(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Findings) != 1 || r.Findings[0].SourceRevision != 7 {
+		t.Fatalf("report = %+v", r.Findings)
+	}
+	qf := r.QA()
+	if len(qf) != 1 || qf[0].SourceRevision == nil || *qf[0].SourceRevision != 7 {
+		t.Fatalf("finding = %+v, want source revision 7", qf)
+	}
+	// And the waiver rule now has something to disagree with.
+	w := domain.Waiver{Fingerprint: qf[0].Fingerprint, Reason: "known", SourceRevision: 6}
+	if !w.Stale(qf[0]) {
+		t.Errorf("a waiver made against revision 6 still covers a finding at 7")
+	}
+}
+
+// The revision is context, not identity: it is not one of the five
+// hashed parts (RFC 0005 §2.1), so recording it moves no print, and a
+// waiver stored against a terminology finding before it was recorded
+// still names the same finding.
+func TestTheSourceRevisionDoesNotMoveTheFingerprint(t *testing.T) {
+	prints := map[int]string{}
+	for _, rev := range []int{0, 1, 9} {
+		r, err := Run(context.Background(), Options{Locales: []string{"de"}}, revisionPage(rev))
+		if err != nil {
+			t.Fatal(err)
+		}
+		prints[rev] = r.QA()[0].Fingerprint
+	}
+	if prints[0] != prints[1] || prints[0] != prints[9] {
+		t.Errorf("the revision moved the print: %v", prints)
+	}
+	// A server that names none gives a finding that claims none.
+	r, _ := Run(context.Background(), Options{Locales: []string{"de"}}, revisionPage(0))
+	if got := r.QA()[0].SourceRevision; got != nil {
+		t.Errorf("source revision = %d, want none when the server named none", *got)
+	}
+}

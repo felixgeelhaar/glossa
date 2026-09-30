@@ -169,10 +169,11 @@ func TestKnowledgeOverHTTP(t *testing.T) {
 	}}).want(t, http.StatusCreated, "")
 	var findings struct {
 		Items []struct {
-			MessageKey string `json:"message_key"`
-			Locale     string `json:"locale"`
-			TargetText string `json:"target_text"`
-			Findings   []struct {
+			MessageKey     string `json:"message_key"`
+			Locale         string `json:"locale"`
+			SourceRevision int    `json:"source_revision"`
+			TargetText     string `json:"target_text"`
+			Findings       []struct {
 				Code string `json:"code"`
 			} `json:"findings"`
 		} `json:"items"`
@@ -180,7 +181,10 @@ func TestKnowledgeOverHTTP(t *testing.T) {
 	}
 	s.do(call{method: "GET", path: tp.path + "/terminology-findings?locale=fr", bearer: tp.token}).decode(t, &findings)
 	if len(findings.Items) != 1 || findings.Items[0].MessageKey != "checkout.pay" || findings.Checked["fr"] != 1 ||
-		len(findings.Items[0].Findings) != 2 || findings.Items[0].TargetText != "Payer \uFFFC" {
+		len(findings.Items[0].Findings) != 2 || findings.Items[0].TargetText != "Payer \uFFFC" ||
+		// The revision the findings were computed against, which a waiver
+		// on one of them is measured against (RFC 0005 §2.3).
+		findings.Items[0].SourceRevision != 1 {
 		t.Errorf("project check = %+v", findings)
 	}
 	s.do(call{method: "GET", path: tp.path + "/terminology-findings?locale=fr&state=published", bearer: tp.token}).

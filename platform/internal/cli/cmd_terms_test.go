@@ -280,3 +280,63 @@ func TestTerminologyFindingsCarryTheirNamespace(t *testing.T) {
 		t.Errorf("the namespace moved the print: %s vs %s", other.Fingerprint, plain.Fingerprint)
 	}
 }
+
+// A waived terminology finding comes back when the source under it
+// moves (RFC 0005 §2.3, §12.4).
+//
+// It never did: the terminology layer's findings carried no source
+// revision, and domain.Waiver.Stale is false for a finding that names
+// none — nothing to disagree with — so a waiver on one never expired,
+// whatever happened to the source. The server names the revision it
+// checked against, and both `glossa terms check` and `glossa check
+// --terminology` now carry it.
+func TestAWaivedTerminologyFindingComesBackWhenItsSourceMoves(t *testing.T) {
+	_, w := seeded(t)
+	termbase(t, w)
+	w.write("locales/de.json", `{"cart.checkout": "Zum Einkaufswagen"}`)
+	w.run("push", "--translations").want(t, ExitOK)
+
+	forbidden := func(t *testing.T) domain.Finding {
+		t.Helper()
+		var out checkJSON
+		w.json(&out, "check", "--terminology")
+		for _, f := range out.Findings {
+			if f.Layer == domain.LayerTerminology && f.Code == "term_forbidden" {
+				return f
+			}
+		}
+		t.Fatalf("no term_forbidden in %+v", out.Findings)
+		return domain.Finding{}
+	}
+
+	before := forbidden(t)
+	if before.SourceRevision == nil || *before.SourceRevision != 1 {
+		t.Fatalf("source_revision = %v, want the message's revision 1", before.SourceRevision)
+	}
+	var terms termsCheckJSON
+	w.json(&terms, "terms", "check").want(t, ExitCheckFailed)
+	if len(terms.Findings) == 0 || terms.Findings[0].SourceRevision != 1 {
+		t.Errorf("terms check = %+v, want each finding at source revision 1", terms.Findings)
+	}
+
+	w.run("waive", before.Fingerprint, "--reason", "the shop says Einkaufswagen",
+		"--source-revision", "1").want(t, ExitOK)
+	if got := forbidden(t); got.Severity != domain.Waived {
+		t.Fatalf("after the waiver: %s, want waived", got.Severity)
+	}
+
+	// The English under it changes, and the German does not: the waiver
+	// was made against a source that no longer ships.
+	w.write("locales/en.json", `{"cart": {"checkout": "Go to checkout", "items": "{count, plural, one {# item} other {# items}}"}, "checkout.pay": "Pay {amount, number}"}`)
+	w.run("push").want(t, ExitOK)
+	after := forbidden(t)
+	switch {
+	case after.Fingerprint != before.Fingerprint:
+		t.Fatalf("a different finding: %s, want %s — the revision is context, never identity",
+			after.Fingerprint, before.Fingerprint)
+	case after.SourceRevision == nil || *after.SourceRevision != 2:
+		t.Fatalf("source_revision = %v, want 2", after.SourceRevision)
+	case after.Severity != domain.Error:
+		t.Errorf("severity = %s, want the finding back at error: its waiver went stale", after.Severity)
+	}
+}

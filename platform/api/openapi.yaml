@@ -9768,13 +9768,20 @@ components:
           items: { $ref: "#/components/schemas/TermFinding" }
     TranslationTerminologyFindings:
       type: object
-      required: [message_id, message_key, namespace, locale, state, source_text, target_text, findings]
+      required: [message_id, message_key, namespace, locale, state, source_revision, source_text, target_text, findings]
       properties:
         message_id: { $ref: "#/components/schemas/Id" }
         message_key: { $ref: "#/components/schemas/MessageKey" }
         namespace: { type: string }
         locale: { $ref: "#/components/schemas/Locale" }
         state: { $ref: "#/components/schemas/ReviewState" }
+        source_revision:
+          type: integer
+          minimum: 1
+          description: >-
+            The message's current source revision: the one `source_text` is, and so the one these findings were
+            computed against. A waiver on a terminology finding is measured against it (RFC 0005 §2.3) — change
+            the source and the waived finding comes back.
         source_text: { type: string, description: "The source's visible text, which `source` spans point into." }
         target_text: { type: string, description: "The translation's visible text, which `target` spans point into." }
         findings:

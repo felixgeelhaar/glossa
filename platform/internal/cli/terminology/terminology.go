@@ -39,6 +39,12 @@ type Finding struct {
 	// carries one — and a selector that silently matches nothing is
 	// worse than one that errors.
 	Namespace string `json:"namespace"`
+	// SourceRevision is the message's source revision the server checked
+	// the translation against — the one whose text the finding is
+	// about. A waiver is measured against it (RFC 0005 §2.3): change the
+	// source and a waived terminology finding comes back. Zero when the
+	// server named none.
+	SourceRevision int `json:"source_revision,omitempty"`
 	// Side is where the span is: source (term_missing: the source term)
 	// or target (term_forbidden: the term used).
 	Side  string `json:"side"`
@@ -102,7 +108,7 @@ func Run(ctx context.Context, opts Options, fetch Fetcher) (Report, error) {
 				}
 				for _, f := range it.Findings {
 					r.Findings = append(r.Findings, Finding{Code: string(f.Code), Severity: string(f.Severity), Locale: it.Locale,
-						Key: it.MessageKey, Namespace: it.Namespace, Side: string(f.Side), Text: f.Text, Start: f.Start, End: f.End,
+						Key: it.MessageKey, Namespace: it.Namespace, SourceRevision: it.SourceRevision, Side: string(f.Side), Text: f.Text, Start: f.Start, End: f.End,
 						Suggestions: nonNil(f.Suggestions), ConceptID: f.ConceptId, TermID: f.TermId, Message: f.Message})
 					if f.Severity == "error" {
 						lr.Errors++
@@ -158,6 +164,9 @@ func nonNil(s []string) []string {
 // domain.Fingerprint hashes, so filling it selects the policy rules
 // that were written for it without moving a single print, and every
 // waiver already stored against a terminology finding still matches.
+//
+// So does the source revision, for the same reason: it is what a
+// waiver is measured against, never what a finding is named by.
 func (r Report) QA() []domain.Finding {
 	out := make([]domain.Finding, 0, len(r.Findings))
 	for _, f := range r.Findings {
@@ -169,9 +178,15 @@ func (r Report) QA() []domain.Finding {
 		if f.Side != "" {
 			locus.Span = &domain.Span{Side: domain.Side(f.Side), Start: f.Start, End: f.End}
 		}
+		var rev *int
+		if f.SourceRevision > 0 {
+			n := f.SourceRevision
+			rev = &n
+		}
 		out = append(out, domain.New(domain.Finding{
 			Layer: domain.LayerTerminology, Code: f.Code, Severity: severity, Locus: locus,
 			Message: f.Message, Subject: f.Text, Evidence: evidence(f), Fix: fix(f),
+			SourceRevision: rev,
 		}))
 	}
 	return out

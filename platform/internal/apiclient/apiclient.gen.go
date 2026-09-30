@@ -7500,6 +7500,9 @@ type TranslationTerminologyFindings struct {
 	MessageKey MessageKey `json:"message_key"`
 	Namespace  string     `json:"namespace"`
 
+	// SourceRevision The message's current source revision: the one `source_text` is, and so the one these findings were computed against. A waiver on a terminology finding is measured against it (RFC 0005 §2.3) — change the source and the waived finding comes back.
+	SourceRevision int `json:"source_revision"`
+
 	// SourceText The source's visible text, which `source` spans point into.
 	SourceText string      `json:"source_text"`
 	State      ReviewState `json:"state"`

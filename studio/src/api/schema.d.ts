@@ -6741,6 +6741,8 @@ export interface components {
             namespace: string;
             locale: components["schemas"]["Locale"];
             state: components["schemas"]["ReviewState"];
+            /** @description The message's current source revision: the one `source_text` is, and so the one these findings were computed against. A waiver on a terminology finding is measured against it (RFC 0005 §2.3) — change the source and the waived finding comes back. */
+            source_revision: number;
             /** @description The source's visible text, which `source` spans point into. */
             source_text: string;
             /** @description The translation's visible text, which `target` spans point into. */

@@ -385,6 +385,9 @@ func (c *Checks) terminology(ctx context.Context, project uuid.UUID, locales []s
 						Span:      &quality.Span{Side: quality.Side(f.Side), Start: f.Start, End: f.End},
 					},
 					Message: f.Message, Subject: f.Text, Evidence: termEvidence(f),
+					// The source it was checked against, which a waiver
+					// on it is measured against (RFC 0005 §2.3).
+					SourceRevision: sourceRevision(item.SourceRevision),
 				}))
 			}
 		}
