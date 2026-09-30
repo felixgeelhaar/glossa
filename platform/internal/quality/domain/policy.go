@@ -27,7 +27,7 @@ func (f Finding) Target(environment string) checkpolicy.Target {
 	return checkpolicy.Target{
 		Layer: string(f.Layer), Code: f.Code, Locale: f.Locus.Locale,
 		Namespace: f.Locus.Namespace, Environment: environment,
-		Severity: f.Severity, Advisory: f.Layer.Advisory(),
+		Severity: f.Severity, Advisory: f.Layer.Advisory(), Provisional: f.Provisional(),
 	}
 }
 
