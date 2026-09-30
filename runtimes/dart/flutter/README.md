@@ -200,16 +200,29 @@ Measured on macOS arm64, Flutter 3.47.5, per architecture:
 
 | | |
 |---|---|
-| `package:glossa` + `package:glossa_flutter` | **133.7 kB** of 150 kB — enforced |
+| `package:glossa` + `package:glossa_flutter` | **133.7 kB** of 150 kB — the gated number |
 | `package:intl` and its CLDR data | 169.0 kB — reported, per §6.4 |
 | the whole app, with minus without | 1048.8 kB |
+| the same delta, excluding `package:intl` | **879.8 kB** |
 
-The last row is the honest headline and the reason §6.4 asks for it: on
-top of our 134 kB the app grows by `package:intl` (169 kB), the `dart:io`
-HTTP client the fixture supplies as a transport (229 kB of `dart:io` and
-`dart:_http`), `package:crypto`, and the `dart:core` BigInt arithmetic
-the pure-Dart Ed25519 verifier needs. Only the first row is a budget;
-printing only the first row would be the lie intent §33 warns about.
+**Read the last row before the first.** §6.4 names its method — "against
+a fixture app with and without it" — and by that method the figure is
+879.8 kB excluding `package:intl`, which does **not** meet 150 kB; it
+misses by about six times. What CI gates is the first row, the
+per-library figure, which is a defensible reading of "excluding
+`package:intl`" (`intl` is a line of its own in that same breakdown) but
+is not the only one. **Which number the budget means is an open question
+for the owner** — RFC 0005 §15, question 6 — and a green job is not an
+answer to it. The tool prints all four rows and the caveat on every run.
+
+Most of the difference is not our code: on top of our 134 kB the app
+grows by `package:intl` (169 kB), the `dart:io` HTTP client the fixture
+supplies as a transport (229 kB of `dart:io` and `dart:_http`), the
+`dart:core` BigInt arithmetic the pure-Dart Ed25519 verifier needs
+(82 kB), `package:crypto` (16 kB), and shared snapshot data. An app that
+already makes HTTP calls and already formats numbers and dates pays much
+of that anyway: against a baseline fixture that does both, the same
+delta came to about **343 kB**.
 
 The startup half of §6.4 lives in the core package —
 [`../tool/startup_budget.dart`](../tool/startup_budget.dart) — because

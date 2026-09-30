@@ -22,9 +22,21 @@
 /// keeps that honest: it must show **zero** bytes for both packages,
 /// while the `glossa` build must show a lot.
 ///
-/// What is enforced is the first number below; the rest are reported,
-/// because §6.4 asks for them and because a report that shows only the
-/// flattering number is the lie it warns about.
+/// **Two readings of §6.4, and the gate takes the kinder one.** The
+/// section names its method — "with and without it" — and that method is
+/// the *delta* between the two builds, which comes to roughly six times
+/// 150 kB once `package:intl` is taken out. The gate instead reads
+/// `--analyze-size`'s own per-library figure for the two packages, which
+/// does fit, and which is a defensible reading of "excluding
+/// `package:intl`" because `intl` is a line of its own in that same
+/// breakdown. It is not the only reading, and this program is not the
+/// place that decides between them: it prints both, says in as many
+/// words that the delta does not meet the budget, and leaves the choice
+/// to the owner (RFC 0005 §6.4, amended in wave 4).
+///
+/// So: what is enforced is the first number below; the rest are
+/// reported, because §6.4 asks for them and because a report that shows
+/// only the flattering number is the lie it warns about.
 ///
 /// Run it from `runtimes/dart/flutter`:
 ///
@@ -88,20 +100,20 @@ Future<void> main(List<String> args) async {
       );
     }
 
+    final intl = _sum(withGlossa, const ['package:intl']);
+    final total = withGlossa.total - plain.total;
+    final totalWithoutIntl = total - intl;
+
     say('');
-    say('— enforced ——————————————————————————————————————————————————');
+    say('— enforced: the per-library reading of §6.4 ——————————————————');
     _line(say, 'package:glossa + package:glossa_flutter', ours);
     say('    budget ${_kb(budgetBytes)}, excluding package:intl (§6.4)');
 
     say('');
     say('— reported, because §6.4 asks and a hidden megabyte is a lie ——');
-    _line(
-      say,
-      'package:intl (its own CLDR data)',
-      _sum(withGlossa, const ['package:intl']),
-    );
-    final total = withGlossa.total - plain.total;
+    _line(say, 'package:intl (its own CLDR data)', intl);
     _line(say, 'the whole app, with minus without', total);
+    _line(say, 'the same delta, excluding package:intl', totalWithoutIntl);
     say('    Everything the app grew by: our code, package:intl, and what');
     say('    we pull out of the SDK — BigInt for Ed25519, package:crypto,');
     say('    dart:convert, the dart:io transport. Per architecture: this');
@@ -114,13 +126,40 @@ Future<void> main(List<String> args) async {
 
     say('');
     if (ours <= budgetBytes) {
-      say('OK — ${_kb(ours)} of ${_kb(budgetBytes)}.');
+      say(
+        'OK — ${_kb(ours)} of ${_kb(budgetBytes)}, on the per-library '
+        'reading of §6.4. That verdict does not stand alone:',
+      );
     } else {
       say(
         'FAIL — ${_kb(ours)} of ${_kb(budgetBytes)}: over by '
-        '${_kb(ours - budgetBytes)}.',
+        '${_kb(ours - budgetBytes)}, on the per-library reading of §6.4.',
       );
     }
+    // The section names its method — "against a fixture app with and
+    // without it" — and that method is the delta, which is several times
+    // 150 kB. Whoever reads this log later must not be able to take the
+    // line above as "the budget is met" without meeting this one.
+    say(
+      '  §6.4 names the *delta* as its method. By that method the figure is '
+      '${_kb(totalWithoutIntl)} excluding package:intl, which does NOT meet '
+      '${_kb(budgetBytes)} — it is about '
+      '${(totalWithoutIntl / budgetBytes).toStringAsFixed(0)}× it. The gate '
+      'above reads the per-library figure instead, which is a defensible '
+      'reading of "excluding package:intl" (intl is a line of its own in '
+      'this same breakdown) but is not the only one. Which number the '
+      'budget means is an open question for the owner; RFC 0005 §6.4, '
+      'amended in wave 4, records it as open, and this gate does not '
+      'settle it.',
+    );
+    say(
+      '  Most of the difference is not our code: the dart:io HTTP client a '
+      'transport needs, the dart:core BigInt arithmetic the pure-Dart '
+      'Ed25519 verifier uses, package:crypto, and shared stubs. Against a '
+      'baseline app that already makes HTTP calls and already formats '
+      'numbers and dates — which most apps do — the same measurement came '
+      'to about 343 kB rather than ${_kb(totalWithoutIntl)}.',
+    );
     if (reportPath != null) {
       File(reportPath).writeAsStringSync(report.toString());
     }
