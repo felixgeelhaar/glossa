@@ -1634,7 +1634,8 @@ for (`--allow-write`, `--allow-publish`), and asking is not getting:
 the server still checks the token's scopes. `internal/mcp/README.md`
 has the editor configuration, the toolset table and the tool list.
 
-**Every call is audited.** `mcp_tool_calls` (migration 0028) is
+**Every call is audited.** `mcp_tool_calls` (migration 0028, widened to
+admit the `publish` toolset by 0037) is
 tenant-owned under forced RLS and **append-only** for `glossa_app`:
 INSERT and SELECT, no UPDATE, no DELETE, so no code path — and no agent
 — rewrites its own trail. A row carries the actor, the token, the
