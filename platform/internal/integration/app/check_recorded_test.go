@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -160,6 +161,70 @@ func TestARenderedRunIsAnnotatedWhereTheProductUsesTheKey(t *testing.T) {
 		t.Fatalf("locating a finding moved the verdict: %q %d/%d/%d against %q %d/%d/%d",
 			bare.Conclusion, bare.Errors, bare.Warnings, bare.Waived,
 			located.Conclusion, located.Errors, located.Warnings, located.Waived)
+	}
+}
+
+// TestAnOrphanedTranslationIsAnnotatedWhereTheCodeStillUsesItsKey is
+// the case orphaned translations are reported for: the product still
+// asks for a key whose message the catalog has obsoleted. `glossa check`
+// finds the translation left behind (the completeness layer's
+// `unknown-key`, by the obsolete message's ID); Context knows the line
+// that still asks for the key; the pull request puts the one on the
+// other — and changes nothing else about the run it renders.
+func TestAnOrphanedTranslationIsAnnotatedWhereTheCodeStillUsesItsKey(t *testing.T) {
+	s := &snapshot.Snapshot{
+		Origin: snapshot.FromServerOrigin, SourceLocale: "de",
+		Locales:      []snapshot.Locale{{Code: "de", IsSource: true}, {Code: "fr"}},
+		Translations: map[string]map[string]snapshot.Translation{"fr": {}},
+		Orphans: []snapshot.Orphan{{
+			MessageID: "0192f5a1-0000-0000-0000-00000000000b", Key: "help.legacy.title", Namespace: "help",
+			Locale: "fr", Revision: "tr-fr",
+		}},
+	}
+	policy := checkpolicy.Policy{Version: 7, FailOn: checkpolicy.Error}
+	cli := qa.Run(s, policy, qa.Default()...)
+	run := recordedRunOf(cli, branchName)
+	var orphan quality.Finding
+	for _, f := range cli.Findings {
+		if f.Code == checkpolicy.CodeUnknownKey {
+			orphan = f
+		}
+	}
+	if orphan.Locus.Message != s.Orphans[0].MessageID || orphan.Severity != checkpolicy.Warning {
+		t.Fatalf("the terminal's unknown-key = %+v, want the obsolete message's, as a warning", orphan)
+	}
+	rep := app.BuildCheckReport(app.CheckInput{
+		Policy: policy, Recorded: &run,
+		Status: app.BranchStatus{Name: branchName, Outdated: map[string]int{}},
+		Usages: app.BranchUsages{
+			Where: map[string]app.UsageSite{"help.legacy.title": {File: "src/pages/HelpPage.vue", Line: 23}},
+		},
+	})
+	var located *quality.Finding
+	for i, f := range rep.Findings {
+		if f.Code == checkpolicy.CodeUnknownKey {
+			located = &rep.Findings[i]
+		}
+	}
+	if located == nil || located.Locus.File != "src/pages/HelpPage.vue" || located.Locus.Line != 23 {
+		t.Fatalf("rendered unknown-key = %+v, want it at src/pages/HelpPage.vue:23", located)
+	}
+	if located.Fingerprint != orphan.Fingerprint {
+		t.Errorf("fingerprint %s on the pull request, %s in the terminal: locating a finding re-identified it",
+			located.Fingerprint, orphan.Fingerprint)
+	}
+	var annotated bool
+	for _, a := range rep.Annotations {
+		if a.Path == "src/pages/HelpPage.vue" && a.StartLine == 23 && a.Level == "warning" {
+			annotated = true
+		}
+	}
+	if !annotated {
+		t.Errorf("annotations = %+v, want a warning on src/pages/HelpPage.vue:23", rep.Annotations)
+	}
+	if rep.Errors != cli.Counts.Errors || rep.Warnings != cli.Counts.Warnings || rep.Conclusion != string(cli.Conclusion) {
+		t.Errorf("pull request %s %d/%d, terminal %s %d/%d", rep.Conclusion, rep.Errors, rep.Warnings,
+			cli.Conclusion, cli.Counts.Errors, cli.Counts.Warnings)
 	}
 }
 

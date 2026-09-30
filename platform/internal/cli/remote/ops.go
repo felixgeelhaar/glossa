@@ -224,8 +224,32 @@ func (c *Client) ProjectTranslations(ctx context.Context, s Scope, locales []str
 	return out, nil
 }
 
-func (c *Client) projectTranslations(ctx context.Context, s Scope, locales []string, f TranslationFilter) ([]ProjectTranslation, error) {
-	size := pageSize
+// FirstProjectTranslations reads only the first page of size of the
+// listing for each chunk of MaxLocalesPerList locales, and reports
+// whether any chunk had another page. It is the bounded read: a caller
+// that must not page through everything a project has ever obsoleted
+// asks for one page and is told whether it saw all of it.
+func (c *Client) FirstProjectTranslations(ctx context.Context, s Scope, locales []string, f TranslationFilter, size int) ([]ProjectTranslation, bool, error) {
+	var (
+		out  []ProjectTranslation
+		more bool
+	)
+	for start := 0; start < len(locales); start += MaxLocalesPerList {
+		chunk := locales[start:min(start+MaxLocalesPerList, len(locales))]
+		params := translationParams(chunk, f, size)
+		r, err := c.api.ListProjectTranslationsWithResponse(ctx, s.Tenant, s.Project, &params)
+		if err := check(r, err, http.MethodGet, c.path("/v1/tenants/%s/projects/%s/translations", s.Tenant, s.Project)); err != nil {
+			return nil, false, err
+		}
+		out = append(out, r.JSON200.Items...)
+		if next := r.JSON200.NextPageToken; next != nil && *next != "" {
+			more = true
+		}
+	}
+	return out, more, nil
+}
+
+func translationParams(locales []string, f TranslationFilter, size int) apiclient.ListProjectTranslationsParams {
 	params := apiclient.ListProjectTranslationsParams{PageSize: &size, Locale: locales}
 	if f.MessageState != "" {
 		st := apiclient.MessageState(f.MessageState)
@@ -238,6 +262,11 @@ func (c *Client) projectTranslations(ctx context.Context, s Scope, locales []str
 		}
 		params.State = &states
 	}
+	return params
+}
+
+func (c *Client) projectTranslations(ctx context.Context, s Scope, locales []string, f TranslationFilter) ([]ProjectTranslation, error) {
+	params := translationParams(locales, f, pageSize)
 	return collect(func(tok *string) ([]ProjectTranslation, *string, error) {
 		p := params
 		p.PageToken = tok

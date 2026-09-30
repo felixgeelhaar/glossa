@@ -471,7 +471,11 @@ func (inv *invocation) checkRun(ctx context.Context, cfg *config.Config, f check
 	if err != nil {
 		return nil, err
 	}
-	s, err := snapshot.FromServer(ctx, p.client, p.scope, p.info.SourceLocale, snapshot.Options{})
+	// Orphans: a translation whose message the catalog obsoleted is the
+	// server's `unknown-key`, and the server's own snapshot reads the
+	// same bounded page of them, so the terminal and every other surface
+	// grade the same project.
+	s, err := snapshot.FromServer(ctx, p.client, p.scope, p.info.SourceLocale, snapshot.Options{Orphans: true})
 	if err != nil {
 		return nil, inv.apiError(err, "can't read the project from the server")
 	}

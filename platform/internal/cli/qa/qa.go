@@ -155,6 +155,12 @@ func Project(s *snapshot.Snapshot, opts ...Option) *layers.Project {
 		}
 		p.Translations[locale] = out
 	}
+	for _, o := range s.Orphans {
+		p.Orphans = append(p.Orphans, layers.Orphan{
+			MessageID: o.MessageID, Key: o.Key, Namespace: o.Namespace, Locale: o.Locale, Revision: o.Revision,
+		})
+	}
+	p.MoreOrphans = s.MoreOrphans
 	for _, o := range opts {
 		o(p)
 	}

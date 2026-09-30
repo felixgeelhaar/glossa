@@ -211,9 +211,11 @@ func TestReadsTranslationsInBulk(t *testing.T) {
 	w.json(&checkJSON{}, "check").want(t, ExitCheckFailed)
 	w.json(&diffJSON{}, "diff").want(t, ExitOK)
 	w.json(&pullJSON{}, "pull").want(t, ExitOK)
-	// 5 translations across de and ja, 2 a page: 3 pages per command.
-	if n := srv.countRequests(p+"/translations ") - before; n != 9 {
-		t.Errorf("%d listing requests for check, diff and pull, want 9", n)
+	// 5 translations across de and ja, 2 a page: 3 pages per command,
+	// and check's one bounded page of the translations of obsolete
+	// messages (layers.MaxOrphans), which it never pages past.
+	if n := srv.countRequests(p+"/translations ") - before; n != 10 {
+		t.Errorf("%d listing requests for check, diff and pull, want 10", n)
 	}
 	if n := srv.countRequests(p + "/messages/"); n != 0 {
 		t.Errorf("%d per-message reads", n)

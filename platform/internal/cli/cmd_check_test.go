@@ -1,7 +1,11 @@
 package cli
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 )
 
 // checkDoc is `glossa check --json`, as far as these tests read it.
@@ -97,6 +101,56 @@ func TestCheckFollowsTheProjectPolicy(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCheckReportsTranslationsOfObsoleteMessages: a translation whose
+// message the catalog obsoleted is `unknown-key`, identified by the
+// obsolete message's ID the way the server identifies it — before, it
+// vanished from every check against the server.
+func TestCheckReportsTranslationsOfObsoleteMessages(t *testing.T) {
+	srv, w := pushed(t)
+	srv.mu.Lock()
+	srv.messages["help.legacy"] = &fakeMessage{key: "help.legacy", revision: 1, state: "obsolete"}
+	srv.translations["de"] = map[string]*fakeTranslation{
+		"help.legacy": {content: mustContent(t, "Alte Hilfe", "de"), state: "approved", origin: "human", sourceRevision: 1, revision: 1},
+	}
+	srv.mu.Unlock()
+	var doc struct {
+		Findings []struct {
+			Code, Severity, Layer string
+			Locus                 struct{ Locale, Key, Message string }
+		} `json:"findings"`
+	}
+	w.json(&doc, "check").want(t, ExitCheckFailed)
+	var got int
+	for _, f := range doc.Findings {
+		if f.Code != "unknown-key" {
+			continue
+		}
+		got++
+		if f.Locus.Key != "help.legacy" || f.Locus.Locale != "de" || f.Locus.Message != "msg_help.legacy" ||
+			f.Severity != "warning" || f.Layer != "completeness" {
+			t.Errorf("unknown-key = %+v, want the obsolete message's German translation, by its ID, as a warning", f)
+		}
+	}
+	if got != 1 {
+		t.Errorf("%d unknown-key findings, want 1: %+v", got, doc.Findings)
+	}
+	// `glossa pull` reads the same server and must not write the dead
+	// translation back into a catalog file.
+	w.run("pull").want(t, ExitOK)
+	if body := w.read("locales/de.json"); strings.Contains(body, "help.legacy") {
+		t.Errorf("pull wrote the obsolete message's translation: %s", body)
+	}
+}
+
+func mustContent(t *testing.T, text, locale string) mfcontent.Content {
+	t.Helper()
+	c, err := mfcontent.Parse(mfcontent.MF1, text, bcp47.MustParse(locale))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
 }
 
 // TestCheckFlagsBeatTheProjectPolicy pins the precedence the README
