@@ -414,9 +414,15 @@ func (s *GitHubService) checkInput(ctx context.Context, c *domain.Check, conn do
 	// the report needs both times and reads neither itself. OpenedAt is
 	// still the zero time here: the queue row does not record when the
 	// pull request was opened, so every check grades against the
-	// project's current version — which is exactly today's behaviour.
-	// Wave 4's PR-check slice, which rebuilds this report on the layered
-	// findings, is where the opened-at joins the row.
+	// project's current version — which is exactly today's behaviour,
+	// and the summary says which version that was (RFC 0005 §4.3).
+	//
+	// The report already grades a pinned pull request correctly when it
+	// is told when the pull request opened; what is missing is the
+	// column, and a column is a migration, which the layered-report
+	// slice deliberately does not carry. Storing `pull_request.created_at`
+	// on the check row is the one step left before a grace can pin a
+	// real pull request.
 	in.Now = s.now()
 	if in.Status, err = s.sources.BranchStatus(ctx, conn.ProjectID, c.Branch); err != nil {
 		return in, ready, err
