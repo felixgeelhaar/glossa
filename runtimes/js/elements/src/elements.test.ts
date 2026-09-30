@@ -40,9 +40,31 @@ const testOptions = (serve: () => TestRelease | undefined = () => r1): RuntimeOp
   bidiIsolation: "none",
 });
 
-/** Let the runtime load (WebCrypto hashing is async) and Lit re-render. */
+/**
+ * Let the runtime load (WebCrypto hashing is async) and Lit re-render.
+ *
+ * The five event-loop turns below are a floor for the runtime's async
+ * load, not the whole wait. Lit renders on its own queue, so a fixed
+ * number of turns is enough on an idle machine and not always enough on
+ * a loaded CI runner — which is what made this suite flake twice, once
+ * on a teardown assertion and once reading a component's shadow root
+ * before it had rendered. So after the floor we wait for the condition
+ * itself: every component's own `updateComplete`, repeated until a round
+ * reports that nothing re-rendered. `updateComplete` resolves false when
+ * the update queued another one, which is exactly the signal to wait
+ * again.
+ */
 async function settle(): Promise<void> {
+  const rendering = () =>
+    Array.from(document.querySelectorAll("*")).filter(
+      (e): e is Element & { updateComplete: Promise<boolean> } => "updateComplete" in e,
+    );
   for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+  for (let round = 0; round < 100; round++) {
+    if ((await Promise.all(rendering().map((e) => e.updateComplete))).every(Boolean)) return;
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  throw new Error("settle: the components never stopped re-rendering");
 }
 
 async function mount(
