@@ -199,6 +199,11 @@ func (out *captureJSON) assemble(h extract.Header) error {
 	out.images = map[string][]byte{}
 	for _, s := range out.shots {
 		c := s.Capture
+		// The probes ride with the capture they were measured on. They
+		// are the only part of the visual layer nothing but the page
+		// could produce, and a manifest that left them behind would make
+		// `visual` a layer that exists in the terminal and nowhere else.
+		c.Findings = capture.Findings(s.Probes)
 		caps = append(caps, c)
 		out.images[c.Image.SHA256] = s.PNG
 		visible := 0

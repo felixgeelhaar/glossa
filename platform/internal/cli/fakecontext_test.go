@@ -28,7 +28,11 @@ type fakeContext struct {
 
 // fakeCaptureUpload is one POST …/captures as the fake read it.
 type fakeCaptureUpload struct {
-	parts  []string // part names in order
+	parts []string // part names in order
+	// raw is the manifest part verbatim, so a test can hold the CLI to
+	// the published schema and to the server's own parser rather than to
+	// the fake's partial reading of it.
+	raw    []byte
 	doc    fakeCapturesDoc
 	images map[string][]byte
 }
@@ -150,6 +154,7 @@ func (f *fakeServer) uploadCaptures(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	up.raw = manifest
 	if err := json.Unmarshal(manifest, &up.doc); err != nil || up.doc.Schema != "glossa.captures/v1" {
 		problemResp(w, 400, "invalid_captures", "invalid glossa.captures/v1 manifest")
 		return
