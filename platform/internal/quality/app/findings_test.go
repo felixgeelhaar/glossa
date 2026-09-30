@@ -281,6 +281,11 @@ type knownProjects struct {
 	projectVersion int
 	// open maps open branch names to their pull requests.
 	open map[string]int
+	// messages is the catalog's key → message ID, which is what a
+	// reported finding's fingerprint is computed over. askedKeys are the
+	// keys the last resolution asked about.
+	messages  map[string]uuid.UUID
+	askedKeys []string
 	// conflict makes the next save lose the race.
 	conflict bool
 	// saved and savedIfMatch record what the last save asked for.
@@ -293,6 +298,25 @@ func (c *knownProjects) Project(_ context.Context, project uuid.UUID) error {
 		return app.ErrProjectNotFound
 	}
 	return nil
+}
+
+// MessageIDs resolves only the keys the catalog was given: a key it
+// does not know is absent, and the finding's identity then falls back
+// to the key.
+func (c *knownProjects) MessageIDs(
+	_ context.Context, project uuid.UUID, keys []string,
+) (map[string]uuid.UUID, error) {
+	if project != c.id {
+		return nil, app.ErrProjectNotFound
+	}
+	c.askedKeys = append(c.askedKeys, keys...)
+	out := map[string]uuid.UUID{}
+	for _, k := range keys {
+		if id, ok := c.messages[k]; ok {
+			out[k] = id
+		}
+	}
+	return out, nil
 }
 
 func (c *knownProjects) CheckPolicy(_ context.Context, project uuid.UUID) (app.StoredPolicy, error) {

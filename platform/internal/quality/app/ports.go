@@ -35,6 +35,17 @@ var (
 	ErrPreGradedFinding = errors.New("quality: a recorded finding carries the severity its layer emitted, not `waived`")
 	// ErrTooManyFindings is a run past domain.MaxRunFindings.
 	ErrTooManyFindings = errors.New("quality: too many findings in one run")
+	// ErrInvalidFinding is a reported finding the ingest cannot seal: a
+	// layer that is not one, a severity no policy can rank, an empty
+	// code or an empty explanation. It is refused rather than stored
+	// half-formed, because a finding with no identity is a finding
+	// nobody can waive.
+	ErrInvalidFinding = errors.New("quality: a reported finding is malformed")
+	// ErrUnclaimableTrigger is a reported run claiming a trigger only
+	// the server's own jobs use. `capture` is the capture upload's
+	// visual pass and `write` the write-time catalog check; a caller
+	// that could claim one could put words in a job's mouth.
+	ErrUnclaimableTrigger = errors.New("quality: this trigger is a server job's, not a reported run's")
 	// ErrPolicyVersionNotFound is a policy version this project never
 	// had.
 	ErrPolicyVersionNotFound = errors.New("quality: no such check-policy version in the project")
@@ -55,6 +66,16 @@ const MaxRunFindings = 10000
 type Catalog interface {
 	// Project answers ErrProjectNotFound for an unknown project.
 	Project(ctx context.Context, project uuid.UUID) error
+	// MessageIDs resolves message keys to the catalog's message IDs, for
+	// the keys the catalog knows. A key it does not know is simply
+	// absent from the map, and the finding's identity then falls back to
+	// the key, exactly as an offline check's does.
+	//
+	// It is what makes a reported finding's fingerprint the same
+	// fingerprint every other surface computes (RFC 0005 §2.1): a
+	// reporter has the key, the server has the catalog, and a print over
+	// a key is not a print over an ID.
+	MessageIDs(ctx context.Context, project uuid.UUID, keys []string) (map[string]uuid.UUID, error)
 	// CheckPolicy reads the project's stored check-policy document. A
 	// project that has never saved one reads as the zero policy, which
 	// is checkpolicy's documented default.

@@ -48,6 +48,15 @@ func (c checkCatalog) Project(_ context.Context, project uuid.UUID) error {
 // not one it fetches. These answer the zero policy so the fake
 // satisfies the port without pretending to a behaviour under test.
 
+func (c checkCatalog) MessageIDs(
+	_ context.Context, project uuid.UUID, _ []string,
+) (map[string]uuid.UUID, error) {
+	if project != c.id {
+		return nil, app.ErrProjectNotFound
+	}
+	return nil, nil
+}
+
 func (c checkCatalog) CheckPolicy(_ context.Context, project uuid.UUID) (app.StoredPolicy, error) {
 	if project != c.id {
 		return app.StoredPolicy{}, app.ErrProjectNotFound

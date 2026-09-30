@@ -3,13 +3,16 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/terminology"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
@@ -151,10 +154,13 @@ type checkJSON struct {
 	// and the conclusion below are the run's *before* them — the check
 	// graded what it found, and claiming otherwise would mean grading a
 	// project nobody has checked.
-	Fixes    []fixJSON `json:"fixes,omitempty"`
-	Errors   int       `json:"errors"`
-	Warnings int       `json:"warnings"`
-	Waived   int       `json:"waived"`
+	Fixes []fixJSON `json:"fixes,omitempty"`
+	// Record is what became of putting this run on the project's record
+	// (check_record.go); absent when recording was never asked for.
+	Record   *recordJSON `json:"record,omitempty"`
+	Errors   int         `json:"errors"`
+	Warnings int         `json:"warnings"`
+	Waived   int         `json:"waived"`
 	// Conclusion is the run's verdict, spelled as a check run spells it.
 	Conclusion domain.Conclusion `json:"conclusion"`
 	Passed     bool              `json:"passed"`
@@ -167,6 +173,10 @@ type checkFlags struct {
 	explain     bool
 	// fix applies the structured fixes the findings carry (check_fix.go).
 	fix bool
+	// record decides whether the run is put on the project's record
+	// (check_record.go). nil is the default — in CI yes, elsewhere no —
+	// and a set --record or --record=false decides outright.
+	record *bool
 	// layers is what --layer selected, nil when it selected nothing and
 	// every layer the policy leaves on runs.
 	layers []string
@@ -191,8 +201,11 @@ func (f checkFlags) wantsTerminology() bool {
 
 func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	fs := inv.flags("check [--offline] [--terminology] [--layer=<layer>] [--explain-policy] [--fix] " +
-		"[--require-complete=de,en|none] [--fail-on=error|warning|never]")
+		"[--record] [--require-complete=de,en|none] [--fail-on=error|warning|never]")
 	offline := fs.Bool("offline", false, "check the local catalogs instead of the server's project")
+	record := fs.Bool("record", false,
+		"record this run and its findings on the server, so it reaches Studio, the findings list and the "+
+			"summary (default: in CI; --record=false never)")
 	terms := fs.Bool("terminology", false, "also check the translations against the termbase (needs the server)")
 	var layers listFlag
 	fs.Var(&layers, "layer", "only run these QA layers (repeatable, or comma-separated; "+
@@ -215,6 +228,15 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	}
 	f := checkFlags{offline: *offline, terminology: *terms, explain: *explain, fix: *fix,
 		require: *require, failOn: *failOn}
+	// A flag that was actually typed decides; one that was not leaves
+	// the default to CI (check_record.go), which flag.Bool alone cannot
+	// express.
+	fs.Visit(func(set *flag.Flag) {
+		if set.Name == "record" {
+			asked := *record
+			f.record = &asked
+		}
+	})
 	if f.layers, err = selectedLayers(inv, layers); err != nil {
 		return err
 	}
@@ -231,8 +253,13 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	}
 	checkers, unavailable := run.checkers(f)
 	run.unavailable = append(run.unavailable, unavailable...)
+	run.startedAt = time.Now().UTC()
 	report := qa.Run(run.snapshot, policy, checkers...)
 	out := checkDocument(run, report, policy, overrides, f)
+	// The record is filed before --fix edits anything: the check graded
+	// what it found, and a record of the fixed catalog would be a record
+	// of a project nobody has checked.
+	out.Record = inv.recordCheck(ctx, cfg, run, out, f)
 	if f.fix {
 		// After the run is graded and before it is printed: --fix edits
 		// what the check found, and what the check found is what it
@@ -316,6 +343,13 @@ type checkSubject struct {
 	// the ones the policy switched off, because "not looked at" and
 	// "clean" are different answers however a layer came to be left out.
 	deselected []domain.Layer
+	// client and scope are the server this run read the project from,
+	// kept so the run can be recorded against the same project it
+	// graded (check_record.go). Both are nil offline.
+	client *remote.Client
+	scope  remote.Scope
+	// startedAt is when the layers began, which the recorded run keeps.
+	startedAt time.Time
 }
 
 // checkers are the layers this run computes, and the ones it was asked
@@ -404,6 +438,7 @@ func (inv *invocation) checkRun(ctx context.Context, cfg *config.Config, f check
 	}
 	run := &checkSubject{
 		snapshot: s, label: fmt.Sprintf("%s on %s", p.info.Slug, cfg.Server), policy: policy,
+		client: p.client, scope: p.scope,
 	}
 	if f.wantsTerminology() {
 		extra, err := inv.terminologyCheckers(ctx, p, s)
@@ -756,6 +791,7 @@ func printCheck(p *printer, run *checkSubject, out checkJSON, r qualityapp.Repor
 		printExplain(p, out.Explain)
 	}
 	printFixes(p, out.Fixes)
+	printRecord(p, out.Record)
 	p.line("")
 	if out.Passed {
 		p.line("%s", p.ok("Localization check passed."))

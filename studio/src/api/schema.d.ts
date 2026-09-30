@@ -4363,7 +4363,67 @@ export interface paths {
          */
         get: operations["listCheckRuns"];
         put?: never;
-        post?: never;
+        /**
+         * Record a check run and the findings it produced
+         * @description A check that ran somewhere else is recorded here (RFC 0005 §9):
+         *     `glossa check` in a product's CI computes the layers against the
+         *     project it already read, and posts what it found so that
+         *     Studio's quality view, `listFindings`, the summary and the
+         *     findings-by-day rollup see it. Without this, a product whose CI
+         *     gates on `glossa check` leaves every one of those empty — which
+         *     is the state M4 exists to end.
+         *
+         *     **The findings are `glossa.finding/v1`, minus the members a
+         *     reporter cannot know.** Two are deliberately absent, exactly as
+         *     they are on a capture upload (`createCaptures`):
+         *
+         *     - the **`fingerprint`**, which hashes the catalog message ID the
+         *       key resolved to. A reporter has the key; the server has the
+         *       catalog. A fingerprint minted over a key is not the one the
+         *       waiver list, `listFindings` and the pull-request check
+         *       compute for the same finding, so every waiver against it
+         *       would silently stop applying. The ingest resolves each
+         *       `locus.key` to its message ID and computes the fingerprint
+         *       itself; a `fingerprint` member sent anyway is not read and
+         *       never stored.
+         *     - **`locus.capture` and `locus.region`**, which only the server
+         *       that minted a capture's ID can pair. A check run is of a
+         *       catalog, not of a screenshot; visual findings arrive with
+         *       their capture.
+         *
+         *     **The run does not grade itself.** `severity` is what the layer
+         *     emitted, and the project's stored check policy decides what that
+         *     is worth here — in this locale, this namespace, this
+         *     `environment` — through the same evaluator every other stored
+         *     finding goes through. A finding a rule switches off is not
+         *     stored, because `off` means the project does not compute it; an
+         *     advisory layer is clamped back to `warning` however strict the
+         *     rule. `severity: waived` is refused (`invalid_finding`): whether
+         *     a finding is waived is decided from the project's live waivers,
+         *     here and again on read. There is no `conclusion`, no `counts`
+         *     and no `policy_version` in the request: a caller that could
+         *     assert those could declare its own build green.
+         *
+         *     At most 10 000 findings in one run (`too_many_findings`, RFC
+         *     0005 §10); a run with more is **refused, not truncated** — a
+         *     silently shortened run is a report that lies about what was
+         *     checked. `layers` is what actually ran, so a reader can tell
+         *     "clean" from "not looked at", and a run that names none is a
+         *     run that looked at nothing.
+         *
+         *     `trigger` says who asked: `cli` (`glossa check`),
+         *     `pull_request` (the check on a pull request) or `api` (the
+         *     default — anything else, including MCP). `capture` and `write`
+         *     are the server's own jobs and cannot be claimed.
+         *
+         *     Needs `catalog.write` — the permission a CI token already holds
+         *     beside `catalog.read` (RFC 0004 §6.3), and the one that already
+         *     carries the authority to change what a check concludes, because
+         *     it uploads the messages, the usages and the captures the layers
+         *     grade. Problem codes: `too_many_findings`, `invalid_finding`,
+         *     `invalid_request` (400).
+         */
+        post: operations["createCheckRun"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8277,6 +8337,104 @@ export interface components {
         CheckRunList: {
             items: components["schemas"]["CheckRun"][];
             next_page_token?: string;
+        };
+        /**
+         * @description What asked for a recorded run. `capture` and `write` are the
+         *     server's own jobs — the capture upload's visual pass and the
+         *     write-time catalog check — and are not claimable by a caller.
+         * @default api
+         * @enum {string}
+         */
+        ReportedTrigger: "cli" | "pull_request" | "api";
+        /**
+         * @description As much of the finding's locus as the reporter knows. `message`
+         *     is absent: the ingest resolves `key` against the catalog itself,
+         *     because the catalog message ID is what the fingerprint hashes
+         *     and what makes one finding one identity across surfaces.
+         *     `capture` and `region` are absent for the same reason in the
+         *     other direction — only the server that minted a capture's ID can
+         *     pair them, and a check run is of a catalog, not of a screenshot.
+         */
+        ReportedFindingLocus: {
+            key?: components["schemas"]["MessageKey"];
+            locale?: components["schemas"]["Locale"];
+            /** @description The translation revision the finding was computed against. */
+            revision?: components["schemas"]["Id"];
+            namespace?: components["schemas"]["Namespace"];
+            file?: string;
+            line?: number;
+            column?: number;
+            route?: string;
+            component?: string;
+            span?: components["schemas"]["FindingSpan"];
+        };
+        /**
+         * @description One `glossa.finding/v1` finding as a reporter can write it. The
+         *     `fingerprint` is deliberately absent — the server computes it
+         *     over the catalog message the key resolved to, and one minted by
+         *     a client would not be the one every other surface computes for
+         *     the same finding — and so are the run's verdict and its counts,
+         *     which the policy reaches and nobody asserts.
+         */
+        ReportedFinding: {
+            /** @enum {string} */
+            schema: "glossa.finding/v1";
+            layer: components["schemas"]["FindingLayer"];
+            code: string;
+            /**
+             * @description The severity the layer emitted. The project's policy decides
+             *     what it is worth here and may raise, lower or switch it off.
+             *     `waived` is refused: a waiver is the project's to apply, not
+             *     a reporter's to assert.
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+            locus: components["schemas"]["ReportedFindingLocus"];
+            message: string;
+            subject?: string;
+            detail?: string;
+            /** @description What the layer measured, free-form per code. */
+            evidence?: {
+                [key: string]: unknown;
+            };
+            fix?: components["schemas"]["FindingFix"];
+            /**
+             * @description The source revision the finding was computed against — the
+             *     server's own number, read back from the translation the
+             *     layer graded. A waiver dies when it changes.
+             */
+            source_revision?: number;
+        };
+        /**
+         * @description One evaluation to record: what was checked, which layers ran,
+         *     and what they found.
+         */
+        CreateCheckRun: {
+            /** @description What was checked — a branch, or an environment name. */
+            ref: string;
+            /**
+             * @description The commit graded, where there is one. A branch moves; the
+             *     commit a verdict was about does not.
+             */
+            commit?: string;
+            trigger?: components["schemas"]["ReportedTrigger"];
+            /**
+             * @description The environment the run is about, which selects the policy's
+             *     block for it. Absent is a branch check, in no environment at
+             *     all — which is every check in CI, so a rule naming an
+             *     environment says nothing about a pull request.
+             */
+            environment?: string;
+            /**
+             * @description The layers that actually ran, in report order. A layer the
+             *     policy switched off, or the run never computed, is not in
+             *     the list: "clean" and "not looked at" are different answers.
+             */
+            layers: components["schemas"]["FindingLayer"][];
+            /** @description When the run started; the server's clock where it is absent. */
+            started_at?: components["schemas"]["Timestamp"];
+            /** @description What the layers found. At most 10 000; more is refused, not truncated. */
+            findings?: components["schemas"]["ReportedFinding"][];
         };
         /**
          * @description How far a waiver reaches — everywhere in the project, or on one branch.
@@ -15029,6 +15187,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CheckRunList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createCheckRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCheckRun"];
+            };
+        };
+        responses: {
+            /** @description The run as it was stored, with the counts and the conclusion the policy reached. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckRun"];
                 };
             };
             400: components["responses"]["BadRequest"];

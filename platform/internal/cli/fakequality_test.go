@@ -45,6 +45,13 @@ type fakeQuality struct {
 	// saved are the documents that were written, in order, so a test can
 	// see what a CI job sent.
 	saved []map[string]any
+	// recorded are the check runs that were filed, as raw bodies, so a
+	// test can see exactly what `glossa check` sent — including what it
+	// did not send.
+	recorded []map[string]any
+	// refuse makes the next record fail, so a test can prove that
+	// failing to file a report never changes what the check concluded.
+	refuse bool
 	// impact is what a save or a preview answers; nil is an empty one.
 	impact map[string]any
 	// summary is what quality-summary answers. A test sets it whole,
@@ -62,6 +69,7 @@ func (f *fakeQuality) nextID(prefix string) string {
 
 func (f *fakeServer) routeQuality(mux *http.ServeMux, p string) {
 	mux.HandleFunc("GET "+p+"/findings", f.listFindings)
+	mux.HandleFunc("POST "+p+"/check-runs", f.createCheckRun)
 	mux.HandleFunc("GET "+p+"/waivers", f.listWaivers)
 	mux.HandleFunc("POST "+p+"/waivers", f.createWaiver)
 	mux.HandleFunc("DELETE "+p+"/waivers/{waiver}", f.revokeWaiver)
@@ -69,6 +77,35 @@ func (f *fakeServer) routeQuality(mux *http.ServeMux, p string) {
 	mux.HandleFunc("GET "+p+"/check-policy/export", f.exportCheckPolicy)
 	mux.HandleFunc("POST "+p+"/check-policy/import", f.importCheckPolicy)
 	mux.HandleFunc("GET "+p+"/quality-summary", f.qualitySummary)
+}
+
+// ── recording a run ─────────────────────────────────────────────────
+
+// createCheckRun keeps the body whole and answers the run the server
+// would have stored. It grades nothing, because what the CLI has to get
+// right here is what it *sends*: the real server computes every
+// fingerprint and every severity itself, so a fake that re-graded would
+// only be testing the fake.
+func (f *fakeServer) createCheckRun(w http.ResponseWriter, r *http.Request) {
+	var body map[string]any
+	decodeBody(r, &body)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.qa.refuse {
+		problemResp(w, 400, "too_many_findings", "more findings than one run may hold")
+		return
+	}
+	f.qa.recorded = append(f.qa.recorded, body)
+	layers, _ := body["layers"].([]any)
+	if layers == nil {
+		layers = []any{}
+	}
+	writeJSONResp(w, 201, map[string]any{
+		"id": f.qa.nextID("run"), "ref": body["ref"], "trigger": "cli", "policy_version": 0,
+		"layers": layers, "counts": map[string]any{"errors": 0, "warnings": 0, "waived": 0},
+		"conclusion": "success", "created_by": "ci",
+		"started_at": time.Now().UTC().Format(time.RFC3339Nano),
+	})
 }
 
 // ── findings ────────────────────────────────────────────────────────

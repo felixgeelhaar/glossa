@@ -160,7 +160,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `context push <file>` | Uploads a `glossa.usages/v1` document — `@glossa/unplugin`'s `.glossa/usages.json`, or a saved `extract --json` — to the project's context builds (`POST …/context-builds`, RFC 0004 §2). `--source plugin\|extract\|runtime\|capture` names the collector; by default `extract` when the document's tool is `glossa`, else `plugin`. Prints the build and how many usages name keys the catalog doesn't know; the same document again is "Already uploaded" (the server answers with the first build). Whether a build is of the default branch is the project's `default_branch` setting, not the uploader's say. A document the server refuses (`invalid_usages`, `too_many_usages`, `unknown_application`, `invalid_source`, `payload_too_large`) exits 2. |
 | `capture` | Screenshots the pages of the capture plan (`capture:` in glossa.yaml) in headless Chrome, with `scout`, at every viewport and locale, and records where each message renders (RFC 0004 §3.1–§3.2): one `glossa.captures/v1` document (schema: `runtimes/testdata/schemas/captures.v1.schema.json`) with a full-page PNG per (route, viewport, locale), in a fixed order (route, URL, locale, the plan's viewport order). Before the page's scripts run it injects `@glossa/capture`'s agent, which hooks every `@glossa/runtime` on the page; after load (and the route's playbook) it waits until the DOM is quiet. It refuses a page whose runtime reports a `production` manifest (`production_page`), has no active release (`environment_unknown`), has no runtime (`no_runtime`) or doesn't render the requested locale (`locale_mismatch`), and blacks out `data-glossa-redact` elements before the screenshot (their regions are `visible: false`). Without `--upload` the manifest (`captures.json`) and the images (`<sha256>.png`) go to `capture.output` or `--out`; with `--upload` they're posted to the Captures API. The coverage report lists the messages with a current usage of the application (the branch's view) but no visible region; it reads the Context API, so `--no-coverage` is needed offline. Application, commit and branch are found like `extract`'s (`capture.application` first). `--cdp` (or `GLOSSA_CAPTURE_CDP`) attaches to a browser you started yourself instead of launching one — see "Attaching to a browser" below. A page that fails to load, a refusal, no Chrome (`no_browser`) or an endpoint it won't attach to (`invalid_cdp_endpoint`, `cdp_unreachable`) exits 2. |
 | `generate` | Typed accessors from the catalog's argument metadata. `--check` writes nothing and exits 1 when the files are stale; `--from-server` uses the server's messages. |
-| `check` | Runs the Quality library's layers over the project (RFC 0005 §3) and lets the check policy grade what they found: `structure` (every message and translation parses), `parity` (a translation fits its source — arguments, selectors, plural categories, markup), `completeness` (missing and outdated translations) and, with `--terminology`, `terminology`. Findings are `glossa.finding/v1` findings, the same shape the pull request and the server report. `--offline` checks the local catalogs against the cached policy. `--layer <name>` (repeatable, or comma-separated) runs only those layers; an unknown name exits 2 and a layer this run can't compute is named and exits 4. `--explain-policy` says, per finding, which rule gave it its severity and whether that rule can fail the run. `--require-complete=de,en\|none`, `--fail-on=error\|warning\|never`; without them, the project's check policy. `--fix` applies the structured fixes the findings carry (see *Fixing what a finding describes*). |
+| `check` | Runs the Quality library's layers over the project (RFC 0005 §3) and lets the check policy grade what they found: `structure` (every message and translation parses), `parity` (a translation fits its source — arguments, selectors, plural categories, markup), `completeness` (missing and outdated translations) and, with `--terminology`, `terminology`. Findings are `glossa.finding/v1` findings, the same shape the pull request and the server report. `--offline` checks the local catalogs against the cached policy. `--layer <name>` (repeatable, or comma-separated) runs only those layers; an unknown name exits 2 and a layer this run can't compute is named and exits 4. `--explain-policy` says, per finding, which rule gave it its severity and whether that rule can fail the run. `--require-complete=de,en\|none`, `--fail-on=error\|warning\|never`; without them, the project's check policy. `--fix` applies the structured fixes the findings carry (see *Fixing what a finding describes*). `--record` puts the run and its findings on the project's record, which is how Studio, `glossa findings` and the quality summary see what CI checked — the default in CI, off on a laptop (see *Recording a run*). |
 | `findings` | The findings the server stored, with RFC 0005 §2.1's filters: `--layer --severity --code --locale --namespace --message --waived[=false]`, and which run to read — `--branch --commit --run --limit`. It consumes the Quality API and recomputes nothing: the layers that need a capture, a termbase or a provider ran on the server. The human output prints each finding's fingerprint, which is what `glossa waive` takes. |
 | `waive` | Accept a finding: `glossa waive <fingerprint> --reason "why this is fine"`, with `--scope project\|branch --ref --expires --source-revision`. **The reason is required.** `--list [--fingerprint --layer --code --message --active[=false] --limit]` shows the project's waivers, `--revoke <id>` takes one back. |
 | `policy` | The check policy as a file: `show`, `diff --file policy.yaml` (the impact preview — how many stored findings change severity and how many open pull requests would newly fail, per rule — storing nothing), `export [--file]`, `import --file [--grace-days n] [--dry-run]`. `--file -` is stdin or stdout. |
@@ -239,6 +239,34 @@ narrow their own loop and cannot change what CI decides.
 `check --terminology` (or `--layer terminology`) adds the termbase layer
 — the server's terminology QA over every translation but rejected ones:
 a forbidden term is an error, a deprecated or missing one a warning.
+
+### Recording a run
+
+**In CI the check records itself.** The run and its findings are posted
+to the project (`POST …/check-runs`), which is what makes them visible
+in Studio's quality view, in `glossa findings`, in the findings list and
+in the quality summary: a product whose CI already runs `glossa check`
+populates the dashboard by doing what it already does, with no new flag
+in the workflow and no wider token — recording needs `catalog.write`,
+which a CI token holds beside `catalog.read`.
+
+It is **not** the default on a laptop. A developer running the check in
+a loop while editing a message would post a run every few seconds, and
+each one becomes the project's newest — the run every dashboard reads;
+and a local run may carry local overrides the pull-request check
+ignores on purpose. `--record` records anyway, `--record=false` never
+does, and `--offline` (or a run that fell back to the cached policy
+because the server was out of reach) cannot: there is nothing to record
+to, and a run graded against a cache is not the project's verdict.
+
+What is sent is the findings, the layers that ran, the branch and the
+commit — and nothing else. The server computes every **fingerprint**
+itself, over the catalog message the key resolved to (a print minted
+locally over a key is not the one the waiver list and the pull-request
+check compute for the same finding), re-grades every severity against
+the project's stored policy, and reaches its own conclusion. A failed
+recording never changes the exit code: a check reports what it found,
+and failing to file the report is not the same as failing the check.
 
 `check --explain-policy` answers "why did this fail?" mechanically. For
 each finding it names the rule that decided its severity, how specific

@@ -28,6 +28,17 @@ var problems = []struct {
 	{app.ErrInvalidQuery, http.StatusBadRequest, "invalid_query", ""},
 	{app.ErrTooManyFindings, http.StatusBadRequest, "too_many_findings", ""},
 	{app.ErrPreGradedFinding, http.StatusBadRequest, "invalid_finding", ""},
+	{app.ErrInvalidFinding, http.StatusBadRequest, "invalid_finding", ""},
+	// A recorded run is the first path on which a caller writes a run's
+	// own fields, so the domain's refusals are reachable from the edge
+	// and answer 400 rather than 500: a ref past the column, a commit
+	// that is not a Git object name, a layer or a trigger that is not
+	// one, and the two triggers only a server job may claim.
+	{app.ErrUnclaimableTrigger, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
+	{domain.ErrInvalidRef, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
+	{domain.ErrInvalidCommit, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
+	{domain.ErrUnknownTrigger, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
+	{domain.ErrUnknownLayer, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
 	// A waiver without a reason is a 400 and not a silently accepted
 	// blank: the reason is the whole mechanism (RFC 0005 §2.3).
 	{domain.ErrReasonRequired, http.StatusBadRequest, "waiver_reason_required",
