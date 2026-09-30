@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
@@ -590,7 +592,12 @@ func explainWhy(policy checkpolicy.Policy, f domain.Finding, d checkpolicy.Decis
 	default:
 		fmt.Fprintf(&b, "; fail_on is %s, so it doesn't fail the run", policy.FailOn)
 	}
-	if d.Clamped {
+	switch {
+	case d.Clamped && f.Provisional():
+		fmt.Fprintf(&b, "; clamped to warning: seen %s, and a visual finding is evidence only once the same"+
+			" fingerprint comes back in the next capture of the same route, viewport and locale",
+			plural(f.Sightings(), "time", "times"))
+	case d.Clamped:
 		b.WriteString("; clamped to warning: a build never fails on a model's opinion")
 	}
 	return b.String()
@@ -704,8 +711,18 @@ func printCheck(p *printer, run *checkSubject, out checkJSON, r qualityapp.Repor
 		}
 		printFindings(p, fs, false)
 	}
-	for locale, fs := range byLocale { // e.g. a required locale the project lacks
-		p.line("%s %s", p.fail(), locale)
+	// What is left is a locale the per-locale loop did not print: a
+	// required locale the project lacks, or the source locale, which a
+	// layer that reads a screen rather than a translation can find
+	// something in. In a stable order, and marked by what was found —
+	// the visual layer puts warnings here, and a warning is not a ✗.
+	for _, locale := range slices.Sorted(maps.Keys(byLocale)) {
+		fs := byLocale[locale]
+		if countSeverity(fs, domain.Error) == 0 {
+			p.line("%s %s", p.caution(), locale)
+		} else {
+			p.line("%s %s", p.fail(), locale)
+		}
 		printFindings(p, fs, false)
 	}
 	printFindings(p, other, true)

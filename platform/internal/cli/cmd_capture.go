@@ -19,7 +19,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 )
 
-const captureUsage = `capture [--upload] [--out DIR] [--base-url URL] [--no-coverage] [--application SLUG] [--commit SHA] [--branch NAME] [--cdp URL]
+const captureUsage = `capture [--check] [--upload] [--out DIR] [--base-url URL] [--no-coverage] [--application SLUG] [--commit SHA] [--branch NAME] [--cdp URL]
 
 Screenshots the pages of the capture plan (glossa.yaml capture:) in headless Chrome at
 each viewport and locale, with the regions where messages render (RFC 0004 §3.2).
@@ -28,13 +28,21 @@ manifest is refused, and data-glossa-redact elements are blacked out. Without --
 the glossa.captures/v1 manifest and its PNGs go to capture.output (.glossa/captures).
 The coverage report lists messages with a current usage but no visible region; it reads
 the Context API (--no-coverage skips it). --cdp attaches to a browser you started
-yourself instead of launching one; its host must be loopback unless --cdp-allow-remote.`
+yourself instead of launching one; its host must be loopback unless --cdp-allow-remote.
+
+--check checks the project with the captures in it: what the visual probe pass measured
+in each page (RFC 0005 §5), reported with every other layer and graded by the project's
+check policy, with the same exit codes as glossa check (0 ok · 1 the policy failed
+the run · 2 usage or config · 3 no server and no cached policy · 4 a layer was lost).
+A visual finding is a warning the first time it is seen and may only be an error once
+the same fingerprint comes back in the next capture of the same route, viewport and
+locale, because a headless browser's text metrics move with the fonts it found.`
 
 // runCapture takes the captures; tests replace it to run without Chrome.
 var runCapture = capture.Run
 
 type captureFlags struct {
-	upload, noCoverage          bool
+	upload, noCoverage, check   bool
 	out, baseURL                string
 	application, commit, branch string
 	timeout                     time.Duration
@@ -52,7 +60,12 @@ type captureJSON struct {
 	Output      *captureOutput    `json:"output,omitempty"`
 	Upload      *captureUpload    `json:"upload,omitempty"`
 	Coverage    *capture.Coverage `json:"coverage"`
+	// Check is `--check`: the whole check run, in the shape `glossa
+	// check --json` prints, so a CI job that already reads one reads
+	// this one.
+	Check *checkJSON `json:"check,omitempty"`
 
+	checked  *captureCheck
 	shots    []capture.Shot
 	doc      capture.Document
 	manifest []byte            // doc as written
@@ -90,6 +103,7 @@ type captureUpload struct {
 func runCaptureCmd(ctx context.Context, inv *invocation, args []string) error {
 	fs := inv.flags(captureUsage)
 	var f captureFlags
+	fs.BoolVar(&f.check, "check", false, "check the project with this run's visual findings in it, and exit as glossa check does")
 	fs.BoolVar(&f.upload, "upload", false, "send the captures to the server (the Captures API) instead of writing them")
 	fs.BoolVar(&f.noCoverage, "no-coverage", false, "skip the coverage report (it reads the current usages from the server)")
 	fs.StringVar(&f.out, "out", "", "where to write the manifest and PNGs (default: capture.output, .glossa/captures)")
@@ -139,6 +153,16 @@ func runCaptureCmd(ctx context.Context, inv *invocation, args []string) error {
 		CDP:            firstOf(f.cdp, inv.env.getenv("GLOSSA_CAPTURE_CDP")),
 		AllowRemoteCDP: f.cdpAllowRemote || envTrue(inv.env.getenv("GLOSSA_CAPTURE_CDP_ALLOW_REMOTE")),
 	}
+	// The policy is resolved before Chrome starts, because the probe pass
+	// measures against its thresholds (RFC 0005 §5.2) and because a check
+	// that cannot resolve its policy must fail before it captures forty
+	// pages rather than after.
+	if f.check {
+		if out.checked, err = inv.startCheck(ctx, cfg); err != nil {
+			return err
+		}
+		opts.Probe = probeOptions(out.checked.policy)
+	}
 	if out.shots, err = runCapture(ctx, plan, opts); err != nil {
 		return captureError(err)
 	}
@@ -157,7 +181,16 @@ func runCaptureCmd(ctx context.Context, inv *invocation, args []string) error {
 			return err
 		}
 	}
-	return inv.emit(out, func(pr *printer) { printCapture(pr, out) })
+	if f.check {
+		out.Check = inv.finishCheck(cfg, header.Application, out)
+	}
+	if err := inv.emit(out, func(pr *printer) { printCapture(pr, out) }); err != nil {
+		return err
+	}
+	if out.Check != nil {
+		return checkExit(*out.Check)
+	}
+	return nil
 }
 
 // assemble builds the document, in the plan's order, and the summaries.
@@ -398,6 +431,11 @@ func printCapture(p *printer, out *captureJSON) {
 		}
 	}
 	printCoverage(p, out.Coverage)
+	printVisual(p, out)
+	if out.Check != nil {
+		p.line("")
+		printCheck(p, out.checked.run, *out.Check, out.checked.report)
+	}
 }
 
 func printCoverage(p *printer, c *capture.Coverage) {
