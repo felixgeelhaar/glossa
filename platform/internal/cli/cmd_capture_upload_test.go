@@ -43,6 +43,19 @@ func TestCaptureUploadCarriesTheProbeFindings(t *testing.T) {
 	if f.Code != "text-clipped" || f.Key != "home.title" || f.Region != "r_0" {
 		t.Errorf("finding = %+v", f)
 	}
+
+	// And the command says so: what each capture measured, and how many
+	// the server stored. The second is the server's number, because it
+	// is the one that says the visual layer reached the pull request
+	// rather than stopping in this terminal.
+	if doc.Upload.Findings != 2 {
+		t.Errorf("upload = %+v, want the server's findings count", doc.Upload)
+	}
+	for _, c := range doc.Captures {
+		if c.Probes != 1 {
+			t.Errorf("capture %s/%s reports %d probes, want 1", c.Route, c.Locale, c.Probes)
+		}
+	}
 	if f.Message == "" {
 		t.Error("the finding reached the server without its explanation")
 	}
