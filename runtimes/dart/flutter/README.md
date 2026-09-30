@@ -155,8 +155,8 @@ fail.
 
 ## Running the tests
 
-There is **no CI job for this package yet** (RFC 0005 §13, wave 4). Run it
-locally, with the Flutter stable channel:
+The `runtimes-flutter` CI job runs exactly these, on a pinned Flutter
+release:
 
 ```sh
 cd runtimes/dart/flutter
@@ -174,8 +174,48 @@ A widget test's body runs against a fake clock, so the loader's first pass
 has to happen inside `tester.runAsync` — `test/glossa_text_test.dart`'s
 `offlineClient` does that, and every test here goes through it.
 
+## The size budget (RFC 0005 §6.4)
+
+```sh
+cd runtimes/dart/flutter
+dart run tool/size_budget.dart            # host desktop target
+dart run tool/size_budget.dart --platform linux --report size.txt
+```
+
+It scaffolds a throwaway Flutter app in a temporary directory, builds it
+twice from one pubspec — once from an entry point that imports neither
+package, once from a realistic client — and reads
+`flutter build --analyze-size`'s own per-library breakdown of the release
+snapshot.
+
+The realism of the second entry point is load-bearing. Dart's AOT tree
+shaker is a global fixpoint: a client with no transport, no bundle and an
+empty in-memory store can never activate a release, so the compiler
+proves the catalog, the formatter and `package:intl` unreachable and
+drops all of them. A fixture like that measures **17 kB** and means
+nothing. The tool therefore refuses a baseline that carries any of our
+bytes, and refuses a Glossa build that carries too few.
+
+Measured on macOS arm64, Flutter 3.47.5, per architecture:
+
+| | |
+|---|---|
+| `package:glossa` + `package:glossa_flutter` | **133.7 kB** of 150 kB — enforced |
+| `package:intl` and its CLDR data | 169.0 kB — reported, per §6.4 |
+| the whole app, with minus without | 1048.8 kB |
+
+The last row is the honest headline and the reason §6.4 asks for it: on
+top of our 134 kB the app grows by `package:intl` (169 kB), the `dart:io`
+HTTP client the fixture supplies as a transport (229 kB of `dart:io` and
+`dart:_http`), `package:crypto`, and the `dart:core` BigInt arithmetic
+the pure-Dart Ed25519 verifier needs. Only the first row is a budget;
+printing only the first row would be the lie intent §33 warns about.
+
+The startup half of §6.4 lives in the core package —
+[`../tool/startup_budget.dart`](../tool/startup_budget.dart) — because
+none of it needs Flutter.
+
 ## Not here yet
 
-- The §6.4 size and startup budgets, measured and enforced (wave 4).
 - An IndexedDB `ReleaseStore` for Flutter web; a web build keeps its
   release in memory and reloads it from the edge on every start.

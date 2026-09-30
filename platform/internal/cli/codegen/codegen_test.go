@@ -334,6 +334,14 @@ func TestGeneratedDartAnalyzes(t *testing.T) {
 	}
 	dart, err := exec.LookPath("dart")
 	if err != nil {
+		// A silent skip is how "the generated Dart compiles" stayed
+		// unverified: the Go jobs have no Dart SDK, so this test never
+		// ran anywhere. The `runtimes-dart` job installs one and runs it
+		// with CI=true, where a missing SDK is a failure, not a pass —
+		// the same rule `capturetest.StartChrome` applies to Chrome.
+		if os.Getenv("CI") == "true" {
+			t.Fatalf("CI=true and no Dart SDK on PATH: %v", err)
+		}
 		t.Skip("dart not installed: install the Dart SDK to analyse generated Dart")
 	}
 	root := repoRoot(t)
