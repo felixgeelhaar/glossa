@@ -70,8 +70,10 @@ import (
 	qualityintelligence "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/intelligence"
 	qualitymetrics "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/metrics"
 	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
+	qualitypullrequests "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/pullrequests"
 	qualityreview "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/review"
 	qualitysnapshot "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/snapshot"
+	qualitystyle "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/style"
 	qualitysummary "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/summary"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
@@ -153,8 +155,8 @@ type contexts struct {
 // newPurgeJobs builds the daily retention jobs over the two contexts that
 // have something to purge. Each logs what it did; a failure is the
 // scheduler's to count and retry at the next interval.
-func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, inbox *integrationapp.InboxWorker,
-	checks *integrationapp.CheckWorker, logger *slog.Logger,
+func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, quality *qualityapp.Service,
+	inbox *integrationapp.InboxWorker, checks *integrationapp.CheckWorker, logger *slog.Logger,
 ) []scheduler.Job {
 	jobs := []scheduler.Job{
 		{Name: "context.purge", Run: func(ctx context.Context) error {
@@ -164,6 +166,19 @@ func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, inbox
 					slog.String("tenant_id", p.Tenant.String()), slog.String("project_id", p.Project.String()),
 					slog.Int("builds", len(p.Builds)), slog.Int("captures", p.Captures),
 					slog.Int("images", p.ImagesDeleted))
+			}
+			return err
+		}},
+		// Quality's housekeeping (RFC 0005 §2.2, §2.3): the waivers whose
+		// date has passed, recorded rather than deleted, and the check
+		// runs past their 90 days, deleted with their findings — except
+		// a ref's newest, which every dashboard reads. The trend
+		// survives them in the findings-by-day rollup.
+		{Name: "quality.sweep", Run: func(ctx context.Context) error {
+			swept, err := quality.Sweep(ctx)
+			if swept.WaiversExpired > 0 || swept.RunsDeleted > 0 {
+				logger.InfoContext(ctx, "quality: sweep", slog.Int("tenants", swept.Tenants),
+					slog.Int("waivers_expired", swept.WaiversExpired), slog.Int("runs_deleted", swept.RunsDeleted))
 			}
 			return err
 		}},
@@ -296,10 +311,21 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	quality := qualityapp.NewService(qualitypg.NewTransactor(uow), qualitycatalog.New(catalog),
 		qualityapp.WithLogger(deps.logger), qualityapp.WithMetrics(qualitymetrics.New(deps.registerer)),
 		qualityapp.WithTracerProvider(deps.tracer),
+		// The daily sweep's cross-tenant half: which tenants hold an
+		// expired waiver or a check run past its 90 days (RFC 0005 §2.2,
+		// §2.3). It reads two timestamps and a tenant id, nothing else.
+		qualityapp.WithScanner(qualitypg.NewScanner(uow)),
 		// The server-side check reads the project through Catalog's and
 		// Localization's own services, so it sees exactly what its
 		// caller could read through the API (RFC 0005 §2.2).
-		qualityapp.WithSnapshot(qualitysnapshot.New(catalog, localization)))
+		// The server-side check also reads the effective style guides,
+		// because the style layer grades their mechanical fields and has
+		// nothing to say without them (RFC 0005 §3.2). They come through
+		// Intelligence's adapter onto Knowledge, which already resolves
+		// the tenant → project → locale → namespace stack: a second
+		// resolution would be a second answer.
+		qualityapp.WithSnapshot(qualitysnapshot.New(catalog, localization,
+			qualitysnapshot.WithStyles(qualitystyle.New(intelligencesources.NewKnowledge(knowledge))))))
 	usageContext := contextapp.New(contextpg.NewTransactor(uow), contextcatalog.New(catalog),
 		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger),
 		contextapp.WithLimiter(ratelimit.New(contextUploadLimit())), contextapp.WithMetrics(contextmetrics.New(deps.registerer)),
@@ -354,13 +380,16 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	gh, err := newGitHub(uow, checkSources{
 		catalog: catalog, localization: localization, knowledge: knowledge,
-		usages: usageContext, release: release,
+		usages: usageContext, release: release, quality: quality,
 	}, deps)
 	if err != nil {
 		return contexts{}, err
 	}
 	c.integrationAPI = integrationapi.New(integration, gh)
 	if gh != nil {
+		// The impact preview links to the pull request a policy would
+		// newly fail (RFC 0005 §4.3); only Integration knows where it is.
+		quality.SetPullRequestLinks(qualitypullrequests.New(gh))
 		if err := gh.SubscribeChecks(events); err != nil {
 			return contexts{}, err
 		}
@@ -382,7 +411,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 			DepthInterval: deps.github.CheckDepthInterval,
 		})
 	}
-	c.purgeJobs = newPurgeJobs(usageContext, catalog, c.githubInbox, c.githubChecks, deps.logger)
+	c.purgeJobs = newPurgeJobs(usageContext, catalog, quality, c.githubInbox, c.githubChecks, deps.logger)
 	// The quality summary's four other sources (RFC 0005 §8). Quality is
 	// built before three of them, so this direction is wired here; it
 	// only reads, and each call is an authorized use case of the service
@@ -454,6 +483,9 @@ type checkSources struct {
 	knowledge    *knowledgeapp.Service
 	usages       *contextapp.Service
 	release      *releaseapp.Service
+	// quality holds the check runs CI records, which is what the pull
+	// request renders (RFC 0005 §12.3).
+	quality *qualityapp.Service
 }
 
 // newGitHub wires the GitHub integration (RFC 0004 §6) when the
@@ -497,7 +529,7 @@ func newGitHub(uow *db.UnitOfWork, src checkSources, deps contextDeps) (*integra
 		Checks:       integrationpg.NewChecks(uow),
 		Sources: integrationsources.NewChecks(integrationsources.ChecksDeps{
 			Catalog: src.catalog, Localization: src.localization, Knowledge: src.knowledge,
-			Usages: src.usages, Release: src.release, EdgeURL: deps.edgeURL,
+			Usages: src.usages, Release: src.release, Quality: src.quality, EdgeURL: deps.edgeURL,
 		}),
 		StudioURL:      deps.studioURL,
 		Metrics:        integrationmetrics.NewWebhooks(deps.registerer),

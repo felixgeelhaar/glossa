@@ -872,6 +872,47 @@ func TestConnectValidatesTheRepositoryAndTheApplication(t *testing.T) {
 	}
 }
 
+// A project's pull requests are named by their address on the web host
+// of the repository connected to it, so the impact preview (RFC 0005
+// §4.3) can link to the one that would newly fail instead of printing a
+// branch name somebody has to look up.
+func TestAProjectsPullRequestsAreNamedByTheirAddress(t *testing.T) {
+	f := newFixture(t)
+	ctx := manager(tenantOne, "person:one")
+	// Nothing connected: nothing to point at, and no error — a project
+	// without a repository still has a preview to show.
+	got, err := f.svc.PullRequestURLs(ctx, projectID, []int{11})
+	if err != nil || len(got) != 0 {
+		t.Fatalf("unconnected: %v, %v", got, err)
+	}
+
+	inst := f.connect(t, ctx, "code-1")
+	for _, path := range []string{"apps/web", "apps/admin"} {
+		if _, err := f.svc.Connect(ctx, app.ConnectRepository{Installation: inst.ID, ConnectionInput: domain.ConnectionInput{
+			RepositoryID: repoGitHubID, ProjectID: projectID, ApplicationID: appID, Path: path,
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Two paths of one repository are one place to point.
+	got, err = f.svc.PullRequestURLs(ctx, projectID, []int{11, 12, 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[int]string{11: f.fake.WebURL + "/acme/shop/pull/11", 12: f.fake.WebURL + "/acme/shop/pull/12"}
+	if !maps.Equal(got, want) {
+		t.Fatalf("urls = %v, want %v", got, want)
+	}
+	// Another project's pull requests are not this repository's.
+	if got, _ := f.svc.PullRequestURLs(ctx, uuid.New(), []int{11}); len(got) != 0 {
+		t.Errorf("another project: %v", got)
+	}
+	// Reading them is reading the integration.
+	if _, err := f.svc.PullRequestURLs(as(tenantOne, "person:one", authz.CatalogRead), projectID, []int{11}); !errors.Is(err, authz.ErrForbidden) {
+		t.Errorf("without integration.read: err = %v", err)
+	}
+}
+
 func TestConnectionPathsAreNormalizedAndTraversalRefused(t *testing.T) {
 	for in, want := range map[string]string{"": "", ".": "", "/apps/web/": "apps/web", " apps/web ": "apps/web"} {
 		got, err := domain.NormalizeConnectionPath(in)

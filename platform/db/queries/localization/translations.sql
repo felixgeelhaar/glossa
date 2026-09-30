@@ -108,10 +108,16 @@ ORDER BY locale;
 
 -- name: SnapshotTranslations :many
 -- A project's translations in the given review states, for a release.
+-- include_obsolete false leaves out the translations of messages this
+-- projection knows to be obsolete — dead rows a reader that joins with
+-- the active source would only drop, and which a project that obsoleted
+-- thousands of messages has thousands of. A message the projection has
+-- not seen yet (m is NULL) is kept either way.
 SELECT t.*, coalesce(m.source_revision, 0)::integer AS current_source_revision
 FROM localization_translations t
 LEFT JOIN localization_messages m ON m.message_id = t.message_id
 WHERE t.project_id = sqlc.arg(project_id) AND t.state = ANY (sqlc.arg(states)::text[])
+  AND (sqlc.arg(include_obsolete)::boolean OR m.state IS DISTINCT FROM 'obsolete')
 ORDER BY t.locale, t.message_id;
 
 -- name: PageProjectTranslations :many

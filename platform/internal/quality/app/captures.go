@@ -133,7 +133,7 @@ func (s *Service) RecordVisualFindings(
 		attribute.Int("glossa.quality.findings", in.Findings()))
 	defer end(&err)
 
-	stored, err := s.catalog.CheckPolicy(ctx, in.Project)
+	stored, err := s.storedPolicy(ctx, in.Project)
 	if err != nil {
 		return VisualFindingsRecorded{}, err
 	}
@@ -142,6 +142,7 @@ func (s *Service) RecordVisualFindings(
 	// that is what keeps a project from paying for a layer it ignores
 	// (RFC 0005 §4.1).
 	if !domain.Computes(stored.Policy, "", domain.LayerVisual) {
+		s.dropProbes(in)
 		return VisualFindingsRecorded{}, nil
 	}
 	counted, err := s.count(ctx, in, stored.Policy.Visual())
@@ -150,6 +151,7 @@ func (s *Service) RecordVisualFindings(
 	}
 	ev := domain.Evaluate(stored.Policy, "", counted)
 	graded := ev.Findings()
+	s.countProbes(counted, graded)
 	if len(graded) == 0 {
 		return VisualFindingsRecorded{}, nil
 	}
@@ -162,6 +164,45 @@ func (s *Service) RecordVisualFindings(
 		return VisualFindingsRecorded{}, err
 	}
 	return VisualFindingsRecorded{Run: run.ID, Findings: len(graded)}, nil
+}
+
+// countProbes records `glossa_quality_visual_probes_total{code,outcome}`
+// for one upload (RFC 0005 §11): what the probe pass found, and what
+// the server made of it.
+//
+// The outcome is the one question a person has about the visual layer:
+// is this being believed? `first_sighting` is a warning the
+// two-sighting rule has not confirmed, `confirmed` is one it has — the
+// state that lets a policy rule reach it — and `dropped` is a finding a
+// policy rule switched off, which is what a project that pays no
+// attention to a code looks like from here.
+func (s *Service) countProbes(counted, graded []domain.Finding) {
+	kept := make(map[string]bool, len(graded))
+	for _, f := range graded {
+		kept[f.Fingerprint] = true
+	}
+	for _, f := range counted {
+		switch {
+		case !kept[f.Fingerprint]:
+			s.metrics.VisualProbeRecorded(f.Code, ProbeDropped)
+		case f.Sightings() > 1:
+			s.metrics.VisualProbeRecorded(f.Code, ProbeConfirmed)
+		default:
+			s.metrics.VisualProbeRecorded(f.Code, ProbeFirstSighting)
+		}
+	}
+}
+
+// dropProbes records an upload to a project that switched the visual
+// layer off. Nothing was sealed, so the codes are the page's own — the
+// only place in this file they are taken at face value, and harmless
+// here because the metric's codes are allowlisted.
+func (s *Service) dropProbes(in RecordVisualFindings) {
+	for _, c := range in.Captures {
+		for _, f := range c.Findings {
+			s.metrics.VisualProbeRecorded(f.Code, ProbeDropped)
+		}
+	}
 }
 
 // count seals every capture's findings and applies the two-sighting

@@ -468,8 +468,8 @@ func (f *fakeServer) terminologyFindings(w http.ResponseWriter, r *http.Request)
 		checked[pr.locale]++
 		src, tgt := f.messages[pr.key].content.Text, f.translations[pr.locale][pr.key].content.Text
 		if fs := f.termFindings(src, f.sourceLocale, tgt, pr.locale); len(fs) > 0 {
-			items = append(items, map[string]any{"message_id": "msg_" + pr.key, "message_key": pr.key, "namespace": "default",
-				"locale": pr.locale, "state": f.translations[pr.locale][pr.key].state, "source_text": src, "target_text": tgt, "findings": fs})
+			items = append(items, map[string]any{"message_id": "msg_" + pr.key, "message_key": pr.key, "namespace": f.messages[pr.key].ns(),
+				"locale": pr.locale, "state": f.translations[pr.locale][pr.key].state, "source_revision": f.messages[pr.key].revision, "source_text": src, "target_text": tgt, "findings": fs})
 		}
 	}
 	page := map[string]any{"items": items, "checked": checked}

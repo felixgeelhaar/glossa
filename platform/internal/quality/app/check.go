@@ -92,7 +92,15 @@ func (s *Service) RunCheck(ctx context.Context, project uuid.UUID, in CheckReque
 	if snap.Project == nil {
 		return Report{}, ErrProjectNotFound
 	}
-	return RunIn(snap.Project, snap.Policy, in.Environment, checkers...), nil
+	rep = RunIn(snap.Project, snap.Policy, in.Environment, checkers...)
+	// The server is the one caller that has somewhere to put these: a
+	// `glossa check` in a terminal measures the same thing and prints
+	// nothing (RFC 0005 §11).
+	for _, t := range rep.Took {
+		s.metrics.LayerChecked(t.Layer, t.For)
+	}
+	s.metrics.PolicyVersionRead(project, snap.Policy.Version)
+	return rep, nil
 }
 
 // checkersFor selects the deterministic layers by name.

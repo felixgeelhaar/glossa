@@ -52,6 +52,35 @@ type Message struct {
 	Model     *mf.Message
 	Invalid   *Invalid
 	File      string
+	// Text is the message as it was authored, in its own syntax. It is
+	// what a finding's span points into, in bytes; a caller that kept
+	// only the model leaves it empty, and its layers report no span
+	// rather than one into a string nobody has.
+	Text string
+	// MaxLength bounds the rendered translation in characters; 0 means
+	// the message has no limit. It is the constraint behind
+	// `max-length-exceeded`, which the length layer computes where the
+	// caller carries it and relays from the stored warning where it does
+	// not (RFC 0005 §3.3).
+	MaxLength int
+	// Description is what a translator is told about the message. The
+	// source layer reads its absence (RFC 0005 §3.5); no layer reads its
+	// contents.
+	Description string
+	// Usages are the places the product asks for the message, from
+	// Context (RFC 0004 §8). The source layer *refines* with them and
+	// never needs them: a caller with none — an offline `glossa check`
+	// over local catalogs — still gets the layer, and the findings say
+	// in their evidence what was not known.
+	Usages []Usage
+}
+
+// Usage is one place the product asks for a message.
+type Usage struct {
+	Route     string
+	Component string
+	File      string
+	Line      int
 }
 
 // Translation is a message's text in one locale.
@@ -72,6 +101,106 @@ type Translation struct {
 	Warnings []mf.Finding
 	Invalid  *Invalid
 	File     string
+	// Text is the translation as it was authored, in its own syntax, and
+	// what a finding's span points into.
+	Text string
+}
+
+// Region is one rendered message's measured box on a capture: what the
+// layout budget of RFC 0005 §3.3 is computed from, without a browser.
+//
+// The box was measured while the page showed Locale's text, so the two
+// together are a font metric — the advance that region's font gave that
+// many characters — and that is the metric the length layer predicts
+// other locales' widths from. It is why a region carries the locale it
+// was measured in, and why a region measured over text nobody has is
+// not a metric at all.
+type Region struct {
+	// Key is the message that rendered in the box.
+	Key string
+	// Locale is the locale the page was rendered in when it was
+	// measured.
+	Locale string
+	// Capture and ID identify the region for the locus.
+	Capture string
+	ID      string
+	// Width and Height are the box, in CSS pixels and never device
+	// pixels (checkpolicy.LengthThresholds says why).
+	Width  float64
+	Height float64
+	// AdvancePerRunePx is the font's measured average advance per rune,
+	// where the caller took one directly. Zero means it did not, and the
+	// layer derives the metric from the box and the text it held.
+	AdvancePerRunePx float64
+}
+
+// StyleGuide is the mechanical half of a locale's effective style guide
+// (RFC 0003 §2.3), which is the only half the style layer checks.
+//
+// The guide's prose rules are deliberately absent from this type. RFC
+// 0005 §3.2 is explicit that they are prompt material for the
+// translation agent and evidence for the linguistic layer, not rules a
+// regular expression may grade: "a regex over a rationale would be a
+// lie about what the system knows". A type that cannot carry them is a
+// type that cannot lie about them.
+type StyleGuide struct {
+	// Version identifies the merged guide, for provenance in a finding's
+	// evidence.
+	Version string
+	// Formality is "formal", "informal" or empty.
+	Formality string
+	// Pronouns are the forms of address the guide asks for ("Sie",
+	// "vous"); Forbidden the ones it rules out ("du", "tu"). A guide
+	// that states a formality and names no forms gets the locale's own,
+	// from FormalityForms.
+	Pronouns  []string
+	Forbidden []string
+	// QuoteOpen and QuoteClose are the quotation marks the guide asks
+	// for. Empty means it says nothing about them.
+	QuoteOpen  string
+	QuoteClose string
+	// Dash is the dash the guide asks for between words; Ellipsis the
+	// ellipsis character it asks for instead of three full stops.
+	Dash     string
+	Ellipsis string
+	// SpaceBeforeUnit says whether a number and its unit are separated.
+	// Nil means the guide says nothing.
+	SpaceBeforeUnit *bool
+	// Decimal and Group are the separators the guide states *beyond*
+	// CLDR: a project that writes its numbers one way whatever the
+	// locale's default is. Empty defers to the locale layer, which is
+	// where CLDR's own answer is graded — the two layers must not both
+	// grade the same character.
+	Decimal string
+	Group   string
+	// DateOrder is the date convention the guide states beyond CLDR:
+	// "ymd", "dmy" or "mdy". Empty says nothing.
+	DateOrder string
+	// ForbidTrailingSpace, ForbidDoubleSpace and ForbidAddedFinalStop
+	// are RFC 0005 §3.2's punctuation rules. The last is measured
+	// against the source — a full stop the source does not have — and
+	// not against a list of sentences.
+	ForbidTrailingSpace  bool
+	ForbidDoubleSpace    bool
+	ForbidAddedFinalStop bool
+}
+
+// Stated reports whether the guide states any mechanical rule at all.
+// A guide that is nothing but prose rules is a guide this layer has
+// nothing to check, and saying so is not the same as saying the
+// translations are clean.
+func (g StyleGuide) Stated() bool {
+	switch {
+	case g.Formality != "", len(g.Pronouns) > 0, len(g.Forbidden) > 0:
+		return true
+	case g.QuoteOpen != "", g.Dash != "", g.Ellipsis != "", g.SpaceBeforeUnit != nil:
+		return true
+	case g.Decimal != "", g.Group != "", g.DateOrder != "":
+		return true
+	case g.ForbidTrailingSpace, g.ForbidDoubleSpace, g.ForbidAddedFinalStop:
+		return true
+	}
+	return false
 }
 
 // Project is the catalog a layer checks: its locales, its active source
@@ -87,8 +216,102 @@ type Project struct {
 	Messages []Message
 	// Translations maps locale → key → translation.
 	Translations map[string]map[string]Translation
+	// Regions are the measured boxes of the captures the caller read,
+	// which is what the length layer's layout budget needs. A caller
+	// with no capture — `glossa check` — carries none, and the budget is
+	// simply not computed: a check that guessed at pixels it never
+	// measured would be worse than one that says nothing.
+	Regions []Region
+	// Styles are the effective style guides by locale, already resolved
+	// through the tenant → project → locale → namespace stack. A locale
+	// with no guide is a locale the style layer has nothing to say
+	// about.
+	Styles map[string]StyleGuide
+	// Orphans are translations whose message the catalog has obsoleted:
+	// text a release no longer ships, for a key the catalog no longer
+	// has. The completeness layer reports each as `unknown-key`. Only a
+	// caller that reads the server has them — local catalogs know no
+	// obsolete messages, and there a translation with no source is
+	// simply in Translations under a key Messages lacks.
+	//
+	// A caller reads one page of at most MaxOrphans of them per listing,
+	// in (key, message ID, locale) order, and sets MoreOrphans when a
+	// listing had another page: a project that has obsoleted thousands of
+	// messages must not make every check read thousands of dead
+	// translations.
+	Orphans     []Orphan
+	MoreOrphans bool
 
 	index map[string]int
+}
+
+// Orphan is a translation whose message the catalog has obsoleted.
+//
+// It carries identity and nothing to grade: no text, no model. An
+// orphan is reported for existing, not for what it says, so a reader
+// has no reason to parse it and the layer no reason to look.
+type Orphan struct {
+	// MessageID is the obsolete message's catalog ID. The message still
+	// has one, and it is what the finding's fingerprint is hashed over,
+	// so every surface that reads the server — the terminal, the
+	// server's own run, the pull request that renders it — computes the
+	// same one.
+	MessageID string
+	Key       string
+	Namespace string
+	Locale    string
+	// Revision is the translation's ID, where the caller knows it.
+	Revision string
+}
+
+// MaxOrphans bounds the orphaned translations one check reports. Past
+// it the completeness layer reports the first MaxOrphans by key and one
+// finding that says there are more.
+//
+// The bound is what a reader reads, not only what the layer reports:
+// both readers — the server's snapshot and the CLI's — ask the same
+// translation listing for one page of MaxOrphans per chunk of locales
+// (the listing's largest page), in the listing's own order, and this
+// layer sorts and cuts what they read. The terminal and the pull request
+// therefore cannot disagree about which ones were reported.
+const MaxOrphans = 100
+
+// Style is locale's effective style guide, and whether there is one.
+func (p *Project) Style(locale string) (StyleGuide, bool) {
+	g, ok := p.Styles[locale]
+	return g, ok
+}
+
+// SourceLocaleOf is the project's source locale as a Locale, and
+// whether the caller named one. The source layer runs on it and on
+// nothing else (RFC 0005 §3.5).
+func (p *Project) SourceLocaleOf() (Locale, bool) {
+	for _, l := range p.Locales {
+		if l.IsSource {
+			return l, true
+		}
+	}
+	if p.SourceLocale != "" {
+		return Locale{Code: p.SourceLocale, IsSource: true}, true
+	}
+	return Locale{}, false
+}
+
+// RegionsFor are the measured regions of key, in a stable order.
+func (p *Project) RegionsFor(key string) []Region {
+	var out []Region
+	for _, r := range p.Regions {
+		if r.Key == key {
+			out = append(out, r)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Locale != out[j].Locale {
+			return out[i].Locale < out[j].Locale
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out
 }
 
 // Message returns the source message with key.
@@ -177,9 +400,27 @@ type Checker interface {
 	Check(p *Project, policy checkpolicy.Policy) []domain.Finding
 }
 
-// Default is the deterministic QA a check always runs: the three layers
-// that need nothing but the catalog.
-func Default() []Checker { return []Checker{Structure{}, Parity{}, Completeness{}} }
+// Default is the deterministic QA a check always runs: every layer that
+// needs nothing but the project it is handed — no network, no database,
+// no browser and no provider.
+//
+// Seven of the ten layers of RFC 0005 §3 are here. The three that are
+// not are the three that cannot be: `terminology` asks the server's
+// termbase, `visual` is measured in a browser and `linguistic` is a
+// model's opinion, so all three arrive as Precomputed findings from the
+// caller that could fetch them.
+//
+// A layer with nothing to read is silent, not absent. The style layer
+// with no guide, the length layer with no measured regions and the
+// locale layer in a locale whose conventions it has no data for all
+// report nothing — the honest answer, and not a green one, because the
+// run still names the layer in Report.Layers and a reader can tell
+// "clean" from "not looked at".
+func Default() []Checker {
+	return []Checker{
+		Structure{}, Parity{}, Completeness{}, Style{}, Length{}, LocaleLayer{}, Source{},
+	}
+}
 
 // Precomputed is a Checker reporting findings computed elsewhere, such
 // as the terminology layer, which asks the server.

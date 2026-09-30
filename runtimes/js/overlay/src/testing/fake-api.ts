@@ -280,6 +280,10 @@ export class FakeApi {
             namespace: "default",
             locale,
             state: "needs_review",
+            // The message's current source revision, which the server has
+            // sent since the terminology check started recording what it
+            // was checked against — so a waiver can go stale when it moves.
+            source_revision: msg.source_revision,
             source_text: msg.source.text,
             target_text: this.translation(key, locale)?.text ?? "",
             findings,

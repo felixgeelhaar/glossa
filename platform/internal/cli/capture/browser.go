@@ -109,10 +109,13 @@ type Shot struct {
 	// fingerprint, which only a caller that knows the catalog can
 	// compute.
 	//
-	// They are deliberately not part of Capture. The manifest is a
-	// published schema that takes no unknown field
-	// (runtimes/testdata/schemas/captures.v1.schema.json), and what the
-	// capture upload carries is the Captures API's to say.
+	// They are not Capture's own, because a probe finding is Quality's
+	// and a capture is Context's. The manifest carries them beside the
+	// capture they were measured on (Capture.Findings, built by
+	// Findings), in the shape
+	// runtimes/testdata/schemas/captures.v1.schema.json publishes: the
+	// same shape with the fingerprint and the capture left for the
+	// ingest to complete.
 	Probes []domain.Finding
 	// Metrics is the line boxes each key covered on this page, which the
 	// next locale's capture of the same route and viewport compares

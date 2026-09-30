@@ -106,6 +106,14 @@ var systemPolicies = map[string][]string{
 	"catalog_branches":  {"catalog_branches_system_select"},
 	"catalog_proposals": {"catalog_proposals_system_select"},
 	"catalog_messages":  {"catalog_messages_system_select"},
+	// The daily quality.sweep job finds the tenants holding a waiver
+	// past its date or a check run past its 90 days (system scope
+	// quality.sweep, RFC 0005 §2.2, §2.3): the expiry columns and a
+	// start time only, read-only. No reason, no fingerprint, no ref —
+	// nothing a finding says about anybody's copy. Both sweeps
+	// themselves run in each tenant's own scope.
+	"quality_waivers":    {"quality_waivers_system_select"},
+	"quality_check_runs": {"quality_check_runs_system_select"},
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
 	// A CORS preflight carries no credentials, so "is this a registered

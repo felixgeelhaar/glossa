@@ -1634,6 +1634,9 @@ export const strings = {
     impactOpenPullRequestsHint:
       "These are the people who would wake up to a red pull request they did not cause. A grace pins them to the version they opened under.",
     impactRefs: (refs: string) => `Would newly fail: ${refs}`,
+    impactOtherRefs: (refs: string) => `Other branches that would newly fail: ${refs}`,
+    impactPullRequestsLabel: "The open pull requests that would newly fail",
+    impactPullRequest: (n: number, ref: string) => `#${n} ${ref}`,
     impactRefsFixed: (refs: string) => `Would stop failing: ${refs}`,
     impactRulesTitle: "Per rule",
     impactRulesLead: "A rule that changed nothing is listed too: that is exactly what a reader wants to know before saving.",

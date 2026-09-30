@@ -106,7 +106,7 @@ func (t *Translations) ProjectTranslations(ctx context.Context, project uuid.UUI
 		m, ok := sources[catalogdomain.MessageID(r.MessageID)]
 		out[i] = app.ProjectTranslation{
 			MessageID: r.MessageID, Key: r.Key, Namespace: r.Namespace, Locale: r.Locale, State: string(r.State),
-			Source: m.Source.Model, HasSource: ok, Target: r.Content.Model,
+			Source: m.Source.Model, HasSource: ok, SourceRevision: m.Revision, Target: r.Content.Model,
 		}
 	}
 	return out, next, nil

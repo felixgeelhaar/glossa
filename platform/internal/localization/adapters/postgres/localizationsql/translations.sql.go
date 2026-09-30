@@ -840,12 +840,14 @@ SELECT t.id, t.tenant_id, t.project_id, t.message_id, t.locale, t.syntax, t.text
 FROM localization_translations t
 LEFT JOIN localization_messages m ON m.message_id = t.message_id
 WHERE t.project_id = $1 AND t.state = ANY ($2::text[])
+  AND ($3::boolean OR m.state IS DISTINCT FROM 'obsolete')
 ORDER BY t.locale, t.message_id
 `
 
 type SnapshotTranslationsParams struct {
-	ProjectID uuid.UUID
-	States    []string
+	ProjectID       uuid.UUID
+	States          []string
+	IncludeObsolete bool
 }
 
 type SnapshotTranslationsRow struct {
@@ -869,8 +871,13 @@ type SnapshotTranslationsRow struct {
 }
 
 // A project's translations in the given review states, for a release.
+// include_obsolete false leaves out the translations of messages this
+// projection knows to be obsolete — dead rows a reader that joins with
+// the active source would only drop, and which a project that obsoleted
+// thousands of messages has thousands of. A message the projection has
+// not seen yet (m is NULL) is kept either way.
 func (q *Queries) SnapshotTranslations(ctx context.Context, arg SnapshotTranslationsParams) ([]SnapshotTranslationsRow, error) {
-	rows, err := q.db.Query(ctx, snapshotTranslations, arg.ProjectID, arg.States)
+	rows, err := q.db.Query(ctx, snapshotTranslations, arg.ProjectID, arg.States, arg.IncludeObsolete)
 	if err != nil {
 		return nil, err
 	}

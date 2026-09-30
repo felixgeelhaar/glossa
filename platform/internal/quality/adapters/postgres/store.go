@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres/qualitysql"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -34,11 +35,24 @@ func NewTransactor(uow *db.UnitOfWork) *Transactor { return &Transactor{uow: uow
 // InTenant implements app.Transactor.
 func (t *Transactor) InTenant(ctx context.Context, fn func(context.Context, app.Store) error) error {
 	return t.uow.InTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
-		return fn(ctx, &store{q: qualitysql.New(tx)})
+		return fn(ctx, &store{q: qualitysql.New(tx), tx: tx})
 	})
 }
 
-type store struct{ q *qualitysql.Queries }
+type store struct {
+	q *qualitysql.Queries
+	// tx is the same transaction the queries run in, kept so a domain
+	// event lands with the rows that raised it.
+	tx *db.TenantTx
+}
+
+// Publish implements app.Store: the event goes in the transaction that
+// wrote the run, so a rollback leaves no announcement of a run nobody
+// stored.
+func (s *store) Publish(ctx context.Context, e outbox.Event) error {
+	_, err := outbox.Publish(ctx, s.tx, e)
+	return err
+}
 
 var _ app.Store = (*store)(nil)
 
@@ -143,6 +157,18 @@ func (s *store) LatestCheckRun(ctx context.Context, project uuid.UUID, f app.Run
 		return domain.CheckRun{}, notFound(err, app.ErrCheckRunNotFound)
 	}
 	return checkRun(r), nil
+}
+
+func (s *store) HasCheckRunOf(ctx context.Context, project uuid.UUID, triggers []domain.Trigger) (bool, error) {
+	names := make([]string, len(triggers))
+	for i, t := range triggers {
+		names[i] = string(t)
+	}
+	found, err := s.q.HasCheckRunOf(ctx, qualitysql.HasCheckRunOfParams{ProjectID: project, RunTriggers: names})
+	if err != nil {
+		return false, storeError(err)
+	}
+	return found, nil
 }
 
 func (s *store) ListCheckRuns(ctx context.Context, project uuid.UUID, f app.RunFilter, after *app.RunCursor, limit int) ([]domain.CheckRun, error) {
@@ -445,7 +471,7 @@ func waiver(r qualitysql.QualityWaiver) domain.Waiver {
 		ID: r.ID, Project: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
 		Scope: domain.WaiverScope(r.Scope), Ref: r.Ref, SourceRevision: int(r.SourceRevision),
 		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(), ExpiresAt: timePtr(r.ExpiresAt),
-		RevokedAt: timePtr(r.RevokedAt),
+		ExpiredAt: timePtr(r.ExpiredAt), RevokedAt: timePtr(r.RevokedAt),
 	}
 }
 
@@ -461,7 +487,7 @@ func (s *store) UpsertWaiver(ctx context.Context, w domain.Waiver) (domain.Waive
 	return waiver(qualitysql.QualityWaiver{
 		ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
 		Scope: r.Scope, Ref: r.Ref, SourceRevision: r.SourceRevision, CreatedBy: r.CreatedBy,
-		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, RevokedAt: r.RevokedAt,
+		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, ExpiredAt: r.ExpiredAt, RevokedAt: r.RevokedAt,
 	}), r.Inserted, nil
 }
 
@@ -491,7 +517,7 @@ func (s *store) ListWaivers(ctx context.Context, project uuid.UUID, f app.Waiver
 		w := waiver(qualitysql.QualityWaiver{
 			ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
 			Scope: r.Scope, Ref: r.Ref, SourceRevision: r.SourceRevision, CreatedBy: r.CreatedBy,
-			CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, RevokedAt: r.RevokedAt,
+			CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, ExpiredAt: r.ExpiredAt, RevokedAt: r.RevokedAt,
 		})
 		out[i] = app.WaiverRecord{
 			Waiver: w,

@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -152,5 +154,80 @@ func TestPathIDsAreNotFound(t *testing.T) {
 	var d *problem.Details
 	if _, err := optionalRunID(&bad); !errors.As(err, &d) || d.Status != 404 {
 		t.Errorf("a malformed run parameter: %v", err)
+	}
+}
+
+// TestReportedFindingGivesAClientNoWayToMintAFingerprint: the wire
+// shape of a recorded run is glossa.finding/v1 *minus* the members only
+// the server can know. A body that carries a `fingerprint`, a
+// `locus.message` or a `locus.capture` anyway reaches the use case
+// carrying none of them, because there is no field to decode them into
+// — the same way `createCaptures` keeps the visual probe pass from
+// minting one (RFC 0005 §5.1).
+//
+// It matters because a print over a key is not the print over a catalog
+// message ID: a client-minted one would not be the fingerprint the
+// waiver list, the findings list and the pull-request check compute for
+// the same finding, and every waiver against it would silently stop
+// applying.
+func TestReportedFindingGivesAClientNoWayToMintAFingerprint(t *testing.T) {
+	body := []byte(`{
+	  "ref": "main",
+	  "layers": ["parity"],
+	  "conclusion": "success",
+	  "policy_version": 99,
+	  "findings": [{
+	    "schema": "glossa.finding/v1",
+	    "fingerprint": "f_deadbeefdeadbeef",
+	    "layer": "parity",
+	    "code": "argument_missing",
+	    "severity": "error",
+	    "message": "the translation drops an argument the source has",
+	    "subject": "amount",
+	    "waiver": "0192f5a1-0000-7000-8000-000000000009",
+	    "locus": {
+	      "key": "checkout.pay",
+	      "locale": "de",
+	      "message": "0192f5a1-0000-7000-8000-000000000001",
+	      "capture": "0192f5a1-0000-7000-8000-000000000002",
+	      "region": "r_3"
+	    }
+	  }]
+	}`)
+	var in apiv1.CreateCheckRun
+	if err := json.Unmarshal(body, &in); err != nil {
+		t.Fatal(err)
+	}
+	if in.Findings == nil || len(*in.Findings) != 1 {
+		t.Fatalf("findings = %v, want the one reported", in.Findings)
+	}
+	got := reportedFinding((*in.Findings)[0])
+	if got.Locus.Key != "checkout.pay" || got.Locus.Locale != "de" {
+		t.Errorf("locus = %+v, want the key and locale the reporter knew", got.Locus)
+	}
+	// The server-computed members are absent by shape, not by a filter
+	// somebody has to remember to write: the types the edge decodes into
+	// have no field to hold them, on the wire or in the use case.
+	for _, absent := range []struct {
+		typ   reflect.Type
+		field string
+	}{
+		{reflect.TypeFor[apiv1.ReportedFinding](), "Fingerprint"},
+		{reflect.TypeFor[apiv1.ReportedFinding](), "Waiver"},
+		{reflect.TypeFor[app.ReportedFinding](), "Fingerprint"},
+		{reflect.TypeFor[apiv1.ReportedFindingLocus](), "Message"},
+		{reflect.TypeFor[apiv1.ReportedFindingLocus](), "Capture"},
+		{reflect.TypeFor[apiv1.ReportedFindingLocus](), "Region"},
+		{reflect.TypeFor[app.ReportedLocus](), "Message"},
+		{reflect.TypeFor[app.ReportedLocus](), "Capture"},
+		{reflect.TypeFor[app.ReportedLocus](), "Region"},
+		{reflect.TypeFor[apiv1.CreateCheckRun](), "Conclusion"},
+		{reflect.TypeFor[apiv1.CreateCheckRun](), "Counts"},
+		{reflect.TypeFor[apiv1.CreateCheckRun](), "PolicyVersion"},
+		{reflect.TypeFor[app.ReportCheckRun](), "Conclusion"},
+	} {
+		if _, has := absent.typ.FieldByName(absent.field); has {
+			t.Errorf("%s has a %s field a caller could set", absent.typ, absent.field)
+		}
 	}
 }

@@ -27,8 +27,27 @@ const DOCUMENT: PolicyDocument = {
 
 /** Two terminology findings on one open pull request: the shape §4.3 exists for. */
 const TARGETS: FakeTarget[] = [
-  { layer: "terminology", code: "term_forbidden", locale: "de", namespace: "legal", severity: "warning", ref: "feat/checkout", open: true },
-  { layer: "terminology", code: "term_missing", locale: "de", severity: "warning", ref: "feat/checkout", open: true },
+  {
+    layer: "terminology",
+    code: "term_forbidden",
+    locale: "de",
+    namespace: "legal",
+    severity: "warning",
+    ref: "feat/checkout",
+    open: true,
+    pullRequest: { number: 12, url: "https://github.com/acme/shop/pull/12" },
+  },
+  {
+    layer: "terminology",
+    code: "term_missing",
+    locale: "de",
+    severity: "warning",
+    ref: "feat/checkout",
+    open: true,
+    pullRequest: { number: 12, url: "https://github.com/acme/shop/pull/12" },
+  },
+  // A branch with no pull request, which a policy change reddens all the same.
+  { layer: "terminology", code: "term_missing", locale: "ja", severity: "warning", ref: "wip/glossary" },
   { layer: "length", code: "max-length-exceeded", locale: "ja", severity: "warning", ref: "main" },
 ];
 
@@ -142,9 +161,15 @@ describe("CheckPolicyView", () => {
     await added.get("[data-testid=rule-severity-select]").setValue("error");
     await click(w, "policy-preview");
     expect(text(w, "impact-open-pull-requests")).toContain("1");
-    expect(text(w, "impact-newly-failing")).toContain("2");
-    expect(text(w, "impact-newly-failing-refs")).toContain("feat/checkout");
+    expect(text(w, "impact-newly-failing")).toContain("3");
     expect(text(w, "impact-open-prs-hint")).toContain("would wake up to a red pull request");
+    // And it names the pull request, as a link to it — not a branch to go and look up.
+    const prs = w.findAll("[data-testid=impact-pull-request]");
+    expect(prs).toHaveLength(1);
+    expect(prs[0]?.text()).toBe("#12 feat/checkout");
+    expect(prs[0]?.get("a").attributes("href")).toBe("https://github.com/acme/shop/pull/12");
+    // The branch with no pull request is still named, apart from the ones that have one.
+    expect(text(w, "impact-newly-failing-refs")).toBe("Other branches that would newly fail: wip/glossary");
     // A rule that changed nothing is listed too.
     expect(w.findAll("[data-testid=impact-rule]")).toHaveLength(3);
   });

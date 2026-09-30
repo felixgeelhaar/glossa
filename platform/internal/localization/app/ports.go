@@ -145,7 +145,10 @@ type Store interface {
 	// NewlyOutdated lists a message's translations made against a
 	// revision in [old, new).
 	NewlyOutdated(ctx context.Context, message uuid.UUID, old, new int) ([]domain.Translation, error)
-	SnapshotTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState) ([]TranslationRow, error)
+	// SnapshotTranslations reads a project's translations in states;
+	// includeObsolete false leaves out those of messages this projection
+	// knows to be obsolete.
+	SnapshotTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState, includeObsolete bool) ([]TranslationRow, error)
 	// ProjectTranslations lists translations across a project's messages
 	// in (key, message ID, locale) order after q.After, in one query.
 	ProjectTranslations(ctx context.Context, project uuid.UUID, q ProjectTranslationQuery) ([]ProjectTranslationRow, error)

@@ -74,4 +74,5 @@ type QualityWaiver struct {
 	CreatedAt      time.Time
 	ExpiresAt      pgtype.Timestamptz
 	RevokedAt      pgtype.Timestamptz
+	ExpiredAt      pgtype.Timestamptz
 }

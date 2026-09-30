@@ -108,6 +108,19 @@ type UnknownKey struct {
 	Line int
 }
 
+// UsageSite is where the product asks for a key: one usage Context
+// ingested for this branch's build.
+//
+// It is what turns a finding into an annotation. A finding from
+// `glossa check` is about a message in a catalog and carries no file of
+// its own, because a catalog is not a file; Context is the context that
+// knows where a key is used, and filling the locus in at report time is
+// what its package doc has said since M4 (quality/domain, package doc).
+type UsageSite struct {
+	File string
+	Line int
+}
+
 // BranchUsages is what Context says about the branch's current builds.
 type BranchUsages struct {
 	// Builds counts the current builds the view resolved to; 0 means CI
@@ -118,9 +131,52 @@ type BranchUsages struct {
 	// ingested twice, late or never changes nothing but the answer.
 	Commits []string
 	Unknown []UnknownKey
+	// Where the product asks for each key the branch's build uses, one
+	// site per key. It locates the findings of the run the check
+	// renders, and nothing else: it changes no count and no verdict,
+	// only whether a reviewer sees a finding where the problem is.
+	Where map[string]UsageSite
 	// Captured and NotCaptured count the branch's active messages with
 	// and without a capture (RFC 0004 §3).
 	Captured, NotCaptured int
+}
+
+// RecordedRun is the check run CI recorded for a commit — the run the
+// pull request renders (RFC 0005 §12.3).
+//
+// This is the whole of the exit criterion. `glossa check` computes
+// every layer over the project and records what it found
+// (`createCheckRun`); the pull request used to compute a second,
+// narrower thing and present it as the same answer. It cannot: one
+// read every layer and the whole project, the other read the warnings
+// stored with each translation on the branch's own keys. Two
+// computations tested for agreement will disagree. One computation,
+// rendered twice, cannot.
+type RecordedRun struct {
+	ID uuid.UUID
+	// Ref is the branch the run was of, and Commit the commit it
+	// graded. The check matches on the commit: a branch moves, and a
+	// verdict belongs to the commit it was about.
+	Ref, Commit string
+	// Trigger says what asked for the run ("cli" for `glossa check`).
+	Trigger string
+	// PolicyVersion is the version the run graded itself against when it
+	// was recorded. The report grades again against the version that
+	// applies to *this* pull request, which is not the same thing while
+	// a grace is running (RFC 0005 §4.3).
+	PolicyVersion int
+	// Layers are the layers the run computed, so the report can say
+	// what was looked at rather than only what was found.
+	Layers []quality.Layer
+	// Findings are the run's findings as they stand now, with the
+	// project's live waivers applied — the same read `glossa findings`
+	// and Studio make.
+	Findings []quality.Finding
+	// Truncated says the run holds more findings than were read. The
+	// summary says so rather than quietly reporting a smaller run.
+	Truncated   bool
+	StartedAt   time.Time
+	CompletedAt time.Time
 }
 
 // CheckSources is the read model the check renders from: the other
@@ -128,6 +184,18 @@ type BranchUsages struct {
 // RFC 0002 §4 requires, so each keeps checking the caller's
 // permissions.
 type CheckSources interface {
+	// RecordedRun is the newest check run recorded for commit, and
+	// false where nothing has recorded one. It is Quality's, read
+	// through this port and never out of Quality's tables.
+	RecordedRun(ctx context.Context, project uuid.UUID, commit string) (RecordedRun, bool, error)
+	// RecordsRuns reports whether the project has ever recorded a
+	// reported check run — `glossa check` in CI, the pull-request check
+	// or an explicit API call, of any commit — among the runs Quality
+	// still keeps. It is how the check knows this repository's CI runs
+	// `glossa check`, and so whether a commit without a run yet is worth
+	// waiting for. It is asked on the readiness path: a yes-or-no, one
+	// bounded read, never a listing.
+	RecordsRuns(ctx context.Context, project uuid.UUID) (bool, error)
 	// Policy is the project's check policy — the same `require_complete`
 	// and `fail_on` as `glossa check` (RFC 0004 §6.4).
 	Policy(ctx context.Context, project uuid.UUID) (checkpolicy.Policy, error)

@@ -14,7 +14,7 @@ import { startCapture } from "./session.js";
 import type { CaptureSession, SessionCapture } from "./session.js";
 import { fonts, layout } from "./testing/layout.js";
 import { fixture, msg, release } from "./testing/release.js";
-import { findingErrors } from "./testing/schema.js";
+import { findingErrors, schemaErrors } from "./testing/schema.js";
 
 let session: CaptureSession | undefined;
 const undo: Array<() => void> = [];
@@ -37,8 +37,21 @@ const one = (c: SessionCapture, code: string): ProbeFinding => {
   return hit[0]!;
 };
 
-/** Every probe, whatever it found, is a finding.v1 once the ingest completes it. */
-const valid = (c: SessionCapture) => c.probes.flatMap((p) => findingErrors(p));
+/**
+ * Every probe, whatever it found, is a finding.v1 once the ingest completes
+ * it — and the capture manifest can carry it as written.
+ *
+ * The second half is not the same assertion as the first. A finding the page
+ * writes is only worth writing if it reaches the server, and it reaches the
+ * server on a `glossa.captures/v1` manifest, whose `findings` are that shape
+ * minus the two members a page cannot know. Validating only finding.v1 left
+ * the carrying end untested, which is how the probes came to be measured and
+ * then dropped.
+ */
+const valid = (c: SessionCapture) => [
+  ...c.probes.flatMap((p) => findingErrors(p)),
+  ...schemaErrors(c),
+];
 
 describe("text-clipped", () => {
   it("reports the clipping container's own numbers, once for a message on three lines", () => {

@@ -1659,6 +1659,60 @@ func (e ReleaseProblemCode) Valid() bool {
 	}
 }
 
+// Defines values for ReportedFindingSchema.
+const (
+	ReportedFindingSchemaGlossaFindingv1 ReportedFindingSchema = "glossa.finding/v1"
+)
+
+// Valid indicates whether the value is a known member of the ReportedFindingSchema enum.
+func (e ReportedFindingSchema) Valid() bool {
+	switch e {
+	case ReportedFindingSchemaGlossaFindingv1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportedFindingSeverity.
+const (
+	ReportedFindingSeverityError   ReportedFindingSeverity = "error"
+	ReportedFindingSeverityWarning ReportedFindingSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the ReportedFindingSeverity enum.
+func (e ReportedFindingSeverity) Valid() bool {
+	switch e {
+	case ReportedFindingSeverityError:
+		return true
+	case ReportedFindingSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportedTrigger.
+const (
+	ReportedTriggerApi         ReportedTrigger = "api"
+	ReportedTriggerCli         ReportedTrigger = "cli"
+	ReportedTriggerPullRequest ReportedTrigger = "pull_request"
+)
+
+// Valid indicates whether the value is a known member of the ReportedTrigger enum.
+func (e ReportedTrigger) Valid() bool {
+	switch e {
+	case ReportedTriggerApi:
+		return true
+	case ReportedTriggerCli:
+		return true
+	case ReportedTriggerPullRequest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReviewState.
 const (
 	ReviewStateApproved    ReviewState = "approved"
@@ -3507,6 +3561,14 @@ type CheckPolicyImpact struct {
 	// NewlyFailing Findings that fail under the candidate and did not before.
 	NewlyFailing int `json:"newly_failing"`
 
+	// NewlyFailingPullRequests The open pull requests `open_pull_requests` counts, named: each
+	// one among `newly_failing_refs` that has an open pull request,
+	// with its number and, where the project's repository is known,
+	// where it is. The count says how many people would wake up to a
+	// red pull request; this is what lets whoever saves the policy go
+	// and tell them. Absent when there are none.
+	NewlyFailingPullRequests *[]CheckPolicyPullRequest `json:"newly_failing_pull_requests,omitempty"`
+
 	// NewlyFailingRefs The refs whose verdict turns from passing to failing.
 	NewlyFailingRefs    *[]string `json:"newly_failing_refs,omitempty"`
 	NoLongerFailing     int       `json:"no_longer_failing"`
@@ -3533,6 +3595,21 @@ type CheckPolicyImpact struct {
 // (`all`), only those in `locales` (`listed`), or none of them.
 // `listed` with an empty `locales` is stored as `none`.
 type CheckPolicyLocaleRequirement string
+
+// CheckPolicyPullRequest An open pull request a candidate check policy would newly fail (RFC 0005 §4.3).
+type CheckPolicyPullRequest struct {
+	// Number The pull request's number on its repository.
+	Number int `json:"number"`
+
+	// Ref The pull request's branch.
+	Ref string `json:"ref"`
+
+	// Url Where the pull request is on the web: the repository connected
+	// to the project, at the GitHub App's web host. Absent when no
+	// repository is connected, when the project is connected to more
+	// than one, or when the caller may not read the integration.
+	Url *string `json:"url,omitempty"`
+}
 
 // CheckPolicyRule One line of the policy document (RFC 0005 §4.1): what it
 // selects, what that is worth, and whether it may fail a run yet.
@@ -3898,6 +3975,39 @@ type CreateApplication struct {
 	Name     string   `json:"name"`
 	Platform Platform `json:"platform"`
 	Slug     Slug     `json:"slug"`
+}
+
+// CreateCheckRun One evaluation to record: what was checked, which layers ran,
+// and what they found.
+type CreateCheckRun struct {
+	// Commit The commit graded, where there is one. A branch moves; the
+	// commit a verdict was about does not.
+	Commit *string `json:"commit,omitempty"`
+
+	// Environment The environment the run is about, which selects the policy's
+	// block for it. Absent is a branch check, in no environment at
+	// all — which is every check in CI, so a rule naming an
+	// environment says nothing about a pull request.
+	Environment *string `json:"environment,omitempty"`
+
+	// Findings What the layers found. At most 10 000; more is refused, not truncated.
+	Findings *[]ReportedFinding `json:"findings,omitempty"`
+
+	// Layers The layers that actually ran, in report order. A layer the
+	// policy switched off, or the run never computed, is not in
+	// the list: "clean" and "not looked at" are different answers.
+	Layers []FindingLayer `json:"layers"`
+
+	// Ref What was checked — a branch, or an environment name.
+	Ref string `json:"ref"`
+
+	// StartedAt When the run started; the server's clock where it is absent.
+	StartedAt *Timestamp `json:"started_at,omitempty"`
+
+	// Trigger What asked for a recorded run. `capture` and `write` are the
+	// server's own jobs — the capture upload's visual pass and the
+	// write-time catalog check — and are not claimable by a caller.
+	Trigger *ReportedTrigger `json:"trigger,omitempty"`
 }
 
 // CreateDeliveryKey defines model for CreateDeliveryKey.
@@ -6431,6 +6541,99 @@ type ReplaceTermConcept struct {
 	Terms      []TermInput `json:"terms"`
 }
 
+// ReportedFinding One `glossa.finding/v1` finding as a reporter can write it. The
+// `fingerprint` is deliberately absent — the server computes it
+// over the catalog message the key resolved to, and one minted by
+// a client would not be the one every other surface computes for
+// the same finding — and so are the run's verdict and its counts,
+// which the policy reaches and nobody asserts.
+type ReportedFinding struct {
+	Code   string  `json:"code"`
+	Detail *string `json:"detail,omitempty"`
+
+	// Evidence What the layer measured, free-form per code.
+	Evidence *map[string]interface{} `json:"evidence,omitempty"`
+
+	// Fix A hint, never an action: nothing applies one without a person or an explicit `--fix`.
+	Fix *FindingFix `json:"fix,omitempty"`
+
+	// Layer Which layer found it (RFC 0005 §3). Selectable by name in the policy and on the command line.
+	Layer FindingLayer `json:"layer"`
+
+	// Locus As much of the finding's locus as the reporter knows. `message`
+	// is absent: the ingest resolves `key` against the catalog itself,
+	// because the catalog message ID is what the fingerprint hashes
+	// and what makes one finding one identity across surfaces.
+	// `capture` and `region` are absent for the same reason in the
+	// other direction — only the server that minted a capture's ID can
+	// pair them, and a check run is of a catalog, not of a screenshot.
+	Locus   ReportedFindingLocus  `json:"locus"`
+	Message string                `json:"message"`
+	Schema  ReportedFindingSchema `json:"schema"`
+
+	// Severity The severity the layer emitted. The project's policy decides
+	// what it is worth here and may raise, lower or switch it off.
+	// `waived` is refused: a waiver is the project's to apply, not
+	// a reporter's to assert.
+	Severity ReportedFindingSeverity `json:"severity"`
+
+	// SourceRevision The source revision the finding was computed against — the
+	// server's own number, read back from the translation the
+	// layer graded. A waiver dies when it changes.
+	SourceRevision *int    `json:"source_revision,omitempty"`
+	Subject        *string `json:"subject,omitempty"`
+}
+
+// ReportedFindingSchema defines model for ReportedFinding.Schema.
+type ReportedFindingSchema string
+
+// ReportedFindingSeverity The severity the layer emitted. The project's policy decides
+// what it is worth here and may raise, lower or switch it off.
+// `waived` is refused: a waiver is the project's to apply, not
+// a reporter's to assert.
+type ReportedFindingSeverity string
+
+// ReportedFindingLocus As much of the finding's locus as the reporter knows. `message`
+// is absent: the ingest resolves `key` against the catalog itself,
+// because the catalog message ID is what the fingerprint hashes
+// and what makes one finding one identity across surfaces.
+// `capture` and `region` are absent for the same reason in the
+// other direction — only the server that minted a capture's ID can
+// pair them, and a check run is of a catalog, not of a screenshot.
+type ReportedFindingLocus struct {
+	Column    *int    `json:"column,omitempty"`
+	Component *string `json:"component,omitempty"`
+	File      *string `json:"file,omitempty"`
+
+	// Key A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Key  *MessageKey `json:"key,omitempty"`
+	Line *int        `json:"line,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// Namespace Groups messages into separately loadable bundles. Default `default`.
+	Namespace *Namespace `json:"namespace,omitempty"`
+
+	// Revision The translation revision the finding was computed against.
+	Revision *Id     `json:"revision,omitempty"`
+	Route    *string `json:"route,omitempty"`
+
+	// Span The offending words in the source or the target, in bytes, so a surface can underline them.
+	Span *FindingSpan `json:"span,omitempty"`
+}
+
+// ReportedTrigger What asked for a recorded run. `capture` and `write` are the
+// server's own jobs — the capture upload's visual pass and the
+// write-time catalog check — and are not claimable by a caller.
+type ReportedTrigger string
+
 // ReviewState defines model for ReviewState.
 type ReviewState string
 
@@ -7319,6 +7522,9 @@ type TranslationTerminologyFindings struct {
 	// Examples: checkout.payment.submit
 	MessageKey MessageKey `json:"message_key"`
 	Namespace  string     `json:"namespace"`
+
+	// SourceRevision The message's current source revision: the one `source_text` is, and so the one these findings were computed against. A waiver on a terminology finding is measured against it (RFC 0005 §2.3) — change the source and the waived finding comes back.
+	SourceRevision int `json:"source_revision"`
 
 	// SourceText The source's visible text, which `source` spans point into.
 	SourceText string      `json:"source_text"`
@@ -8873,6 +9079,9 @@ type SaveCheckPolicyJSONRequestBody = SaveCheckPolicy
 
 // ImportCheckPolicyJSONRequestBody defines body for ImportCheckPolicy for application/json ContentType.
 type ImportCheckPolicyJSONRequestBody = CheckPolicyDocument
+
+// CreateCheckRunJSONRequestBody defines body for CreateCheckRun for application/json ContentType.
+type CreateCheckRunJSONRequestBody = CreateCheckRun
 
 // CreateContextBuildJSONRequestBody defines body for CreateContextBuild for application/json ContentType.
 type CreateContextBuildJSONRequestBody = UsagesDocument
@@ -11433,6 +11642,136 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs (the `ListCheckRuns` operationId).
 	ListCheckRuns(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateCheckRunWithBody Record a check run and the findings it produced
+	//
+	// A check that ran somewhere else is recorded here (RFC 0005 §9):
+	// `glossa check` in a product's CI computes the layers against the
+	// project it already read, and posts what it found so that
+	// Studio's quality view, `listFindings`, the summary and the
+	// findings-by-day rollup see it. Without this, a product whose CI
+	// gates on `glossa check` leaves every one of those empty — which
+	// is the state M4 exists to end.
+	//
+	// **The findings are `glossa.finding/v1`, minus the members a
+	// reporter cannot know.** Two are deliberately absent, exactly as
+	// they are on a capture upload (`createCaptures`):
+	//
+	// - the **`fingerprint`**, which hashes the catalog message ID the
+	//   key resolved to. A reporter has the key; the server has the
+	//   catalog. A fingerprint minted over a key is not the one the
+	//   waiver list, `listFindings` and the pull-request check
+	//   compute for the same finding, so every waiver against it
+	//   would silently stop applying. The ingest resolves each
+	//   `locus.key` to its message ID and computes the fingerprint
+	//   itself; a `fingerprint` member sent anyway is not read and
+	//   never stored.
+	// - **`locus.capture` and `locus.region`**, which only the server
+	//   that minted a capture's ID can pair. A check run is of a
+	//   catalog, not of a screenshot; visual findings arrive with
+	//   their capture.
+	//
+	// **The run does not grade itself.** `severity` is what the layer
+	// emitted, and the project's stored check policy decides what that
+	// is worth here — in this locale, this namespace, this
+	// `environment` — through the same evaluator every other stored
+	// finding goes through. A finding a rule switches off is not
+	// stored, because `off` means the project does not compute it; an
+	// advisory layer is clamped back to `warning` however strict the
+	// rule. `severity: waived` is refused (`invalid_finding`): whether
+	// a finding is waived is decided from the project's live waivers,
+	// here and again on read. There is no `conclusion`, no `counts`
+	// and no `policy_version` in the request: a caller that could
+	// assert those could declare its own build green.
+	//
+	// At most 10 000 findings in one run (`too_many_findings`, RFC
+	// 0005 §10); a run with more is **refused, not truncated** — a
+	// silently shortened run is a report that lies about what was
+	// checked. `layers` is what actually ran, so a reader can tell
+	// "clean" from "not looked at", and a run that names none is a
+	// run that looked at nothing.
+	//
+	// `trigger` says who asked: `cli` (`glossa check`),
+	// `pull_request` (the check on a pull request) or `api` (the
+	// default — anything else, including MCP). `capture` and `write`
+	// are the server's own jobs and cannot be claimed.
+	//
+	// Needs `catalog.write` — the permission a CI token already holds
+	// beside `catalog.read` (RFC 0004 §6.3), and the one that already
+	// carries the authority to change what a check concludes, because
+	// it uploads the messages, the usages and the captures the layers
+	// grade. Problem codes: `too_many_findings`, `invalid_finding`,
+	// `invalid_request` (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-runs (the `CreateCheckRun` operationId).
+	CreateCheckRunWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateCheckRun Record a check run and the findings it produced
+	//
+	// A check that ran somewhere else is recorded here (RFC 0005 §9):
+	// `glossa check` in a product's CI computes the layers against the
+	// project it already read, and posts what it found so that
+	// Studio's quality view, `listFindings`, the summary and the
+	// findings-by-day rollup see it. Without this, a product whose CI
+	// gates on `glossa check` leaves every one of those empty — which
+	// is the state M4 exists to end.
+	//
+	// **The findings are `glossa.finding/v1`, minus the members a
+	// reporter cannot know.** Two are deliberately absent, exactly as
+	// they are on a capture upload (`createCaptures`):
+	//
+	// - the **`fingerprint`**, which hashes the catalog message ID the
+	//   key resolved to. A reporter has the key; the server has the
+	//   catalog. A fingerprint minted over a key is not the one the
+	//   waiver list, `listFindings` and the pull-request check
+	//   compute for the same finding, so every waiver against it
+	//   would silently stop applying. The ingest resolves each
+	//   `locus.key` to its message ID and computes the fingerprint
+	//   itself; a `fingerprint` member sent anyway is not read and
+	//   never stored.
+	// - **`locus.capture` and `locus.region`**, which only the server
+	//   that minted a capture's ID can pair. A check run is of a
+	//   catalog, not of a screenshot; visual findings arrive with
+	//   their capture.
+	//
+	// **The run does not grade itself.** `severity` is what the layer
+	// emitted, and the project's stored check policy decides what that
+	// is worth here — in this locale, this namespace, this
+	// `environment` — through the same evaluator every other stored
+	// finding goes through. A finding a rule switches off is not
+	// stored, because `off` means the project does not compute it; an
+	// advisory layer is clamped back to `warning` however strict the
+	// rule. `severity: waived` is refused (`invalid_finding`): whether
+	// a finding is waived is decided from the project's live waivers,
+	// here and again on read. There is no `conclusion`, no `counts`
+	// and no `policy_version` in the request: a caller that could
+	// assert those could declare its own build green.
+	//
+	// At most 10 000 findings in one run (`too_many_findings`, RFC
+	// 0005 §10); a run with more is **refused, not truncated** — a
+	// silently shortened run is a report that lies about what was
+	// checked. `layers` is what actually ran, so a reader can tell
+	// "clean" from "not looked at", and a run that names none is a
+	// run that looked at nothing.
+	//
+	// `trigger` says who asked: `cli` (`glossa check`),
+	// `pull_request` (the check on a pull request) or `api` (the
+	// default — anything else, including MCP). `capture` and `write`
+	// are the server's own jobs and cannot be claimed.
+	//
+	// Needs `catalog.write` — the permission a CI token already holds
+	// beside `catalog.read` (RFC 0004 §6.3), and the one that already
+	// carries the authority to change what a check concludes, because
+	// it uploads the messages, the usages and the captures the layers
+	// grade. Problem codes: `too_many_findings`, `invalid_finding`,
+	// `invalid_request` (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-runs (the `CreateCheckRun` operationId).
+	CreateCheckRun(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateCheckRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetCheckRun One check run with its counts
 	//
@@ -17200,6 +17539,156 @@ func (c *Client) GetCheckPolicyVersion(ctx context.Context, tenant TenantPath, p
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs (the `ListCheckRuns` operationId).
 func (c *Client) ListCheckRuns(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListCheckRunsRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateCheckRunWithBody Record a check run and the findings it produced
+//
+// A check that ran somewhere else is recorded here (RFC 0005 §9):
+// `glossa check` in a product's CI computes the layers against the
+// project it already read, and posts what it found so that
+// Studio's quality view, `listFindings`, the summary and the
+// findings-by-day rollup see it. Without this, a product whose CI
+// gates on `glossa check` leaves every one of those empty — which
+// is the state M4 exists to end.
+//
+// **The findings are `glossa.finding/v1`, minus the members a
+// reporter cannot know.** Two are deliberately absent, exactly as
+// they are on a capture upload (`createCaptures`):
+//
+//   - the **`fingerprint`**, which hashes the catalog message ID the
+//     key resolved to. A reporter has the key; the server has the
+//     catalog. A fingerprint minted over a key is not the one the
+//     waiver list, `listFindings` and the pull-request check
+//     compute for the same finding, so every waiver against it
+//     would silently stop applying. The ingest resolves each
+//     `locus.key` to its message ID and computes the fingerprint
+//     itself; a `fingerprint` member sent anyway is not read and
+//     never stored.
+//   - **`locus.capture` and `locus.region`**, which only the server
+//     that minted a capture's ID can pair. A check run is of a
+//     catalog, not of a screenshot; visual findings arrive with
+//     their capture.
+//
+// **The run does not grade itself.** `severity` is what the layer
+// emitted, and the project's stored check policy decides what that
+// is worth here — in this locale, this namespace, this
+// `environment` — through the same evaluator every other stored
+// finding goes through. A finding a rule switches off is not
+// stored, because `off` means the project does not compute it; an
+// advisory layer is clamped back to `warning` however strict the
+// rule. `severity: waived` is refused (`invalid_finding`): whether
+// a finding is waived is decided from the project's live waivers,
+// here and again on read. There is no `conclusion`, no `counts`
+// and no `policy_version` in the request: a caller that could
+// assert those could declare its own build green.
+//
+// At most 10 000 findings in one run (`too_many_findings`, RFC
+// 0005 §10); a run with more is **refused, not truncated** — a
+// silently shortened run is a report that lies about what was
+// checked. `layers` is what actually ran, so a reader can tell
+// "clean" from "not looked at", and a run that names none is a
+// run that looked at nothing.
+//
+// `trigger` says who asked: `cli` (`glossa check`),
+// `pull_request` (the check on a pull request) or `api` (the
+// default — anything else, including MCP). `capture` and `write`
+// are the server's own jobs and cannot be claimed.
+//
+// Needs `catalog.write` — the permission a CI token already holds
+// beside `catalog.read` (RFC 0004 §6.3), and the one that already
+// carries the authority to change what a check concludes, because
+// it uploads the messages, the usages and the captures the layers
+// grade. Problem codes: `too_many_findings`, `invalid_finding`,
+// `invalid_request` (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-runs (the `CreateCheckRun` operationId).
+func (c *Client) CreateCheckRunWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCheckRunRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateCheckRun Record a check run and the findings it produced
+//
+// A check that ran somewhere else is recorded here (RFC 0005 §9):
+// `glossa check` in a product's CI computes the layers against the
+// project it already read, and posts what it found so that
+// Studio's quality view, `listFindings`, the summary and the
+// findings-by-day rollup see it. Without this, a product whose CI
+// gates on `glossa check` leaves every one of those empty — which
+// is the state M4 exists to end.
+//
+// **The findings are `glossa.finding/v1`, minus the members a
+// reporter cannot know.** Two are deliberately absent, exactly as
+// they are on a capture upload (`createCaptures`):
+//
+//   - the **`fingerprint`**, which hashes the catalog message ID the
+//     key resolved to. A reporter has the key; the server has the
+//     catalog. A fingerprint minted over a key is not the one the
+//     waiver list, `listFindings` and the pull-request check
+//     compute for the same finding, so every waiver against it
+//     would silently stop applying. The ingest resolves each
+//     `locus.key` to its message ID and computes the fingerprint
+//     itself; a `fingerprint` member sent anyway is not read and
+//     never stored.
+//   - **`locus.capture` and `locus.region`**, which only the server
+//     that minted a capture's ID can pair. A check run is of a
+//     catalog, not of a screenshot; visual findings arrive with
+//     their capture.
+//
+// **The run does not grade itself.** `severity` is what the layer
+// emitted, and the project's stored check policy decides what that
+// is worth here — in this locale, this namespace, this
+// `environment` — through the same evaluator every other stored
+// finding goes through. A finding a rule switches off is not
+// stored, because `off` means the project does not compute it; an
+// advisory layer is clamped back to `warning` however strict the
+// rule. `severity: waived` is refused (`invalid_finding`): whether
+// a finding is waived is decided from the project's live waivers,
+// here and again on read. There is no `conclusion`, no `counts`
+// and no `policy_version` in the request: a caller that could
+// assert those could declare its own build green.
+//
+// At most 10 000 findings in one run (`too_many_findings`, RFC
+// 0005 §10); a run with more is **refused, not truncated** — a
+// silently shortened run is a report that lies about what was
+// checked. `layers` is what actually ran, so a reader can tell
+// "clean" from "not looked at", and a run that names none is a
+// run that looked at nothing.
+//
+// `trigger` says who asked: `cli` (`glossa check`),
+// `pull_request` (the check on a pull request) or `api` (the
+// default — anything else, including MCP). `capture` and `write`
+// are the server's own jobs and cannot be claimed.
+//
+// Needs `catalog.write` — the permission a CI token already holds
+// beside `catalog.read` (RFC 0004 §6.3), and the one that already
+// carries the authority to change what a check concludes, because
+// it uploads the messages, the usages and the captures the layers
+// grade. Problem codes: `too_many_findings`, `invalid_finding`,
+// `invalid_request` (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-runs (the `CreateCheckRun` operationId).
+func (c *Client) CreateCheckRun(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateCheckRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCheckRunRequest(c.Server, tenant, project, body)
 	if err != nil {
 		return nil, err
 	}
@@ -26841,6 +27330,60 @@ func NewListCheckRunsRequest(server string, tenant TenantPath, project ProjectPa
 	return req, nil
 }
 
+// NewCreateCheckRunRequest calls the generic CreateCheckRun builder with application/json body
+func NewCreateCheckRunRequest(server string, tenant TenantPath, project ProjectPath, body CreateCheckRunJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateCheckRunRequestWithBody(server, tenant, project, "application/json", bodyReader)
+}
+
+// NewCreateCheckRunRequestWithBody constructs an http.Request for the CreateCheckRun method, with any body, and a specified content type
+func NewCreateCheckRunRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/check-runs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetCheckRunRequest constructs an http.Request for the GetCheckRun method
 func NewGetCheckRunRequest(server string, tenant TenantPath, project ProjectPath, checkRun CheckRunPath) (*http.Request, error) {
 	var err error
@@ -36198,6 +36741,136 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/check-runs (the `ListCheckRuns` operationId).
 	ListCheckRunsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListCheckRunsParams, reqEditors ...RequestEditorFn) (*ListCheckRunsResponse, error)
+
+	// CreateCheckRunWithBodyWithResponse Record a check run and the findings it produced
+	//
+	// A check that ran somewhere else is recorded here (RFC 0005 §9):
+	// `glossa check` in a product's CI computes the layers against the
+	// project it already read, and posts what it found so that
+	// Studio's quality view, `listFindings`, the summary and the
+	// findings-by-day rollup see it. Without this, a product whose CI
+	// gates on `glossa check` leaves every one of those empty — which
+	// is the state M4 exists to end.
+	//
+	// **The findings are `glossa.finding/v1`, minus the members a
+	// reporter cannot know.** Two are deliberately absent, exactly as
+	// they are on a capture upload (`createCaptures`):
+	//
+	// - the **`fingerprint`**, which hashes the catalog message ID the
+	//   key resolved to. A reporter has the key; the server has the
+	//   catalog. A fingerprint minted over a key is not the one the
+	//   waiver list, `listFindings` and the pull-request check
+	//   compute for the same finding, so every waiver against it
+	//   would silently stop applying. The ingest resolves each
+	//   `locus.key` to its message ID and computes the fingerprint
+	//   itself; a `fingerprint` member sent anyway is not read and
+	//   never stored.
+	// - **`locus.capture` and `locus.region`**, which only the server
+	//   that minted a capture's ID can pair. A check run is of a
+	//   catalog, not of a screenshot; visual findings arrive with
+	//   their capture.
+	//
+	// **The run does not grade itself.** `severity` is what the layer
+	// emitted, and the project's stored check policy decides what that
+	// is worth here — in this locale, this namespace, this
+	// `environment` — through the same evaluator every other stored
+	// finding goes through. A finding a rule switches off is not
+	// stored, because `off` means the project does not compute it; an
+	// advisory layer is clamped back to `warning` however strict the
+	// rule. `severity: waived` is refused (`invalid_finding`): whether
+	// a finding is waived is decided from the project's live waivers,
+	// here and again on read. There is no `conclusion`, no `counts`
+	// and no `policy_version` in the request: a caller that could
+	// assert those could declare its own build green.
+	//
+	// At most 10 000 findings in one run (`too_many_findings`, RFC
+	// 0005 §10); a run with more is **refused, not truncated** — a
+	// silently shortened run is a report that lies about what was
+	// checked. `layers` is what actually ran, so a reader can tell
+	// "clean" from "not looked at", and a run that names none is a
+	// run that looked at nothing.
+	//
+	// `trigger` says who asked: `cli` (`glossa check`),
+	// `pull_request` (the check on a pull request) or `api` (the
+	// default — anything else, including MCP). `capture` and `write`
+	// are the server's own jobs and cannot be claimed.
+	//
+	// Needs `catalog.write` — the permission a CI token already holds
+	// beside `catalog.read` (RFC 0004 §6.3), and the one that already
+	// carries the authority to change what a check concludes, because
+	// it uploads the messages, the usages and the captures the layers
+	// grade. Problem codes: `too_many_findings`, `invalid_finding`,
+	// `invalid_request` (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-runs (the `CreateCheckRun` operationId).
+	CreateCheckRunWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCheckRunResponse, error)
+
+	// CreateCheckRunWithResponse Record a check run and the findings it produced
+	//
+	// A check that ran somewhere else is recorded here (RFC 0005 §9):
+	// `glossa check` in a product's CI computes the layers against the
+	// project it already read, and posts what it found so that
+	// Studio's quality view, `listFindings`, the summary and the
+	// findings-by-day rollup see it. Without this, a product whose CI
+	// gates on `glossa check` leaves every one of those empty — which
+	// is the state M4 exists to end.
+	//
+	// **The findings are `glossa.finding/v1`, minus the members a
+	// reporter cannot know.** Two are deliberately absent, exactly as
+	// they are on a capture upload (`createCaptures`):
+	//
+	// - the **`fingerprint`**, which hashes the catalog message ID the
+	//   key resolved to. A reporter has the key; the server has the
+	//   catalog. A fingerprint minted over a key is not the one the
+	//   waiver list, `listFindings` and the pull-request check
+	//   compute for the same finding, so every waiver against it
+	//   would silently stop applying. The ingest resolves each
+	//   `locus.key` to its message ID and computes the fingerprint
+	//   itself; a `fingerprint` member sent anyway is not read and
+	//   never stored.
+	// - **`locus.capture` and `locus.region`**, which only the server
+	//   that minted a capture's ID can pair. A check run is of a
+	//   catalog, not of a screenshot; visual findings arrive with
+	//   their capture.
+	//
+	// **The run does not grade itself.** `severity` is what the layer
+	// emitted, and the project's stored check policy decides what that
+	// is worth here — in this locale, this namespace, this
+	// `environment` — through the same evaluator every other stored
+	// finding goes through. A finding a rule switches off is not
+	// stored, because `off` means the project does not compute it; an
+	// advisory layer is clamped back to `warning` however strict the
+	// rule. `severity: waived` is refused (`invalid_finding`): whether
+	// a finding is waived is decided from the project's live waivers,
+	// here and again on read. There is no `conclusion`, no `counts`
+	// and no `policy_version` in the request: a caller that could
+	// assert those could declare its own build green.
+	//
+	// At most 10 000 findings in one run (`too_many_findings`, RFC
+	// 0005 §10); a run with more is **refused, not truncated** — a
+	// silently shortened run is a report that lies about what was
+	// checked. `layers` is what actually ran, so a reader can tell
+	// "clean" from "not looked at", and a run that names none is a
+	// run that looked at nothing.
+	//
+	// `trigger` says who asked: `cli` (`glossa check`),
+	// `pull_request` (the check on a pull request) or `api` (the
+	// default — anything else, including MCP). `capture` and `write`
+	// are the server's own jobs and cannot be claimed.
+	//
+	// Needs `catalog.write` — the permission a CI token already holds
+	// beside `catalog.read` (RFC 0004 §6.3), and the one that already
+	// carries the authority to change what a check concludes, because
+	// it uploads the messages, the usages and the captures the layers
+	// grade. Problem codes: `too_many_findings`, `invalid_finding`,
+	// `invalid_request` (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-runs (the `CreateCheckRun` operationId).
+	CreateCheckRunWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateCheckRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCheckRunResponse, error)
 
 	// GetCheckRunWithResponse One check run with its counts
 	//
@@ -46049,6 +46722,82 @@ func (r ListCheckRunsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListCheckRunsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateCheckRunResponse201Headers the declared response headers of an HTTP 201 response for CreateCheckRun
+type CreateCheckRunResponse201Headers struct {
+	Location *string
+}
+
+type CreateCheckRunResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *CheckRun
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateCheckRunResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateCheckRunResponse) GetJSON201() *CheckRun {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateCheckRunResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateCheckRunResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateCheckRunResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateCheckRunResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateCheckRunResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateCheckRunResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateCheckRunResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateCheckRunResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -56314,6 +57063,148 @@ func (c *ClientWithResponses) ListCheckRunsWithResponse(ctx context.Context, ten
 	return ParseListCheckRunsResponse(rsp)
 }
 
+// CreateCheckRunWithBodyWithResponse Record a check run and the findings it produced
+//
+// A check that ran somewhere else is recorded here (RFC 0005 §9):
+// `glossa check` in a product's CI computes the layers against the
+// project it already read, and posts what it found so that
+// Studio's quality view, `listFindings`, the summary and the
+// findings-by-day rollup see it. Without this, a product whose CI
+// gates on `glossa check` leaves every one of those empty — which
+// is the state M4 exists to end.
+//
+// **The findings are `glossa.finding/v1`, minus the members a
+// reporter cannot know.** Two are deliberately absent, exactly as
+// they are on a capture upload (`createCaptures`):
+//
+//   - the **`fingerprint`**, which hashes the catalog message ID the
+//     key resolved to. A reporter has the key; the server has the
+//     catalog. A fingerprint minted over a key is not the one the
+//     waiver list, `listFindings` and the pull-request check
+//     compute for the same finding, so every waiver against it
+//     would silently stop applying. The ingest resolves each
+//     `locus.key` to its message ID and computes the fingerprint
+//     itself; a `fingerprint` member sent anyway is not read and
+//     never stored.
+//   - **`locus.capture` and `locus.region`**, which only the server
+//     that minted a capture's ID can pair. A check run is of a
+//     catalog, not of a screenshot; visual findings arrive with
+//     their capture.
+//
+// **The run does not grade itself.** `severity` is what the layer
+// emitted, and the project's stored check policy decides what that
+// is worth here — in this locale, this namespace, this
+// `environment` — through the same evaluator every other stored
+// finding goes through. A finding a rule switches off is not
+// stored, because `off` means the project does not compute it; an
+// advisory layer is clamped back to `warning` however strict the
+// rule. `severity: waived` is refused (`invalid_finding`): whether
+// a finding is waived is decided from the project's live waivers,
+// here and again on read. There is no `conclusion`, no `counts`
+// and no `policy_version` in the request: a caller that could
+// assert those could declare its own build green.
+//
+// At most 10 000 findings in one run (`too_many_findings`, RFC
+// 0005 §10); a run with more is **refused, not truncated** — a
+// silently shortened run is a report that lies about what was
+// checked. `layers` is what actually ran, so a reader can tell
+// "clean" from "not looked at", and a run that names none is a
+// run that looked at nothing.
+//
+// `trigger` says who asked: `cli` (`glossa check`),
+// `pull_request` (the check on a pull request) or `api` (the
+// default — anything else, including MCP). `capture` and `write`
+// are the server's own jobs and cannot be claimed.
+//
+// Needs `catalog.write` — the permission a CI token already holds
+// beside `catalog.read` (RFC 0004 §6.3), and the one that already
+// carries the authority to change what a check concludes, because
+// it uploads the messages, the usages and the captures the layers
+// grade. Problem codes: `too_many_findings`, `invalid_finding`,
+// `invalid_request` (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-runs (the `CreateCheckRun` operationId).
+func (c *ClientWithResponses) CreateCheckRunWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCheckRunResponse, error) {
+	rsp, err := c.CreateCheckRunWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCheckRunResponse(rsp)
+}
+
+// CreateCheckRunWithResponse Record a check run and the findings it produced
+//
+// A check that ran somewhere else is recorded here (RFC 0005 §9):
+// `glossa check` in a product's CI computes the layers against the
+// project it already read, and posts what it found so that
+// Studio's quality view, `listFindings`, the summary and the
+// findings-by-day rollup see it. Without this, a product whose CI
+// gates on `glossa check` leaves every one of those empty — which
+// is the state M4 exists to end.
+//
+// **The findings are `glossa.finding/v1`, minus the members a
+// reporter cannot know.** Two are deliberately absent, exactly as
+// they are on a capture upload (`createCaptures`):
+//
+//   - the **`fingerprint`**, which hashes the catalog message ID the
+//     key resolved to. A reporter has the key; the server has the
+//     catalog. A fingerprint minted over a key is not the one the
+//     waiver list, `listFindings` and the pull-request check
+//     compute for the same finding, so every waiver against it
+//     would silently stop applying. The ingest resolves each
+//     `locus.key` to its message ID and computes the fingerprint
+//     itself; a `fingerprint` member sent anyway is not read and
+//     never stored.
+//   - **`locus.capture` and `locus.region`**, which only the server
+//     that minted a capture's ID can pair. A check run is of a
+//     catalog, not of a screenshot; visual findings arrive with
+//     their capture.
+//
+// **The run does not grade itself.** `severity` is what the layer
+// emitted, and the project's stored check policy decides what that
+// is worth here — in this locale, this namespace, this
+// `environment` — through the same evaluator every other stored
+// finding goes through. A finding a rule switches off is not
+// stored, because `off` means the project does not compute it; an
+// advisory layer is clamped back to `warning` however strict the
+// rule. `severity: waived` is refused (`invalid_finding`): whether
+// a finding is waived is decided from the project's live waivers,
+// here and again on read. There is no `conclusion`, no `counts`
+// and no `policy_version` in the request: a caller that could
+// assert those could declare its own build green.
+//
+// At most 10 000 findings in one run (`too_many_findings`, RFC
+// 0005 §10); a run with more is **refused, not truncated** — a
+// silently shortened run is a report that lies about what was
+// checked. `layers` is what actually ran, so a reader can tell
+// "clean" from "not looked at", and a run that names none is a
+// run that looked at nothing.
+//
+// `trigger` says who asked: `cli` (`glossa check`),
+// `pull_request` (the check on a pull request) or `api` (the
+// default — anything else, including MCP). `capture` and `write`
+// are the server's own jobs and cannot be claimed.
+//
+// Needs `catalog.write` — the permission a CI token already holds
+// beside `catalog.read` (RFC 0004 §6.3), and the one that already
+// carries the authority to change what a check concludes, because
+// it uploads the messages, the usages and the captures the layers
+// grade. Problem codes: `too_many_findings`, `invalid_finding`,
+// `invalid_request` (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/check-runs (the `CreateCheckRun` operationId).
+func (c *ClientWithResponses) CreateCheckRunWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateCheckRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCheckRunResponse, error) {
+	rsp, err := c.CreateCheckRun(ctx, tenant, project, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCheckRunResponse(rsp)
+}
+
 // GetCheckRunWithResponse One check run with its counts
 //
 // The run, the layers it actually computed — a layer the policy
@@ -65666,6 +66557,73 @@ func ParseListCheckRunsResponse(rsp *http.Response) (*ListCheckRunsResponse, err
 		}
 		response.ApplicationproblemJSON404 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseCreateCheckRunResponse parses an HTTP response from a CreateCheckRunWithResponse call
+func ParseCreateCheckRunResponse(rsp *http.Response) (*CreateCheckRunResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateCheckRunResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CheckRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateCheckRunResponse201Headers
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
 	}
 
 	return response, nil

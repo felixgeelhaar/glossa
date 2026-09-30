@@ -3,19 +3,23 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/terminology"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
 )
 
 // `glossa check` on the Quality library (RFC 0005 §13 wave 3).
@@ -151,10 +155,16 @@ type checkJSON struct {
 	// and the conclusion below are the run's *before* them — the check
 	// graded what it found, and claiming otherwise would mean grading a
 	// project nobody has checked.
-	Fixes    []fixJSON `json:"fixes,omitempty"`
-	Errors   int       `json:"errors"`
-	Warnings int       `json:"warnings"`
-	Waived   int       `json:"waived"`
+	Fixes []fixJSON `json:"fixes,omitempty"`
+	// Record is what became of putting this run on the project's record
+	// (check_record.go); absent when recording was never asked for.
+	Record *recordJSON `json:"record,omitempty"`
+	// Waivers is what the project's waivers did to this run, and — when
+	// they could not be read — why they did nothing (check_waivers.go).
+	Waivers  checkWaiversJSON `json:"waivers"`
+	Errors   int              `json:"errors"`
+	Warnings int              `json:"warnings"`
+	Waived   int              `json:"waived"`
 	// Conclusion is the run's verdict, spelled as a check run spells it.
 	Conclusion domain.Conclusion `json:"conclusion"`
 	Passed     bool              `json:"passed"`
@@ -167,6 +177,10 @@ type checkFlags struct {
 	explain     bool
 	// fix applies the structured fixes the findings carry (check_fix.go).
 	fix bool
+	// record decides whether the run is put on the project's record
+	// (check_record.go). nil is the default — in CI yes, elsewhere no —
+	// and a set --record or --record=false decides outright.
+	record *bool
 	// layers is what --layer selected, nil when it selected nothing and
 	// every layer the policy leaves on runs.
 	layers []string
@@ -191,8 +205,11 @@ func (f checkFlags) wantsTerminology() bool {
 
 func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	fs := inv.flags("check [--offline] [--terminology] [--layer=<layer>] [--explain-policy] [--fix] " +
-		"[--require-complete=de,en|none] [--fail-on=error|warning|never]")
+		"[--record] [--require-complete=de,en|none] [--fail-on=error|warning|never]")
 	offline := fs.Bool("offline", false, "check the local catalogs instead of the server's project")
+	record := fs.Bool("record", false,
+		"record this run and its findings on the server, so it reaches Studio, the findings list and the "+
+			"summary (default: in CI; --record=false never)")
 	terms := fs.Bool("terminology", false, "also check the translations against the termbase (needs the server)")
 	var layers listFlag
 	fs.Var(&layers, "layer", "only run these QA layers (repeatable, or comma-separated; "+
@@ -215,6 +232,15 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	}
 	f := checkFlags{offline: *offline, terminology: *terms, explain: *explain, fix: *fix,
 		require: *require, failOn: *failOn}
+	// A flag that was actually typed decides; one that was not leaves
+	// the default to CI (check_record.go), which flag.Bool alone cannot
+	// express.
+	fs.Visit(func(set *flag.Flag) {
+		if set.Name == "record" {
+			asked := *record
+			f.record = &asked
+		}
+	})
 	if f.layers, err = selectedLayers(inv, layers); err != nil {
 		return err
 	}
@@ -229,10 +255,19 @@ func runCheck(ctx context.Context, inv *invocation, args []string) error {
 	if err != nil {
 		return err
 	}
+	// The style layer's guides are resolved after the policy, because
+	// the policy decides whether the layer runs at all and a layer
+	// nobody is going to compute is not worth a read per locale.
+	inv.readStyles(ctx, run, f, policy)
 	checkers, unavailable := run.checkers(f)
 	run.unavailable = append(run.unavailable, unavailable...)
-	report := qa.Run(run.snapshot, policy, checkers...)
+	run.startedAt = time.Now().UTC()
+	report := run.waive(qa.RunProject(run.project(), policy, checkers...), policy)
 	out := checkDocument(run, report, policy, overrides, f)
+	// The record is filed before --fix edits anything: the check graded
+	// what it found, and a record of the fixed catalog would be a record
+	// of a project nobody has checked.
+	out.Record = inv.recordCheck(ctx, run, out, f, detectBuild(ctx, inv.env.getenv, cfg.Dir()))
 	if f.fix {
 		// After the run is graded and before it is printed: --fix edits
 		// what the check found, and what the check found is what it
@@ -304,6 +339,11 @@ type checkSubject struct {
 	// extra are the layers only the server can compute, already
 	// computed (terminology).
 	extra []qa.Checker
+	// styles are the effective style guides by target locale, which the
+	// style layer grades against and only the server can resolve
+	// (check_style.go). nil where this run could not read them, and the
+	// layer is named in unavailable rather than left to look clean.
+	styles map[string]qa.StyleGuide
 	// unavailable are the layers the run was asked for and could not
 	// compute.
 	unavailable []unavailableJSON
@@ -316,6 +356,27 @@ type checkSubject struct {
 	// the ones the policy switched off, because "not looked at" and
 	// "clean" are different answers however a layer came to be left out.
 	deselected []domain.Layer
+	// client and scope are the server this run read the project from,
+	// kept so the run can be recorded against the same project it
+	// graded (check_record.go). Both are nil offline.
+	client *remote.Client
+	scope  remote.Scope
+	// waivers are the project's live waivers, applied to what this run
+	// found (check_waivers.go).
+	waivers []domain.Waiver
+	// waiversWhy says why they could not be applied; "" when they were.
+	waiversWhy string
+	// ref is the branch this run is of, which is how far a
+	// branch-scoped waiver reaches.
+	ref string
+	// startedAt is when the layers began, which the recorded run keeps.
+	startedAt time.Time
+}
+
+// project is what this run grades: the snapshot, plus what a snapshot
+// cannot carry.
+func (s *checkSubject) project() *layers.Project {
+	return qa.Project(s.snapshot, qa.WithStyles(s.styles))
 }
 
 // checkers are the layers this run computes, and the ones it was asked
@@ -330,6 +391,13 @@ func (s *checkSubject) checkers(f checkFlags) ([]qa.Checker, []unavailableJSON) 
 	available := append(qa.Default(), s.extra...)
 	var out []qa.Checker
 	for _, c := range available {
+		// A layer already named as one this run could not compute does
+		// not run: a checker with nothing to check against would report
+		// nothing, and "nothing" from a layer that never ran is exactly
+		// the green nobody may be shown (RFC 0005 §4.4).
+		if hasUnavailable(s.unavailable, c.Layer()) {
+			continue
+		}
 		if f.wantsLayer(c.Layer()) {
 			out = append(out, c)
 			continue
@@ -376,7 +444,11 @@ func hasUnavailable(us []unavailableJSON, l domain.Layer) bool {
 // server out of reach *and* no cache).
 func (inv *invocation) checkRun(ctx context.Context, cfg *config.Config, f checkFlags) (*checkSubject, error) {
 	if f.offline {
-		return inv.localRun(cfg, f, nil)
+		run, err := inv.localRun(cfg, f, nil)
+		if err == nil {
+			run.waiversWhy = "--offline has no server to read the project's waivers from"
+		}
+		return run, err
 	}
 	p, err := inv.connectWith(ctx, cfg)
 	if err != nil {
@@ -392,19 +464,26 @@ func (inv *invocation) checkRun(ctx context.Context, cfg *config.Config, f check
 			return nil, lerr
 		}
 		run.degraded = true
+		run.waiversWhy = "the server was out of reach, so the project's waivers could not be read"
 		return run, nil
 	}
 	policy, err := inv.fetchPolicy(ctx, cfg, projectPolicySource{client: p.client, scope: p.scope, settings: p.info.Settings.CheckPolicy})
 	if err != nil {
 		return nil, err
 	}
-	s, err := snapshot.FromServer(ctx, p.client, p.scope, p.info.SourceLocale, snapshot.Options{})
+	// Orphans: a translation whose message the catalog obsoleted is the
+	// server's `unknown-key`, and the server's own snapshot reads the
+	// same bounded page of them, so the terminal and every other surface
+	// grade the same project.
+	s, err := snapshot.FromServer(ctx, p.client, p.scope, p.info.SourceLocale, snapshot.Options{Orphans: true})
 	if err != nil {
 		return nil, inv.apiError(err, "can't read the project from the server")
 	}
 	run := &checkSubject{
 		snapshot: s, label: fmt.Sprintf("%s on %s", p.info.Slug, cfg.Server), policy: policy,
+		client: p.client, scope: p.scope, ref: detectBuild(ctx, inv.env.getenv, cfg.Dir()).Branch,
 	}
+	inv.readWaivers(ctx, run)
 	if f.wantsTerminology() {
 		extra, err := inv.terminologyCheckers(ctx, p, s)
 		switch {
@@ -533,7 +612,7 @@ func checkDocument(
 		Layers: nonNilList(r.Layers), Skipped: nonNilList(append(r.Skipped, run.deselected...)),
 		Unavailable: nonNilList(run.unavailable), Findings: nonNilList(r.Findings),
 		Errors: r.Counts.Errors, Warnings: r.Counts.Warnings, Waived: r.Counts.Waived,
-		Conclusion: r.Conclusion, Passed: r.Passed(),
+		Conclusion: r.Conclusion, Passed: r.Passed(), Waivers: run.waiversDocument(r),
 		Policy: policyJSON{
 			RequireComplete: policy.RequireComplete, FailOn: string(policy.FailOn),
 			MissingTranslations: string(policy.MissingTranslations), Source: run.policy.Origin,
@@ -756,6 +835,8 @@ func printCheck(p *printer, run *checkSubject, out checkJSON, r qualityapp.Repor
 		printExplain(p, out.Explain)
 	}
 	printFixes(p, out.Fixes)
+	printCheckWaivers(p, out.Waivers)
+	printRecord(p, out.Record)
 	p.line("")
 	if out.Passed {
 		p.line("%s", p.ok("Localization check passed."))

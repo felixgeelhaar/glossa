@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -259,6 +260,52 @@ rules:
 	defer srv.mu.Unlock()
 	if srv.qa.policyVersion != 7 {
 		t.Errorf("version = %d, want 7: a preview stores nothing", srv.qa.policyVersion)
+	}
+}
+
+// `diff` names the pull requests it would newly fail, not only their
+// number: a reader who is told "2 open pull requests would newly fail"
+// has to go and find them, and one who is given #41 and its address can
+// go and tell its author (RFC 0005 §4.3, §12.4).
+func TestPolicyDiffNamesThePullRequestsThatWouldNewlyFail(t *testing.T) {
+	srv := newFakeServer(t)
+	storedPolicy(srv, 7, aPolicy())
+	srv.mu.Lock()
+	srv.qa.impact = map[string]any{
+		"findings": 12, "runs": 3, "raised": 2, "lowered": 0, "silenced": 0,
+		"newly_failing": 2, "no_longer_failing": 0, "open_pull_requests": 2,
+		"newly_failing_refs": []string{"feature/cart", "feature/pay", "wip"},
+		"newly_failing_pull_requests": []map[string]any{
+			{"ref": "feature/cart", "number": 42},
+			{"ref": "feature/pay", "number": 41, "url": "https://github.com/acme/shop/pull/41"},
+		},
+		"rules": []map[string]any{{"rule": 0, "matched": 2, "changed": 2, "newly_failing": 2}},
+	}
+	srv.mu.Unlock()
+	w := newWorkspace(t).withProject(srv, nil)
+	w.write("policy.yaml", "schema: glossa.check-policy/v1\nfail_on: error\nrules:\n  - {layer: visual, severity: error}\n")
+
+	var out policyDiffJSON
+	w.json(&out, "policy", "diff", "--file", "policy.yaml").want(t, ExitOK)
+	want := []policyPullRequestJSON{
+		{Ref: "feature/cart", Number: 42},
+		{Ref: "feature/pay", Number: 41, URL: "https://github.com/acme/shop/pull/41"},
+	}
+	if !slices.Equal(out.Impact.PullRequests, want) {
+		t.Fatalf("pull requests = %+v, want %+v", out.Impact.PullRequests, want)
+	}
+
+	h := w.run("policy", "diff", "--file", "policy.yaml")
+	for _, line := range []string{
+		"2 open pull requests would newly fail",
+		"#41 feature/pay  https://github.com/acme/shop/pull/41",
+		"#42 feature/cart",
+		// A ref with no pull request is still somebody's branch going red.
+		"other refs that turn red: wip",
+	} {
+		if !strings.Contains(h.stdout, line) {
+			t.Errorf("human diff has no %q:\n%s", line, h.stdout)
+		}
 	}
 }
 

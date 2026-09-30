@@ -119,6 +119,25 @@ type TranslationSnapshot struct {
 // environment policy: production takes approved, preview everything).
 // Outdated translations are included and flagged — the policy decides.
 func (s *Service) ReleaseTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState) (TranslationSnapshot, error) {
+	return s.translationSnapshot(ctx, project, states, true)
+}
+
+// LiveTranslations is ReleaseTranslations without the translations of
+// messages Localization's projection knows to be obsolete: the read of a
+// caller that joins with the active source and would only drop them —
+// the quality check, which reads the orphans it reports on its own,
+// bounded, through ListProjectTranslations. A project that obsoleted
+// thousands of messages keeps thousands of those rows, and a check must
+// not read them all to throw them away.
+//
+// The release keeps ReleaseTranslations: it joins with Catalog's own
+// active source, and a message restored a moment ago whose restoration
+// this projection has not handled yet must still ship.
+func (s *Service) LiveTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState) (TranslationSnapshot, error) {
+	return s.translationSnapshot(ctx, project, states, false)
+}
+
+func (s *Service) translationSnapshot(ctx context.Context, project uuid.UUID, states []domain.ReviewState, includeObsolete bool) (TranslationSnapshot, error) {
 	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
 		return TranslationSnapshot{}, err
 	}
@@ -146,7 +165,7 @@ func (s *Service) ReleaseTranslations(ctx context.Context, project uuid.UUID, st
 			return err
 		}
 		snap.Fallback = g.Edges
-		rows, err := st.SnapshotTranslations(ctx, project, states)
+		rows, err := st.SnapshotTranslations(ctx, project, states, includeObsolete)
 		if err != nil {
 			return err
 		}
