@@ -441,12 +441,14 @@ func (s *store) NewlyOutdated(ctx context.Context, message uuid.UUID, old, new i
 	return out, nil
 }
 
-func (s *store) SnapshotTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState) ([]app.TranslationRow, error) {
+func (s *store) SnapshotTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState, includeObsolete bool) ([]app.TranslationRow, error) {
 	names := make([]string, len(states))
 	for i, st := range states {
 		names[i] = string(st)
 	}
-	rows, err := s.q.SnapshotTranslations(ctx, localizationsql.SnapshotTranslationsParams{ProjectID: project, States: names})
+	rows, err := s.q.SnapshotTranslations(ctx, localizationsql.SnapshotTranslationsParams{
+		ProjectID: project, States: names, IncludeObsolete: includeObsolete,
+	})
 	if err != nil {
 		return nil, storeError(err)
 	}

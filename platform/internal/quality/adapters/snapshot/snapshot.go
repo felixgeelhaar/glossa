@@ -25,6 +25,7 @@ import (
 
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
 	localizationdomain "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
@@ -84,10 +85,11 @@ func (p *Port) Snapshot(ctx context.Context, project uuid.UUID) (app.ProjectSnap
 	// has, including text still waiting for a reviewer, exactly as
 	// `glossa check` grades the catalogs on disk. Rejected text is not
 	// a translation, and the completeness layer must see its absence.
-	states := []localizationdomain.ReviewState{
-		localizationdomain.StateDraft, localizationdomain.StateNeedsReview, localizationdomain.StateApproved,
-	}
-	trs, err := p.localization.ReleaseTranslations(ctx, project, states)
+	//
+	// LiveTranslations and not ReleaseTranslations: the obsolete
+	// messages' translations are read on their own below, one bounded
+	// page of them, rather than all of them here only to be dropped.
+	trs, err := p.localization.LiveTranslations(ctx, project, usableStates)
 	if err != nil {
 		return app.ProjectSnapshot{}, notFound(err)
 	}
@@ -131,8 +133,9 @@ func (p *Port) Snapshot(ctx context.Context, project uuid.UUID) (app.ProjectSnap
 		texts := make(map[string]layers.Translation, len(byID))
 		for id, v := range byID {
 			// A translation of a message the source snapshot does not
-			// carry is a translation of an obsolete message: not part of
-			// what ships, and not part of what is checked.
+			// carry is not part of what ships. The ones of obsolete
+			// messages are read apart, as orphans; what is left here is
+			// a message the projection has not caught up with.
 			m, ok := keys[id]
 			if !ok {
 				continue
@@ -141,7 +144,57 @@ func (p *Port) Snapshot(ctx context.Context, project uuid.UUID) (app.ProjectSnap
 		}
 		out.Translations[locale.String()] = texts
 	}
+	if err := p.orphans(ctx, project, out); err != nil {
+		return app.ProjectSnapshot{}, notFound(err)
+	}
 	return app.ProjectSnapshot{Project: out, Policy: src.Project.Settings.Policy()}, nil
+}
+
+// usableStates are the review states a check grades: every one but
+// rejected. `glossa check` reads the same three (cli/snapshot).
+var usableStates = []localizationdomain.ReviewState{
+	localizationdomain.StateDraft, localizationdomain.StateNeedsReview, localizationdomain.StateApproved,
+}
+
+// orphans reads the translations of messages the catalog has obsoleted,
+// which the completeness layer reports as `unknown-key`.
+//
+// It is bounded: one page of layers.MaxOrphans per chunk of locales,
+// from Localization's own translation listing, in its (key, message ID,
+// locale) order, never followed past the first page. That is exactly
+// the read `glossa check` makes through the API (cli/snapshot), so the
+// two surfaces read the same orphans and the layer cuts them the same
+// way. A project that has obsoleted thousands of messages costs a check
+// one page per twenty locales, not thousands of rows.
+func (p *Port) orphans(ctx context.Context, project uuid.UUID, out *layers.Project) error {
+	var targets []string
+	for _, l := range out.TargetLocales() {
+		targets = append(targets, l.Code)
+	}
+	states := make([]string, len(usableStates))
+	for i, s := range usableStates {
+		states[i] = string(s)
+	}
+	obsolete := "obsolete"
+	for start := 0; start < len(targets); start += localizationapp.MaxListedLocales {
+		chunk := targets[start:min(start+localizationapp.MaxListedLocales, len(targets))]
+		views, next, err := p.localization.ListProjectTranslations(ctx, project, localizationapp.TranslationFilter{
+			Locales: chunk, States: states, MessageState: &obsolete,
+		}, pagination.Page{Size: layers.MaxOrphans})
+		if err != nil {
+			return err
+		}
+		if next != nil {
+			out.MoreOrphans = true
+		}
+		for _, v := range views {
+			out.Orphans = append(out.Orphans, layers.Orphan{
+				MessageID: v.MessageID.String(), Key: v.Key, Namespace: v.Namespace,
+				Locale: v.Locale.String(), Revision: v.ID.String(),
+			})
+		}
+	}
+	return nil
 }
 
 // translation is one stored translation as a layer reads it.

@@ -227,9 +227,54 @@ type Project struct {
 	// with no guide is a locale the style layer has nothing to say
 	// about.
 	Styles map[string]StyleGuide
+	// Orphans are translations whose message the catalog has obsoleted:
+	// text a release no longer ships, for a key the catalog no longer
+	// has. The completeness layer reports each as `unknown-key`. Only a
+	// caller that reads the server has them — local catalogs know no
+	// obsolete messages, and there a translation with no source is
+	// simply in Translations under a key Messages lacks.
+	//
+	// A caller reads one page of at most MaxOrphans of them per listing,
+	// in (key, message ID, locale) order, and sets MoreOrphans when a
+	// listing had another page: a project that has obsoleted thousands of
+	// messages must not make every check read thousands of dead
+	// translations.
+	Orphans     []Orphan
+	MoreOrphans bool
 
 	index map[string]int
 }
+
+// Orphan is a translation whose message the catalog has obsoleted.
+//
+// It carries identity and nothing to grade: no text, no model. An
+// orphan is reported for existing, not for what it says, so a reader
+// has no reason to parse it and the layer no reason to look.
+type Orphan struct {
+	// MessageID is the obsolete message's catalog ID. The message still
+	// has one, and it is what the finding's fingerprint is hashed over,
+	// so every surface that reads the server — the terminal, the
+	// server's own run, the pull request that renders it — computes the
+	// same one.
+	MessageID string
+	Key       string
+	Namespace string
+	Locale    string
+	// Revision is the translation's ID, where the caller knows it.
+	Revision string
+}
+
+// MaxOrphans bounds the orphaned translations one check reports. Past
+// it the completeness layer reports the first MaxOrphans by key and one
+// finding that says there are more.
+//
+// The bound is what a reader reads, not only what the layer reports:
+// both readers — the server's snapshot and the CLI's — ask the same
+// translation listing for one page of MaxOrphans per chunk of locales
+// (the listing's largest page), in the listing's own order, and this
+// layer sorts and cuts what they read. The terminal and the pull request
+// therefore cannot disagree about which ones were reported.
+const MaxOrphans = 100
 
 // Style is locale's effective style guide, and whether there is one.
 func (p *Project) Style(locale string) (StyleGuide, bool) {
