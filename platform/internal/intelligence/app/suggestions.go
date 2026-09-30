@@ -378,6 +378,38 @@ func (s *Service) AcceptanceMetrics(ctx context.Context, project uuid.UUID, sinc
 	return out, since, err
 }
 
+// ReviewQueueAges is the review queue's depth and waiting age per
+// locale, as of now (RFC 0005 §8, the dashboard's fourth number). The
+// queue is what `ai-review-queue` already pages; this is how long the
+// people it is waiting for have been letting it wait.
+//
+// A locale with nothing pending has no row: the queue is a list of what
+// is waiting, and a locale that is not waiting is not in it. Reading
+// that as a depth of 0 is the caller's job, and it is the truthful
+// reading — a locale nobody has ever suggested for and a locale whose
+// queue was just cleared both have nothing waiting. Needs
+// `intelligence.read`.
+func (s *Service) ReviewQueueAges(
+	ctx context.Context, project uuid.UUID, locales []string, now time.Time,
+) ([]LocaleQueueAge, error) {
+	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+		return nil, err
+	}
+	if _, err := s.Catalog.Project(ctx, project); err != nil {
+		return nil, err
+	}
+	if now.IsZero() {
+		now = s.Now()
+	}
+	var rows []LocaleQueueAge
+	err := s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		var err error
+		rows, err = st.QueueAges(ctx, project, locales, now)
+		return err
+	})
+	return rows, err
+}
+
 // ListDisclosures lists which provider saw which message, newest first
 // (RFC 0003 §7). Needs intelligence.read.
 func (s *Service) ListDisclosures(ctx context.Context, f DisclosureFilter, page pagination.Page) ([]DisclosureRecord, *string, error) {

@@ -90,6 +90,10 @@ type fixture struct {
 	apiA     string
 	apiB     string
 	readA    string
+	// publishA carries read and publish and no write: the two scopes are
+	// orthogonal, and every interesting refusal is one where a token has
+	// the wrong one rather than none.
+	publishA string
 	callerA  app.Caller
 	callerB  app.Caller
 }
@@ -103,19 +107,22 @@ func newFixture(t *testing.T) fixture {
 		apiA:     identity.TokenPrefix + strings.Repeat("a", 43),
 		apiB:     identity.TokenPrefix + strings.Repeat("b", 43),
 		readA:    identity.TokenPrefix + strings.Repeat("r", 43),
+		publishA: identity.TokenPrefix + strings.Repeat("p", 43),
 	}
 	f.callerA = caller(t, tenantA, "read", "write")
 	f.callerB = caller(t, tenantB, "read", "write")
 	svc, err := app.New(tokens{
-		f.apiA:  f.callerA,
-		f.apiB:  f.callerB,
-		f.readA: caller(t, tenantA, "read"),
+		f.apiA:     f.callerA,
+		f.apiB:     f.callerB,
+		f.readA:    caller(t, tenantA, "read"),
+		f.publishA: caller(t, tenantA, "read", "publish"),
 	},
 		app.WithAudit(f.audit),
 		app.WithMetrics(f.sessions),
 		app.WithTools(
 			probe("catalog_search", domain.ToolsetRead, identity.PermCatalogRead),
 			probe("message_upsert", domain.ToolsetWrite, identity.PermCatalogWrite),
+			probe("release_publish", domain.ToolsetPublish, identity.PermReleasesPublish),
 		),
 	)
 	if err != nil {
@@ -192,8 +199,14 @@ func TestConnectRefusesEveryCredentialButATenantAPIToken(t *testing.T) {
 			wantStatus: http.StatusForbidden, wantIn: "write scope",
 		},
 		{
+			name: "a publish session on a read-only token", token: f.readA, query: "toolset=publish",
+			wantStatus: http.StatusForbidden, wantIn: "publish scope",
+		},
+		{
+			// `admin` is a token scope but never a toolset: MCP exposes no
+			// member, token, connection or tenant management (RFC 0005 §7.2).
 			name: "a toolset that does not exist", token: f.apiA, query: "toolset=admin",
-			wantStatus: http.StatusBadRequest, wantIn: "read or write",
+			wantStatus: http.StatusBadRequest, wantIn: "read, write or publish",
 		},
 	}
 	for _, tc := range tests {
@@ -293,6 +306,81 @@ func TestWriteSessionSeesWriteTools(t *testing.T) {
 	}
 	if got := auditedTools(f.audit); !slices.Contains(got, "message_upsert") {
 		t.Errorf("audited = %v, want the write call", got)
+	}
+	// A write session is offered no release tool: `publish` is its own
+	// scope and its own toolset (RFC 0005 §7.2, §7.3).
+	if names := toolNames(t, sess); slices.Contains(names, "release_publish") {
+		t.Errorf("tools = %v; a write session must not be offered a release tool", names)
+	}
+	if res, err := sess.CallTool(t.Context(), &mcp.CallToolParams{Name: "release_publish"}); err == nil && !res.IsError {
+		t.Error("a write session published a release")
+	}
+}
+
+// The publish toolset over the real transport: a publish-scoped token
+// asking for ?toolset=publish gets the read tools and the release
+// tools, and nothing of the write toolset.
+func TestPublishSessionSeesReleaseToolsAndNoWriteTools(t *testing.T) {
+	f := newFixture(t)
+	sess, err := connect(t, f, f.publishA, "toolset=publish")
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer sess.Close()
+
+	names := toolNames(t, sess)
+	if !slices.Contains(names, "release_publish") || !slices.Contains(names, "catalog_search") {
+		t.Fatalf("tools = %v, want the release tool and the read tool", names)
+	}
+	if slices.Contains(names, "message_upsert") {
+		t.Errorf("tools = %v; a publish session must not be offered a write tool", names)
+	}
+	res, err := sess.CallTool(t.Context(), &mcp.CallToolParams{Name: "release_publish"})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("result = %s", text(res))
+	}
+	if got := text(res); !strings.Contains(got, f.callerA.Tenant.String()) {
+		t.Errorf("the tool ran in the wrong tenant: %q", got)
+	}
+	// Asking for a write tool anyway is refused: the server this session
+	// was routed to has no such tool, which is the toolset gate a step
+	// earlier than app.Service's.
+	if res, err := sess.CallTool(t.Context(), &mcp.CallToolParams{Name: "message_upsert"}); err == nil && !res.IsError {
+		t.Error("a publish session called a write tool")
+	}
+	// Everything this session *did* run is on the ledger as a publish
+	// session, which is the toolset mcp_tool_calls has to admit.
+	if got := auditedTools(f.audit); !slices.Contains(got, "release_publish") {
+		t.Errorf("audited = %v, want the release call", got)
+	}
+	for _, e := range f.audit.entries {
+		if e.Toolset != domain.ToolsetPublish {
+			t.Errorf("%s was audited in the %s toolset, want publish", e.Tool, e.Toolset)
+		}
+	}
+}
+
+// A publish token cannot open a write session, and a write token cannot
+// open a publish one: the scopes are orthogonal and neither implies the
+// other (RFC 0005 §7.2).
+func TestNeitherScopeStandsInForTheOther(t *testing.T) {
+	f := newFixture(t)
+	for _, tc := range []struct{ name, token, query, wantIn string }{
+		{"a publish token asking for write", f.publishA, "toolset=write", "write scope"},
+		{"a write token asking for publish", f.apiA, "toolset=publish", "publish scope"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			status, body := initialize(t, f.url, tc.token, tc.query)
+			if status != http.StatusForbidden {
+				t.Fatalf("status = %d (%s), want 403", status, body)
+			}
+			if !strings.Contains(body, tc.wantIn) {
+				t.Errorf("body = %q, want it to mention %q", body, tc.wantIn)
+			}
+		})
 	}
 }
 

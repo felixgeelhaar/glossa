@@ -372,6 +372,58 @@ func (s *store) CountFindings(ctx context.Context, run domain.CheckRun, now time
 	return domain.Counts{Errors: int(c.Errors), Warnings: int(c.Warnings), Waived: int(c.Waived)}, nil
 }
 
+func (s *store) CountFindingsByLayer(
+	ctx context.Context, run domain.CheckRun, now time.Time,
+) ([]domain.LocaleLayerCount, error) {
+	rows, err := s.q.CountRunFindingsByLayer(ctx, qualitysql.CountRunFindingsByLayerParams{
+		RunID: run.ID, Ref: run.Ref, Now: now,
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.LocaleLayerCount, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, domain.LocaleLayerCount{
+			Locale: r.Locale,
+			LayerCount: domain.LayerCount{
+				Layer:  domain.Layer(r.Layer),
+				Counts: domain.Counts{Errors: int(r.Errors), Warnings: int(r.Warnings), Waived: int(r.Waived)},
+			},
+		})
+	}
+	return out, nil
+}
+
+func (s *store) RollUpFindingsByDay(ctx context.Context, project uuid.UUID, day time.Time) error {
+	start := day.UTC().Truncate(24 * time.Hour)
+	return s.q.RollUpFindingsByDay(ctx, qualitysql.RollUpFindingsByDayParams{
+		ProjectID: project,
+		Day:       pgtype.Date{Time: start, Valid: true},
+		DayStart:  start,
+		NextDay:   start.AddDate(0, 0, 1),
+	})
+}
+
+func (s *store) FindingsByDay(
+	ctx context.Context, project uuid.UUID, from, to time.Time,
+) ([]domain.DailyFindings, error) {
+	rows, err := s.q.ListFindingsByDay(ctx, qualitysql.ListFindingsByDayParams{
+		ProjectID: project,
+		FromDay:   pgtype.Date{Time: from.UTC().Truncate(24 * time.Hour), Valid: true},
+		ToDay:     pgtype.Date{Time: to.UTC().Truncate(24 * time.Hour), Valid: true},
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.DailyFindings, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, domain.DailyFindings{
+			Day: r.Day.Time.UTC(), Layer: domain.Layer(r.Layer), Findings: int(r.Findings),
+		})
+	}
+	return out, nil
+}
+
 func (s *store) LatestFinding(ctx context.Context, project uuid.UUID, fingerprint string) (app.FindingSummary, bool, error) {
 	r, err := s.q.GetLatestFinding(ctx, qualitysql.GetLatestFindingParams{ProjectID: project, Fingerprint: fingerprint})
 	if errors.Is(err, pgx.ErrNoRows) {

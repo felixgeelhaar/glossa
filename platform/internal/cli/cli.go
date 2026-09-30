@@ -95,6 +95,7 @@ func commands() []command {
 		{"translate", "Fill locales with AI suggestions", runTranslate},
 		{"review", "Review AI suggestions: list, accept, reject", runReview},
 		{"ai", "Show AI consent, budget, providers and project policy", runAI},
+		{"mcp", "Speak MCP on stdin/stdout, proxying to the server's /mcp endpoint", runMCP},
 	}
 }
 

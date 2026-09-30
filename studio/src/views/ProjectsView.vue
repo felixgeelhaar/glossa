@@ -1,10 +1,22 @@
 <script setup lang="ts">
+/**
+ * The projects list, with the per-locale quality row RFC 0005 §8 asks
+ * for: coverage, open errors and queue age per language, on each card.
+ *
+ * The summaries are read per project, after the list, and each one
+ * fails on its own: a project whose numbers cannot be read says "not
+ * measured" on its card while the others show theirs. Nothing here
+ * blocks the list, and nothing here shows a zero it did not measure.
+ */
 import { computed, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { projects as projectsApi } from "../api/endpoints";
+import { useQualitySummary } from "../api/quality-summary";
+import type { QualitySummary } from "../api/quality-summary-schemas";
 import type { Project } from "../api/schemas";
 import ErrorAlert from "../components/ErrorAlert.vue";
 import LocaleInput from "../components/LocaleInput.vue";
+import ProjectLocaleRows from "../components/project/ProjectLocaleRows.vue";
 import { checkLocale } from "../lib/bcp47";
 import { SLUG_PATTERN, slugify } from "../lib/slug";
 import { allows } from "../session/permissions";
@@ -22,11 +34,36 @@ const list = ref<Project[]>([]);
 const loading = ref(true);
 const loadError = ref<unknown>(null);
 
+const summaryPort = useQualitySummary();
+interface Health {
+  summary: QualitySummary | undefined;
+  state: "loading" | "ready" | "unavailable";
+}
+const health = ref(new Map<string, Health>());
+const healthOf = (id: string): Health => health.value.get(id) ?? { summary: undefined, state: "loading" };
+
+/** One summary per project, in parallel, each failing on its own. */
+async function loadHealth(projects: Project[]): Promise<void> {
+  health.value = new Map(projects.map((p) => [p.id, { summary: undefined, state: "loading" as const }]));
+  await Promise.all(
+    projects.map(async (p) => {
+      let next: Health;
+      try {
+        next = { summary: await summaryPort.summary({ tenant: tenant.value, project: p.id }), state: "ready" };
+      } catch {
+        next = { summary: undefined, state: "unavailable" };
+      }
+      health.value = new Map(health.value).set(p.id, next);
+    }),
+  );
+}
+
 async function load(): Promise<void> {
   loading.value = true;
   loadError.value = null;
   try {
     list.value = await projectsApi.list(tenant.value);
+    void loadHealth(list.value);
   } catch (e) {
     loadError.value = e;
   } finally {
@@ -126,12 +163,13 @@ async function create(): Promise<void> {
     <p v-if="loading" role="status" class="muted">{{ strings.app.loading }}</p>
     <p v-else-if="!loadError && list.length === 0" class="card muted">{{ strings.projects.empty }}</p>
     <ul v-else class="projects" role="list">
-      <li v-for="p in list" :key="p.id">
-        <RouterLink class="project card" :to="{ name: 'translate', params: { tenant, project: p.id } }">
-          <span class="p-name">{{ p.name }}</span>
+      <li v-for="p in list" :key="p.id" class="project card stack-sm" data-testid="project-card" :data-project="p.id">
+        <RouterLink class="p-name" :to="{ name: 'translate', params: { tenant, project: p.id } }">{{ p.name }}</RouterLink>
+        <p class="p-meta">
           <span class="mono muted">{{ p.slug }}</span>
           <span class="pill pill-neutral">{{ strings.projects.source(p.source_locale) }}</span>
-        </RouterLink>
+        </p>
+        <ProjectLocaleRows :project="p.id" :summary="healthOf(p.id).summary" :state="healthOf(p.id).state" />
       </li>
     </ul>
   </div>
@@ -154,23 +192,25 @@ async function create(): Promise<void> {
   padding: 0;
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
   gap: var(--kl-space-4);
 }
 .project {
-  display: flex;
-  flex-direction: column;
   align-items: flex-start;
-  gap: var(--kl-space-2);
-  text-decoration: none;
-  color: var(--kl-ink);
   transition: border-color var(--kl-duration-fast) var(--kl-ease-default);
 }
 .project:hover {
   border-color: var(--kl-accent-border);
 }
+.p-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kl-space-2);
+  align-items: baseline;
+}
 .p-name {
   font-weight: var(--kl-weight-semibold);
   font-size: var(--kl-text-md);
+  color: var(--kl-ink);
 }
 </style>

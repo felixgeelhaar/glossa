@@ -99,7 +99,15 @@ func (s *Service) RecordCheckRun(ctx context.Context, in RecordRun) (run domain.
 		if err := st.InsertCheckRun(ctx, run); err != nil {
 			return err
 		}
-		return st.InsertFindings(ctx, run.ID, in.Project, in.Findings)
+		if err := st.InsertFindings(ctx, run.ID, in.Project, in.Findings); err != nil {
+			return err
+		}
+		// The day's trend is restated from the findings, in the same
+		// transaction that wrote them, so the rollup can never disagree
+		// with what it summarizes (RFC 0005 §8). It is a recomputation of
+		// the whole day, not an increment, so a retried write and a
+		// second run of the same day both land on the same numbers.
+		return st.RollUpFindingsByDay(ctx, in.Project, run.StartedAt)
 	})
 	if err != nil {
 		return domain.CheckRun{}, err

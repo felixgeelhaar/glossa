@@ -59,14 +59,14 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
 )
 
-// Path is where glossa-server serves MCP.
-const Path = "/mcp"
-
-// ToolsetParam is how a client asks for the write toolset:
-// `/mcp?toolset=write`. A query parameter rather than a header because
-// most MCP clients are configured with a URL and nothing else, and the
-// stdio proxy (`glossa mcp --allow-write`) simply appends it.
-const ToolsetParam = "toolset"
+// Path is where glossa-server serves MCP, and ToolsetParam how a
+// client asks for a toolset beyond read (`/mcp?toolset=publish`). Both
+// are the domain's, because the stdio proxy of RFC 0005 §7.1 dials the
+// same endpoint and must spell it the same way.
+const (
+	Path         = domain.EndpointPath
+	ToolsetParam = domain.ToolsetParam
+)
 
 // Transport labels the metrics' transport dimension.
 const Transport = "streamable-http"
@@ -86,7 +86,10 @@ const instructions = "Glossa is localization infrastructure. This session is bou
 	"the tenant of the API token it presented — and no tool takes a tenant argument. " +
 	"Call whoami first to see the tenant, the token's scopes and the tools this session may call. " +
 	"Read sessions are the default; a write session needs a token with the write scope and " +
-	"?toolset=write on the endpoint. Translations written through MCP always enter review, and " +
+	"?toolset=write on the endpoint, and a session that may publish, promote or roll back " +
+	"releases needs the publish scope and ?toolset=publish. Write and publish are separate: a " +
+	"session opens one or the other. Translations written through MCP always enter review, a " +
+	"publish that does not meet its environment's policy is refused rather than forced, and " +
 	"nothing here deletes data or reveals an AI provider key."
 
 // Handler serves /mcp.
@@ -150,7 +153,7 @@ func New(svc *app.Service, opts ...Option) (*Handler, error) {
 		opt(&o)
 	}
 	h := &Handler{svc: svc, servers: map[domain.Toolset]*mcp.Server{}, logger: o.logger}
-	for _, ts := range []domain.Toolset{domain.ToolsetRead, domain.ToolsetWrite} {
+	for _, ts := range domain.Toolsets() {
 		h.servers[ts] = h.newServer(ts, o.version)
 	}
 	streamable := mcp.NewStreamableHTTPHandler(h.serverFor, &mcp.StreamableHTTPOptions{
@@ -233,13 +236,16 @@ func (h *Handler) gate(next http.Handler) http.Handler {
 		want, err := domain.ParseToolset(r.URL.Query().Get(ToolsetParam))
 		if err != nil {
 			problem.WriteDetails(w, problem.New(http.StatusBadRequest, "invalid_toolset",
-				"toolset must be read or write"))
+				"toolset must be read, write or publish"))
 			return
 		}
 		if err := h.svc.AllowToolset(caller, want); err != nil {
-			problem.WriteDetails(w, problem.New(http.StatusForbidden, "write_scope_required",
-				"a write session needs an API token with the write scope; this token has "+
-					joinScopes(caller.Scopes.Strings())))
+			// The code names the scope that is missing, not the toolset
+			// that was asked for: what a person has to change is the
+			// token.
+			problem.WriteDetails(w, problem.New(http.StatusForbidden, problem.Code(string(want.Scope())+"_scope_required"),
+				fmt.Sprintf("a %s session needs an API token with the %s scope; this token has %s",
+					want, want.Scope(), joinScopes(caller.Scopes.Strings()))))
 			return
 		}
 		// A request that carries no Mcp-Session-Id is the one that will
@@ -365,7 +371,10 @@ func refusal(err error) *mcp.CallToolResult {
 	msg := err.Error()
 	switch {
 	case errors.Is(err, domain.ErrToolNotInSession):
-		msg = "this tool needs a write session: reconnect to /mcp?toolset=write with a token that carries the write scope"
+		// The error carries the toolset the tool needs, which is the one
+		// thing that makes this message actionable: reconnecting to the
+		// wrong toolset is the mistake it exists to prevent.
+		msg = err.Error() + ": reconnect to /mcp?toolset=<that toolset> with a token that carries the matching scope"
 	case errors.Is(err, authz.ErrForbidden):
 		msg = "this API token does not carry the permission this tool needs: " + err.Error()
 	case errors.Is(err, app.ErrRateLimited):

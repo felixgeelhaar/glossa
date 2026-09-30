@@ -45,9 +45,15 @@ type Service struct {
 	// it, and RunCheck then answers ErrNoSnapshot rather than pretending
 	// a project is clean.
 	snapshot Snapshot
-	tracer   trace.Tracer
-	logger   *slog.Logger
-	now      func() time.Time
+	// sources are the other contexts' ports the quality summary reads
+	// (RFC 0005 §8). Any of them may be nil, and that number is then
+	// reported as not measured rather than as zero.
+	sources SummarySources
+	// summaries caches a computed summary for SummaryTTL.
+	summaries *summaryCache
+	tracer    trace.Tracer
+	logger    *slog.Logger
+	now       func() time.Time
 }
 
 // tracerName names Quality's spans' instrumentation scope.
@@ -79,8 +85,9 @@ func WithTracerProvider(tp trace.TracerProvider) Option {
 func NewService(tx Transactor, catalog Catalog, opts ...Option) *Service {
 	s := &Service{
 		tx: tx, catalog: catalog, metrics: NoMetrics{}, logger: slog.New(slog.DiscardHandler),
-		tracer: noop.NewTracerProvider().Tracer(tracerName),
-		now:    func() time.Time { return time.Now().UTC() },
+		summaries: newSummaryCache(SummaryTTL),
+		tracer:    noop.NewTracerProvider().Tracer(tracerName),
+		now:       func() time.Time { return time.Now().UTC() },
 	}
 	for _, o := range opts {
 		o(s)

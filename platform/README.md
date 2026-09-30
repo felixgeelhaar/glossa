@@ -60,11 +60,15 @@ internal/context/           where messages appear (RFC 0004 §2–§3)
                             httpapi (the Context API), metrics (Prometheus)
 internal/preview/           stateless message preview (parse, MF2, format), rate-limited per caller
 internal/mcp/               the Model Context Protocol endpoint (RFC 0005 §7), off by default
-  domain/                   the two session toolsets, the outcome vocabulary, the argument shape
+                            — see its own README for connecting an editor and the tool list
+  domain/                   the three session toolsets (read, write, publish), the outcome
+                            vocabulary, the argument shape, the endpoint's wire vocabulary
   app/                      the session model, the tool registry and one audited tool call
+  tools/                    the tools, declared as data: Read, Write and Publish, one toolset
+                            each, over the narrow ports in ports.go
   adapters/                 mcpgo (streamable HTTP on the official Go MCP SDK), identity (the
-                            Authenticator over Identity), postgres (the audit ledger, sqlc),
-                            metrics (Prometheus)
+                            Authenticator over Identity), sources (one adapter per bounded
+                            context), postgres (the audit ledger, sqlc), metrics (Prometheus)
 internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
   domain/                   Person, Member, roles, locale scopes, Grant, APIToken, events
@@ -1594,22 +1598,44 @@ open session (the SDK compares the bearer's actor against the
 session's), and every HTTP request is re-authenticated, so revoking a
 token ends its agent's session at the next call.
 
-**Two locks on a write.** The token must carry the `write` scope *and*
-the client must open the session asking for the write toolset
-(`/mcp?toolset=write`). A plain `/mcp` is a read session whatever the
-token could do — a token is long-lived and an agent is not a person, so
-one accidental call must not be able to rewrite a catalog. `admin` is
-not a toolset, there is no delete tool of any kind, and no AI provider
-key crosses MCP in either direction.
+**Two locks on anything that changes something.** The token must carry
+the matching scope *and* the client must open the session asking for
+that toolset: `write` and `/mcp?toolset=write` for the write tools,
+`publish` and `/mcp?toolset=publish` for the release tools. A plain
+`/mcp` is a read session whatever the token could do — a token is
+long-lived and an agent is not a person, so one accidental call must
+not be able to rewrite a catalog or move production onto a different
+release.
 
-**Wave 1 registers one tool**, `whoami`: the tenant, the actor, the
-token's scopes and permissions, the toolset and the tools this session
-may call. It is the question an agent asks first, and answering it
-wrongly costs a hundred calls. The read and write tools arrive in
-RFC 0005 waves 2 and 3, and inherit the session model, the audit and
-the metrics unchanged.
+The toolsets mirror the token scopes and are deliberately **not** a
+ladder: `publish` is not a wider `write`, because the scopes themselves
+are orthogonal (a publish token carries `releases.publish` and nothing
+else beyond read). A write session cannot move a release and a publish
+session cannot touch the catalog; a client that means to do both opens
+two sessions. `admin` is not a toolset at all, there is no delete tool
+of any kind, and no AI provider key crosses MCP in either direction.
 
-**Every call is audited.** `mcp_tool_calls` (migration 0028) is
+**The tools** are declared as data in `internal/mcp/tools`, one
+function per toolset — `Read`, `Write`, `Publish` — and each one is a
+thin call into another context's application port, never a second
+implementation of a rule. Every session also has `whoami`: the tenant,
+the actor, the token's scopes and permissions, the toolset and the
+tools this session may call, plus whether a write or publish session
+would be available on this token. It is the question an agent asks
+first, and answering it wrongly costs a hundred calls.
+
+**`glossa mcp`** is a stdio proxy to this endpoint for editors that
+speak only stdio (RFC 0005 §7.1), using the token `glossa login`
+stored. It is framing only — it moves JSON-RPC frames between the
+editor's stdio and streamable HTTP and never decodes one — so it
+registers no tool, validates no argument and cannot diverge from what
+this endpoint serves. The one thing it decides is which toolset to ask
+for (`--allow-write`, `--allow-publish`), and asking is not getting:
+the server still checks the token's scopes. `internal/mcp/README.md`
+has the editor configuration, the toolset table and the tool list.
+
+**Every call is audited.** `mcp_tool_calls` (migration 0028, widened to
+admit the `publish` toolset by 0037) is
 tenant-owned under forced RLS and **append-only** for `glossa_app`:
 INSERT and SELECT, no UPDATE, no DELETE, so no code path — and no agent
 — rewrites its own trail. A row carries the actor, the token, the
@@ -1635,14 +1661,21 @@ call. Per-tenant rate limits (`GLOSSA_MCP_RATE`/`_BURST`) use the same
 `kernel/ratelimit` bucket the preview and Context's uploads use.
 
 **Tests**: `internal/mcp/domain` (the toolsets, and that a shape never
-echoes text), `internal/mcp/app` (the write gate, the permission check,
-tenant isolation, what the audit row says), `internal/mcp/adapters/identity`
-(every credential that is not a tenant API token, refused before the
-token table is even consulted), `internal/mcp/adapters/mcpgo` (a real
-MCP client over `httptest`: refusals at connect with their statuses,
-the toolsets a session sees, tenant binding, the audit rows) and
-`internal/mcp/adapters/postgres` (integration: RLS, and the ledger's
-append-only grant).
+echoes text), `internal/mcp/app` (the gate, the permission check,
+tenant isolation, what the audit row says), `internal/mcp/tools` (every
+tool against fakes that are row-level security: the two locks on each
+of write and publish, the refusals and that they are audited, that a
+proposal always enters review and that no tool destroys anything),
+`internal/mcp/adapters/identity` (every credential that is not a tenant
+API token, refused before the token table is even consulted),
+`internal/mcp/adapters/mcpgo` (a real MCP client over `httptest`:
+refusals at connect with their statuses, the toolsets a session sees,
+that neither `write` nor `publish` stands in for the other, tenant
+binding, the audit rows), `internal/mcp/adapters/postgres`
+(integration: RLS, the ledger's append-only grant, and that every
+toolset the domain knows is one the column's CHECK admits) and
+`internal/cli` (the stdio proxy end to end: a real MCP client over real
+pipes, through `glossa mcp`, to a real `/mcp` endpoint).
 
 ## Release
 

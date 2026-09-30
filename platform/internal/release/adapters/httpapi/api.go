@@ -149,7 +149,9 @@ func (a *API) PromoteRelease(ctx context.Context, req apiv1.PromoteReleaseReques
 	if err != nil {
 		return nil, mapError(app.ErrReleaseNotInProject)
 	}
-	e, err := a.svc.Promote(ctx, project, req.Environment, release)
+	// The request carries no force yet: `force` and `force_reason` on
+	// this body are the spec's to add, as they are on the publish body.
+	e, err := a.svc.Promote(ctx, project, req.Environment, release, app.PromoteInput{})
 	if err != nil {
 		return nil, mapError(err)
 	}

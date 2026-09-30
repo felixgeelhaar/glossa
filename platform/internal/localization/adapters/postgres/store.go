@@ -475,6 +475,10 @@ func (s *store) ProjectTranslations(ctx context.Context, project uuid.UUID, q ap
 	for _, st := range q.States {
 		states = append(states, string(st))
 	}
+	var origins []string // nil: any provenance
+	for _, o := range q.Origins {
+		origins = append(origins, string(o))
+	}
 	outdated := pgtype.Bool{}
 	if q.Outdated != nil {
 		outdated = pgtype.Bool{Bool: *q.Outdated, Valid: true}
@@ -482,7 +486,8 @@ func (s *store) ProjectTranslations(ctx context.Context, project uuid.UUID, q ap
 	rows, err := s.q.PageProjectTranslations(ctx, localizationsql.PageProjectTranslationsParams{
 		ProjectID: project, Locales: locales,
 		AfterKey: q.After.Key, AfterMessage: q.After.Message, AfterLocale: q.After.Locale,
-		States: states, Outdated: outdated, Namespace: optText(q.Namespace), MessageState: optText(q.MessageState),
+		States: states, Origins: origins, Outdated: outdated,
+		Namespace: optText(q.Namespace), MessageState: optText(q.MessageState),
 		KeyLike: likePattern(q.KeyPrefix), Keys: q.Keys, MaxRows: int32Of(q.Limit),
 	})
 	if err != nil {
@@ -524,6 +529,25 @@ func (s *store) TranslationStats(ctx context.Context, project uuid.UUID) (app.St
 			States: domain.StateCounts{
 				Draft: int(r.Draft), NeedsReview: int(r.NeedsReview), Approved: int(r.Approved), Rejected: int(r.Rejected),
 			},
+		})
+	}
+	return out, nil
+}
+
+func (s *store) LeadTimeSamples(
+	ctx context.Context, project uuid.UUID, q app.LeadTimeQuery,
+) ([]app.LeadTimeSample, error) {
+	rows, err := s.q.LeadTimeSamples(ctx, localizationsql.LeadTimeSamplesParams{
+		ProjectID: project, States: q.States, Since: q.Since.UTC(),
+		Locales: append([]string{}, q.Locales...), MaxRows: int32Of(q.Limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.LeadTimeSample, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, app.LeadTimeSample{
+			Locale: r.Locale, SourceChangedAt: r.SourceChangedAt.UTC(), TranslatedAt: r.TranslatedAt.UTC(),
 		})
 	}
 	return out, nil

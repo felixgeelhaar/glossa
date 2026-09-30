@@ -272,6 +272,11 @@ type Store interface {
 	Items(ctx context.Context, job uuid.UUID, f ItemFilter, afterSeq, limit int) ([]domain.Item, error)
 	ProjectJobs(ctx context.Context, project uuid.UUID) ([]domain.Job, error)
 	DeleteProjectJobs(ctx context.Context, project uuid.UUID) error
+	// CheckHealth is the project's concluded pull-request checks since a
+	// time, with the percentiles of how long they took. Tenant scope,
+	// not the system scope the check queue's worker runs in: this is a
+	// person reading their own project, and RLS is what says so.
+	CheckHealth(ctx context.Context, project uuid.UUID, since time.Time) (CheckHealth, error)
 	Publish(ctx context.Context, e outbox.Event) error
 }
 

@@ -275,6 +275,24 @@ func (s *store) DeleteProjectJobs(ctx context.Context, project uuid.UUID) error 
 	return storeError(s.q.DeleteProjectJobs(ctx, uuid.NullUUID{UUID: project, Valid: true}))
 }
 
+func (s *store) CheckHealth(ctx context.Context, project uuid.UUID, since time.Time) (app.CheckHealth, error) {
+	r, err := s.q.CheckHealth(ctx, integrationsql.CheckHealthParams{ProjectID: project, Since: ts(&since)})
+	if err != nil {
+		return app.CheckHealth{}, storeError(err)
+	}
+	out := app.CheckHealth{
+		Concluded: int(r.Concluded), Succeeded: int(r.Succeeded), Failed: int(r.Failed), Neutral: int(r.Neutral),
+	}
+	// -1 is the query's sentinel for a percentile over no sample. It
+	// stays a zero Duration here, and Concluded == 0 is what tells a
+	// caller the percentiles mean nothing — never a latency of none.
+	if out.Concluded > 0 && r.P50Seconds >= 0 {
+		out.P50 = time.Duration(r.P50Seconds * float64(time.Second))
+		out.P90 = time.Duration(r.P90Seconds * float64(time.Second))
+	}
+	return out, nil
+}
+
 func (s *store) Publish(ctx context.Context, e outbox.Event) error {
 	_, err := outbox.Publish(ctx, s.tx, e)
 	return err

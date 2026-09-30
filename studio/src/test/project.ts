@@ -10,11 +10,13 @@ import { INTEGRATION, type IntegrationPort } from "../api/integration";
 import { INTELLIGENCE, type IntelligencePort } from "../api/intelligence";
 import { KNOWLEDGE, type KnowledgePort } from "../api/knowledge";
 import { QUALITY, type QualityPort } from "../api/quality";
+import { QUALITY_SUMMARY, type QualitySummaryPort } from "../api/quality-summary";
+import type { QualitySummary } from "../api/quality-summary-schemas";
 import { RELEASES, type ReleasesPort } from "../api/releases";
 import type { Project, ProjectLocale, Role } from "../api/schemas";
 import { grantFor } from "../session/permissions";
 import { refreshSession } from "../session/session";
-import { PROJECT, type ProjectContext } from "../views/project/context";
+import { PROJECT, type HealthState, type ProjectContext } from "../views/project/context";
 
 const Empty = defineComponent({ template: "<div />" });
 const ROUTE_NAMES: Record<string, string> = { "releases/:release": "release", "files/import": "import", "files/imports/:job": "import-job" };
@@ -43,8 +45,11 @@ export function projectContext(
   memberLocales: string[] = [],
   project?: Project,
   etag?: string,
+  /** The quality summary the screen reads. Absent: nothing was measured, as on a server without the endpoint. */
+  health?: QualitySummary,
 ): ProjectContext {
   const all = ref(locales);
+  const summary = ref(health);
   return {
     tenant: computed(() => "t"),
     projectId: computed(() => "p"),
@@ -53,8 +58,11 @@ export function projectContext(
     locales: all,
     targets: computed(() => all.value.filter((l) => !l.is_source)),
     grant: computed(() => grantFor({ roles, locales: memberLocales })),
+    health: summary,
+    healthState: ref<HealthState>(health ? "ready" : "unreported"),
     reloadProject: async () => undefined,
     reloadLocales: async () => undefined,
+    reloadHealth: async () => undefined,
   };
 }
 
@@ -66,6 +74,9 @@ export interface ScreenOptions {
   inContext?: InContextPort;
   integration?: IntegrationPort;
   quality?: QualityPort;
+  qualitySummary?: QualitySummaryPort;
+  /** The summary the project context already holds, as ProjectLayout would have loaded it. */
+  health?: QualitySummary;
   context?: ContextPort;
   roles?: Role[];
   /** Locale scope of the member (translators, reviewers). */
@@ -102,13 +113,14 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   });
   await router.push(options.path ?? "/t/t/p/p/releases");
   const provide: Record<symbol, unknown> = {
-    [PROJECT as symbol]: projectContext(options.roles, options.locales, options.memberLocales, options.project, options.etag),
+    [PROJECT as symbol]: projectContext(options.roles, options.locales, options.memberLocales, options.project, options.etag, options.health),
   };
   if (options.port) provide[RELEASES as symbol] = options.port;
   if (options.knowledge) provide[KNOWLEDGE as symbol] = options.knowledge;
   if (options.intelligence) provide[INTELLIGENCE as symbol] = options.intelligence;
   if (options.integration) provide[INTEGRATION as symbol] = options.integration;
   if (options.quality) provide[QUALITY as symbol] = options.quality;
+  if (options.qualitySummary) provide[QUALITY_SUMMARY as symbol] = options.qualitySummary;
   if (options.context) provide[CONTEXT as symbol] = options.context;
   if (options.github) provide[GITHUB as symbol] = options.github;
   if (options.inContext) provide[IN_CONTEXT as symbol] = options.inContext;
@@ -120,6 +132,7 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
 export interface TenantScreenOptions {
   integration?: IntegrationPort;
   github?: GitHubPort;
+  qualitySummary?: QualitySummaryPort;
   roles?: Role[];
   path: string;
   /** Answers for the stubbed fetch, by path; the default is an empty page. */
@@ -152,6 +165,8 @@ export async function mountTenantScreen(component: Component, options: TenantScr
     history: createMemoryHistory(),
     routes: [
       { path: "/t/:tenant", name: "projects", component: Empty },
+      { path: "/t/:tenant/p/:project/translate", name: "translate", component: Empty },
+      { path: "/t/:tenant/p/:project/locales", name: "locales", component: Empty },
       { path: "/t/:tenant/settings/knowledge", name: "workspace-knowledge", component: Empty },
       { path: "/t/:tenant/settings/knowledge/imports/:job", name: "workspace-import-job", component: Empty },
       { path: "/t/:tenant/settings/github", name: "workspace-github", component: Empty },
@@ -161,6 +176,7 @@ export async function mountTenantScreen(component: Component, options: TenantScr
   const provide: Record<symbol, unknown> = {};
   if (options.integration) provide[INTEGRATION as symbol] = options.integration;
   if (options.github) provide[GITHUB as symbol] = options.github;
+  if (options.qualitySummary) provide[QUALITY_SUMMARY as symbol] = options.qualitySummary;
   const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
   await flushPromises();
   return w;

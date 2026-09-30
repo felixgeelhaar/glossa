@@ -98,7 +98,7 @@ func TestBranchEnvironmentServesItsOverlayOnly(t *testing.T) {
 	}
 
 	for _, target := range []string{"staging", "production", "preview", "development"} {
-		if _, err := h.svc.Promote(ctx, p, target, rel.ID); !errors.Is(err, domain.ErrBranchReleaseNotPromotable) {
+		if _, err := h.svc.Promote(ctx, p, target, rel.ID, app.PromoteInput{}); !errors.Is(err, domain.ErrBranchReleaseNotPromotable) {
 			t.Errorf("promote to %s: %v", target, err)
 		}
 	}
@@ -114,7 +114,7 @@ func TestBranchEnvironmentServesItsOverlayOnly(t *testing.T) {
 	if err != nil || main.Branch != "" || main.Stats.Messages != 3 {
 		t.Fatalf("preview: %+v, %v", main, err)
 	}
-	if _, err := h.svc.Promote(ctx, p, "development", main.ID); err != nil {
+	if _, err := h.svc.Promote(ctx, p, "development", main.ID, app.PromoteInput{}); err != nil {
 		t.Errorf("main releases still promote: %v", err)
 	}
 }

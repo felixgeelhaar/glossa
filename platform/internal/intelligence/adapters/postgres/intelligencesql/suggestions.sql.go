@@ -451,6 +451,68 @@ func (q *Queries) LockSuggestion(ctx context.Context, id uuid.UUID) (Intelligenc
 	return i, err
 }
 
+const queueAges = `-- name: QueueAges :many
+SELECT locale,
+       count(*)::integer AS waiting,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM $1::timestamptz - created_at))::float8 AS p50_seconds,
+       percentile_cont(0.9) WITHIN GROUP (ORDER BY extract(epoch FROM $1::timestamptz - created_at))::float8 AS p90_seconds,
+       max(extract(epoch FROM $1::timestamptz - created_at))::float8 AS oldest_seconds
+FROM intelligence_suggestions
+WHERE project_id = $2 AND status = 'pending'
+  AND (cardinality($3::text[]) = 0 OR locale = ANY ($3::text[]))
+GROUP BY locale
+ORDER BY locale
+`
+
+type QueueAgesParams struct {
+	Now       time.Time
+	ProjectID uuid.UUID
+	Locales   []string
+}
+
+type QueueAgesRow struct {
+	Locale        string
+	Waiting       int32
+	P50Seconds    float64
+	P90Seconds    float64
+	OldestSeconds float64
+}
+
+// QueueAges is the review queue's depth and how long its items have
+// been waiting, per locale (RFC 0005 §8). The queue itself already
+// exists; its age is what a dashboard needs and no query answered.
+//
+// An item has been waiting since it was written: there is no separate
+// enqueued_at, and a suggestion is reviewable the moment it lands. The
+// percentiles are percentile_cont, so they interpolate between the two
+// closest ranks exactly as the Go side does when it has to compute one
+// itself.
+func (q *Queries) QueueAges(ctx context.Context, arg QueueAgesParams) ([]QueueAgesRow, error) {
+	rows, err := q.db.Query(ctx, queueAges, arg.Now, arg.ProjectID, arg.Locales)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QueueAgesRow
+	for rows.Next() {
+		var i QueueAgesRow
+		if err := rows.Scan(
+			&i.Locale,
+			&i.Waiting,
+			&i.P50Seconds,
+			&i.P90Seconds,
+			&i.OldestSeconds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const reviewQueue = `-- name: ReviewQueue :many
 SELECT id, tenant_id, job_id, project_id, message_id, message_key, namespace, locale, source_revision, message_mf2, model, findings, term_findings, provenance, origin, score, explanation, action, action_note, risk_tags, calls, usage, cost_micro_usd, status, translation_revision, decided_by, decided_at, decision, version, created_at FROM intelligence_suggestions
 WHERE project_id = $1 AND status = 'pending'

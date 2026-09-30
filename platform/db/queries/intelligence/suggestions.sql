@@ -75,6 +75,27 @@ FROM intelligence_suggestions
 WHERE project_id = sqlc.arg(project_id) AND created_at >= sqlc.arg(since)
 GROUP BY locale, status;
 
+-- QueueAges is the review queue's depth and how long its items have
+-- been waiting, per locale (RFC 0005 §8). The queue itself already
+-- exists; its age is what a dashboard needs and no query answered.
+--
+-- An item has been waiting since it was written: there is no separate
+-- enqueued_at, and a suggestion is reviewable the moment it lands. The
+-- percentiles are percentile_cont, so they interpolate between the two
+-- closest ranks exactly as the Go side does when it has to compute one
+-- itself.
+-- name: QueueAges :many
+SELECT locale,
+       count(*)::integer AS waiting,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM sqlc.arg(now)::timestamptz - created_at))::float8 AS p50_seconds,
+       percentile_cont(0.9) WITHIN GROUP (ORDER BY extract(epoch FROM sqlc.arg(now)::timestamptz - created_at))::float8 AS p90_seconds,
+       max(extract(epoch FROM sqlc.arg(now)::timestamptz - created_at))::float8 AS oldest_seconds
+FROM intelligence_suggestions
+WHERE project_id = sqlc.arg(project_id) AND status = 'pending'
+  AND (cardinality(sqlc.arg(locales)::text[]) = 0 OR locale = ANY (sqlc.arg(locales)::text[]))
+GROUP BY locale
+ORDER BY locale;
+
 -- ── disclosures ────────────────────────────────────────────────────
 
 -- name: InsertDisclosure :exec

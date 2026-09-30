@@ -660,6 +660,31 @@ func (s *store) DecisionStats(ctx context.Context, project uuid.UUID, since time
 	return out, err
 }
 
+func (s *store) QueueAges(
+	ctx context.Context, project uuid.UUID, locales []string, now time.Time,
+) ([]app.LocaleQueueAge, error) {
+	rows, err := s.q.QueueAges(ctx, intelligencesql.QueueAgesParams{
+		ProjectID: project, Locales: append([]string{}, locales...), Now: now.UTC(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]app.LocaleQueueAge, len(rows))
+	for i, r := range rows {
+		out[i] = app.LocaleQueueAge{
+			Locale: r.Locale, Waiting: int(r.Waiting),
+			P50:    seconds(r.P50Seconds),
+			P90:    seconds(r.P90Seconds),
+			Oldest: seconds(r.OldestSeconds),
+		}
+	}
+	return out, nil
+}
+
+// seconds turns a query's float of seconds into a Duration without
+// losing the sub-second part a percentile usually has.
+func seconds(f float64) time.Duration { return time.Duration(f * float64(time.Second)) }
+
 // ── disclosures ──────────────────────────────────────────────────────
 
 func (s *store) InsertDisclosures(ctx context.Context, ds []app.DisclosureRecord) error {

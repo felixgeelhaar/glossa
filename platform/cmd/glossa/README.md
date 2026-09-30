@@ -178,6 +178,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `translate` | `--locale L [--namespace --key-prefix] [--missing\|--outdated] [--dry-run] [--wait]`: fills locales with AI suggestions. |
 | `review` | The AI review queue: `list [--locale]`, `accept <id\|key> [--text]`, `reject <id\|key> [--reason]`. |
 | `ai status` | Provider consent, the monthly budget and spend, providers (never their keys), and the project's auto-translate locales, namespace tags and review routing. |
+| `mcp` | Speaks MCP on stdin and stdout, proxying to `glossa-server`'s `/mcp` endpoint with the stored token, so an editor that speaks only stdio gets the same tools without a second server (RFC 0005 §7.1). It is framing only — it registers no tool and validates no argument, so it cannot diverge from the endpoint. Read-only unless you ask: `--allow-write` offers the write tools (needs a token with the `write` scope), `--allow-publish` the release tools (needs `publish`). The two are alternatives, not a pair. Asking is not getting: the server still checks the token's scopes and refuses a session it may not open. See `internal/mcp/README.md`. |
 
 `check` reads like CI output:
 

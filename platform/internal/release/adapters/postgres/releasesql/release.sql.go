@@ -260,9 +260,10 @@ func (q *Queries) InsertDeliveryKey(ctx context.Context, arg InsertDeliveryKeyPa
 const insertDeployment = `-- name: InsertDeployment :exec
 
 INSERT INTO release_deployments (tenant_id, project_id, environment, number, release_id, previous_release_id,
-                                 action, created_by, created_at)
+                                 action, created_by, created_at, forced, force_reason)
 VALUES (app_current_tenant(), $1, $2, $3, $4,
-        $5, $6, $7, $8)
+        $5, $6, $7, $8,
+        $9, $10)
 `
 
 type InsertDeploymentParams struct {
@@ -274,6 +275,8 @@ type InsertDeploymentParams struct {
 	Action            string
 	CreatedBy         string
 	CreatedAt         time.Time
+	Forced            bool
+	ForceReason       string
 }
 
 // ── deployments ────────────────────────────────────────────────────
@@ -287,6 +290,8 @@ func (q *Queries) InsertDeployment(ctx context.Context, arg InsertDeploymentPara
 		arg.Action,
 		arg.CreatedBy,
 		arg.CreatedAt,
+		arg.Forced,
+		arg.ForceReason,
 	)
 	return err
 }
@@ -450,7 +455,7 @@ func (q *Queries) ListDeliveryKeys(ctx context.Context, arg ListDeliveryKeysPara
 }
 
 const listDeployments = `-- name: ListDeployments :many
-SELECT tenant_id, project_id, environment, number, release_id, previous_release_id, action, created_by, created_at FROM release_deployments
+SELECT tenant_id, project_id, environment, number, release_id, previous_release_id, action, created_by, created_at, forced, force_reason FROM release_deployments
 WHERE project_id = $1 AND environment = $2 AND number < $3
 ORDER BY number DESC
 LIMIT $4
@@ -488,6 +493,8 @@ func (q *Queries) ListDeployments(ctx context.Context, arg ListDeploymentsParams
 			&i.Action,
 			&i.CreatedBy,
 			&i.CreatedAt,
+			&i.Forced,
+			&i.ForceReason,
 		); err != nil {
 			return nil, err
 		}

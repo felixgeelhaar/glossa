@@ -26,6 +26,68 @@ func (q *Queries) CheckDepth(ctx context.Context) (int64, error) {
 	return column_1, err
 }
 
+const checkHealth = `-- name: CheckHealth :one
+WITH repositories AS (
+    SELECT DISTINCT repository_id FROM integration_git_connections WHERE project_id = $1
+), concluded AS (
+    SELECT c.conclusion, extract(epoch FROM c.completed_at - c.requested_at) AS latency_seconds
+    FROM integration_github_checks c
+    JOIN repositories r ON r.repository_id = c.repository_id
+    WHERE c.state = 'completed' AND c.completed_at IS NOT NULL AND c.completed_at >= $2
+)
+SELECT count(*)::integer AS concluded,
+       count(*) FILTER (WHERE conclusion = 'success')::integer AS succeeded,
+       count(*) FILTER (WHERE conclusion = 'failure')::integer AS failed,
+       count(*) FILTER (WHERE conclusion = 'neutral')::integer AS neutral,
+       -- -1 where nothing concluded: a percentile over no sample is not
+       -- zero, and the caller reads the sentinel as "not measured".
+       coalesce(percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_seconds), -1)::float8 AS p50_seconds,
+       coalesce(percentile_cont(0.9) WITHIN GROUP (ORDER BY latency_seconds), -1)::float8 AS p90_seconds
+FROM concluded
+`
+
+type CheckHealthParams struct {
+	ProjectID uuid.UUID
+	Since     pgtype.Timestamptz
+}
+
+type CheckHealthRow struct {
+	Concluded  int32
+	Succeeded  int32
+	Failed     int32
+	Neutral    int32
+	P50Seconds float64
+	P90Seconds float64
+}
+
+// CheckHealth is the pull-request check's pass rate and the time it
+// takes to reach a conclusion, for one project (RFC 0005 §8). Both
+// exist as Prometheus series already; this makes them a query, because
+// a dashboard cannot ask Prometheus about one project of one tenant.
+//
+// Tenant scope, not the system scope the queue runs in: this is a
+// person reading their own project, and RLS is what says so. The checks
+// of a project are the checks of the repositories its Git connections
+// name — one repository can feed several projects, so the join is
+// through the connection and not through the check.
+//
+// `neutral` counts as neither a pass nor a fail and is reported on its
+// own: it is what a check concludes when it had nothing to grade, and
+// folding it either way would move the rate for a reason nobody chose.
+func (q *Queries) CheckHealth(ctx context.Context, arg CheckHealthParams) (CheckHealthRow, error) {
+	row := q.db.QueryRow(ctx, checkHealth, arg.ProjectID, arg.Since)
+	var i CheckHealthRow
+	err := row.Scan(
+		&i.Concluded,
+		&i.Succeeded,
+		&i.Failed,
+		&i.Neutral,
+		&i.P50Seconds,
+		&i.P90Seconds,
+	)
+	return i, err
+}
+
 const claimCheck = `-- name: ClaimCheck :one
 WITH due AS (
     SELECT c.id

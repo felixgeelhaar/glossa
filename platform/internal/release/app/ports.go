@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
@@ -53,6 +54,11 @@ type Source interface {
 	// message: the branch previews a change to it shows, and so the
 	// ones to publish again when its translations change.
 	BranchesProposing(ctx context.Context, project, message uuid.UUID) ([]string, error)
+	// CheckPolicy reads the project's check-policy document, which is
+	// what the publish gate is made of (RFC 0005 §4.1): the completeness
+	// and the review state an environment requires. A project that
+	// stored none reads as checkpolicy's documented default.
+	CheckPolicy(ctx context.Context, project uuid.UUID) (checkpolicy.Policy, error)
 }
 
 // EnvironmentRef names an environment of a tenant's project.

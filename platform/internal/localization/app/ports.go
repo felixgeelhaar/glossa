@@ -152,6 +152,10 @@ type Store interface {
 	// TranslationStats counts a project's active messages and, per
 	// locale it has, the translations of them, in one query.
 	TranslationStats(ctx context.Context, project uuid.UUID) (StoredStats, error)
+	// LeadTimeSamples are recent source changes with the moment a
+	// translation in one of q.States caught up with them, newest source
+	// change first and bounded by q.Limit.
+	LeadTimeSamples(ctx context.Context, project uuid.UUID, q LeadTimeQuery) ([]LeadTimeSample, error)
 
 	DeleteProjectData(ctx context.Context, project uuid.UUID) error
 
