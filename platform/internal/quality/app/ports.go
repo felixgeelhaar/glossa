@@ -231,6 +231,11 @@ type Store interface {
 	ListCaptureFindings(
 		ctx context.Context, project, capture uuid.UUID, region, after string, limit int, now time.Time,
 	) ([]FindingRecord, error)
+	// CaptureFingerprints are the distinct fingerprints the findings
+	// stored against one capture carry: what the previous capture of a
+	// scope saw, which is the state the two-sighting rule needs
+	// (RFC 0005 §5.2).
+	CaptureFingerprints(ctx context.Context, project, capture uuid.UUID) ([]string, error)
 	// CountFindings sums a run's findings as they stand at now.
 	CountFindings(ctx context.Context, run domain.CheckRun, now time.Time) (domain.Counts, error)
 	// LatestFinding is the most recent stored finding carrying a

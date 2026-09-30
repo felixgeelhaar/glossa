@@ -127,12 +127,21 @@ type Catalog interface {
 }
 
 // CaptureFindings are one capture's visual findings, with the ID the
-// ingest just minted for it.
+// ingest just minted for it and the scope the two-sighting rule counts
+// in.
 type CaptureFindings struct {
 	Capture uuid.UUID
-	// Locale is the capture's locale: one capture is one (route,
-	// viewport, locale), so it is the locale of every finding on it that
-	// names no other.
+	// Previous is the capture the application showed last of this same
+	// (route, viewport, locale), or uuid.Nil where it showed none. The
+	// findings stored against it are what makes a finding here a second
+	// sighting (RFC 0005 §5.2) — and a scope captured for the first time
+	// promotes nothing, which is the safe direction.
+	Previous uuid.UUID
+	// Route and Viewport are the rest of the scope; Locale is the
+	// capture's locale, which is also the locale of every finding on it
+	// that names no other.
+	Route    string
+	Viewport domain.Viewport
 	Locale   string
 	Findings []domain.VisualFinding
 }
@@ -313,6 +322,15 @@ type Store interface {
 	// CaptureByShot returns a build's capture of a route, viewport and
 	// locale, with its regions (ErrNotFound).
 	CaptureByShot(ctx context.Context, build uuid.UUID, route string, v domain.Viewport, locale bcp47.Tag) (domain.Capture, error)
+	// PreviousCaptureOfScope is the capture the application showed last
+	// of one (route, viewport, locale), whatever branch it came from
+	// (ErrNotFound). It is what the visual layer's two-sighting rule
+	// counts against (RFC 0005 §5.2), and the ingest asks it before its
+	// own captures are stored, so the answer is the capture immediately
+	// before this one.
+	PreviousCaptureOfScope(
+		ctx context.Context, project, application uuid.UUID, route string, v domain.Viewport, locale bcp47.Tag,
+	) (uuid.UUID, error)
 	// Capture returns a capture without its regions (ErrNotFound).
 	Capture(ctx context.Context, id uuid.UUID) (domain.Capture, error)
 	// UnknownRegionKeys returns the distinct keys of a build's regions

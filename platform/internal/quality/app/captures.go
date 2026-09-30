@@ -8,8 +8,10 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
 )
 
 // The visual layer's findings arrive with a capture (RFC 0005 §5.1):
@@ -59,15 +61,22 @@ type CaptureFinding struct {
 	Evidence map[string]any
 }
 
-// CaptureFindings are one capture's findings.
+// CaptureFindings are one capture's findings, in the scope the
+// two-sighting rule counts in.
 type CaptureFindings struct {
 	// Capture is the capture's ID, which the ingest has just minted.
 	Capture uuid.UUID
-	// Locale is the capture's locale: one capture is one (route,
-	// viewport, locale), so it is the locale of every finding on it that
-	// names no other.
-	Locale   string
-	Findings []CaptureFinding
+	// Previous is the capture the same scope showed last, or uuid.Nil
+	// where it showed none. Its stored findings are the previous
+	// sighting (RFC 0005 §5.2).
+	Previous uuid.UUID
+	// Route, Width, Height and Locale are the scope: one capture is one
+	// (route, viewport, locale), and the locale is also the locale of
+	// every finding on it that names no other.
+	Route         string
+	Width, Height int
+	Locale        string
+	Findings      []CaptureFinding
 }
 
 // RecordVisualFindings is one capture upload's findings to record.
@@ -135,7 +144,11 @@ func (s *Service) RecordVisualFindings(
 	if !domain.Computes(stored.Policy, "", domain.LayerVisual) {
 		return VisualFindingsRecorded{}, nil
 	}
-	ev := domain.Evaluate(stored.Policy, "", in.findings())
+	counted, err := s.count(ctx, in, stored.Policy.Visual())
+	if err != nil {
+		return VisualFindingsRecorded{}, err
+	}
+	ev := domain.Evaluate(stored.Policy, "", counted)
 	graded := ev.Findings()
 	if len(graded) == 0 {
 		return VisualFindingsRecorded{}, nil
@@ -151,28 +164,68 @@ func (s *Service) RecordVisualFindings(
 	return VisualFindingsRecorded{Run: run.ID, Findings: len(graded)}, nil
 }
 
-// findings is the upload's probe findings as domain findings: the
-// capture minted into every locus, the capture's locale where the probe
-// named none, and the fingerprint computed here (domain.New), over the
-// catalog message ID where the key resolved to one.
-func (in RecordVisualFindings) findings() []domain.Finding {
+// count seals every capture's findings and applies the two-sighting
+// rule of RFC 0005 §5.2 to them, against what the previous capture of
+// the same scope found.
+//
+// It is `layers.PromoteVisual` — the same function `glossa capture
+// --check` runs — called once per capture, so the rule has exactly one
+// implementation and the two surfaces cannot drift. Per capture and not
+// per upload, because the store keeps a row per capture: two captures
+// that show the same problem are two places to outline it, and
+// PromoteVisual over a whole upload would report it once and drop the
+// second capture's locus. The rule is unaffected: it counts within a
+// scope, and one capture is one scope.
+//
+// The previous sighting is read from the findings already stored
+// against the previous capture — the record is the data, so a CI runner
+// with an empty workspace counts as well as one that kept its
+// `.glossa/`. A scope with no previous capture, or one whose findings
+// cannot be read, counts one sighting: never promote on a guess.
+func (s *Service) count(
+	ctx context.Context, in RecordVisualFindings, thresholds checkpolicy.VisualThresholds,
+) ([]domain.Finding, error) {
 	out := make([]domain.Finding, 0, in.Findings())
-	for _, c := range in.Captures {
-		for _, f := range c.Findings {
-			locus := domain.Locus{
-				Key: f.Key, Locale: f.Locale, Capture: c.Capture.String(), Region: f.Region,
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		for _, c := range in.Captures {
+			scope := layers.VisualScope{Route: c.Route, Width: c.Width, Height: c.Height, Locale: c.Locale}
+			seen := layers.Seen{}
+			if c.Previous != uuid.Nil {
+				before, err := st.CaptureFingerprints(ctx, in.Project, c.Previous)
+				if err != nil {
+					return err
+				}
+				seen[scope.Key()] = before
 			}
-			if locus.Locale == "" {
-				locus.Locale = c.Locale
-			}
-			if f.Message != uuid.Nil {
-				locus.Message = f.Message.String()
-			}
-			out = append(out, domain.New(domain.Finding{
-				Layer: domain.LayerVisual, Code: f.Code, Severity: domain.Warning, Locus: locus,
-				Message: f.Explanation, Subject: f.Subject, Evidence: f.Evidence,
-			}))
+			visual, _ := layers.PromoteVisual(seen,
+				[]layers.Probed{{Scope: scope, Findings: c.findings()}}, thresholds)
+			out = append(out, visual.Findings...)
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// findings is one capture's probe findings as domain findings, with the
+// capture minted into every locus. PromoteVisual seals the rest: the
+// route and the locale come from the scope, and the fingerprint is
+// computed there — over the catalog message ID where the key resolved
+// to one, which is the identity only a caller that knows the catalog
+// can compute.
+func (c CaptureFindings) findings() []domain.Finding {
+	out := make([]domain.Finding, 0, len(c.Findings))
+	for _, f := range c.Findings {
+		locus := domain.Locus{Key: f.Key, Locale: f.Locale, Capture: c.Capture.String(), Region: f.Region}
+		if f.Message != uuid.Nil {
+			locus.Message = f.Message.String()
+		}
+		out = append(out, domain.Finding{
+			Layer: domain.LayerVisual, Code: f.Code, Severity: domain.Warning, Locus: locus,
+			Message: f.Explanation, Subject: f.Subject, Evidence: f.Evidence,
+		})
 	}
 	return out
 }

@@ -357,6 +357,44 @@ func (q *Queries) ListCaptureFindings(ctx context.Context, arg ListCaptureFindin
 	return items, nil
 }
 
+const listCaptureFingerprints = `-- name: ListCaptureFingerprints :many
+SELECT DISTINCT fingerprint
+FROM quality_findings
+WHERE project_id = $1 AND capture_id = $2
+`
+
+type ListCaptureFingerprintsParams struct {
+	ProjectID uuid.UUID
+	CaptureID uuid.NullUUID
+}
+
+// The distinct fingerprints one capture's findings carry: what the
+// previous capture of a scope saw, which is the whole state the
+// two-sighting rule of RFC 0005 §5.2 needs (`layers.Seen`).
+//
+// The server reads it from the findings it already stores, where
+// `glossa capture --check` reads it from .glossa/visual-sightings.json:
+// the same record, one of them durable and shared by every runner.
+func (q *Queries) ListCaptureFingerprints(ctx context.Context, arg ListCaptureFingerprintsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listCaptureFingerprints, arg.ProjectID, arg.CaptureID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var fingerprint string
+		if err := rows.Scan(&fingerprint); err != nil {
+			return nil, err
+		}
+		items = append(items, fingerprint)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRunFindings = `-- name: ListRunFindings :many
 WITH graded AS (
     SELECT f.id, f.fingerprint, f.layer, f.code, f.severity, f.message_id, f.message_key, f.locale, f.namespace,

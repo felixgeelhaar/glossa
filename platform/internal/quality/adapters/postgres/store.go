@@ -310,6 +310,19 @@ func (s *store) ListCaptureFindings(
 	return out, nil
 }
 
+// CaptureFingerprints are the distinct fingerprints one capture's
+// stored findings carry: the previous sighting the two-sighting rule
+// counts against (RFC 0005 §5.2).
+func (s *store) CaptureFingerprints(ctx context.Context, project, capture uuid.UUID) ([]string, error) {
+	fps, err := s.q.ListCaptureFingerprints(ctx, qualitysql.ListCaptureFingerprintsParams{
+		ProjectID: project, CaptureID: uuid.NullUUID{UUID: capture, Valid: true},
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	return fps, nil
+}
+
 func finding(r qualitysql.ListRunFindingsRow) (app.FindingRecord, error) {
 	f := domain.Finding{
 		Schema: domain.Schema, Fingerprint: r.Fingerprint, Layer: domain.Layer(r.Layer), Code: r.Code,

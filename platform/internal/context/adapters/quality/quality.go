@@ -46,7 +46,8 @@ func (p *Port) RecordFindings(ctx context.Context, in contextapp.RecordFindings)
 			}
 		}
 		out.Captures = append(out.Captures, qualityapp.CaptureFindings{
-			Capture: c.Capture, Locale: c.Locale, Findings: fs,
+			Capture: c.Capture, Previous: c.Previous, Route: c.Route,
+			Width: c.Viewport.Width, Height: c.Viewport.Height, Locale: c.Locale, Findings: fs,
 		})
 	}
 	rec, err := p.svc.RecordVisualFindings(ctx, out)

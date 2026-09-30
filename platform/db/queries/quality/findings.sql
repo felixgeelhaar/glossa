@@ -143,6 +143,18 @@ WHERE (sqlc.arg(region)::text = '' OR region = sqlc.arg(region)::text)
 ORDER BY sort_key COLLATE "C"
 LIMIT sqlc.arg(max_rows);
 
+-- name: ListCaptureFingerprints :many
+-- The distinct fingerprints one capture's findings carry: what the
+-- previous capture of a scope saw, which is the whole state the
+-- two-sighting rule of RFC 0005 §5.2 needs (`layers.Seen`).
+--
+-- The server reads it from the findings it already stores, where
+-- `glossa capture --check` reads it from .glossa/visual-sightings.json:
+-- the same record, one of them durable and shared by every runner.
+SELECT DISTINCT fingerprint
+FROM quality_findings
+WHERE project_id = sqlc.arg(project_id) AND capture_id = sqlc.arg(capture_id);
+
 -- name: GetLatestFinding :one
 -- The most recent stored finding carrying a fingerprint (run ids are
 -- time-ordered UUIDv7): what a waiver is about, and the source revision

@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
@@ -115,6 +116,94 @@ func TestRecordVisualFindingsStoresThemAgainstTheirCaptureAndRegion(t *testing.T
 		app.CaptureFindingQuery{Capture: uuid.Must(uuid.NewV7())}, firstPage())
 	if err != nil || len(none) != 0 {
 		t.Errorf("unknown capture = %+v, %v", none, err)
+	}
+}
+
+// The two-sighting rule of RFC 0005 §5.2, sourced from the database:
+// the previous capture of the same scope is the state, so a finding
+// confirmed by two consecutive captures becomes evidence a policy can
+// raise — and one seen once never does, however strict the policy.
+func TestRecordVisualFindingsCountsTheSightingsOfTheScope(t *testing.T) {
+	h := newHarness(t)
+	project := h.project(t, "demo")
+	strict := checkpolicy.Policy{
+		Rules: []checkpolicy.Rule{{
+			Selector: checkpolicy.Selector{Layer: string(domain.LayerVisual)}, Severity: checkpolicy.Error,
+		}},
+	}
+	if _, err := h.svc.SavePolicy(h.developer(), project, app.SavePolicy{Policy: strict}); err != nil {
+		t.Fatal(err)
+	}
+	scope := func(capture, previous uuid.UUID, code string) app.RecordVisualFindings {
+		return app.RecordVisualFindings{
+			Project: project, Ref: "main", Commit: sha("beef"),
+			Captures: []app.CaptureFindings{{
+				Capture: capture, Previous: previous, Route: "/checkout", Width: 390, Height: 844, Locale: "fr",
+				Findings: []app.CaptureFinding{{
+					Code: code, Key: "checkout.pay", Explanation: code + " on checkout.pay",
+				}},
+			}},
+		}
+	}
+	first, second := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
+
+	// The first capture of the scope: one sighting, and a warning no
+	// rule can raise.
+	one, err := h.svc.RecordVisualFindings(h.developer(), scope(first, uuid.Nil, "text-clipped"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, _, err := h.svc.ListCaptureFindings(h.developer(), project,
+		app.CaptureFindingQuery{Capture: first}, firstPage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Sightings() != 1 || items[0].Severity != domain.Warning {
+		t.Fatalf("first sighting = %+v", items)
+	}
+	run, err := h.svc.GetCheckRun(h.developer(), project, one.Run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.Conclusion != domain.ConclusionSuccess {
+		t.Errorf("conclusion = %q, want success: one sighting is not evidence", run.Conclusion)
+	}
+
+	// The next capture of the same scope, naming the first as its
+	// previous: the same fingerprint is now a second sighting, the
+	// policy's rule reaches it, and the run fails.
+	two, err := h.svc.RecordVisualFindings(h.developer(), scope(second, first, "text-clipped"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, _, err = h.svc.ListCaptureFindings(h.developer(), project,
+		app.CaptureFindingQuery{Capture: second}, firstPage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Sightings() != 2 || items[0].Severity != domain.Error {
+		t.Fatalf("second sighting = %+v", items)
+	}
+	if run, err = h.svc.GetCheckRun(h.developer(), project, two.Run); err != nil {
+		t.Fatal(err)
+	}
+	if run.Conclusion != domain.ConclusionFailure || run.Counts != (domain.Counts{Errors: 1}) {
+		t.Errorf("run = %q %+v, want a failure on the confirmed finding", run.Conclusion, run.Counts)
+	}
+
+	// A different problem on the same scope starts its own count: the
+	// rule is per fingerprint, not per scope.
+	third := uuid.Must(uuid.NewV7())
+	if _, err := h.svc.RecordVisualFindings(h.developer(), scope(third, second, "region-overlap")); err != nil {
+		t.Fatal(err)
+	}
+	items, _, err = h.svc.ListCaptureFindings(h.developer(), project,
+		app.CaptureFindingQuery{Capture: third}, firstPage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Sightings() != 1 || items[0].Severity != domain.Warning {
+		t.Errorf("another finding on the same scope = %+v", items)
 	}
 }
 

@@ -26,6 +26,17 @@ func probeFinding(code, key, region string) map[string]any {
 	}
 }
 
+// sightings is the count the server recorded on a finding, as JSON
+// hands it back.
+func sightings(t *testing.T, evidence map[string]any) int {
+	t.Helper()
+	n, ok := evidence["sightings"].(float64)
+	if !ok {
+		return 0
+	}
+	return int(n)
+}
+
 func TestCaptureFindingsAPIOverHTTP(t *testing.T) {
 	s := startServer(t)
 	ada := s.signIn("ada@example.com")
@@ -94,6 +105,7 @@ func TestCaptureFindingsAPIOverHTTP(t *testing.T) {
 				Capture string `json:"capture"`
 				Region  string `json:"region"`
 			} `json:"locus"`
+			Evidence map[string]any `json:"evidence"`
 		} `json:"items"`
 	}
 	r = s.do(call{method: "GET", path: p + "/captures/" + id + "/findings", cookie: ada.cookie})
@@ -121,7 +133,39 @@ func TestCaptureFindingsAPIOverHTTP(t *testing.T) {
 		t.Errorf("locus = %+v", f.Locus)
 	}
 
+	// The two-sighting rule, end to end (RFC 0005 §5.2). The first
+	// capture of this scope saw everything once; a second capture of the
+	// same route, viewport and locale — a different commit, a different
+	// image — makes the same fingerprints evidence, and the server says
+	// so in the finding's evidence. Nothing in the upload asks for it:
+	// the count comes from the findings the first capture left behind.
+	if n := sightings(t, page.Items[0].Evidence); n != 1 {
+		t.Errorf("first sighting counted %d", n)
+	}
+	next := capturesManifest(strings.Repeat("a1b2c3d4", 5), testPNG(t, 48, 32, 3), 48, 32)
+	shot, _ = next["captures"].([]any)[0].(map[string]any)
+	shot["findings"] = []any{probeFinding("text-clipped", "checkout.pay", "r_0")}
+	body, contentType = capturesUpload(t, next, testPNG(t, 48, 32, 3))
+	s.do(call{method: "POST", path: p + "/captures", bearer: tok.Secret, raw: body, contentType: contentType}).
+		want(t, http.StatusCreated, "")
+	s.do(call{method: "GET", path: p + "/messages/checkout.pay/captures", cookie: ada.cookie}).decode(t, &captures)
+	var promoted int
+	for _, c := range captures.Captures {
+		r = s.do(call{method: "GET", path: p + "/captures/" + c.ID + "/findings?region=r_0", cookie: ada.cookie})
+		r.decode(t, &page)
+		for _, f := range page.Items {
+			if sightings(t, f.Evidence) == 2 {
+				promoted++
+			}
+		}
+	}
+	if promoted != 1 {
+		t.Errorf("%d findings were seen twice, want the second capture's one", promoted)
+	}
+
 	// One region of the screenshot.
+	r = s.do(call{method: "GET", path: p + "/captures/" + id + "/findings", cookie: ada.cookie})
+	r.decode(t, &page)
 	r = s.do(call{method: "GET", path: p + "/captures/" + id + "/findings?region=r_0", cookie: ada.cookie})
 	r.decode(t, &page)
 	if len(page.Items) != 1 || page.Items[0].Code != "text-clipped" {

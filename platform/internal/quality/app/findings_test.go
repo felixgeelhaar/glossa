@@ -42,6 +42,10 @@ type fakeStore struct {
 	records  bool
 	recorded domain.CheckRun
 	inserted []domain.Finding
+	// sighted is what each capture's stored findings fingerprint: the
+	// previous sighting of a scope.
+	sighted      map[uuid.UUID][]string
+	lastPrevious uuid.UUID
 
 	// What the last ListFindings and run lookup passed down.
 	lastRunFilter app.FindingFilter
@@ -104,6 +108,13 @@ func (f *fakeStore) ListCaptureFindings(
 ) ([]app.FindingRecord, error) {
 	f.lastCapture, f.lastRegion, f.lastAfter, f.lastLimit, f.lastNow = capture, region, after, limit, now
 	return f.rows, nil
+}
+
+// CaptureFingerprints is what the previous capture of a scope showed,
+// as a test set it: the state the two-sighting rule counts against.
+func (f *fakeStore) CaptureFingerprints(_ context.Context, _, capture uuid.UUID) ([]string, error) {
+	f.lastPrevious = capture
+	return f.sighted[capture], nil
 }
 
 // InsertCheckRun and InsertFindings record what a run stored, for the

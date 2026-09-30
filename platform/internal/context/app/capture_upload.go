@@ -14,6 +14,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
@@ -398,10 +399,49 @@ func (s *Service) recordFindings(
 	in := RecordFindings{Project: b.ProjectID, Ref: b.Branch.String(), Commit: b.Commit.String(), At: b.CreatedAt}
 	for i, c := range captures {
 		if fs := up.Captures[i].Findings; len(fs) > 0 {
-			in.Captures = append(in.Captures, CaptureFindings{Capture: c.ID, Locale: c.Locale.String(), Findings: fs})
+			in.Captures = append(in.Captures, CaptureFindings{
+				Capture: c.ID, Route: c.Route, Viewport: c.Viewport, Locale: c.Locale.String(), Findings: fs,
+			})
 		}
 	}
+	if err := s.previousCaptures(ctx, b, in.Captures); err != nil {
+		return 0, err
+	}
 	return s.findings.RecordFindings(ctx, in)
+}
+
+// previousCaptures fills in each scope's previous capture: the one this
+// application showed last of the same route, viewport and locale. It is
+// the state the two-sighting rule needs, and the server has it because
+// it keeps every capture's findings — where `glossa capture --check`
+// has to keep a file in the workspace and a CI runner that throws the
+// workspace away promotes nothing.
+//
+// A scope nobody has captured before leaves Previous at uuid.Nil, and
+// its findings are first sightings. So does a lookup that fails: this
+// runs before anything is stored, and losing a promotion is the safe
+// direction where losing the upload is not.
+func (s *Service) previousCaptures(ctx context.Context, b domain.Build, captures []CaptureFindings) error {
+	if len(captures) == 0 {
+		return nil
+	}
+	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		for i, c := range captures {
+			locale, err := bcp47.Parse(c.Locale)
+			if err != nil {
+				continue
+			}
+			previous, err := st.PreviousCaptureOfScope(ctx, b.ProjectID, b.ApplicationID, c.Route, c.Viewport, locale)
+			switch {
+			case errors.Is(err, ErrNotFound):
+				continue
+			case err != nil:
+				return err
+			}
+			captures[i].Previous = previous
+		}
+		return nil
+	})
 }
 
 // insertCaptures stores b with its captures in one unit of work and

@@ -129,6 +129,56 @@ func TestIngestCapturesHandsTheVisualFindingsToQuality(t *testing.T) {
 	}
 }
 
+// The scope the two-sighting rule counts in (RFC 0005 §5.2): every
+// capture goes over with the previous capture of the same (route,
+// viewport, locale) this application took, whatever branch it came
+// from. A scope nobody has captured before hands over uuid.Nil, and its
+// findings are first sightings — the server never promotes on a guess.
+func TestIngestCapturesNamesThePreviousCaptureOfEachScope(t *testing.T) {
+	quality := &recorder{}
+	h, _ := withImages(t, app.WithFindings(quality))
+	f := h.project(t, "shop", []string{"web"}, "checkout.pay")
+	pay := pngOf(t, 64, 48, 1, png.BestSpeed)
+	other := pngOf(t, 64, 48, 2, png.BestSpeed)
+	shot := func(img []byte) []byte {
+		return withFindings(t, manifestOf(t, "abcdef1", "main",
+			capture{"/checkout", "de", img, []string{"checkout.pay"}}), 0,
+			probeFinding("text-clipped", "checkout.pay", "r_0"))
+	}
+
+	h.uploadCaptures(t, f, shot(pay), partsOf(pay))
+	if len(quality.calls) != 1 || quality.calls[0].Captures[0].Previous != uuid.Nil {
+		t.Fatalf("the first capture of a scope names %v as its previous", quality.calls[0].Captures[0].Previous)
+	}
+	was := quality.calls[0].Captures[0]
+	if was.Route != "/checkout" || was.Viewport.Width != 64 || was.Locale != "de" {
+		t.Errorf("scope = %+v", was)
+	}
+
+	// A second upload of the same route, viewport and locale — a
+	// different commit and a different branch, because the rule is flake
+	// control and not blame.
+	second := withFindings(t, manifestOf(t, "abcdef2", "feat/copy",
+		capture{"/checkout", "de", other, []string{"checkout.pay"}}), 0,
+		probeFinding("text-clipped", "checkout.pay", "r_0"))
+	h.uploadCaptures(t, f, second, partsOf(other))
+	if len(quality.calls) != 2 {
+		t.Fatalf("%d handovers", len(quality.calls))
+	}
+	if got := quality.calls[1].Captures[0].Previous; got != was.Capture {
+		t.Errorf("previous = %s, want the capture of the same scope (%s)", got, was.Capture)
+	}
+	// Another locale of the same route is another scope, and has no
+	// previous capture of its own.
+	third := withFindings(t, manifestOf(t, "abcdef3", "main",
+		capture{"/checkout", "fr", other, []string{"checkout.pay"}}), 0,
+		probeFinding("text-clipped", "checkout.pay", "r_0"))
+	h.uploadCaptures(t, f, third, partsOf(other))
+	if got := quality.calls[2].Captures[0].Previous; got != uuid.Nil {
+		t.Errorf("another locale's previous = %s, want none", got)
+	}
+}
+
 // A capture upload whose findings cannot be recorded stores nothing at
 // all: the upload is idempotent by its manifest, so a build committed
 // without its findings could never get them back.

@@ -6022,6 +6022,16 @@ paths:
         none. `findings` in the response says how many were stored, and
         `listCaptureFindings` reads them back.
 
+        Each finding is counted against the capture this application
+        took last of the same route, viewport and locale, whatever
+        branch that one came from: a fingerprint that capture showed too
+        is a **second sighting** and carries `evidence.sightings: 2`,
+        which is what makes it evidence a policy rule may raise to
+        `error` (RFC 0005 §5.2). A first sighting is a warning no rule
+        can raise, because headless Chrome's text metrics move with font
+        availability and a build must not go red on a font. The count is
+        the server's: nothing an upload says can influence it.
+
         The upload records a build with `source` `capture`: whether it is
         of the default branch is the project's `settings.default_branch`.
         Region keys are resolved to message IDs now; the keys the catalog
@@ -6155,6 +6165,11 @@ paths:
         this screenshot is the one that ingested it, while the project's
         newest run is usually a later check of the catalog, which never
         saw it.
+
+        `evidence.sightings` is how many consecutive captures of this
+        route, viewport and locale have shown the finding. Below the
+        two the flake-control rule asks for (RFC 0005 §5.2) it is a
+        warning no policy rule can raise, however strict the policy.
 
         Waivers are applied on read, as everywhere: a waived finding is
         still listed, at severity `waived`, naming the waiver that

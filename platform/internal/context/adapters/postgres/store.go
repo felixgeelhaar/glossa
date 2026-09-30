@@ -315,6 +315,24 @@ func (s *store) InsertCapture(ctx context.Context, c domain.Capture) (bool, erro
 	return true, nil
 }
 
+// PreviousCaptureOfScope is the capture the application showed last of
+// one (route, viewport, locale) — the previous sighting the visual
+// layer's two-sighting rule counts against (RFC 0005 §5.2). The upload
+// that asks has not stored its own captures yet, so the newest row is
+// the one immediately before it.
+func (s *store) PreviousCaptureOfScope(
+	ctx context.Context, project, application uuid.UUID, route string, v domain.Viewport, locale bcp47.Tag,
+) (uuid.UUID, error) {
+	id, err := s.q.GetPreviousCaptureOfScope(ctx, contextsql.GetPreviousCaptureOfScopeParams{
+		ProjectID: project, ApplicationID: application, Route: route,
+		ViewportWidth: int32Of(v.Width), ViewportHeight: int32Of(v.Height), Locale: locale.String(),
+	})
+	if err != nil {
+		return uuid.Nil, storeError(err)
+	}
+	return id, nil
+}
+
 func (s *store) CaptureByShot(ctx context.Context, buildID uuid.UUID, route string, v domain.Viewport, locale bcp47.Tag) (domain.Capture, error) {
 	r, err := s.q.GetCaptureByShot(ctx, contextsql.GetCaptureByShotParams{
 		BuildID: buildID, Route: route, ViewportWidth: int32Of(v.Width), ViewportHeight: int32Of(v.Height),
