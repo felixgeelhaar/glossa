@@ -2,23 +2,21 @@
  * The quality summary port (RFC 0005 §8): the seven numbers for one
  * project, per project and per locale, from one cached endpoint.
  *
- * `apiQualitySummary` implements it with the response checked by zod,
- * as every other port here does. It does *not* go through the generated
- * client, because the operation is a sibling slice of wave 5 and is not
- * in platform/api/openapi.yaml yet; this slice consumes the API and does
- * not change it (RFC 0005 §13). The request below keeps the session
- * conventions of ./client.ts — same-origin cookie, a 401 outside the
- * auth endpoints means the session is gone — and should be replaced by
- * `client.GET(SUMMARY_PATH, …)` the moment the operation lands, with a
- * contract assertion added to ./quality-summary-schemas.ts.
+ * `apiQualitySummary` implements it through the generated client with
+ * the response checked by zod, as every other port here does. It went in
+ * with a hand-rolled fetch while `getQualitySummary` was still a sibling
+ * slice's unmerged work; the operation has since landed, so the request
+ * is the generated one and ./quality-summary-schemas.ts carries the
+ * compile-time contract assertion that keeps the zod shapes and the
+ * spec's from drifting.
  *
  * A project whose server does not answer this yet is *not* a healthy
  * project: `unavailable()` says so, and every screen renders it as "not
  * measured" rather than as zero.
  */
 import { inject, type InjectionKey } from "vue";
-import { reportUnauthenticated } from "./client";
-import { isApiError, read, type RawResult, type Versioned } from "./errors";
+import { client } from "./client";
+import { isApiError, read, type Versioned } from "./errors";
 import { QualitySummary } from "./quality-summary-schemas";
 import type { ProjectRef } from "./releases";
 
@@ -29,28 +27,11 @@ export interface QualitySummaryPort {
   summary(p: ProjectRef, signal?: AbortSignal): Promise<QualitySummary>;
 }
 
-const path = (p: ProjectRef): string =>
-  SUMMARY_PATH.replace("{tenant}", encodeURIComponent(p.tenant)).replace("{project}", encodeURIComponent(p.project));
-
-/** One GET with ./client.ts's session conventions, shaped like what openapi-fetch resolves with. */
-async function get(url: string, signal?: AbortSignal): Promise<RawResult> {
-  const base = globalThis.location?.origin ?? "";
-  const request = new Request(new URL(url, base || "http://localhost"), {
-    method: "GET",
-    credentials: "same-origin",
-    headers: { Accept: "application/json" },
-    ...(signal ? { signal } : {}),
-  });
-  const response = await globalThis.fetch(request);
-  if (response.status === 401) reportUnauthenticated(new URL(request.url).pathname);
-  const body = response.status === 204 ? undefined : await response.json().catch(() => undefined);
-  return response.ok ? { data: body, response } : { error: body, response };
-}
-
 const value = async <T>(p: Promise<Versioned<T>>): Promise<T> => (await p).value;
 
 export const apiQualitySummary: QualitySummaryPort = {
-  summary: (p, signal) => value(read(get(path(p), signal), QualitySummary)),
+  summary: (p, signal) =>
+    value(read(client.GET(SUMMARY_PATH, { params: { path: p }, ...(signal ? { signal } : {}) }), QualitySummary)),
 };
 
 export const QUALITY_SUMMARY: InjectionKey<QualitySummaryPort> = Symbol("quality-summary");

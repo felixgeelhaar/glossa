@@ -42,6 +42,9 @@ export function uncheckedLayer(layer: FindingLayer): SummaryLayer {
   return { layer, available: true, checked: false };
 }
 
+const SINCE = "2026-09-01T00:00:00Z";
+const EXPIRES = "2026-09-30T12:01:00Z";
+
 export function gradedLayer(layer: FindingLayer, errors: number, warnings = 0, waived = 0): SummaryLayer {
   return { layer, available: true, checked: true, findings: { errors, warnings, waived } };
 }
@@ -55,7 +58,19 @@ export function projectHealth(over: Partial<ProjectHealth> = {}): ProjectHealth 
 }
 
 export function qualitySummary(over: Partial<Omit<QualitySummary, "schema">> = {}): QualitySummary {
-  return { schema: SUMMARY_SCHEMA, computed_at: NOW, project: {}, locales: [], ...over };
+  return {
+    schema: SUMMARY_SCHEMA,
+    project_id: "prj_1",
+    environment: "production",
+    since: SINCE,
+    computed_at: NOW,
+    expires_at: EXPIRES,
+    cached: false,
+    project: {},
+    locales: [],
+    unmeasured: [],
+    ...over,
+  };
 }
 
 /**

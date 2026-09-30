@@ -101,7 +101,11 @@ const leadTime = computed<Stat>(() => {
 
 const checks = computed<Stat>(() => {
   const c = health.value?.checks;
-  if (!c || c.runs === 0) return none(s.checksNone);
+  // A pass rate is absent when nothing concluded in the window. Asking
+  // for it rather than inferring it from `runs` keeps this honest if the
+  // two ever come apart: the rate is what this stat renders, so the rate
+  // is what has to be there.
+  if (!c || c.runs === 0 || c.pass_rate === undefined) return none(s.checksNone);
   return ok(
     s.checksValue(percent(c.pass_rate) ?? ""),
     c.median_seconds === undefined ? s.checksDetailNoMedian(c.runs) : s.checksDetail(c.runs, duration(c.median_seconds)),

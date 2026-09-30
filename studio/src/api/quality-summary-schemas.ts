@@ -22,6 +22,7 @@
  * client) as soon as the operation lands.
  */
 import { z } from "zod";
+import type { components } from "./schema";
 import { FindingLayer } from "./quality-schemas";
 
 const timestamp = z.string().min(1);
@@ -79,7 +80,14 @@ export const SummaryContext = z.object({
 /** Check health (§8 row 7): PR-check pass rate and time to a conclusion. Project-wide; checks are not per locale. */
 export const SummaryChecks = z.object({
   runs: count,
-  pass_rate: share,
+  /**
+   * Absent when no check reached a verdict in the window: a pass rate
+   * over no runs is not 0 %, and `runs: 0` is the measured fact. A
+   * required field here would make a project that has never run a check
+   * fail to parse, so the whole summary would read as "could not be
+   * read" rather than as one number nobody could measure.
+   */
+  pass_rate: share.optional(),
   median_seconds: z.number().min(0).optional(),
 });
 
@@ -145,10 +153,28 @@ export const ProjectHealth = z.object({
 
 export const QualitySummary = z.object({
   schema: z.literal(SUMMARY_SCHEMA),
+  /** The project the numbers are about. */
+  project_id: z.string().min(1),
+  /** The locale the rows were narrowed to; absent for all of them. */
+  locale: z.string().min(1).optional(),
+  /** Where "published" meant, for the lead time. */
+  environment: z.string().min(1),
+  /** The start of the window the windowed numbers were measured over. */
+  since: timestamp,
   /** When the cached summary was computed (§8: cached 60 s). */
   computed_at: timestamp,
+  /** When this summary stops being served from the cache. */
+  expires_at: timestamp,
+  /** True where this is a previous computation served again. */
+  cached: z.boolean(),
   project: ProjectHealth,
   locales: z.array(LocaleHealth),
+  /**
+   * Why a number is absent, which the screens render beside "Not
+   * measured". "You may not read this" and "nothing has been published
+   * yet" are different answers and a person deserves to know which.
+   */
+  unmeasured: z.array(z.object({ number: z.string(), reason: z.string() })),
 });
 
 export type SummaryCoverage = z.infer<typeof SummaryCoverage>;
@@ -163,3 +189,26 @@ export type SummaryLayer = z.infer<typeof SummaryLayer>;
 export type LocaleHealth = z.infer<typeof LocaleHealth>;
 export type ProjectHealth = z.infer<typeof ProjectHealth>;
 export type QualitySummary = z.infer<typeof QualitySummary>;
+
+// ── contract alignment (compile time only) ─────────────────────────────
+//
+// The spec is the source: these fail to compile if a zod shape here stops
+// fitting the generated one, which is what stops the dashboard and the
+// endpoint drifting apart silently. `Fits` is one-way on purpose — the
+// server may add a field without breaking the UI, and the UI may not
+// expect one the server does not send.
+type C = components["schemas"];
+type Fits<A, B> = [A] extends [B] ? true : false;
+type Assert<T extends true> = T;
+export type QualitySummaryContractAlignment = [
+  Assert<Fits<C["QualityProjectHealth"]["coverage"], ProjectHealth["coverage"]>>,
+  Assert<Fits<C["QualityProjectHealth"]["findings"], ProjectHealth["findings"]>>,
+  Assert<Fits<C["QualityProjectHealth"]["ai"], ProjectHealth["ai"]>>,
+  Assert<Fits<C["QualityProjectHealth"]["queue"], ProjectHealth["queue"]>>,
+  Assert<Fits<C["QualityProjectHealth"]["context"], ProjectHealth["context"]>>,
+  Assert<Fits<C["QualityProjectHealth"]["lead_time"], ProjectHealth["lead_time"]>>,
+  Assert<Fits<C["QualityProjectHealth"]["checks"], ProjectHealth["checks"]>>,
+  Assert<Fits<C["QualityProjectHealth"]["run"], ProjectHealth["run"]>>,
+  Assert<Fits<C["QualityLocaleHealth"], LocaleHealth>>,
+  Assert<Fits<C["QualitySummary"], QualitySummary>>,
+];
