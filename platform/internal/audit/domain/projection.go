@@ -99,7 +99,50 @@ var (
 // its projection. A type missing here would never reach the audit trail,
 // so projection_registry_test.go reads every declared event type out of
 // the source and fails on one this table does not name.
+// Workflow's projections (RFC 0006 §2, §3). A definition's name and an
+// assignment's or decision's reason are text a person wrote, so they are
+// recorded as their length; the assignee and the eligible party are
+// identifiers ("member:<uuid>", "role:<name>", "group:<uuid>"), kept as
+// written so an entry says who the work went to. An assignment covers
+// units in several locales, so it names no single locale.
+var (
+	workflowDefinition = Projection{
+		Project: "project_id", Selectors: []string{"definition_id", "project_id", "subject"},
+	}
+	workflowBinding = Projection{
+		Project: "project_id",
+		Selectors: []string{
+			"binding_id", "project_id", "definition_id", "subject", "locales", "namespace", "change",
+		},
+	}
+	workflowAssignment = Projection{
+		Project: "project_id",
+		Selectors: []string{
+			"assignment_id", "project_id", "instance_id", "assignee", "permission", "state", "due_at", "by",
+		},
+		By: "by",
+	}
+	workflowApproval = Projection{
+		Project: "project_id", Locale: "locale",
+		Selectors: []string{
+			"approval_id", "project_id", "instance_id", "subject_kind", "subject_id", "locale",
+			"eligible", "state", "principal", "verdict", "approvers", "by",
+		},
+		By: "by",
+	}
+	workflowTimer = Projection{Project: "project_id", Selectors: []string{"instance_id", "project_id", "state"}}
+)
+
 var Projections = map[string]Projection{
+	"workflow.definition_saved": workflowDefinition, "workflow.definition_deleted": workflowDefinition,
+	"workflow.binding_changed":    workflowBinding,
+	"workflow.assignment.created": workflowAssignment, "workflow.assignment.accepted": workflowAssignment,
+	"workflow.assignment.completed": workflowAssignment, "workflow.assignment.declined": workflowAssignment,
+	"workflow.assignment.expired": workflowAssignment,
+	"workflow.approval.requested": workflowApproval, "workflow.approval.granted": workflowApproval,
+	"workflow.approval.denied":    workflowApproval,
+	"workflow.instance.timer_due": workflowTimer, "workflow.instance.timer_overdue": workflowTimer,
+
 	"catalog.project.created": catalogProject, "catalog.project.updated": catalogProject,
 	"catalog.project.deleted": catalogProject,
 

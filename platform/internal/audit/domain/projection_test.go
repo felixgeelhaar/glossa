@@ -221,3 +221,34 @@ func TestDirectDrafts(t *testing.T) {
 		}
 	}
 }
+
+// Workflow's events carry two kinds of text a person wrote — a
+// definition's name and the reason on an assignment or an approval
+// decision — beside the identifiers an entry needs. The text is recorded
+// as its length and the identifiers as written.
+func TestWorkflowEventsKeepTheirPartiesAndDropTheirText(t *testing.T) {
+	for typ, payload := range map[string]string{
+		"workflow.approval.denied": `{"approval_id":"a1","project_id":"p1","subject_kind":"translation",
+			"subject_id":"m1","locale":"de","eligible":"group:g1","state":"denied","principal":"person:u1",
+			"verdict":"denied","reason":"Wrong formality for the legal team","approvers":[],"by":"person:u1"}`,
+		"workflow.assignment.declined": `{"assignment_id":"s1","project_id":"p1","assignee":"member:u2",
+			"permission":"translations.write","state":"declined","reason":"Too busy this week","by":"person:u2","units":[]}`,
+		"workflow.definition_saved": `{"definition_id":"d1","project_id":"p1","name":"Legal sign-off","subject":"translation","version":2}`,
+	} {
+		p, ok := domain.Projections[typ]
+		if !ok {
+			t.Fatalf("%s has no projection", typ)
+		}
+		got := string(domain.Summarize(json.RawMessage(payload), p.Selectors))
+		for _, text := range []string{"Wrong formality", "Too busy", "Legal sign-off"} {
+			if strings.Contains(got, text) {
+				t.Errorf("%s kept %q verbatim: %s", typ, text, got)
+			}
+		}
+		for _, id := range []string{"group:g1", "member:u2", `"version":2`} {
+			if strings.Contains(payload, id) && !strings.Contains(got, id) {
+				t.Errorf("%s dropped the identifier %s: %s", typ, id, got)
+			}
+		}
+	}
+}
