@@ -68,7 +68,7 @@ func setOf(words string) map[string]bool {
 // or the ID.
 func (l *Localizer) Parts(id string, args Args, opts ...Option) []Part {
 	o := l.options(opts)
-	snap := l.c.state.Load()
+	snap := l.snapshot()
 	res := snap.rel.resolve(id, l.requested)
 	return renderAs(l.c, snap, res, o,
 		func(msg messageformat.Message, locale string) ([]Part, string, error) {

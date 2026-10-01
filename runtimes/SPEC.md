@@ -265,7 +265,7 @@ Every runtime exposes:
 
 Loading-order behaviour (persisted last-good, atomic activation, integrity failure, signature rejection, schema version, cold offline start) is covered by `testdata/loading/*.json`. Each file lists a sequence of edge responses and the expected active release after each one. Runtimes drive these through a fake transport. Field reference: [`testdata/README.md`](./testdata/README.md).
 
-Staged rollout (§1.4) is covered by `testdata/loading/rollout-*.json` (an installation on the stable side, a runtime without rollout support) and by `testdata/rollout/cohorts.json`: 10,000 installation ids with the cohort each gets under one salt, the number in the candidate at several percentages, and boundary and cohort-key vectors. The generator computes those cohorts from this section's formula and shares no code with any runtime, so runtimes that agree with it agree with the SPEC, not with each other.
+Staged rollout (§1.4) is covered by `testdata/loading/rollout-*.json` (an installation on the stable side and on the candidate side, a candidate that falls back to the stable view, an invalid `rollout`, a runtime without rollout support) and by `testdata/rollout/cohorts.json`: 10,000 installation ids with the cohort each gets under one salt, the number in the candidate at several percentages, and boundary and cohort-key vectors. The generator computes those cohorts from this section's formula and shares no code with any runtime, so runtimes that agree with it agree with the SPEC, not with each other.
 
 Every runtime runs both suites in CI. A bug found in any runtime becomes a new case here first.
 
