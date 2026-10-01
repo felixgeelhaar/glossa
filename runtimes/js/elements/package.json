@@ -40,7 +40,7 @@
     {
       "name": "@glossa/elements, everything included (lit, @lit/context, @glossa/runtime)",
       "path": "dist/index.js",
-      "limit": "15 KB"
+      "limit": "15.3 KB"
     },
     {
       "name": "@glossa/elements, own code (lit, @lit/context and @glossa/runtime excluded)",

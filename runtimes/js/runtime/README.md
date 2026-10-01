@@ -259,15 +259,19 @@ line is what an app that imports only that pays:
 | Import | Size | Budget |
 |---|---|---|
 | `{ format, formatToParts }` (interpreter only) | 3.13 kB | 4 kB |
-| `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`, staged rollout) | 6.58 kB | 6.5 kB — **over** |
-| `{ createRuntime, resolveLocales, acceptLanguage }` | 6.75 kB | 6.5 kB — **over** |
+| `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`, staged rollout) | 6.58 kB | 6.8 kB |
+| `{ createRuntime, resolveLocales, acceptLanguage }` | 6.75 kB | 6.8 kB |
 | `@glossa/runtime/idb` | 0.26 kB | 0.5 kB |
 | `@glossa/runtime/dev` (the overlay loader, never in production builds) | 0.98 kB | 1.25 kB |
 
 RFC 0002 §8 set 4 kB for the whole JS core. The interpreter alone fits it; the
 contract's loader, SHA-256 and Ed25519 verification, JCS, the fallback graph,
-persistence, background refresh and `explain` add about 2.9 kB. The 6.5 kB
-budget keeps ~0.5 kB for namespace-level lazy loading (bundle splitting).
+persistence, background refresh and `explain` add about 2.9 kB. The budget
+was 6.5 kB, keeping ~0.5 kB for namespace-level lazy loading (bundle
+splitting); staged rollout (SPEC §1.4) costs ~340 B that no trimming of
+its own code recovers, and RFC 0006 §5.2 raised the budget to 6.8 kB for
+it rather than make rollout opt-in, which would leave apps that don't opt
+in outside every rollout.
 Framework adapters are separate packages with their own budgets. If the budget
 gets tight, trim here before dropping contract behaviour: the `Intl.Locale`
 script fallback in `dirOf` (only needed where `textInfo` is missing) and the
