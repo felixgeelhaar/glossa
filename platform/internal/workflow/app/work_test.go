@@ -82,6 +82,9 @@ func (f *fakeWork) UpdateAssignment(_ context.Context, a domain.Assignment) erro
 func (f *fakeWork) ListAssignments(_ context.Context, flt app.AssignmentFilter) ([]domain.Assignment, error) {
 	var out []domain.Assignment
 	for _, a := range f.assignments {
+		if flt.Within != nil && !slices.Contains(*flt.Within, a.ProjectID) {
+			continue
+		}
 		if flt.Assignees == nil || slices.Contains(flt.Assignees, a.Assignee.String()) {
 			out = append(out, a)
 		}
