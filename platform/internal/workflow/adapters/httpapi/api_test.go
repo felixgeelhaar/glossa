@@ -150,10 +150,19 @@ func doc(t *testing.T, name string) *apiv1.WorkflowDocument {
 func unknownGuard(t *testing.T) *apiv1.WorkflowDocument {
 	t.Helper()
 	d := doc(t, "legal")
+	// The default's initial state, whatever the default says, with an
+	// unknown guard on its first transition: everything else valid, so
+	// the one finding is the one under test.
 	chart := (*d)["chart"].(map[string]any)
-	st := chart["states"].(map[string]any)["awaiting_review"].(map[string]any)
-	st["transitions"] = []any{map[string]any{"event": "translation.reviewed", "target": "reviewed", "guard": "legal_signed_off"}}
-	(*d)["guards"] = map[string]any{"legal_signed_off": map[string]any{"use": "legal_department_said_yes"}}
+	st := chart["states"].(map[string]any)[chart["initial"].(string)].(map[string]any)
+	first := st["transitions"].([]any)[0].(map[string]any)
+	first["guard"] = "legal_signed_off"
+	guards, _ := (*d)["guards"].(map[string]any)
+	if guards == nil {
+		guards = map[string]any{}
+		(*d)["guards"] = guards
+	}
+	guards["legal_signed_off"] = map[string]any{"use": "legal_department_said_yes"}
 	return d
 }
 

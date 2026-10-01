@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -133,7 +134,13 @@ func TestVersionsAreAppendOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded, err := v1.Load(); err != nil || len(loaded.States()) != 2 {
+	// Version 1 is the default as it was saved: it loads to the same
+	// chart, state for state.
+	want, err := domain.Compile(defaults.Review())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded, err := v1.Load(); err != nil || !slices.Equal(loaded.States(), want.States()) {
 		t.Fatalf("version 1 no longer loads as saved: %v", err)
 	}
 

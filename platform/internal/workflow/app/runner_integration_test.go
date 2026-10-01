@@ -249,7 +249,7 @@ func (h *runHarness) translate(t *testing.T, ctx context.Context, project uuid.U
 func TestTheRunnerFromRevisionToReview(t *testing.T) {
 	h := newRunHarness(t)
 	project, _ := h.project(t)
-	h.bindDefault(t, project)
+	h.bindDoc(t, project, waitForReview)
 
 	translator, translatorActor := h.as([]string{"translator"}, "de")
 	tr := h.translate(t, translator, project, "Willkommen")
@@ -306,7 +306,7 @@ func TestTheRunnerFromRevisionToReview(t *testing.T) {
 func TestTheRunnerIsIdempotentOnTheOutboxEvent(t *testing.T) {
 	h := newRunHarness(t)
 	project, _ := h.project(t)
-	h.bindDefault(t, project)
+	h.bindDoc(t, project, waitForReview)
 	translator, _ := h.as([]string{"translator"}, "de")
 	h.translate(t, translator, project, "Willkommen")
 	h.drain(t)
@@ -340,7 +340,7 @@ func TestTheRunnerIsIdempotentOnTheOutboxEvent(t *testing.T) {
 func TestConcurrentEventsOnOneSubjectSerializeOnPostgres(t *testing.T) {
 	h := newRunHarness(t)
 	project, message := h.project(t)
-	h.bindDefault(t, project)
+	h.bindDoc(t, project, waitForReview)
 	_, translator := h.as([]string{"translator"}, "de")
 	unit := app.SubjectRef{Kind: domain.SubjectTranslation, Project: project, ID: message, Locale: "de"}
 
