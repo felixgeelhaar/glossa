@@ -12,11 +12,12 @@
 /// types emitted during the step, in order. A `304` step also asserts that
 /// the revalidation carried the previous `ETag` as `If-None-Match`.
 ///
-/// There is no skip list, and [_skips] below is empty: the Dart runtime
-/// passes every loading case. An entry here would mean Dart disagrees with
-/// the contract, and that is a bug, not a configuration. The group `the
-/// skip list is honest` fails if an entry ever goes stale, so the list
-/// cannot quietly rot once someone does need it.
+/// [_skips] below names the loading cases this runtime doesn't pass yet:
+/// only the staged-rollout sequences that put an installation on the
+/// candidate (SPEC §1.4), which the Dart runtime implements in RFC 0006
+/// wave 3. Any other entry would mean Dart disagrees with the contract, and
+/// that is a bug, not a configuration. The group `the skip list is honest`
+/// fails if an entry ever goes stale, so the list cannot quietly rot.
 library;
 
 import 'dart:convert';
@@ -30,9 +31,39 @@ const String _edge = 'https://edge.test';
 const String _deliveryKey = 'pk_test';
 
 /// Loading cases this runtime deliberately doesn't pass, keyed
-/// `<file>: <step index> <description>`, with the reason. Empty, and meant
-/// to stay that way.
-const Map<String, String> _skips = {};
+/// `<file>: <step index> <description>`, with the reason. A sequence's
+/// steps build on each other, so a sequence is skipped whole. Emptied by
+/// RFC 0006 wave 3, which implements SPEC §1.4 in this runtime.
+const String _rolloutWave3 =
+    'SPEC §1.4 staged rollout: the Dart runtime implements it in RFC 0006 '
+    'wave 3; the JS and Go runtimes pass this case';
+const Map<String, String> _skips = {
+  'rollout-candidate-fallback.json: 0 release 1, no rollout': _rolloutWave3,
+  'rollout-candidate-fallback.json: 1 rel_2 published with a rollout of '
+          "rel_3 at 10 %; rel_3's artifacts are corrupt":
+      _rolloutWave3,
+  'rollout-candidate-fallback.json: 2 the same manifest, rel_3 served '
+          'correctly':
+      _rolloutWave3,
+  'rollout-candidate-side.json: 0 cold start, a rollout of rel_2 at 10 %: '
+          'the installation is in the candidate':
+      _rolloutWave3,
+  'rollout-candidate-side.json: 1 revalidate, not modified': _rolloutWave3,
+  'rollout-candidate-side.json: 2 process restart, edge down: the persisted '
+          'manifest puts it on the candidate again':
+      _rolloutWave3,
+  'rollout-candidate-side.json: 3 advanced to 50 %: still in the candidate':
+      _rolloutWave3,
+  'rollout-candidate-side.json: 4 aborted: the manifest carries no rollout, '
+          'so the installation is back on stable':
+      _rolloutWave3,
+  'rollout-candidate-side.json: 5 a new rollout under another salt: the '
+          "installation's new cohort is outside it":
+      _rolloutWave3,
+  'rollout-invalid.json: 0 cold start, an invalid rollout of rel_2 at 100 %':
+      _rolloutWave3,
+  'rollout-invalid.json: 1 a valid rollout of rel_2 at 100 %': _rolloutWave3,
+};
 
 /// A fake `glossa-edge` (SPEC §2) behind the client's [Transport]: it
 /// answers the manifest and artifact paths from whatever it was last told

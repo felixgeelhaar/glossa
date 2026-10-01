@@ -38,6 +38,11 @@ var problems = []struct {
 	{domain.ErrScopeExceedsGrant, mapping{403, "scope_exceeds_grant", "a token can't have scopes beyond what its creator may do"}},
 	{app.ErrForbidden, mapping{403, problem.CodeForbidden, "no access to this tenant"}},
 	{authz.ErrForbidden, mapping{403, problem.CodeForbidden, ""}},
+	// A project outside the caller's scope, or a unit outside an
+	// assigned member's assignments, is answered exactly as one that
+	// does not exist (RFC 0006 §4.1, §3.3) — the same status, code and
+	// detail every context gives its own not-found.
+	{authz.ErrNotVisible, mapping{404, problem.CodeNotFound, "no such resource"}},
 	{app.ErrNotFound, mapping{404, problem.CodeNotFound, "no such resource"}},
 	{domain.ErrInvalidID, mapping{404, problem.CodeNotFound, "no such resource"}},
 	{app.ErrPasskeysDisabled, mapping{404, "passkeys_disabled", "passkeys are not configured on this server"}},

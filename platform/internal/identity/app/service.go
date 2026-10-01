@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
 )
 
@@ -63,6 +65,9 @@ type Deps struct {
 	// (ErrEmailDisabled), and password sign-in doesn't wait for a
 	// verified address.
 	Mailer Mailer
+	// Audit records sign-in attempts in the audit trail (RFC 0006 §6.1);
+	// nil records nothing, which is a configuration only tests have.
+	Audit  SignInAudit
 	Logger *slog.Logger
 	// Clock defaults to time.Now.
 	Clock func() time.Time
@@ -81,8 +86,11 @@ type Service struct {
 	lockout     *authgo.LockoutService
 	passkeys    authgo.PasskeyAuthenticator
 	mailer      Mailer
-	logger      *slog.Logger
-	now         func() time.Time
+	audit       SignInAudit
+	// auditing tracks failed attempts being recorded in the background.
+	auditing sync.WaitGroup
+	logger   *slog.Logger
+	now      func() time.Time
 	// decoy is verified when an email has no password, so a failed
 	// sign-in takes as long whether or not the account exists.
 	decoy authgo.PasswordHash
@@ -91,7 +99,20 @@ type Service struct {
 	// Integration context; zero means this deployment has no GitHub App
 	// and every exchange is refused.
 	oidc GitHubOIDC
+	// coverage answers which units a member whose visibility is
+	// `assigned` may see (RFC 0006 §3.3). It is set after construction,
+	// by SetCoverage, because Workflow implements it; nil means an
+	// `assigned` member sees nothing.
+	coverage authz.Coverage
 }
+
+// SetCoverage wires the read port assignment-scoped visibility filters
+// through (authz.Coverage, implemented by Workflow's assignments). The
+// composition root calls it once Workflow is built. Until it does —
+// and in a deployment that never does — every principal Identity
+// builds for an `assigned` member carries no Coverage, and authz then
+// shows that member nothing: the restriction fails closed.
+func (s *Service) SetCoverage(c authz.Coverage) { s.coverage = c }
 
 // Realm is the auth-go TenantID of every auth-go object. auth-go ties a
 // user, session or link to one tenant; Glossa's people are global and
@@ -147,6 +168,7 @@ func New(cfg Config, d Deps) (*Service, error) {
 		lockout:     authgo.NewLockoutService(d.LoginAttempts, authgo.DefaultLockoutPolicy(), clock),
 		passkeys:    d.Passkeys,
 		mailer:      d.Mailer,
+		audit:       d.Audit,
 		logger:      logger,
 		now:         func() time.Time { return now().UTC() },
 		decoy:       decoy,

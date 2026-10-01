@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
@@ -53,7 +55,7 @@ func callerFrom(ctx context.Context) (caller, bool) {
 // /v1/tenants/{tenant}/… hands over to tenancy.Middleware with this
 // package's Resolver, which checks the tenant against the caller.
 func (a *API) Guard(next http.Handler) http.Handler {
-	tenantScoped := tenancy.Middleware(a, a.logger)(next)
+	tenantScoped := tenancy.Middleware(a, a.logger)(a.projectScoped(next))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req, ok := a.reqs[r.Pattern]
 		if !ok {
@@ -162,6 +164,26 @@ func boundToRoute(c caller, r *http.Request) error {
 		return domain.ErrGrantProjectMismatch
 	}
 	return nil
+}
+
+// projectScoped is the edge's backstop for project scope (RFC 0006
+// §4.1): an operation whose path names a {project} outside the
+// principal's scope answers 404 before any handler runs, exactly as a
+// project that does not exist. Every application service checks the
+// same scope itself (authz.RequireIn and its siblings) — that is the
+// enforcement, and what MCP and every other caller rely on; this makes
+// an operation that forgot to unable to leak through HTTP.
+func (a *API) projectScoped(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if raw := r.PathValue("project"); raw != "" {
+			p, _ := authz.From(r.Context())
+			if project, err := uuid.Parse(raw); err == nil && !p.InProject(project) {
+				a.errs.write(w, r, authz.ErrNotVisible)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // ResolveTenant implements tenancy.Resolver. The tenant named in the

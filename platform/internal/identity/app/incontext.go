@@ -27,7 +27,7 @@ import (
 // people where the editor may run, and everyone who can see the project
 // can see that.
 func (s *Service) ListPreviewOrigins(ctx context.Context, project domain.ProjectRef) ([]domain.PreviewOrigin, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return nil, err
 	}
 	var out []domain.PreviewOrigin
@@ -52,7 +52,7 @@ func (s *Service) ListPreviewOrigins(ctx context.Context, project domain.Project
 func (s *Service) RegisterPreviewOrigin(
 	ctx context.Context, project domain.ProjectRef, origin, label, idemKey string,
 ) (domain.PreviewOrigin, bool, error) {
-	if err := authz.Require(ctx, authz.TokensManage); err != nil {
+	if err := authz.RequireIn(ctx, authz.TokensManage, project.UUID()); err != nil {
 		return domain.PreviewOrigin{}, false, err
 	}
 	p, _ := authz.From(ctx)
@@ -108,7 +108,7 @@ func (s *Service) RegisterPreviewOrigin(
 // in-context grant minted for that origin: taking an origin away ends
 // the editor sessions on it now, not in fifteen minutes.
 func (s *Service) UnregisterPreviewOrigin(ctx context.Context, project domain.ProjectRef, id domain.PreviewOriginID) error {
-	if err := authz.Require(ctx, authz.TokensManage); err != nil {
+	if err := authz.RequireIn(ctx, authz.TokensManage, project.UUID()); err != nil {
 		return err
 	}
 	return s.tx.InTenant(ctx, func(ctx context.Context, st TenantStore) error {
@@ -146,6 +146,17 @@ func (s *Service) MintInContextGrant(ctx context.Context, project domain.Project
 	}
 	if p.Person.IsZero() {
 		return MintedGrant{}, domain.ErrPersonGrantOnly
+	}
+	// The grant is cut from the person and never widens them (RFC 0006
+	// §4.1, §3.3): a project outside their scope does not exist to
+	// them, and a member who sees only their assignments gets no
+	// in-context grant at all — the overlay shows a whole page of a
+	// product's strings, which no assignment covers.
+	if err := authz.InProject(ctx, project.UUID()); err != nil {
+		return MintedGrant{}, err
+	}
+	if p.Assigned() {
+		return MintedGrant{}, &authz.DeniedError{Permission: authz.TranslationsWrite, Assigned: true}
 	}
 	o, err := domain.ParseOrigin(origin)
 	if err != nil {

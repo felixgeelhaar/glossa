@@ -124,7 +124,7 @@ Minified and brotli-compressed (`pnpm size`):
 
 | Import | Size | Budget |
 |---|---|---|
-| `@glossa/elements`, everything included (Lit, `@lit/context`, `@glossa/runtime`) | 14.5 kB | 15 kB |
+| `@glossa/elements`, everything included (Lit, `@lit/context`, `@glossa/runtime`) | 15.21 kB | 15.3 kB (raised from 15 kB for staged rollout, RFC 0006 §5.2) |
 | `@glossa/elements` own code | 3.2 kB | 3.5 kB |
 | `@glossa/elements/ssr` (without the runtime) | 1.5 kB | 1.75 kB |
 

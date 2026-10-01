@@ -51,6 +51,17 @@ func actor(ctx context.Context, perm authz.Permission) (string, error) {
 	return p.Actor.String(), nil
 }
 
+// actorIn returns the acting principal after checking perm in project:
+// a project outside the caller's scope is authz.ErrNotVisible, the
+// answer for one that does not exist (RFC 0006 §4.1).
+func actorIn(ctx context.Context, perm authz.Permission, project uuid.UUID) (string, error) {
+	if err := authz.RequireIn(ctx, perm, project); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return p.Actor.String(), nil
+}
+
 // actorFor checks a locale-scoped permission.
 func actorFor(ctx context.Context, perm authz.Permission, locale bcp47.Tag) (string, error) {
 	l, err := authz.ParseLocale(locale.String())
@@ -58,6 +69,52 @@ func actorFor(ctx context.Context, perm authz.Permission, locale bcp47.Tag) (str
 		return "", err
 	}
 	if err := authz.RequireFor(ctx, perm, l); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return p.Actor.String(), nil
+}
+
+// actorForIn checks a locale-scoped permission in project.
+func actorForIn(ctx context.Context, perm authz.Permission, locale bcp47.Tag, project uuid.UUID) (string, error) {
+	l, err := authz.ParseLocale(locale.String())
+	if err != nil {
+		return "", err
+	}
+	if err := authz.RequireForIn(ctx, perm, l, project); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return p.Actor.String(), nil
+}
+
+// allowedForIn reports a locale-scoped permission in project without
+// failing.
+func allowedForIn(ctx context.Context, perm authz.Permission, locale bcp47.Tag, project uuid.UUID) bool {
+	_, err := actorForIn(ctx, perm, locale, project)
+	return err == nil
+}
+
+// assigned reports whether the caller reads only their assignments
+// (RFC 0006 §3.3).
+func assigned(ctx context.Context) bool {
+	p, ok := authz.From(ctx)
+	return ok && p.Assigned()
+}
+
+// unitActor returns the acting principal after checking perm for one
+// unit — message in locale, in project — as authz.RequireUnit does: an
+// assigned member only in a unit their assignments cover, and a unit
+// outside them is Localization's own not-found.
+func unitActor(ctx context.Context, perm authz.Permission, project, message uuid.UUID, locale bcp47.Tag) (string, error) {
+	l, err := authz.ParseLocale(locale.String())
+	if err != nil {
+		return "", err
+	}
+	if err := authz.RequireUnit(ctx, perm, project, message, l); err != nil {
+		if errors.Is(err, authz.ErrNotVisible) {
+			return "", ErrNotFound
+		}
 		return "", err
 	}
 	p, _ := authz.From(ctx)
@@ -94,7 +151,7 @@ func (s *Service) ensureSourceLocale(ctx context.Context, st Store, p ProjectInf
 // AddLocale adds a locale to a project. Adding one that exists returns
 // it with created false.
 func (s *Service) AddLocale(ctx context.Context, project uuid.UUID, code string) (l domain.Locale, created bool, err error) {
-	by, err := actor(ctx, authz.CatalogWrite)
+	by, err := actorIn(ctx, authz.CatalogWrite, project)
 	if err != nil {
 		return domain.Locale{}, false, err
 	}
@@ -133,9 +190,11 @@ func localeEvent(typ string, l domain.Locale, by string) outbox.Event {
 	}
 }
 
-// GetLocale returns one locale of a project.
+// GetLocale returns one locale of a project. An assigned member reads
+// the locales of a project their assignments reach into: translating a
+// unit needs its locale's direction (RFC 0006 §3.3).
 func (s *Service) GetLocale(ctx context.Context, project uuid.UUID, code string) (domain.Locale, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	if err := authz.RequireProject(ctx, authz.TranslationsRead, project); err != nil {
 		return domain.Locale{}, err
 	}
 	tag, err := localeFromPath(code)
@@ -156,7 +215,7 @@ func (s *Service) GetLocale(ctx context.Context, project uuid.UUID, code string)
 // ListLocales lists a project's locales by code, the source locale
 // included.
 func (s *Service) ListLocales(ctx context.Context, project uuid.UUID, page pagination.Page) ([]domain.Locale, *string, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	if err := authz.RequireProject(ctx, authz.TranslationsRead, project); err != nil {
 		return nil, nil, err
 	}
 	p, err := s.catalog.Project(ctx, project)
@@ -206,7 +265,7 @@ func (s *Service) ListLocales(ctx context.Context, project uuid.UUID, page pagin
 // way around translations.read: anything a caller *reads* goes through
 // ListLocales, which keeps asking for it.
 func (s *Service) CheckPolicyLocaleCodes(ctx context.Context, project uuid.UUID) ([]string, error) {
-	if err := authz.Require(ctx, authz.CatalogWrite); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogWrite, project); err != nil {
 		return nil, err
 	}
 	p, err := s.catalog.Project(ctx, project)
@@ -248,7 +307,7 @@ func sortedLocales(ls []domain.Locale) []domain.Locale {
 // The source locale can't be removed, nor a locale the fallback graph
 // still names.
 func (s *Service) RemoveLocale(ctx context.Context, project uuid.UUID, code string) error {
-	by, err := actor(ctx, authz.CatalogWrite)
+	by, err := actorIn(ctx, authz.CatalogWrite, project)
 	if err != nil {
 		return err
 	}
@@ -295,7 +354,7 @@ func mentions(edges map[string][]string, tag bcp47.Tag) bool {
 // FallbackGraph returns a project's fallback graph (empty with version
 // 0 when none was set).
 func (s *Service) FallbackGraph(ctx context.Context, project uuid.UUID) (Graph, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.TranslationsRead, project); err != nil {
 		return Graph{}, err
 	}
 	if _, err := s.catalog.Project(ctx, project); err != nil {
@@ -313,7 +372,7 @@ func (s *Service) FallbackGraph(ctx context.Context, project uuid.UUID) (Graph, 
 // PutFallbackGraph replaces a project's fallback graph. ifMatch must be
 // the stored version when a graph exists and absent when none does.
 func (s *Service) PutFallbackGraph(ctx context.Context, project uuid.UUID, raw map[string][]string, ifMatch *int) (Graph, error) {
-	by, err := actor(ctx, authz.CatalogWrite)
+	by, err := actorIn(ctx, authz.CatalogWrite, project)
 	if err != nil {
 		return Graph{}, err
 	}

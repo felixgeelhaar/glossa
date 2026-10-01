@@ -97,8 +97,13 @@ func (q *TMQuery) normalize() error {
 // pg_trgm similarity of the normalized text) matches for a source
 // message in a locale pair, best first. Units with the same target are
 // returned once, at their best score. Needs knowledge.read.
+//
+// A lookup in a project outside the caller's scope is not found, one
+// over every project is refused to a caller limited to some (RFC 0006
+// §4.1), and an assigned member — who never searches the tenant's TM
+// (§3.3) — is refused.
 func (s *Service) LookupTM(ctx context.Context, q TMQuery) ([]TMMatch, error) {
-	if err := authz.Require(ctx, authz.KnowledgeRead); err != nil {
+	if err := tmScope(ctx, authz.KnowledgeRead, q.ProjectID, q.AllProjects); err != nil {
 		return nil, err
 	}
 	if err := q.normalize(); err != nil {
@@ -241,7 +246,7 @@ type ConcordanceMatch struct {
 // contains a phrase, case-insensitively, closest first: how a translator
 // checks how a phrase was translated before. Needs knowledge.read.
 func (s *Service) Concordance(ctx context.Context, q ConcordanceQuery) ([]ConcordanceMatch, error) {
-	if err := authz.Require(ctx, authz.KnowledgeRead); err != nil {
+	if err := tmScope(ctx, authz.KnowledgeRead, q.ProjectID, q.AllProjects); err != nil {
 		return nil, err
 	}
 	q.Query = strings.TrimSpace(q.Query)
@@ -277,9 +282,11 @@ func (s *Service) Concordance(ctx context.Context, q ConcordanceQuery) ([]Concor
 // ListUnits lists TM units, active, retired or both, in a stable order.
 // Needs knowledge.read.
 func (s *Service) ListUnits(ctx context.Context, f UnitFilter, page pagination.Page) ([]domain.TMUnit, *string, error) {
-	if err := authz.Require(ctx, authz.KnowledgeRead); err != nil {
+	projects, err := listScope(ctx, authz.KnowledgeRead, f.ProjectID)
+	if err != nil {
 		return nil, nil, err
 	}
+	f.Projects = projects
 	switch f.State {
 	case "":
 		f.State = "active"
@@ -314,7 +321,13 @@ func (s *Service) GetUnit(ctx context.Context, id uuid.UUID) (domain.TMUnit, err
 		u, err = st.Unit(ctx, id)
 		return err
 	})
-	return u, err
+	if err == nil {
+		err = rowScope(ctx, u.ProjectID)
+	}
+	if err != nil {
+		return domain.TMUnit{}, err
+	}
+	return u, nil
 }
 
 // RetireUnit takes a unit out of matching by hand (reason deleted); it
@@ -329,6 +342,12 @@ func (s *Service) RetireUnit(ctx context.Context, id uuid.UUID) error {
 	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		u, err := st.LockUnit(ctx, id)
 		if err != nil {
+			return err
+		}
+		if err := rowScope(ctx, u.ProjectID); err != nil {
+			return err
+		}
+		if _, err := writeScope(ctx, authz.KnowledgeWrite, u.ProjectID); err != nil {
 			return err
 		}
 		if !u.Active() {

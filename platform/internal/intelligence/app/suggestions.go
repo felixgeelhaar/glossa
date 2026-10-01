@@ -55,6 +55,13 @@ func (s *Service) SuggestionSources(ctx context.Context, rs []domain.SuggestionR
 	}
 	out := map[uuid.UUID]MessageSource{}
 	for _, p := range projects {
+		// A project outside the caller's scope shows no source, like a
+		// project that is gone (RFC 0006 §4.1).
+		if err := authz.InProject(ctx, p); errors.Is(err, authz.ErrNotVisible) {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
 		msgs, err := s.Catalog.MessagesByIDs(ctx, p, byProject[p])
 		if errors.Is(err, ErrProjectNotFound) {
 			continue
@@ -79,9 +86,11 @@ func (s *Service) SuggestionSources(ctx context.Context, rs []domain.SuggestionR
 // ListSuggestions lists suggestions, newest first. Needs
 // intelligence.read.
 func (s *Service) ListSuggestions(ctx context.Context, f SuggestionFilter, page pagination.Page) ([]domain.SuggestionRecord, *string, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+	scope, err := authz.Projects(ctx, authz.IntelligenceRead)
+	if err != nil {
 		return nil, nil, err
 	}
+	f.Projects = scope.IDs()
 	if f.Locale != "" {
 		t, err := bcp47.Parse(f.Locale)
 		if err != nil {
@@ -119,7 +128,13 @@ func (s *Service) GetSuggestion(ctx context.Context, id uuid.UUID) (domain.Sugge
 		r, err = st.Suggestion(ctx, id, false)
 		return err
 	})
-	return r, err
+	if err == nil {
+		err = authz.InProject(ctx, r.ProjectID)
+	}
+	if err != nil {
+		return domain.SuggestionRecord{}, err
+	}
+	return r, nil
 }
 
 // ReviewQueue lists a project's pending suggestions ordered by risk
@@ -127,7 +142,7 @@ func (s *Service) GetSuggestion(ctx context.Context, id uuid.UUID) (domain.Sugge
 // (legal, marketing, forbidden terms, max length, missing plural
 // categories) — not by key. Needs intelligence.read.
 func (s *Service) ReviewQueue(ctx context.Context, project uuid.UUID, locales []string, page pagination.Page) ([]domain.SuggestionRecord, *string, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.IntelligenceRead, project); err != nil {
 		return nil, nil, err
 	}
 	if _, err := s.Catalog.Project(ctx, project); err != nil {
@@ -353,7 +368,7 @@ type LocaleMetrics struct {
 // distance of a project's suggestions decided since since (the last 30
 // days when zero). Needs intelligence.read.
 func (s *Service) AcceptanceMetrics(ctx context.Context, project uuid.UUID, since time.Time) ([]LocaleMetrics, time.Time, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.IntelligenceRead, project); err != nil {
 		return nil, time.Time{}, err
 	}
 	if _, err := s.Catalog.Project(ctx, project); err != nil {
@@ -392,7 +407,7 @@ func (s *Service) AcceptanceMetrics(ctx context.Context, project uuid.UUID, sinc
 func (s *Service) ReviewQueueAges(
 	ctx context.Context, project uuid.UUID, locales []string, now time.Time,
 ) ([]LocaleQueueAge, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.IntelligenceRead, project); err != nil {
 		return nil, err
 	}
 	if _, err := s.Catalog.Project(ctx, project); err != nil {
@@ -413,9 +428,11 @@ func (s *Service) ReviewQueueAges(
 // ListDisclosures lists which provider saw which message, newest first
 // (RFC 0003 §7). Needs intelligence.read.
 func (s *Service) ListDisclosures(ctx context.Context, f DisclosureFilter, page pagination.Page) ([]DisclosureRecord, *string, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+	scope, err := authz.Projects(ctx, authz.IntelligenceRead)
+	if err != nil {
 		return nil, nil, err
 	}
+	f.Projects = scope.IDs()
 	before, err := parseCursor(page.After)
 	if err != nil {
 		return nil, nil, err

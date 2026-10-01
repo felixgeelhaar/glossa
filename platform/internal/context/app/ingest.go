@@ -49,7 +49,7 @@ func (s *Service) IngestUsages(ctx context.Context, in IngestUsages) (out Ingest
 		attribute.Int("glossa.document_bytes", len(in.Document)))
 	defer end(&err)
 
-	by, err := actor(ctx, authz.CatalogWrite)
+	by, err := actorIn(ctx, authz.CatalogWrite, in.Project)
 	if err != nil {
 		return Ingested{}, err
 	}
@@ -184,7 +184,7 @@ type CaptureStored struct {
 // capture again is a no-op; a different one of the same route, viewport
 // and locale is ErrCaptureConflict. Needs catalog.write.
 func (s *Service) IngestCapture(ctx context.Context, in IngestCapture) (CaptureStored, error) {
-	by, err := actor(ctx, authz.CatalogWrite)
+	by, err := actorIn(ctx, authz.CatalogWrite, in.Project)
 	if err != nil {
 		return CaptureStored{}, err
 	}

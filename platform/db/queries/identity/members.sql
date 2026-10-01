@@ -43,8 +43,7 @@ SET roles = sqlc.arg(roles), locales = sqlc.arg(locales), version = sqlc.arg(ver
 WHERE id = sqlc.arg(id) AND version = sqlc.arg(version) - 1;
 
 -- name: UpdateMemberRestriction :execrows
--- Project scope, vendor and visibility: modelled, not enforced until
--- RFC 0006 wave 2 (see domain.RestrictionEnforced).
+-- Project scope, vendor and visibility (RFC 0006 §3.3, §4.1).
 UPDATE identity_members
 SET projects = sqlc.arg(projects)::uuid[], vendor_id = sqlc.narg(vendor_id), visibility = sqlc.arg(visibility),
     version = sqlc.arg(version), updated_at = sqlc.arg(updated_at)
@@ -65,7 +64,7 @@ DELETE FROM identity_members WHERE id = sqlc.arg(id);
 -- System scope (db.SystemTx), before a tenant is chosen.
 
 -- name: SystemGetActiveMembership :one
-SELECT id, roles, locales FROM identity_members
+SELECT id, roles, locales, projects, visibility FROM identity_members
 WHERE person_id = sqlc.arg(person_id) AND tenant_id = sqlc.arg(tenant_id) AND status = 'active';
 
 -- name: SystemListMembershipsOfPerson :many

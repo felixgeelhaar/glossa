@@ -47,3 +47,38 @@ type WorkflowDefinitionVersion struct {
 	CreatedBy    string
 	CreatedAt    time.Time
 }
+
+type WorkflowInstance struct {
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	ProjectID    uuid.UUID
+	DefinitionID uuid.UUID
+	Version      int32
+	SubjectKind  string
+	SubjectID    uuid.UUID
+	Locale       string
+	State        string
+	Snapshot     []byte
+	Status       string
+	DueAt        pgtype.Timestamptz
+	OverdueAt    pgtype.Timestamptz
+	TimerState   pgtype.Text
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	FinishedAt   pgtype.Timestamptz
+}
+
+type WorkflowTransition struct {
+	TenantID      uuid.UUID
+	InstanceID    uuid.UUID
+	Seq           int64
+	FromState     string
+	Event         string
+	ToState       string
+	Outcome       string
+	Guards        json.RawMessage
+	Actions       json.RawMessage
+	Actor         string
+	OutboxEventID uuid.UUID
+	At            time.Time
+}

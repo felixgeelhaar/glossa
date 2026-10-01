@@ -35,6 +35,18 @@ export interface Manifest {
   /** Locale → namespace → artifact. */
   artifacts: Record<string, Record<string, ArtifactRef>>;
   signatures?: ManifestSignature[];
+  /** A staged rollout (SPEC §1.4); the top-level release stays the stable one. */
+  rollout?: ManifestRollout;
+}
+
+/** A candidate release for the installations whose cohort is below `percent × 100` (SPEC §1.4). */
+export interface ManifestRollout {
+  id: string;
+  /** An integer from 0 to 100. */
+  percent: number;
+  /** 22 base64url characters, hashed as text. */
+  salt: string;
+  candidate: Pick<Manifest, "release" | "locales" | "fallback" | "artifacts">;
 }
 
 export interface Artifact {

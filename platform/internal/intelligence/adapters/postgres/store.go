@@ -483,7 +483,7 @@ func (s *store) Jobs(ctx context.Context, f app.JobFilter, c *app.Cursor, limit 
 	at, id := before(c)
 	p := intelligencesql.ListJobsParams{
 		ProjectID: nullUUID(f.ProjectID), Locale: text(f.Locale), FillID: nullUUID(f.FillID), MessageID: nullUUID(f.MessageID),
-		BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
+		Projects: f.Projects, BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
 	}
 	if f.State != nil {
 		p.State = text(string(*f.State))
@@ -632,7 +632,7 @@ func (s *store) Suggestions(ctx context.Context, f app.SuggestionFilter, c *app.
 	at, id := before(c)
 	p := intelligencesql.ListSuggestionsParams{
 		ProjectID: nullUUID(f.ProjectID), Locale: text(f.Locale), MessageID: nullUUID(f.MessageID), JobID: nullUUID(f.JobID),
-		BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
+		Projects: f.Projects, BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
 	}
 	if f.Status != nil {
 		p.Status = text(string(*f.Status))
@@ -704,7 +704,7 @@ func (s *store) Disclosures(ctx context.Context, f app.DisclosureFilter, c *app.
 	at, id := before(c)
 	rows, err := s.q.ListDisclosures(ctx, intelligencesql.ListDisclosuresParams{
 		JobID: nullUUID(f.JobID), MessageID: nullUUID(f.MessageID), ProjectID: nullUUID(f.ProjectID),
-		Provider: text(f.Provider), BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
+		Provider: text(f.Provider), Projects: f.Projects, BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
 	})
 	if err != nil {
 		return nil, err

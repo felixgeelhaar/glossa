@@ -33,7 +33,7 @@ func TestMCPIsAbsentUntilEnabled(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// A nil pool and a nil Identity service are enough to build
 			// the endpoint: nothing here touches either until a tool runs.
-			h, err := newMCP(tc.cfg, nil, nil, nil, prometheus.NewRegistry(), nil, slog.New(slog.DiscardHandler))
+			h, err := newMCP(tc.cfg, nil, nil, nil, nil, prometheus.NewRegistry(), nil, slog.New(slog.DiscardHandler))
 			if err != nil {
 				t.Fatalf("newMCP: %v", err)
 			}

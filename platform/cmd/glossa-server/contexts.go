@@ -30,6 +30,7 @@ import (
 	identitymetrics "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/metrics"
 	identitysources "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/sources"
 	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
 	integrationapi "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/httpapi"
 	integrationmetrics "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/metrics"
@@ -82,6 +83,11 @@ import (
 	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
 	releasedomain "github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	workflowcatalog "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/catalog"
+	workflowapi "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/httpapi"
+	workflowidentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
+	workflowpg "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
+	workflowapp "github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
 )
 
 // contexts are the bounded contexts besides Identity, wired to each
@@ -114,6 +120,11 @@ type contexts struct {
 	// serves its reads and waiver writes.
 	quality    *qualityapp.Service
 	qualityAPI *qualityapi.API
+	// workflow is the Workflow context (RFC 0006 §2): definitions as
+	// data, their versions and bindings. workflowAPI serves them and the
+	// read side of instances.
+	workflow    *workflowapp.Service
+	workflowAPI *workflowapi.API
 	// keyIndexes is Release's key index task: it rewrites the index
 	// objects of keys written before their current format (migration
 	// 0015 gave existing keys a scope).
@@ -150,6 +161,16 @@ type contexts struct {
 	// no GitHub App, and the exchange then answers
 	// `github_not_configured`.
 	ciAuth identityapp.GitHubOIDC
+	// workflowRuntime is the rest of Workflow: the instance runner
+	// subscribed to the vocabulary events, the instance store the API
+	// reads, and assignments and approvals.
+	workflowRuntime workflowServices
+	// coverage is Workflow's assignments as the read port assignment-
+	// scoped visibility filters through (authz.Coverage, RFC 0006 §3.3).
+	// Were it ever nil, Identity would hand every `assigned` member a
+	// principal without one and authz would show them nothing: the
+	// restriction fails closed, never open.
+	coverage authz.Coverage
 }
 
 // newPurgeJobs builds the daily retention jobs over the two contexts that
@@ -244,6 +265,11 @@ type contextDeps struct {
 	// when the deployment does not announce its edge).
 	studioURL string
 	edgeURL   string
+	// identity resolves the actor whose event moved a workflow instance
+	// to the grant its actions run with (RFC 0006 §2.5); nil in tests
+	// that build the contexts alone, and the actions of a person's or a
+	// token's event are then refused.
+	identity *identityapp.Service
 	// lookup reads the environment for the GitHub App's own
 	// configuration (RFC 0004 §14.1: platform configuration, not tenant
 	// data, in one Kubernetes Secret).
@@ -253,7 +279,7 @@ type contextDeps struct {
 // buildContexts opens object storage and the signer, then the contexts.
 func buildContexts(
 	cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, events *outbox.Registry,
-	reg prometheus.Registerer, tp trace.TracerProvider, lookup config.LookupFunc,
+	reg prometheus.Registerer, tp trace.TracerProvider, lookup config.LookupFunc, identity *identityapp.Service,
 ) (contexts, error) {
 	objects, err := configured.Open(cfg.Storage)
 	if err != nil {
@@ -271,6 +297,7 @@ func buildContexts(
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
 		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, context: cfg.Context, tracer: tp,
 		github: cfg.GitHub, studioURL: cfg.Identity.StudioURL, edgeURL: cfg.Release.EdgePublicURL, lookup: lookup,
+		identity: identity,
 	})
 }
 
@@ -346,7 +373,22 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err != nil {
 		return contexts{}, err
 	}
+	// Workflow learns about projects and message keys only through
+	// Catalog's service (migration 0040 has no foreign key to them).
+	workflowCatalog := workflowcatalog.New(catalog)
+	workflow := workflowapp.New(workflowpg.NewTransactor(uow), workflowidentity.Permissions{},
+		workflowapp.WithCatalog(workflowCatalog))
+	// The instance runner steps instances on the vocabulary events; its
+	// store is what the API's instance reads query.
+	wf, err := newWorkflow(uow, events, workflow, workflowSources{
+		catalog: catalog, localization: localization, quality: quality, intelligence: intelligence, identity: deps.identity,
+	}, deps.logger)
+	if err != nil {
+		return contexts{}, err
+	}
 	c := contexts{
+		workflow: workflow, workflowAPI: workflowapi.New(workflow, wf.instances, workflowCatalog), workflowRuntime: wf,
+		coverage:   wf.coverage,
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
 		previewAPI:   previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),

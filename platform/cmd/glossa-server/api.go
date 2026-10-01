@@ -11,8 +11,10 @@ import (
 	"github.com/klarlabs-studio/auth-go/aesgcm"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
+	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
 	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
 	contextapi "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/httpapi"
+	identityaudit "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/audit"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/mail"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/passkey"
@@ -28,6 +30,7 @@ import (
 	previewapi "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/httpapi"
 	qualityapi "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/httpapi"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
+	workflowapi "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/httpapi"
 )
 
 // apiServer is the /v1 strict server: every bounded context's handler
@@ -44,6 +47,7 @@ type apiServer struct {
 	*contextAPI
 	*qualityAPI
 	*previewAPI
+	*workflowAPI
 	*metaAPI
 }
 
@@ -59,6 +63,7 @@ type (
 	contextAPI      = contextapi.API
 	qualityAPI      = qualityapi.API
 	previewAPI      = previewapi.API
+	workflowAPI     = workflowapi.API
 )
 
 var _ apiv1.StrictServerInterface = apiServer{}
@@ -81,7 +86,7 @@ var _ apiv1.StrictServerInterface = apiServer{}
 func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts, mcp http.Handler) func(*http.ServeMux) {
 	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
 		knowledgeAPI: c.knowledgeAPI, intelligenceAPI: c.intelligenceAPI, integrationAPI: c.integrationAPI,
-		previewAPI: c.previewAPI, contextAPI: c.contextAPI, qualityAPI: c.qualityAPI, metaAPI: meta}
+		previewAPI: c.previewAPI, contextAPI: c.contextAPI, qualityAPI: c.qualityAPI, workflowAPI: c.workflowAPI, metaAPI: meta}
 	return func(mux *http.ServeMux) {
 		if mcp != nil {
 			mux.Handle(mcpgo.Path, mcp)
@@ -104,7 +109,9 @@ func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts, mcp http.Handle
 // newIdentity wires the Identity context: auth-go's services over
 // Postgres adapters, a mailer and passkeys when configured, and the HTTP
 // edge.
-func newIdentity(cfg config.Identity, logger *slog.Logger, pool *pgxpool.Pool) (*httpapi.API, *identityapp.Service, error) {
+func newIdentity(
+	cfg config.Identity, logger *slog.Logger, pool *pgxpool.Pool, trail auditapp.Recorder,
+) (*httpapi.API, *identityapp.Service, error) {
 	root := cfg.AuthKey()
 	csrfKey, err := deriveKey(root, "csrf")
 	if err != nil {
@@ -132,6 +139,7 @@ func newIdentity(cfg config.Identity, logger *slog.Logger, pool *pgxpool.Pool) (
 		TOTP:          postgres.NewTOTPRepo(uow, cipher),
 		LoginAttempts: postgres.NewLoginAttemptRepo(uow),
 		Mailer:        mailer,
+		Audit:         identityaudit.New(trail),
 		Logger:        logger,
 	}
 	if cfg.WebAuthn.Enabled() {

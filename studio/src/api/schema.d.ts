@@ -5304,6 +5304,379 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/workflow-definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Workflow definitions
+         * @description The tenant's live definitions, by name, each at its latest
+         *     version. With `project`, the ones that project may bind: the
+         *     tenant's and its own. Deleted definitions are not listed; their
+         *     versions stay readable. Needs `workflows.read`. Problem codes:
+         *     `invalid_page_size`, `invalid_page_token` (400).
+         */
+        get: operations["listWorkflowDefinitions"];
+        put?: never;
+        /**
+         * Create a workflow definition
+         * @description The body is the `glossa.workflow/v1` document itself (RFC 0006
+         *     §2.3) — what `glossa workflow push` sends and the workflow
+         *     editor saves. It is compiled and linted before anything is
+         *     stored: an unknown guard or action, an unreachable state, a
+         *     non-final dead end, non-determinism or a delayed transition is
+         *     `invalid_workflow` (422) with every finding, and nothing is
+         *     saved. A saved document becomes version 1; the response carries
+         *     lint's informational notes. With `project` the definition is
+         *     that project's alone; without, every project of the tenant may
+         *     bind it.
+         *
+         *     Needs `workflows.manage`. Problem codes: `invalid_workflow`
+         *     (422), `workflow_definition_exists` (409: a live definition with
+         *     this name in this scope), `workflow_limit_reached` (409: the
+         *     tenant's 50 live definitions, RFC 0006 §9.6).
+         */
+        post: operations["createWorkflowDefinition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/workflow-definitions/{workflow_definition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A workflow definition `id`. */
+                workflow_definition: components["parameters"]["WorkflowDefinitionPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A workflow definition
+         * @description Its identity and latest version; the `ETag` is that version, for
+         *     `If-Match` on the next save. A deleted definition is still
+         *     readable, with `deleted_at`. Needs `workflows.read`.
+         */
+        get: operations["getWorkflowDefinition"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a workflow definition
+         * @description Its bindings go with it, so it is never selected again; its
+         *     versions stay, so whatever ran on them stays explainable.
+         *     Deleting the default `review` definition is allowed and means "no
+         *     workflow" — M4's behaviour (RFC 0006 §2.3). Needs
+         *     `workflows.manage`.
+         */
+        delete: operations["deleteWorkflowDefinition"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A workflow definition `id`. */
+                workflow_definition: components["parameters"]["WorkflowDefinitionPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A definition's versions, newest first
+         * @description Every version with its document, also after the definition was
+         *     deleted. Versions are immutable. Needs `workflows.read`. Problem
+         *     codes: `invalid_page_size`, `invalid_page_token` (400).
+         */
+        get: operations["listWorkflowDefinitionVersions"];
+        put?: never;
+        /**
+         * Save the next version of a definition
+         * @description The body is the whole `glossa.workflow/v1` document, compiled and
+         *     linted exactly as on create. `If-Match` is the definition's
+         *     `ETag` — the version the author edited — so a save that another
+         *     save overtook is refused (412) instead of silently replacing
+         *     their change. Running instances stay on the version they started
+         *     with. A version keeps its definition's `name` and `subject`: a new
+         *     name is a new definition.
+         *
+         *     Needs `workflows.manage`. Problem codes: `invalid_workflow`
+         *     (422, also for a renamed definition or a changed subject),
+         *     `precondition_failed` (412), `precondition_required` (428).
+         */
+        post: operations["saveWorkflowDefinitionVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A workflow definition `id`. */
+                workflow_definition: components["parameters"]["WorkflowDefinitionPath"];
+                /** @description A workflow definition's version number. */
+                version: components["parameters"]["WorkflowVersionPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One version of a definition
+         * @description The document as it was saved, with who saved it and when — what
+         *     an instance that names this version ran on. Needs
+         *     `workflows.read`.
+         */
+        get: operations["getWorkflowDefinitionVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/workflow-definition-lints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lint a workflow document without saving it
+         * @description What `glossa workflow lint` and the editor ask before a save: the
+         *     same compile and lint a save runs, and every finding, with
+         *     `valid` saying whether a save would be accepted. Stores nothing,
+         *     so an invalid document is a `200` with `valid: false`, not a
+         *     `422`. Needs `workflows.read`.
+         */
+        post: operations["lintWorkflowDefinition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/workflow-bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A project's workflow bindings
+         * @description In creation order, which is what "later" means when two bindings
+         *     are equally specific. A project with none has no workflow: no
+         *     instance is created, and it behaves as it did before M5. Needs
+         *     `workflows.read`. Problem codes: `invalid_page_size`,
+         *     `invalid_page_token` (400).
+         */
+        get: operations["listWorkflowBindings"];
+        put?: never;
+        /**
+         * Bind a definition to the project
+         * @description Optionally narrowed to some locales and one namespace. Bindings
+         *     resolve with the check policy's precedence rule (RFC 0005 §4.1):
+         *     the one naming more fields wins, a tie goes to the later one.
+         *     Changing a binding is deleting it and binding again. Needs
+         *     `workflows.manage`. Problem codes: `workflow_binding_exists`
+         *     (409: a binding with this selector), `invalid_workflow_binding`
+         *     (422: a locale that is not BCP 47, or a namespace that cannot be
+         *     one), `workflow_definition_out_of_scope` (422: another project's
+         *     definition), `not_found` (404: the definition, or the project).
+         */
+        post: operations["createWorkflowBinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/workflow-bindings/{workflow_binding}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow binding `id`. */
+                workflow_binding: components["parameters"]["WorkflowBindingPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a binding
+         * @description New instances resolve without it from now on; running instances
+         *     stay on the version they started with. Needs `workflows.manage`.
+         */
+        delete: operations["deleteWorkflowBinding"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/workflow-resolution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Which definition applies to a subject
+         * @description The binding a new instance for this subject would be created
+         *     under, and the definition version it would start on (the bound
+         *     definition's latest). `bound: false` means no binding applies:
+         *     no instance, M4's behaviour. Needs `workflows.read`. Problem
+         *     codes: `invalid_query` (400: a locale that is not BCP 47).
+         */
+        get: operations["resolveWorkflow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/workflow-instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A project's workflow instances
+         * @description An instance exists while work is in flight under a binding
+         *     (RFC 0006 §2.5): created by the first trigger, `finished` when it
+         *     reaches a final state, its transition log kept. Filters:
+         *     `definition`, `status`, `locale`, and the subject — a `message`
+         *     by key, or any subject by `subject_id` (not both). Needs
+         *     `workflows.read`. Problem codes: `invalid_query`,
+         *     `invalid_page_size`, `invalid_page_token` (400),
+         *     `workflow_instances_unavailable` (503: this server runs no
+         *     instance store).
+         */
+        get: operations["listWorkflowInstances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow instance `id`. */
+                workflow_instance: components["parameters"]["WorkflowInstancePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A workflow instance
+         * @description Its definition version, subject, state and status. Needs
+         *     `workflows.read`. Problem codes: `workflow_instances_unavailable`
+         *     (503).
+         */
+        get: operations["getWorkflowInstance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow instance `id`. */
+                workflow_instance: components["parameters"]["WorkflowInstancePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An instance's transition log
+         * @description Every event the instance received, oldest first: the state it
+         *     moved from and to, the guards it evaluated, the actions it ran
+         *     and what became of them, and the actor whose event caused it —
+         *     actions run as that actor, never as Workflow's own principal
+         *     (RFC 0006 §2.5). An event the instance no longer accepted is
+         *     `ignored`; one whose action was refused for permission is
+         *     `refused` and left the instance where it was. Needs
+         *     `workflows.read`. Problem codes: `invalid_page_size`,
+         *     `invalid_page_token` (400), `workflow_instances_unavailable`
+         *     (503).
+         */
+        get: operations["listWorkflowTransitions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8984,6 +9357,188 @@ export interface components {
             layer: components["schemas"]["FindingLayer"];
             findings: number;
         };
+        /**
+         * @description What a definition's instances are about.
+         * @default translation
+         * @enum {string}
+         */
+        WorkflowSubject: "translation" | "release_request";
+        /**
+         * @description A `glossa.workflow/v1` document (RFC 0006 §2.3): `schema`,
+         *     `name` (`^[a-z0-9][a-z0-9-]{0,63}$`), `subject`, a statekit
+         *     Native JSON `chart`, and the `guards` and `actions` that bind the
+         *     chart's names to the platform's vocabulary of primitives. It is
+         *     data, never code: a name the vocabulary does not have is refused
+         *     at save. At most 256 KiB.
+         */
+        WorkflowDocument: {
+            [key: string]: unknown;
+        };
+        /** @description One thing wrong with, or worth knowing about, a definition. */
+        WorkflowFinding: {
+            /** @description The check that found it (`unknown-primitive`, `delayed-transition`, `statechart`, …). */
+            rule: string;
+            /**
+             * @description `error` and `warning` refuse a save; `info` is a note.
+             * @enum {string}
+             */
+            severity: "error" | "warning" | "info";
+            /** @description Where in the document (`guards.two_approvals`, `chart.states.reviewing`); absent for the whole document. */
+            path?: string;
+            state?: string;
+            event?: string;
+            message: string;
+        };
+        WorkflowProblem: components["schemas"]["Problem"] & {
+            findings?: components["schemas"]["WorkflowFinding"][];
+        };
+        WorkflowLintResult: {
+            /** @description Whether a save of this document would be accepted. */
+            valid: boolean;
+            findings: components["schemas"]["WorkflowFinding"][];
+        };
+        WorkflowDefinition: {
+            id: components["schemas"]["Id"];
+            /** @description Set when only this project may bind it. */
+            project_id?: components["schemas"]["Id"];
+            name: string;
+            subject: components["schemas"]["WorkflowSubject"];
+            /** @description The latest version's number. */
+            version: number;
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            deleted_at?: string;
+        };
+        WorkflowDefinitionList: {
+            items: components["schemas"]["WorkflowDefinition"][];
+            next_page_token?: string;
+        };
+        /** @description A definition at the version a save just stored. */
+        WorkflowDefinitionSaved: {
+            id: components["schemas"]["Id"];
+            project_id?: components["schemas"]["Id"];
+            name: string;
+            subject: components["schemas"]["WorkflowSubject"];
+            /** @description The version this save stored. */
+            version: number;
+            /** @description Who saved this version. */
+            created_by: string;
+            /**
+             * Format: date-time
+             * @description When this version was saved.
+             */
+            created_at: string;
+            /** @description Lint's informational notes; anything worse refused the save. */
+            findings: components["schemas"]["WorkflowFinding"][];
+        };
+        WorkflowDefinitionVersion: {
+            definition_id: components["schemas"]["Id"];
+            version: number;
+            /** @example glossa.workflow/v1 */
+            schema: string;
+            document: components["schemas"]["WorkflowDocument"];
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        WorkflowDefinitionVersionList: {
+            items: components["schemas"]["WorkflowDefinitionVersion"][];
+            next_page_token?: string;
+        };
+        CreateWorkflowBinding: {
+            definition_id: components["schemas"]["Id"];
+            /** @description Narrows the binding to these locales; absent or empty is every locale. */
+            locales?: components["schemas"]["Locale"][];
+            /** @description Narrows the binding to one namespace. */
+            namespace?: string;
+        };
+        WorkflowBinding: {
+            id: components["schemas"]["Id"];
+            project_id: components["schemas"]["Id"];
+            definition_id: components["schemas"]["Id"];
+            subject: components["schemas"]["WorkflowSubject"];
+            /** @description Canonical and sorted; empty is every locale. */
+            locales: components["schemas"]["Locale"][];
+            namespace?: string;
+            /** @description Creation order; the later of two equally specific bindings wins. */
+            position: number;
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        WorkflowBindingList: {
+            items: components["schemas"]["WorkflowBinding"][];
+            next_page_token?: string;
+        };
+        WorkflowResolution: {
+            /** @description Whether any binding applies. */
+            bound: boolean;
+            binding?: components["schemas"]["WorkflowBinding"];
+            definition_id?: components["schemas"]["Id"];
+            definition_name?: string;
+            /** @description The version a new instance would start on. */
+            version?: number;
+        };
+        /** @enum {string} */
+        WorkflowInstanceStatus: "active" | "finished";
+        WorkflowInstance: {
+            id: components["schemas"]["Id"];
+            project_id: components["schemas"]["Id"];
+            definition_id: components["schemas"]["Id"];
+            /** @description The version the instance runs on; a new save does not move it. */
+            definition_version: number;
+            subject: components["schemas"]["WorkflowSubject"];
+            /** @description The message, for a translation unit; the release request otherwise. */
+            subject_id: components["schemas"]["Id"];
+            /** @description The translation unit's locale; absent for a release request. */
+            locale?: components["schemas"]["Locale"];
+            /** @description The chart state the instance is in. */
+            state: string;
+            status: components["schemas"]["WorkflowInstanceStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        WorkflowInstanceList: {
+            items: components["schemas"]["WorkflowInstance"][];
+            next_page_token?: string;
+        };
+        WorkflowTransition: {
+            /** Format: int64 */
+            seq: number;
+            from: string;
+            event: string;
+            /** @description The state after; the same as `from` unless `applied`. */
+            to: string;
+            /** @enum {string} */
+            outcome: "applied" | "ignored" | "refused";
+            guards: components["schemas"]["WorkflowGuardOutcome"][];
+            actions: components["schemas"]["WorkflowActionOutcome"][];
+            /** @description Who caused the event, as the outbox names them (`person:…`, `token:…`, `system:…`). The transition's actions ran as this actor. */
+            actor: string;
+            outbox_event_id?: components["schemas"]["Id"];
+            /** Format: date-time */
+            at: string;
+        };
+        WorkflowGuardOutcome: {
+            /** @description The guard's name in the definition. */
+            guard: string;
+            passed: boolean;
+        };
+        WorkflowActionOutcome: {
+            /** @description The action's name in the definition. */
+            name: string;
+            /** @enum {string} */
+            outcome: "done" | "refused" | "failed";
+            detail?: string;
+        };
+        WorkflowTransitionList: {
+            items: components["schemas"]["WorkflowTransition"][];
+            next_page_token?: string;
+        };
     };
     responses: {
         /** @description Signed in. The session cookie is set. */
@@ -9116,6 +9671,18 @@ export interface components {
                 "application/problem+json": components["schemas"]["QAProblem"];
             };
         };
+        /**
+         * @description `invalid_workflow`: the document does not compile or lint, and
+         *     nothing was saved (`findings`, every one).
+         */
+        InvalidWorkflow: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["WorkflowProblem"];
+            };
+        };
     };
     parameters: {
         /** @description A tenant `id`. */
@@ -9178,6 +9745,14 @@ export interface components {
         WaiverPath: components["schemas"]["Id"];
         /** @description A linguistic-QA job `id`. */
         LinguisticJobPath: components["schemas"]["Id"];
+        /** @description A workflow definition `id`. */
+        WorkflowDefinitionPath: components["schemas"]["Id"];
+        /** @description A workflow definition's version number. */
+        WorkflowVersionPath: number;
+        /** @description A workflow binding `id`. */
+        WorkflowBindingPath: components["schemas"]["Id"];
+        /** @description A workflow instance `id`. */
+        WorkflowInstancePath: components["schemas"]["Id"];
         /** @description A check-policy version number, as `listCheckPolicyVersions` gives it. */
         CheckPolicyVersionPath: number;
         /** @description A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's. */
@@ -16123,6 +16698,515 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listWorkflowDefinitions: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of definitions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinitionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createWorkflowDefinition: {
+        parameters: {
+            query?: {
+                /** @description The project `id` the definition belongs to. */
+                project?: components["schemas"]["Id"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowDocument"];
+            };
+        };
+        responses: {
+            /** @description The definition at version 1. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinitionSaved"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidWorkflow"];
+        };
+    };
+    getWorkflowDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A workflow definition `id`. */
+                workflow_definition: components["parameters"]["WorkflowDefinitionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The definition. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinition"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteWorkflowDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A workflow definition `id`. */
+                workflow_definition: components["parameters"]["WorkflowDefinitionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listWorkflowDefinitionVersions: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A workflow definition `id`. */
+                workflow_definition: components["parameters"]["WorkflowDefinitionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of versions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinitionVersionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveWorkflowDefinitionVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A workflow definition `id`. */
+                workflow_definition: components["parameters"]["WorkflowDefinitionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowDocument"];
+            };
+        };
+        responses: {
+            /** @description The definition at its new version. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinitionSaved"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            412: components["responses"]["PreconditionFailed"];
+            422: components["responses"]["InvalidWorkflow"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    getWorkflowDefinitionVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A workflow definition `id`. */
+                workflow_definition: components["parameters"]["WorkflowDefinitionPath"];
+                /** @description A workflow definition's version number. */
+                version: components["parameters"]["WorkflowVersionPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinitionVersion"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    lintWorkflowDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowDocument"];
+            };
+        };
+        responses: {
+            /** @description The findings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowLintResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listWorkflowBindings: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of bindings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowBindingList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createWorkflowBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkflowBinding"];
+            };
+        };
+        responses: {
+            /** @description The binding. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowBinding"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description The binding cannot be made (`invalid_workflow_binding`, `workflow_definition_out_of_scope`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deleteWorkflowBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow binding `id`. */
+                workflow_binding: components["parameters"]["WorkflowBindingPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    resolveWorkflow: {
+        parameters: {
+            query?: {
+                subject?: components["schemas"]["WorkflowSubject"];
+                /** @description The translation unit's locale. */
+                locale?: components["schemas"]["Locale"];
+                /** @description The message's namespace. */
+                namespace?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The resolution. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowResolution"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listWorkflowInstances: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A definition `id`. */
+                definition?: components["schemas"]["Id"];
+                status?: components["schemas"]["WorkflowInstanceStatus"];
+                locale?: components["schemas"]["Locale"];
+                /** @description A message `key`. */
+                message?: components["schemas"]["MessageKey"];
+                /** @description A subject `id` (a message's or a release request's). */
+                subject_id?: components["schemas"]["Id"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of instances. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowInstanceList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getWorkflowInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow instance `id`. */
+                workflow_instance: components["parameters"]["WorkflowInstancePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The instance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowInstance"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listWorkflowTransitions: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow instance `id`. */
+                workflow_instance: components["parameters"]["WorkflowInstancePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of transitions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTransitionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }

@@ -13,22 +13,40 @@
 // is no policy language and no remote call. The role matrix and token
 // scopes that produce a Grant live in the Identity domain.
 //
-// # Not yet enforced: project scope and assignment visibility
+// # Project scope and assignment visibility
 //
-// RFC 0006 gives members and tokens a project scope and members a
-// visibility ("assigned" for every vendor member). Identity stores
-// them (domain.Restriction, APIToken.Projects), but NO CHECK IN THIS
-// PACKAGE CONSULTS THEM and a Principal does not carry them: Require
-// and RequireFor answer exactly as they would for an unrestricted
-// member. Wave 2 of RFC 0006 enforces them in every read path at once;
-// until then domain.RestrictionEnforced is false, and nothing may rely
-// on a restriction to keep anyone out.
+// RFC 0006 narrows a principal beyond its grant in two ways, and every
+// check here honours both:
+//
+//   - Project scope (§4.1): the projects a member's roles or a token's
+//     scopes apply to; empty is every project. A CI token and an
+//     in-context grant are scoped to the one project they were minted
+//     for and never widen it. Every project-addressed use case checks
+//     with RequireIn or RequireForIn (or, after loading a row by another
+//     id, InProject), and a tenant-level list of project-owned rows
+//     filters by Projects. A project outside the scope answers
+//     ErrNotVisible, which every surface renders as its own not-found:
+//     to the caller it does not exist.
+//   - Visibility `assigned` (§3.3), which every vendor member has: they
+//     read only the translation units of their assignments and what
+//     translating those units needs, write translations only in them,
+//     and do nothing else. Require, RequireFor, RequireIn, RequireForIn,
+//     ScopeOf and Projects refuse such a member every permission but
+//     tenant.read, so a path that forgot them fails closed. The paths a
+//     vendor does use admit them through the coverage-aware checks —
+//     RequireUnit, RequireMessage, RequireProject, RequireLocaleIn and
+//     Visible — which consult the Coverage port Identity puts on their
+//     principal. Without one wired, they see nothing.
+//
+// RLS stays tenant-level (RFC 0006 §14 decision 7): project scope and
+// visibility are enforced here, at the application layer.
 package authz
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
@@ -99,9 +117,22 @@ var (
 type DeniedError struct {
 	Permission Permission
 	Locale     string // empty unless the check was for a locale
+	// Assigned is set when the permission is refused because the
+	// principal reads only its assignments (RFC 0006 §3.3).
+	Assigned bool
+	// ProjectScoped is set when the permission is refused because it
+	// reaches beyond any one project and the principal is limited to
+	// some (RFC 0006 §4.1).
+	ProjectScoped bool
 }
 
 func (e *DeniedError) Error() string {
+	if e.ProjectScoped {
+		return fmt.Sprintf("authz: %s is not granted to a principal limited to some projects", e.Permission)
+	}
+	if e.Assigned {
+		return fmt.Sprintf("authz: %s is not granted to a member who sees only their assignments", e.Permission)
+	}
 	if e.Locale != "" {
 		return fmt.Sprintf("authz: %s is not granted for %s", e.Permission, e.Locale)
 	}
@@ -127,6 +158,18 @@ type Principal struct {
 	TokenTenant tenancy.ID
 	// Grant is what the principal may do in Tenant.
 	Grant domain.Grant
+	// Projects is the projects Grant applies to (RFC 0006 §4.1); empty
+	// means every project. A CI token's and an in-context grant's is
+	// the one project they were minted for.
+	Projects domain.ProjectScope
+	// Visibility is VisibilityAssigned for a member who reads only the
+	// units of their assignments (§3.3); empty or VisibilityAll
+	// otherwise.
+	Visibility domain.Visibility
+	// Coverage answers which units an `assigned` member may see. Nil
+	// for everyone else — and for an `assigned` member when no
+	// implementation is wired, who then sees nothing.
+	Coverage Coverage
 }
 
 type ctxKey struct{}
@@ -197,11 +240,16 @@ func Background(ctx context.Context, name string, perms ...Permission) (context.
 }
 
 // Require returns nil if the principal holds perm for every locale in
-// the context's tenant.
+// the context's tenant. It does not consult project scope: a
+// project-addressed use case uses RequireIn. An `assigned` member is
+// refused everything but tenant.read.
 func Require(ctx context.Context, perm Permission) error {
 	p, err := inTenant(ctx)
 	if err != nil {
 		return err
+	}
+	if p.Assigned() && !slices.Contains(assignedTenantPermissions, perm) {
+		return assignedDenied(perm)
 	}
 	if !p.Grant.Allows(perm) {
 		return &DeniedError{Permission: perm}
@@ -215,6 +263,9 @@ func RequireFor(ctx context.Context, perm Permission, locale domain.Locale) erro
 	p, err := inTenant(ctx)
 	if err != nil {
 		return err
+	}
+	if p.Assigned() {
+		return assignedDenied(perm)
 	}
 	if !p.Grant.AllowsFor(perm, locale) {
 		return &DeniedError{Permission: perm, Locale: locale.String()}
@@ -240,7 +291,7 @@ func ScopeOf(ctx context.Context, perm Permission) (Scope, error) {
 		return Scope{}, err
 	}
 	scope, ok := p.Grant.Locales(perm)
-	if !ok {
+	if !ok || p.Assigned() {
 		return Scope{}, nil
 	}
 	return Scope{Granted: true, Locales: scope.Strings()}, nil

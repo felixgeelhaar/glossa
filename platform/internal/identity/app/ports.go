@@ -45,6 +45,10 @@ type MembershipGrant struct {
 	Member  domain.MemberID
 	Roles   domain.Roles
 	Locales domain.LocaleScope
+	// Projects and Visibility are the membership's restriction (RFC
+	// 0006 §3.3, §4.1), which the principal carries beside its grant.
+	Projects   domain.ProjectScope
+	Visibility domain.Visibility
 }
 
 // MembershipView is one of a person's tenants, for GET /v1/me.
@@ -57,9 +61,11 @@ type MembershipView struct {
 
 // TokenRecord is what bearer authentication needs about a token.
 type TokenRecord struct {
-	ID         domain.TokenID
-	Tenant     tenancy.ID
-	Scopes     domain.Scopes
+	ID     domain.TokenID
+	Tenant tenancy.ID
+	Scopes domain.Scopes
+	// Projects is the token's project scope (RFC 0006 §4.1).
+	Projects   domain.ProjectScope
 	ExpiresAt  *time.Time
 	RevokedAt  *time.Time
 	LastUsedAt *time.Time
@@ -192,8 +198,7 @@ type TenantStore interface {
 	// ErrStaleVersion unless the stored version is m.Version-1.
 	UpdateMemberAccess(ctx context.Context, m domain.Member) error
 	// UpdateMemberRestriction saves project scope, vendor, visibility and
-	// version, like UpdateMemberAccess. The restriction is modelled, not
-	// enforced (domain.RestrictionEnforced).
+	// version, like UpdateMemberAccess.
 	UpdateMemberRestriction(ctx context.Context, m domain.Member) error
 	ActivateMember(ctx context.Context, m domain.Member) error
 	DeleteMember(ctx context.Context, id domain.MemberID) error

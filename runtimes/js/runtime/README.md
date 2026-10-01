@@ -45,6 +45,8 @@ to the inline default, then to the message ID. Everything else is optional.
 | `bidiIsolation`, `functions` | MF2 defaults | Passed to the interpreter. |
 | `onError` | none | Error channel listener (more with `runtime.onError`). |
 | `errorInterval` | `60000` | An identical error is reported at most once per interval. |
+| `rollout` | `true` | Staged rollout support (SPEC §1.4). `false` ignores a manifest's `rollout`: always the stable release, never a candidate fetch, `explain().rollout` is `null`. |
+| `installationId` | a random 128-bit id | This installation's cohort key under a staged rollout. By default it is created the first time a manifest with a `rollout` is read and kept in `storage` with the last-good release (in memory without storage). |
 
 The `Runtime`:
 
@@ -52,7 +54,7 @@ The `Runtime`:
 |---|---|
 | `t(id, values?, { default? }) → string` | Renders `id` along the active chain. |
 | `parts(id, values?, { default? }) → Part[]` | The same as parts (text, markup, bidi isolates, fallbacks, values), for adapters and typed accessors. |
-| `explain(id, locales?) → Explanation` | SPEC §6, without side effects: `{ id, requested, locale, chain, resolvedFrom, release, source, steps }`. With `locales`, explains those instead of the active ones and loads nothing. |
+| `explain(id, locales?) → Explanation` | SPEC §6, without side effects: `{ id, requested, locale, chain, resolvedFrom, release, source, steps, rollout }`. `rollout` is `{ id, percent, cohort, side }` under a staged rollout, else `null`. With `locales`, explains those instead of the active ones and loads nothing. |
 | `locale`, `dir`, `release` | The active locale, its direction from the manifest, and `{ id, version }`. |
 | `environment` | The active release's environment, from its manifest (covered by its signature when `publicKeys` are set); `undefined` until a release is active. The overlay loader reads it. |
 | `availableLocales` | The active release's `locales` (`{ code, direction }[]`, empty until one is active), e.g. for a locale picker. |
@@ -164,6 +166,17 @@ The source locale is always the implicit last step. `lookupLocale`
 - **Persistence** stores the manifest, its ETag and the verified bytes of every
   artifact of that release the runtime has loaded, across restarts. Storage
   failures only cost persistence.
+- **Staged rollout** (SPEC §1.4). When the manifest carries a valid
+  `rollout`, the installation's cohort — the first four bytes of
+  SHA-256(salt ‖ installation id), big-endian, mod 10000 — decides its side:
+  below `percent × 100` it activates the candidate's release, locales,
+  fallback and artifacts, atomically as above; otherwise the stable release,
+  without fetching any candidate artifact. A candidate that can't be
+  activated falls back to the stable view of the same manifest, never to the
+  previous release. The manifest is persisted as served, so a restart decides
+  the same side, and an aborted rollout (no `rollout`, or another `id`)
+  returns the installation to stable on the next manifest. An invalid
+  `rollout` is ignored with a `schema` error.
 - **Bad messages.** A message in an artifact that isn't an MF2 data-model
   message is dropped with a `schema` error (with its `messageId`) and resolves
   as missing, so the fallback chain covers it; it never blocks the release.
@@ -246,15 +259,19 @@ line is what an app that imports only that pays:
 | Import | Size | Budget |
 |---|---|---|
 | `{ format, formatToParts }` (interpreter only) | 3.13 kB | 4 kB |
-| `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`) | 6.2 kB | 6.5 kB |
-| `{ createRuntime, resolveLocales, acceptLanguage }` | 6.36 kB | 6.5 kB |
+| `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`, staged rollout) | 6.58 kB | 6.8 kB |
+| `{ createRuntime, resolveLocales, acceptLanguage }` | 6.75 kB | 6.8 kB |
 | `@glossa/runtime/idb` | 0.26 kB | 0.5 kB |
 | `@glossa/runtime/dev` (the overlay loader, never in production builds) | 0.98 kB | 1.25 kB |
 
 RFC 0002 §8 set 4 kB for the whole JS core. The interpreter alone fits it; the
 contract's loader, SHA-256 and Ed25519 verification, JCS, the fallback graph,
-persistence, background refresh and `explain` add about 2.9 kB. The 6.5 kB
-budget keeps ~0.5 kB for namespace-level lazy loading (bundle splitting).
+persistence, background refresh and `explain` add about 2.9 kB. The budget
+was 6.5 kB, keeping ~0.5 kB for namespace-level lazy loading (bundle
+splitting); staged rollout (SPEC §1.4) costs ~340 B that no trimming of
+its own code recovers, and RFC 0006 §5.2 raised the budget to 6.8 kB for
+it rather than make rollout opt-in, which would leave apps that don't opt
+in outside every rollout.
 Framework adapters are separate packages with their own budgets. If the budget
 gets tight, trim here before dropping contract behaviour: the `Intl.Locale`
 script fallback in `dirOf` (only needed where `textInfo` is missing) and the

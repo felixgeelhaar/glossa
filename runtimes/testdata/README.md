@@ -39,15 +39,15 @@ against the MF2 data-model schema, and every manifest and artifact against [`sch
 Each loading file starts with empty persisted storage. The Ed25519 key that signs these
 fixtures is a fixed, test-only key (seed in the generator); it signs nothing else.
 
-The `rollout-*.json` sequences are the ones every runtime written before SPEC §1.4 already
-passes: `rollout-old-runtime` (support off, the rollout at 100 %, an installation inside the
-candidate: still stable, no candidate fetch) and `rollout-stable-side` (an installation outside
-the candidate through start, restart, advance and abort). A runtime that ignores `rollout`
-passes them by ignoring it, which is the old-runtime guarantee itself. Sequences that put an
-installation *on* the candidate — activation, advance, abort back to stable, a candidate whose
-artifact fails integrity falling back to the stable view, an invalid `rollout` — are not here
-yet: today's runtimes fail them, and the JS and Go drivers have no expected-failure list. They
-land with the runtimes that implement §1.4 (RFC 0006 §13, wave 2).
+The `rollout-*.json` sequences: `rollout-old-runtime` (support off, the rollout at 100 %, an
+installation inside the candidate: still stable, no candidate fetch) and `rollout-stable-side` (an
+installation outside the candidate through start, restart, advance and abort) pass in every
+runtime, including one written before SPEC §1.4, by ignoring `rollout`, which is the old-runtime
+guarantee itself. `rollout-candidate-side` (activation, restart, advance, abort back to stable, a
+new rollout drawing again), `rollout-candidate-fallback` (a candidate whose artifact fails
+integrity falls back to the stable view of the same manifest) and `rollout-invalid` (an invalid
+`rollout` is ignored with a `schema` error) need §1.4: JS and Go pass them (RFC 0006 wave 2); the
+Dart driver lists them in `_skips` until wave 3.
 
 ## `rollout/cohorts.json` (staged rollout, SPEC §1.4)
 

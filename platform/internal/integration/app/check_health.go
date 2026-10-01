@@ -51,7 +51,7 @@ func (h CheckHealth) PassRate() (rate float64, measured bool) {
 // join is through the connection. Needs `integration.read`, the
 // permission that already governs reading a project's Git integration.
 func (s *Service) ProjectCheckHealth(ctx context.Context, project uuid.UUID, since time.Time) (CheckHealth, error) {
-	if err := authz.Require(ctx, authz.IntegrationRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.IntegrationRead, project); err != nil {
 		return CheckHealth{}, err
 	}
 	if _, err := s.catalog.Project(ctx, project); err != nil {

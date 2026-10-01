@@ -1,0 +1,97 @@
+//go:build integration
+
+package app_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
+	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
+)
+
+func outcome(err error) string {
+	switch {
+	case err == nil:
+		return "ok"
+	case errors.Is(err, authz.ErrNotVisible), errors.Is(err, app.ErrNotFound), errors.Is(err, app.ErrProjectNotFound):
+		return "not found"
+	case errors.Is(err, authz.ErrForbidden):
+		return "denied"
+	}
+	return err.Error()
+}
+
+// TestIntelligenceRestrictions: AI fills, jobs and suggestions are their
+// project's — not found outside a principal's scope and left out of its
+// lists — and an assigned member reads and requests none of them (RFC
+// 0006 §3.3, §4.1). No provider is called: consent is off and the
+// provider refuses.
+func TestIntelligenceRestrictions(t *testing.T) {
+	w := newWiring(t, nil)
+	w.configure(t, false, 0)
+	p := w.project(t, []string{"de"}, map[string]string{"a": "Apple"})
+	fill, _, err := w.svc.RequestFill(w.developer(), p, app.FillRequest{Locales: []string{"de"}}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := pagination.Page{Size: 10}
+	jobs, _, err := w.svc.ListJobs(w.developer(), app.JobFilter{}, page)
+	if err != nil || len(jobs) == 0 {
+		t.Fatalf("jobs = %v, %v", jobs, err)
+	}
+	scoped := authztest.ScopedMember(context.Background(), w.tenant, []uuid.UUID{uuid.New()}, []string{"developer"})
+	cov := &authztest.Coverage{}
+	vendor, member := authztest.Assigned(context.Background(), w.tenant, cov, "de")
+	cov.Assign(member, p, uuid.New(), "de")
+
+	for _, tc := range []struct {
+		name string
+		call func() error
+		want string
+	}{
+		{"scoped: a fill out of scope", func() error { _, err := w.svc.GetFill(scoped, fill.Fill.ID); return err }, "not found"},
+		{"scoped: a job out of scope", func() error { _, err := w.svc.GetJob(scoped, jobs[0].ID); return err }, "not found"},
+		{"scoped: cancels a job out of scope", func() error { _, err := w.svc.CancelJob(scoped, jobs[0].ID); return err }, "not found"},
+		{"scoped: fills a project out of scope", func() error {
+			_, _, err := w.svc.RequestFill(scoped, p, app.FillRequest{Locales: []string{"de"}}, "")
+			return err
+		}, "not found"},
+		{"scoped: the review queue out of scope", func() error { _, _, err := w.svc.ReviewQueue(scoped, p, nil, page); return err }, "not found"},
+		{"scoped: project settings out of scope", func() error { _, err := w.svc.GetProjectSettings(scoped, p); return err }, "not found"},
+
+		{"assigned: lists jobs", func() error { _, _, err := w.svc.ListJobs(vendor, app.JobFilter{}, page); return err }, "denied"},
+		{"assigned: lists suggestions", func() error {
+			_, _, err := w.svc.ListSuggestions(vendor, app.SuggestionFilter{}, page)
+			return err
+		}, "denied"},
+		{"assigned: the review queue", func() error { _, _, err := w.svc.ReviewQueue(vendor, p, nil, page); return err }, "denied"},
+		{"assigned: requests a fill", func() error {
+			_, _, err := w.svc.RequestFill(vendor, p, app.FillRequest{Locales: []string{"de"}}, "")
+			return err
+		}, "denied"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := outcome(tc.call()); got != tc.want {
+				t.Errorf("got %s, want %s", got, tc.want)
+			}
+		})
+	}
+
+	t.Run("lists", func(t *testing.T) {
+		got, _, err := w.svc.ListJobs(scoped, app.JobFilter{}, page)
+		if err != nil || len(got) != 0 {
+			t.Errorf("a project-scoped job list holds %d jobs of another project (%v)", len(got), err)
+		}
+		in := authztest.ScopedMember(context.Background(), w.tenant, []uuid.UUID{p}, []string{"developer"})
+		got, _, err = w.svc.ListJobs(in, app.JobFilter{}, page)
+		if err != nil || len(got) != len(jobs) {
+			t.Errorf("jobs in scope = %d, %v; want %d", len(got), err, len(jobs))
+		}
+	})
+}

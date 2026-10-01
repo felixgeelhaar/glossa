@@ -138,9 +138,8 @@ type APIToken struct {
 	Name     string
 	Scopes   Scopes
 	// Projects is the projects the token may act on (RFC 0006 §4.1);
-	// empty is every project. NOT ENFORCED until RFC 0006 wave 2 — see
-	// RestrictionEnforced: a project-scoped token still reaches every
-	// project of its tenant.
+	// empty is every project. Package authz enforces it: a project
+	// outside it does not exist to the token.
 	Projects   ProjectScope
 	Hint       string
 	Hash       string

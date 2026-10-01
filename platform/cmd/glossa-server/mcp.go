@@ -9,10 +9,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/trace"
 
+	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
 	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/ratelimit"
+	mcpaudit "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/audit"
 	mcpidentity "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/identity"
 	"github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/mcpgo"
 	mcpmetrics "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/metrics"
@@ -34,17 +36,24 @@ const mcpRateInterval = time.Minute
 // the bounded contexts whose ports its tools will call.
 func newMCP(
 	cfg config.MCP, identity *identityapp.Service, pool *pgxpool.Pool, tools []mcpapp.Tool,
-	reg prometheus.Registerer, tp trace.TracerProvider, logger *slog.Logger,
+	trail auditapp.Recorder, reg prometheus.Registerer, tp trace.TracerProvider, logger *slog.Logger,
 ) (http.Handler, error) {
 	if !cfg.Enabled {
 		logger.Info("GLOSSA_MCP_ENABLED is off: /mcp is not served")
 		return nil, nil //nolint:nilnil // no MCP endpoint is a valid configuration
 	}
 	metrics := mcpmetrics.New(reg)
+	// Every call goes to the MCP ledger and, beside it, to the tenant's
+	// audit trail (RFC 0006 §6.1).
+	var toTrail mcpapp.Option = func(*mcpapp.Service) {}
+	if trail != nil {
+		toTrail = mcpapp.WithAudit(mcpaudit.New(trail))
+	}
 	svc, err := mcpapp.New(
 		mcpidentity.New(identity),
 		mcpapp.WithTools(tools...),
 		mcpapp.WithAudit(mcppg.NewAudit(db.NewUnitOfWork(pool))),
+		toTrail,
 		mcpapp.WithMetrics(metrics),
 		mcpapp.WithLimiter(ratelimit.New(ratelimit.Config{Rate: cfg.Rate, Interval: mcpRateInterval, Burst: cfg.Burst})),
 		mcpapp.WithTracerProvider(tp),

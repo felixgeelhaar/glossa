@@ -59,6 +59,10 @@ type Explanation struct {
 	Release *ReleaseRef `json:"release"`
 	Source  Source      `json:"source"`
 	Steps   []Step      `json:"steps"`
+	// Rollout describes the staged rollout in the active manifest (SPEC
+	// §1.4): its id and percent, the cohort and the side rendered from. It
+	// is nil without a valid rollout, or with rollout support off.
+	Rollout *RolloutInfo `json:"rollout"`
 }
 
 func (res resolution) explain(snap *snapshot) Explanation {
@@ -69,6 +73,7 @@ func (res resolution) explain(snap *snapshot) Explanation {
 		Chain:     nonNil(res.chain),
 		Source:    SourceInline,
 		Steps:     nonNil(res.steps),
+		Rollout:   snap.rolloutInfo(),
 	}
 	if snap.rel != nil {
 		ref := snap.rel.manifest.Release

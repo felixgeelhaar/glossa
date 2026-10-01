@@ -16,6 +16,10 @@ package m5_test
 // rather than another, only on the operation existing.
 
 // Workflow (§2, §8): definitions, bindings, instances, transitions.
+// These are in the spec since wave 2 (tag `workflows`); the paths below
+// are the spec's: definitions are the tenant's (a project's own one is
+// created with `?project=`), bindings and instances are addressed under
+// their project, and an instance's log is under the instance.
 func (s *scenario) workflowDefinitionsPath() string { return s.tenantPath("/workflow-definitions") }
 func (s *scenario) workflowBindingsPath(project string) string {
 	return s.projectPathOf(project, "/workflow-bindings")

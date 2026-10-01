@@ -217,17 +217,15 @@ func TestProjectScopedTokenIsStored(t *testing.T) {
 	}
 }
 
-// THE GAP, PINNED END TO END. Project scope and assignment visibility are
-// stored (above) and NOT ENFORCED until RFC 0006 wave 2: a vendor member
-// who sees "only their assignments", limited to one project, is
-// authorized exactly as an unrestricted translator, and a read path
-// lists the whole tenant to them. A project-scoped token is authorized
-// exactly as an unscoped one.
-//
-// When wave 2 enforces the restriction this test fails; replace it with
-// the enforcement's own tests and remove the NOT ENFORCED warnings
-// (see domain.RestrictionEnforced).
-func TestRestrictionsAreNotYetEnforced(t *testing.T) {
+// TestRestrictionsAreEnforced is what wave 1's tripwire
+// (TestRestrictionsAreNotYetEnforced) said would replace it: the
+// principals Identity builds now carry the restriction — through the
+// system-scope lookups that build them (migration 0046) — and authz
+// holds them to it. A vendor member reads only their assignments and is
+// refused the tenant's member list; a project-scoped token does not see
+// a project outside its scope; and nobody scopes a token or an
+// invitation wider than themselves.
+func TestRestrictionsAreEnforced(t *testing.T) {
 	h := newHarness(t)
 	ada := h.signUp(t, "ada@example.com")
 	acme, _, err := h.svc.CreateOrganization(h.as(t, ada, tenancy.ID{}), "acme", "Acme", "")
@@ -239,31 +237,76 @@ func TestRestrictionsAreNotYetEnforced(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	project, other := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	if _, _, err := h.svc.InviteMember(inAcme, app.Invitation{
 		Email: "vera@lingo.example", Roles: []string{"translator"}, Locales: []string{"de"},
-		Projects: []string{newProjectID()}, Vendor: v.ID.String(), Visibility: "assigned",
+		Projects: []string{project.String()}, Vendor: v.ID.String(), Visibility: "assigned",
 	}, ""); err != nil {
 		t.Fatal(err)
 	}
 	vera := h.signUp(t, "vera@lingo.example")
 	asVera := h.as(t, vera, acme.ID)
 	p, _ := authz.From(asVera)
-	plain := domain.GrantForMember(mustRoles(t, "translator"), mustLocales(t, "de"))
-	if !reflect.DeepEqual(p.Grant.LocaleScopes(), plain.LocaleScopes()) {
-		t.Error("a vendor member's grant differs from a plain translator's: enforcement has begun — replace this test")
+	if !p.Assigned() || p.Member.IsZero() || !p.InProject(project) || p.InProject(other) {
+		t.Fatalf("a vendor member's principal = visibility %q, projects %v; want assigned, limited to %s",
+			p.Visibility, p.Projects.Strings(), project)
 	}
-	members, _, err := h.svc.ListMembers(asVera, firstPage())
-	if err != nil || len(members) != 2 {
-		t.Errorf("a vendor member lists %d members (%v); until wave 2 they still see the whole tenant", len(members), err)
+	if p.Coverage != nil {
+		t.Error("no Coverage is wired in this harness, so the principal must carry none (and see nothing)")
+	}
+	if _, _, err := h.svc.ListMembers(asVera, firstPage()); !errors.Is(err, authz.ErrForbidden) {
+		t.Errorf("a vendor member lists the tenant's members: %v", err)
+	}
+	if _, err := h.svc.GetTenant(asVera); err != nil {
+		t.Errorf("a vendor member reads their own tenant: %v", err)
+	}
+	if err := authz.RequireProject(asVera, authz.CatalogRead, project); !errors.Is(err, authz.ErrNotVisible) {
+		t.Errorf("with no Coverage wired an assigned member must see no project, got %v", err)
+	}
+	if _, err := h.svc.MintInContextGrant(asVera, domain.ProjectRef(project), "https://preview.acme.example"); !errors.Is(err, authz.ErrForbidden) {
+		t.Errorf("an assigned member minted an in-context grant: %v", err)
 	}
 
-	tok, err := h.svc.IssueToken(inAcme, app.TokenRequest{Name: "ci", Scopes: []string{"read"}, Projects: []string{newProjectID()}}, "")
+	tok, err := h.svc.IssueToken(inAcme, app.TokenRequest{Name: "ci", Scopes: []string{"read"}, Projects: []string{project.String()}}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	tp, _ := authz.From(h.asToken(t, tok.Secret.String()))
-	if !reflect.DeepEqual(tp.Grant.LocaleScopes(), domain.GrantForScopes(domain.Scopes{domain.ScopeRead}).LocaleScopes()) {
-		t.Error("a project-scoped token's grant differs from an unscoped one: enforcement has begun — replace this test")
+	asTok := h.asToken(t, tok.Secret.String())
+	tp, _ := authz.From(asTok)
+	if !tp.InProject(project) || tp.InProject(other) {
+		t.Fatalf("a project-scoped token's principal = projects %v", tp.Projects.Strings())
+	}
+	if err := authz.RequireIn(asTok, authz.CatalogRead, other); !errors.Is(err, authz.ErrNotVisible) {
+		t.Errorf("a project-scoped token reaches another project: %v", err)
+	}
+	if err := authz.RequireIn(asTok, authz.CatalogRead, project); err != nil {
+		t.Errorf("a project-scoped token in its project: %v", err)
+	}
+
+	// Never wider than the one who scopes it.
+	if _, _, err := h.svc.InviteMember(inAcme, app.Invitation{
+		Email: "dev@acme.example", Roles: []string{"admin"}, Projects: []string{project.String()},
+	}, ""); err != nil {
+		t.Fatal(err)
+	}
+	dev := h.signUp(t, "dev@acme.example")
+	asDev := h.as(t, dev, acme.ID)
+	cut, err := h.svc.IssueToken(asDev, app.TokenRequest{Name: "mine", Scopes: []string{"read"}}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cut.Token.Projects.Strings(); len(got) != 1 || got[0] != project.String() {
+		t.Errorf("a project-scoped admin's unscoped token = %v; want it cut to %s", got, project)
+	}
+	if _, err := h.svc.IssueToken(asDev, app.TokenRequest{Name: "wide", Scopes: []string{"read"}, Projects: []string{other.String()}}, ""); !errors.Is(err, domain.ErrScopeExceedsGrant) {
+		t.Errorf("a project-scoped admin issued a token for another project: %v", err)
+	}
+	invited, _, err := h.svc.InviteMember(asDev, app.Invitation{Email: "alt@acme.example", Roles: []string{"admin"}}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := invited.Restriction.Projects.Strings(); len(got) != 1 || got[0] != project.String() {
+		t.Errorf("a project-scoped admin invited an unscoped member: projects %v", got)
 	}
 }
 

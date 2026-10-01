@@ -96,23 +96,46 @@ func TestTheRFCsExampleLoadsAndRuns(t *testing.T) {
 
 // TestTheDefaultIsADocument holds §2.1 rule 2 from the other side: the
 // default review workflow loads through the same Compile as any
-// tenant's, with nothing compiled in, and waits for a reviewer's
-// decision without making one.
+// tenant's, with nothing compiled in. What it does is RFC 0006 §12.1's
+// (the owner's decision over §2.3's "reproduces ReviewRequired"): a
+// source change sends the translation back to review and asks one
+// reviewer; their approval, never the author's, approves it.
 func TestTheDefaultIsADocument(t *testing.T) {
 	d := compile(t, defaults.Review())
 	if d.Name != "review" || d.Subject != domain.SubjectTranslation {
 		t.Fatalf("default = %s %s", d.Name, d.Subject)
 	}
-	if len(d.Actions) != 0 || len(d.Guards) != 0 {
-		t.Errorf("the default binds guards %v and actions %v; it must only wait for Localization's review", d.Guards, d.Actions)
+	state, _ := d.Start(domain.Step{})
+	if state != "current" {
+		t.Fatalf("start: %s", state)
 	}
-	state, step := d.Start(domain.Step{})
-	if state != "awaiting_review" || len(step.Effects) != 0 {
-		t.Fatalf("start: %s %+v", state, step.Effects)
+	to, step, ok, err := d.Advance(state, domain.Step{Trigger: domain.Trigger{Event: domain.EventTranslationOutdated}})
+	if err != nil || !ok || to != "reviewing" {
+		t.Fatalf("translation.outdated: %s %v %v", to, ok, err)
 	}
-	to, _, ok, err := d.Advance(state, domain.Step{Trigger: domain.Trigger{Event: domain.EventTranslationReviewed}})
+	var demoted, asked bool
+	for _, e := range step.Effects {
+		switch p := e.Params.(type) {
+		case domain.SetReviewState:
+			demoted = p.State == "needs_review"
+		case domain.RequestApproval:
+			asked = p.N == 1 && p.From.Role == "reviewer"
+		}
+	}
+	if !demoted || !asked {
+		t.Fatalf("a source change ran %+v; want needs_review and one reviewer asked", step.Effects)
+	}
+	g, ok := d.Guards["one_approval"]
+	if !ok || g.Use != "approvals_at_least" {
+		t.Fatalf("guards = %+v", d.Guards)
+	}
+	if p, ok := g.Params.(domain.ApprovalsAtLeast); !ok || !p.DistinctFromAuthor {
+		t.Errorf("the default's approval counts its author: %+v", g.Params)
+	}
+	// A translator's own revision ends at once: nothing waits.
+	to, _, ok, err = d.Advance("current", domain.Step{Trigger: domain.Trigger{Event: domain.EventTranslationRevised}})
 	if err != nil || !ok || !d.Final(to) {
-		t.Fatalf("translation.reviewed: %s %v %v", to, ok, err)
+		t.Fatalf("translation.revised: %s %v %v", to, ok, err)
 	}
 }
 

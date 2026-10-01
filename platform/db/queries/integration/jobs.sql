@@ -61,6 +61,11 @@ WHERE direction = sqlc.arg(direction)
   AND (NOT sqlc.arg(tenant_wide)::boolean OR project_id IS NULL)
   AND (sqlc.narg(kind)::text IS NULL OR kind = sqlc.narg(kind)::text)
   AND (sqlc.narg(state)::text IS NULL OR state = sqlc.narg(state)::text)
+  -- projects limits the jobs to a project-scoped caller's projects
+  -- (RFC 0006 §4.1) — which leaves out tenant-wide ones, whose files
+  -- hold every project's knowledge — in the query, so a page's size
+  -- says nothing about the others.
+  AND (sqlc.narg(projects)::uuid[] IS NULL OR project_id = ANY (sqlc.narg(projects)::uuid[]))
   AND (sqlc.narg(before_at)::timestamptz IS NULL OR (created_at, id) < (sqlc.narg(before_at)::timestamptz, sqlc.arg(before_id)::uuid))
 ORDER BY created_at DESC, id DESC
 LIMIT sqlc.arg(max_rows)::int;
