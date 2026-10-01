@@ -1,0 +1,433 @@
+# RFC 0006 — Operations (M5)
+
+**Status:** Proposed — 2026-10-01
+**Builds on:** [RFC 0002](./0002-platform-architecture.md) §4 (Workflow, Release, Identity, Insights), §7, §12.3, §13 (M5) · [RFC 0003](./0003-knowledge-and-intelligence.md) §3.3 · [RFC 0005](./0005-quality.md) §4.1, §7.2, §12, §14 (decision 11) · [`runtimes/SPEC.md`](../../runtimes/SPEC.md) §1.1, §3, §8
+**Intent:** §6.3, §23–§24, §36–§38, §40, §42–§45, §49–§50, §60 (Phase 4), §61, §63, §74
+
+## 1. Goal
+
+M5 lets an organisation run localization **its own way without changing Glossa's code** (intent §42), lets it hand work to people outside it without handing them everything (intent §6.3: assignments, vendors), makes every change attributable and exportable (intent §36, §44), and makes shipping to production a decision that can require sign-off and can be rolled out gradually (intent §38: staged rollout, instant rollback). Then it moves every Klarlabs product off v0.3 and retires v0.3 (RFC 0002 §13).
+
+M5 is done, internally, when four things hold:
+- **Configurable.** Two projects bound to two different workflow definitions, both written as data and saved through the API, route the same source change down different paths — one through a vendor assignment and a four-eyes review, the other through the default review — with no code that names either path.
+- **Accountable.** A vendor's member sees exactly the work assigned to them on every read surface and nothing else. Every state change the test makes appears in an exported, signed, tamper-evident audit range, and that range carries no message text.
+- **Safe to ship.** A publish into `production` waits for its approvals and moves no pointer until they are given. A staged rollout serves a candidate release to the share of installations it says, the same installations in the JS, Go and Dart runtimes, and an abort returns them all to the stable release.
+- **Migratable.** A real v0.3 server, built from `apps/api` in this repository and seeded, is imported into the platform, and every key in every locale renders identically through v0.3's formatter and through the new runtime from `glossa-edge`.
+
+The internal exit test is §12, and it exists from wave 1 (§11, §13). The real exit — **every Klarlabs product migrated, v0.3 retired** — is blocked on things this RFC cannot do; §1.3 says what, and §7 says what retirement requires.
+
+### 1.1 What exists
+
+- **`statekit` is a dependency and used once.** `go.klarlabs.de/statekit v1.13.2` is in `platform/go.mod`. Its only use is `catalog/domain/lifecycle.go`: the branch lifecycle, a machine compiled into Go with `statekit.NewMachine`, restored from a stored state and stepped with `SendResult` per event, then thrown away. statekit also has `FromJSON` (a machine from its Native JSON, with actions and guards resolved by name against an `ActionRegistry`, strictly — an unknown name is a load error), `lint.Lint` (unreachable states, dead ends, non-determinism), `Snapshot`/`Restore`, and Tier-2 persistent and distributed interpreters. Nothing in Glossa uses those yet.
+- **Localization has the seam and nothing behind it.** `localization/domain.ReviewFlow` is "the review process as data … the seam where the Phase-4 workflow engine takes over". It holds four states (`draft`, `needs_review`, `approved`, `rejected`); `DefaultReviewFlow` allows every move and makes `approved` and `rejected` reviewer-only. The one project knob is `ReviewRequired`. Release's environment policies select by those four states (`shippable`), and the wave-5 publish gate (`release/domain.PolicyGate`) reads `require_review: approved` from the same vocabulary.
+- **The review queue is Intelligence's.** Pending suggestions, routed by `decisionkit` to `auto_approve`, `approve_recommended` or review required (RFC 0003 §3.3), with queue depth and age per locale (RFC 0005 §8). Auto-approval is honoured only where the project names environments whose policy ships approved text.
+- **Identity is five fixed roles and 22 permissions.** `owner`, `admin`, `developer`, `translator`, `reviewer`; `AllPermissions()` lists 22, pinned by `TestRolePermissionMatrix`. A grant is tenant-wide, with a **locale** scope on four permissions for translators and reviewers. There is no project scope for members or tokens; `APIToken` says "project scoping is a later, additive restriction". Background principals (`authz.Background`) hold exactly the permissions their caller names; two of them hold `translations.review` today — Intelligence's worker, for auto-approval, and Integration's import worker.
+- **Sign-in** is passkeys, password + TOTP and magic link through `auth-go v0.8.0`. auth-go's `oidc` package verifies ID tokens from a third-party issuer (it is how GitHub Actions signs CI in, RFC 0004 §6.3); it has no relying-party sign-in flow, no SAML and no SCIM.
+- **Without SMTP no second person can join an organisation.** The deployment has no mail server (owner decision, 2026-09-19). `Register` then creates an *unverified* account, and `acceptInvitations` accepts invitations only for a verified address. So on the platform as configured, an invitation can never be accepted: no translator, reviewer or vendor can join a tenant. This is not an M5 bug, but every M5 feature that involves a second person sits behind it (§15 question 1).
+- **There is no audit log, only audit-shaped records.** Translation revisions are append-only with provenance; release deployments are kept forever with any forced override and its reason; `mcp_tool_calls` is append-only for the application role (INSERT and SELECT only) and content-free by design; policy versions, waivers, the AI spend ledger and CI token workflow facts are each stored by their context. `outbox_events` is never purged, but its envelope has no actor: some payloads carry a `by`, many don't. Nothing joins these, nothing exports them, and nothing makes them tamper-evident.
+- **Release** has environments, pointer moves recorded as `Deployment`s, publish/promote/rollback, the publish gate with a forced override, and one manifest per (project, environment). It has no approvals and no staged rollout. SPEC §8 allows additive, optional manifest fields as a minor change, and §1.1 requires runtimes to ignore unknown top-level fields.
+- **There is no `internal/workflow` package and no Insights context.** RFC 0002 §4 reserved both.
+- **The v0.3 importer** (`glossa import --from v0`, `platform/internal/cli/v0`) reads a v0.3 deployment through its frozen read API: keys become messages (source text parsed as ICU MF1 by the one converter), other locales' values become translations with provenance `import`, and v0.3 statuses map to review states (`approved` → `approved`; `needs_review`, `ai_translated` → `needs_review`; `pending` → `draft`). It skips empty values and unparseable text and reports them. It does **not** carry key descriptions, who last changed a translation and when, v0.3's `audit_log` (before and after values per change), users with their roles and locales, or locale labels — the read API exposes none of them.
+
+### 1.2 Scope: intent Phase 4 against RFC 0002's M5 row
+
+RFC 0002's M5 row names workflow engine, assignments, vendors, audit export and advanced release policies. Intent §60's Phase 4 adds approvals, enterprise permissions, SSO and data residency. M4 left four more items here (RFC 0005 §13). Each gets a decision, ranked against intent §74.
+
+| Item | Source | Decision | Reason |
+|---|---|---|---|
+| Workflow engine | both | **M5** (§2) | Intent §42 is the hard constraint on the whole milestone, and assignments, vendors and approvals are all things a workflow does. |
+| Assignments | both | **M5** (§3.1) | Intent §6.3. Vendors are meaningless without them. |
+| Approvals | Phase 4; "approvals" in RFC 0002 under release policies | **M5**, for translations and for releases (§3.2, §5.1) | §74.1: for legal and transactional text, who signed off is part of correctness. Intent §36: releases must be auditable. |
+| Vendors | both | **M5**, as members of the customer's tenant with assignment-scoped visibility; no invoicing (§3.3) | Intent §6.3. Invoicing is cost attribution, which intent §49 lists as "leave room", not "build". |
+| Enterprise permissions | Phase 4 only | **Partly M5**: project-scoped members and tokens, assignment-scoped visibility, permissions for the new objects (§4). **Custom roles deferred.** | Vendors need the first three, so they are not breadth. Custom roles are §74.10 breadth with no consumer. |
+| SSO | Phase 4 only | **Deferred** (§4.4) | No dogfood consumer: every Klarlabs product is administered by one person. §74.10. The onboarding gap it would also close is better closed by mail (§15 q1). Nothing in M5 makes it harder. |
+| Audit logs | both ("audit export") | **M5** (§6) | Intent §36, §44, §6.3. |
+| Advanced release policies | both | **M5**: release approvals and staged rollout (§5). Scheduled publishing deferred. | Intent §38 names staged rollout and instant rollback. |
+| Data residency | Phase 4 only | **Deferred**, with the invariants that keep it possible stated (§9.4) | One deployment, in Germany, serving one organisation. §74.10. |
+| Insights context, `chronos` | M4 deferral | **Deferred** (§10.2) | M5's numbers are computed from the owning contexts, as M4's were. And `chronos` is a pattern detector, not a time-series store (§14 decision 13). |
+| Regional adaptation (intent §40) | M4 deferral | **Deferred**; the workflow vocabulary must be able to express it (§2.6) | No dogfood product has a regional pair; every one is de + en. The fallback graph already serves `en-GB → en` at runtime. |
+| Vendor and workflow side of quality (intent §42) | M4 deferral | **M5**: workflow guards read findings; assignments carry per-vendor quality numbers (§3.4) | It is what makes "route the exceptions" (intent §72) configurable. |
+
+### 1.3 What is blocked, and on what
+
+The exit criterion needs three things this repository cannot produce:
+
+1. **The platform deployed.** Namespace `glossa-platform`, its Secrets, DNS for `app.`, `api.` and `cdn.glossa.klarlabs.de` at Hetzner, and published images. The chart, the image workflow and the cluster facts exist; the actions are the owner's. Every earlier milestone's dogfood exit — Brotwerk in production (M1) onwards — waits on the same thing, so M5's exit is the union of all of them, not a step after them.
+2. **Product-repository work**, which the owner has deferred until Glossa is done: swapping each product's runtime, running the import against its v0.3 project, and its CI changes.
+3. **Mail, or another way to verify an address** (§1.1), before any second person — a vendor's translator, a reviewer — can join a tenant.
+
+What M5 can prove before any of that: everything in §12, against a real `glossa-server`, a real `glossa-edge`, a real v0.3 server built from `apps/api`, and the three runtimes, in Docker. What it cannot prove: that real products render correctly from production, that a real vendor can be onboarded, that real users land in rollout cohorts in the proportions the fixture shows, and that v0.3's namespace can be deleted without someone noticing. Those are the dogfood phase (§7.4).
+
+## 2. The Workflow context
+
+### 2.1 What intent §42 forbids, concretely
+
+"Do not encode one organisation's localization process into the core domain model." In this codebase that sentence rules out four specific things, and the design is built so that none of them is necessary:
+
+1. **A new review state.** Adding `legal_review`, `vendor_done` or `second_review` to `localization/domain.ReviewState`. The four states are what Release's eligibility and the publish gate read; a fifth would be one organisation's process leaking into every environment policy, every runtime-facing guarantee and every tenant.
+2. **A process in code.** A default workflow written with `statekit.NewMachine` in Go, as the branch lifecycle is. The branch lifecycle is right to be code — a Git branch's life is a fact about Git, not a choice. A review process is a choice.
+3. **Branching on who the tenant is.** Any `if role == "legal"`, `if vendor`, or tenant-specific check in Localization, Release or Intelligence.
+4. **Guards that name a process.** A guard called `legal_signed_off` or `needs_brand_review`. Guards and actions are generic primitives with parameters; what they mean to an organisation lives in its definition.
+
+Two tests hold the line, both in wave 1: an architecture test that `ReviewState` has exactly four values and that no `domain` or `app` package of Localization, Release or Intelligence imports `internal/workflow` — Workflow depends on their ports, never the reverse, and the one thing they ask of it (`Assignments.Covers`, §3.3) is a port they declare and an adapter implements — and the exit test's two unlike definitions (§12.1), which must both run on the same binary.
+
+### 2.2 Two layers: what may ship, and how it gets there
+
+- **Localization keeps the publication contract**: the four review states, the reviewer-only rule and the revision log. They say what is *eligible to ship*. That is not a process; it is the interface Release depends on, and it stays fixed.
+- **Workflow owns the process**: every organisation-specific stage, who does it, in what order, with how many approvals, under which conditions. A workflow reaches Localization only through Localization's existing application ports (`ReviewTranslation`, `PutTranslation`), so every rule those ports enforce — `If-Match`, the structural gate, `translations.review` per locale — still holds.
+
+A project with no workflow bound behaves exactly as it does after M4: no instance is created, and the revision log, deployments and manifests are what M4 produces. This is the default, it is tested (§11.2), and it is what protects M2–M4's exit tests from M5.
+
+### 2.3 Definitions are data
+
+A **WorkflowDefinition** is a versioned, immutable document owned by the tenant (optionally scoped to a project). Its body is a statekit Native JSON statechart plus a Glossa envelope that binds the chart's guard and action names to parameterised primitives:
+
+```json
+{
+  "schema": "glossa.workflow/v1",
+  "name": "vendor-then-four-eyes",
+  "subject": "translation",
+  "chart": {
+    "id": "vendor-then-four-eyes", "initial": "translating",
+    "states": {
+      "translating": { "id": "translating", "type": "atomic",
+        "entry": ["assign_vendor"],
+        "transitions": [{ "event": "assignment.completed", "target": "reviewing" }] },
+      "reviewing":   { "id": "reviewing", "type": "atomic",
+        "entry": ["ask_two_reviewers"],
+        "transitions": [
+          { "event": "approval.granted", "target": "done", "guard": "two_approvals", "actions": ["approve"] },
+          { "event": "approval.denied",  "target": "translating" }] },
+      "done":        { "id": "done", "type": "final" }
+    }
+  },
+  "guards":  { "two_approvals": { "use": "approvals_at_least", "n": 2, "distinct_from_author": true } },
+  "actions": {
+    "assign_vendor":     { "use": "assign", "to": { "vendor": "lingua-gmbh" }, "due": "P3D" },
+    "ask_two_reviewers": { "use": "request_approval", "n": 2, "from": { "role": "reviewer" } },
+    "approve":           { "use": "set_review_state", "state": "approved" }
+  }
+}
+```
+
+- The chart's names (`two_approvals`, `assign_vendor`) are **local to the definition**. The `use` values are the **vocabulary**: a closed set of primitives the platform owns (§2.4). At load, Glossa builds one `statekit.ActionRegistry` per definition version whose entries are the primitives closed over their parameters, then calls `statekit.FromJSON`. statekit's strict resolution makes an unknown name a load error, so a definition that references a guard Glossa doesn't have is refused at save (`422 invalid_workflow`), not discovered at run time.
+- **Saving lints.** `lint.Lint` runs on every save; unreachable states, dead ends that are not final, and non-deterministic transitions are `422` with statekit's findings. A definition must reach a final state on every path that does not wait for a person, so a workflow cannot strand a translation silently.
+- **Versions are immutable.** A save creates version *n+1*. A running instance stays on the version it started with. Moving running instances to a new version is an explicit **rebase** that maps states by id and is refused for any instance whose state the new version lacks.
+- **The default workflow is a document**, `platform/internal/workflow/defaults/review.json`, seeded per tenant on first use and editable like any other. It reproduces `ReviewRequired` exactly. It is not compiled in: deleting it is allowed and means "no workflow", which is M4's behaviour.
+- **Bindings** select a definition by (project, optional locales, optional namespace), with the check policy's precedence rule (RFC 0005 §4.1): the binding matching on more fields wins, ties go to the later one. One rule, shared, not a second one to learn.
+- **No delayed transitions in charts.** statekit's `After` timers live in the interpreter's process and die with it. Due dates and escalations are events — `timer.due`, `timer.overdue` — raised by a sweep on the kernel scheduler from a stored `due_at`. A definition that declares a delayed transition is refused at save.
+
+### 2.4 The vocabulary
+
+Primitives are generic. Each is a few lines over an existing port, has a fixture table, and names nothing about any organisation.
+
+**Events** (what moves an instance) are derived from domain events the platform already publishes, plus three of Workflow's own:
+
+| Event | From |
+|---|---|
+| `translation.revised`, `translation.reviewed`, `translation.outdated` | Localization (exist) |
+| `suggestion.created` (with `action`, `band`) | Intelligence (exists as job completion) |
+| `check_run.recorded` | Quality (exists) |
+| `assignment.completed`, `assignment.declined` | Workflow |
+| `approval.granted`, `approval.denied` | Workflow |
+| `timer.due`, `timer.overdue` | Workflow's sweep |
+
+**Guards** are pure functions over the event and a read-only **subject snapshot** (the translation's state, origin, author, source revision, confidence band, open findings by layer and severity, approvals so far) loaded once per transition:
+`origin_in`, `confidence_at_least`, `findings_at_least` (layer, severity, count), `locale_in`, `namespace_in`, `approvals_at_least` (n, `distinct_from_author`), `actor_has_permission`, `tm_match_at_least`.
+
+**Actions** are commands into owning contexts' ports:
+`assign` (member, role, group or vendor; due), `request_approval` (n, from), `set_review_state` (one of the four), `request_fill` (Intelligence fill job), `run_check` (Quality, deterministic layers), `notify` (in-app; email only when mail is configured).
+
+The vocabulary grows by RFC amendment, one primitive at a time, each with a reason that is not one organisation. That is the cost of §42: an organisation whose process needs a primitive that doesn't exist waits for one. The alternative — script hooks or arbitrary webhooks in charts — would let a definition do anything, which would make the platform's guarantees conditional on every tenant's code.
+
+### 2.5 Instances
+
+- A **WorkflowInstance** is (definition version, subject, statekit snapshot, status). Subjects in M5 are a **translation unit** (message × locale) and a **release request** (§5.1). An instance exists only while work is in flight: it is created by the first trigger under a binding, and when it reaches a final state its snapshot is dropped and its transition log kept. Intent §63.10–11 ask about 100 locales and millions of messages; the row count is the work in progress, not the catalog's size times its locales.
+- **Stepping is the branch lifecycle's pattern, with a stored snapshot**: load the instance, `Restore` the snapshot, `SendResult` the event, store the new snapshot and append to `workflow_transitions` (from, event, to, guard outcomes, actions run, actor, outbox event id), all in the tenant transaction of the outbox handler. Not statekit's persistent or distributed interpreters: they are Tier 2 ("reserve room to iterate within v1.x"), and the outbox already gives at-least-once delivery and the transaction gives atomicity. Idempotency is keyed on the outbox event id, as every handler's is.
+- **Actions run as the actor whose event caused the transition.** A reviewer's `approval.granted` that completes a definition's `set_review_state: approved` executes `ReviewTranslation` with *that reviewer's* grant, so Localization's `translations.review` check for that locale decides, exactly as if they had clicked approve. Workflow's own background principal holds `catalog.read`, `translations.read` and `translations.write` and **never `translations.review`**. A workflow therefore cannot create a new way to approve text: the two background paths that hold review today (Intelligence auto-approval under a human-configured policy, and imports by a requester who holds review) remain the only ones, and a workflow can route on their outcome but not add a third. A transition whose action is refused for permission is recorded with the refusal and leaves the instance where it was.
+- **Concurrency.** Events for one subject can race (a revision and an approval). The instance row is locked per step; a transition whose event no longer applies (statekit's `SendResult` is false) is recorded as ignored, never as an error, because "the world moved on" is normal.
+
+### 2.6 What the design must be able to express later
+
+Regional adaptation (intent §40) is deferred (§1.2), but the vocabulary must not need redesign to carry it: a binding on `en-GB` whose chart reacts to `translation.reviewed` on `en-US` and runs a `request_fill` with an adaptation task. The only additions would be one trigger filter (a base locale) and one Intelligence task. §14 decision 4 records this as a constraint on the vocabulary, not a feature.
+
+## 3. Assignments, approvals and vendors
+
+### 3.1 Assignments
+
+- An **Assignment** is (subjects, assignee, required permission, due_at, state: `open`, `accepted`, `done`, `declined`, `expired`). The assignee is one member, a role, a **group** (a named set of members, new in Identity) or a vendor (§3.3). An assignment covers a *set* of translation units — the batch a translator actually works through — not one, because a job of three hundred strings is one piece of work to the person doing it.
+- Completing an assignment is a claim, not a decision: it raises `assignment.completed` and the definition decides what follows. It never changes a review state by itself.
+- Studio gets **My work**: the units assigned to me, grouped by assignment, opening into the existing translator workspace. Where a workflow is bound, the review queue view gains an "assigned to me" filter; Intelligence's queue stays the source of pending suggestions, and an assignment refers to them rather than copying them.
+
+### 3.2 Translation approvals
+
+- An **Approval** is (subject, required n, eligible principals, `distinct_from_author`, decisions). Decisions are append-only: (principal, granted | denied, reason, at). `n` distinct eligible principals granting satisfies it; one denial ends it as denied.
+- **Four-eyes** is `distinct_from_author`: the author of the text under approval — the `By` of its latest content revision — cannot count toward its own approval, and neither can a token. An approval is a human decision, for the same reason review is: no scope grants `approvals.decide`, so neither an API token nor an MCP agent can approve.
+- Approving is not a fifth review state. The definition's `set_review_state: approved` action, run as the last approver, is what moves the translation.
+
+### 3.3 Vendors
+
+A **vendor is a named group of members inside the customer's tenant**, not a tenant of its own (§14 decision 6, §15 q3). A person at an agency who works for two Klarlabs products holds a membership in each, which `Person` → many `Member`s already supports.
+
+- **Vendor** (Identity): name, contact, locales offered, and its members. A vendor member is an ordinary `Member` with `vendor_id` set and **visibility `assigned`**.
+- **Assignment-scoped visibility.** A member with visibility `assigned` reads only the translation units in assignments given to them (open, or completed within 30 days), plus what translating those units needs: the source message with its description, arguments and constraints, its usages and screenshots, the effective style guide and termbase for the locale, and TM matches **for those units** returned by the workspace — never TM search or concordance over the tenant. They can write translations in those units; they can't review, publish, export, import, or list anything else.
+- This is enforced in the read paths, which is where M4 learned that a rule missed in one adapter is a rule missed (§11.1): every list and get endpoint asks `authz` for the principal's restriction, and, if it is `assigned`, filters through Workflow's read port `Assignments.Covers(principal, message, locale)`. §12.2 calls **every** read endpoint in the OpenAPI document as a vendor member, from a list generated from the spec, so an endpoint nobody remembered fails the test.
+
+### 3.4 The quality side of vendors and workflows
+
+- Workflow guards read findings (`findings_at_least`), so "anything with a terminology error goes back to the vendor" is a definition, not code.
+- Every completed assignment carries numbers computed on completion and kept with it: source words, words leveraged from TM by band, findings at completion by layer, and — once reviewed — the reviewer's edit distance on the vendor's text, from the same computation `GET …/ai-metrics` uses. A vendor report is those rows aggregated by vendor, locale and period, in Studio and as `glossa assignments report --json`. Prices and invoices are not modelled (§1.2).
+
+## 4. Enterprise permissions
+
+### 4.1 Project scope
+
+- A member gains an optional **project scope**, beside the locale scope: the projects their roles apply to. Empty means every project, which is every membership today, so nothing changes for anyone until a scope is set.
+- API tokens gain the same project scope, which the token aggregate already promised. A CI token or an in-context grant is cut from it as today (`Grant.Intersect`) and can never widen it.
+- `Grant` becomes permission × (projects, locales). RLS stays tenant-level — it is the isolation boundary and project scope is not one — and project scope is enforced in `authz` at the application layer, as locale scope is. The cost is that every project-addressed query checks it; the endpoint sweep of §12.2 covers project scope with the same generated list.
+
+### 4.2 New permissions
+
+`workflows.read`, `workflows.manage`, `assignments.read`, `assignments.manage`, `approvals.decide` (locale-scoped for translation subjects; environment-scoped for release subjects), `vendors.manage`, `audit.read`, `audit.export`. The role matrix gains them deliberately and `TestRolePermissionMatrix` pins the result: `reviewer` decides translation approvals for its locales; `owner` and `admin` manage workflows, vendors and audit; only `owner` exports audit by default. No scope grants `approvals.decide`.
+
+### 4.3 Groups
+
+A **Group** is a named set of members in a tenant ("de reviewers", "legal"). Groups carry no permissions — roles do — and exist only so that assignments and approvals can name people without naming persons. A group is data the organisation chooses; that is what keeps "legal" out of the code.
+
+### 4.4 Deferred: custom roles, SSO, SCIM
+
+- **Custom roles** are deferred. Five roles, groups and two scopes cover every dogfood case.
+- **SSO** is deferred (§1.2). When it comes, the order is OIDC first, as a relying-party flow (authorization code with PKCE) built **upstream in auth-go** on top of its existing `oidc.Verifier`, then SAML only on a concrete demand. The gap is filed against auth-go now, not worked around. Nothing in M5 makes it harder: a `Person` is keyed by a verified email, and an `(issuer, subject)` link is additive.
+- **SCIM** follows SSO and is deferred with it.
+
+## 5. Advanced release policies
+
+### 5.1 Release approvals
+
+- An environment gains an optional `approval: {n, from, distinct_from_requester}`. A publish or promote into such an environment creates a **ReleaseRequest** (release, environment, requester, the gate's verdict) and moves **no pointer**. The request is a workflow subject (§2.5) bound to a seeded definition (`defaults/release-approval.json`: pending → approved → deployed, or → denied, or → withdrawn) that a tenant may extend like any other. Extending it can add stages; it cannot remove the requirement, because Release itself refuses to move the pointer until the environment's `approval` is satisfied, whatever the chart says.
+- When the request is approved, Release moves the pointer through the same `Point` path publish uses, and re-runs the publish gate first. The release is immutable, so the gate's answer can only change if the environment's policy changed meanwhile — and then the new policy is the one that decides.
+- **A forced override does not bypass approval.** It bypasses the gate (RFC 0005 §4.1), with its reason, as before; the approvers see that it was forced and why.
+- **Rollback never needs approval** and is never delayed. Intent §74.2: runtime reliability outranks process. A rollback is recorded, audited and visible, and that is the control.
+- `approval` is off by default. One-person organisations — every Klarlabs product today — cannot satisfy `distinct_from_requester` with n ≥ 1, so the dogfood setting is an owner decision (§15 q6).
+
+### 5.2 Staged rollout
+
+RFC 0002 §7 says "staged rollout serves a new release to a percentage of runtime clients by a stable client hash". It does not say who computes the hash. This RFC decides: **the runtime does, from the manifest** (§14 decision 9).
+
+- The manifest gains an optional member:
+
+  ```json
+  "rollout": {
+    "id": "ro_7Kq…", "percent": 10, "salt": "b64url…",
+    "candidate": {
+      "release": { "id": "rel_9Qy…", "version": 43, "createdAt": "…" },
+      "locales": [ … ], "fallback": { … }, "artifacts": { … }
+    }
+  }
+  ```
+
+  The top-level `release` and `artifacts` remain the **stable** release. The manifest is still one signed document per (project, environment), so the edge, its caching, its ETags and any CDN in front of it are unchanged, and the signature covers the rollout.
+- A runtime with an **installation id** — a random 128-bit value it creates once and persists in the store it already keeps (SPEC §3) — computes `cohort = uint32(sha256(salt ‖ installation id)[0:4]) mod 10000` and activates the candidate when `cohort < percent × 100`. Activation follows SPEC §3 exactly: atomically, after the candidate's artifacts verify, otherwise stay on stable. `explain()` reports the rollout id and which side the installation is on.
+- **Old runtimes are safe by construction.** A v1 runtime that doesn't know `rollout` ignores it (SPEC §1.1) and serves the stable release. It is an additive minor change under SPEC §8.
+- **Server-side runtimes.** A Go server is one installation serving many users, so a per-process cohort would roll a whole server in or out. The Go runtime therefore takes an optional per-request cohort key from the application (`glossa.WithCohortKey(ctx, userID)`), hashed the same way; without one it uses the installation id. §15 q5 asks whether that default is right.
+- **Control.** `POST …/environments/{env}/rollouts` starts one (candidate release, percent); `advance` changes the percent; `complete` moves the pointer to the candidate and drops the member; `abort` drops the member and leaves the pointer. Each writes the manifest and is audited. Starting a rollout into an environment with approvals needs them, as a publish would; advancing and aborting don't. A rollout has a `max_duration` (default 14 days) after which the sweep aborts it, so a forgotten 10 % does not become a permanent second production.
+- **No automatic halting in M5.** Halting on error rates needs runtime telemetry from production, which RFC 0004 §14.4 ruled out and RFC 0005 §3.7 did not reopen. Abort is a person's decision, and instant.
+
+### 5.3 Deferred
+
+Scheduled publishing, per-locale rollouts and rollouts in branch environments.
+
+## 6. Audit
+
+### 6.1 The Audit context
+
+Audit is a **new bounded context** (RFC 0002 §4 has no row for it; this adds one, it does not reopen one). It owns `audit_entries` and reads nothing else's tables.
+
+- **Every domain event names its actor.** `outbox.Event` gains `Actor` — `person:<id>`, `token:<id>` or `system:<name>` as `identity/domain.Actor` already spells them — and `Publish` refuses an event without one. A registry test enumerates every event type in the codebase and fails if one has no actor. This is the change that makes the rest possible, and it touches every context's publish call: it is wave 1, done once, and the M2–M4 exit tests guard it (§11.2).
+- `audit_entries` is a **projection**: an outbox subscriber writes one entry per event — (tenant, sequence, occurred_at, actor, action = event type, aggregate type and id, project, a **content-free** summary, `prev_hash`, `hash`). The summary follows `mcp_tool_calls`' rule: identifiers and selectors verbatim (locale, environment, state, version), everything else as its shape. **No message text, translation text or image ever enters it.** The text is in the revision log, which the entry points at by id.
+- **Tamper evidence.** Each tenant's entries form a hash chain: `hash = sha256(prev_hash ‖ canonical(entry))`, with JCS canonicalization (`internal/kernel/jcs`, already used for manifests). The table is INSERT and SELECT only for `glossa_app`, as `mcp_tool_calls` is. A chain proves an export wasn't edited; it does not protect against someone with database superuser, and §9 says so.
+- **Not only events.** Security-relevant acts that aren't domain events are written to it directly by the same subscriber interface: sign-ins and failed sign-ins, MCP tool calls (projected from `mcp_tool_calls`), exports of any kind, and audit exports themselves.
+- **History.** `outbox_events` has never been purged, so a backfill job projects every past event once, taking the actor from the payload's `by` where it has one and writing `unknown` where it doesn't. The backfill does not invent actors; the count of `unknown` entries is in the report.
+
+### 6.2 Export
+
+- `GET /v1/audit/entries` (filters: time range, actor, action, project, aggregate) and **audit export jobs** that write `glossa.audit/v1` JSON Lines for a time range to object storage, with a signed **export manifest**: the range, the entry count, the first `prev_hash`, the last `hash`, and an Ed25519 signature by a dedicated audit key (not the release signing key: one key, one purpose).
+- `glossa audit verify <export>` checks the chain and the signature offline. `glossa audit export --format csv` converts locally; the server produces one format.
+- **Retention**: entries are kept as long as the tenant exists (§15 q7). Deleting a tenant deletes its chain. Erasing a person (a GDPR request) does not break a chain, because entries hold the person's id and never their email or name.
+
+## 7. Migrating off v0.3 and retiring it
+
+### 7.1 What retirement means
+
+v0.3 is `apps/api`, `apps/admin`, `packages/{cli,elements,format,sdk,ui}`, the root `api/openapi.yaml`, `deploy/charts/glossa`, `deploy/k3s/glossa`, their CI jobs, the README's v0.3 feature list, and the running deployment in namespace `glossa` serving `glossa.felixgeelhaar.de`. It is retired when no product reads from it, its data has been carried over or archived, the deployment is gone, and the code is deleted from `main`.
+
+Its consumers (RFC 0002 §12.1) are Brotwerk, KraftSport, pet-medical-www and Pet Medical web.
+
+### 7.2 Carrying the data over
+
+The importer's gaps (§1.1) are data loss if left, and v0.3 may only receive security and data-loss fixes. Adding an export endpoint to v0.3 would be new v0.3 code for the platform's sake. Instead:
+
+- **`glossa import --from v0 --v0-db <dsn>`** reads a **restored v0.3 backup** through a read-only connection: `keys.description` becomes the message description; `translations.updated_by` and `updated_at` go into the import provenance's detail (`{"v0_status", "v0_updated_by", "v0_updated_at"}`); `users` become **invitations** with mapped roles (`admin` → `admin`, `translator` → `translator` with its locales) — which can only be accepted once mail works (§1.3); locale labels are carried. The importer refuses a DSN whose server is not a restore (it checks a marker table the restore script writes), so nobody points it at production v0.3. The API mode stays for a quick dry run.
+- **v0.3's `audit_log` becomes imported audit entries**, not translation revisions. Each before/after pair is written to the Audit context as `v0.translation.changed`, with actor `v0:<user id>` and a reference to the imported translation, in its own chain segment marked as imported. Replaying it as revisions would fabricate a provenance chain — v0.3 never recorded which source text a change was made against — and intent §44 asks that history be understood, not reconstructed. The full `pg_dump` is archived to object storage, immutable, as the record of last resort.
+- Analytics events and v0.3 API keys are not carried. Consumers get new delivery keys as part of switching runtimes.
+
+### 7.3 Proving the import renders the same
+
+The criterion that matters is not "the rows arrived" but "the product says the same thing". §12.6 builds v0.3 from `apps/api` in this repository, seeds it, imports it, publishes, and renders every key in every locale twice: through **v0.3's own formatter** (`@felixgeelhaar/glossa-format`, ICU subset) over the v0.3 API's text, and through **`@glossa/runtime`** over the artifact `glossa-edge` serves — with the same arguments, generated from the message's argument metadata. The two sides share no code: one is v0.3's hand-written ICU parser and formatter, the other is the one MF1 → MF2 converter plus the new interpreter. `glossa import --from v0 --verify` is the same comparison as a command, run per product during migration.
+
+### 7.4 The retirement runbook
+
+Per product, in the dogfood phase: dry-run the import; import from a restored backup; `--verify` to zero mismatches; switch the product's runtime to the platform; watch it for 14 days with v0.3 still running; set the v0.3 project read-only.
+
+After the last product: a final v0.3 backup archived for one year; v0.3 scaled to zero for 30 days; then its IngressRoute and DNS removed and the `glossa` namespace deleted; the npm packages deprecated with a pointer to the new ones; and the deletion PR merged. The namespace deletion, DNS change and npm deprecation are the owner's (destructive, publishing). The deletion PR is prepared in M5 and left unmerged (§13 wave 6).
+
+## 8. Surfaces
+
+- **API** (one slice per wave touches `platform/api/openapi.yaml`, §13): workflow definitions (create, versions, lint-on-save, bindings) and instances (read, transitions, rebase); assignments, approvals, groups and vendors; release requests, approvals and rollouts; audit entries and export jobs.
+- **Studio**: My work; the approvals inbox; the workflow editor — the JSON document with statekit's Mermaid rendering beside it and lint findings inline, not a visual builder (§14 decision 12); instance view per message; vendors and groups in settings; release requests and rollouts in the releases view; the audit log with export.
+- **CLI**: `glossa workflow show|diff|push|lint`, `glossa assignments [list|accept|complete|report]`, `glossa approve <request|translation>` (a person's session only — refused with a token), `glossa release rollout start|advance|complete|abort`, `glossa audit [list|export|verify]`, `glossa import --from v0 --v0-db … [--verify]`; all with `--json`.
+- **MCP**: read tools `assignments_list`, `workflow_state`, `release_requests_list`. No approve tool, no workflow-writing tool, for the reason review has none (RFC 0005 §7.4).
+- **Runtimes**: `rollout` in JS, Go (with `WithCohortKey`) and Dart; shared fixtures in `runtimes/testdata/loading`.
+
+## 9. Privacy and security
+
+1. **A workflow cannot escalate.** Actions run as the triggering actor; Workflow's background principal holds no review permission (§2.5). A definition cannot reach a URL, run code, or name a primitive the platform doesn't have.
+2. **Vendors see their work and nothing else**, on every endpoint, proved by the generated sweep (§3.3, §12.2). Vendor members can't export, import or search the tenant's TM.
+3. **Approvals are human.** No scope grants `approvals.decide`; tokens and MCP agents can't approve, and authors can't approve their own text where `distinct_from_author` is set.
+4. **Residency readiness.** Data residency is deferred (§1.2). What keeps it possible, and must stay true: every tenant table carries `tenant_id` under forced RLS; release objects live under `projects/<id>/` (`release/delivery.ManifestPath`, `ArtifactPath`) and every new object key is prefixed by its project or tenant; the only tables without a `tenant_id` are `tenants` itself, Identity's sign-in tables (sessions, email links, TOTP, passkeys, ceremonies, login attempts) and the kernel's `system_leases`; the AI provider routing already names a provider per route, so a region constraint is a routing filter. A change that breaks one of these needs this RFC amended.
+5. **Audit entries carry no content** (§6.1). The chain is evidence against edits to an export, not against a database superuser; anyone who needs the latter needs an external anchor, which is out of scope.
+6. **Limits.** At most 50 active definitions per tenant, 200 states per chart, 1,000 open assignments per assignee, 10,000 units per assignment, 1 active rollout per environment, audit export ranges of at most 31 days per job.
+
+## 10. Observability
+
+### 10.1 Metrics, traces, logs
+
+- **Metrics**, through each context's `adapters/metrics` package in the existing pattern: `glossa_workflow_transitions_total{outcome}` (applied, ignored, refused), `glossa_workflow_instances{status}`, `glossa_assignments_open{overdue}`, `glossa_approvals_decisions_total{subject,decision}`, `glossa_release_rollouts{state}`, `glossa_audit_entries_total`, `glossa_audit_chain_verify_failures_total`, `glossa_audit_export_jobs_total{outcome}`. Label values are allowlisted; no definition name, vendor name or tenant id is a label.
+- **Traces**: a workflow step joins the trace of the outbox event that caused it, so one trace runs from an API write through the instance transition to the action's port call.
+- **Logs**: instance ids, definition versions, event ids, actor ids. Never text.
+
+### 10.2 Insights stays deferred
+
+Operational numbers M5 adds — assignment age and overdue counts, approval latency, rollout state, per-vendor quality — are computed from the owning context's tables on read, cached, beside RFC 0005 §8's seven, plus one daily rollup in Workflow's own table for assignment throughput. The Insights context and any time-series store stay deferred, as M4 decided for the same reason: the dashboard's shape is not yet proven by use.
+
+## 11. Protecting what exists, and making gaps visible early
+
+M4's exit test ran in its last wave and scored 4 of 8. Four things listed as delivered had never been built (`style`, `locale`, `source`, and `length`'s rules beyond one); two ends of a seam were each green with nothing between them (the capture manifest dropped the probe's `findings`, and the publish handler dropped `force` and `force_reason` that the service implemented); the CLI and the pull request computed two different arithmetics and an agreement check could not see it; and a change to the shared PR check broke M3's exit test. M5 is shaped so that none of that can stay hidden.
+
+### 11.1 Rules for this milestone
+
+1. **The exit test is wave 1.** `platform/internal/systemtest/m5` exists from the first wave with its fixture, its harness and every §12 criterion written as an assertion against the public surfaces, all failing. Its `REPORT.md` has the verdict table from day one. A wave's merge note names which criteria it was expected to turn green, and whether they did.
+2. **Every slice names the end-to-end path it completes**, and if it builds one end of a seam, who builds the other and in which wave (§13). A slice that completes no path says so, and the wave that completes it is named in the same row.
+3. **Every criterion is falsifiable against real surfaces**, and §12 says how each fails. No criterion reads a database row the test wrote; every one goes through the API, the edge, the runtime or the CLI. No agreement criterion compares two sides built from one computation.
+4. **Completeness comes from the contract, not from memory.** Where a rule must hold on "every endpoint" (vendor visibility, project scope), the test generates the endpoint list from `platform/api/openapi.yaml`. Where a rule must hold for "every event" (an actor), the test enumerates the event registry.
+
+### 11.2 Earlier milestones' exits
+
+The seams M5 changes are shared: the outbox envelope (every context), `authz` and `Grant` (every read path), Localization's write and review ports, Release's `Point`, `PolicyGate` and the manifest writer, and `runtimes/SPEC.md`. So:
+
+- **Default off.** A project without a binding, an approval or a rollout produces exactly what M4 produces. §12.7 runs the M2, M3 and M4 exit tests unchanged against the M5 build on the same commit; they use no M5 feature, so they are that check.
+- **The M4 exit test runs on pull requests that touch a shared seam.** M2 and M3 already gate every pull request in `ci.yml`. `system-m4.yml` today runs nightly and on pushes to `main` touching its own files; M5 adds a `pull_request` trigger with path filters for `internal/kernel/outbox/**`, `internal/identity/{domain,authz}/**`, `internal/localization/{domain,app}/**`, `internal/release/{domain,app}/**`, `internal/kernel/checkpolicy/**` and `runtimes/SPEC.md`, so the change that would break it is the change that runs it. `system-m5.yml` runs nightly, on dispatch, and on pull requests touching `internal/{workflow,audit}/**`.
+- **Runtimes.** The manifest change is additive; a `loading` fixture serves a `rollout` manifest to a runtime with rollout support disabled and expects the stable release, so "old runtimes ignore it" is a fixture, not a claim.
+
+## 12. Exit test
+
+`platform/internal/systemtest/m5` (`make system-m5`; Docker: Postgres, MinIO, headless Chrome for Studio, Node, the Dart SDK) runs against a real `glossa-server` and a real `glossa-edge`, and writes `REPORT.md` like M2–M4. It **exists from wave 1 with every criterion failing** (§11.1).
+
+1. **Two workflows, one event.** Project A binds the seeded default definition; project B binds `vendor-then-four-eyes` (§2.3) for `de`. Both definitions are `testdata` JSON saved through the API. The same source revision in both: in A, the `de` translation goes to `needs_review` and an approval by one reviewer makes it `approved`; in B, it is assigned to the vendor, completed by the vendor member, refused when its author tries to approve it, and approved only after two distinct reviewers grant — read back through each translation's revision log and each instance's transition log. A definition naming an unknown guard is refused with `422`, as is one with an unreachable state and one with a delayed transition.
+   *Fails if* B needs any code path A doesn't; if an instance strands short of a final state; if the author's or a token's grant counts; if Workflow's principal approves anything (the transition log records every action's actor). The architecture test of §2.1 runs in the same report.
+2. **Vendor visibility on every surface.** A vendor member (a second person, signed in with a password; the harness configures a test mailer so the invitation can be accepted) holds one assignment of 20 `de` units in project B. The test generates every `GET` operation from `platform/api/openapi.yaml`, plus the MCP read tools, and calls each as that member with ids from inside and outside the assignment. Inside: the documented responses. Outside: `404` for addressed reads, and lists containing only assigned units. Writes outside the assignment: refused. Export, import and TM search: refused.
+   *Fails if* any generated operation leaks an id outside the assignment, or if an operation in the spec is missing from the sweep's coverage table (the report lists every operation with its verdict, and an operation with no verdict is a failure).
+3. **Release approvals.** `production` requires two approvals, distinct from the requester. A publish creates a request; the requester's own approval is refused; after the first approval, **`glossa-edge` still serves the previous manifest** (read over HTTP from the edge process, not from the database); after the second, it serves the new one. A forced publish over an unmet gate still waits for approvals and shows its reason to the approvers. A rollback takes effect at once with no approval.
+   *Fails if* any pointer moves before the second approval as seen at the edge, or rollback waits.
+4. **Staged rollout across three runtimes.** A rollout at 10 % is started. The JS, Go and Dart runtimes are each driven through a fake transport over the edge's real manifest with the same 10,000 installation ids from `runtimes/testdata/loading`. Each runtime's activated share is within 9–11 % (the binomial bound at this n); the three runtimes agree id for id; and each agrees with expected cohorts that `runtimes/testdata/gen/generate.py` computes from SPEC's formula — a generator that is none of the runtimes. A runtime with rollout support disabled stays on stable for every id. `advance` to 50 % keeps every 10 % installation in the candidate; `abort` returns all of them to stable on the next refresh; `complete` moves the pointer.
+   *Fails if* any runtime disagrees with the generator on any id, or the share is outside the bound, or an aborted installation stays on the candidate. Agreement is not checked between sides fed the same answers: the fixture holds ids, and the expected cohorts come from a fourth implementation.
+5. **Audit export.** The harness records every mutating call it made in criteria 1–4, independently of the platform. The tenant's audit range for the run is exported; `glossa audit verify` passes on it; the export holds an entry for each recorded call, with the right actor; altering one byte of one line makes `verify` fail; and none of the fixture's canary strings — unique words seeded into source and translation text — appears anywhere in the export.
+   *Fails if* a recorded call has no entry (the comparison is against the harness's own log, not the outbox), an entry has the wrong actor, a tampered export verifies, or text leaks.
+6. **v0.3 imports and renders the same.** A v0.3 server is built from `apps/api` with its own migrations and seeded: 300 keys in de/en/es with plurals, selects, nested arguments and apostrophes, descriptions, a change history and three users. Its database is dumped and restored with the restore marker. `glossa import --from v0 --v0-db` imports it; a release is published; every key in every locale is rendered by `@felixgeelhaar/glossa-format` over v0.3's API output and by `@glossa/runtime` over the edge's artifact with generated arguments. Zero mismatches. Descriptions are present on the messages; the three users are invitations with mapped roles and locales; v0.3's history is visible as imported audit entries; the importer refuses a DSN without the marker.
+   *Fails if* any rendering differs (each is listed with key, locale, arguments and both outputs), or any of the carried fields is missing.
+7. **Earlier exits hold.** The M2, M3 and M4 exit tests run against the M5 build of the same commit, unchanged, and pass. Their verdict lines are copied into this report.
+   *Fails if* any earlier criterion fails. A failure here blocks the M5 verdict whatever criteria 1–6 say.
+
+**What this test cannot prove** (§1.3): production rendering in real products, a real vendor's onboarding without a test mailer, real cohort proportions, and v0.3's shutdown.
+
+**Dogfood exit, in the dogfood phase:** every Klarlabs product serves its strings from a Glossa release in production, `glossa import --from v0 --verify` reports zero mismatches for each former v0.3 project, and the §7.4 runbook has been run to the end.
+
+## 13. Work breakdown
+
+Each slice is about an hour of agent work. At most one slice per wave edits `platform/api/openapi.yaml`, and slices in the same wave don't depend on each other. **Every slice states the end-to-end path it completes, or the wave in which its other end is built.** Where a wave is expected to turn a §12 criterion green, the row that completes it says so in bold; a wave whose criteria stay red says why in its merge note and in `REPORT.md`. Amendments to this RFC follow 0005's convention: an *Amended during wave N* note in the section that changed.
+
+| Wave | Slice | Completes, or other end | API spec |
+|---|---|---|---|
+| 1 | **M5 exit test**: `systemtest/m5`, fixture (projects A and B, vendor person, test mailer, v0.3 built from `apps/api`, canaries), all seven criteria as assertions, `REPORT.md`, `make system-m5`, `system-m5.yml`; the §11.2 path filters on `system-m4.yml` | Completes the red board. Every other slice turns part of it green | no |
+| 1 | Workflow domain: `glossa.workflow/v1` schema, the vocabulary registry and its fixtures, `FromJSON` loading per version, lint-on-save, refusal of delayed transitions, bindings with the shared precedence rule; tables and migration; the §2.1 architecture test | Other end: the instance runner and the API, wave 2 | no |
+| 1 | Outbox envelope `Actor`, required by `Publish`; every context's publish call passes one; the event-registry test | Completes "every event names who did it". Other end: the audit projection, wave 2 | no |
+| 1 | Identity: project scope on members and tokens, groups, vendor and `visibility: assigned` on members, the §4.2 permissions, the role matrix pinned | Other end: enforcement in every read path, wave 2; the API, wave 3 | no |
+| 1 | SPEC §1.1 `rollout` (amendment), manifest schema, `generate.py` computes expected cohorts, `loading` fixtures including the old-runtime case | Other ends: JS and Go, wave 2; Dart, wave 3; the manifest writer, wave 3 | no |
+| 1 | Importer `--v0-db`: restore marker, descriptions, provenance detail, users as invitation plans, locale labels, history as an audit-entry plan; against a testcontainers v0.3 schema from `apps/api`'s migrations | Other ends: invitations through Identity, wave 3; audit import, wave 4; `--verify`, wave 4 | no |
+| 2 | **Workflow API**: definitions (create, versions, lint findings), bindings, instances and transitions (read) | Completes definition → stored, linted, bound (§12.1's refusals) | **yes** |
+| 2 | Instance runner: outbox subscriber, snapshot restore and step, transition log, idempotency, actions as the triggering actor, the default definition seeded, the scheduler sweep for `timer.*` | With the wave-2 API completes source change → instance → review state. **§12.1 green** once wave 3's assignments exist | no |
+| 2 | Assignments and approvals domain and app: Assignment, Approval, `assign`, `request_approval`, `approvals_at_least`, `distinct_from_author`; `Assignments.Covers` read port | Other end: their API, wave 3 | no |
+| 2 | Audit projection: `audit_entries`, hash chain, append-only grants, direct writes for sign-ins and MCP calls, the backfill job | Other end: read and export API, wave 5 | no |
+| 2 | Read-path enforcement: project scope and `assigned` visibility in every context's list and get, through `authz` and `Covers` | Other end: the generated sweep in §12.2, which runs once wave 3's API can create a vendor | no |
+| 2 | JS and Go runtimes: installation id, cohort, candidate activation, `explain()`; Go `WithCohortKey`; the `loading` fixtures pass | Other end: the manifest writer, wave 3 | no |
+| 3 | **Assignments, approvals, groups and vendors API**; invitations from the importer's user plan | Completes the vendor path end to end. **§12.1 and §12.2 green** | **yes** |
+| 3 | Release requests and approvals: environment `approval`, ReleaseRequest as a workflow subject, gate re-run on approval, force does not bypass, rollback exempt (domain and app) | Other end: its API, wave 4 | no |
+| 3 | Rollout in Release: start, advance, complete, abort, `max_duration` sweep, the manifest writer emitting `rollout` | Other end: its API, wave 4; runtimes already read it | no |
+| 3 | Dart runtime: installation id, cohort, candidate activation; `loading` fixtures pass | Completes the third runtime of §12.4 | no |
+| 4 | **Release requests, approvals and rollouts API** | Completes publish → request → approvals → edge, and rollout → edge → three runtimes. **§12.3 and §12.4 green** | **yes** |
+| 4 | Audit import of v0.3 history; `glossa import --from v0 --verify` with `@felixgeelhaar/glossa-format` against `@glossa/runtime` | **§12.6 green** | no |
+| 4 | Studio: My work, the approvals inbox, the review queue's "assigned to me" filter | Consumes waves 2–3 | no (consume) |
+| 4 | CLI: `glossa workflow`, `glossa assignments` | Consumes waves 2–3 | no |
+| 4 | Audit export format: `glossa.audit/v1` lines, the signed export manifest, the audit signing key, `glossa audit verify` working offline on a file | Completes chain → verifiable file. Other end: export jobs, wave 5 | no |
+| 5 | **Audit API and export jobs**: entries, export jobs writing the wave-4 format | Completes event → entry → export → `glossa audit verify`. **§12.5 green** | **yes** |
+| 5 | Studio: workflow editor (JSON, Mermaid, lint), instance view, vendors and groups, release requests and rollouts | Consumes waves 2–4 | no (consume) |
+| 5 | CLI: `glossa approve`, `glossa release rollout` | Consumes wave 4 | no |
+| 5 | MCP read tools; per-vendor quality numbers on assignments and `glossa assignments report`; the §10 metrics | Consumes waves 2–4 | no |
+| 6 | `glossa audit list\|export`, CSV conversion; Studio's audit log and export | Consumes wave 5 | no |
+| 6 | Instance rebase; retention of finished instances; the limits of §9.6; definition export and import | Hardening; no criterion | no |
+| 6 | The §7.4 runbook in `docs/`, and the v0.3 deletion PR prepared as a draft and left unmerged | Prepares the dogfood exit | no |
+| 6 | Exit-test hardening: the coverage table of §12.2, flake review, the report's "cannot prove" section | All seven green, or the reason in the report | no |
+
+**Deferred from intent Phase 4 and M4, explicitly** (§1.2): SSO, SCIM and custom roles; data residency beyond the invariants of §9.4; the Insights context and any time-series store; regional adaptation (§2.6 constrains the vocabulary for it); automatic rollout halting; scheduled publishing; vendor invoicing and prices.
+
+## 14. Decisions
+
+These are decisions this RFC takes, each with what it costs.
+
+1. **Localization keeps four review states; every organisation-specific stage lives in Workflow.** Cost: Studio shows two things — a translation's review state and its workflow stage — and has to make the difference legible. Benefit: Release, the publish gate and every runtime-facing guarantee depend on a vocabulary no tenant can extend, which is what intent §42 needs.
+2. **Definitions are statekit Native JSON over a closed vocabulary of parameterised primitives.** No scripts, no webhooks in charts, no compiled-in default. Cost: a process that needs a missing primitive waits for an RFC amendment. Benefit: every definition is lintable at save, explainable, and unable to do anything the platform can't vouch for.
+3. **Instances step with `Restore`/`SendResult` inside the outbox handler's transaction, not with statekit's persistent or distributed interpreters; no in-process timers.** Cost: Glossa stores snapshots itself and raises time-based events from a sweep. Benefit: no dependency on statekit's Tier-2 surface, and a timer survives a restart.
+4. **The vocabulary must be able to express regional adaptation without redesign** (§2.6), though M5 doesn't build it. Cost: a constraint on primitive design now for a feature later. Benefit: intent §40 lands as one trigger filter and one Intelligence task.
+5. **A workflow acts as the actor whose event moved it, and Workflow's own principal never holds `translations.review`.** Cost: a definition cannot "auto-approve" anything that the existing auto-approval policy wouldn't. Benefit: configurable workflows add no way to approve text without a human or a human-configured policy.
+6. **A vendor is a group of members inside the customer's tenant, with assignment-scoped visibility.** Cost: an agency working for ten customers has ten memberships, and has no cross-customer view. Benefit: tenant isolation stays exactly what forced RLS enforces, with no cross-tenant access path to design, test or get wrong.
+7. **Project scope is enforced in `authz`, not in RLS.** Cost: every project-addressed query checks it, and the generated sweep has to prove it. Benefit: RLS stays one rule (the tenant), which is the rule its isolation suite already proves.
+8. **Release approvals hold the pointer; rollback is never gated; a forced override bypasses the gate and not the approvals.** Cost: an urgent fix to production waits for approvers unless it is a rollback. Benefit: §74.2 — getting back to known-good is never slowed by process.
+9. **Staged rollout is decided by the runtime from a signed manifest member, not by the edge.** Cost: three runtimes implement the cohort function and must agree, and an old runtime never joins a rollout. Benefit: the edge stays stateless and cacheable, the CDN question stays open, and an old runtime fails safe onto stable.
+10. **Audit is a new context: a hash-chained, content-free projection of events, fed by an actor every event must now carry.** Cost: a change to every context's publish call in wave 1, and a backfill whose old entries may say `unknown`. Benefit: one place answers "who did what, when", and an export can be verified by someone who doesn't trust us.
+11. **v0.3 history becomes imported audit entries, not translation revisions; the importer reads a restored backup, never v0.3 itself.** Cost: the new revision log of an imported translation starts at the import. Benefit: no fabricated provenance, no new v0.3 code, and no way to run the importer against production v0.3 by mistake.
+12. **The workflow editor is a document editor with a rendered chart, not a visual builder.** Cost: a localization manager edits JSON (with lint and a diagram) in M5. Benefit: the document is the API's document; a visual builder is a product of its own and can come once definitions have been used.
+13. **The Insights context stays deferred, and RFC 0002 §4's description of `chronos` is corrected here**: `chronos` detects patterns in time series (trends, stalls, anomalies) and stores none of its own for us to query. If Insights is built, its store is Prometheus or Postgres rollups, and `chronos` is a candidate for *detecting* stalled locales or queues — Phase 5 work. This reopens nothing in RFC 0002's structure; it corrects one cell. Cost: none now. Benefit: the next RFC doesn't plan around a store that doesn't exist.
+14. **The exit test is wave 1 and red; completeness rules are generated from the contract.** Cost: a large first slice, and a red board for most of the milestone. Benefit: M4's end-of-milestone surprise cannot repeat — a missing layer, a dropped field between two green ends, or a forgotten endpoint is red from the start.
+
+## 15. Open questions for the owner
+
+**Decided by the owner, 2026-10-01** — each on the recommendation below:
+
+- **Q1 Mail:** configure a transactional mail provider. **No code is needed**: the SMTP driver (`identity/adapters/mail.NewSMTP`) and the chart already support it — setting `mail.smtp.addr` turns SMTP on, the credentials come from a Secret, and the chart opens SMTP egress in its network policy. What remains is the owner's: a provider account, a sending domain with SPF, DKIM and DMARC on it, the credentials Secret, and `mail.from`. Any provider that speaks SMTP on port 587 with STARTTLS works.
+- **Q3 Vendors** are members of the customer's tenant, with assignment-scoped visibility.
+- **Q5 Staged rollout:** per-installation cohorts, any percentage per step, manual halt only.
+- **Q6 Approvals** are off by default and opt-in, and an author never approves their own work — self-approval is not offered, even with a reason.
+
+**Not yet decided** — questions 2, 4 and 7–10. Their recommendations stand as the working assumption, so the design and wave 1 can proceed, but they remain the owner's to change.
+
+
+1. **Mail, so a second person can join.** Without SMTP no invitation can be accepted (§1.1), so no translator, reviewer or vendor can join any tenant on the deployed platform. **Recommendation: configure a transactional mail provider** (STARTTLS on 587; the chart already takes `mail.smtp`). It is the smallest change that unblocks every second-person feature, magic links and the v0.3 user import. SSO would also verify addresses, but only for people in a federated IdP, which vendors usually aren't.
+2. **SSO: which protocols and providers, and when?** **Recommendation: not in M5. When the first organisation outside Klarlabs needs it: OIDC first** (authorization code + PKCE, built upstream in auth-go on its `oidc.Verifier`), tested against one generic issuer and Microsoft Entra ID and Google Workspace profiles; **SAML only on a concrete customer requirement**; SCIM after SSO. Decide whether "SSO required" can be enforced per tenant (it should, once SSO exists).
+3. **What is a vendor?** **Recommendation: members of the customer's tenant**, grouped as a vendor, with assignment-scoped visibility (§3.3). The alternative — a vendor is its own tenant granted access into customers' tenants — gives agencies one login and a cross-customer queue, and costs a cross-tenant access path through forced RLS that the platform has never had. Choose it only if a real agency is a target user.
+4. **Data residency model.** **Recommendation: declare one region (EU, Germany) and build nothing else in M5**, keeping §9.4's invariants. When a customer needs another region: one deployment per region (a cell), each tenant pinned to one at creation, the edge per region — not per-tenant storage locations inside one deployment. A cheaper first step, if a customer asks before then, is enforcing a region tag on AI provider routes, since AI calls are the only place tenant text leaves the deployment.
+5. **Staged rollout mechanics.** Three choices. (a) **Cohort key**: recommendation — per installation in browsers and apps; in Go, the application's per-request key when given, else the process. (b) **Steps**: recommendation — free percentages, no enforced ladder. (c) **Halting**: recommendation — manual only in M5; automatic halting waits for opt-in production error reporting, which needs its own RFC.
+6. **Release approvals in a one-person organisation.** `distinct_from_requester` cannot be satisfied when one person does everything, which is every Klarlabs product today. **Recommendation: approvals off for the dogfood products**, and the exit test uses a fixture organisation with three people. The alternative — allow self-approval with n = 1 — makes "approved" mean "published twice", which is worse than no approval.
+7. **Audit retention.** **Recommendation: keep entries for the life of the tenant** — they're content-free and small — with an optional per-tenant minimum period below which deletion of the tenant is refused. Say if a maximum is needed instead (for example, a policy of seven years).
+8. **v0.3 history.** **Recommendation: import `audit_log` as imported audit entries and archive the full dump for a year** (§7.2). The alternative is the archive alone, which keeps the history but out of reach of Studio and the audit export.
+9. **v0.3 shutdown timing.** **Recommendation: 14 days of side-by-side running per product, then read-only; after the last product, 30 days scaled to zero, then the namespace, DNS and npm deprecation.** These are your actions; the PR that deletes the code is prepared and left for you to merge.
+10. **Custom roles.** **Recommendation: defer** until a role can't be expressed as a built-in role plus groups plus project and locale scope. Say if you already know of one.

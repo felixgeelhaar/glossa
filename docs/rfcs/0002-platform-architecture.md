@@ -218,7 +218,7 @@ Each milestone ends with a Klarlabs product using the result in production. That
 | **M2** | Knowledge + AI | TM, termbase, style guides, translation agent with provenance, confidence and review routing, Studio translator workspace (keyboard-first, TM/terms panes, review queue), XLIFF/JSON import | **Armada's** es/fr/ja gaps are closed through review by exception; KraftSport and Pet Medical web are off v0.3 |
 | **M3** | Context | Bundler plugin usages, in-product editor, preview environments per branch, `scout` screenshot capture, GitHub integration (PR checks), React runtime | Translators see where every message appears; Nexa's tax PDF and Lexora's export render through the Go runtime |
 | **M4** | Quality | Layered QA, CI policies, visual QA via `scout`, quality dashboards, MCP complete, Flutter runtime | `glossa check` gates CI in every dogfood product |
-| **M5** | Operations | Workflow engine (`statekit`), assignments, vendors, audit export, advanced release policies | All Klarlabs products migrated; v0.3 retired |
+| **M5** | Operations | Workflow engine (`statekit`), assignments, vendors, audit export, advanced release policies. Design: [RFC 0006](./0006-operations.md), which reconciles this row with intent Phase 4 (§1.2) | All Klarlabs products migrated; v0.3 retired |
 
 ## 14. Repository layout
 

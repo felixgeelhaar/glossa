@@ -186,6 +186,8 @@ Glossa is being **rewritten** as the platform the [product intent](./docs/produc
 | M4 Quality | Layered QA, CI policies, visual QA, Flutter | `glossa check` gates CI in every product |
 | M5 Operations | Workflows, assignments, vendors, audit export | All products migrated, v0.3 retired |
 
+Each milestone has its design RFC: [M2 — 0003](./docs/rfcs/0003-knowledge-and-intelligence.md), [M3 — 0004](./docs/rfcs/0004-context.md), [M4 — 0005](./docs/rfcs/0005-quality.md), [M5 — 0006](./docs/rfcs/0006-operations.md).
+
 ---
 
 ## License
