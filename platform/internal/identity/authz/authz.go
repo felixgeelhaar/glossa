@@ -12,6 +12,17 @@
 // Checks are explicit and local: a permission, optionally a locale. There
 // is no policy language and no remote call. The role matrix and token
 // scopes that produce a Grant live in the Identity domain.
+//
+// # Not yet enforced: project scope and assignment visibility
+//
+// RFC 0006 gives members and tokens a project scope and members a
+// visibility ("assigned" for every vendor member). Identity stores
+// them (domain.Restriction, APIToken.Projects), but NO CHECK IN THIS
+// PACKAGE CONSULTS THEM and a Principal does not carry them: Require
+// and RequireFor answer exactly as they would for an unrestricted
+// member. Wave 2 of RFC 0006 enforces them in every read path at once;
+// until then domain.RestrictionEnforced is false, and nothing may rely
+// on a restriction to keep anyone out.
 package authz
 
 import (
@@ -64,6 +75,17 @@ const (
 	IntegrationRead   = domain.PermIntegrationRead
 	IntegrationImport = domain.PermIntegrationImport
 	IntegrationManage = domain.PermIntegrationManage
+	// The operations permissions (RFC 0006 §4.2). ApprovalsDecide is
+	// locale-scoped and human-only: no token scope grants it and
+	// Background refuses it.
+	WorkflowsRead     = domain.PermWorkflowsRead
+	WorkflowsManage   = domain.PermWorkflowsManage
+	AssignmentsRead   = domain.PermAssignmentsRead
+	AssignmentsManage = domain.PermAssignmentsManage
+	ApprovalsDecide   = domain.PermApprovalsDecide
+	VendorsManage     = domain.PermVendorsManage
+	AuditRead         = domain.PermAuditRead
+	AuditExport       = domain.PermAuditExport
 )
 
 var (
@@ -133,9 +155,13 @@ func Authenticated(ctx context.Context) (Principal, error) {
 	return p, nil
 }
 
-// identityAdministration are permissions background work never holds.
-var identityAdministration = []Permission{
+// neverBackground are permissions background work never holds: identity
+// administration, and deciding approvals, which is a human decision
+// (RFC 0006 §9.1, §9.3) — a workflow acts as the actor whose event
+// moved it and holds no approval of its own.
+var neverBackground = []Permission{
 	domain.PermTenantManage, domain.PermMembersManage, domain.PermOwnersManage, domain.PermTokensManage,
+	domain.PermVendorsManage, domain.PermApprovalsDecide,
 }
 
 // Background returns ctx acting as a bounded context's background
@@ -159,8 +185,8 @@ func Background(ctx context.Context, name string, perms ...Permission) (context.
 		return nil, fmt.Errorf("authz: background %s: the context already carries a principal", name)
 	}
 	for _, p := range perms {
-		for _, admin := range identityAdministration {
-			if p == admin {
+		for _, never := range neverBackground {
+			if p == never {
 				return nil, fmt.Errorf("authz: background %s: %s is never granted to background work", name, p)
 			}
 		}

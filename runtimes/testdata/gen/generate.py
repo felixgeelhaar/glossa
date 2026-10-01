@@ -291,6 +291,186 @@ def loading_sequences():
     }
 
 
+# ── Staged rollout (SPEC §1.4) ──────────────────────────────────────────
+#
+# The expected cohorts are computed here, from SPEC §1.4's formula, with
+# Python's hashlib and integer arithmetic. This generator is deliberately
+# none of the runtimes (RFC 0006 §12.4): nothing below is imported, ported
+# or copied from runtimes/js, runtimes/go or runtimes/dart, so a runtime
+# can only agree with these fixtures by implementing the SPEC, never by
+# sharing code with the thing that checks it. COHORT_VECTORS were computed
+# a second way — `printf '%s%s' "$salt" "$key" | shasum -a 256`, first
+# eight hex digits, mod 10000 — and are asserted below, so a change to
+# `cohort` that disagrees with the SPEC's own vectors fails generation.
+
+COHORT_BUCKETS = 10000
+
+# (salt, key, cohort): the test vectors printed in SPEC §1.4.
+COHORT_VECTORS = [
+    ("AAAAAAAAAAAAAAAAAAAAAA", "00000000000000000000000000000000", 1550),
+    ("AAAAAAAAAAAAAAAAAAAAAA", "user-42", 4935),
+    ("AAAAAAAAAAAAAAAAAAAAAA", "jürgen@example.com", 4213),
+]
+
+
+def cohort(salt, key):
+    """SPEC §1.4: SHA-256 over UTF-8(salt) ‖ UTF-8(key), the first four bytes
+    as a big-endian unsigned integer, mod 10000."""
+    digest = hashlib.sha256(salt.encode("utf-8") + key.encode("utf-8")).digest()
+    return int.from_bytes(digest[:4], "big") % COHORT_BUCKETS
+
+
+for _salt, _key, _want in COHORT_VECTORS:
+    assert cohort(_salt, _key) == _want, (_salt, _key, cohort(_salt, _key), _want)
+
+
+def installation_id(n):
+    """The n-th fixture installation id: 32 lowercase hex digits (SPEC §1.4),
+    derived deterministically so the fixtures are reproducible."""
+    return hashlib.sha256(f"glossa-fixture-installation:{n}".encode()).hexdigest()[:32]
+
+
+def first_installation(salt, want):
+    """The first fixture installation id whose cohort satisfies `want`."""
+    n = 0
+    while not want(cohort(salt, installation_id(n))):
+        n += 1
+    return installation_id(n)
+
+
+def with_rollout(stable, candidate, rollout_id, percent, salt):
+    """The stable manifest carrying `candidate` as a rollout (unsigned)."""
+    m = {k: copy.deepcopy(v) for k, v in stable.items() if k != "signatures"}
+    m["rollout"] = {
+        "id": rollout_id, "percent": percent, "salt": salt,
+        "candidate": {k: copy.deepcopy(candidate[k]) for k in ("release", "locales", "fallback", "artifacts")},
+    }
+    return m
+
+
+ROLLOUT_SALT = "c3RhZ2VkLXJvbGxvdXQtMQ"  # 22 base64url characters, as SPEC §1.4 requires
+ROLLOUT_ID = "ro_fixture"
+
+
+def rollout_sequences():
+    """Loading sequences for SPEC §1.4 that today's runtimes — which predate
+    it — already pass: what a runtime does when its installation is outside
+    the candidate, and what one without rollout support does. The sequences
+    that put an installation *on* the candidate are not written yet; see
+    testdata/README.md and RFC 0006 §5.2's wave-1 amendment."""
+    r1, b1 = build_release("rel_1", 1, "en", [("en", "ltr"), ("de", "ltr")], {},
+                           {"en": {"hello": text("Hello v1")}, "de": {"hello": text("Hallo v1")}})
+    r2, b2 = build_release("rel_2", 2, "en", [("en", "ltr"), ("de", "ltr")], {},
+                           {"en": {"hello": text("Hello v2")}, "de": {"hello": text("Hallo v2")}})
+    everything = {**b1, **b2}
+    stable_only = dict(b1)  # the candidate's artifacts answer 404: fetching one is an error
+
+    def step(desc, manifest, artifacts, active, source, exp, rollout, errors=()):
+        return {"description": desc, "edge": {"manifest": manifest, "artifacts": artifacts},
+                "read": {"id": "hello", "requested": ["en"]},
+                "expActiveRelease": active, "expSource": source, "expErrors": list(errors), "exp": exp,
+                "expRollout": rollout}
+
+    down = {"status": 503}
+
+    # An old runtime: rollout support off, the rollout at 100 %, and an
+    # installation id that is in the candidate at any percentage. It must do
+    # exactly what a runtime written before SPEC §1.4 does: serve the stable
+    # release and never fetch a candidate artifact.
+    old_id = first_installation(ROLLOUT_SALT, lambda c: c < 100)
+    at_100 = sign(with_rollout(r1, r2, ROLLOUT_ID, 100, ROLLOUT_SALT))
+    yield "rollout-old-runtime", {
+        "description": "A runtime without rollout support ignores `rollout` even at 100 %: it serves the stable "
+                       "release, never fetches the candidate's artifacts, and gets the candidate only once the "
+                       "rollout completes",
+        "publicKeys": [{"keyId": TEST_KEY_ID, "key": TEST_PUBLIC_KEY}],
+        "installationId": old_id,
+        "rolloutSupport": False,
+        "steps": [
+            step("cold start, a rollout of rel_2 at 100 %; the candidate's artifacts are not served",
+                 ok(at_100, '"m1"'), stable_only, "rel_1", "network", "Hello v1", None),
+            step("revalidate, not modified", {"status": 304}, stable_only, "rel_1", "memory", "Hello v1", None),
+            step("process restart, edge down: the persisted manifest still carries the rollout",
+                 down, {}, "rel_1", "persisted", "Hello v1", None, ["network"]),
+            step("the rollout completes: rel_2 is the stable release", ok(sign(r2), '"m2"'), everything,
+                 "rel_2", "network", "Hello v2", None),
+        ],
+        "restartBefore": [2],
+    }
+
+    # A rollout-aware runtime whose installation is outside the candidate at
+    # 10 % and at 50 %: it stays on the stable release through start,
+    # restart, advance and abort, and never fetches a candidate artifact.
+    out_id = first_installation(ROLLOUT_SALT, lambda c: c >= 5000)
+    out_cohort = cohort(ROLLOUT_SALT, out_id)
+    at_10 = sign(with_rollout(r1, r2, ROLLOUT_ID, 10, ROLLOUT_SALT))
+    at_50 = sign(with_rollout(r1, r2, ROLLOUT_ID, 50, ROLLOUT_SALT))
+    side = lambda percent: {"id": ROLLOUT_ID, "percent": percent, "cohort": out_cohort, "side": "stable"}
+    yield "rollout-stable-side", {
+        "description": f"An installation whose cohort ({out_cohort}) is outside 10 % and 50 % stays on the stable "
+                       "release through start, restart, advance and abort, and never fetches the candidate",
+        "publicKeys": [{"keyId": TEST_KEY_ID, "key": TEST_PUBLIC_KEY}],
+        "installationId": out_id,
+        "steps": [
+            step("cold start, a rollout of rel_2 at 10 %; the candidate's artifacts are not served",
+                 ok(at_10, '"m1"'), stable_only, "rel_1", "network", "Hello v1", side(10)),
+            step("revalidate, not modified", {"status": 304}, stable_only, "rel_1", "memory", "Hello v1", side(10)),
+            step("process restart, edge down: the persisted manifest decides the side again",
+                 down, {}, "rel_1", "persisted", "Hello v1", side(10), ["network"]),
+            step("advanced to 50 %", ok(at_50, '"m2"'), stable_only, "rel_1", "network", "Hello v1", side(50)),
+            step("aborted: the manifest carries no rollout", ok(sign(r1), '"m3"'), stable_only, "rel_1", "network",
+                 "Hello v1", None),
+        ],
+        "restartBefore": [2],
+    }
+
+
+def rollout_cohorts():
+    """The cohort table of RFC 0006 §12.4: 10,000 installation ids with the
+    cohort SPEC §1.4 assigns each, plus vectors at the boundaries and for
+    server-side cohort keys. Not a loading sequence: a runtime checks its
+    cohort function against it, id by id."""
+    ids = [installation_id(n) for n in range(10000)]
+    cohorts = [cohort(ROLLOUT_SALT, i) for i in ids]
+    percents = [0, 1, 10, 50, 99, 100]
+
+    vectors = [{"salt": s, "key": k, "cohort": c, "note": "SPEC §1.4 test vector"} for s, k, c in COHORT_VECTORS]
+    for want, note in [(0, "the lowest cohort: in the candidate from 1 %"),
+                       (99, "the last cohort in at 1 %"),
+                       (100, "the first cohort out at 1 %"),
+                       (999, "the last cohort in at 10 %"),
+                       (1000, "the first cohort out at 10 %"),
+                       (9999, "the highest cohort: in the candidate only at 100 %")]:
+        key = first_installation(ROLLOUT_SALT, lambda c, w=want: c == w)
+        vectors.append({"salt": ROLLOUT_SALT, "key": key, "cohort": want, "note": note})
+    other_salt = "b3RoZXItcm9sbG91dC0yMg"
+    vectors.append({"salt": other_salt, "key": ids[0], "cohort": cohort(other_salt, ids[0]),
+                    "note": "the first installation under another rollout's salt"})
+    for key, note in [("user-42", "a Go per-request cohort key: any non-empty string, hashed as UTF-8"),
+                      ("jürgen@example.com", "a non-ASCII cohort key: its UTF-8 bytes"),
+                      ("Jürgen@example.com", "case is not folded"),
+                      ("jürgen@example.com", "NFD is not NFC: keys are not normalized")]:
+        vectors.append({"salt": ROLLOUT_SALT, "key": key, "cohort": cohort(ROLLOUT_SALT, key), "note": note})
+
+    return {
+        "description": "SPEC §1.4 cohorts: every fixture installation's cohort under one rollout's salt, how many are "
+                       "in the candidate at each percentage, and boundary and cohort-key vectors. Computed by "
+                       "runtimes/testdata/gen/generate.py, which is none of the runtimes",
+        "salt": ROLLOUT_SALT,
+        "expCandidates": {str(p): sum(1 for c in cohorts if c < p * 100) for p in percents},
+        "vectors": vectors,
+        "installations": [[i, c] for i, c in zip(ids, cohorts)],
+    }
+
+
+def render_cohorts(table):
+    """One installation per line, so 10,000 entries stay reviewable in a diff."""
+    head = {k: v for k, v in table.items() if k != "installations"}
+    body = json.dumps(head, ensure_ascii=False, indent=2)[:-2]
+    rows = ",\n".join("    " + json.dumps(row, ensure_ascii=False) for row in table["installations"])
+    return f'{body},\n  "installations": [\n{rows}\n  ]\n}}\n'
+
+
 # ── Edge: delivery-key scopes (SPEC §2) ─────────────────────────────────
 
 EDGE_PROJECT = "0192f5a0-7a4e-7cc3-9d1e-3a4b5c6d7e8f"
@@ -474,6 +654,15 @@ def main():
             if m.get("status") == 200:
                 validate_release(m["body"], {}, v)
         outputs[ROOT / "loading" / f"{name}.json"] = render(seq)
+    for name, seq in rollout_sequences():
+        for st in seq["steps"]:
+            m = st["edge"]["manifest"]
+            if m.get("status") == 200:
+                validate_release(m["body"], {}, v)
+        outputs[ROOT / "loading" / f"{name}.json"] = render(seq)
+    table = rollout_cohorts()
+    assert json.loads(render_cohorts(table)) == table
+    outputs[ROOT / "rollout" / "cohorts.json"] = render_cohorts(table)
     outputs[ROOT / "markup.json"] = render(markup_fixture())
     key_schema = delivery_key_validator()
     for name, fx in edge_fixtures():

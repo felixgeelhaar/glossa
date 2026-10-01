@@ -310,8 +310,13 @@ carry IDs and the facts of the change, never secrets. A released name
 never changes meaning: a breaking payload change is a new type with a
 `.v2` suffix, published alongside the old one until its subscribers
 move. Identity publishes `identity.tenant.created`,
-`identity.member.{added,activated,access_changed,removed}` and
-`identity.token.{created,revoked}`. Catalog and Localization's events
+`identity.member.{added,activated,access_changed,restriction_changed,removed}`,
+`identity.token.{created,revoked}`, `identity.vendor.{created,changed,deleted}`
+and `identity.group.{created,renamed,deleted,member_added,member_removed}`.
+A member's or token's project scope and a member's vendor and
+`assigned` visibility (RFC 0006 §3.3, §4) are stored and published but
+**not enforced** until RFC 0006 wave 2 (`domain.RestrictionEnforced`).
+Catalog and Localization's events
 are listed under their sections below.
 
 ### Outbox
@@ -321,6 +326,7 @@ err := uow.InTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
     // … change state with sqlc on tx …
     _, err := outbox.Publish(ctx, tx, outbox.Event{
         Type: "catalog.message.source_revised", AggregateType: "message", AggregateID: id,
+        Actor: by, // authz.EventActor(ctx): who caused it — required
         Payload: SourceRevised{Revision: rev},
     })
     return err
@@ -334,6 +340,14 @@ events.Subscribe("catalog.message.source_revised", "localization.mark_outdated",
     }))
 ```
 
+- **Every event names its actor** (RFC 0006 §6.1): `person:<id>`,
+  `token:<id>` (CI, the CLI, an MCP agent) or `system:<id>` (background
+  work, from `authz.Background` or `authz.SystemEventActor(name)`).
+  `Publish` refuses an event without one; nothing defaults it. A handler
+  reads it as `d.Actor`, and events recorded before migration 0042 read
+  `outbox.ActorUnknown`. `TestEveryEventTypeNamesItsActor` scans the
+  code for every `outbox.Event` literal and fails on one that names no
+  actor.
 - **Delivery is at least once.** A handler must be idempotent on
   `d.EventID`, for example by recording processed IDs in its own
   transaction or by upserting.

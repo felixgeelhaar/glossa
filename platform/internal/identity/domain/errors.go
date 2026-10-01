@@ -26,6 +26,21 @@ var (
 
 	ErrInvalidPermission = errors.New("identity: unknown permission")
 
+	// Project scope, visibility, groups and vendors (RFC 0006 §3.3, §4).
+	ErrTooManyProjects        = errors.New("identity: too many projects in a project scope")
+	ErrInvalidVisibility      = errors.New("identity: invalid visibility")
+	ErrVendorMemberVisibility = errors.New("identity: a vendor member sees only their assignments")
+	ErrAssignedVisibilityRole = errors.New("identity: a member who sees only their assignments can only be a translator")
+	ErrOwnerProjectScoped     = errors.New("identity: an owner answers for every project and cannot be project-scoped")
+	ErrInvalidGroupName       = errors.New("identity: group name must be 1-100 characters")
+	ErrAlreadyInGroup         = errors.New("identity: the member is already in the group")
+	ErrNotInGroup             = errors.New("identity: the member is not in the group")
+	ErrMemberOfAnotherTenant  = errors.New("identity: the member belongs to another tenant")
+	ErrGroupFull              = errors.New("identity: the group has as many members as it may have")
+	ErrInvalidVendorName      = errors.New("identity: vendor name must be 1-100 characters")
+	ErrInvalidVendorContact   = errors.New("identity: vendor contact must be at most 200 characters")
+	ErrVendorHasMembers       = errors.New("identity: the vendor still has members")
+
 	// In-context grants and the preview origins they are bound to
 	// (RFC 0004 §5.2).
 	ErrInvalidOrigin          = errors.New("identity: invalid origin")

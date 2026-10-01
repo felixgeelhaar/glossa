@@ -398,6 +398,7 @@ func (s *Service) createTenantWithOwner(ctx context.Context, st TenantStore, t t
 	}
 	if err := st.Publish(ctx, outbox.Event{
 		Type: domain.EventTenantCreated, AggregateType: domain.AggregateTenant, AggregateID: t.ID.String(),
+		Actor: outbox.Actor(by.String()),
 		Payload: domain.TenantCreated{
 			TenantID: t.ID.String(), Kind: string(t.Kind), Slug: string(t.Slug), Name: t.Name, CreatedBy: by.String(),
 		},
@@ -415,8 +416,15 @@ func memberAdded(m domain.Member, by domain.Actor) outbox.Event {
 	if !m.PersonID.IsZero() {
 		e.PersonID = m.PersonID.String()
 	}
+	if r := m.Restriction; !r.Projects.All() || !r.Vendor.IsZero() || r.Visibility == domain.VisibilityAssigned {
+		e.Projects, e.Visibility = r.Projects.Strings(), string(r.Visibility)
+		if !r.Vendor.IsZero() {
+			e.VendorID = r.Vendor.String()
+		}
+	}
 	return outbox.Event{
-		Type: domain.EventMemberAdded, AggregateType: domain.AggregateMember, AggregateID: m.ID.String(), Payload: e,
+		Type: domain.EventMemberAdded, AggregateType: domain.AggregateMember, AggregateID: m.ID.String(),
+		Actor: outbox.Actor(by.String()), Payload: e,
 	}
 }
 
@@ -464,6 +472,7 @@ func (s *Service) acceptInvitation(ctx context.Context, rec PersonRecord, ref In
 		}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventMemberActivated, AggregateType: domain.AggregateMember, AggregateID: m.ID.String(),
+			Actor:   outbox.Actor(domain.PersonActor(rec.ID).String()),
 			Payload: domain.MemberActivated{MemberID: m.ID.String(), PersonID: rec.ID.String()},
 		})
 	})

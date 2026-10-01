@@ -69,8 +69,8 @@ func seedEvent(t *testing.T, tenant tenancy.ID) {
 
 func insertEvent(ctx context.Context, q db.Querier, tenant tenancy.ID) error {
 	_, err := q.Exec(ctx, `
-		INSERT INTO outbox_events (id, tenant_id, event_type, aggregate_type, aggregate_id, payload)
-		VALUES (gen_random_uuid(), $1, 'test.happened', 'test', 'a1', '{}')`, tenant.UUID())
+		INSERT INTO outbox_events (id, tenant_id, event_type, aggregate_type, aggregate_id, actor, payload)
+		VALUES (gen_random_uuid(), $1, 'test.happened', 'test', 'a1', 'system:5b8f1c2e-4d3a-5e6f-8a9b-0c1d2e3f4a5b', '{}')`, tenant.UUID())
 	return err
 }
 

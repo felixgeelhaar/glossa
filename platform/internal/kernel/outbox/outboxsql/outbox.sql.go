@@ -29,7 +29,7 @@ SET attempts     = e.attempts + 1,
     claim_token  = gen_random_uuid()
 FROM due
 WHERE e.id = due.id
-RETURNING e.id, e.tenant_id, e.event_type, e.aggregate_type, e.aggregate_id,
+RETURNING e.id, e.tenant_id, e.event_type, e.aggregate_type, e.aggregate_id, e.actor,
           e.payload, e.trace_context, e.occurred_at, e.attempts,
           e.claim_token, e.delivered_to
 `
@@ -45,6 +45,7 @@ type ClaimOutboxEventsRow struct {
 	EventType     string
 	AggregateType string
 	AggregateID   string
+	Actor         string
 	Payload       json.RawMessage
 	TraceContext  json.RawMessage
 	OccurredAt    time.Time
@@ -73,6 +74,7 @@ func (q *Queries) ClaimOutboxEvents(ctx context.Context, arg ClaimOutboxEventsPa
 			&i.EventType,
 			&i.AggregateType,
 			&i.AggregateID,
+			&i.Actor,
 			&i.Payload,
 			&i.TraceContext,
 			&i.OccurredAt,
@@ -123,11 +125,11 @@ func (q *Queries) DeadLetterOutboxEvent(ctx context.Context, arg DeadLetterOutbo
 const insertOutboxEvent = `-- name: InsertOutboxEvent :exec
 
 INSERT INTO outbox_events (
-    id, tenant_id, event_type, aggregate_type, aggregate_id,
+    id, tenant_id, event_type, aggregate_type, aggregate_id, actor,
     payload, trace_context, occurred_at
 ) VALUES (
     $1, $2, $3, $4,
-    $5, $6, $7, $8
+    $5, $6, $7, $8, $9
 )
 `
 
@@ -137,6 +139,7 @@ type InsertOutboxEventParams struct {
 	EventType     string
 	AggregateType string
 	AggregateID   string
+	Actor         string
 	Payload       json.RawMessage
 	TraceContext  json.RawMessage
 	OccurredAt    time.Time
@@ -151,6 +154,7 @@ func (q *Queries) InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventPa
 		arg.EventType,
 		arg.AggregateType,
 		arg.AggregateID,
+		arg.Actor,
 		arg.Payload,
 		arg.TraceContext,
 		arg.OccurredAt,

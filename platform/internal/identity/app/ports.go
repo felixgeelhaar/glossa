@@ -19,6 +19,7 @@ var (
 	ErrSlugTaken    = errors.New("identity: slug taken")
 	ErrDuplicate    = errors.New("identity: already a member")
 	ErrStaleVersion = errors.New("identity: version changed")
+	ErrNameTaken    = errors.New("identity: name already used in this tenant")
 )
 
 // Transactor runs units of work in the kernel's two scopes. Calls don't
@@ -190,8 +191,34 @@ type TenantStore interface {
 	// UpdateMemberAccess saves roles, locales and version; it fails with
 	// ErrStaleVersion unless the stored version is m.Version-1.
 	UpdateMemberAccess(ctx context.Context, m domain.Member) error
+	// UpdateMemberRestriction saves project scope, vendor, visibility and
+	// version, like UpdateMemberAccess. The restriction is modelled, not
+	// enforced (domain.RestrictionEnforced).
+	UpdateMemberRestriction(ctx context.Context, m domain.Member) error
 	ActivateMember(ctx context.Context, m domain.Member) error
 	DeleteMember(ctx context.Context, id domain.MemberID) error
+
+	// Vendors (RFC 0006 §3.3). InsertVendor's inserted is false on an
+	// idempotent retry; DeleteVendor fails with domain.ErrVendorHasMembers
+	// while any member names the vendor.
+	InsertVendor(ctx context.Context, v domain.Vendor, by domain.Actor) (inserted bool, err error)
+	Vendor(ctx context.Context, id domain.VendorID) (domain.Vendor, error)
+	LockVendor(ctx context.Context, id domain.VendorID) (domain.Vendor, error)
+	Vendors(ctx context.Context, after domain.VendorID, limit int) ([]domain.Vendor, error)
+	UpdateVendor(ctx context.Context, v domain.Vendor) error
+	DeleteVendor(ctx context.Context, id domain.VendorID) error
+	CountVendorMembers(ctx context.Context, id domain.VendorID) (int, error)
+
+	// Groups (RFC 0006 §4.3), loaded with their members. AddGroupMember
+	// and RemoveGroupMember save the group's new version with the change.
+	InsertGroup(ctx context.Context, g domain.Group, by domain.Actor) (inserted bool, err error)
+	Group(ctx context.Context, id domain.GroupID) (domain.Group, error)
+	LockGroup(ctx context.Context, id domain.GroupID) (domain.Group, error)
+	Groups(ctx context.Context, after domain.GroupID, limit int) ([]domain.Group, error)
+	UpdateGroup(ctx context.Context, g domain.Group) error
+	AddGroupMember(ctx context.Context, g domain.Group, member domain.MemberID, by domain.Actor) error
+	RemoveGroupMember(ctx context.Context, g domain.Group, member domain.MemberID) error
+	DeleteGroup(ctx context.Context, id domain.GroupID) error
 
 	InsertToken(ctx context.Context, t domain.APIToken) (inserted bool, err error)
 	Token(ctx context.Context, id domain.TokenID) (domain.APIToken, error)

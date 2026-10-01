@@ -91,14 +91,14 @@ func (s *Service) CreateMessage(ctx context.Context, project domain.ProjectID, i
 
 func messageEvent(typ string, m domain.Message, by domain.Author) outbox.Event {
 	return outbox.Event{
-		Type: typ, AggregateType: domain.AggregateMessage, AggregateID: m.ID.String(),
+		Type: typ, AggregateType: domain.AggregateMessage, AggregateID: m.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.MessageEvent{Message: domain.SnapshotOf(m), By: string(by)},
 	}
 }
 
 func sourceRevisedEvent(m domain.Message, old int, by domain.Author) outbox.Event {
 	return outbox.Event{
-		Type: domain.EventMessageSourceRevised, AggregateType: domain.AggregateMessage, AggregateID: m.ID.String(),
+		Type: domain.EventMessageSourceRevised, AggregateType: domain.AggregateMessage, AggregateID: m.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.SourceRevised{Message: domain.SnapshotOf(m), OldRevision: old, NewRevision: m.Revision, By: string(by)},
 	}
 }
@@ -357,7 +357,7 @@ func (s *Service) RenameMessage(ctx context.Context, project domain.ProjectID, k
 		old := m.Key
 		changed := m.Rename(to, s.now())
 		return outbox.Event{
-			Type: domain.EventMessageRenamed, AggregateType: domain.AggregateMessage, AggregateID: m.ID.String(),
+			Type: domain.EventMessageRenamed, AggregateType: domain.AggregateMessage, AggregateID: m.ID.String(), Actor: outbox.Actor(by),
 			Payload: domain.MessageRenamed{Message: domain.SnapshotOf(*m), OldKey: string(old), NewKey: string(to), By: string(by)},
 		}, changed, nil
 	})

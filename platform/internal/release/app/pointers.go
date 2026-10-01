@@ -185,7 +185,7 @@ func (s *Service) pointer(ctx context.Context, project uuid.UUID, name string,
 		}
 		moved = true
 		return st.Publish(ctx, outbox.Event{
-			Type: event, AggregateType: domain.AggregateRelease, AggregateID: rel.ID.String(),
+			Type: event, AggregateType: domain.AggregateRelease, AggregateID: rel.ID.String(), Actor: outbox.Actor(by),
 			Payload: domain.PointerMoved{
 				ReleaseID: rel.ID.String(), ProjectID: project.String(), Version: rel.Version, Environment: name,
 				PreviousReleaseID: optionalID(previous), By: by,

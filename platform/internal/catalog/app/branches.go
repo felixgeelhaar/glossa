@@ -1113,7 +1113,7 @@ func (s *Service) BranchOverlay(ctx context.Context, project domain.ProjectID, b
 
 func branchEvent(typ string, b domain.Branch, by domain.Author) outbox.Event {
 	return outbox.Event{
-		Type: typ, AggregateType: domain.AggregateBranch, AggregateID: b.ID.String(),
+		Type: typ, AggregateType: domain.AggregateBranch, AggregateID: b.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.BranchEventOf(b, by),
 	}
 }
@@ -1124,7 +1124,7 @@ func branchPushedEvent(rep BranchReport, by domain.Author) outbox.Event {
 		conflicting[i] = id.String()
 	}
 	return outbox.Event{
-		Type: domain.EventBranchPushed, AggregateType: domain.AggregateBranch, AggregateID: rep.Branch.ID.String(),
+		Type: domain.EventBranchPushed, AggregateType: domain.AggregateBranch, AggregateID: rep.Branch.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.BranchPushed{
 			BranchEvent: domain.BranchEventOf(rep.Branch, by), NewKeys: len(rep.NewKeys),
 			SourceProposals: len(rep.SourceProposals), Conflicts: len(rep.Conflicts), ConflictingBranches: conflicting,

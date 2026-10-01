@@ -32,9 +32,35 @@ against the MF2 data-model schema, and every manifest and artifact against [`sch
 | `steps[].expSource` | `explain().source` for the read |
 | `steps[].expErrors` | Error `type`s emitted during the step, in order |
 | `restartBefore` | Step indexes before which the runtime restarts: memory is dropped, persisted storage kept |
+| `installationId` | Staged rollout (SPEC §1.4): the installation id the runtime must use, as if it had created and persisted it. Absent = the runtime's own |
+| `rolloutSupport` | `false` = run with rollout support turned off (SPEC §1.4); absent = on |
+| `steps[].expRollout` | `explain().rollout` for the read: `{id, percent, cohort, side}` or `null` |
 
 Each loading file starts with empty persisted storage. The Ed25519 key that signs these
 fixtures is a fixed, test-only key (seed in the generator); it signs nothing else.
+
+The `rollout-*.json` sequences are the ones every runtime written before SPEC §1.4 already
+passes: `rollout-old-runtime` (support off, the rollout at 100 %, an installation inside the
+candidate: still stable, no candidate fetch) and `rollout-stable-side` (an installation outside
+the candidate through start, restart, advance and abort). A runtime that ignores `rollout`
+passes them by ignoring it, which is the old-runtime guarantee itself. Sequences that put an
+installation *on* the candidate — activation, advance, abort back to stable, a candidate whose
+artifact fails integrity falling back to the stable view, an invalid `rollout` — are not here
+yet: today's runtimes fail them, and the JS and Go drivers have no expected-failure list. They
+land with the runtimes that implement §1.4 (RFC 0006 §13, wave 2).
+
+## `rollout/cohorts.json` (staged rollout, SPEC §1.4)
+
+Not a loading sequence: the table a runtime checks its cohort function against, id by id, and
+the ids RFC 0006 §12.4 drives three runtimes with. The generator computes every cohort from
+SPEC §1.4's formula with `hashlib`, and imports, ports or copies nothing from any runtime.
+
+| Field | Meaning |
+|---|---|
+| `salt` | The rollout salt every `installations` entry is hashed with |
+| `installations` | `[installationId, cohort]` × 10,000 |
+| `expCandidates` | `{percent: n}`: how many of `installations` are in the candidate at that percentage (`cohort < percent × 100`) |
+| `vectors[]` | `{salt, key, cohort, note}`: SPEC §1.4's test vectors, the cohorts at the 1 % and 10 % boundaries, another salt, and Go per-request keys (non-ASCII, case, NFD vs NFC) |
 
 ## `edge/*.json` (delivery-key scopes, SPEC §2)
 

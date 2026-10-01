@@ -1,0 +1,20 @@
+{
+  "schema": "glossa.workflow/v1",
+  "name": "review",
+  "subject": "translation",
+  "chart": {
+    "id": "review",
+    "initial": "awaiting_review",
+    "states": {
+      "awaiting_review": {
+        "type": "atomic",
+        "transitions": [
+          { "event": "translation.reviewed", "target": "reviewed" }
+        ]
+      },
+      "reviewed": { "type": "final" }
+    }
+  },
+  "guards": {},
+  "actions": {}
+}

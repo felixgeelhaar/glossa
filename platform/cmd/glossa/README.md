@@ -434,7 +434,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.locales/v1` | `{locales: [{code, direction, is_source}], fallback}` |
 | `glossa.cli.messages/v1` | `{messages: [{key, namespace, state, source_revision, text, syntax, arguments: [{name, type}], description?}]}` |
 | `glossa.cli.namespaces/v1` | `{namespaces: [{name, active_messages, obsolete_messages}]}` (by name) |
-| `glossa.cli.import/v1` | `{from, source: {url, project}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?}]}` (`--from v0`) |
+| `glossa.cli.import/v1` | `{from, source: {url, project} \| {db, tenant, project, project_name, default_locale}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?, description?, origin_detail?}], restore?, locales?, invitations?, audit_entries?, not_carried?, warnings?}` (`--from v0`; the optional members come from `--v0-db`) |
 | `glossa.cli.import.job/v1` | `{format, mode (dry_run \| merge \| overwrite), dry_run, scope (project \| tenant), file: {path, size, sha256}, job: Job, waited, results: [Result], results_filter (problems \| all)}` (`import --format`, `tm import`, `terms import`) |
 | `glossa.cli.export/v1` | `{format, scope, job: Job, waited, file: {path?, name, size, sha256, content_type, verified} \| null, extracted: [{path, size}]}` (`export`, `tm export`, `terms export`) |
 | `glossa.cli.jobs.list/v1` | `{jobs: [Job]}` (newest first; the project's and the workspace's, or with `--all-projects` the tenant's) |
@@ -652,7 +652,7 @@ glossa import --from v0 --v0-url https://old.example.com/api/v1 --v0-project bro
   locale); empty values are skipped.
 - Missing locales are added. Every other non-empty value becomes a
   translation with provenance `import` and `origin_detail`
-  `{source: "glossa-v0.3", url, project, status}`.
+  `{source: "glossa-v0.3", url, project, status, v0_status}`.
 - Statuses: `approved` → `approved`, `needs_review` and `ai_translated`
   → `needs_review`, `pending` → `draft`. Where the project requires
   review, API tokens can't approve, so approved values arrive as
@@ -660,6 +660,47 @@ glossa import --from v0 --v0-url https://old.example.com/api/v1 --v0-project bro
 - Idempotent: messages are upserted; translations the server already
   has (same canonical model) aren't sent again, so a re-run never undoes a
   review made in between. Every key is reported.
+
+### From a restored backup (`--v0-db`)
+
+v0.3's API doesn't expose key descriptions, who last changed a
+translation, its change history, its users or its locale labels; its
+database does. Restore a v0.3 backup (plain `pg_dump`, gzipped or not)
+into a **new** database on a scratch Postgres 16, then import from it:
+
+```sh
+PGHOST=localhost PGUSER=postgres platform/scripts/v0-restore.sh glossa-20261001.sql.gz glossa_v0_restore
+PGPASSWORD=… glossa import --from v0 --v0-db postgres://postgres@localhost/glossa_v0_restore \
+  --v0-tenant klarlabs --v0-project brotwerk-site --dry-run
+```
+
+- **It reads only a marked restore.** `v0-restore.sh` creates the
+  database (it fails on an existing one), restores into it in one
+  transaction, and runs `v0-restore-marker.sql`, which writes one row to
+  `glossa_v0_restore.marker` naming the database by OID and name, and sets
+  the database to default to read-only transactions. The importer refuses
+  (`v0_not_a_restore`, exit 2) a database without the marker, with a
+  marker written for another database (a copy), or without the read-only
+  default — which a live v0.3 database can't have. There is no flag to
+  skip this. It also refuses a schema that isn't v0.3's at migration 0006
+  and a role row-level security would filter (it never reads fewer rows
+  in silence).
+- It reads in one read-only transaction and writes nothing to v0.3.
+- Carried: `keys.description` as the message description;
+  `translations.updated_by`, `updated_at`, `status` and `id` in the
+  import revision's `origin_detail` (`v0_updated_by` is `v0:<user id>`,
+  `v0:ai:<provider>` for v0.3's AI translator, or `null` where v0.3
+  recorded nobody).
+- Reported as plans, not acted on: `invitations` (v0.3 `admin` →
+  `admin`; `translator` → `translator` with its locales; a translator
+  with no locales is `held`, since the platform reads an empty scope as
+  every locale) for Identity to send, and `audit_entries` (each
+  `audit_log` row as `v0.translation.changed` with actor `v0:<user id>`,
+  `v0:ai:<provider>`, `v0:system:<label>` or `v0:unknown`) for Audit to
+  import. Locale labels are reported; the platform names locales from
+  CLDR.
+- `not_carried` lists every v0.3 field the import leaves behind, with
+  why. The archived dump keeps all of it.
 
 ## Release
 

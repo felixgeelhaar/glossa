@@ -23,6 +23,10 @@ type importItem struct {
 	Downgraded bool       `json:"downgraded,omitempty"`
 	Reason     string     `json:"reason,omitempty"`
 	Error      *itemError `json:"error,omitempty"`
+	// Description (messages) and OriginDetail (translations) are what a
+	// --v0-db import carries from v0.3's rows.
+	Description  string         `json:"description,omitempty"`
+	OriginDetail map[string]any `json:"origin_detail,omitempty"`
 }
 
 type importJSON struct {
@@ -33,16 +37,28 @@ type importJSON struct {
 	LocalesAdded []string                  `json:"locales_added"`
 	Summary      map[string]map[string]int `json:"summary"`
 	Items        []importItem              `json:"items"`
+	// A --v0-db import also reports the restore it read, v0.3's locales
+	// with their labels, the plans other waves complete (invitations:
+	// Identity, wave 3; audit_entries: Audit, wave 4 — nothing is sent or
+	// written by this command), and every v0.3 field it does not carry.
+	Restore      *v0.Restore     `json:"restore,omitempty"`
+	Locales      []v0.LocaleInfo `json:"locales,omitempty"`
+	Invitations  []v0.Invitation `json:"invitations,omitempty"`
+	AuditEntries []v0.AuditEntry `json:"audit_entries,omitempty"`
+	NotCarried   []v0.NotCarried `json:"not_carried,omitempty"`
+	Warnings     []string        `json:"warnings,omitempty"`
 }
 
 type importFlags struct {
 	from, url, project, keyEnv string
+	db, tenant                 string
 	locales                    string
 	dryRun                     bool
 }
 
 const importUsage = `import --format xliff|json|po|tmx|tbx <file> [--apply | --overwrite] [options]
        glossa import --from v0 --v0-url URL --v0-project SLUG [--v0-key-env GLOSSA_V0_KEY] [--locales de,en] [--dry-run]
+       glossa import --from v0 --v0-db DSN [--v0-tenant SLUG] --v0-project SLUG [--locales de,en] [--dry-run]
 
 An interchange file (--format) goes through the server's import jobs. Without --apply or
 --overwrite it is a dry run: every check of a merge, nothing written. Options per format:
@@ -53,7 +69,10 @@ An interchange file (--format) goes through the server's import jobs. Without --
   tbx    --scope project|tenant (tenant: the workspace's termbase, termbase-import-jobs)
 Exit codes: 0 ok, 1 conflicts or invalid items, 2 usage, 3 refused, 4 the job failed.
 
---from v0 imports a Glossa v0.3 project through its API (flags --v0-*, --locales, --dry-run).`
+--from v0 imports a Glossa v0.3 project through its API (--v0-url), or from a restored v0.3
+backup (--v0-db): that also carries key descriptions, who last changed each translation and when,
+and reports v0.3's locale labels, its users as invitation plans and its history as an audit-entry
+plan. --v0-db refuses any database that platform/scripts/v0-restore.sh did not restore and mark.`
 
 func runImport(ctx context.Context, inv *invocation, args []string) error {
 	fs := inv.flags(importUsage)
@@ -62,6 +81,8 @@ func runImport(ctx context.Context, inv *invocation, args []string) error {
 	fs.StringVar(&f.url, "v0-url", "", "--from v0: the v0.3 API, e.g. https://glossa.example.com/api/v1")
 	fs.StringVar(&f.project, "v0-project", "", "--from v0: the v0.3 project slug (default: glossa.yaml's project)")
 	fs.StringVar(&f.keyEnv, "v0-key-env", "GLOSSA_V0_KEY", "--from v0: environment variable holding the v0.3 project API key")
+	fs.StringVar(&f.db, "v0-db", "", "--from v0: a restored v0.3 backup's Postgres DSN (platform/scripts/v0-restore.sh), instead of --v0-url")
+	fs.StringVar(&f.tenant, "v0-tenant", "", "--from v0 --v0-db: the v0.3 tenant slug, when two tenants have the project's slug")
 	fs.StringVar(&f.locales, "locales", "", "--from v0: only these locales' translations (comma-separated)")
 	fs.BoolVar(&f.dryRun, "dry-run", false, "report what the import would do without writing (--format: the default)")
 	var ff fileImportFlags
@@ -74,7 +95,7 @@ func runImport(ctx context.Context, inv *invocation, args []string) error {
 	case f.from != "" && ff.format != "":
 		return usageError(inv.name, "--from and --format exclude each other: --format imports a file, --from v0 a Glossa v0.3 project")
 	case ff.format != "":
-		for _, name := range []string{"v0-url", "v0-project", "v0-key-env", "locales"} {
+		for _, name := range []string{"v0-url", "v0-project", "v0-key-env", "v0-db", "v0-tenant", "locales"} {
 			if isSet(fs, name) {
 				return usageError(inv.name, "--%s belongs to --from v0", name)
 			}
@@ -98,8 +119,14 @@ func runImport(ctx context.Context, inv *invocation, args []string) error {
 	if err := noMore(inv, pos); err != nil {
 		return err
 	}
+	if f.db != "" {
+		return inv.importV0DB(ctx, fs, f)
+	}
+	if isSet(fs, "v0-tenant") {
+		return usageError(inv.name, "--v0-tenant belongs to --v0-db")
+	}
 	if f.url == "" {
-		return usageError(inv.name, "--v0-url is required (the v0.3 API, e.g. https://glossa.example.com/api/v1)")
+		return usageError(inv.name, "--v0-url (the v0.3 API, e.g. https://glossa.example.com/api/v1) or --v0-db (a restored v0.3 backup) is required")
 	}
 	key := strings.TrimSpace(inv.env.getenv(f.keyEnv))
 	if key == "" {
@@ -124,7 +151,7 @@ func runImport(ctx context.Context, inv *invocation, args []string) error {
 		Source: map[string]string{"url": src.Base(), "project": f.project}}
 	if f.dryRun {
 		out.Items = planItems(plan)
-	} else if out, err = inv.applyImport(ctx, p, src, f.project, plan, out); err != nil {
+	} else if out, err = inv.applyImport(ctx, p, plan, apiOrigin(src.Base(), f.project), out); err != nil {
 		return err
 	}
 	out.Summary = importSummary(out.Items)
@@ -178,12 +205,13 @@ func (inv *invocation) readV0(ctx context.Context, src *v0.Client, project, sour
 func planItems(plan v0.Plan) []importItem {
 	var items []importItem
 	for _, m := range plan.Messages {
-		it := importItem{Kind: "message", Key: m.Key, Locale: plan.SourceLocale, Status: "planned"}
+		it := importItem{Kind: "message", Key: m.Key, Locale: plan.SourceLocale, Status: "planned", Description: m.Description}
 		markInvalid(&it, m.Invalid)
 		items = append(items, it)
 	}
 	for _, t := range plan.Translations {
-		it := importItem{Kind: "translation", Key: t.Key, Locale: t.Locale, Status: "planned", V0Status: t.V0Status, State: t.State}
+		it := importItem{Kind: "translation", Key: t.Key, Locale: t.Locale, Status: "planned", V0Status: t.V0Status, State: t.State,
+			OriginDetail: t.Detail}
 		markInvalid(&it, t.Invalid)
 		items = append(items, it)
 	}
@@ -204,8 +232,15 @@ func markInvalid(it *importItem, invalid *snapshot.Invalid) {
 	}
 }
 
+// apiOrigin is the origin detail every translation an API-mode import
+// writes starts with.
+func apiOrigin(base, project string) map[string]any {
+	return map[string]any{"source": "glossa-v0.3", "url": base, "project": project}
+}
+
 // applyImport writes the plan: locales, then messages, then translations.
-func (inv *invocation) applyImport(ctx context.Context, p *project, src *v0.Client, project string, plan v0.Plan, out importJSON) (importJSON, error) {
+// origin starts every translation's origin_detail.
+func (inv *invocation) applyImport(ctx context.Context, p *project, plan v0.Plan, origin map[string]any, out importJSON) (importJSON, error) {
 	for _, l := range plan.Locales {
 		_, created, err := p.client.AddLocale(ctx, p.scope, l)
 		if err != nil {
@@ -219,7 +254,7 @@ func (inv *invocation) applyImport(ctx context.Context, p *project, src *v0.Clie
 	if err != nil {
 		return out, inv.apiError(err, "importing messages failed")
 	}
-	trItems, err := importTranslations(ctx, p, src.Base(), project, plan, imported)
+	trItems, err := importTranslations(ctx, p, origin, plan, imported)
 	if err != nil {
 		return out, inv.apiError(err, "importing translations failed")
 	}
@@ -246,8 +281,15 @@ func importMessages(ctx context.Context, p *project, plan v0.Plan) ([]importItem
 			continue
 		}
 		index = append(index, len(items))
+		item := remote.MessageUpsertItem{Key: m.Key, Text: m.Text, Syntax: &syntax}
+		// An empty v0.3 description carries nothing: omitting it keeps
+		// whatever the platform has, rather than erasing it.
+		if m.Description != "" {
+			item.Description = &m.Description
+			it.Description = m.Description
+		}
 		items = append(items, it)
-		send = append(send, remote.MessageUpsertItem{Key: m.Key, Text: m.Text, Syntax: &syntax})
+		send = append(send, item)
 	}
 	imported := map[string]bool{}
 	if len(send) == 0 {
@@ -306,7 +348,7 @@ func existingTranslations(ctx context.Context, p *project, keys map[string]bool)
 // importTranslations writes the v0.3 values. A value the server already
 // has (same canonical model) is left alone, so a re-run changes nothing
 // and never undoes a review made since the first run.
-func importTranslations(ctx context.Context, p *project, base, project string, plan v0.Plan, imported map[string]bool) ([]importItem, error) {
+func importTranslations(ctx context.Context, p *project, origin map[string]any, plan v0.Plan, imported map[string]bool) ([]importItem, error) {
 	syntax := remote.Syntax("mf1")
 	existing, err := existingTranslations(ctx, p, imported)
 	if err != nil {
@@ -335,7 +377,8 @@ func importTranslations(ctx context.Context, p *project, base, project string, p
 			continue
 		}
 		state := remote.ReviewState(t.State)
-		detail := map[string]any{"source": "glossa-v0.3", "url": base, "project": project, "status": orDefault(t.V0Status, "none")}
+		detail := originDetail(origin, t)
+		it.OriginDetail = detail
 		index = append(index, len(items))
 		items = append(items, it)
 		send = append(send, remote.TranslationImportItem{Key: t.Key, Locale: t.Locale, Text: t.Text, Syntax: &syntax,
@@ -378,6 +421,23 @@ func importTranslations(ctx context.Context, p *project, base, project string, p
 	return items, nil
 }
 
+// originDetail is one translation's import provenance: where the import
+// read from, the v0.3 status (as "status", which API-mode imports have
+// always written, and as "v0_status"), and — from a restore — who last
+// changed it in v0.3 and when.
+func originDetail(origin map[string]any, t v0.TranslationItem) map[string]any {
+	d := make(map[string]any, len(origin)+len(t.Detail)+2)
+	for k, v := range origin {
+		d[k] = v
+	}
+	d["status"] = orDefault(t.V0Status, "none")
+	d["v0_status"] = d["status"]
+	for k, v := range t.Detail {
+		d[k] = v
+	}
+	return d
+}
+
 func applyImport(it *importItem, r remote.TranslationImportRes) {
 	var pi pushItem
 	applyImportResult(&pi, r)
@@ -398,7 +458,8 @@ func printImport(p *printer, out importJSON) {
 	if out.DryRun {
 		verb = "Would import"
 	}
-	p.line("%s from Glossa v0.3 %s (%s)", verb, out.Source["project"], out.Source["url"])
+	p.line("%s from Glossa v0.3 %s (%s)", verb, out.Source["project"], orDefault(out.Source["url"], out.Source["db"]))
+	printV0Plans(p, out)
 	if len(out.LocalesAdded) > 0 {
 		p.line("%s added locales %s", p.pass(), strings.Join(out.LocalesAdded, ", "))
 	}

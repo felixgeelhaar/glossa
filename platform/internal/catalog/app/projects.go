@@ -76,7 +76,7 @@ func (s *Service) CreateProject(ctx context.Context, in NewProject, idemKey stri
 
 func projectEvent(typ string, p domain.Project, by domain.Author) outbox.Event {
 	return outbox.Event{
-		Type: typ, AggregateType: domain.AggregateProject, AggregateID: p.ID.String(),
+		Type: typ, AggregateType: domain.AggregateProject, AggregateID: p.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.ProjectEventOf(p, by),
 	}
 }
@@ -243,7 +243,7 @@ func (s *Service) CreateApplication(ctx context.Context, project domain.ProjectI
 
 func applicationEvent(typ string, a domain.Application, by domain.Author) outbox.Event {
 	return outbox.Event{
-		Type: typ, AggregateType: domain.AggregateApplication, AggregateID: a.ID.String(),
+		Type: typ, AggregateType: domain.AggregateApplication, AggregateID: a.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.ApplicationEventOf(a, by),
 	}
 }

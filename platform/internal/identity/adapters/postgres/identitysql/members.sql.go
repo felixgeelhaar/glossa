@@ -33,6 +33,17 @@ func (q *Queries) ActivateMember(ctx context.Context, arg ActivateMemberParams) 
 	return result.RowsAffected(), nil
 }
 
+const countVendorMembers = `-- name: CountVendorMembers :one
+SELECT count(*) FROM identity_members WHERE vendor_id = $1
+`
+
+func (q *Queries) CountVendorMembers(ctx context.Context, vendorID uuid.NullUUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countVendorMembers, vendorID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteMember = `-- name: DeleteMember :execrows
 DELETE FROM identity_members WHERE id = $1
 `
@@ -46,7 +57,7 @@ func (q *Queries) DeleteMember(ctx context.Context, id uuid.UUID) (int64, error)
 }
 
 const getMember = `-- name: GetMember :one
-SELECT m.id, m.tenant_id, m.person_id, m.email, m.roles, m.locales, m.status, m.version, m.created_by, m.created_at, m.updated_at, coalesce(p.display_name, '')::text AS display_name
+SELECT m.id, m.tenant_id, m.person_id, m.email, m.roles, m.locales, m.status, m.version, m.created_by, m.created_at, m.updated_at, m.projects, m.vendor_id, m.visibility, coalesce(p.display_name, '')::text AS display_name
 FROM identity_members m
 LEFT JOIN identity_people p ON p.id = m.person_id
 WHERE m.id = $1
@@ -64,6 +75,9 @@ type GetMemberRow struct {
 	CreatedBy   string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Projects    []uuid.UUID
+	VendorID    uuid.NullUUID
+	Visibility  string
 	DisplayName string
 }
 
@@ -82,6 +96,9 @@ func (q *Queries) GetMember(ctx context.Context, id uuid.UUID) (GetMemberRow, er
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Projects,
+		&i.VendorID,
+		&i.Visibility,
 		&i.DisplayName,
 	)
 	return i, err
@@ -89,24 +106,27 @@ func (q *Queries) GetMember(ctx context.Context, id uuid.UUID) (GetMemberRow, er
 
 const insertMember = `-- name: InsertMember :execrows
 
-INSERT INTO identity_members (id, tenant_id, person_id, email, roles, locales, status, version,
-                              created_by, created_at, updated_at)
+INSERT INTO identity_members (id, tenant_id, person_id, email, roles, locales, projects, vendor_id,
+                              visibility, status, version, created_by, created_at, updated_at)
 VALUES ($1, app_current_tenant(), $2, $3, $4,
-        $5, $6, $7, $8,
-        $9, $9)
+        $5, $6::uuid[], $7, $8,
+        $9, $10, $11, $12, $12)
 ON CONFLICT (id) DO NOTHING
 `
 
 type InsertMemberParams struct {
-	ID        uuid.UUID
-	PersonID  uuid.NullUUID
-	Email     string
-	Roles     []string
-	Locales   []string
-	Status    string
-	Version   int32
-	CreatedBy string
-	CreatedAt time.Time
+	ID         uuid.UUID
+	PersonID   uuid.NullUUID
+	Email      string
+	Roles      []string
+	Locales    []string
+	Projects   []uuid.UUID
+	VendorID   uuid.NullUUID
+	Visibility string
+	Status     string
+	Version    int32
+	CreatedBy  string
+	CreatedAt  time.Time
 }
 
 // Tenant scope (db.TenantTx): RLS limits every statement to the current
@@ -120,6 +140,9 @@ func (q *Queries) InsertMember(ctx context.Context, arg InsertMemberParams) (int
 		arg.Email,
 		arg.Roles,
 		arg.Locales,
+		arg.Projects,
+		arg.VendorID,
+		arg.Visibility,
 		arg.Status,
 		arg.Version,
 		arg.CreatedBy,
@@ -132,7 +155,7 @@ func (q *Queries) InsertMember(ctx context.Context, arg InsertMemberParams) (int
 }
 
 const listMembers = `-- name: ListMembers :many
-SELECT m.id, m.tenant_id, m.person_id, m.email, m.roles, m.locales, m.status, m.version, m.created_by, m.created_at, m.updated_at, coalesce(p.display_name, '')::text AS display_name
+SELECT m.id, m.tenant_id, m.person_id, m.email, m.roles, m.locales, m.status, m.version, m.created_by, m.created_at, m.updated_at, m.projects, m.vendor_id, m.visibility, coalesce(p.display_name, '')::text AS display_name
 FROM identity_members m
 LEFT JOIN identity_people p ON p.id = m.person_id
 WHERE m.id > $1
@@ -157,6 +180,9 @@ type ListMembersRow struct {
 	CreatedBy   string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Projects    []uuid.UUID
+	VendorID    uuid.NullUUID
+	Visibility  string
 	DisplayName string
 }
 
@@ -181,6 +207,9 @@ func (q *Queries) ListMembers(ctx context.Context, arg ListMembersParams) ([]Lis
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Projects,
+			&i.VendorID,
+			&i.Visibility,
 			&i.DisplayName,
 		); err != nil {
 			return nil, err
@@ -223,7 +252,7 @@ func (q *Queries) LockActiveOwners(ctx context.Context) ([]uuid.UUID, error) {
 }
 
 const lockMember = `-- name: LockMember :one
-SELECT id, tenant_id, person_id, email, roles, locales, status, version, created_by, created_at, updated_at FROM identity_members WHERE id = $1 FOR UPDATE
+SELECT id, tenant_id, person_id, email, roles, locales, status, version, created_by, created_at, updated_at, projects, vendor_id, visibility FROM identity_members WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) LockMember(ctx context.Context, id uuid.UUID) (IdentityMember, error) {
@@ -241,6 +270,9 @@ func (q *Queries) LockMember(ctx context.Context, id uuid.UUID) (IdentityMember,
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Projects,
+		&i.VendorID,
+		&i.Visibility,
 	)
 	return i, err
 }
@@ -392,6 +424,39 @@ func (q *Queries) UpdateMemberAccess(ctx context.Context, arg UpdateMemberAccess
 	result, err := q.db.Exec(ctx, updateMemberAccess,
 		arg.Roles,
 		arg.Locales,
+		arg.Version,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateMemberRestriction = `-- name: UpdateMemberRestriction :execrows
+UPDATE identity_members
+SET projects = $1::uuid[], vendor_id = $2, visibility = $3,
+    version = $4, updated_at = $5
+WHERE id = $6 AND version = $4 - 1
+`
+
+type UpdateMemberRestrictionParams struct {
+	Projects   []uuid.UUID
+	VendorID   uuid.NullUUID
+	Visibility string
+	Version    int32
+	UpdatedAt  time.Time
+	ID         uuid.UUID
+}
+
+// Project scope, vendor and visibility: modelled, not enforced until
+// RFC 0006 wave 2 (see domain.RestrictionEnforced).
+func (q *Queries) UpdateMemberRestriction(ctx context.Context, arg UpdateMemberRestrictionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateMemberRestriction,
+		arg.Projects,
+		arg.VendorID,
+		arg.Visibility,
 		arg.Version,
 		arg.UpdatedAt,
 		arg.ID,

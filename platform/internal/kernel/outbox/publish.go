@@ -17,9 +17,10 @@ import (
 // state change that raised it: if tx rolls back, the event never
 // existed. The event belongs to tx's tenant (row-level security rejects
 // anything else), and it carries ctx's trace context to its handlers.
-// It returns the event's ID.
+// It refuses an event that names no actor (see Actor): nothing is
+// attributed by default. It returns the event's ID.
 func Publish(ctx context.Context, tx *db.TenantTx, e Event) (uuid.UUID, error) {
-	if err := e.validate(); err != nil {
+	if err := e.Validate(); err != nil {
 		return uuid.Nil, err
 	}
 	row, err := insertParams(ctx, tx, e)
@@ -60,6 +61,7 @@ func insertParams(ctx context.Context, tx *db.TenantTx, e Event) (outboxsql.Inse
 		EventType:     e.Type,
 		AggregateType: e.AggregateType,
 		AggregateID:   e.AggregateID,
+		Actor:         string(e.Actor),
 		Payload:       payload,
 		TraceContext:  traceCtx,
 		OccurredAt:    occurred,

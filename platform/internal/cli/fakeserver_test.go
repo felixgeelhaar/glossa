@@ -69,6 +69,8 @@ type fakeMessage struct {
 	// namespace is the message's bundle; empty is the default one, the
 	// way the contract renders a message nobody moved.
 	namespace string
+	// description is the last one an upsert sent (omitted: kept).
+	description string
 }
 
 // ns is the namespace the server reports for the message.
@@ -85,6 +87,8 @@ type fakeTranslation struct {
 	origin         string
 	sourceRevision int
 	revision       int
+	// originDetail is the origin_detail of the latest import write.
+	originDetail map[string]any
 }
 
 func newFakeServer(t *testing.T) *fakeServer {
@@ -210,7 +214,7 @@ func (f *fakeServer) messageJSON(m *fakeMessage) map[string]any {
 	var model, args any
 	_ = json.Unmarshal(m.content.ModelJSON(), &model)
 	_ = json.Unmarshal(m.content.ArgumentsJSON(), &args)
-	return map[string]any{"id": "msg_" + m.key, "key": m.key, "namespace": m.ns(), "description": "", "state": m.state,
+	return map[string]any{"id": "msg_" + m.key, "key": m.key, "namespace": m.ns(), "description": m.description, "state": m.state,
 		"source":          map[string]any{"text": m.content.Text, "syntax": string(m.content.Syntax), "model": model, "arguments": args, "markup": []any{}},
 		"source_revision": m.revision, "created_at": "2026-09-19T00:00:00Z", "updated_at": "2026-09-19T00:00:00Z"}
 }
@@ -267,8 +271,9 @@ func (f *fakeServer) listNamespaces(w http.ResponseWriter, _ *http.Request) {
 func (f *fakeServer) upsert(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Items []struct {
-			Key, Text string
-			Syntax    *string
+			Key, Text   string
+			Syntax      *string
+			Description *string
 		}
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
@@ -292,6 +297,9 @@ func (f *fakeServer) upsert(w http.ResponseWriter, r *http.Request) {
 			m.content, m.revision, m.state, status = c, m.revision+1, "active", "revised"
 		case m.state != "active":
 			m.state, status = "active", "updated"
+		}
+		if it.Description != nil {
+			m.description = *it.Description
 		}
 		results = append(results, map[string]any{"key": it.Key, "status": status, "message": f.messageJSON(m)})
 	}
@@ -330,6 +338,7 @@ func (f *fakeServer) importTranslations(w http.ResponseWriter, r *http.Request) 
 		Items []struct {
 			Key, Locale, Text string
 			State             *string
+			OriginDetail      map[string]any `json:"origin_detail"`
 		}
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
@@ -384,6 +393,9 @@ func (f *fakeServer) importTranslations(w http.ResponseWriter, r *http.Request) 
 			status = "revised"
 		case it.State != nil && *it.State != t.state:
 			t.state, t.revision, status = *it.State, t.revision+1, "reviewed"
+		}
+		if status != "unchanged" {
+			t.originDetail = it.OriginDetail
 		}
 		results = append(results, map[string]any{"key": it.Key, "locale": tag.String(), "status": status, "translation": f.translationJSON(it.Key, tag.String(), t)})
 	}

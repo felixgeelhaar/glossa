@@ -71,7 +71,7 @@ func (s *Service) recordConcept(ctx context.Context, st Store, c domain.Concept,
 		ActionDeleted: domain.EventConceptDeleted,
 	}[action]
 	return st.Publish(ctx, outbox.Event{
-		Type: typ, AggregateType: domain.AggregateConcept, AggregateID: c.ID.String(),
+		Type: typ, AggregateType: domain.AggregateConcept, AggregateID: c.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.ConceptEventOf(c, by),
 	})
 }
