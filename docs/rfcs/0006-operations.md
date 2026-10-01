@@ -411,6 +411,16 @@ These are decisions this RFC takes, each with what it costs.
 
 ## 15. Open questions for the owner
 
+**Decided by the owner, 2026-10-01** — each on the recommendation below:
+
+- **Q1 Mail:** configure a transactional mail provider. **No code is needed**: the SMTP driver (`identity/adapters/mail.NewSMTP`) and the chart already support it — setting `mail.smtp.addr` turns SMTP on, the credentials come from a Secret, and the chart opens SMTP egress in its network policy. What remains is the owner's: a provider account, a sending domain with SPF, DKIM and DMARC on it, the credentials Secret, and `mail.from`. Any provider that speaks SMTP on port 587 with STARTTLS works.
+- **Q3 Vendors** are members of the customer's tenant, with assignment-scoped visibility.
+- **Q5 Staged rollout:** per-installation cohorts, any percentage per step, manual halt only.
+- **Q6 Approvals** are off by default and opt-in, and an author never approves their own work — self-approval is not offered, even with a reason.
+
+**Not yet decided** — questions 2, 4 and 7–10. Their recommendations stand as the working assumption, so the design and wave 1 can proceed, but they remain the owner's to change.
+
+
 1. **Mail, so a second person can join.** Without SMTP no invitation can be accepted (§1.1), so no translator, reviewer or vendor can join any tenant on the deployed platform. **Recommendation: configure a transactional mail provider** (STARTTLS on 587; the chart already takes `mail.smtp`). It is the smallest change that unblocks every second-person feature, magic links and the v0.3 user import. SSO would also verify addresses, but only for people in a federated IdP, which vendors usually aren't.
 2. **SSO: which protocols and providers, and when?** **Recommendation: not in M5. When the first organisation outside Klarlabs needs it: OIDC first** (authorization code + PKCE, built upstream in auth-go on its `oidc.Verifier`), tested against one generic issuer and Microsoft Entra ID and Google Workspace profiles; **SAML only on a concrete customer requirement**; SCIM after SSO. Decide whether "SSO required" can be enforced per tenant (it should, once SSO exists).
 3. **What is a vendor?** **Recommendation: members of the customer's tenant**, grouped as a vendor, with assignment-scoped visibility (§3.3). The alternative — a vendor is its own tenant granted access into customers' tenants — gives agencies one login and a cross-customer queue, and costs a cross-tenant access path through forced RLS that the platform has never had. Choose it only if a real agency is a target user.
