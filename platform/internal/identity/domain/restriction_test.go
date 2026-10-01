@@ -129,18 +129,19 @@ func TestRestrict(t *testing.T) {
 	}
 }
 
-// THE GAP, PINNED. RFC 0006 §13 builds project scope and assignment
-// visibility in two steps: wave 1 models them (this package stores and
-// validates them), wave 2 enforces them in every read path at once,
-// proved by the generated endpoint sweep of §12.2. Until wave 2 lands,
-// a restricted member's grant is exactly an unrestricted member's, and
-// no principal carries the restriction at all.
-//
-// This test fails the moment that changes, so whoever enforces the
-// restriction also removes the NOT ENFORCED warnings on Restriction,
-// Member.Restriction and APIToken.Projects — and nobody reads those
-// fields believing they already protect anything.
-func TestRestrictionIsModelledButNotYetEnforced(t *testing.T) {
+// TestRestrictionIsEnforced replaces wave 1's tripwire, which pinned
+// the gap "modelled but not enforced" and failed the moment enforcement
+// began. Enforcement lives in package authz, beside the grant rather
+// than inside it: a restricted member's Grant is still exactly their
+// roles' — what narrows them is the restriction their principal
+// carries, which authz consults on every project-addressed check
+// (authz's TestRestrictionEnforcement pins those rules). What stays here
+// is the domain's half: the switch is on, and a scope only ever
+// narrows.
+func TestRestrictionIsEnforced(t *testing.T) {
+	if !domain.RestrictionEnforced {
+		t.Fatal("RestrictionEnforced is false, but authz enforces project scope and assignment visibility")
+	}
 	roles, locales := mustRoles(t, "translator"), mustLocales(t, "de")
 	m, err := domain.InviteWith(tenancy.NewID(), tenancy.KindOrganization, mustEmail(t, "v@agency.example"), roles, locales,
 		domain.Restriction{
@@ -153,25 +154,30 @@ func TestRestrictionIsModelledButNotYetEnforced(t *testing.T) {
 	if err := m.Activate(domain.NewPersonID(), now); err != nil {
 		t.Fatal(err)
 	}
-	unrestricted := domain.GrantForMember(roles, locales)
-	if !reflect.DeepEqual(m.Grant().LocaleScopes(), unrestricted.LocaleScopes()) {
-		t.Fatal("a restricted member's grant now differs from an unrestricted one: enforcement has begun. " +
-			"Remove the NOT ENFORCED warnings (domain.Restriction, Member.Restriction, APIToken.Projects, authz's package doc) " +
-			"and replace this test with the enforcement's own")
+	if !reflect.DeepEqual(m.Grant().LocaleScopes(), domain.GrantForMember(roles, locales).LocaleScopes()) {
+		t.Error("the restriction leaked into the grant; it must ride beside it, on the principal, where authz reads it")
 	}
-	scopes, err := domain.ParseScopes([]string{"read", "write"})
-	if err != nil {
-		t.Fatal(err)
+
+	a, b, c := uuid.Must(uuid.NewV7()).String(), uuid.Must(uuid.NewV7()).String(), uuid.Must(uuid.NewV7()).String()
+	ab, abc, all := mustProjects(t, a, b), mustProjects(t, a, b, c), mustProjects(t)
+	ref, _ := domain.ParseProjectRef(a)
+	for _, tc := range []struct {
+		name         string
+		inner, outer domain.ProjectScope
+		within       bool
+	}{
+		{"narrower inside wider", ab, abc, true},
+		{"equal", ab, ab, true},
+		{"anything inside every project", abc, all, true},
+		{"every project is never inside some", all, ab, false},
+		{"wider is not inside narrower", abc, ab, false},
+		{"one project inside its own scope", domain.ProjectScopeOf(ref), ab, true},
+	} {
+		if got := tc.inner.Within(tc.outer); got != tc.within {
+			t.Errorf("%s: Within = %t, want %t", tc.name, got, tc.within)
+		}
 	}
-	tok, _, err := domain.NewAPIToken(tenancy.NewID(), "ci", scopes, nil, domain.PersonActor(domain.NewPersonID()), now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tok.Projects = mustProjects(t, uuid.Must(uuid.NewV7()).String())
-	if !reflect.DeepEqual(tok.Grant().LocaleScopes(), domain.GrantForScopes(scopes).LocaleScopes()) {
-		t.Fatal("a project-scoped token's grant now differs from an unscoped one: enforcement has begun; replace this test")
-	}
-	if domain.RestrictionEnforced {
-		t.Fatal("RestrictionEnforced is true: replace this test with the enforcement's own")
+	if one := domain.ProjectScopeOf(ref); one.All() || !one.Covers(ref) || !reflect.DeepEqual(one.Strings(), []string{a}) {
+		t.Errorf("ProjectScopeOf(%s) = %v", a, one.Strings())
 	}
 }

@@ -49,7 +49,7 @@ func (s *Service) runtimeFor(ctx context.Context, j domain.Job) (jobRuntime, err
 // There is no Intelligence job behind the call — the job is Quality's —
 // so the spend is booked against the project with no job ID.
 func (s *Service) LinguisticRouter(ctx context.Context, project uuid.UUID) (*Router, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.IntelligenceRead, project); err != nil {
 		return nil, err
 	}
 	rt, err := s.runtimeOf(ctx, project, nil)

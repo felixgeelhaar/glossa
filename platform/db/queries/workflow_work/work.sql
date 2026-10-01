@@ -40,6 +40,9 @@ WHERE id > sqlc.arg(after)
   AND (sqlc.arg(project_id)::uuid = '00000000-0000-0000-0000-000000000000' OR project_id = sqlc.arg(project_id))
   AND (cardinality(sqlc.arg(states)::text[]) = 0 OR state = ANY(sqlc.arg(states)::text[]))
   AND (NOT sqlc.arg(by_assignee)::boolean OR assignee = ANY(sqlc.arg(assignees)::text[]))
+  -- A project-scoped caller's lists are cut in the query, before the
+  -- page is, so a page's size never counts rows they cannot see.
+  AND (NOT sqlc.arg(by_projects)::boolean OR project_id = ANY(sqlc.arg(projects)::uuid[]))
 ORDER BY id
 LIMIT sqlc.arg(max_rows);
 

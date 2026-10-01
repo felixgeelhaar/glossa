@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -155,6 +156,17 @@ func New(tx Transactor, catalog Catalog, opts ...Option) *Service {
 // actor returns the acting principal after checking perm.
 func actor(ctx context.Context, perm authz.Permission) (string, error) {
 	if err := authz.Require(ctx, perm); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return p.Actor.String(), nil
+}
+
+// actorIn returns the acting principal after checking perm in project:
+// a project outside the caller's scope is authz.ErrNotVisible, the
+// answer for one that does not exist (RFC 0006 §4.1).
+func actorIn(ctx context.Context, perm authz.Permission, project uuid.UUID) (string, error) {
+	if err := authz.RequireIn(ctx, perm, project); err != nil {
 		return "", err
 	}
 	p, _ := authz.From(ctx)

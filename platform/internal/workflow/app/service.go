@@ -82,10 +82,8 @@ func (s *Service) CreateDefinition(ctx context.Context, in NewDefinition) (Saved
 	if err != nil {
 		return Saved{}, err
 	}
-	if in.ProjectID != uuid.Nil {
-		if err := s.project(ctx, in.ProjectID); err != nil {
-			return Saved{}, err
-		}
+	if err := s.createScope(ctx, in.ProjectID); err != nil {
+		return Saved{}, err
 	}
 	d, err := s.compile(in.Document)
 	if err != nil {
@@ -134,6 +132,9 @@ func (s *Service) SaveVersion(ctx context.Context, definition uuid.UUID, ifLates
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		rec, err := st.LockDefinition(ctx, definition)
 		if err != nil {
+			return err
+		}
+		if err := writeScope(ctx, rec.ProjectID); err != nil {
 			return err
 		}
 		if rec.Latest != ifLatest {
@@ -216,8 +217,10 @@ func (s *Service) compile(doc []byte) (*domain.Definition, error) {
 func (s *Service) Definition(ctx context.Context, id uuid.UUID) (domain.DefinitionRecord, error) {
 	var out domain.DefinitionRecord
 	err := s.read(ctx, func(ctx context.Context, st Store) (err error) {
-		out, err = st.GetDefinition(ctx, id)
-		return err
+		if out, err = st.GetDefinition(ctx, id); err != nil {
+			return err
+		}
+		return readScope(ctx, out.ProjectID)
 	})
 	return out, err
 }
@@ -237,6 +240,13 @@ func (s *Service) Definitions(ctx context.Context, project uuid.UUID) ([]domain.
 func (s *Service) Version(ctx context.Context, definition uuid.UUID, n int) (domain.Version, error) {
 	var out domain.Version
 	err := s.read(ctx, func(ctx context.Context, st Store) (err error) {
+		rec, err := st.GetDefinition(ctx, definition)
+		if err != nil {
+			return err
+		}
+		if err := readScope(ctx, rec.ProjectID); err != nil {
+			return err
+		}
 		out, err = st.GetVersion(ctx, definition, n)
 		return err
 	})
@@ -247,10 +257,13 @@ func (s *Service) Version(ctx context.Context, definition uuid.UUID, n int) (dom
 func (s *Service) Versions(ctx context.Context, definition uuid.UUID) ([]domain.Version, error) {
 	var out []domain.Version
 	err := s.read(ctx, func(ctx context.Context, st Store) error {
-		if _, err := st.GetDefinition(ctx, definition); err != nil {
+		rec, err := st.GetDefinition(ctx, definition)
+		if err != nil {
 			return err
 		}
-		var err error
+		if err := readScope(ctx, rec.ProjectID); err != nil {
+			return err
+		}
 		out, err = st.ListVersions(ctx, definition)
 		return err
 	})
@@ -267,6 +280,9 @@ func (s *Service) DeleteDefinition(ctx context.Context, id uuid.UUID) error {
 	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		rec, err := st.LockDefinition(ctx, id)
 		if err != nil {
+			return err
+		}
+		if err := writeScope(ctx, rec.ProjectID); err != nil {
 			return err
 		}
 		removed, err := st.DeleteBindingsOf(ctx, id)
@@ -427,15 +443,51 @@ func (s *Service) readProject(ctx context.Context, project uuid.UUID, fn func(co
 	return s.tx.InTenant(ctx, fn)
 }
 
-// project checks project is this tenant's, through Catalog.
+// project checks project is one the caller may address and is this
+// tenant's, through Catalog. Scope comes first, so a project outside the
+// caller's scope answers exactly as one that doesn't exist (RFC 0006
+// §4.1) without asking Catalog anything.
 func (s *Service) project(ctx context.Context, project uuid.UUID) error {
 	if project == uuid.Nil {
 		return ErrProjectNotFound
+	}
+	if err := authz.InProject(ctx, project); err != nil {
+		return err
 	}
 	if s.catalog == nil {
 		return nil
 	}
 	return s.catalog.Project(ctx, project)
+}
+
+// createScope is writeScope for a definition that doesn't exist yet: the
+// project it names is also checked against Catalog, because nothing has
+// loaded it. It runs before the transaction, as s.project must.
+func (s *Service) createScope(ctx context.Context, project uuid.UUID) error {
+	if project == uuid.Nil {
+		return authz.RequireUnscoped(ctx, PermWorkflowsManage)
+	}
+	return s.project(ctx, project)
+}
+
+// readScope answers a project's definitions outside the caller's
+// project scope as not found (RFC 0006 §4.1); the tenant's own
+// (uuid.Nil) are everyone's to read. It checks a row already loaded, so
+// it asks only authz, never Catalog, and is safe inside a transaction.
+func readScope(ctx context.Context, project uuid.UUID) error {
+	if project == uuid.Nil {
+		return nil
+	}
+	return authz.InProject(ctx, project)
+}
+
+// writeScope is readScope for a change: the tenant's definitions apply
+// to every project, so nobody limited to some changes them.
+func writeScope(ctx context.Context, project uuid.UUID) error {
+	if project == uuid.Nil {
+		return authz.RequireUnscoped(ctx, PermWorkflowsManage)
+	}
+	return authz.InProject(ctx, project)
 }
 
 // authorize checks perm and returns who is acting, as stored in

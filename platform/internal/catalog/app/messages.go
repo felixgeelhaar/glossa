@@ -36,7 +36,7 @@ func parseSource(p domain.Project, syntax, text string) (mfcontent.Content, erro
 
 // CreateMessage adds a message with its first source revision.
 func (s *Service) CreateMessage(ctx context.Context, project domain.ProjectID, in NewMessage, idemKey string) (m domain.Message, replayed bool, err error) {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
 		return domain.Message{}, false, err
 	}
@@ -103,9 +103,11 @@ func sourceRevisedEvent(m domain.Message, old int, by domain.Author) outbox.Even
 	}
 }
 
-// GetMessage returns a message by key.
+// GetMessage returns a message by key. For an assigned member a message
+// none of their units is in is not found (RFC 0006 §3.3).
 func (s *Service) GetMessage(ctx context.Context, project domain.ProjectID, key string) (domain.Message, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	view, err := authz.Visible(ctx, authz.CatalogRead, project.UUID())
+	if err != nil {
 		return domain.Message{}, err
 	}
 	k, err := parseKeyOrNotFound(key)
@@ -117,7 +119,24 @@ func (s *Service) GetMessage(ctx context.Context, project domain.ProjectID, key 
 		m, err = st.MessageByKey(ctx, project, k)
 		return err
 	})
+	if err == nil && !view.Message(m.ID.UUID()) {
+		return domain.Message{}, ErrNotFound
+	}
 	return m, err
+}
+
+// visibleIDs is the message filter of an authz view: nil for the whole
+// project, the covered messages for an assigned member.
+func visibleIDs(view authz.View) []domain.MessageID {
+	if view.All() {
+		return nil
+	}
+	ids := view.Messages()
+	out := make([]domain.MessageID, len(ids))
+	for i, id := range ids {
+		out[i] = domain.MessageID(id)
+	}
+	return out
 }
 
 // parseKeyOrNotFound treats a malformed key in a path like an unknown one.
@@ -160,15 +179,21 @@ func (q MessageQuery) filter() (MessageFilter, error) {
 	return f, nil
 }
 
-// ListMessages lists a project's messages in key order.
+// ListMessages lists a project's messages in key order; an assigned
+// member's list holds only the messages their units are in, filtered
+// in the query (RFC 0006 §3.3). The coverage filters (missing_in,
+// outdated_in) read translations across the project and are refused
+// them.
 func (s *Service) ListMessages(ctx context.Context, project domain.ProjectID, q MessageQuery, page pagination.Page) ([]domain.Message, *string, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	view, err := authz.Visible(ctx, authz.CatalogRead, project.UUID())
+	if err != nil {
 		return nil, nil, err
 	}
 	f, err := q.filter()
 	if err != nil {
 		return nil, nil, err
 	}
+	f.IDs = visibleIDs(view)
 	var rows []domain.Message
 	if q.MissingIn != "" || q.OutdatedIn != "" {
 		rows, err = s.messagesByCoverage(ctx, project, q, f, page)
@@ -192,7 +217,7 @@ func (s *Service) ListMessages(ctx context.Context, project domain.ProjectID, q 
 // with how many messages each holds by state: one grouped read of the
 // project's messages per page. Needs catalog.read.
 func (s *Service) ListNamespaces(ctx context.Context, project domain.ProjectID, page pagination.Page) ([]NamespaceSummary, *string, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return nil, nil, err
 	}
 	var rows []NamespaceSummary
@@ -218,11 +243,13 @@ func (s *Service) messagesByCoverage(ctx context.Context, project domain.Project
 	if q.MissingIn != "" && q.OutdatedIn != "" {
 		return nil, ErrCoverageFilter
 	}
+	// Coverage reads translations across the project, which an assigned
+	// member may not (RFC 0006 §3.3): RequireIn refuses them.
+	if err := authz.RequireIn(ctx, authz.TranslationsRead, project.UUID()); err != nil {
+		return nil, err
+	}
 	if s.coverage == nil {
 		return nil, ErrNoCoverage
-	}
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
-		return nil, err
 	}
 	cq := CoverageQuery{Project: project, Locale: q.MissingIn, Status: CoverageMissing, Filter: f, AfterKey: page.After, Limit: page.Limit()}
 	if q.OutdatedIn != "" {
@@ -260,7 +287,7 @@ func (s *Service) messagesByCoverage(ctx context.Context, project domain.Project
 // at version ifMatch. Text that parses to the current model is no
 // revision; the message comes back unchanged.
 func (s *Service) ReviseSource(ctx context.Context, project domain.ProjectID, key string, ifMatch int, text, syntax string) (domain.Message, error) {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
 		return domain.Message{}, err
 	}
@@ -368,7 +395,7 @@ func (s *Service) RenameMessage(ctx context.Context, project domain.ProjectID, k
 func (s *Service) mutate(ctx context.Context, project domain.ProjectID, key string, ifMatch *int,
 	change func(*domain.Message, domain.Author) (outbox.Event, bool, error),
 ) (domain.Message, error) {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
 		return domain.Message{}, err
 	}
@@ -399,7 +426,8 @@ func (s *Service) mutate(ctx context.Context, project domain.ProjectID, key stri
 
 // SourceRevisions lists a message's source log, newest first.
 func (s *Service) SourceRevisions(ctx context.Context, project domain.ProjectID, key string, page pagination.Page) ([]domain.SourceRevision, *string, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	view, err := authz.Visible(ctx, authz.CatalogRead, project.UUID())
+	if err != nil {
 		return nil, nil, err
 	}
 	k, err := parseKeyOrNotFound(key)
@@ -415,6 +443,9 @@ func (s *Service) SourceRevisions(ctx context.Context, project domain.ProjectID,
 		m, err := st.MessageByKey(ctx, project, k)
 		if err != nil {
 			return err
+		}
+		if !view.Message(m.ID.UUID()) {
+			return ErrNotFound
 		}
 		rows, err = st.SourceRevisions(ctx, m.ID, before, page.Limit())
 		return err

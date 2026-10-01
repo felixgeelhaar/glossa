@@ -74,6 +74,10 @@ type UnitFilter struct {
 	TranslationID *uuid.UUID
 	// State is active, retired or all.
 	State string
+	// Projects, when not nil, keeps project-owned rows to these
+	// projects: a project-scoped caller's (RFC 0006 §4.1). The use case
+	// sets it.
+	Projects []uuid.UUID
 }
 
 // MatchScope is where TM lookups look.
@@ -109,6 +113,10 @@ type ConceptFilter struct {
 	Locale    *bcp47.Tag
 	// Query searches term texts and definitions (substring).
 	Query *string
+	// Projects, when not nil, keeps project-owned rows to these
+	// projects: a project-scoped caller's (RFC 0006 §4.1). The use case
+	// sets it.
+	Projects []uuid.UUID
 }
 
 // RevisionAction says what a history entry records.
@@ -134,6 +142,10 @@ type StyleFilter struct {
 	TenantOnly bool
 	ProjectID  *uuid.UUID
 	Locale     *bcp47.Tag
+	// Projects, when not nil, keeps project-owned rows to these
+	// projects: a project-scoped caller's (RFC 0006 §4.1). The use case
+	// sets it.
+	Projects []uuid.UUID
 }
 
 // StyleGuideVersion is one entry of a guide's history: a full snapshot.

@@ -64,6 +64,10 @@ WHERE id > sqlc.arg(after)
   AND (sqlc.narg(target_locale)::text IS NULL OR target_locale = sqlc.narg(target_locale))
   AND (sqlc.narg(project_id)::uuid IS NULL OR project_id = sqlc.narg(project_id))
   AND (sqlc.narg(translation_id)::uuid IS NULL OR translation_id = sqlc.narg(translation_id))
+  -- projects limits project-owned rows to a project-scoped caller's
+  -- projects (RFC 0006 §4.1); tenant-wide rows stay. Filtered here so a
+  -- page's size says nothing about the others.
+  AND (sqlc.narg(projects)::uuid[] IS NULL OR project_id IS NULL OR project_id = ANY (sqlc.narg(projects)::uuid[]))
   AND (sqlc.arg(state)::text = 'all'
        OR (sqlc.arg(state)::text = 'active' AND retired_at IS NULL)
        OR (sqlc.arg(state)::text = 'retired' AND retired_at IS NOT NULL))

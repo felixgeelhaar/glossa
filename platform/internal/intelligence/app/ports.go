@@ -177,6 +177,9 @@ type JobFilter struct {
 	Locale    string
 	FillID    *uuid.UUID
 	MessageID *uuid.UUID
+	// Projects, when not nil, limits the rows to these projects: a
+	// project-scoped caller's (RFC 0006 §4.1). The use case sets it.
+	Projects []uuid.UUID
 }
 
 // JobOutcome is how a claimed job ends.
@@ -197,6 +200,9 @@ type SuggestionFilter struct {
 	Locale    string
 	MessageID *uuid.UUID
 	JobID     *uuid.UUID
+	// Projects, when not nil, limits the rows to these projects: a
+	// project-scoped caller's (RFC 0006 §4.1). The use case sets it.
+	Projects []uuid.UUID
 }
 
 // QueueCursor is a review-queue keyset position.
@@ -247,6 +253,9 @@ type DisclosureFilter struct {
 	MessageID *uuid.UUID
 	ProjectID *uuid.UUID
 	Provider  string
+	// Projects, when not nil, limits the rows to these projects: a
+	// project-scoped caller's (RFC 0006 §4.1). The use case sets it.
+	Projects []uuid.UUID
 }
 
 // Store is Intelligence's persistence in tenant scope. Row-level

@@ -97,7 +97,10 @@ func (s *Service) AuthenticateToken(ctx context.Context, bearer string) (Authn, 
 }
 
 // Authorize grants a caller access to tenant: a person through an active
-// membership, a token only in its own tenant. Anything else — including
+// membership, a token only in its own tenant. The principal carries the
+// caller's restriction beside its grant (RFC 0006 §3.3, §4.1): a
+// member's project scope and visibility, a token's project scope, and
+// the one project a CI token or an in-context grant was minted for. Anything else — including
 // a tenant that doesn't exist — is ErrForbidden, so the answer never
 // reveals whether a tenant exists.
 func (s *Service) Authorize(ctx context.Context, a Authn, tenant tenancy.ID) (authz.Principal, error) {
@@ -112,6 +115,9 @@ func (s *Service) Authorize(ctx context.Context, a Authn, tenant tenancy.ID) (au
 			return authz.Principal{}, ErrForbidden
 		}
 		p.Grant = a.Grant.Permissions
+		// It acts on the one project it was minted for, which was inside
+		// the person's project scope when it was minted (RFC 0006 §4.1).
+		p.Projects = domain.ProjectScopeOf(a.Grant.Project)
 		return p, nil
 	}
 	if a.CI != nil {
@@ -123,6 +129,7 @@ func (s *Service) Authorize(ctx context.Context, a Authn, tenant tenancy.ID) (au
 			return authz.Principal{}, ErrForbidden
 		}
 		p.Grant = a.CI.Permissions
+		p.Projects = domain.ProjectScopeOf(a.CI.Project)
 		return p, nil
 	}
 	if a.Token != nil {
@@ -130,6 +137,7 @@ func (s *Service) Authorize(ctx context.Context, a Authn, tenant tenancy.ID) (au
 			return authz.Principal{}, ErrForbidden
 		}
 		p.Grant = domain.GrantForScopes(a.Token.Scopes)
+		p.Projects = a.Token.Projects
 		return p, nil
 	}
 	var g MembershipGrant
@@ -146,6 +154,10 @@ func (s *Service) Authorize(ctx context.Context, a Authn, tenant tenancy.ID) (au
 	}
 	p.Member = g.Member
 	p.Grant = domain.GrantForMember(g.Roles, g.Locales)
+	p.Projects, p.Visibility = g.Projects, g.Visibility
+	if p.Visibility == domain.VisibilityAssigned {
+		p.Coverage = s.coverage
+	}
 	return p, nil
 }
 

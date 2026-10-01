@@ -34,6 +34,10 @@ WHERE id > sqlc.arg(after)
   AND (NOT sqlc.arg(tenant_only)::boolean OR project_id IS NULL)
   AND (sqlc.narg(project_id)::uuid IS NULL OR project_id = sqlc.narg(project_id))
   AND (sqlc.narg(locale)::text IS NULL OR locale = sqlc.narg(locale))
+  -- projects limits project-owned rows to a project-scoped caller's
+  -- projects (RFC 0006 §4.1); tenant-wide rows stay. Filtered here so a
+  -- page's size says nothing about the others.
+  AND (sqlc.narg(projects)::uuid[] IS NULL OR project_id IS NULL OR project_id = ANY (sqlc.narg(projects)::uuid[]))
 ORDER BY id
 LIMIT sqlc.arg(max_rows);
 

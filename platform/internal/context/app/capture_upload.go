@@ -80,7 +80,7 @@ func (s *Service) IngestCaptures(ctx context.Context, in IngestCaptures) (_ Capt
 		attribute.Int("glossa.manifest_bytes", len(in.Manifest)))
 	defer end(&err)
 
-	by, err := actor(ctx, authz.CatalogWrite)
+	by, err := actorIn(ctx, authz.CatalogWrite, in.Project)
 	if err != nil {
 		return CapturesIngested{}, err
 	}

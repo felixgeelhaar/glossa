@@ -259,7 +259,13 @@ func (s *Service) run(
 			return Result{}, err
 		}
 	}
-	return tool.Handler(ctx, sess, args)
+	res, err := tool.Handler(ctx, sess, args)
+	// Whatever a source did not translate itself, a project outside the
+	// token's scope answers as one that does not exist (RFC 0006 §4.1).
+	if errors.Is(err, authz.ErrNotVisible) {
+		err = domain.ErrNotFound
+	}
+	return res, err
 }
 
 // record writes the ledger row. A ledger that fails must not swallow a

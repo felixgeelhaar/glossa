@@ -50,7 +50,7 @@ func New(tx Transactor, source Source, objects objectstore.Store, signer *domain
 // deployment's manifests (active first, then retired), after checking
 // the caller may read the project's releases.
 func (s *Service) SigningKeys(ctx context.Context, project uuid.UUID) ([]domain.PublicKey, error) {
-	if err := authz.Require(ctx, authz.ReleasesRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.ReleasesRead, project); err != nil {
 		return nil, err
 	}
 	if err := s.source.CheckProject(ctx, project); err != nil {
@@ -62,6 +62,17 @@ func (s *Service) SigningKeys(ctx context.Context, project uuid.UUID) ([]domain.
 // actor returns the acting principal after checking perm.
 func actor(ctx context.Context, perm authz.Permission) (string, error) {
 	if err := authz.Require(ctx, perm); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return p.Actor.String(), nil
+}
+
+// actorIn returns the acting principal after checking perm in project:
+// a project outside the caller's scope is authz.ErrNotVisible, the
+// answer for one that does not exist (RFC 0006 §4.1).
+func actorIn(ctx context.Context, perm authz.Permission, project uuid.UUID) (string, error) {
+	if err := authz.RequireIn(ctx, perm, project); err != nil {
 		return "", err
 	}
 	p, _ := authz.From(ctx)

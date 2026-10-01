@@ -257,9 +257,9 @@ func (ss Scopes) Strings() []string {
 // each for every locale or for a LocaleScope. The zero Grant allows
 // nothing.
 //
-// A Grant does not yet carry project scope or assignment visibility
-// (RFC 0006 §4.1, §3.3): see Restriction, which is modelled and stored
-// but NOT ENFORCED until wave 2.
+// A Grant carries no project scope or assignment visibility (RFC 0006
+// §4.1, §3.3): those ride beside it on authz.Principal, which checks
+// them with every project-addressed permission.
 type Grant struct {
 	perms map[Permission]LocaleScope
 }

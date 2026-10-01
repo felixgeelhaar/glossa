@@ -35,7 +35,7 @@ func (s *Service) ensureDefaults(ctx context.Context, st Store, project uuid.UUI
 
 // checkProject authorizes perm and checks that the project exists.
 func (s *Service) checkProject(ctx context.Context, project uuid.UUID, perm authz.Permission) (string, error) {
-	by, err := actor(ctx, perm)
+	by, err := actorIn(ctx, perm, project)
 	if err != nil {
 		return "", err
 	}

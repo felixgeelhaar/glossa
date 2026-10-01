@@ -151,7 +151,12 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	return a.run(ctx)
 }
 
-func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup config.LookupFunc) (*app, error) {
+// buildOption adjusts the bounded contexts build wires before Identity
+// is handed what it needs from them — a port another context provides,
+// such as the authz.Coverage Workflow's assignments implement.
+type buildOption func(*contexts)
+
+func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup config.LookupFunc, opts ...buildOption) (*app, error) {
 	tp, shutdownTP, err := observability.NewTracerProvider(ctx, cfg.OTel, version())
 	if err != nil {
 		return nil, err
@@ -186,12 +191,19 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
+	for _, o := range opts {
+		o(&bounded)
+	}
 	// Identity is built first, and the GitHub Actions OIDC exchange is
 	// the one thing it needs from a later context: Integration's Git
 	// connections say which tenant a verified repository belongs to
 	// (RFC 0004 §6.3). Without a GitHub App this stays zero and the
 	// exchange answers `github_not_configured`.
 	identitySvc.SetGitHubOIDC(bounded.ciAuth)
+	// The other thing Identity needs from a later context: which units a
+	// member whose visibility is `assigned` may see (RFC 0006 §3.3),
+	// from Workflow's assignments. Nil means they see nothing.
+	identitySvc.SetCoverage(bounded.coverage)
 	purger, err := newPurger(cfg.Purge, logger, registry, pool, bounded.purgeJobs)
 	if err != nil {
 		pool.Close()

@@ -78,6 +78,10 @@ WHERE (sqlc.narg(project_id)::uuid IS NULL OR project_id = sqlc.narg(project_id)
   AND (sqlc.narg(locale)::text IS NULL OR locale = sqlc.narg(locale)::text)
   AND (sqlc.narg(fill_id)::uuid IS NULL OR fill_id = sqlc.narg(fill_id)::uuid)
   AND (sqlc.narg(message_id)::uuid IS NULL OR message_id = sqlc.narg(message_id)::uuid)
+  -- projects limits the rows to a project-scoped caller's projects
+  -- (RFC 0006 §4.1), in the query so a page's size says nothing about
+  -- the others.
+  AND (sqlc.narg(projects)::uuid[] IS NULL OR project_id = ANY (sqlc.narg(projects)::uuid[]))
   AND (sqlc.narg(before_at)::timestamptz IS NULL OR (created_at, id) < (sqlc.narg(before_at)::timestamptz, sqlc.arg(before_id)::uuid))
 ORDER BY created_at DESC, id DESC
 LIMIT sqlc.arg(max_rows)::int;

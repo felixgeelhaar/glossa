@@ -104,11 +104,14 @@ func (r *Instances) get(ctx context.Context, project, id uuid.UUID) (InstanceVie
 }
 
 func (r *Instances) authorize(ctx context.Context, project uuid.UUID) error {
-	if err := authz.Require(ctx, PermWorkflowsRead); err != nil {
-		return err
-	}
 	if project == uuid.Nil {
 		return ErrProjectNotFound
+	}
+	// RequireIn, not Require: a project outside the caller's scope
+	// answers as one that doesn't exist (RFC 0006 §4.1), and an
+	// `assigned` member is refused instances as every list.
+	if err := authz.RequireIn(ctx, PermWorkflowsRead, project); err != nil {
+		return err
 	}
 	if r.catalog != nil {
 		if err := r.catalog.Project(ctx, project); err != nil {

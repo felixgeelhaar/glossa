@@ -30,6 +30,7 @@ import (
 	identitymetrics "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/metrics"
 	identitysources "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/sources"
 	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
 	integrationapi "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/httpapi"
 	integrationmetrics "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/metrics"
@@ -164,6 +165,12 @@ type contexts struct {
 	// subscribed to the vocabulary events, the instance store the API
 	// reads, and assignments and approvals.
 	workflowRuntime workflowServices
+	// coverage is Workflow's assignments as the read port assignment-
+	// scoped visibility filters through (authz.Coverage, RFC 0006 §3.3).
+	// Were it ever nil, Identity would hand every `assigned` member a
+	// principal without one and authz would show them nothing: the
+	// restriction fails closed, never open.
+	coverage authz.Coverage
 }
 
 // newPurgeJobs builds the daily retention jobs over the two contexts that
@@ -381,6 +388,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	c := contexts{
 		workflow: workflow, workflowAPI: workflowapi.New(workflow, wf.instances, workflowCatalog), workflowRuntime: wf,
+		coverage:   wf.coverage,
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
 		previewAPI:   previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),

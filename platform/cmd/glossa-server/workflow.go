@@ -31,6 +31,9 @@ type workflowServices struct {
 	runner    *workflowapp.Runner
 	instances *workflowpg.Instances
 	work      *workflowapp.WorkService
+	// coverage is assignments as the read port every context's read
+	// path filters an `assigned` member through (authz.Coverage).
+	coverage *workflowapp.Coverage
 }
 
 // workflowSources are the contexts the runner reads and acts through.
@@ -56,9 +59,13 @@ func newWorkflow(
 	// transaction (reads only: no TOTP secret is ever opened there, so
 	// the store needs no cipher); four-eyes reads the author of the text
 	// through Localization.
-	work := workflowapp.NewWorkService(workflowpg.NewWorkTransactor(uow),
-		workflowidentity.NewDirectory(identitypg.NewTransactor(uow, nil)),
+	workTx := workflowpg.NewWorkTransactor(uow)
+	directory := workflowidentity.NewDirectory(identitypg.NewTransactor(uow, nil))
+	work := workflowapp.NewWorkService(workTx, directory,
 		workflowsources.NewAuthors(src.catalog, src.localization))
+	// The same assignments, read as coverage: which units a member with
+	// visibility `assigned` may see (RFC 0006 §3.3).
+	coverage := workflowapp.NewCoverage(workTx, directory, nil)
 	deps := workflowapp.RunnerDeps{
 		Tx: instances, Definitions: definitions, Timers: instances, Logger: logger,
 		Translations: workflowsources.NewTranslations(src.catalog, src.localization),
@@ -74,7 +81,7 @@ func newWorkflow(
 	if err := runner.Subscribe(events); err != nil {
 		return workflowServices{}, err
 	}
-	return workflowServices{runner: runner, instances: instances, work: work}, nil
+	return workflowServices{runner: runner, instances: instances, work: work, coverage: coverage}, nil
 }
 
 // The timer sweep's cadence (RFC 0006 §2.3). Due periods are written in

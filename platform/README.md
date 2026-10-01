@@ -319,8 +319,11 @@ move. Identity publishes `identity.tenant.created`,
 `identity.token.{created,revoked}`, `identity.vendor.{created,changed,deleted}`
 and `identity.group.{created,renamed,deleted,member_added,member_removed}`.
 A member's or token's project scope and a member's vendor and
-`assigned` visibility (RFC 0006 §3.3, §4) are stored and published but
-**not enforced** until RFC 0006 wave 2 (`domain.RestrictionEnforced`).
+`assigned` visibility (RFC 0006 §3.3, §4) are stored, published and
+enforced by `authz` in every context's read and write paths: a project
+outside a principal's scope answers as if it did not exist, and an
+`assigned` member reads and writes only the units their assignments
+cover (`domain.RestrictionEnforced`).
 Catalog and Localization's events
 are listed under their sections below.
 

@@ -55,6 +55,9 @@ type AssignmentFilter struct {
 	// Assignees are stored spellings (domain.Assignee.String()); an
 	// assignment matches any of them.
 	Assignees []string
+	// Within, when set, keeps only assignments in these projects: the
+	// caller's project scope, set by the service, never by a caller.
+	Within *[]uuid.UUID
 	// After is the last id of the previous page.
 	After uuid.UUID
 	Limit int

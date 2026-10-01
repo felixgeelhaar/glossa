@@ -101,6 +101,13 @@ func (s *Service) ProjectMessages(ctx context.Context, ms []MessageState) error 
 	if len(ms) == 0 {
 		return nil
 	}
+	// Catalog's write checked its project; the port checks it again, so
+	// it is never the way round a project scope (RFC 0006 §4.1).
+	for _, m := range ms {
+		if err := authz.InProject(ctx, m.ProjectID); err != nil {
+			return err
+		}
+	}
 	by, err := authz.EventActor(ctx) // the writer whose source revision it is
 	if err != nil {
 		return err

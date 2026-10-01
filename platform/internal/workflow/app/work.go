@@ -60,7 +60,7 @@ type AssignInput struct {
 
 // Assign gives units to a party. It takes assignments.manage.
 func (s *WorkService) Assign(ctx context.Context, in AssignInput) (domain.Assignment, error) {
-	if err := authz.Require(ctx, PermAssignmentsManage); err != nil {
+	if err := authz.RequireIn(ctx, PermAssignmentsManage, in.ProjectID); err != nil {
 		return domain.Assignment{}, err
 	}
 	perm := in.Permission
@@ -88,6 +88,9 @@ type WorkflowAssign struct {
 // (translations.write).
 func (s *WorkService) AssignForInstance(ctx context.Context, in WorkflowAssign) (domain.Assignment, error) {
 	if _, err := actorInTenant(ctx); err != nil {
+		return domain.Assignment{}, err
+	}
+	if err := authz.InProject(ctx, in.ProjectID); err != nil {
 		return domain.Assignment{}, err
 	}
 	if in.Subject != domain.SubjectTranslation {
@@ -182,7 +185,7 @@ func (s *WorkService) Complete(ctx context.Context, id uuid.UUID) (domain.Assign
 // back.
 func (s *WorkService) Decline(ctx context.Context, id uuid.UUID, reason string) (domain.Assignment, error) {
 	if authz.Require(ctx, PermAssignmentsManage) == nil {
-		return s.change(ctx, id, domain.EventTypeAssignmentDeclined, nil, func(a *domain.Assignment, by string, now time.Time) error {
+		return s.change(ctx, id, domain.EventTypeAssignmentDeclined, inScope, func(a *domain.Assignment, by string, now time.Time) error {
 			return a.Decline(by, reason, now)
 		})
 	}
@@ -197,9 +200,34 @@ func (s *WorkService) Expire(ctx context.Context, id uuid.UUID) (domain.Assignme
 	if err := authz.Require(ctx, PermAssignmentsManage); err != nil {
 		return domain.Assignment{}, err
 	}
-	return s.change(ctx, id, domain.EventTypeAssignmentExpired, nil, func(a *domain.Assignment, by string, now time.Time) error {
+	return s.change(ctx, id, domain.EventTypeAssignmentExpired, inScope, func(a *domain.Assignment, by string, now time.Time) error {
 		return a.Expire(by, now)
 	})
+}
+
+// inScope is the check on an assignment a manager changes: one outside
+// their project scope doesn't exist to them (RFC 0006 §4.1).
+func inScope(ctx context.Context, a domain.Assignment) error {
+	return authz.InProject(ctx, a.ProjectID)
+}
+
+// ownWork checks perm for reading the caller's own work. An `assigned`
+// member (a vendor's) holds no tenant-wide permission, so authz.Require
+// refuses them everything; their own assignments are the one thing that
+// is theirs without any unit to name, so for them the grant decides and
+// the affiliation filter that follows keeps it to their own rows.
+func ownWork(ctx context.Context, perm authz.Permission) error {
+	p, ok := authz.From(ctx)
+	if !ok {
+		return authz.ErrUnauthenticated
+	}
+	if p.Assigned() {
+		if !p.Grant.Allows(perm) {
+			return &authz.DeniedError{Permission: perm}
+		}
+		return nil
+	}
+	return authz.Require(ctx, perm)
 }
 
 // work is a change only the assignee may make, holding the
@@ -222,12 +250,16 @@ func (s *WorkService) work(ctx context.Context, id uuid.UUID, event string, fn f
 		if !aff.Includes(a.Assignee) {
 			return ErrNotAssignee
 		}
-		for _, l := range domain.Locales(a.Units) {
-			locale, err := authz.ParseLocale(l)
+		// Per unit and through RequireUnit, not RequireFor per locale: a
+		// vendor member (visibility `assigned`) holds the permission only
+		// for units an assignment of theirs covers, which this one does,
+		// and a project-scoped member only inside their projects.
+		for _, u := range a.Units {
+			locale, err := authz.ParseLocale(u.Locale)
 			if err != nil {
 				return err
 			}
-			if err := authz.RequireFor(ctx, authz.Permission(a.Permission), locale); err != nil {
+			if err := authz.RequireUnit(ctx, authz.Permission(a.Permission), a.ProjectID, u.Message, locale); err != nil {
 				return err
 			}
 		}
@@ -269,7 +301,7 @@ func (s *WorkService) change(ctx context.Context, id uuid.UUID, event string, ch
 func (s *WorkService) Assignment(ctx context.Context, id uuid.UUID) (domain.Assignment, error) {
 	manager := authz.Require(ctx, PermAssignmentsManage) == nil
 	if !manager {
-		if err := authz.Require(ctx, PermAssignmentsRead); err != nil {
+		if err := ownWork(ctx, PermAssignmentsRead); err != nil {
 			return domain.Assignment{}, err
 		}
 	}
@@ -278,6 +310,9 @@ func (s *WorkService) Assignment(ctx context.Context, id uuid.UUID) (domain.Assi
 	err := s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) error {
 		a, err := st.GetAssignment(ctx, id)
 		if err != nil {
+			return err
+		}
+		if err := authz.InProject(ctx, a.ProjectID); err != nil {
 			return err
 		}
 		if !manager {
@@ -299,11 +334,13 @@ func (s *WorkService) Assignment(ctx context.Context, id uuid.UUID) (domain.Assi
 // Assignments lists a tenant's assignments. It takes
 // assignments.manage; people see their own with MyAssignments.
 func (s *WorkService) Assignments(ctx context.Context, f AssignmentFilter) ([]domain.Assignment, error) {
-	if err := authz.Require(ctx, PermAssignmentsManage); err != nil {
+	scope, err := authz.Projects(ctx, PermAssignmentsManage)
+	if err != nil {
 		return nil, err
 	}
+	f.Within = within(scope)
 	var out []domain.Assignment
-	err := s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) (err error) {
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) (err error) {
 		out, err = st.ListAssignments(ctx, f)
 		return err
 	})
@@ -314,10 +351,15 @@ func (s *WorkService) Assignments(ctx context.Context, f AssignmentFilter) ([]do
 // by a role they hold, through a group or through their vendor — what
 // Studio's "My work" shows. f's Assignees is replaced by the caller's.
 func (s *WorkService) MyAssignments(ctx context.Context, f AssignmentFilter) ([]domain.Assignment, error) {
-	if err := authz.Require(ctx, PermAssignmentsRead); err != nil {
+	if err := ownWork(ctx, PermAssignmentsRead); err != nil {
 		return nil, err
 	}
 	p, _ := authz.From(ctx)
+	f.Within = nil
+	if !p.Projects.All() {
+		ids := p.Projects.UUIDs()
+		f.Within = &ids
+	}
 	var out []domain.Assignment
 	err := s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) error {
 		aff, err := s.affiliation(ctx, p)
@@ -360,7 +402,7 @@ type ApprovalInput struct {
 // RequestApproval asks for n approvals of a subject. It takes
 // assignments.manage. Four-eyes always applies.
 func (s *WorkService) RequestApproval(ctx context.Context, in ApprovalInput) (domain.Approval, error) {
-	if err := authz.Require(ctx, PermAssignmentsManage); err != nil {
+	if err := authz.RequireIn(ctx, PermAssignmentsManage, in.ProjectID); err != nil {
 		return domain.Approval{}, err
 	}
 	return s.requestApproval(ctx, uuid.Nil, in.ProjectID, in.Subject, in.N, in.From, in.DueAt)
@@ -383,6 +425,9 @@ type WorkflowApproval struct {
 // party is returned as it is rather than asked twice.
 func (s *WorkService) RequestApprovalForInstance(ctx context.Context, in WorkflowApproval) (domain.Approval, error) {
 	if _, err := actorInTenant(ctx); err != nil {
+		return domain.Approval{}, err
+	}
+	if err := authz.InProject(ctx, in.ProjectID); err != nil {
 		return domain.Approval{}, err
 	}
 	if in.InstanceID == uuid.Nil {
@@ -464,7 +509,7 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 	}); err != nil {
 		return domain.Approval{}, err
 	}
-	if err := requireDecide(ctx, subject.Subject); err != nil {
+	if err := requireDecide(ctx, subject.ProjectID, subject.Subject); err != nil {
 		return domain.Approval{}, err
 	}
 	author, err := s.authors.Author(ctx, subject.ProjectID, subject.Subject)
@@ -518,15 +563,15 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 // requireDecide checks approvals.decide where the subject is: in a
 // translation's locale. A release request's environment scope is the
 // release-approvals slice's (§5.1); until then it is tenant-wide.
-func requireDecide(ctx context.Context, s domain.ApprovalSubject) error {
+func requireDecide(ctx context.Context, project uuid.UUID, s domain.ApprovalSubject) error {
 	if s.Kind != domain.SubjectTranslation {
-		return authz.Require(ctx, PermApprovalsDecide)
+		return authz.RequireIn(ctx, PermApprovalsDecide, project)
 	}
 	locale, err := authz.ParseLocale(s.Locale)
 	if err != nil {
 		return err
 	}
-	return authz.RequireFor(ctx, PermApprovalsDecide, locale)
+	return authz.RequireForIn(ctx, PermApprovalsDecide, locale, project)
 }
 
 // refusal makes the domain's refusals of who is deciding match
@@ -548,8 +593,10 @@ func (s *WorkService) Approval(ctx context.Context, id uuid.UUID) (domain.Approv
 	}
 	var out domain.Approval
 	err := s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) (err error) {
-		out, err = st.GetApproval(ctx, id)
-		return err
+		if out, err = st.GetApproval(ctx, id); err != nil {
+			return err
+		}
+		return authz.InProject(ctx, out.ProjectID)
 	})
 	return out, err
 }
@@ -560,6 +607,9 @@ func (s *WorkService) Approval(ctx context.Context, id uuid.UUID) (domain.Approv
 // asked. The runner calls it while loading a step's subject snapshot.
 func (s *WorkService) Approvers(ctx context.Context, project uuid.UUID, subject domain.ApprovalSubject) ([]string, error) {
 	if _, err := actorInTenant(ctx); err != nil {
+		return nil, err
+	}
+	if err := authz.InProject(ctx, project); err != nil {
 		return nil, err
 	}
 	subject, err := subject.Canonical()
@@ -609,4 +659,14 @@ func approvalEvent(typ string, a domain.Approval, d *domain.Decision, author str
 		Type: typ, AggregateType: domain.AggregateApproval, AggregateID: a.ID.String(),
 		Actor: actor, Payload: domain.ApprovalPayload(a, d, author, actor.String()),
 	}
+}
+
+// within is the project set a list is cut to: nil when every project is
+// visible.
+func within(f authz.ProjectFilter) *[]uuid.UUID {
+	if f.All() {
+		return nil
+	}
+	ids := f.IDs()
+	return &ids
 }

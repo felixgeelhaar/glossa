@@ -558,11 +558,15 @@ WHERE id > $1
   AND ($3::text IS NULL OR target_locale = $3)
   AND ($4::uuid IS NULL OR project_id = $4)
   AND ($5::uuid IS NULL OR translation_id = $5)
-  AND ($6::text = 'all'
-       OR ($6::text = 'active' AND retired_at IS NULL)
-       OR ($6::text = 'retired' AND retired_at IS NOT NULL))
+  -- projects limits project-owned rows to a project-scoped caller's
+  -- projects (RFC 0006 §4.1); tenant-wide rows stay. Filtered here so a
+  -- page's size says nothing about the others.
+  AND ($6::uuid[] IS NULL OR project_id IS NULL OR project_id = ANY ($6::uuid[]))
+  AND ($7::text = 'all'
+       OR ($7::text = 'active' AND retired_at IS NULL)
+       OR ($7::text = 'retired' AND retired_at IS NOT NULL))
 ORDER BY id
-LIMIT $7
+LIMIT $8
 `
 
 type ListTMUnitsParams struct {
@@ -571,6 +575,7 @@ type ListTMUnitsParams struct {
 	TargetLocale  pgtype.Text
 	ProjectID     uuid.NullUUID
 	TranslationID uuid.NullUUID
+	Projects      []uuid.UUID
 	State         string
 	MaxRows       int32
 }
@@ -583,6 +588,7 @@ func (q *Queries) ListTMUnits(ctx context.Context, arg ListTMUnitsParams) ([]Kno
 		arg.TargetLocale,
 		arg.ProjectID,
 		arg.TranslationID,
+		arg.Projects,
 		arg.State,
 		arg.MaxRows,
 	)

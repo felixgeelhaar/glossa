@@ -23,7 +23,7 @@ SET revoked_at = sqlc.arg(revoked_at), revoked_by = sqlc.arg(revoked_by)
 WHERE id = sqlc.arg(id) AND revoked_at IS NULL;
 
 -- name: SystemGetTokenByHash :one
-SELECT id, tenant_id, scopes, expires_at, revoked_at, last_used_at
+SELECT id, tenant_id, scopes, projects, expires_at, revoked_at, last_used_at
 FROM identity_api_tokens
 WHERE token_hash = sqlc.arg(token_hash);
 

@@ -15,6 +15,7 @@ import (
 
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
 )
 
@@ -98,7 +99,20 @@ type Service struct {
 	// Integration context; zero means this deployment has no GitHub App
 	// and every exchange is refused.
 	oidc GitHubOIDC
+	// coverage answers which units a member whose visibility is
+	// `assigned` may see (RFC 0006 §3.3). It is set after construction,
+	// by SetCoverage, because Workflow implements it; nil means an
+	// `assigned` member sees nothing.
+	coverage authz.Coverage
 }
+
+// SetCoverage wires the read port assignment-scoped visibility filters
+// through (authz.Coverage, implemented by Workflow's assignments). The
+// composition root calls it once Workflow is built. Until it does —
+// and in a deployment that never does — every principal Identity
+// builds for an `assigned` member carries no Coverage, and authz then
+// shows that member nothing: the restriction fails closed.
+func (s *Service) SetCoverage(c authz.Coverage) { s.coverage = c }
 
 // Realm is the auth-go TenantID of every auth-go object. auth-go ties a
 // user, session or link to one tenant; Glossa's people are global and

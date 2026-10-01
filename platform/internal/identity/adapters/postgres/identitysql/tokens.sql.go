@@ -146,7 +146,7 @@ func (q *Queries) RevokeToken(ctx context.Context, arg RevokeTokenParams) (int64
 }
 
 const systemGetTokenByHash = `-- name: SystemGetTokenByHash :one
-SELECT id, tenant_id, scopes, expires_at, revoked_at, last_used_at
+SELECT id, tenant_id, scopes, projects, expires_at, revoked_at, last_used_at
 FROM identity_api_tokens
 WHERE token_hash = $1
 `
@@ -155,6 +155,7 @@ type SystemGetTokenByHashRow struct {
 	ID         uuid.UUID
 	TenantID   uuid.UUID
 	Scopes     []string
+	Projects   []uuid.UUID
 	ExpiresAt  pgtype.Timestamptz
 	RevokedAt  pgtype.Timestamptz
 	LastUsedAt pgtype.Timestamptz
@@ -167,6 +168,7 @@ func (q *Queries) SystemGetTokenByHash(ctx context.Context, tokenHash string) (S
 		&i.ID,
 		&i.TenantID,
 		&i.Scopes,
+		&i.Projects,
 		&i.ExpiresAt,
 		&i.RevokedAt,
 		&i.LastUsedAt,

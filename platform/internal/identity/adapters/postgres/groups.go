@@ -15,7 +15,7 @@ import (
 )
 
 // restriction rebuilds a member's stored project scope, vendor and
-// visibility. They are modelled, not enforced (domain.RestrictionEnforced).
+// visibility.
 func restriction(projects []uuid.UUID, vendor uuid.NullUUID, visibility string) (domain.Restriction, error) {
 	ps, err := projectScope(projects)
 	if err != nil {

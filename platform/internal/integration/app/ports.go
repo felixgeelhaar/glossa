@@ -237,6 +237,9 @@ type JobFilter struct {
 	TenantWide bool
 	Kind       *domain.Kind
 	State      *domain.State
+	// Projects, when not nil, limits the jobs to these projects: a
+	// project-scoped caller's (RFC 0006 §4.1). The use case sets it.
+	Projects []uuid.UUID
 }
 
 // JobCursor is the keyset position after a listed job (newest first).

@@ -372,8 +372,11 @@ WHERE id > $1
   AND ($2::uuid = '00000000-0000-0000-0000-000000000000' OR project_id = $2)
   AND (cardinality($3::text[]) = 0 OR state = ANY($3::text[]))
   AND (NOT $4::boolean OR assignee = ANY($5::text[]))
+  -- A project-scoped caller's lists are cut in the query, before the
+  -- page is, so a page's size never counts rows they cannot see.
+  AND (NOT $6::boolean OR project_id = ANY($7::uuid[]))
 ORDER BY id
-LIMIT $6
+LIMIT $8
 `
 
 type ListAssignmentsParams struct {
@@ -382,6 +385,8 @@ type ListAssignmentsParams struct {
 	States     []string
 	ByAssignee bool
 	Assignees  []string
+	ByProjects bool
+	Projects   []uuid.UUID
 	MaxRows    int32
 }
 
@@ -392,6 +397,8 @@ func (q *Queries) ListAssignments(ctx context.Context, arg ListAssignmentsParams
 		arg.States,
 		arg.ByAssignee,
 		arg.Assignees,
+		arg.ByProjects,
+		arg.Projects,
 		arg.MaxRows,
 	)
 	if err != nil {

@@ -147,6 +147,7 @@ func (s *workStore) ListAssignments(ctx context.Context, f app.AssignmentFilter)
 	rows, err := s.q.ListAssignments(ctx, worksql.ListAssignmentsParams{
 		After: f.After, ProjectID: f.Project, States: states,
 		ByAssignee: f.Assignees != nil, Assignees: emptyIfNil(f.Assignees), MaxRows: int32Of(limit),
+		ByProjects: f.Within != nil, Projects: within(f.Within),
 	})
 	if err != nil {
 		return nil, err
@@ -294,4 +295,13 @@ func emptyIfNil(ss []string) []string {
 		return []string{}
 	}
 	return ss
+}
+
+// within is the project set a scoped list is cut to; an empty, non-nil
+// set lists nothing.
+func within(p *[]uuid.UUID) []uuid.UUID {
+	if p == nil || *p == nil {
+		return []uuid.UUID{}
+	}
+	return *p
 }
