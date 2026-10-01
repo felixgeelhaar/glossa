@@ -250,7 +250,7 @@ func memberRestrictionChanged(m domain.Member, by domain.Actor) outbox.Event {
 	}
 	return outbox.Event{
 		Type: domain.EventMemberRestrictionChanged, AggregateType: domain.AggregateMember,
-		AggregateID: m.ID.String(), Payload: e,
+		AggregateID: m.ID.String(), Actor: outbox.Actor(by.String()), Payload: e,
 	}
 }
 

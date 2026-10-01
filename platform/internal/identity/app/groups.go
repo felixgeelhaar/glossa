@@ -58,7 +58,7 @@ func (s *Service) CreateVendor(ctx context.Context, in VendorInput, idemKey stri
 			v, replayed = existing, true
 			return nil
 		}
-		return st.Publish(ctx, vendorEvent(domain.EventVendorCreated, v.ID, domain.VendorCreated{
+		return st.Publish(ctx, vendorEvent(domain.EventVendorCreated, v.ID, p.Actor, domain.VendorCreated{
 			VendorID: v.ID.String(), Name: v.Name, Locales: v.LocaleStrings(), CreatedBy: p.Actor.String(),
 		}))
 	})
@@ -122,7 +122,7 @@ func (s *Service) UpdateVendor(ctx context.Context, id domain.VendorID, ifMatch 
 		if err := st.UpdateVendor(ctx, v); err != nil {
 			return err
 		}
-		return st.Publish(ctx, vendorEvent(domain.EventVendorChanged, v.ID, domain.VendorChanged{
+		return st.Publish(ctx, vendorEvent(domain.EventVendorChanged, v.ID, p.Actor, domain.VendorChanged{
 			VendorID: v.ID.String(), Name: v.Name, Locales: v.LocaleStrings(), ChangedBy: p.Actor.String(),
 		}))
 	})
@@ -149,7 +149,7 @@ func (s *Service) DeleteVendor(ctx context.Context, id domain.VendorID) error {
 		if err := st.DeleteVendor(ctx, id); err != nil {
 			return err
 		}
-		return st.Publish(ctx, vendorEvent(domain.EventVendorDeleted, id, domain.VendorDeleted{
+		return st.Publish(ctx, vendorEvent(domain.EventVendorDeleted, id, p.Actor, domain.VendorDeleted{
 			VendorID: id.String(), DeletedBy: p.Actor.String(),
 		}))
 	})
@@ -311,8 +311,11 @@ func (s *Service) changeGroup(
 
 // vendorEvent and groupEvent build every vendor and group event in one
 // place each, so a change to the outbox envelope lands in two lines.
-func vendorEvent(typ string, id domain.VendorID, payload any) outbox.Event {
-	return outbox.Event{Type: typ, AggregateType: domain.AggregateVendor, AggregateID: id.String(), Payload: payload}
+func vendorEvent(typ string, id domain.VendorID, by domain.Actor, payload any) outbox.Event {
+	return outbox.Event{
+		Type: typ, AggregateType: domain.AggregateVendor, AggregateID: id.String(),
+		Actor: outbox.Actor(by.String()), Payload: payload,
+	}
 }
 
 func groupEvent(typ string, g domain.Group, member domain.MemberID, by domain.Actor) outbox.Event {
@@ -320,5 +323,8 @@ func groupEvent(typ string, g domain.Group, member domain.MemberID, by domain.Ac
 	if !member.IsZero() {
 		e.MemberID = member.String()
 	}
-	return outbox.Event{Type: typ, AggregateType: domain.AggregateGroup, AggregateID: g.ID.String(), Payload: e}
+	return outbox.Event{
+		Type: typ, AggregateType: domain.AggregateGroup, AggregateID: g.ID.String(),
+		Actor: outbox.Actor(by.String()), Payload: e,
+	}
 }
