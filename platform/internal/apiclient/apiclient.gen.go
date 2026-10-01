@@ -2163,6 +2163,105 @@ func (e WaiverScope) Valid() bool {
 	}
 }
 
+// Defines values for WorkflowActionOutcomeOutcome.
+const (
+	WorkflowActionOutcomeOutcomeDone    WorkflowActionOutcomeOutcome = "done"
+	WorkflowActionOutcomeOutcomeFailed  WorkflowActionOutcomeOutcome = "failed"
+	WorkflowActionOutcomeOutcomeRefused WorkflowActionOutcomeOutcome = "refused"
+)
+
+// Valid indicates whether the value is a known member of the WorkflowActionOutcomeOutcome enum.
+func (e WorkflowActionOutcomeOutcome) Valid() bool {
+	switch e {
+	case WorkflowActionOutcomeOutcomeDone:
+		return true
+	case WorkflowActionOutcomeOutcomeFailed:
+		return true
+	case WorkflowActionOutcomeOutcomeRefused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkflowFindingSeverity.
+const (
+	WorkflowFindingSeverityError   WorkflowFindingSeverity = "error"
+	WorkflowFindingSeverityInfo    WorkflowFindingSeverity = "info"
+	WorkflowFindingSeverityWarning WorkflowFindingSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the WorkflowFindingSeverity enum.
+func (e WorkflowFindingSeverity) Valid() bool {
+	switch e {
+	case WorkflowFindingSeverityError:
+		return true
+	case WorkflowFindingSeverityInfo:
+		return true
+	case WorkflowFindingSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkflowInstanceStatus.
+const (
+	WorkflowInstanceStatusActive   WorkflowInstanceStatus = "active"
+	WorkflowInstanceStatusFinished WorkflowInstanceStatus = "finished"
+)
+
+// Valid indicates whether the value is a known member of the WorkflowInstanceStatus enum.
+func (e WorkflowInstanceStatus) Valid() bool {
+	switch e {
+	case WorkflowInstanceStatusActive:
+		return true
+	case WorkflowInstanceStatusFinished:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkflowSubject.
+const (
+	WorkflowSubjectReleaseRequest WorkflowSubject = "release_request"
+	WorkflowSubjectTranslation    WorkflowSubject = "translation"
+)
+
+// Valid indicates whether the value is a known member of the WorkflowSubject enum.
+func (e WorkflowSubject) Valid() bool {
+	switch e {
+	case WorkflowSubjectReleaseRequest:
+		return true
+	case WorkflowSubjectTranslation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkflowTransitionOutcome.
+const (
+	WorkflowTransitionOutcomeApplied WorkflowTransitionOutcome = "applied"
+	WorkflowTransitionOutcomeIgnored WorkflowTransitionOutcome = "ignored"
+	WorkflowTransitionOutcomeRefused WorkflowTransitionOutcome = "refused"
+)
+
+// Valid indicates whether the value is a known member of the WorkflowTransitionOutcome enum.
+func (e WorkflowTransitionOutcome) Valid() bool {
+	switch e {
+	case WorkflowTransitionOutcomeApplied:
+		return true
+	case WorkflowTransitionOutcomeIgnored:
+		return true
+	case WorkflowTransitionOutcomeRefused:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SearchTranslationMemoryParamsSide.
 const (
 	SearchTranslationMemoryParamsSideSource SearchTranslationMemoryParamsSide = "source"
@@ -4166,6 +4265,18 @@ type CreateWaiver struct {
 	// computed against, which is the finding the person is looking
 	// at.
 	SourceRevision *int `json:"source_revision,omitempty"`
+}
+
+// CreateWorkflowBinding defines model for CreateWorkflowBinding.
+type CreateWorkflowBinding struct {
+	// DefinitionId An opaque identifier.
+	DefinitionId Id `json:"definition_id"`
+
+	// Locales Narrows the binding to these locales; absent or empty is every locale.
+	Locales *[]Locale `json:"locales,omitempty"`
+
+	// Namespace Narrows the binding to one namespace.
+	Namespace *string `json:"namespace,omitempty"`
 }
 
 // CreatedToken defines model for CreatedToken.
@@ -7809,6 +7920,273 @@ type WebhookAck struct {
 	Accepted bool `json:"accepted"`
 }
 
+// WorkflowActionOutcome defines model for WorkflowActionOutcome.
+type WorkflowActionOutcome struct {
+	Detail *string `json:"detail,omitempty"`
+
+	// Name The action's name in the definition.
+	Name    string                       `json:"name"`
+	Outcome WorkflowActionOutcomeOutcome `json:"outcome"`
+}
+
+// WorkflowActionOutcomeOutcome defines model for WorkflowActionOutcome.Outcome.
+type WorkflowActionOutcomeOutcome string
+
+// WorkflowBinding defines model for WorkflowBinding.
+type WorkflowBinding struct {
+	CreatedAt time.Time `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// DefinitionId An opaque identifier.
+	DefinitionId Id `json:"definition_id"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locales Canonical and sorted; empty is every locale.
+	Locales   []Locale `json:"locales"`
+	Namespace *string  `json:"namespace,omitempty"`
+
+	// Position Creation order; the later of two equally specific bindings wins.
+	Position int `json:"position"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+
+	// Subject What a definition's instances are about.
+	Subject WorkflowSubject `json:"subject"`
+}
+
+// WorkflowBindingList defines model for WorkflowBindingList.
+type WorkflowBindingList struct {
+	Items         []WorkflowBinding `json:"items"`
+	NextPageToken *string           `json:"next_page_token,omitempty"`
+}
+
+// WorkflowDefinition defines model for WorkflowDefinition.
+type WorkflowDefinition struct {
+	CreatedAt time.Time  `json:"created_at"`
+	CreatedBy string     `json:"created_by"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+
+	// Id An opaque identifier.
+	Id   Id     `json:"id"`
+	Name string `json:"name"`
+
+	// ProjectId Set when only this project may bind it.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// Subject What a definition's instances are about.
+	Subject WorkflowSubject `json:"subject"`
+
+	// Version The latest version's number.
+	Version int `json:"version"`
+}
+
+// WorkflowDefinitionList defines model for WorkflowDefinitionList.
+type WorkflowDefinitionList struct {
+	Items         []WorkflowDefinition `json:"items"`
+	NextPageToken *string              `json:"next_page_token,omitempty"`
+}
+
+// WorkflowDefinitionSaved A definition at the version a save just stored.
+type WorkflowDefinitionSaved struct {
+	// CreatedAt When this version was saved.
+	CreatedAt time.Time `json:"created_at"`
+
+	// CreatedBy Who saved this version.
+	CreatedBy string `json:"created_by"`
+
+	// Findings Lint's informational notes; anything worse refused the save.
+	Findings []WorkflowFinding `json:"findings"`
+
+	// Id An opaque identifier.
+	Id   Id     `json:"id"`
+	Name string `json:"name"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id `json:"project_id,omitempty"`
+
+	// Subject What a definition's instances are about.
+	Subject WorkflowSubject `json:"subject"`
+
+	// Version The version this save stored.
+	Version int `json:"version"`
+}
+
+// WorkflowDefinitionVersion defines model for WorkflowDefinitionVersion.
+type WorkflowDefinitionVersion struct {
+	CreatedAt time.Time `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// DefinitionId An opaque identifier.
+	DefinitionId Id `json:"definition_id"`
+
+	// Document A `glossa.workflow/v1` document (RFC 0006 §2.3): `schema`,
+	// `name` (`^[a-z0-9][a-z0-9-]{0,63}$`), `subject`, a statekit
+	// Native JSON `chart`, and the `guards` and `actions` that bind the
+	// chart's names to the platform's vocabulary of primitives. It is
+	// data, never code: a name the vocabulary does not have is refused
+	// at save. At most 256 KiB.
+	Document WorkflowDocument `json:"document"`
+
+	// Schema Examples: glossa.workflow/v1
+	Schema  string `json:"schema"`
+	Version int    `json:"version"`
+}
+
+// WorkflowDefinitionVersionList defines model for WorkflowDefinitionVersionList.
+type WorkflowDefinitionVersionList struct {
+	Items         []WorkflowDefinitionVersion `json:"items"`
+	NextPageToken *string                     `json:"next_page_token,omitempty"`
+}
+
+// WorkflowDocument A `glossa.workflow/v1` document (RFC 0006 §2.3): `schema`,
+// `name` (`^[a-z0-9][a-z0-9-]{0,63}$`), `subject`, a statekit
+// Native JSON `chart`, and the `guards` and `actions` that bind the
+// chart's names to the platform's vocabulary of primitives. It is
+// data, never code: a name the vocabulary does not have is refused
+// at save. At most 256 KiB.
+type WorkflowDocument map[string]interface{}
+
+// WorkflowFinding One thing wrong with, or worth knowing about, a definition.
+type WorkflowFinding struct {
+	Event   *string `json:"event,omitempty"`
+	Message string  `json:"message"`
+
+	// Path Where in the document (`guards.two_approvals`, `chart.states.reviewing`); absent for the whole document.
+	Path *string `json:"path,omitempty"`
+
+	// Rule The check that found it (`unknown-primitive`, `delayed-transition`, `statechart`, …).
+	Rule string `json:"rule"`
+
+	// Severity `error` and `warning` refuse a save; `info` is a note.
+	Severity WorkflowFindingSeverity `json:"severity"`
+	State    *string                 `json:"state,omitempty"`
+}
+
+// WorkflowFindingSeverity `error` and `warning` refuse a save; `info` is a note.
+type WorkflowFindingSeverity string
+
+// WorkflowGuardOutcome defines model for WorkflowGuardOutcome.
+type WorkflowGuardOutcome struct {
+	// Guard The guard's name in the definition.
+	Guard  string `json:"guard"`
+	Passed bool   `json:"passed"`
+}
+
+// WorkflowInstance defines model for WorkflowInstance.
+type WorkflowInstance struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// DefinitionId An opaque identifier.
+	DefinitionId Id `json:"definition_id"`
+
+	// DefinitionVersion The version the instance runs on; a new save does not move it.
+	DefinitionVersion int `json:"definition_version"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locale The translation unit's locale; absent for a release request.
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+
+	// State The chart state the instance is in.
+	State  string                 `json:"state"`
+	Status WorkflowInstanceStatus `json:"status"`
+
+	// Subject What a definition's instances are about.
+	Subject WorkflowSubject `json:"subject"`
+
+	// SubjectId The message, for a translation unit; the release request otherwise.
+	SubjectId Id        `json:"subject_id"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// WorkflowInstanceList defines model for WorkflowInstanceList.
+type WorkflowInstanceList struct {
+	Items         []WorkflowInstance `json:"items"`
+	NextPageToken *string            `json:"next_page_token,omitempty"`
+}
+
+// WorkflowInstanceStatus defines model for WorkflowInstanceStatus.
+type WorkflowInstanceStatus string
+
+// WorkflowLintResult defines model for WorkflowLintResult.
+type WorkflowLintResult struct {
+	Findings []WorkflowFinding `json:"findings"`
+
+	// Valid Whether a save of this document would be accepted.
+	Valid bool `json:"valid"`
+}
+
+// WorkflowProblem defines model for WorkflowProblem.
+type WorkflowProblem struct {
+	// Code Stable machine-readable code.
+	Code     string             `json:"code"`
+	Detail   *string            `json:"detail,omitempty"`
+	Errors   *[]FieldError      `json:"errors,omitempty"`
+	Findings *[]WorkflowFinding `json:"findings,omitempty"`
+	Instance *string            `json:"instance,omitempty"`
+	Status   int                `json:"status"`
+	Title    string             `json:"title"`
+
+	// Type Examples: urn:glossa:problem:slug_taken
+	Type string `json:"type"`
+}
+
+// WorkflowResolution defines model for WorkflowResolution.
+type WorkflowResolution struct {
+	Binding *WorkflowBinding `json:"binding,omitempty"`
+
+	// Bound Whether any binding applies.
+	Bound bool `json:"bound"`
+
+	// DefinitionId An opaque identifier.
+	DefinitionId   *Id     `json:"definition_id,omitempty"`
+	DefinitionName *string `json:"definition_name,omitempty"`
+
+	// Version The version a new instance would start on.
+	Version *int `json:"version,omitempty"`
+}
+
+// WorkflowSubject What a definition's instances are about.
+type WorkflowSubject string
+
+// WorkflowTransition defines model for WorkflowTransition.
+type WorkflowTransition struct {
+	Actions []WorkflowActionOutcome `json:"actions"`
+
+	// Actor Who caused the event, as the outbox names them (`person:…`, `token:…`, `system:…`). The transition's actions ran as this actor.
+	Actor  string                 `json:"actor"`
+	At     time.Time              `json:"at"`
+	Event  string                 `json:"event"`
+	From   string                 `json:"from"`
+	Guards []WorkflowGuardOutcome `json:"guards"`
+
+	// OutboxEventId An opaque identifier.
+	OutboxEventId *Id                       `json:"outbox_event_id,omitempty"`
+	Outcome       WorkflowTransitionOutcome `json:"outcome"`
+	Seq           int64                     `json:"seq"`
+
+	// To The state after; the same as `from` unless `applied`.
+	To string `json:"to"`
+}
+
+// WorkflowTransitionOutcome defines model for WorkflowTransition.Outcome.
+type WorkflowTransitionOutcome string
+
+// WorkflowTransitionList defines model for WorkflowTransitionList.
+type WorkflowTransitionList struct {
+	Items         []WorkflowTransition `json:"items"`
+	NextPageToken *string              `json:"next_page_token,omitempty"`
+}
+
 // AIFillPath An opaque identifier.
 type AIFillPath = Id
 
@@ -7927,6 +8305,18 @@ type TokenPath = Id
 // WaiverPath An opaque identifier.
 type WaiverPath = Id
 
+// WorkflowBindingPath An opaque identifier.
+type WorkflowBindingPath = Id
+
+// WorkflowDefinitionPath An opaque identifier.
+type WorkflowDefinitionPath = Id
+
+// WorkflowInstancePath An opaque identifier.
+type WorkflowInstancePath = Id
+
+// WorkflowVersionPath defines model for WorkflowVersionPath.
+type WorkflowVersionPath = int
+
 // BadRequest RFC 9457 problem details.
 type BadRequest = Problem
 
@@ -7938,6 +8328,9 @@ type Forbidden = Problem
 
 // Gone RFC 9457 problem details.
 type Gone = Problem
+
+// InvalidWorkflow defines model for InvalidWorkflow.
+type InvalidWorkflow = WorkflowProblem
 
 // NotFound RFC 9457 problem details.
 type NotFound = Problem
@@ -8772,6 +9165,52 @@ type ListWaiversParams struct {
 	Active *bool `form:"active,omitempty" json:"active,omitempty"`
 }
 
+// ListWorkflowBindingsParams defines parameters for ListWorkflowBindings.
+type ListWorkflowBindingsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// ListWorkflowInstancesParams defines parameters for ListWorkflowInstances.
+type ListWorkflowInstancesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Definition A definition `id`.
+	Definition *Id                     `form:"definition,omitempty" json:"definition,omitempty"`
+	Status     *WorkflowInstanceStatus `form:"status,omitempty" json:"status,omitempty"`
+	Locale     *Locale                 `form:"locale,omitempty" json:"locale,omitempty"`
+
+	// Message A message `key`.
+	Message *MessageKey `form:"message,omitempty" json:"message,omitempty"`
+
+	// SubjectId A subject `id` (a message's or a release request's).
+	SubjectId *Id `form:"subject_id,omitempty" json:"subject_id,omitempty"`
+}
+
+// ListWorkflowTransitionsParams defines parameters for ListWorkflowTransitions.
+type ListWorkflowTransitionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// ResolveWorkflowParams defines parameters for ResolveWorkflow.
+type ResolveWorkflowParams struct {
+	Subject *WorkflowSubject `form:"subject,omitempty" json:"subject,omitempty"`
+
+	// Locale The translation unit's locale.
+	Locale *Locale `form:"locale,omitempty" json:"locale,omitempty"`
+
+	// Namespace The message's namespace.
+	Namespace *string `form:"namespace,omitempty" json:"namespace,omitempty"`
+}
+
 // ListStyleGuidesParams defines parameters for ListStyleGuides.
 type ListStyleGuidesParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -8952,6 +9391,37 @@ type ListTokensParams struct {
 // CreateTokenParams defines parameters for CreateToken.
 type CreateTokenParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListWorkflowDefinitionsParams defines parameters for ListWorkflowDefinitions.
+type ListWorkflowDefinitionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Project A project `id`.
+	Project *Id `form:"project,omitempty" json:"project,omitempty"`
+}
+
+// CreateWorkflowDefinitionParams defines parameters for CreateWorkflowDefinition.
+type CreateWorkflowDefinitionParams struct {
+	// Project The project `id` the definition belongs to.
+	Project *Id `form:"project,omitempty" json:"project,omitempty"`
+}
+
+// ListWorkflowDefinitionVersionsParams defines parameters for ListWorkflowDefinitionVersions.
+type ListWorkflowDefinitionVersionsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// SaveWorkflowDefinitionVersionParams defines parameters for SaveWorkflowDefinitionVersion.
+type SaveWorkflowDefinitionVersionParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
 }
 
 // ExchangeGitHubOIDCTokenJSONRequestBody defines body for ExchangeGitHubOIDCToken for application/json ContentType.
@@ -9149,6 +9619,9 @@ type ImportTranslationsJSONRequestBody = TranslationImport
 // CreateWaiverJSONRequestBody defines body for CreateWaiver for application/json ContentType.
 type CreateWaiverJSONRequestBody = CreateWaiver
 
+// CreateWorkflowBindingJSONRequestBody defines body for CreateWorkflowBinding for application/json ContentType.
+type CreateWorkflowBindingJSONRequestBody = CreateWorkflowBinding
+
 // CreateStyleGuideJSONRequestBody defines body for CreateStyleGuide for application/json ContentType.
 type CreateStyleGuideJSONRequestBody = CreateStyleGuide
 
@@ -9184,6 +9657,15 @@ type LookupTranslationMemoryJSONRequestBody = TMLookup
 
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateToken
+
+// LintWorkflowDefinitionJSONRequestBody defines body for LintWorkflowDefinition for application/json ContentType.
+type LintWorkflowDefinitionJSONRequestBody = WorkflowDocument
+
+// CreateWorkflowDefinitionJSONRequestBody defines body for CreateWorkflowDefinition for application/json ContentType.
+type CreateWorkflowDefinitionJSONRequestBody = WorkflowDocument
+
+// SaveWorkflowDefinitionVersionJSONRequestBody defines body for SaveWorkflowDefinitionVersion for application/json ContentType.
+type SaveWorkflowDefinitionVersionJSONRequestBody = WorkflowDocument
 
 // Getter for additional properties for CreateCapturesMultipartBody. Returns the specified
 // element and whether it was found
@@ -13196,6 +13678,110 @@ type ClientInterface interface {
 	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/waivers/{waiver} (the `RevokeWaiver` operationId).
 	RevokeWaiver(ctx context.Context, tenant TenantPath, project ProjectPath, waiver WaiverPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListWorkflowBindings A project's workflow bindings
+	//
+	// In creation order, which is what "later" means when two bindings
+	// are equally specific. A project with none has no workflow: no
+	// instance is created, and it behaves as it did before M5. Needs
+	// `workflows.read`. Problem codes: `invalid_page_size`,
+	// `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `ListWorkflowBindings` operationId).
+	ListWorkflowBindings(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWorkflowBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateWorkflowBindingWithBody Bind a definition to the project
+	//
+	// Optionally narrowed to some locales and one namespace. Bindings
+	// resolve with the check policy's precedence rule (RFC 0005 §4.1):
+	// the one naming more fields wins, a tie goes to the later one.
+	// Changing a binding is deleting it and binding again. Needs
+	// `workflows.manage`. Problem codes: `workflow_binding_exists`
+	// (409: a binding with this selector), `invalid_workflow_binding`
+	// (422: a locale that is not BCP 47, or a namespace that cannot be
+	// one), `workflow_definition_out_of_scope` (422: another project's
+	// definition), `not_found` (404: the definition, or the project).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `CreateWorkflowBinding` operationId).
+	CreateWorkflowBindingWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateWorkflowBinding Bind a definition to the project
+	//
+	// Optionally narrowed to some locales and one namespace. Bindings
+	// resolve with the check policy's precedence rule (RFC 0005 §4.1):
+	// the one naming more fields wins, a tie goes to the later one.
+	// Changing a binding is deleting it and binding again. Needs
+	// `workflows.manage`. Problem codes: `workflow_binding_exists`
+	// (409: a binding with this selector), `invalid_workflow_binding`
+	// (422: a locale that is not BCP 47, or a namespace that cannot be
+	// one), `workflow_definition_out_of_scope` (422: another project's
+	// definition), `not_found` (404: the definition, or the project).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `CreateWorkflowBinding` operationId).
+	CreateWorkflowBinding(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateWorkflowBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteWorkflowBinding Remove a binding
+	//
+	// New instances resolve without it from now on; running instances
+	// stay on the version they started with. Needs `workflows.manage`.
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/workflow-bindings/{workflow_binding} (the `DeleteWorkflowBinding` operationId).
+	DeleteWorkflowBinding(ctx context.Context, tenant TenantPath, project ProjectPath, workflowBinding WorkflowBindingPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListWorkflowInstances A project's workflow instances
+	//
+	// An instance exists while work is in flight under a binding
+	// (RFC 0006 §2.5): created by the first trigger, `finished` when it
+	// reaches a final state, its transition log kept. Filters:
+	// `definition`, `status`, `locale`, and the subject — a `message`
+	// by key, or any subject by `subject_id` (not both). Needs
+	// `workflows.read`. Problem codes: `invalid_query`,
+	// `invalid_page_size`, `invalid_page_token` (400),
+	// `workflow_instances_unavailable` (503: this server runs no
+	// instance store).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances (the `ListWorkflowInstances` operationId).
+	ListWorkflowInstances(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWorkflowInstancesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetWorkflowInstance A workflow instance
+	//
+	// Its definition version, subject, state and status. Needs
+	// `workflows.read`. Problem codes: `workflow_instances_unavailable`
+	// (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
+	GetWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListWorkflowTransitions An instance's transition log
+	//
+	// Every event the instance received, oldest first: the state it
+	// moved from and to, the guards it evaluated, the actions it ran
+	// and what became of them, and the actor whose event caused it —
+	// actions run as that actor, never as Workflow's own principal
+	// (RFC 0006 §2.5). An event the instance no longer accepted is
+	// `ignored`; one whose action was refused for permission is
+	// `refused` and left the instance where it was. Needs
+	// `workflows.read`. Problem codes: `invalid_page_size`,
+	// `invalid_page_token` (400), `workflow_instances_unavailable`
+	// (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions (the `ListWorkflowTransitions` operationId).
+	ListWorkflowTransitions(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *ListWorkflowTransitionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResolveWorkflow Which definition applies to a subject
+	//
+	// The binding a new instance for this subject would be created
+	// under, and the definition version it would start on (the bound
+	// definition's latest). `bound: false` means no binding applies:
+	// no instance, M4's behaviour. Needs `workflows.read`. Problem
+	// codes: `invalid_query` (400: a locale that is not BCP 47).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-resolution (the `ResolveWorkflow` operationId).
+	ResolveWorkflow(ctx context.Context, tenant TenantPath, project ProjectPath, params *ResolveWorkflowParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListStyleGuides Style guides
 	//
 	// Every guide, or only tenant-level ones (`tenant_only`), one
@@ -13699,6 +14285,165 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/tokens/{token} (the `GetToken` operationId).
 	GetToken(ctx context.Context, tenant TenantPath, token TokenPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LintWorkflowDefinitionWithBody Lint a workflow document without saving it
+	//
+	// What `glossa workflow lint` and the editor ask before a save: the
+	// same compile and lint a save runs, and every finding, with
+	// `valid` saying whether a save would be accepted. Stores nothing,
+	// so an invalid document is a `200` with `valid: false`, not a
+	// `422`. Needs `workflows.read`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definition-lints (the `LintWorkflowDefinition` operationId).
+	LintWorkflowDefinitionWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LintWorkflowDefinition Lint a workflow document without saving it
+	//
+	// What `glossa workflow lint` and the editor ask before a save: the
+	// same compile and lint a save runs, and every finding, with
+	// `valid` saying whether a save would be accepted. Stores nothing,
+	// so an invalid document is a `200` with `valid: false`, not a
+	// `422`. Needs `workflows.read`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definition-lints (the `LintWorkflowDefinition` operationId).
+	LintWorkflowDefinition(ctx context.Context, tenant TenantPath, body LintWorkflowDefinitionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListWorkflowDefinitions Workflow definitions
+	//
+	// The tenant's live definitions, by name, each at its latest
+	// version. With `project`, the ones that project may bind: the
+	// tenant's and its own. Deleted definitions are not listed; their
+	// versions stay readable. Needs `workflows.read`. Problem codes:
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions (the `ListWorkflowDefinitions` operationId).
+	ListWorkflowDefinitions(ctx context.Context, tenant TenantPath, params *ListWorkflowDefinitionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateWorkflowDefinitionWithBody Create a workflow definition
+	//
+	// The body is the `glossa.workflow/v1` document itself (RFC 0006
+	// §2.3) — what `glossa workflow push` sends and the workflow
+	// editor saves. It is compiled and linted before anything is
+	// stored: an unknown guard or action, an unreachable state, a
+	// non-final dead end, non-determinism or a delayed transition is
+	// `invalid_workflow` (422) with every finding, and nothing is
+	// saved. A saved document becomes version 1; the response carries
+	// lint's informational notes. With `project` the definition is
+	// that project's alone; without, every project of the tenant may
+	// bind it.
+	//
+	// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+	// (422), `workflow_definition_exists` (409: a live definition with
+	// this name in this scope), `workflow_limit_reached` (409: the
+	// tenant's 50 live definitions, RFC 0006 §9.6).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions (the `CreateWorkflowDefinition` operationId).
+	CreateWorkflowDefinitionWithBody(ctx context.Context, tenant TenantPath, params *CreateWorkflowDefinitionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateWorkflowDefinition Create a workflow definition
+	//
+	// The body is the `glossa.workflow/v1` document itself (RFC 0006
+	// §2.3) — what `glossa workflow push` sends and the workflow
+	// editor saves. It is compiled and linted before anything is
+	// stored: an unknown guard or action, an unreachable state, a
+	// non-final dead end, non-determinism or a delayed transition is
+	// `invalid_workflow` (422) with every finding, and nothing is
+	// saved. A saved document becomes version 1; the response carries
+	// lint's informational notes. With `project` the definition is
+	// that project's alone; without, every project of the tenant may
+	// bind it.
+	//
+	// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+	// (422), `workflow_definition_exists` (409: a live definition with
+	// this name in this scope), `workflow_limit_reached` (409: the
+	// tenant's 50 live definitions, RFC 0006 §9.6).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions (the `CreateWorkflowDefinition` operationId).
+	CreateWorkflowDefinition(ctx context.Context, tenant TenantPath, params *CreateWorkflowDefinitionParams, body CreateWorkflowDefinitionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteWorkflowDefinition Delete a workflow definition
+	//
+	// Its bindings go with it, so it is never selected again; its
+	// versions stay, so whatever ran on them stays explainable.
+	// Deleting the default `review` definition is allowed and means "no
+	// workflow" — M4's behaviour (RFC 0006 §2.3). Needs
+	// `workflows.manage`.
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/workflow-definitions/{workflow_definition} (the `DeleteWorkflowDefinition` operationId).
+	DeleteWorkflowDefinition(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetWorkflowDefinition A workflow definition
+	//
+	// Its identity and latest version; the `ETag` is that version, for
+	// `If-Match` on the next save. A deleted definition is still
+	// readable, with `deleted_at`. Needs `workflows.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition} (the `GetWorkflowDefinition` operationId).
+	GetWorkflowDefinition(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListWorkflowDefinitionVersions A definition's versions, newest first
+	//
+	// Every version with its document, also after the definition was
+	// deleted. Versions are immutable. Needs `workflows.read`. Problem
+	// codes: `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `ListWorkflowDefinitionVersions` operationId).
+	ListWorkflowDefinitionVersions(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *ListWorkflowDefinitionVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SaveWorkflowDefinitionVersionWithBody Save the next version of a definition
+	//
+	// The body is the whole `glossa.workflow/v1` document, compiled and
+	// linted exactly as on create. `If-Match` is the definition's
+	// `ETag` — the version the author edited — so a save that another
+	// save overtook is refused (412) instead of silently replacing
+	// their change. Running instances stay on the version they started
+	// with. A version keeps its definition's `name` and `subject`: a new
+	// name is a new definition.
+	//
+	// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+	// (422, also for a renamed definition or a changed subject),
+	// `precondition_failed` (412), `precondition_required` (428).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `SaveWorkflowDefinitionVersion` operationId).
+	SaveWorkflowDefinitionVersionWithBody(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *SaveWorkflowDefinitionVersionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SaveWorkflowDefinitionVersion Save the next version of a definition
+	//
+	// The body is the whole `glossa.workflow/v1` document, compiled and
+	// linted exactly as on create. `If-Match` is the definition's
+	// `ETag` — the version the author edited — so a save that another
+	// save overtook is refused (412) instead of silently replacing
+	// their change. Running instances stay on the version they started
+	// with. A version keeps its definition's `name` and `subject`: a new
+	// name is a new definition.
+	//
+	// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+	// (422, also for a renamed definition or a changed subject),
+	// `precondition_failed` (412), `precondition_required` (428).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `SaveWorkflowDefinitionVersion` operationId).
+	SaveWorkflowDefinitionVersion(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *SaveWorkflowDefinitionVersionParams, body SaveWorkflowDefinitionVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetWorkflowDefinitionVersion One version of a definition
+	//
+	// The document as it was saved, with who saved it and when — what
+	// an instance that names this version ran on. Needs
+	// `workflows.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version} (the `GetWorkflowDefinitionVersion` operationId).
+	GetWorkflowDefinitionVersion(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, version WorkflowVersionPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 // ExchangeGitHubOIDCTokenWithBody Exchange a GitHub Actions ID token for a CI token
@@ -19982,6 +20727,190 @@ func (c *Client) RevokeWaiver(ctx context.Context, tenant TenantPath, project Pr
 	return c.Client.Do(req)
 }
 
+// ListWorkflowBindings A project's workflow bindings
+//
+// In creation order, which is what "later" means when two bindings
+// are equally specific. A project with none has no workflow: no
+// instance is created, and it behaves as it did before M5. Needs
+// `workflows.read`. Problem codes: `invalid_page_size`,
+// `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `ListWorkflowBindings` operationId).
+func (c *Client) ListWorkflowBindings(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWorkflowBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWorkflowBindingsRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateWorkflowBindingWithBody Bind a definition to the project
+//
+// Optionally narrowed to some locales and one namespace. Bindings
+// resolve with the check policy's precedence rule (RFC 0005 §4.1):
+// the one naming more fields wins, a tie goes to the later one.
+// Changing a binding is deleting it and binding again. Needs
+// `workflows.manage`. Problem codes: `workflow_binding_exists`
+// (409: a binding with this selector), `invalid_workflow_binding`
+// (422: a locale that is not BCP 47, or a namespace that cannot be
+// one), `workflow_definition_out_of_scope` (422: another project's
+// definition), `not_found` (404: the definition, or the project).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `CreateWorkflowBinding` operationId).
+func (c *Client) CreateWorkflowBindingWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWorkflowBindingRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateWorkflowBinding Bind a definition to the project
+//
+// Optionally narrowed to some locales and one namespace. Bindings
+// resolve with the check policy's precedence rule (RFC 0005 §4.1):
+// the one naming more fields wins, a tie goes to the later one.
+// Changing a binding is deleting it and binding again. Needs
+// `workflows.manage`. Problem codes: `workflow_binding_exists`
+// (409: a binding with this selector), `invalid_workflow_binding`
+// (422: a locale that is not BCP 47, or a namespace that cannot be
+// one), `workflow_definition_out_of_scope` (422: another project's
+// definition), `not_found` (404: the definition, or the project).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `CreateWorkflowBinding` operationId).
+func (c *Client) CreateWorkflowBinding(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateWorkflowBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWorkflowBindingRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteWorkflowBinding Remove a binding
+//
+// New instances resolve without it from now on; running instances
+// stay on the version they started with. Needs `workflows.manage`.
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/workflow-bindings/{workflow_binding} (the `DeleteWorkflowBinding` operationId).
+func (c *Client) DeleteWorkflowBinding(ctx context.Context, tenant TenantPath, project ProjectPath, workflowBinding WorkflowBindingPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWorkflowBindingRequest(c.Server, tenant, project, workflowBinding)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListWorkflowInstances A project's workflow instances
+//
+// An instance exists while work is in flight under a binding
+// (RFC 0006 §2.5): created by the first trigger, `finished` when it
+// reaches a final state, its transition log kept. Filters:
+// `definition`, `status`, `locale`, and the subject — a `message`
+// by key, or any subject by `subject_id` (not both). Needs
+// `workflows.read`. Problem codes: `invalid_query`,
+// `invalid_page_size`, `invalid_page_token` (400),
+// `workflow_instances_unavailable` (503: this server runs no
+// instance store).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances (the `ListWorkflowInstances` operationId).
+func (c *Client) ListWorkflowInstances(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWorkflowInstancesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWorkflowInstancesRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetWorkflowInstance A workflow instance
+//
+// Its definition version, subject, state and status. Needs
+// `workflows.read`. Problem codes: `workflow_instances_unavailable`
+// (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
+func (c *Client) GetWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkflowInstanceRequest(c.Server, tenant, project, workflowInstance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListWorkflowTransitions An instance's transition log
+//
+// Every event the instance received, oldest first: the state it
+// moved from and to, the guards it evaluated, the actions it ran
+// and what became of them, and the actor whose event caused it —
+// actions run as that actor, never as Workflow's own principal
+// (RFC 0006 §2.5). An event the instance no longer accepted is
+// `ignored`; one whose action was refused for permission is
+// `refused` and left the instance where it was. Needs
+// `workflows.read`. Problem codes: `invalid_page_size`,
+// `invalid_page_token` (400), `workflow_instances_unavailable`
+// (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions (the `ListWorkflowTransitions` operationId).
+func (c *Client) ListWorkflowTransitions(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *ListWorkflowTransitionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWorkflowTransitionsRequest(c.Server, tenant, project, workflowInstance, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ResolveWorkflow Which definition applies to a subject
+//
+// The binding a new instance for this subject would be created
+// under, and the definition version it would start on (the bound
+// definition's latest). `bound: false` means no binding applies:
+// no instance, M4's behaviour. Needs `workflows.read`. Problem
+// codes: `invalid_query` (400: a locale that is not BCP 47).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-resolution (the `ResolveWorkflow` operationId).
+func (c *Client) ResolveWorkflow(ctx context.Context, tenant TenantPath, project ProjectPath, params *ResolveWorkflowParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResolveWorkflowRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListStyleGuides Style guides
 //
 // Every guide, or only tenant-level ones (`tenant_only`), one
@@ -20906,6 +21835,275 @@ func (c *Client) RevokeToken(ctx context.Context, tenant TenantPath, token Token
 // Corresponds with GET /v1/tenants/{tenant}/tokens/{token} (the `GetToken` operationId).
 func (c *Client) GetToken(ctx context.Context, tenant TenantPath, token TokenPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetTokenRequest(c.Server, tenant, token)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LintWorkflowDefinitionWithBody Lint a workflow document without saving it
+//
+// What `glossa workflow lint` and the editor ask before a save: the
+// same compile and lint a save runs, and every finding, with
+// `valid` saying whether a save would be accepted. Stores nothing,
+// so an invalid document is a `200` with `valid: false`, not a
+// `422`. Needs `workflows.read`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definition-lints (the `LintWorkflowDefinition` operationId).
+func (c *Client) LintWorkflowDefinitionWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLintWorkflowDefinitionRequestWithBody(c.Server, tenant, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LintWorkflowDefinition Lint a workflow document without saving it
+//
+// What `glossa workflow lint` and the editor ask before a save: the
+// same compile and lint a save runs, and every finding, with
+// `valid` saying whether a save would be accepted. Stores nothing,
+// so an invalid document is a `200` with `valid: false`, not a
+// `422`. Needs `workflows.read`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definition-lints (the `LintWorkflowDefinition` operationId).
+func (c *Client) LintWorkflowDefinition(ctx context.Context, tenant TenantPath, body LintWorkflowDefinitionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLintWorkflowDefinitionRequest(c.Server, tenant, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListWorkflowDefinitions Workflow definitions
+//
+// The tenant's live definitions, by name, each at its latest
+// version. With `project`, the ones that project may bind: the
+// tenant's and its own. Deleted definitions are not listed; their
+// versions stay readable. Needs `workflows.read`. Problem codes:
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions (the `ListWorkflowDefinitions` operationId).
+func (c *Client) ListWorkflowDefinitions(ctx context.Context, tenant TenantPath, params *ListWorkflowDefinitionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWorkflowDefinitionsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateWorkflowDefinitionWithBody Create a workflow definition
+//
+// The body is the `glossa.workflow/v1` document itself (RFC 0006
+// §2.3) — what `glossa workflow push` sends and the workflow
+// editor saves. It is compiled and linted before anything is
+// stored: an unknown guard or action, an unreachable state, a
+// non-final dead end, non-determinism or a delayed transition is
+// `invalid_workflow` (422) with every finding, and nothing is
+// saved. A saved document becomes version 1; the response carries
+// lint's informational notes. With `project` the definition is
+// that project's alone; without, every project of the tenant may
+// bind it.
+//
+// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+// (422), `workflow_definition_exists` (409: a live definition with
+// this name in this scope), `workflow_limit_reached` (409: the
+// tenant's 50 live definitions, RFC 0006 §9.6).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions (the `CreateWorkflowDefinition` operationId).
+func (c *Client) CreateWorkflowDefinitionWithBody(ctx context.Context, tenant TenantPath, params *CreateWorkflowDefinitionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWorkflowDefinitionRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateWorkflowDefinition Create a workflow definition
+//
+// The body is the `glossa.workflow/v1` document itself (RFC 0006
+// §2.3) — what `glossa workflow push` sends and the workflow
+// editor saves. It is compiled and linted before anything is
+// stored: an unknown guard or action, an unreachable state, a
+// non-final dead end, non-determinism or a delayed transition is
+// `invalid_workflow` (422) with every finding, and nothing is
+// saved. A saved document becomes version 1; the response carries
+// lint's informational notes. With `project` the definition is
+// that project's alone; without, every project of the tenant may
+// bind it.
+//
+// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+// (422), `workflow_definition_exists` (409: a live definition with
+// this name in this scope), `workflow_limit_reached` (409: the
+// tenant's 50 live definitions, RFC 0006 §9.6).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions (the `CreateWorkflowDefinition` operationId).
+func (c *Client) CreateWorkflowDefinition(ctx context.Context, tenant TenantPath, params *CreateWorkflowDefinitionParams, body CreateWorkflowDefinitionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWorkflowDefinitionRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteWorkflowDefinition Delete a workflow definition
+//
+// Its bindings go with it, so it is never selected again; its
+// versions stay, so whatever ran on them stays explainable.
+// Deleting the default `review` definition is allowed and means "no
+// workflow" — M4's behaviour (RFC 0006 §2.3). Needs
+// `workflows.manage`.
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/workflow-definitions/{workflow_definition} (the `DeleteWorkflowDefinition` operationId).
+func (c *Client) DeleteWorkflowDefinition(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWorkflowDefinitionRequest(c.Server, tenant, workflowDefinition)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetWorkflowDefinition A workflow definition
+//
+// Its identity and latest version; the `ETag` is that version, for
+// `If-Match` on the next save. A deleted definition is still
+// readable, with `deleted_at`. Needs `workflows.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition} (the `GetWorkflowDefinition` operationId).
+func (c *Client) GetWorkflowDefinition(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkflowDefinitionRequest(c.Server, tenant, workflowDefinition)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListWorkflowDefinitionVersions A definition's versions, newest first
+//
+// Every version with its document, also after the definition was
+// deleted. Versions are immutable. Needs `workflows.read`. Problem
+// codes: `invalid_page_size`, `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `ListWorkflowDefinitionVersions` operationId).
+func (c *Client) ListWorkflowDefinitionVersions(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *ListWorkflowDefinitionVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWorkflowDefinitionVersionsRequest(c.Server, tenant, workflowDefinition, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SaveWorkflowDefinitionVersionWithBody Save the next version of a definition
+//
+// The body is the whole `glossa.workflow/v1` document, compiled and
+// linted exactly as on create. `If-Match` is the definition's
+// `ETag` — the version the author edited — so a save that another
+// save overtook is refused (412) instead of silently replacing
+// their change. Running instances stay on the version they started
+// with. A version keeps its definition's `name` and `subject`: a new
+// name is a new definition.
+//
+// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+// (422, also for a renamed definition or a changed subject),
+// `precondition_failed` (412), `precondition_required` (428).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `SaveWorkflowDefinitionVersion` operationId).
+func (c *Client) SaveWorkflowDefinitionVersionWithBody(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *SaveWorkflowDefinitionVersionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSaveWorkflowDefinitionVersionRequestWithBody(c.Server, tenant, workflowDefinition, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SaveWorkflowDefinitionVersion Save the next version of a definition
+//
+// The body is the whole `glossa.workflow/v1` document, compiled and
+// linted exactly as on create. `If-Match` is the definition's
+// `ETag` — the version the author edited — so a save that another
+// save overtook is refused (412) instead of silently replacing
+// their change. Running instances stay on the version they started
+// with. A version keeps its definition's `name` and `subject`: a new
+// name is a new definition.
+//
+// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+// (422, also for a renamed definition or a changed subject),
+// `precondition_failed` (412), `precondition_required` (428).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `SaveWorkflowDefinitionVersion` operationId).
+func (c *Client) SaveWorkflowDefinitionVersion(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *SaveWorkflowDefinitionVersionParams, body SaveWorkflowDefinitionVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSaveWorkflowDefinitionVersionRequest(c.Server, tenant, workflowDefinition, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetWorkflowDefinitionVersion One version of a definition
+//
+// The document as it was saved, with who saved it and when — what
+// an instance that names this version ran on. Needs
+// `workflows.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version} (the `GetWorkflowDefinitionVersion` operationId).
+func (c *Client) GetWorkflowDefinitionVersion(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, version WorkflowVersionPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkflowDefinitionVersionRequest(c.Server, tenant, workflowDefinition, version)
 	if err != nil {
 		return nil, err
 	}
@@ -32112,6 +33310,555 @@ func NewRevokeWaiverRequest(server string, tenant TenantPath, project ProjectPat
 	return req, nil
 }
 
+// NewListWorkflowBindingsRequest constructs an http.Request for the ListWorkflowBindings method
+func NewListWorkflowBindingsRequest(server string, tenant TenantPath, project ProjectPath, params *ListWorkflowBindingsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/workflow-bindings", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateWorkflowBindingRequest calls the generic CreateWorkflowBinding builder with application/json body
+func NewCreateWorkflowBindingRequest(server string, tenant TenantPath, project ProjectPath, body CreateWorkflowBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateWorkflowBindingRequestWithBody(server, tenant, project, "application/json", bodyReader)
+}
+
+// NewCreateWorkflowBindingRequestWithBody constructs an http.Request for the CreateWorkflowBinding method, with any body, and a specified content type
+func NewCreateWorkflowBindingRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/workflow-bindings", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteWorkflowBindingRequest constructs an http.Request for the DeleteWorkflowBinding method
+func NewDeleteWorkflowBindingRequest(server string, tenant TenantPath, project ProjectPath, workflowBinding WorkflowBindingPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "workflow_binding", workflowBinding, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/workflow-bindings/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListWorkflowInstancesRequest constructs an http.Request for the ListWorkflowInstances method
+func NewListWorkflowInstancesRequest(server string, tenant TenantPath, project ProjectPath, params *ListWorkflowInstancesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/workflow-instances", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Definition != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "definition", *params.Definition, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Message != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message", *params.Message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.SubjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "subject_id", *params.SubjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetWorkflowInstanceRequest constructs an http.Request for the GetWorkflowInstance method
+func NewGetWorkflowInstanceRequest(server string, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "workflow_instance", workflowInstance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/workflow-instances/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListWorkflowTransitionsRequest constructs an http.Request for the ListWorkflowTransitions method
+func NewListWorkflowTransitionsRequest(server string, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *ListWorkflowTransitionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "workflow_instance", workflowInstance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/workflow-instances/%s/transitions", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewResolveWorkflowRequest constructs an http.Request for the ResolveWorkflow method
+func NewResolveWorkflowRequest(server string, tenant TenantPath, project ProjectPath, params *ResolveWorkflowParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/workflow-resolution", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Subject != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "subject", *params.Subject, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Namespace != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "namespace", *params.Namespace, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListStyleGuidesRequest constructs an http.Request for the ListStyleGuides method
 func NewListStyleGuidesRequest(server string, tenant TenantPath, params *ListStyleGuidesParams) (*http.Request, error) {
 	var err error
@@ -34227,6 +35974,489 @@ func NewGetTokenRequest(server string, tenant TenantPath, token TokenPath) (*htt
 	}
 
 	operationPath := fmt.Sprintf("/v1/tenants/%s/tokens/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewLintWorkflowDefinitionRequest calls the generic LintWorkflowDefinition builder with application/json body
+func NewLintWorkflowDefinitionRequest(server string, tenant TenantPath, body LintWorkflowDefinitionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLintWorkflowDefinitionRequestWithBody(server, tenant, "application/json", bodyReader)
+}
+
+// NewLintWorkflowDefinitionRequestWithBody constructs an http.Request for the LintWorkflowDefinition method, with any body, and a specified content type
+func NewLintWorkflowDefinitionRequestWithBody(server string, tenant TenantPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/workflow-definition-lints", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListWorkflowDefinitionsRequest constructs an http.Request for the ListWorkflowDefinitions method
+func NewListWorkflowDefinitionsRequest(server string, tenant TenantPath, params *ListWorkflowDefinitionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/workflow-definitions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateWorkflowDefinitionRequest calls the generic CreateWorkflowDefinition builder with application/json body
+func NewCreateWorkflowDefinitionRequest(server string, tenant TenantPath, params *CreateWorkflowDefinitionParams, body CreateWorkflowDefinitionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateWorkflowDefinitionRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateWorkflowDefinitionRequestWithBody constructs an http.Request for the CreateWorkflowDefinition method, with any body, and a specified content type
+func NewCreateWorkflowDefinitionRequestWithBody(server string, tenant TenantPath, params *CreateWorkflowDefinitionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/workflow-definitions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteWorkflowDefinitionRequest constructs an http.Request for the DeleteWorkflowDefinition method
+func NewDeleteWorkflowDefinitionRequest(server string, tenant TenantPath, workflowDefinition WorkflowDefinitionPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "workflow_definition", workflowDefinition, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/workflow-definitions/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetWorkflowDefinitionRequest constructs an http.Request for the GetWorkflowDefinition method
+func NewGetWorkflowDefinitionRequest(server string, tenant TenantPath, workflowDefinition WorkflowDefinitionPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "workflow_definition", workflowDefinition, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/workflow-definitions/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListWorkflowDefinitionVersionsRequest constructs an http.Request for the ListWorkflowDefinitionVersions method
+func NewListWorkflowDefinitionVersionsRequest(server string, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *ListWorkflowDefinitionVersionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "workflow_definition", workflowDefinition, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/workflow-definitions/%s/versions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSaveWorkflowDefinitionVersionRequest calls the generic SaveWorkflowDefinitionVersion builder with application/json body
+func NewSaveWorkflowDefinitionVersionRequest(server string, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *SaveWorkflowDefinitionVersionParams, body SaveWorkflowDefinitionVersionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSaveWorkflowDefinitionVersionRequestWithBody(server, tenant, workflowDefinition, params, "application/json", bodyReader)
+}
+
+// NewSaveWorkflowDefinitionVersionRequestWithBody constructs an http.Request for the SaveWorkflowDefinitionVersion method, with any body, and a specified content type
+func NewSaveWorkflowDefinitionVersionRequestWithBody(server string, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *SaveWorkflowDefinitionVersionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "workflow_definition", workflowDefinition, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/workflow-definitions/%s/versions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewGetWorkflowDefinitionVersionRequest constructs an http.Request for the GetWorkflowDefinitionVersion method
+func NewGetWorkflowDefinitionVersionRequest(server string, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, version WorkflowVersionPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "workflow_definition", workflowDefinition, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "version", version, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/workflow-definitions/%s/versions/%s", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -38379,6 +40609,122 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/waivers/{waiver} (the `RevokeWaiver` operationId).
 	RevokeWaiverWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, waiver WaiverPath, reqEditors ...RequestEditorFn) (*RevokeWaiverResponse, error)
 
+	// ListWorkflowBindingsWithResponse A project's workflow bindings
+	//
+	// In creation order, which is what "later" means when two bindings
+	// are equally specific. A project with none has no workflow: no
+	// instance is created, and it behaves as it did before M5. Needs
+	// `workflows.read`. Problem codes: `invalid_page_size`,
+	// `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `ListWorkflowBindings` operationId).
+	ListWorkflowBindingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWorkflowBindingsParams, reqEditors ...RequestEditorFn) (*ListWorkflowBindingsResponse, error)
+
+	// CreateWorkflowBindingWithBodyWithResponse Bind a definition to the project
+	//
+	// Optionally narrowed to some locales and one namespace. Bindings
+	// resolve with the check policy's precedence rule (RFC 0005 §4.1):
+	// the one naming more fields wins, a tie goes to the later one.
+	// Changing a binding is deleting it and binding again. Needs
+	// `workflows.manage`. Problem codes: `workflow_binding_exists`
+	// (409: a binding with this selector), `invalid_workflow_binding`
+	// (422: a locale that is not BCP 47, or a namespace that cannot be
+	// one), `workflow_definition_out_of_scope` (422: another project's
+	// definition), `not_found` (404: the definition, or the project).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `CreateWorkflowBinding` operationId).
+	CreateWorkflowBindingWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkflowBindingResponse, error)
+
+	// CreateWorkflowBindingWithResponse Bind a definition to the project
+	//
+	// Optionally narrowed to some locales and one namespace. Bindings
+	// resolve with the check policy's precedence rule (RFC 0005 §4.1):
+	// the one naming more fields wins, a tie goes to the later one.
+	// Changing a binding is deleting it and binding again. Needs
+	// `workflows.manage`. Problem codes: `workflow_binding_exists`
+	// (409: a binding with this selector), `invalid_workflow_binding`
+	// (422: a locale that is not BCP 47, or a namespace that cannot be
+	// one), `workflow_definition_out_of_scope` (422: another project's
+	// definition), `not_found` (404: the definition, or the project).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `CreateWorkflowBinding` operationId).
+	CreateWorkflowBindingWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateWorkflowBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkflowBindingResponse, error)
+
+	// DeleteWorkflowBindingWithResponse Remove a binding
+	//
+	// New instances resolve without it from now on; running instances
+	// stay on the version they started with. Needs `workflows.manage`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/workflow-bindings/{workflow_binding} (the `DeleteWorkflowBinding` operationId).
+	DeleteWorkflowBindingWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowBinding WorkflowBindingPath, reqEditors ...RequestEditorFn) (*DeleteWorkflowBindingResponse, error)
+
+	// ListWorkflowInstancesWithResponse A project's workflow instances
+	//
+	// An instance exists while work is in flight under a binding
+	// (RFC 0006 §2.5): created by the first trigger, `finished` when it
+	// reaches a final state, its transition log kept. Filters:
+	// `definition`, `status`, `locale`, and the subject — a `message`
+	// by key, or any subject by `subject_id` (not both). Needs
+	// `workflows.read`. Problem codes: `invalid_query`,
+	// `invalid_page_size`, `invalid_page_token` (400),
+	// `workflow_instances_unavailable` (503: this server runs no
+	// instance store).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances (the `ListWorkflowInstances` operationId).
+	ListWorkflowInstancesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWorkflowInstancesParams, reqEditors ...RequestEditorFn) (*ListWorkflowInstancesResponse, error)
+
+	// GetWorkflowInstanceWithResponse A workflow instance
+	//
+	// Its definition version, subject, state and status. Needs
+	// `workflows.read`. Problem codes: `workflow_instances_unavailable`
+	// (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
+	GetWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*GetWorkflowInstanceResponse, error)
+
+	// ListWorkflowTransitionsWithResponse An instance's transition log
+	//
+	// Every event the instance received, oldest first: the state it
+	// moved from and to, the guards it evaluated, the actions it ran
+	// and what became of them, and the actor whose event caused it —
+	// actions run as that actor, never as Workflow's own principal
+	// (RFC 0006 §2.5). An event the instance no longer accepted is
+	// `ignored`; one whose action was refused for permission is
+	// `refused` and left the instance where it was. Needs
+	// `workflows.read`. Problem codes: `invalid_page_size`,
+	// `invalid_page_token` (400), `workflow_instances_unavailable`
+	// (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions (the `ListWorkflowTransitions` operationId).
+	ListWorkflowTransitionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *ListWorkflowTransitionsParams, reqEditors ...RequestEditorFn) (*ListWorkflowTransitionsResponse, error)
+
+	// ResolveWorkflowWithResponse Which definition applies to a subject
+	//
+	// The binding a new instance for this subject would be created
+	// under, and the definition version it would start on (the bound
+	// definition's latest). `bound: false` means no binding applies:
+	// no instance, M4's behaviour. Needs `workflows.read`. Problem
+	// codes: `invalid_query` (400: a locale that is not BCP 47).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-resolution (the `ResolveWorkflow` operationId).
+	ResolveWorkflowWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ResolveWorkflowParams, reqEditors ...RequestEditorFn) (*ResolveWorkflowResponse, error)
+
 	// ListStyleGuidesWithResponse Style guides
 	//
 	// Every guide, or only tenant-level ones (`tenant_only`), one
@@ -38920,6 +41266,175 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/tokens/{token} (the `GetToken` operationId).
 	GetTokenWithResponse(ctx context.Context, tenant TenantPath, token TokenPath, reqEditors ...RequestEditorFn) (*GetTokenResponse, error)
+
+	// LintWorkflowDefinitionWithBodyWithResponse Lint a workflow document without saving it
+	//
+	// What `glossa workflow lint` and the editor ask before a save: the
+	// same compile and lint a save runs, and every finding, with
+	// `valid` saying whether a save would be accepted. Stores nothing,
+	// so an invalid document is a `200` with `valid: false`, not a
+	// `422`. Needs `workflows.read`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definition-lints (the `LintWorkflowDefinition` operationId).
+	LintWorkflowDefinitionWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LintWorkflowDefinitionResponse, error)
+
+	// LintWorkflowDefinitionWithResponse Lint a workflow document without saving it
+	//
+	// What `glossa workflow lint` and the editor ask before a save: the
+	// same compile and lint a save runs, and every finding, with
+	// `valid` saying whether a save would be accepted. Stores nothing,
+	// so an invalid document is a `200` with `valid: false`, not a
+	// `422`. Needs `workflows.read`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definition-lints (the `LintWorkflowDefinition` operationId).
+	LintWorkflowDefinitionWithResponse(ctx context.Context, tenant TenantPath, body LintWorkflowDefinitionJSONRequestBody, reqEditors ...RequestEditorFn) (*LintWorkflowDefinitionResponse, error)
+
+	// ListWorkflowDefinitionsWithResponse Workflow definitions
+	//
+	// The tenant's live definitions, by name, each at its latest
+	// version. With `project`, the ones that project may bind: the
+	// tenant's and its own. Deleted definitions are not listed; their
+	// versions stay readable. Needs `workflows.read`. Problem codes:
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions (the `ListWorkflowDefinitions` operationId).
+	ListWorkflowDefinitionsWithResponse(ctx context.Context, tenant TenantPath, params *ListWorkflowDefinitionsParams, reqEditors ...RequestEditorFn) (*ListWorkflowDefinitionsResponse, error)
+
+	// CreateWorkflowDefinitionWithBodyWithResponse Create a workflow definition
+	//
+	// The body is the `glossa.workflow/v1` document itself (RFC 0006
+	// §2.3) — what `glossa workflow push` sends and the workflow
+	// editor saves. It is compiled and linted before anything is
+	// stored: an unknown guard or action, an unreachable state, a
+	// non-final dead end, non-determinism or a delayed transition is
+	// `invalid_workflow` (422) with every finding, and nothing is
+	// saved. A saved document becomes version 1; the response carries
+	// lint's informational notes. With `project` the definition is
+	// that project's alone; without, every project of the tenant may
+	// bind it.
+	//
+	// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+	// (422), `workflow_definition_exists` (409: a live definition with
+	// this name in this scope), `workflow_limit_reached` (409: the
+	// tenant's 50 live definitions, RFC 0006 §9.6).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions (the `CreateWorkflowDefinition` operationId).
+	CreateWorkflowDefinitionWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateWorkflowDefinitionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkflowDefinitionResponse, error)
+
+	// CreateWorkflowDefinitionWithResponse Create a workflow definition
+	//
+	// The body is the `glossa.workflow/v1` document itself (RFC 0006
+	// §2.3) — what `glossa workflow push` sends and the workflow
+	// editor saves. It is compiled and linted before anything is
+	// stored: an unknown guard or action, an unreachable state, a
+	// non-final dead end, non-determinism or a delayed transition is
+	// `invalid_workflow` (422) with every finding, and nothing is
+	// saved. A saved document becomes version 1; the response carries
+	// lint's informational notes. With `project` the definition is
+	// that project's alone; without, every project of the tenant may
+	// bind it.
+	//
+	// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+	// (422), `workflow_definition_exists` (409: a live definition with
+	// this name in this scope), `workflow_limit_reached` (409: the
+	// tenant's 50 live definitions, RFC 0006 §9.6).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions (the `CreateWorkflowDefinition` operationId).
+	CreateWorkflowDefinitionWithResponse(ctx context.Context, tenant TenantPath, params *CreateWorkflowDefinitionParams, body CreateWorkflowDefinitionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkflowDefinitionResponse, error)
+
+	// DeleteWorkflowDefinitionWithResponse Delete a workflow definition
+	//
+	// Its bindings go with it, so it is never selected again; its
+	// versions stay, so whatever ran on them stays explainable.
+	// Deleting the default `review` definition is allowed and means "no
+	// workflow" — M4's behaviour (RFC 0006 §2.3). Needs
+	// `workflows.manage`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/workflow-definitions/{workflow_definition} (the `DeleteWorkflowDefinition` operationId).
+	DeleteWorkflowDefinitionWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, reqEditors ...RequestEditorFn) (*DeleteWorkflowDefinitionResponse, error)
+
+	// GetWorkflowDefinitionWithResponse A workflow definition
+	//
+	// Its identity and latest version; the `ETag` is that version, for
+	// `If-Match` on the next save. A deleted definition is still
+	// readable, with `deleted_at`. Needs `workflows.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition} (the `GetWorkflowDefinition` operationId).
+	GetWorkflowDefinitionWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, reqEditors ...RequestEditorFn) (*GetWorkflowDefinitionResponse, error)
+
+	// ListWorkflowDefinitionVersionsWithResponse A definition's versions, newest first
+	//
+	// Every version with its document, also after the definition was
+	// deleted. Versions are immutable. Needs `workflows.read`. Problem
+	// codes: `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `ListWorkflowDefinitionVersions` operationId).
+	ListWorkflowDefinitionVersionsWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *ListWorkflowDefinitionVersionsParams, reqEditors ...RequestEditorFn) (*ListWorkflowDefinitionVersionsResponse, error)
+
+	// SaveWorkflowDefinitionVersionWithBodyWithResponse Save the next version of a definition
+	//
+	// The body is the whole `glossa.workflow/v1` document, compiled and
+	// linted exactly as on create. `If-Match` is the definition's
+	// `ETag` — the version the author edited — so a save that another
+	// save overtook is refused (412) instead of silently replacing
+	// their change. Running instances stay on the version they started
+	// with. A version keeps its definition's `name` and `subject`: a new
+	// name is a new definition.
+	//
+	// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+	// (422, also for a renamed definition or a changed subject),
+	// `precondition_failed` (412), `precondition_required` (428).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `SaveWorkflowDefinitionVersion` operationId).
+	SaveWorkflowDefinitionVersionWithBodyWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *SaveWorkflowDefinitionVersionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveWorkflowDefinitionVersionResponse, error)
+
+	// SaveWorkflowDefinitionVersionWithResponse Save the next version of a definition
+	//
+	// The body is the whole `glossa.workflow/v1` document, compiled and
+	// linted exactly as on create. `If-Match` is the definition's
+	// `ETag` — the version the author edited — so a save that another
+	// save overtook is refused (412) instead of silently replacing
+	// their change. Running instances stay on the version they started
+	// with. A version keeps its definition's `name` and `subject`: a new
+	// name is a new definition.
+	//
+	// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+	// (422, also for a renamed definition or a changed subject),
+	// `precondition_failed` (412), `precondition_required` (428).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `SaveWorkflowDefinitionVersion` operationId).
+	SaveWorkflowDefinitionVersionWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *SaveWorkflowDefinitionVersionParams, body SaveWorkflowDefinitionVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveWorkflowDefinitionVersionResponse, error)
+
+	// GetWorkflowDefinitionVersionWithResponse One version of a definition
+	//
+	// The document as it was saved, with who saved it and when — what
+	// an instance that names this version ran on. Needs
+	// `workflows.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version} (the `GetWorkflowDefinitionVersion` operationId).
+	GetWorkflowDefinitionVersionWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, version WorkflowVersionPath, reqEditors ...RequestEditorFn) (*GetWorkflowDefinitionVersionResponse, error)
 }
 
 type ExchangeGitHubOIDCTokenResponse struct {
@@ -51564,6 +54079,510 @@ func (r RevokeWaiverResponse) ContentType() string {
 	return ""
 }
 
+type ListWorkflowBindingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowBindingList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListWorkflowBindingsResponse) GetJSON200() *WorkflowBindingList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListWorkflowBindingsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListWorkflowBindingsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListWorkflowBindingsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListWorkflowBindingsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListWorkflowBindingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListWorkflowBindingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListWorkflowBindingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListWorkflowBindingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateWorkflowBindingResponse201Headers the declared response headers of an HTTP 201 response for CreateWorkflowBinding
+type CreateWorkflowBindingResponse201Headers struct {
+	Location *string
+}
+
+type CreateWorkflowBindingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *WorkflowBinding
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *Problem
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateWorkflowBindingResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateWorkflowBindingResponse) GetJSON201() *WorkflowBinding {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateWorkflowBindingResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateWorkflowBindingResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateWorkflowBindingResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateWorkflowBindingResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateWorkflowBindingResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateWorkflowBindingResponse) GetApplicationproblemJSON422() *Problem {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateWorkflowBindingResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateWorkflowBindingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateWorkflowBindingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateWorkflowBindingResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteWorkflowBindingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeleteWorkflowBindingResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeleteWorkflowBindingResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeleteWorkflowBindingResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteWorkflowBindingResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteWorkflowBindingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteWorkflowBindingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteWorkflowBindingResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListWorkflowInstancesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowInstanceList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListWorkflowInstancesResponse) GetJSON200() *WorkflowInstanceList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListWorkflowInstancesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListWorkflowInstancesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListWorkflowInstancesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListWorkflowInstancesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r ListWorkflowInstancesResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r ListWorkflowInstancesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListWorkflowInstancesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListWorkflowInstancesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListWorkflowInstancesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetWorkflowInstanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowInstance
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetWorkflowInstanceResponse) GetJSON200() *WorkflowInstance {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetWorkflowInstanceResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetWorkflowInstanceResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetWorkflowInstanceResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r GetWorkflowInstanceResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r GetWorkflowInstanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWorkflowInstanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWorkflowInstanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetWorkflowInstanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListWorkflowTransitionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowTransitionList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListWorkflowTransitionsResponse) GetJSON200() *WorkflowTransitionList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListWorkflowTransitionsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListWorkflowTransitionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListWorkflowTransitionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListWorkflowTransitionsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r ListWorkflowTransitionsResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r ListWorkflowTransitionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListWorkflowTransitionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListWorkflowTransitionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListWorkflowTransitionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ResolveWorkflowResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowResolution
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ResolveWorkflowResponse) GetJSON200() *WorkflowResolution {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ResolveWorkflowResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ResolveWorkflowResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ResolveWorkflowResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ResolveWorkflowResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ResolveWorkflowResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ResolveWorkflowResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResolveWorkflowResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ResolveWorkflowResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListStyleGuidesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -53685,6 +56704,581 @@ func (r GetTokenResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LintWorkflowDefinitionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowLintResult
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LintWorkflowDefinitionResponse) GetJSON200() *WorkflowLintResult {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r LintWorkflowDefinitionResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r LintWorkflowDefinitionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r LintWorkflowDefinitionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r LintWorkflowDefinitionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LintWorkflowDefinitionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LintWorkflowDefinitionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LintWorkflowDefinitionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListWorkflowDefinitionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowDefinitionList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListWorkflowDefinitionsResponse) GetJSON200() *WorkflowDefinitionList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListWorkflowDefinitionsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListWorkflowDefinitionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListWorkflowDefinitionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListWorkflowDefinitionsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListWorkflowDefinitionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListWorkflowDefinitionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListWorkflowDefinitionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListWorkflowDefinitionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateWorkflowDefinitionResponse201Headers the declared response headers of an HTTP 201 response for CreateWorkflowDefinition
+type CreateWorkflowDefinitionResponse201Headers struct {
+	ETag     *string
+	Location *string
+}
+
+type CreateWorkflowDefinitionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *WorkflowDefinitionSaved
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *InvalidWorkflow
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateWorkflowDefinitionResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateWorkflowDefinitionResponse) GetJSON201() *WorkflowDefinitionSaved {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateWorkflowDefinitionResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateWorkflowDefinitionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateWorkflowDefinitionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateWorkflowDefinitionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateWorkflowDefinitionResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateWorkflowDefinitionResponse) GetApplicationproblemJSON422() *InvalidWorkflow {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateWorkflowDefinitionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateWorkflowDefinitionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateWorkflowDefinitionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateWorkflowDefinitionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteWorkflowDefinitionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeleteWorkflowDefinitionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeleteWorkflowDefinitionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeleteWorkflowDefinitionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteWorkflowDefinitionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteWorkflowDefinitionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteWorkflowDefinitionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteWorkflowDefinitionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetWorkflowDefinitionResponse200Headers the declared response headers of an HTTP 200 response for GetWorkflowDefinition
+type GetWorkflowDefinitionResponse200Headers struct {
+	ETag *string
+}
+
+type GetWorkflowDefinitionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowDefinition
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetWorkflowDefinitionResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetWorkflowDefinitionResponse) GetJSON200() *WorkflowDefinition {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetWorkflowDefinitionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetWorkflowDefinitionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetWorkflowDefinitionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetWorkflowDefinitionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWorkflowDefinitionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWorkflowDefinitionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetWorkflowDefinitionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListWorkflowDefinitionVersionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowDefinitionVersionList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListWorkflowDefinitionVersionsResponse) GetJSON200() *WorkflowDefinitionVersionList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListWorkflowDefinitionVersionsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListWorkflowDefinitionVersionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListWorkflowDefinitionVersionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListWorkflowDefinitionVersionsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListWorkflowDefinitionVersionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListWorkflowDefinitionVersionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListWorkflowDefinitionVersionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListWorkflowDefinitionVersionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// SaveWorkflowDefinitionVersionResponse201Headers the declared response headers of an HTTP 201 response for SaveWorkflowDefinitionVersion
+type SaveWorkflowDefinitionVersionResponse201Headers struct {
+	ETag     *string
+	Location *string
+}
+
+type SaveWorkflowDefinitionVersionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *WorkflowDefinitionSaved
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *InvalidWorkflow
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *SaveWorkflowDefinitionVersionResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r SaveWorkflowDefinitionVersionResponse) GetJSON201() *WorkflowDefinitionSaved {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r SaveWorkflowDefinitionVersionResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r SaveWorkflowDefinitionVersionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r SaveWorkflowDefinitionVersionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r SaveWorkflowDefinitionVersionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r SaveWorkflowDefinitionVersionResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r SaveWorkflowDefinitionVersionResponse) GetApplicationproblemJSON422() *InvalidWorkflow {
+	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r SaveWorkflowDefinitionVersionResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetBody returns the raw response body bytes
+func (r SaveWorkflowDefinitionVersionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SaveWorkflowDefinitionVersionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SaveWorkflowDefinitionVersionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SaveWorkflowDefinitionVersionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetWorkflowDefinitionVersionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowDefinitionVersion
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetWorkflowDefinitionVersionResponse) GetJSON200() *WorkflowDefinitionVersion {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetWorkflowDefinitionVersionResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetWorkflowDefinitionVersionResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetWorkflowDefinitionVersionResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetWorkflowDefinitionVersionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWorkflowDefinitionVersionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWorkflowDefinitionVersionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetWorkflowDefinitionVersionResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -59228,6 +62822,170 @@ func (c *ClientWithResponses) RevokeWaiverWithResponse(ctx context.Context, tena
 	return ParseRevokeWaiverResponse(rsp)
 }
 
+// ListWorkflowBindingsWithResponse A project's workflow bindings
+//
+// In creation order, which is what "later" means when two bindings
+// are equally specific. A project with none has no workflow: no
+// instance is created, and it behaves as it did before M5. Needs
+// `workflows.read`. Problem codes: `invalid_page_size`,
+// `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `ListWorkflowBindings` operationId).
+func (c *ClientWithResponses) ListWorkflowBindingsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWorkflowBindingsParams, reqEditors ...RequestEditorFn) (*ListWorkflowBindingsResponse, error) {
+	rsp, err := c.ListWorkflowBindings(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListWorkflowBindingsResponse(rsp)
+}
+
+// CreateWorkflowBindingWithBodyWithResponse Bind a definition to the project
+//
+// Optionally narrowed to some locales and one namespace. Bindings
+// resolve with the check policy's precedence rule (RFC 0005 §4.1):
+// the one naming more fields wins, a tie goes to the later one.
+// Changing a binding is deleting it and binding again. Needs
+// `workflows.manage`. Problem codes: `workflow_binding_exists`
+// (409: a binding with this selector), `invalid_workflow_binding`
+// (422: a locale that is not BCP 47, or a namespace that cannot be
+// one), `workflow_definition_out_of_scope` (422: another project's
+// definition), `not_found` (404: the definition, or the project).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `CreateWorkflowBinding` operationId).
+func (c *ClientWithResponses) CreateWorkflowBindingWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkflowBindingResponse, error) {
+	rsp, err := c.CreateWorkflowBindingWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateWorkflowBindingResponse(rsp)
+}
+
+// CreateWorkflowBindingWithResponse Bind a definition to the project
+//
+// Optionally narrowed to some locales and one namespace. Bindings
+// resolve with the check policy's precedence rule (RFC 0005 §4.1):
+// the one naming more fields wins, a tie goes to the later one.
+// Changing a binding is deleting it and binding again. Needs
+// `workflows.manage`. Problem codes: `workflow_binding_exists`
+// (409: a binding with this selector), `invalid_workflow_binding`
+// (422: a locale that is not BCP 47, or a namespace that cannot be
+// one), `workflow_definition_out_of_scope` (422: another project's
+// definition), `not_found` (404: the definition, or the project).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-bindings (the `CreateWorkflowBinding` operationId).
+func (c *ClientWithResponses) CreateWorkflowBindingWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body CreateWorkflowBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkflowBindingResponse, error) {
+	rsp, err := c.CreateWorkflowBinding(ctx, tenant, project, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateWorkflowBindingResponse(rsp)
+}
+
+// DeleteWorkflowBindingWithResponse Remove a binding
+//
+// New instances resolve without it from now on; running instances
+// stay on the version they started with. Needs `workflows.manage`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/projects/{project}/workflow-bindings/{workflow_binding} (the `DeleteWorkflowBinding` operationId).
+func (c *ClientWithResponses) DeleteWorkflowBindingWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowBinding WorkflowBindingPath, reqEditors ...RequestEditorFn) (*DeleteWorkflowBindingResponse, error) {
+	rsp, err := c.DeleteWorkflowBinding(ctx, tenant, project, workflowBinding, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteWorkflowBindingResponse(rsp)
+}
+
+// ListWorkflowInstancesWithResponse A project's workflow instances
+//
+// An instance exists while work is in flight under a binding
+// (RFC 0006 §2.5): created by the first trigger, `finished` when it
+// reaches a final state, its transition log kept. Filters:
+// `definition`, `status`, `locale`, and the subject — a `message`
+// by key, or any subject by `subject_id` (not both). Needs
+// `workflows.read`. Problem codes: `invalid_query`,
+// `invalid_page_size`, `invalid_page_token` (400),
+// `workflow_instances_unavailable` (503: this server runs no
+// instance store).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances (the `ListWorkflowInstances` operationId).
+func (c *ClientWithResponses) ListWorkflowInstancesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListWorkflowInstancesParams, reqEditors ...RequestEditorFn) (*ListWorkflowInstancesResponse, error) {
+	rsp, err := c.ListWorkflowInstances(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListWorkflowInstancesResponse(rsp)
+}
+
+// GetWorkflowInstanceWithResponse A workflow instance
+//
+// Its definition version, subject, state and status. Needs
+// `workflows.read`. Problem codes: `workflow_instances_unavailable`
+// (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
+func (c *ClientWithResponses) GetWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*GetWorkflowInstanceResponse, error) {
+	rsp, err := c.GetWorkflowInstance(ctx, tenant, project, workflowInstance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWorkflowInstanceResponse(rsp)
+}
+
+// ListWorkflowTransitionsWithResponse An instance's transition log
+//
+// Every event the instance received, oldest first: the state it
+// moved from and to, the guards it evaluated, the actions it ran
+// and what became of them, and the actor whose event caused it —
+// actions run as that actor, never as Workflow's own principal
+// (RFC 0006 §2.5). An event the instance no longer accepted is
+// `ignored`; one whose action was refused for permission is
+// `refused` and left the instance where it was. Needs
+// `workflows.read`. Problem codes: `invalid_page_size`,
+// `invalid_page_token` (400), `workflow_instances_unavailable`
+// (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions (the `ListWorkflowTransitions` operationId).
+func (c *ClientWithResponses) ListWorkflowTransitionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *ListWorkflowTransitionsParams, reqEditors ...RequestEditorFn) (*ListWorkflowTransitionsResponse, error) {
+	rsp, err := c.ListWorkflowTransitions(ctx, tenant, project, workflowInstance, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListWorkflowTransitionsResponse(rsp)
+}
+
+// ResolveWorkflowWithResponse Which definition applies to a subject
+//
+// The binding a new instance for this subject would be created
+// under, and the definition version it would start on (the bound
+// definition's latest). `bound: false` means no binding applies:
+// no instance, M4's behaviour. Needs `workflows.read`. Problem
+// codes: `invalid_query` (400: a locale that is not BCP 47).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-resolution (the `ResolveWorkflow` operationId).
+func (c *ClientWithResponses) ResolveWorkflowWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ResolveWorkflowParams, reqEditors ...RequestEditorFn) (*ResolveWorkflowResponse, error) {
+	rsp, err := c.ResolveWorkflow(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResolveWorkflowResponse(rsp)
+}
+
 // ListStyleGuidesWithResponse Style guides
 //
 // Every guide, or only tenant-level ones (`tenant_only`), one
@@ -60026,6 +63784,241 @@ func (c *ClientWithResponses) GetTokenWithResponse(ctx context.Context, tenant T
 		return nil, err
 	}
 	return ParseGetTokenResponse(rsp)
+}
+
+// LintWorkflowDefinitionWithBodyWithResponse Lint a workflow document without saving it
+//
+// What `glossa workflow lint` and the editor ask before a save: the
+// same compile and lint a save runs, and every finding, with
+// `valid` saying whether a save would be accepted. Stores nothing,
+// so an invalid document is a `200` with `valid: false`, not a
+// `422`. Needs `workflows.read`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definition-lints (the `LintWorkflowDefinition` operationId).
+func (c *ClientWithResponses) LintWorkflowDefinitionWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LintWorkflowDefinitionResponse, error) {
+	rsp, err := c.LintWorkflowDefinitionWithBody(ctx, tenant, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLintWorkflowDefinitionResponse(rsp)
+}
+
+// LintWorkflowDefinitionWithResponse Lint a workflow document without saving it
+//
+// What `glossa workflow lint` and the editor ask before a save: the
+// same compile and lint a save runs, and every finding, with
+// `valid` saying whether a save would be accepted. Stores nothing,
+// so an invalid document is a `200` with `valid: false`, not a
+// `422`. Needs `workflows.read`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definition-lints (the `LintWorkflowDefinition` operationId).
+func (c *ClientWithResponses) LintWorkflowDefinitionWithResponse(ctx context.Context, tenant TenantPath, body LintWorkflowDefinitionJSONRequestBody, reqEditors ...RequestEditorFn) (*LintWorkflowDefinitionResponse, error) {
+	rsp, err := c.LintWorkflowDefinition(ctx, tenant, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLintWorkflowDefinitionResponse(rsp)
+}
+
+// ListWorkflowDefinitionsWithResponse Workflow definitions
+//
+// The tenant's live definitions, by name, each at its latest
+// version. With `project`, the ones that project may bind: the
+// tenant's and its own. Deleted definitions are not listed; their
+// versions stay readable. Needs `workflows.read`. Problem codes:
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions (the `ListWorkflowDefinitions` operationId).
+func (c *ClientWithResponses) ListWorkflowDefinitionsWithResponse(ctx context.Context, tenant TenantPath, params *ListWorkflowDefinitionsParams, reqEditors ...RequestEditorFn) (*ListWorkflowDefinitionsResponse, error) {
+	rsp, err := c.ListWorkflowDefinitions(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListWorkflowDefinitionsResponse(rsp)
+}
+
+// CreateWorkflowDefinitionWithBodyWithResponse Create a workflow definition
+//
+// The body is the `glossa.workflow/v1` document itself (RFC 0006
+// §2.3) — what `glossa workflow push` sends and the workflow
+// editor saves. It is compiled and linted before anything is
+// stored: an unknown guard or action, an unreachable state, a
+// non-final dead end, non-determinism or a delayed transition is
+// `invalid_workflow` (422) with every finding, and nothing is
+// saved. A saved document becomes version 1; the response carries
+// lint's informational notes. With `project` the definition is
+// that project's alone; without, every project of the tenant may
+// bind it.
+//
+// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+// (422), `workflow_definition_exists` (409: a live definition with
+// this name in this scope), `workflow_limit_reached` (409: the
+// tenant's 50 live definitions, RFC 0006 §9.6).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions (the `CreateWorkflowDefinition` operationId).
+func (c *ClientWithResponses) CreateWorkflowDefinitionWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateWorkflowDefinitionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkflowDefinitionResponse, error) {
+	rsp, err := c.CreateWorkflowDefinitionWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateWorkflowDefinitionResponse(rsp)
+}
+
+// CreateWorkflowDefinitionWithResponse Create a workflow definition
+//
+// The body is the `glossa.workflow/v1` document itself (RFC 0006
+// §2.3) — what `glossa workflow push` sends and the workflow
+// editor saves. It is compiled and linted before anything is
+// stored: an unknown guard or action, an unreachable state, a
+// non-final dead end, non-determinism or a delayed transition is
+// `invalid_workflow` (422) with every finding, and nothing is
+// saved. A saved document becomes version 1; the response carries
+// lint's informational notes. With `project` the definition is
+// that project's alone; without, every project of the tenant may
+// bind it.
+//
+// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+// (422), `workflow_definition_exists` (409: a live definition with
+// this name in this scope), `workflow_limit_reached` (409: the
+// tenant's 50 live definitions, RFC 0006 §9.6).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions (the `CreateWorkflowDefinition` operationId).
+func (c *ClientWithResponses) CreateWorkflowDefinitionWithResponse(ctx context.Context, tenant TenantPath, params *CreateWorkflowDefinitionParams, body CreateWorkflowDefinitionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkflowDefinitionResponse, error) {
+	rsp, err := c.CreateWorkflowDefinition(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateWorkflowDefinitionResponse(rsp)
+}
+
+// DeleteWorkflowDefinitionWithResponse Delete a workflow definition
+//
+// Its bindings go with it, so it is never selected again; its
+// versions stay, so whatever ran on them stays explainable.
+// Deleting the default `review` definition is allowed and means "no
+// workflow" — M4's behaviour (RFC 0006 §2.3). Needs
+// `workflows.manage`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/workflow-definitions/{workflow_definition} (the `DeleteWorkflowDefinition` operationId).
+func (c *ClientWithResponses) DeleteWorkflowDefinitionWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, reqEditors ...RequestEditorFn) (*DeleteWorkflowDefinitionResponse, error) {
+	rsp, err := c.DeleteWorkflowDefinition(ctx, tenant, workflowDefinition, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteWorkflowDefinitionResponse(rsp)
+}
+
+// GetWorkflowDefinitionWithResponse A workflow definition
+//
+// Its identity and latest version; the `ETag` is that version, for
+// `If-Match` on the next save. A deleted definition is still
+// readable, with `deleted_at`. Needs `workflows.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition} (the `GetWorkflowDefinition` operationId).
+func (c *ClientWithResponses) GetWorkflowDefinitionWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, reqEditors ...RequestEditorFn) (*GetWorkflowDefinitionResponse, error) {
+	rsp, err := c.GetWorkflowDefinition(ctx, tenant, workflowDefinition, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWorkflowDefinitionResponse(rsp)
+}
+
+// ListWorkflowDefinitionVersionsWithResponse A definition's versions, newest first
+//
+// Every version with its document, also after the definition was
+// deleted. Versions are immutable. Needs `workflows.read`. Problem
+// codes: `invalid_page_size`, `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `ListWorkflowDefinitionVersions` operationId).
+func (c *ClientWithResponses) ListWorkflowDefinitionVersionsWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *ListWorkflowDefinitionVersionsParams, reqEditors ...RequestEditorFn) (*ListWorkflowDefinitionVersionsResponse, error) {
+	rsp, err := c.ListWorkflowDefinitionVersions(ctx, tenant, workflowDefinition, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListWorkflowDefinitionVersionsResponse(rsp)
+}
+
+// SaveWorkflowDefinitionVersionWithBodyWithResponse Save the next version of a definition
+//
+// The body is the whole `glossa.workflow/v1` document, compiled and
+// linted exactly as on create. `If-Match` is the definition's
+// `ETag` — the version the author edited — so a save that another
+// save overtook is refused (412) instead of silently replacing
+// their change. Running instances stay on the version they started
+// with. A version keeps its definition's `name` and `subject`: a new
+// name is a new definition.
+//
+// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+// (422, also for a renamed definition or a changed subject),
+// `precondition_failed` (412), `precondition_required` (428).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `SaveWorkflowDefinitionVersion` operationId).
+func (c *ClientWithResponses) SaveWorkflowDefinitionVersionWithBodyWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *SaveWorkflowDefinitionVersionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveWorkflowDefinitionVersionResponse, error) {
+	rsp, err := c.SaveWorkflowDefinitionVersionWithBody(ctx, tenant, workflowDefinition, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSaveWorkflowDefinitionVersionResponse(rsp)
+}
+
+// SaveWorkflowDefinitionVersionWithResponse Save the next version of a definition
+//
+// The body is the whole `glossa.workflow/v1` document, compiled and
+// linted exactly as on create. `If-Match` is the definition's
+// `ETag` — the version the author edited — so a save that another
+// save overtook is refused (412) instead of silently replacing
+// their change. Running instances stay on the version they started
+// with. A version keeps its definition's `name` and `subject`: a new
+// name is a new definition.
+//
+// Needs `workflows.manage`. Problem codes: `invalid_workflow`
+// (422, also for a renamed definition or a changed subject),
+// `precondition_failed` (412), `precondition_required` (428).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions (the `SaveWorkflowDefinitionVersion` operationId).
+func (c *ClientWithResponses) SaveWorkflowDefinitionVersionWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, params *SaveWorkflowDefinitionVersionParams, body SaveWorkflowDefinitionVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveWorkflowDefinitionVersionResponse, error) {
+	rsp, err := c.SaveWorkflowDefinitionVersion(ctx, tenant, workflowDefinition, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSaveWorkflowDefinitionVersionResponse(rsp)
+}
+
+// GetWorkflowDefinitionVersionWithResponse One version of a definition
+//
+// The document as it was saved, with who saved it and when — what
+// an instance that names this version ran on. Needs
+// `workflows.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version} (the `GetWorkflowDefinitionVersion` operationId).
+func (c *ClientWithResponses) GetWorkflowDefinitionVersionWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, version WorkflowVersionPath, reqEditors ...RequestEditorFn) (*GetWorkflowDefinitionVersionResponse, error) {
+	rsp, err := c.GetWorkflowDefinitionVersion(ctx, tenant, workflowDefinition, version, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWorkflowDefinitionVersionResponse(rsp)
 }
 
 // ParseExchangeGitHubOIDCTokenResponse parses an HTTP response from a ExchangeGitHubOIDCTokenWithResponse call
@@ -70630,6 +74623,414 @@ func ParseRevokeWaiverResponse(rsp *http.Response) (*RevokeWaiverResponse, error
 	return response, nil
 }
 
+// ParseListWorkflowBindingsResponse parses an HTTP response from a ListWorkflowBindingsWithResponse call
+func ParseListWorkflowBindingsResponse(rsp *http.Response) (*ListWorkflowBindingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListWorkflowBindingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowBindingList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateWorkflowBindingResponse parses an HTTP response from a CreateWorkflowBindingWithResponse call
+func ParseCreateWorkflowBindingResponse(rsp *http.Response) (*CreateWorkflowBindingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateWorkflowBindingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest WorkflowBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateWorkflowBindingResponse201Headers
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeleteWorkflowBindingResponse parses an HTTP response from a DeleteWorkflowBindingWithResponse call
+func ParseDeleteWorkflowBindingResponse(rsp *http.Response) (*DeleteWorkflowBindingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteWorkflowBindingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListWorkflowInstancesResponse parses an HTTP response from a ListWorkflowInstancesWithResponse call
+func ParseListWorkflowInstancesResponse(rsp *http.Response) (*ListWorkflowInstancesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListWorkflowInstancesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowInstanceList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetWorkflowInstanceResponse parses an HTTP response from a GetWorkflowInstanceWithResponse call
+func ParseGetWorkflowInstanceResponse(rsp *http.Response) (*GetWorkflowInstanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWorkflowInstanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowInstance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListWorkflowTransitionsResponse parses an HTTP response from a ListWorkflowTransitionsWithResponse call
+func ParseListWorkflowTransitionsResponse(rsp *http.Response) (*ListWorkflowTransitionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListWorkflowTransitionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowTransitionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseResolveWorkflowResponse parses an HTTP response from a ResolveWorkflowWithResponse call
+func ParseResolveWorkflowResponse(rsp *http.Response) (*ResolveWorkflowResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResolveWorkflowResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowResolution
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListStyleGuidesResponse parses an HTTP response from a ListStyleGuidesWithResponse call
 func ParseListStyleGuidesResponse(rsp *http.Response) (*ListStyleGuidesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -72393,6 +76794,494 @@ func ParseGetTokenResponse(rsp *http.Response) (*GetTokenResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Token
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLintWorkflowDefinitionResponse parses an HTTP response from a LintWorkflowDefinitionWithResponse call
+func ParseLintWorkflowDefinitionResponse(rsp *http.Response) (*LintWorkflowDefinitionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LintWorkflowDefinitionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowLintResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListWorkflowDefinitionsResponse parses an HTTP response from a ListWorkflowDefinitionsWithResponse call
+func ParseListWorkflowDefinitionsResponse(rsp *http.Response) (*ListWorkflowDefinitionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListWorkflowDefinitionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowDefinitionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateWorkflowDefinitionResponse parses an HTTP response from a CreateWorkflowDefinitionWithResponse call
+func ParseCreateWorkflowDefinitionResponse(rsp *http.Response) (*CreateWorkflowDefinitionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateWorkflowDefinitionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest WorkflowDefinitionSaved
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest InvalidWorkflow
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateWorkflowDefinitionResponse201Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeleteWorkflowDefinitionResponse parses an HTTP response from a DeleteWorkflowDefinitionWithResponse call
+func ParseDeleteWorkflowDefinitionResponse(rsp *http.Response) (*DeleteWorkflowDefinitionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteWorkflowDefinitionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetWorkflowDefinitionResponse parses an HTTP response from a GetWorkflowDefinitionWithResponse call
+func ParseGetWorkflowDefinitionResponse(rsp *http.Response) (*GetWorkflowDefinitionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWorkflowDefinitionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowDefinition
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetWorkflowDefinitionResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListWorkflowDefinitionVersionsResponse parses an HTTP response from a ListWorkflowDefinitionVersionsWithResponse call
+func ParseListWorkflowDefinitionVersionsResponse(rsp *http.Response) (*ListWorkflowDefinitionVersionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListWorkflowDefinitionVersionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowDefinitionVersionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSaveWorkflowDefinitionVersionResponse parses an HTTP response from a SaveWorkflowDefinitionVersionWithResponse call
+func ParseSaveWorkflowDefinitionVersionResponse(rsp *http.Response) (*SaveWorkflowDefinitionVersionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SaveWorkflowDefinitionVersionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest WorkflowDefinitionSaved
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest InvalidWorkflow
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers SaveWorkflowDefinitionVersionResponse201Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetWorkflowDefinitionVersionResponse parses an HTTP response from a GetWorkflowDefinitionVersionWithResponse call
+func ParseGetWorkflowDefinitionVersionResponse(rsp *http.Response) (*GetWorkflowDefinitionVersionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWorkflowDefinitionVersionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowDefinitionVersion
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -229,6 +229,15 @@ tags:
       project and application. The webhook endpoint GitHub signs is here
       too. Every operation answers `github_not_configured` (503) on a
       deployment that has registered no App.
+  - name: workflows
+    description: |
+      Workflow: an organisation's localization process as data
+      (RFC 0006 §2). A definition is a versioned `glossa.workflow/v1`
+      document — a statechart whose guards and actions are the
+      platform's generic primitives — linted at every save; a binding
+      selects which definition runs for a project's subjects; an
+      instance is one subject's run through it, with its transition log.
+      A project with no binding has no workflow.
 
 paths:
   # ── meta ────────────────────────────────────────────────────────────
@@ -7521,6 +7530,495 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  # ── workflow (RFC 0006 §2, §8) ──────────────────────────────────────
+  /v1/tenants/{tenant}/workflow-definitions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listWorkflowDefinitions
+      tags: [workflows]
+      summary: Workflow definitions
+      description: |
+        The tenant's live definitions, by name, each at its latest
+        version. With `project`, the ones that project may bind: the
+        tenant's and its own. Deleted definitions are not listed; their
+        versions stay readable. Needs `workflows.read`. Problem codes:
+        `invalid_page_size`, `invalid_page_token` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+      responses:
+        "200":
+          description: A page of definitions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowDefinitionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: createWorkflowDefinition
+      x-glossa-idempotency: The name is the definition's identity in its scope; a retry answers 409 workflow_definition_exists.
+      tags: [workflows]
+      summary: Create a workflow definition
+      description: |
+        The body is the `glossa.workflow/v1` document itself (RFC 0006
+        §2.3) — what `glossa workflow push` sends and the workflow
+        editor saves. It is compiled and linted before anything is
+        stored: an unknown guard or action, an unreachable state, a
+        non-final dead end, non-determinism or a delayed transition is
+        `invalid_workflow` (422) with every finding, and nothing is
+        saved. A saved document becomes version 1; the response carries
+        lint's informational notes. With `project` the definition is
+        that project's alone; without, every project of the tenant may
+        bind it.
+
+        Needs `workflows.manage`. Problem codes: `invalid_workflow`
+        (422), `workflow_definition_exists` (409: a live definition with
+        this name in this scope), `workflow_limit_reached` (409: the
+        tenant's 50 live definitions, RFC 0006 §9.6).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - { name: project, in: query, required: false, description: The project `id` the definition belongs to., schema: { $ref: "#/components/schemas/Id" } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkflowDocument" }
+      responses:
+        "201":
+          description: The definition at version 1.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowDefinitionSaved" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/InvalidWorkflow" }
+
+  /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/WorkflowDefinitionPath"
+    get:
+      operationId: getWorkflowDefinition
+      tags: [workflows]
+      summary: A workflow definition
+      description: |
+        Its identity and latest version; the `ETag` is that version, for
+        `If-Match` on the next save. A deleted definition is still
+        readable, with `deleted_at`. Needs `workflows.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The definition.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowDefinition" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: deleteWorkflowDefinition
+      tags: [workflows]
+      summary: Delete a workflow definition
+      description: |
+        Its bindings go with it, so it is never selected again; its
+        versions stay, so whatever ran on them stays explainable.
+        Deleting the default `review` definition is allowed and means "no
+        workflow" — M4's behaviour (RFC 0006 §2.3). Needs
+        `workflows.manage`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/WorkflowDefinitionPath"
+    get:
+      operationId: listWorkflowDefinitionVersions
+      tags: [workflows]
+      summary: A definition's versions, newest first
+      description: |
+        Every version with its document, also after the definition was
+        deleted. Versions are immutable. Needs `workflows.read`. Problem
+        codes: `invalid_page_size`, `invalid_page_token` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of versions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowDefinitionVersionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: saveWorkflowDefinitionVersion
+      x-glossa-idempotency: If-Match names the version the save is based on, so a retry of a save that landed answers 412 rather than storing it twice.
+      tags: [workflows]
+      summary: Save the next version of a definition
+      description: |
+        The body is the whole `glossa.workflow/v1` document, compiled and
+        linted exactly as on create. `If-Match` is the definition's
+        `ETag` — the version the author edited — so a save that another
+        save overtook is refused (412) instead of silently replacing
+        their change. Running instances stay on the version they started
+        with. A version keeps its definition's `name` and `subject`: a new
+        name is a new definition.
+
+        Needs `workflows.manage`. Problem codes: `invalid_workflow`
+        (422, also for a renamed definition or a changed subject),
+        `precondition_failed` (412), `precondition_required` (428).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkflowDocument" }
+      responses:
+        "201":
+          description: The definition at its new version.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowDefinitionSaved" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "422": { $ref: "#/components/responses/InvalidWorkflow" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+
+  /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/WorkflowDefinitionPath"
+      - $ref: "#/components/parameters/WorkflowVersionPath"
+    get:
+      operationId: getWorkflowDefinitionVersion
+      tags: [workflows]
+      summary: One version of a definition
+      description: |
+        The document as it was saved, with who saved it and when — what
+        an instance that names this version ran on. Needs
+        `workflows.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The version.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowDefinitionVersion" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/workflow-definition-lints:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: lintWorkflowDefinition
+      tags: [workflows]
+      summary: Lint a workflow document without saving it
+      description: |
+        What `glossa workflow lint` and the editor ask before a save: the
+        same compile and lint a save runs, and every finding, with
+        `valid` saying whether a save would be accepted. Stores nothing,
+        so an invalid document is a `200` with `valid: false`, not a
+        `422`. Needs `workflows.read`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkflowDocument" }
+      responses:
+        "200":
+          description: The findings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowLintResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/projects/{project}/workflow-bindings:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listWorkflowBindings
+      tags: [workflows]
+      summary: A project's workflow bindings
+      description: |
+        In creation order, which is what "later" means when two bindings
+        are equally specific. A project with none has no workflow: no
+        instance is created, and it behaves as it did before M5. Needs
+        `workflows.read`. Problem codes: `invalid_page_size`,
+        `invalid_page_token` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of bindings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowBindingList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: createWorkflowBinding
+      x-glossa-idempotency: The selector is the binding's identity; a retry answers 409 workflow_binding_exists.
+      tags: [workflows]
+      summary: Bind a definition to the project
+      description: |
+        Optionally narrowed to some locales and one namespace. Bindings
+        resolve with the check policy's precedence rule (RFC 0005 §4.1):
+        the one naming more fields wins, a tie goes to the later one.
+        Changing a binding is deleting it and binding again. Needs
+        `workflows.manage`. Problem codes: `workflow_binding_exists`
+        (409: a binding with this selector), `invalid_workflow_binding`
+        (422: a locale that is not BCP 47, or a namespace that cannot be
+        one), `workflow_definition_out_of_scope` (422: another project's
+        definition), `not_found` (404: the definition, or the project).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateWorkflowBinding" }
+      responses:
+        "201":
+          description: The binding.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowBinding" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422":
+          description: The binding cannot be made (`invalid_workflow_binding`, `workflow_definition_out_of_scope`).
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /v1/tenants/{tenant}/projects/{project}/workflow-bindings/{workflow_binding}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/WorkflowBindingPath"
+    delete:
+      operationId: deleteWorkflowBinding
+      tags: [workflows]
+      summary: Remove a binding
+      description: |
+        New instances resolve without it from now on; running instances
+        stay on the version they started with. Needs `workflows.manage`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/workflow-resolution:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: resolveWorkflow
+      tags: [workflows]
+      summary: Which definition applies to a subject
+      description: |
+        The binding a new instance for this subject would be created
+        under, and the definition version it would start on (the bound
+        definition's latest). `bound: false` means no binding applies:
+        no instance, M4's behaviour. Needs `workflows.read`. Problem
+        codes: `invalid_query` (400: a locale that is not BCP 47).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - { name: subject, in: query, required: false, schema: { $ref: "#/components/schemas/WorkflowSubject" } }
+        - { name: locale, in: query, required: false, description: The translation unit's locale., schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: namespace, in: query, required: false, description: The message's namespace., schema: { type: string, maxLength: 256 } }
+      responses:
+        "200":
+          description: The resolution.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowResolution" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/workflow-instances:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listWorkflowInstances
+      tags: [workflows]
+      summary: A project's workflow instances
+      description: |
+        An instance exists while work is in flight under a binding
+        (RFC 0006 §2.5): created by the first trigger, `finished` when it
+        reaches a final state, its transition log kept. Filters:
+        `definition`, `status`, `locale`, and the subject — a `message`
+        by key, or any subject by `subject_id` (not both). Needs
+        `workflows.read`. Problem codes: `invalid_query`,
+        `invalid_page_size`, `invalid_page_token` (400),
+        `workflow_instances_unavailable` (503: this server runs no
+        instance store).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: definition, in: query, required: false, description: A definition `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: status, in: query, required: false, schema: { $ref: "#/components/schemas/WorkflowInstanceStatus" } }
+        - { name: locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: message, in: query, required: false, description: A message `key`., schema: { $ref: "#/components/schemas/MessageKey" } }
+        - { name: subject_id, in: query, required: false, description: A subject `id` (a message's or a release request's)., schema: { $ref: "#/components/schemas/Id" } }
+      responses:
+        "200":
+          description: A page of instances.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowInstanceList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/WorkflowInstancePath"
+    get:
+      operationId: getWorkflowInstance
+      tags: [workflows]
+      summary: A workflow instance
+      description: |
+        Its definition version, subject, state and status. Needs
+        `workflows.read`. Problem codes: `workflow_instances_unavailable`
+        (503).
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The instance.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowInstance" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/WorkflowInstancePath"
+    get:
+      operationId: listWorkflowTransitions
+      tags: [workflows]
+      summary: An instance's transition log
+      description: |
+        Every event the instance received, oldest first: the state it
+        moved from and to, the guards it evaluated, the actions it ran
+        and what became of them, and the actor whose event caused it —
+        actions run as that actor, never as Workflow's own principal
+        (RFC 0006 §2.5). An event the instance no longer accepted is
+        `ignored`; one whose action was refused for permission is
+        `refused` and left the instance where it was. Needs
+        `workflows.read`. Problem codes: `invalid_page_size`,
+        `invalid_page_token` (400), `workflow_instances_unavailable`
+        (503).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of transitions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowTransitionList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   securitySchemes:
     session:
@@ -7741,6 +8239,30 @@ components:
       required: true
       description: A linguistic-QA job `id`.
       schema: { $ref: "#/components/schemas/Id" }
+    WorkflowDefinitionPath:
+      name: workflow_definition
+      in: path
+      required: true
+      description: A workflow definition `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    WorkflowVersionPath:
+      name: version
+      in: path
+      required: true
+      description: A workflow definition's version number.
+      schema: { type: integer, minimum: 1 }
+    WorkflowBindingPath:
+      name: workflow_binding
+      in: path
+      required: true
+      description: A workflow binding `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    WorkflowInstancePath:
+      name: workflow_instance
+      in: path
+      required: true
+      description: A workflow instance `id`.
+      schema: { $ref: "#/components/schemas/Id" }
     CheckPolicyVersionPath:
       name: version
       in: path
@@ -7896,6 +8418,13 @@ components:
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/QAProblem" }
+    InvalidWorkflow:
+      description: |
+        `invalid_workflow`: the document does not compile or lint, and
+        nothing was saved (`findings`, every one).
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/WorkflowProblem" }
 
   schemas:
     Id:
@@ -12470,3 +12999,212 @@ components:
         day: { type: string, format: date }
         layer: { $ref: "#/components/schemas/FindingLayer" }
         findings: { type: integer, minimum: 0 }
+    # ── workflow (RFC 0006 §2) ──────────────────────────────────────
+    WorkflowSubject:
+      type: string
+      description: What a definition's instances are about.
+      enum: [translation, release_request]
+      default: translation
+    WorkflowDocument:
+      type: object
+      additionalProperties: true
+      description: |
+        A `glossa.workflow/v1` document (RFC 0006 §2.3): `schema`,
+        `name` (`^[a-z0-9][a-z0-9-]{0,63}$`), `subject`, a statekit
+        Native JSON `chart`, and the `guards` and `actions` that bind the
+        chart's names to the platform's vocabulary of primitives. It is
+        data, never code: a name the vocabulary does not have is refused
+        at save. At most 256 KiB.
+    WorkflowFinding:
+      type: object
+      required: [rule, severity, message]
+      description: One thing wrong with, or worth knowing about, a definition.
+      properties:
+        rule: { type: string, description: "The check that found it (`unknown-primitive`, `delayed-transition`, `statechart`, …)." }
+        severity:
+          type: string
+          enum: [error, warning, info]
+          description: "`error` and `warning` refuse a save; `info` is a note."
+        path: { type: string, description: "Where in the document (`guards.two_approvals`, `chart.states.reviewing`); absent for the whole document." }
+        state: { type: string }
+        event: { type: string }
+        message: { type: string }
+    WorkflowProblem:
+      allOf:
+        - $ref: "#/components/schemas/Problem"
+        - type: object
+          properties:
+            findings:
+              type: array
+              items: { $ref: "#/components/schemas/WorkflowFinding" }
+    WorkflowLintResult:
+      type: object
+      required: [valid, findings]
+      properties:
+        valid: { type: boolean, description: "Whether a save of this document would be accepted." }
+        findings:
+          type: array
+          items: { $ref: "#/components/schemas/WorkflowFinding" }
+    WorkflowDefinition:
+      type: object
+      required: [id, name, subject, version, created_by, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id", description: "Set when only this project may bind it." }
+        name: { type: string }
+        subject: { $ref: "#/components/schemas/WorkflowSubject" }
+        version: { type: integer, minimum: 1, description: "The latest version's number." }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        deleted_at: { type: string, format: date-time }
+    WorkflowDefinitionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/WorkflowDefinition" }
+        next_page_token: { type: string }
+    WorkflowDefinitionSaved:
+      type: object
+      required: [id, name, subject, version, created_by, created_at, findings]
+      description: A definition at the version a save just stored.
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        name: { type: string }
+        subject: { $ref: "#/components/schemas/WorkflowSubject" }
+        version: { type: integer, minimum: 1, description: "The version this save stored." }
+        created_by: { type: string, description: "Who saved this version." }
+        created_at: { type: string, format: date-time, description: "When this version was saved." }
+        findings:
+          type: array
+          description: Lint's informational notes; anything worse refused the save.
+          items: { $ref: "#/components/schemas/WorkflowFinding" }
+    WorkflowDefinitionVersion:
+      type: object
+      required: [definition_id, version, schema, document, created_by, created_at]
+      properties:
+        definition_id: { $ref: "#/components/schemas/Id" }
+        version: { type: integer, minimum: 1 }
+        schema: { type: string, examples: ["glossa.workflow/v1"] }
+        document: { $ref: "#/components/schemas/WorkflowDocument" }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+    WorkflowDefinitionVersionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/WorkflowDefinitionVersion" }
+        next_page_token: { type: string }
+    CreateWorkflowBinding:
+      type: object
+      required: [definition_id]
+      properties:
+        definition_id: { $ref: "#/components/schemas/Id" }
+        locales:
+          type: array
+          maxItems: 100
+          description: Narrows the binding to these locales; absent or empty is every locale.
+          items: { $ref: "#/components/schemas/Locale" }
+        namespace: { type: string, maxLength: 256, description: "Narrows the binding to one namespace." }
+    WorkflowBinding:
+      type: object
+      required: [id, project_id, definition_id, subject, locales, position, created_by, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        definition_id: { $ref: "#/components/schemas/Id" }
+        subject: { $ref: "#/components/schemas/WorkflowSubject" }
+        locales:
+          type: array
+          description: Canonical and sorted; empty is every locale.
+          items: { $ref: "#/components/schemas/Locale" }
+        namespace: { type: string }
+        position: { type: integer, description: "Creation order; the later of two equally specific bindings wins." }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+    WorkflowBindingList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/WorkflowBinding" }
+        next_page_token: { type: string }
+    WorkflowResolution:
+      type: object
+      required: [bound]
+      properties:
+        bound: { type: boolean, description: "Whether any binding applies." }
+        binding: { $ref: "#/components/schemas/WorkflowBinding" }
+        definition_id: { $ref: "#/components/schemas/Id" }
+        definition_name: { type: string }
+        version: { type: integer, minimum: 1, description: "The version a new instance would start on." }
+    WorkflowInstanceStatus:
+      type: string
+      enum: [active, finished]
+    WorkflowInstance:
+      type: object
+      required: [id, project_id, definition_id, definition_version, subject, subject_id, state, status, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        definition_id: { $ref: "#/components/schemas/Id" }
+        definition_version: { type: integer, minimum: 1, description: "The version the instance runs on; a new save does not move it." }
+        subject: { $ref: "#/components/schemas/WorkflowSubject" }
+        subject_id: { $ref: "#/components/schemas/Id", description: "The message, for a translation unit; the release request otherwise." }
+        locale: { $ref: "#/components/schemas/Locale", description: "The translation unit's locale; absent for a release request." }
+        state: { type: string, description: "The chart state the instance is in." }
+        status: { $ref: "#/components/schemas/WorkflowInstanceStatus" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    WorkflowInstanceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/WorkflowInstance" }
+        next_page_token: { type: string }
+    WorkflowTransition:
+      type: object
+      required: [seq, from, event, to, outcome, guards, actions, actor, at]
+      properties:
+        seq: { type: integer, format: int64 }
+        from: { type: string }
+        event: { type: string }
+        to: { type: string, description: "The state after; the same as `from` unless `applied`." }
+        outcome: { type: string, enum: [applied, ignored, refused] }
+        guards:
+          type: array
+          items: { $ref: "#/components/schemas/WorkflowGuardOutcome" }
+        actions:
+          type: array
+          items: { $ref: "#/components/schemas/WorkflowActionOutcome" }
+        actor: { type: string, description: "Who caused the event, as the outbox names them (`person:…`, `token:…`, `system:…`). The transition's actions ran as this actor." }
+        outbox_event_id: { $ref: "#/components/schemas/Id" }
+        at: { type: string, format: date-time }
+    WorkflowGuardOutcome:
+      type: object
+      required: [guard, passed]
+      properties:
+        guard: { type: string, description: "The guard's name in the definition." }
+        passed: { type: boolean }
+    WorkflowActionOutcome:
+      type: object
+      required: [name, outcome]
+      properties:
+        name: { type: string, description: "The action's name in the definition." }
+        outcome: { type: string, enum: [done, refused, failed] }
+        detail: { type: string }
+    WorkflowTransitionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/WorkflowTransition" }
+        next_page_token: { type: string }

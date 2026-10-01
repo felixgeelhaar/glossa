@@ -23,7 +23,8 @@ type definitionRef struct {
 	Version int    `json:"version"`
 }
 
-// instance is a workflow instance as the API reads it back.
+// instance is a workflow instance as the API reads it back
+// (WorkflowInstance in platform/api/openapi.yaml).
 type instance struct {
 	ID         string `json:"id"`
 	Definition string `json:"definition_id"`
@@ -32,7 +33,10 @@ type instance struct {
 	Status     string `json:"status"`
 }
 
-// transition is one row of an instance's transition log (§2.5).
+// transition is one row of an instance's transition log (§2.5), as
+// WorkflowTransition in platform/api/openapi.yaml spells it. Actions
+// carry no actor of their own: a transition's actions run as the actor
+// whose event caused it (§2.5), so that actor is the transition's.
 type transition struct {
 	From    string `json:"from"`
 	Event   string `json:"event"`
@@ -41,10 +45,13 @@ type transition struct {
 	Actor   string `json:"actor"`
 	Actions []struct {
 		Name    string `json:"name"`
-		Actor   string `json:"actor"`
 		Outcome string `json:"outcome"`
 	} `json:"actions"`
 }
+
+// instanceFinished is the status of an instance that reached a final
+// state (WorkflowInstanceStatus).
+const instanceFinished = "finished"
 
 func (s *scenario) twoWorkflows() {
 	const id = "12.1"
@@ -416,7 +423,7 @@ func (s *scenario) transitionLogs() {
 			if err != nil {
 				return err
 			}
-			if inst.Status != "done" && inst.Status != "final" {
+			if inst.Status != instanceFinished {
 				return fmt.Errorf("instance %s stranded in `%s` (%s)", short(inst.ID), inst.State, inst.Status)
 			}
 			ts, err := list[transition](s.owner, s.workflowTransitionsPath(p, inst.ID), nil)
@@ -426,8 +433,8 @@ func (s *scenario) transitionLogs() {
 			for _, tr := range ts {
 				s.workflowLog = append(s.workflowLog, fmt.Sprintf("%s: %s —%s→ %s (%s)", short(inst.ID), tr.From, tr.Event, tr.To, tr.Actor))
 				for _, a := range tr.Actions {
-					if strings.HasPrefix(a.Actor, "system:") && a.Name == "approve" {
-						return fmt.Errorf("the `approve` action in %s ran as %s", short(inst.ID), a.Actor)
+					if strings.HasPrefix(tr.Actor, "system:") && a.Name == "approve" {
+						return fmt.Errorf("the `approve` action in %s ran as %s", short(inst.ID), tr.Actor)
 					}
 				}
 			}

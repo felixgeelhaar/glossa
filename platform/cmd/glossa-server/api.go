@@ -28,6 +28,7 @@ import (
 	previewapi "github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/httpapi"
 	qualityapi "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/httpapi"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
+	workflowapi "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/httpapi"
 )
 
 // apiServer is the /v1 strict server: every bounded context's handler
@@ -44,6 +45,7 @@ type apiServer struct {
 	*contextAPI
 	*qualityAPI
 	*previewAPI
+	*workflowAPI
 	*metaAPI
 }
 
@@ -59,6 +61,7 @@ type (
 	contextAPI      = contextapi.API
 	qualityAPI      = qualityapi.API
 	previewAPI      = previewapi.API
+	workflowAPI     = workflowapi.API
 )
 
 var _ apiv1.StrictServerInterface = apiServer{}
@@ -81,7 +84,7 @@ var _ apiv1.StrictServerInterface = apiServer{}
 func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts, mcp http.Handler) func(*http.ServeMux) {
 	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
 		knowledgeAPI: c.knowledgeAPI, intelligenceAPI: c.intelligenceAPI, integrationAPI: c.integrationAPI,
-		previewAPI: c.previewAPI, contextAPI: c.contextAPI, qualityAPI: c.qualityAPI, metaAPI: meta}
+		previewAPI: c.previewAPI, contextAPI: c.contextAPI, qualityAPI: c.qualityAPI, workflowAPI: c.workflowAPI, metaAPI: meta}
 	return func(mux *http.ServeMux) {
 		if mcp != nil {
 			mux.Handle(mcpgo.Path, mcp)

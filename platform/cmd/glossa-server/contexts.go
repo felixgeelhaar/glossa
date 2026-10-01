@@ -82,6 +82,11 @@ import (
 	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
 	releasedomain "github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	workflowcatalog "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/catalog"
+	workflowapi "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/httpapi"
+	workflowidentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
+	workflowpg "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
+	workflowapp "github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
 )
 
 // contexts are the bounded contexts besides Identity, wired to each
@@ -114,6 +119,11 @@ type contexts struct {
 	// serves its reads and waiver writes.
 	quality    *qualityapp.Service
 	qualityAPI *qualityapi.API
+	// workflow is the Workflow context (RFC 0006 §2): definitions as
+	// data, their versions and bindings. workflowAPI serves them and the
+	// read side of instances.
+	workflow    *workflowapp.Service
+	workflowAPI *workflowapi.API
 	// keyIndexes is Release's key index task: it rewrites the index
 	// objects of keys written before their current format (migration
 	// 0015 gave existing keys a scope).
@@ -346,7 +356,19 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err != nil {
 		return contexts{}, err
 	}
+	// Workflow learns about projects and message keys only through
+	// Catalog's service (migration 0040 has no foreign key to them).
+	workflowCatalog := workflowcatalog.New(catalog)
+	workflow := workflowapp.New(workflowpg.NewTransactor(uow), workflowidentity.Permissions{},
+		workflowapp.WithCatalog(workflowCatalog))
+	// The instance store is the instance runner's (RFC 0006 §13, wave 2's
+	// other slice), which implements workflowapp.InstanceQueries; it is
+	// passed here when the two are assembled. Until then it is nil, and
+	// the instance reads answer `workflow_instances_unavailable` (503)
+	// rather than an empty list that would read as "nothing in flight".
+	var workflowInstances workflowapp.InstanceQueries
 	c := contexts{
+		workflow: workflow, workflowAPI: workflowapi.New(workflow, workflowInstances, workflowCatalog),
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
 		previewAPI:   previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),
