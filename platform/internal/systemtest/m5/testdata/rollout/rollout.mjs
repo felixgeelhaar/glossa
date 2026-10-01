@@ -10,9 +10,9 @@
 // output: { "<installation id>": "<active release id>" | null, ... }
 //
 // The installation id and the switch that turns rollout support off are
-// passed as `installationId` and `rollout` — the names this test reads
-// SPEC §1.4 to give them. The slice that implements rollout in the JS
-// runtime makes them agree.
+// @glossa/runtime's `installationId` and `rollout` options (SPEC §1.4,
+// RFC 0006 wave 2). `storage: null` keeps the runtime from persisting an id
+// of its own; the one given is used as is.
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { join } from "node:path";
