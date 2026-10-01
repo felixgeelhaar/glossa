@@ -97,7 +97,16 @@ func TestWorkflowAPIOverHTTP(t *testing.T) {
 		Items []struct{ ID, Name string }
 	}
 	s.do(call{method: "GET", path: base + "/workflow-definitions?page_size=100", cookie: ada.cookie}).decode(t, &defs)
-	if len(defs.Items) != 1 || defs.Items[0].ID != def.ID {
+	// The tenant's seeded default ("review", RFC 0006 §2.3) may be
+	// listed beside it: the instance runner seeds it on the tenant's
+	// creation event, asynchronously.
+	var mine []string
+	for _, it := range defs.Items {
+		if it.Name != "review" {
+			mine = append(mine, it.ID)
+		}
+	}
+	if len(mine) != 1 || mine[0] != def.ID {
 		t.Fatalf("definitions = %+v", defs)
 	}
 
@@ -148,10 +157,15 @@ func TestWorkflowAPIOverHTTP(t *testing.T) {
 		t.Errorf("fr resolves to %+v; only de is bound", res)
 	}
 
-	// Instances are the runner's: until it is assembled the read says so
-	// instead of answering an empty list.
-	s.do(call{method: "GET", path: p + "/workflow-instances", cookie: ada.cookie}).
-		want(t, http.StatusServiceUnavailable, "workflow_instances_unavailable")
+	// Instances are the runner's, and nothing has been translated: the
+	// list is empty, and answered.
+	var instances struct{ Items []any }
+	r = s.do(call{method: "GET", path: p + "/workflow-instances", cookie: ada.cookie})
+	r.want(t, http.StatusOK, "")
+	r.decode(t, &instances)
+	if len(instances.Items) != 0 {
+		t.Errorf("instances = %s", r.body)
+	}
 
 	// The writes were announced with their actor, in their transactions.
 	var events []struct{ Type, Actor string }
@@ -204,10 +218,12 @@ func TestWorkflowAPIOverHTTP(t *testing.T) {
 	s.do(call{method: "GET", path: ob + "/projects/" + project.ID + "/workflow-bindings", cookie: ada.cookie}).want(t, http.StatusNotFound, "not_found")
 	s.do(call{method: "DELETE", path: ob + "/projects/" + project.ID + "/workflow-bindings/" + binding.ID, cookie: ada.cookie, csrf: ada.csrf}).
 		want(t, http.StatusNotFound, "not_found")
-	var none struct{ Items []any }
+	var none struct{ Items []struct{ ID, Name string } }
 	s.do(call{method: "GET", path: ob + "/workflow-definitions", cookie: ada.cookie}).decode(t, &none)
-	if len(none.Items) != 0 {
-		t.Errorf("beta lists acme's definitions: %+v", none.Items)
+	for _, it := range none.Items {
+		if it.Name != "review" {
+			t.Errorf("beta lists a definition it did not make: %+v", it)
+		}
 	}
 
 	// Unbind and delete.

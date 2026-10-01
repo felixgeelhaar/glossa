@@ -160,6 +160,10 @@ type contexts struct {
 	// no GitHub App, and the exchange then answers
 	// `github_not_configured`.
 	ciAuth identityapp.GitHubOIDC
+	// workflowRuntime is the rest of Workflow: the instance runner
+	// subscribed to the vocabulary events, the instance store the API
+	// reads, and assignments and approvals.
+	workflowRuntime workflowServices
 }
 
 // newPurgeJobs builds the daily retention jobs over the two contexts that
@@ -254,6 +258,11 @@ type contextDeps struct {
 	// when the deployment does not announce its edge).
 	studioURL string
 	edgeURL   string
+	// identity resolves the actor whose event moved a workflow instance
+	// to the grant its actions run with (RFC 0006 §2.5); nil in tests
+	// that build the contexts alone, and the actions of a person's or a
+	// token's event are then refused.
+	identity *identityapp.Service
 	// lookup reads the environment for the GitHub App's own
 	// configuration (RFC 0004 §14.1: platform configuration, not tenant
 	// data, in one Kubernetes Secret).
@@ -263,7 +272,7 @@ type contextDeps struct {
 // buildContexts opens object storage and the signer, then the contexts.
 func buildContexts(
 	cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, events *outbox.Registry,
-	reg prometheus.Registerer, tp trace.TracerProvider, lookup config.LookupFunc,
+	reg prometheus.Registerer, tp trace.TracerProvider, lookup config.LookupFunc, identity *identityapp.Service,
 ) (contexts, error) {
 	objects, err := configured.Open(cfg.Storage)
 	if err != nil {
@@ -281,6 +290,7 @@ func buildContexts(
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
 		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, context: cfg.Context, tracer: tp,
 		github: cfg.GitHub, studioURL: cfg.Identity.StudioURL, edgeURL: cfg.Release.EdgePublicURL, lookup: lookup,
+		identity: identity,
 	})
 }
 
@@ -361,14 +371,16 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	workflowCatalog := workflowcatalog.New(catalog)
 	workflow := workflowapp.New(workflowpg.NewTransactor(uow), workflowidentity.Permissions{},
 		workflowapp.WithCatalog(workflowCatalog))
-	// The instance store is the instance runner's (RFC 0006 §13, wave 2's
-	// other slice), which implements workflowapp.InstanceQueries; it is
-	// passed here when the two are assembled. Until then it is nil, and
-	// the instance reads answer `workflow_instances_unavailable` (503)
-	// rather than an empty list that would read as "nothing in flight".
-	var workflowInstances workflowapp.InstanceQueries
+	// The instance runner steps instances on the vocabulary events; its
+	// store is what the API's instance reads query.
+	wf, err := newWorkflow(uow, events, workflow, workflowSources{
+		catalog: catalog, localization: localization, quality: quality, intelligence: intelligence, identity: deps.identity,
+	}, deps.logger)
+	if err != nil {
+		return contexts{}, err
+	}
 	c := contexts{
-		workflow: workflow, workflowAPI: workflowapi.New(workflow, workflowInstances, workflowCatalog),
+		workflow: workflow, workflowAPI: workflowapi.New(workflow, wf.instances, workflowCatalog), workflowRuntime: wf,
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
 		previewAPI:   previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),

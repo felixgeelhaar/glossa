@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"sync"
 	"syscall"
 	"time"
 
@@ -119,6 +120,9 @@ type app struct {
 	keyIndexes func(context.Context) (int, error)
 	// purger runs the daily retention jobs; nil when disabled.
 	purger *scheduler.Scheduler
+	// workflowTimers raises workflow timers every minute (RFC 0006
+	// §2.3); nil where the leased periodic jobs don't run.
+	workflowTimers *scheduler.Scheduler
 	// branchPublisher publishes due branch environments; nil when the
 	// publisher is off.
 	branchPublisher *releaseapp.Publisher
@@ -165,7 +169,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
-	bounded, err := buildContexts(cfg, logger, pool, events, registry, tp, lookup)
+	bounded, err := buildContexts(cfg, logger, pool, events, registry, tp, lookup, identitySvc)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -177,6 +181,11 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	// exchange answers `github_not_configured`.
 	identitySvc.SetGitHubOIDC(bounded.ciAuth)
 	purger, err := newPurger(cfg.Purge, logger, registry, pool, bounded.purgeJobs)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+	workflowTimers, err := newWorkflowTimers(cfg.Purge, logger, registry, pool, bounded.workflowRuntime.runner)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -196,7 +205,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	})
 	return &app{
 		cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, aiWorker: bounded.aiWorker,
-		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger,
+		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger, workflowTimers: workflowTimers,
 		branchPublisher: bounded.branchPublisher, githubInbox: bounded.githubInbox,
 		githubChecks: bounded.githubChecks, shutdownTP: shutdownTP,
 	}, nil
@@ -273,15 +282,25 @@ func (a *app) run(ctx context.Context) error {
 // startPurger runs the daily retention jobs until ctx ends; a run in
 // progress finishes first, bounded by its timeout, and gives its lease
 // back so the next replica isn't blocked.
+//
+// The workflow timer sweep runs beside it on its own one-minute
+// schedule, and is waited for with it.
 func (a *app) startPurger(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
-	if a.purger == nil {
-		close(done)
-		return done
+	var wg sync.WaitGroup
+	for _, s := range []*scheduler.Scheduler{a.purger, a.workflowTimers} {
+		if s == nil {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = s.Run(ctx)
+		}()
 	}
 	go func() {
-		defer close(done)
-		_ = a.purger.Run(ctx)
+		wg.Wait()
+		close(done)
 	}()
 	return done
 }

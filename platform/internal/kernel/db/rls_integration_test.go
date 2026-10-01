@@ -114,6 +114,11 @@ var systemPolicies = map[string][]string{
 	// themselves run in each tenant's own scope.
 	"quality_waivers":    {"quality_waivers_system_select"},
 	"quality_check_runs": {"quality_check_runs_system_select"},
+	// Workflow's timer sweep finds the tenants holding an instance whose
+	// timer has fallen due (system scope workflow.timers, RFC 0006
+	// §2.3): the tenant, the status and the timer columns only,
+	// read-only. Raising each timer runs in the tenant's own scope.
+	"workflow_instances": {"workflow_instances_system_select"},
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
 	// A CORS preflight carries no credentials, so "is this a registered

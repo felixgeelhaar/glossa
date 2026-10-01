@@ -122,7 +122,8 @@ type Definition struct {
 	// refused the save.
 	Findings []Finding
 
-	machine *statekit.MachineConfig[Step]
+	machine  *statekit.MachineConfig[Step]
+	guardFns map[string]GuardFunc
 }
 
 // Compile loads a definition document. It is lint-on-save: the same
@@ -268,7 +269,7 @@ func compileV1(doc []byte) (*Definition, error) {
 	}
 	return &Definition{
 		Schema: SchemaV1, Name: env.Name, Subject: env.Subject, Document: compact.Bytes(),
-		Guards: c.guards, Actions: c.actions, Findings: c.findings, machine: machine,
+		Guards: c.guards, Actions: c.actions, Findings: c.findings, machine: machine, guardFns: c.guardFns,
 	}, nil
 }
 
