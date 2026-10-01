@@ -121,6 +121,18 @@ type Runner struct {
 	definitions sync.Map // uuid(version id) → *domain.Definition
 	// seeded remembers the tenants whose default is seeded.
 	seeded sync.Map // tenancy.ID → struct{}
+	// stepping admits one Handle at a time in this process. A step holds
+	// its transaction's connection while it reads the subject and runs
+	// actions through other contexts, each of which takes a connection
+	// of its own (§2.5 keeps an action's outcome in the transition row,
+	// so those calls happen inside the step). Hold-and-wait on one pool
+	// deadlocks once as many steps hold connections as the pool has:
+	// on a CI runner whose pool is four, eight concurrent first triggers
+	// did. With one step at a time, a pool of two can never deadlock.
+	// It costs nothing the dispatcher was using — it delivers one event
+	// at a time — and replicas still step in parallel, each on its own
+	// pool, serialized per subject by the instance row lock.
+	stepping chan struct{}
 }
 
 // NewRunner returns a runner.
@@ -131,7 +143,7 @@ func NewRunner(d RunnerDeps) *Runner {
 	if d.Now == nil {
 		d.Now = time.Now
 	}
-	return &Runner{d: d}
+	return &Runner{d: d, stepping: make(chan struct{}, 1)}
 }
 
 func (r *Runner) now() time.Time { return r.d.Now().UTC() }
@@ -159,6 +171,12 @@ func (a acting) in(ctx context.Context) context.Context { return authz.WithPrinc
 func (r *Runner) Handle(ctx context.Context, ev Event) error {
 	if _, ok := tenancy.FromContext(ctx); !ok {
 		return outbox.Permanent(errors.New("workflow: an event without a tenant"))
+	}
+	select {
+	case r.stepping <- struct{}{}:
+		defer func() { <-r.stepping }()
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 	if err := r.EnsureDefault(ctx); err != nil {
 		return err

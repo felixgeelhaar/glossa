@@ -41,6 +41,7 @@ import (
 // stand-ins.
 
 type runHarness struct {
+	deps         app.RunnerDeps
 	tenant       tenancy.ID
 	catalog      *catalogapp.Service
 	localization *localizationapp.Service
@@ -60,13 +61,14 @@ type runHarness struct {
 func (h *runHarness) wire(t *testing.T, assignments app.AssignmentsPort) {
 	t.Helper()
 	uow := db.NewUnitOfWork(env.App)
-	h.runner = app.NewRunner(app.RunnerDeps{
+	h.deps = app.RunnerDeps{
 		Tx: h.instances, Definitions: h.defs, Timers: h.instances,
 		Translations: sources.NewTranslations(h.catalog, h.localization),
 		Findings:     h.findings,
 		Assignments:  assignments, Actors: h.actors,
 		Now: func() time.Time { h.mu.Lock(); defer h.mu.Unlock(); return h.clock },
-	})
+	}
+	h.runner = app.NewRunner(h.deps)
 	reg := outbox.NewRegistry()
 	if err := h.localization.Subscribe(reg); err != nil {
 		t.Fatal(err)
@@ -344,14 +346,19 @@ func TestConcurrentEventsOnOneSubjectSerializeOnPostgres(t *testing.T) {
 	_, translator := h.as([]string{"translator"}, "de")
 	unit := app.SubjectRef{Kind: domain.SubjectTranslation, Project: project, ID: message, Locale: "de"}
 
+	// Two runners on one database, as two replicas: each steps one
+	// event at a time, so what keeps the subject's eight events in one
+	// instance and one log is the database — the instance row lock and
+	// the unique active index — and not anything in-process.
+	replicas := []*app.Runner{h.runner, app.NewRunner(h.deps)}
 	const n = 8
 	var wg sync.WaitGroup
 	errs := make(chan error, n)
-	for range n {
+	for i := range n {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			errs <- h.runner.Handle(h.ctx(), app.Event{ID: uuid.New(), Name: domain.EventTranslationRevised,
+			errs <- replicas[i%len(replicas)].Handle(h.ctx(), app.Event{ID: uuid.New(), Name: domain.EventTranslationRevised,
 				Actor: translator, Subjects: []app.SubjectRef{unit}})
 		}()
 	}
