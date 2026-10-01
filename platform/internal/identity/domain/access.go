@@ -49,11 +49,42 @@ const (
 	// messages, translation memory (TMX), termbases (TBX) — and runs
 	// imports in overwrite mode.
 	PermIntegrationManage Permission = "integration.manage"
+
+	// The operations permissions (RFC 0006 §4.2). They are granted and
+	// pinned now; the Workflow, Assignment, Approval and Audit use cases
+	// that check them arrive in later waves.
+
+	// PermWorkflowsRead sees workflow definitions, bindings and instances.
+	PermWorkflowsRead Permission = "workflows.read"
+	// PermWorkflowsManage creates, versions and binds workflow
+	// definitions.
+	PermWorkflowsManage Permission = "workflows.manage"
+	// PermAssignmentsRead sees assignments.
+	PermAssignmentsRead Permission = "assignments.read"
+	// PermAssignmentsManage creates, reassigns and withdraws assignments.
+	PermAssignmentsManage Permission = "assignments.manage"
+	// PermApprovalsDecide grants or denies an approval. It is
+	// locale-scoped for translation subjects (environment-scoped for
+	// release subjects once release approvals exist) and human-only: no
+	// token scope, CI ceiling or background principal ever holds it
+	// (RFC 0006 §3.2, §9.3).
+	PermApprovalsDecide Permission = "approvals.decide"
+	// PermVendorsManage creates and changes vendors and who belongs to
+	// them.
+	PermVendorsManage Permission = "vendors.manage"
+	// PermAuditRead reads the audit log.
+	PermAuditRead Permission = "audit.read"
+	// PermAuditExport exports the audit log; only an owner holds it by
+	// default.
+	PermAuditExport Permission = "audit.export"
 )
 
 // AllPermissions lists every permission, sorted.
 func AllPermissions() []Permission {
 	return []Permission{
+		PermApprovalsDecide,
+		PermAssignmentsManage, PermAssignmentsRead,
+		PermAuditExport, PermAuditRead,
 		PermCatalogRead, PermCatalogWrite,
 		PermIntegrationImport, PermIntegrationManage, PermIntegrationRead,
 		PermIntelligenceManage, PermIntelligenceRead, PermIntelligenceTranslate,
@@ -64,13 +95,22 @@ func AllPermissions() []Permission {
 		PermTenantManage, PermTenantRead,
 		PermTokensManage, PermTokensRead,
 		PermTranslationsRead, PermTranslationsReview, PermTranslationsWrite,
+		PermVendorsManage,
+		PermWorkflowsManage, PermWorkflowsRead,
 	}
 }
 
 // LocaleScoped reports whether a member's locale scope limits p.
 func (p Permission) LocaleScoped() bool {
 	return p == PermTranslationsWrite || p == PermTranslationsReview || p == PermIntelligenceTranslate ||
-		p == PermIntegrationImport
+		p == PermIntegrationImport || p == PermApprovalsDecide
+}
+
+// HumanOnly reports whether p is a human decision — reviewing or
+// approving text — that no API token scope grants (RFC 0006 §9.3).
+// TestNoScopeCombinationReachesAHumanOnlyPermission holds scopes to it.
+func (p Permission) HumanOnly() bool {
+	return p == PermTranslationsReview || p == PermApprovalsDecide
 }
 
 // Role is a named bundle of permissions a member holds in a tenant.
@@ -87,19 +127,22 @@ const (
 
 var readAll = []Permission{
 	PermTenantRead, PermMembersRead, PermCatalogRead, PermTranslationsRead, PermReleasesRead, PermKnowledgeRead,
-	PermIntelligenceRead, PermIntegrationRead,
+	PermIntelligenceRead, PermIntegrationRead, PermWorkflowsRead, PermAssignmentsRead,
 }
 
 // rolePermissions is the role matrix; TestRolePermissionMatrix pins it.
 var rolePermissions = map[Role][]Permission{
 	RoleOwner: AllPermissions(),
-	RoleAdmin: slices.DeleteFunc(AllPermissions(), func(p Permission) bool { return p == PermOwnersManage }),
+	// Only an owner manages owners and, by default, exports the audit log.
+	RoleAdmin: slices.DeleteFunc(AllPermissions(), func(p Permission) bool {
+		return p == PermOwnersManage || p == PermAuditExport
+	}),
 	RoleDeveloper: append(slices.Clone(readAll),
 		PermTokensRead, PermTokensManage, PermCatalogWrite, PermTranslationsWrite, PermReleasesPublish,
 		PermKnowledgeWrite, PermIntelligenceTranslate, PermIntegrationImport, PermIntegrationManage),
 	RoleTranslator: append(slices.Clone(readAll), PermTranslationsWrite, PermIntelligenceTranslate, PermIntegrationImport),
 	RoleReviewer: append(slices.Clone(readAll), PermTranslationsWrite, PermTranslationsReview, PermIntelligenceTranslate,
-		PermIntegrationImport),
+		PermIntegrationImport, PermApprovalsDecide),
 }
 
 // localeRoles are the roles a locale scope applies to.
@@ -213,6 +256,10 @@ func (ss Scopes) Strings() []string {
 // Grant is what a principal may do in one tenant: a set of permissions,
 // each for every locale or for a LocaleScope. The zero Grant allows
 // nothing.
+//
+// A Grant does not yet carry project scope or assignment visibility
+// (RFC 0006 §4.1, §3.3): see Restriction, which is modelled and stored
+// but NOT ENFORCED until wave 2.
 type Grant struct {
 	perms map[Permission]LocaleScope
 }

@@ -310,8 +310,13 @@ carry IDs and the facts of the change, never secrets. A released name
 never changes meaning: a breaking payload change is a new type with a
 `.v2` suffix, published alongside the old one until its subscribers
 move. Identity publishes `identity.tenant.created`,
-`identity.member.{added,activated,access_changed,removed}` and
-`identity.token.{created,revoked}`. Catalog and Localization's events
+`identity.member.{added,activated,access_changed,restriction_changed,removed}`,
+`identity.token.{created,revoked}`, `identity.vendor.{created,changed,deleted}`
+and `identity.group.{created,renamed,deleted,member_added,member_removed}`.
+A member's or token's project scope and a member's vendor and
+`assigned` visibility (RFC 0006 §3.3, §4) are stored and published but
+**not enforced** until RFC 0006 wave 2 (`domain.RestrictionEnforced`).
+Catalog and Localization's events
 are listed under their sections below.
 
 ### Outbox

@@ -14,7 +14,7 @@ import (
 )
 
 const getToken = `-- name: GetToken :one
-SELECT id, tenant_id, name, token_hash, hint, scopes, created_by, created_at, expires_at, last_used_at, revoked_at, revoked_by FROM identity_api_tokens WHERE id = $1
+SELECT id, tenant_id, name, token_hash, hint, scopes, created_by, created_at, expires_at, last_used_at, revoked_at, revoked_by, projects FROM identity_api_tokens WHERE id = $1
 `
 
 func (q *Queries) GetToken(ctx context.Context, id uuid.UUID) (IdentityApiToken, error) {
@@ -33,16 +33,18 @@ func (q *Queries) GetToken(ctx context.Context, id uuid.UUID) (IdentityApiToken,
 		&i.LastUsedAt,
 		&i.RevokedAt,
 		&i.RevokedBy,
+		&i.Projects,
 	)
 	return i, err
 }
 
 const insertToken = `-- name: InsertToken :execrows
 
-INSERT INTO identity_api_tokens (id, tenant_id, name, token_hash, hint, scopes, created_by,
+INSERT INTO identity_api_tokens (id, tenant_id, name, token_hash, hint, scopes, projects, created_by,
                                  created_at, expires_at)
 VALUES ($1, app_current_tenant(), $2, $3, $4,
-        $5, $6, $7, $8)
+        $5, $6::uuid[], $7, $8,
+        $9)
 ON CONFLICT (id) DO NOTHING
 `
 
@@ -52,6 +54,7 @@ type InsertTokenParams struct {
 	TokenHash string
 	Hint      string
 	Scopes    []string
+	Projects  []uuid.UUID
 	CreatedBy string
 	CreatedAt time.Time
 	ExpiresAt pgtype.Timestamptz
@@ -65,6 +68,7 @@ func (q *Queries) InsertToken(ctx context.Context, arg InsertTokenParams) (int64
 		arg.TokenHash,
 		arg.Hint,
 		arg.Scopes,
+		arg.Projects,
 		arg.CreatedBy,
 		arg.CreatedAt,
 		arg.ExpiresAt,
@@ -76,7 +80,7 @@ func (q *Queries) InsertToken(ctx context.Context, arg InsertTokenParams) (int64
 }
 
 const listTokens = `-- name: ListTokens :many
-SELECT id, tenant_id, name, token_hash, hint, scopes, created_by, created_at, expires_at, last_used_at, revoked_at, revoked_by FROM identity_api_tokens
+SELECT id, tenant_id, name, token_hash, hint, scopes, created_by, created_at, expires_at, last_used_at, revoked_at, revoked_by, projects FROM identity_api_tokens
 WHERE id > $1
 ORDER BY id
 LIMIT $2
@@ -109,6 +113,7 @@ func (q *Queries) ListTokens(ctx context.Context, arg ListTokensParams) ([]Ident
 			&i.LastUsedAt,
 			&i.RevokedAt,
 			&i.RevokedBy,
+			&i.Projects,
 		); err != nil {
 			return nil, err
 		}

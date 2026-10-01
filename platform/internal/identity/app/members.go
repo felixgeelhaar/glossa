@@ -49,19 +49,45 @@ func parseAfter(s string) (uuid.UUID, error) {
 
 // AddMember invites email into the tenant with roles and locales.
 func (s *Service) AddMember(ctx context.Context, email string, roles, locales []string, idemKey string) (m MemberView, replayed bool, err error) {
+	return s.InviteMember(ctx, Invitation{Email: email, Roles: roles, Locales: locales}, idemKey)
+}
+
+// Invitation is a member to invite. Projects, Vendor and Visibility are
+// the member's restriction (RFC 0006 §3.3, §4.1); left empty, the
+// member is unrestricted, as every member is today.
+//
+// The restriction is stored and validated but NOT ENFORCED until
+// RFC 0006 wave 2 (domain.RestrictionEnforced): a member invited with
+// one can, for now, read and do everything their roles allow.
+type Invitation struct {
+	Email      string
+	Roles      []string
+	Locales    []string
+	Projects   []string
+	Vendor     string
+	Visibility string
+}
+
+// InviteMember invites a member, possibly restricted. Naming a vendor
+// also needs vendors.manage, and the vendor must exist in the tenant.
+func (s *Service) InviteMember(ctx context.Context, inv Invitation, idemKey string) (m MemberView, replayed bool, err error) {
 	if err := authz.Require(ctx, authz.MembersManage); err != nil {
 		return MemberView{}, false, err
 	}
 	p, _ := authz.From(ctx)
-	e, err := parseEmail(email)
+	e, err := parseEmail(inv.Email)
 	if err != nil {
 		return MemberView{}, false, err
 	}
-	rs, err := domain.ParseRoles(roles)
+	rs, err := domain.ParseRoles(inv.Roles)
 	if err != nil {
 		return MemberView{}, false, err
 	}
-	ls, err := domain.ParseLocaleScope(locales)
+	ls, err := domain.ParseLocaleScope(inv.Locales)
+	if err != nil {
+		return MemberView{}, false, err
+	}
+	r, err := parseRestriction(ctx, inv.Projects, inv.Vendor, inv.Visibility)
 	if err != nil {
 		return MemberView{}, false, err
 	}
@@ -75,7 +101,10 @@ func (s *Service) AddMember(ctx context.Context, email string, roles, locales []
 		if err != nil {
 			return err
 		}
-		invite, err := domain.Invite(t.ID, t.Kind, e, rs, ls, p.Grant, s.now())
+		if err := vendorExists(ctx, st, r.Vendor); err != nil {
+			return err
+		}
+		invite, err := domain.InviteWith(t.ID, t.Kind, e, rs, ls, r, p.Grant, s.now())
 		if err != nil {
 			return err
 		}
@@ -100,6 +129,129 @@ func (s *Service) AddMember(ctx context.Context, email string, roles, locales []
 		return st.Publish(ctx, memberAdded(invite, p.Actor))
 	})
 	return m, replayed, err
+}
+
+// parseRestriction reads a restriction's parts. Naming a vendor takes
+// vendors.manage on top of members.manage.
+func parseRestriction(ctx context.Context, projects []string, vendor, visibility string) (domain.Restriction, error) {
+	ps, err := domain.ParseProjectScope(projects)
+	if err != nil {
+		return domain.Restriction{}, err
+	}
+	v, err := domain.ParseVisibility(visibility)
+	if err != nil {
+		return domain.Restriction{}, err
+	}
+	r := domain.Restriction{Projects: ps, Visibility: v}
+	if vendor != "" {
+		if err := authz.Require(ctx, authz.VendorsManage); err != nil {
+			return domain.Restriction{}, err
+		}
+		if r.Vendor, err = domain.ParseVendorID(vendor); err != nil {
+			return domain.Restriction{}, err
+		}
+	}
+	return r, nil
+}
+
+// vendorExists checks a named vendor is the tenant's (RLS hides any
+// other tenant's), so the foreign key never has to say it.
+func vendorExists(ctx context.Context, st TenantStore, id domain.VendorID) error {
+	if id.IsZero() {
+		return nil
+	}
+	_, err := st.Vendor(ctx, id)
+	return err
+}
+
+// RestrictionChange is a partial update of a member's restriction; nil
+// fields keep their value, and an empty Vendor clears it.
+type RestrictionChange struct {
+	Projects   *[]string
+	Vendor     *string
+	Visibility *string
+}
+
+// RestrictMember changes a member's project scope, vendor and visibility
+// if the member is still at version ifMatch. Adding, changing or
+// removing a vendor also needs vendors.manage.
+//
+// NOT ENFORCED until RFC 0006 wave 2 (domain.RestrictionEnforced): the
+// change is stored and published, and no read path consults it yet.
+func (s *Service) RestrictMember(ctx context.Context, id domain.MemberID, ifMatch int, c RestrictionChange) (MemberView, error) {
+	if err := authz.Require(ctx, authz.MembersManage); err != nil {
+		return MemberView{}, err
+	}
+	p, _ := authz.From(ctx)
+	var view MemberView
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st TenantStore) error {
+		m, err := st.LockMember(ctx, id)
+		if err != nil {
+			return err
+		}
+		if m.Version != ifMatch {
+			return ErrPreconditionFailed
+		}
+		r, err := applyRestriction(ctx, m.Restriction, c)
+		if err != nil {
+			return err
+		}
+		if err := vendorExists(ctx, st, r.Vendor); err != nil {
+			return err
+		}
+		if err := m.Restrict(r, s.now()); err != nil {
+			return err
+		}
+		if err := st.UpdateMemberRestriction(ctx, m); err != nil {
+			return err
+		}
+		if err := st.Publish(ctx, memberRestrictionChanged(m, p.Actor)); err != nil {
+			return err
+		}
+		view, err = st.Member(ctx, id)
+		return err
+	})
+	return view, err
+}
+
+func applyRestriction(ctx context.Context, r domain.Restriction, c RestrictionChange) (domain.Restriction, error) {
+	var err error
+	if c.Projects != nil {
+		if r.Projects, err = domain.ParseProjectScope(*c.Projects); err != nil {
+			return r, err
+		}
+	}
+	if c.Visibility != nil {
+		if r.Visibility, err = domain.ParseVisibility(*c.Visibility); err != nil {
+			return r, err
+		}
+	}
+	if c.Vendor != nil {
+		if err := authz.Require(ctx, authz.VendorsManage); err != nil {
+			return r, err
+		}
+		r.Vendor = domain.VendorID{}
+		if *c.Vendor != "" {
+			if r.Vendor, err = domain.ParseVendorID(*c.Vendor); err != nil {
+				return r, err
+			}
+		}
+	}
+	return r, nil
+}
+
+func memberRestrictionChanged(m domain.Member, by domain.Actor) outbox.Event {
+	e := domain.MemberRestrictionChanged{
+		MemberID: m.ID.String(), Projects: m.Restriction.Projects.Strings(),
+		Visibility: string(m.Restriction.Visibility), ChangedBy: by.String(),
+	}
+	if m.IsVendorMember() {
+		e.VendorID = m.Restriction.Vendor.String()
+	}
+	return outbox.Event{
+		Type: domain.EventMemberRestrictionChanged, AggregateType: domain.AggregateMember,
+		AggregateID: m.ID.String(), Payload: e,
+	}
 }
 
 // GetMember returns one member.

@@ -415,6 +415,12 @@ func memberAdded(m domain.Member, by domain.Actor) outbox.Event {
 	if !m.PersonID.IsZero() {
 		e.PersonID = m.PersonID.String()
 	}
+	if r := m.Restriction; !r.Projects.All() || !r.Vendor.IsZero() || r.Visibility == domain.VisibilityAssigned {
+		e.Projects, e.Visibility = r.Projects.Strings(), string(r.Visibility)
+		if !r.Vendor.IsZero() {
+			e.VendorID = r.Vendor.String()
+		}
+	}
 	return outbox.Event{
 		Type: domain.EventMemberAdded, AggregateType: domain.AggregateMember, AggregateID: m.ID.String(), Payload: e,
 	}
