@@ -231,7 +231,7 @@ func (s *Service) requireLocale(ctx context.Context, st Store, p ProjectInfo, lo
 // projection up to the source it just read, then creates or revises the
 // translation, appends the revision and publishes the event.
 func (s *Service) write(ctx context.Context, st Store, cmd writeCmd) (domain.Translation, WriteStatus, error) {
-	if err := s.applyMessageState(ctx, st, stateOf(cmd.msg), cmd.locale); err != nil {
+	if err := s.applyMessageState(ctx, st, stateOf(cmd.msg), cmd.locale, projectionActor); err != nil {
 		return domain.Translation{}, "", err
 	}
 	policy := domain.WritePolicy{ReviewRequired: cmd.project.ReviewRequired, Flow: s.flow}
@@ -292,7 +292,7 @@ func (s *Service) record(ctx context.Context, st Store, t domain.Translation, re
 	}
 	return st.Publish(ctx, outbox.Event{
 		Type: typ, AggregateType: domain.AggregateTranslation, AggregateID: t.ID.String(),
-		Payload: domain.TranslationEventOf(t, rev.Provenance.By),
+		Actor: outbox.Actor(rev.Provenance.By), Payload: domain.TranslationEventOf(t, rev.Provenance.By),
 	})
 }
 

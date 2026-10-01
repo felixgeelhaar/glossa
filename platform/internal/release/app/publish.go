@@ -245,7 +245,7 @@ func (s *Service) record(ctx context.Context, id, project uuid.UUID, target doma
 			return err
 		}
 		return st.Publish(ctx, outbox.Event{
-			Type: domain.EventPublished, AggregateType: domain.AggregateRelease, AggregateID: rel.ID.String(),
+			Type: domain.EventPublished, AggregateType: domain.AggregateRelease, AggregateID: rel.ID.String(), Actor: outbox.Actor(by),
 			Payload: domain.Published{
 				ReleaseID: rel.ID.String(), ProjectID: project.String(), Version: rel.Version, Environment: env.Name,
 				ParentID: optionalID(rel.Parent), ManifestDigest: rel.Digest, Messages: rel.Stats.Messages, By: by,

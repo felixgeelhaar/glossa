@@ -258,6 +258,10 @@ func (s *Service) UploadImport(ctx context.Context, id uuid.UUID, body io.Reader
 		project = j.ProjectID.String()
 	}
 	fingerprint := domain.Fingerprint(sum, project, j.Format, j.Mode, j.Options)
+	by, err := authz.EventActor(ctx)
+	if err != nil {
+		return domain.Job{}, err
+	}
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		cur, err := st.LockJob(ctx, id)
 		if err != nil {
@@ -284,7 +288,7 @@ func (s *Service) UploadImport(ctx context.Context, id uuid.UUID, body io.Reader
 		}
 		j = cur
 		if cur.State == domain.StateSucceeded {
-			return st.Publish(ctx, completedEvent(cur))
+			return st.Publish(ctx, completedEvent(cur, by))
 		}
 		return nil
 	})
@@ -374,6 +378,10 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID, dir domain.Direction
 	if err := requireActor(ctx, j); err != nil && authz.Require(ctx, authz.IntegrationManage) != nil {
 		return domain.Job{}, err
 	}
+	by, err := authz.EventActor(ctx) // the canceller, who may not be the requester
+	if err != nil {
+		return domain.Job{}, err
+	}
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		cur, err := st.LockJob(ctx, id)
 		if err != nil {
@@ -392,7 +400,7 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID, dir domain.Direction
 		}
 		j = cur
 		if cur.State == domain.StateCancelled {
-			return st.Publish(ctx, completedEvent(cur))
+			return st.Publish(ctx, completedEvent(cur, by))
 		}
 		return nil
 	})

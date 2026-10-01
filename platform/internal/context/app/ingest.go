@@ -131,6 +131,7 @@ func (s *Service) ingest(ctx context.Context, b domain.Build, up domain.Upload) 
 		out = Ingested{Build: b, UnknownKeys: unknown}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventBuildIngested, AggregateType: domain.AggregateBuild, AggregateID: b.ID.String(),
+			Actor:   outbox.Actor(b.CreatedBy),
 			Payload: domain.BuildIngestedOf(b, unknown), OccurredAt: b.CreatedAt,
 		})
 	})
@@ -221,6 +222,7 @@ func (s *Service) IngestCapture(ctx context.Context, in IngestCapture) (CaptureS
 		out = CaptureStored{Capture: c, UnknownKeys: unknown}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventCaptureIngested, AggregateType: domain.AggregateCapture, AggregateID: c.ID.String(),
+			Actor:   outbox.Actor(c.CreatedBy),
 			Payload: domain.CaptureIngestedOf(c, b), OccurredAt: c.CreatedAt,
 		})
 	})

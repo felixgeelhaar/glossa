@@ -163,7 +163,7 @@ func (s *Service) UpdateEnvironment(ctx context.Context, project uuid.UUID, name
 
 func environmentEvent(typ string, e domain.Environment, by string) outbox.Event {
 	return outbox.Event{
-		Type: typ, AggregateType: domain.AggregateEnvironment, AggregateID: e.ProjectID.String() + "/" + e.Name,
+		Type: typ, AggregateType: domain.AggregateEnvironment, AggregateID: e.ProjectID.String() + "/" + e.Name, Actor: outbox.Actor(by),
 		Payload: domain.EnvironmentChanged{
 			ProjectID: e.ProjectID.String(), Environment: e.Name, Kind: string(e.Kind), Branch: e.Branch,
 			States: e.Policy.States, IncludeOutdated: e.Policy.IncludeOutdated, Version: e.Version, By: by,

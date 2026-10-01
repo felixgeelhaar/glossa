@@ -126,6 +126,7 @@ func (s *Service) AddLocale(ctx context.Context, project uuid.UUID, code string)
 func localeEvent(typ string, l domain.Locale, by string) outbox.Event {
 	return outbox.Event{
 		Type: typ, AggregateType: domain.AggregateLocale, AggregateID: l.ProjectID.String() + ":" + l.Code.String(),
+		Actor: outbox.Actor(by),
 		Payload: domain.LocaleEvent{
 			ProjectID: l.ProjectID.String(), Locale: l.Code.String(), Direction: string(l.Direction()), By: by,
 		},
@@ -350,6 +351,7 @@ func (s *Service) PutFallbackGraph(ctx context.Context, project uuid.UUID, raw m
 		}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventFallbackGraphChanged, AggregateType: domain.AggregateFallbackGraph, AggregateID: project.String(),
+			Actor:   outbox.Actor(by),
 			Payload: domain.FallbackGraphChanged{ProjectID: project.String(), Fallback: out.Edges, Version: out.Version, By: by},
 		})
 	})

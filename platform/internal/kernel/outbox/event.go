@@ -57,6 +57,11 @@ type Event struct {
 	// AggregateType and AggregateID identify the aggregate that raised it.
 	AggregateType string
 	AggregateID   string
+	// Actor is who caused the event: the person, the token or the
+	// background process whose act it records (RFC 0006 §6.1). It is
+	// required — Publish refuses an event without one — and is never
+	// defaulted: background work says so with its own system actor.
+	Actor Actor
 	// Payload is marshalled to JSON (json.RawMessage passes through).
 	Payload any
 	// OccurredAt defaults to the publish time.
@@ -65,13 +70,19 @@ type Event struct {
 
 const maxNameLen = 200
 
-func (e Event) validate() error {
+// Validate reports whether Publish would accept e: a type, an
+// aggregate and an actor. Test doubles of a context's store call it so
+// a unit test refuses what the database would.
+func (e Event) Validate() error {
 	for field, v := range map[string]string{
 		"Type": e.Type, "AggregateType": e.AggregateType, "AggregateID": e.AggregateID,
 	} {
 		if v == "" || len(v) > maxNameLen {
 			return fmt.Errorf("%w: %s must be 1–%d bytes", ErrInvalidEvent, field, maxNameLen)
 		}
+	}
+	if err := e.Actor.Validate(); err != nil {
+		return fmt.Errorf("%s: %w", e.Type, err)
 	}
 	return nil
 }
@@ -83,8 +94,11 @@ type Delivery struct {
 	Type          string
 	AggregateType string
 	AggregateID   string
-	Payload       json.RawMessage
-	OccurredAt    time.Time
+	// Actor is who caused the event; ActorUnknown for an event recorded
+	// before events named their actors (migration 0042).
+	Actor      Actor
+	Payload    json.RawMessage
+	OccurredAt time.Time
 	// Attempt counts deliveries of this event, starting at 1.
 	Attempt int
 }

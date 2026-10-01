@@ -116,7 +116,7 @@ func (s *Service) RecordCheckRun(ctx context.Context, in RecordRun) (run domain.
 		// §12.3), and nothing else would ever tell it one had arrived.
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventCheckRunRecorded, AggregateType: domain.AggregateCheckRun,
-			AggregateID: run.ID.String(), Payload: domain.CheckRunRecordedOf(run),
+			AggregateID: run.ID.String(), Actor: outbox.Actor(run.CreatedBy), Payload: domain.CheckRunRecordedOf(run),
 		})
 	})
 	if err != nil {

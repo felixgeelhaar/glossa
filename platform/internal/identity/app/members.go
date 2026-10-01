@@ -307,6 +307,7 @@ func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, ifMatch 
 		}
 		if err := st.Publish(ctx, outbox.Event{
 			Type: domain.EventMemberAccessChange, AggregateType: domain.AggregateMember, AggregateID: m.ID.String(),
+			Actor: outbox.Actor(p.Actor.String()),
 			Payload: domain.MemberAccessChanged{
 				MemberID: m.ID.String(), Roles: m.Roles.Strings(), Locales: m.Locales.Strings(), ChangedBy: p.Actor.String(),
 			},
@@ -366,7 +367,7 @@ func (s *Service) RemoveMember(ctx context.Context, id domain.MemberID, ifMatch 
 		}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventMemberRemoved, AggregateType: domain.AggregateMember, AggregateID: m.ID.String(),
-			Payload: e,
+			Actor: outbox.Actor(p.Actor.String()), Payload: e,
 		})
 	})
 }

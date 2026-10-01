@@ -84,7 +84,7 @@ func (s *Service) recordStyleGuide(ctx context.Context, st Store, g domain.Style
 		ActionDeleted: domain.EventStyleGuideDeleted,
 	}[action]
 	return st.Publish(ctx, outbox.Event{
-		Type: typ, AggregateType: domain.AggregateStyleGuide, AggregateID: g.ID.String(),
+		Type: typ, AggregateType: domain.AggregateStyleGuide, AggregateID: g.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.StyleGuideEventOf(g, by),
 	})
 }

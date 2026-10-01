@@ -326,6 +326,7 @@ err := uow.InTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
     // … change state with sqlc on tx …
     _, err := outbox.Publish(ctx, tx, outbox.Event{
         Type: "catalog.message.source_revised", AggregateType: "message", AggregateID: id,
+        Actor: by, // authz.EventActor(ctx): who caused it — required
         Payload: SourceRevised{Revision: rev},
     })
     return err
@@ -339,6 +340,14 @@ events.Subscribe("catalog.message.source_revised", "localization.mark_outdated",
     }))
 ```
 
+- **Every event names its actor** (RFC 0006 §6.1): `person:<id>`,
+  `token:<id>` (CI, the CLI, an MCP agent) or `system:<id>` (background
+  work, from `authz.Background` or `authz.SystemEventActor(name)`).
+  `Publish` refuses an event without one; nothing defaults it. A handler
+  reads it as `d.Actor`, and events recorded before migration 0042 read
+  `outbox.ActorUnknown`. `TestEveryEventTypeNamesItsActor` scans the
+  code for every `outbox.Event` literal and fails on one that names no
+  actor.
 - **Delivery is at least once.** A handler must be idempotent on
   `d.EventID`, for example by recording processed IDs in its own
   transaction or by upserting.

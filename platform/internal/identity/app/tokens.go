@@ -121,6 +121,7 @@ func (s *Service) IssueToken(ctx context.Context, req TokenRequest, idemKey stri
 		}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventTokenCreated, AggregateType: domain.AggregateToken, AggregateID: tok.ID.String(),
+			Actor: outbox.Actor(p.Actor.String()),
 			Payload: domain.TokenCreated{
 				TokenID: tok.ID.String(), Name: tok.Name, Scopes: tok.Scopes.Strings(), Projects: tok.Projects.Strings(),
 				CreatedBy: p.Actor.String(),
@@ -153,6 +154,7 @@ func (s *Service) RevokeToken(ctx context.Context, id domain.TokenID) error {
 		}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventTokenRevoked, AggregateType: domain.AggregateToken, AggregateID: t.ID.String(),
+			Actor:   outbox.Actor(p.Actor.String()),
 			Payload: domain.TokenRevoked{TokenID: t.ID.String(), RevokedBy: p.Actor.String()},
 		})
 	})

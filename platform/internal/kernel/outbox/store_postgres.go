@@ -57,6 +57,7 @@ func toClaim(r outboxsql.ClaimOutboxEventsRow) Claim {
 			Type:          r.EventType,
 			AggregateType: r.AggregateType,
 			AggregateID:   r.AggregateID,
+			Actor:         actorRead(r.Actor),
 			Payload:       r.Payload,
 			OccurredAt:    r.OccurredAt,
 			Attempt:       int(r.Attempts),
