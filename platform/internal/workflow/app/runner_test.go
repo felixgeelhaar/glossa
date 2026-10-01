@@ -139,8 +139,21 @@ func (w *runWorld) only() (domain.Instance, []app.Transition) {
 
 var system = authz.SystemEventActor("localization.projection")
 
-func TestTheDefaultDefinitionRunsFromRevisionToReview(t *testing.T) {
-	w := newRunWorld(t, string(defaults.Review()))
+// waitForReview is the runner's fixture for its mechanics — replay,
+// concurrency, ignored events: a revision starts an instance that waits
+// for a review. It is not the default (which reacts to source changes,
+// RFC 0006 §12.1) so the mechanics tests don't move when the default's
+// content does.
+const waitForReview = `{
+  "schema": "glossa.workflow/v1", "name": "wait-for-review", "subject": "translation",
+  "chart": { "id": "wait-for-review", "initial": "awaiting_review", "states": {
+    "awaiting_review": { "type": "atomic", "transitions": [{ "event": "translation.reviewed", "target": "reviewed" }] },
+    "reviewed": { "type": "final" } } },
+  "guards": {}, "actions": {}
+}`
+
+func TestARevisionStartsAnInstanceThatEndsOnReview(t *testing.T) {
+	w := newRunWorld(t, waitForReview)
 	translator := w.person([]string{"translator"}, "de")
 	reviewer := w.person([]string{"reviewer"}, "de")
 
@@ -167,7 +180,7 @@ func TestTheDefaultDefinitionRunsFromRevisionToReview(t *testing.T) {
 }
 
 func TestAReplayedEventChangesNothing(t *testing.T) {
-	w := newRunWorld(t, string(defaults.Review()))
+	w := newRunWorld(t, waitForReview)
 	translator := w.person([]string{"translator"}, "de")
 	id := w.send(domain.EventTranslationRevised, translator)
 	w.sendID(id, domain.EventTranslationRevised, translator)
@@ -186,7 +199,7 @@ func TestNoBindingMeansNoInstance(t *testing.T) {
 }
 
 func TestOnlyWorkStartsAnInstance(t *testing.T) {
-	w := newRunWorld(t, string(defaults.Review()))
+	w := newRunWorld(t, waitForReview)
 	w.send(domain.EventTranslationReviewed, w.person([]string{"reviewer"}, "de"))
 	if len(w.store.instances) != 0 {
 		t.Fatal("a review on a unit nobody routed started an instance")
@@ -194,7 +207,7 @@ func TestOnlyWorkStartsAnInstance(t *testing.T) {
 }
 
 func TestAnEventThatNoLongerAppliesIsIgnored(t *testing.T) {
-	w := newRunWorld(t, string(defaults.Review()))
+	w := newRunWorld(t, waitForReview)
 	translator := w.person([]string{"translator"}, "de")
 	w.send(domain.EventTranslationRevised, translator)
 	w.send(domain.EventTranslationOutdated, system)
@@ -327,7 +340,7 @@ func TestAnUnwiredActionLeavesTheInstanceUnstarted(t *testing.T) {
 }
 
 func TestConcurrentEventsOnOneSubjectSerialize(t *testing.T) {
-	w := newRunWorld(t, string(defaults.Review()))
+	w := newRunWorld(t, waitForReview)
 	translator := w.person([]string{"translator"}, "de")
 	var wg sync.WaitGroup
 	for range 20 {
@@ -390,7 +403,11 @@ func (f *fakeTranslations) Review(ctx context.Context, _, _ uuid.UUID, locale, s
 	f.reviewers = append(f.reviewers, p.Actor.String())
 	f.held = append(f.held, p.Grant.Permissions())
 	l, _ := authz.ParseLocale(locale)
-	if err := authz.RequireFor(ctx, authz.TranslationsReview, l); err != nil {
+	perm := authz.TranslationsWrite
+	if state == "approved" || state == "rejected" {
+		perm = authz.TranslationsReview
+	}
+	if err := authz.RequireFor(ctx, perm, l); err != nil {
 		return err
 	}
 	f.state = state
@@ -398,10 +415,12 @@ func (f *fakeTranslations) Review(ctx context.Context, _, _ uuid.UUID, locale, s
 }
 
 type fakeAssignments struct {
-	mu       sync.Mutex
-	err      error
-	assigned []app.WorkflowAssign
-	actors   []string
+	mu        sync.Mutex
+	err       error
+	assigned  []app.WorkflowAssign
+	actors    []string
+	requested []app.WorkflowApproval
+	approvers []string
 }
 
 func (f *fakeAssignments) AssignForInstance(ctx context.Context, in app.WorkflowAssign) (domain.Assignment, error) {
@@ -416,12 +435,17 @@ func (f *fakeAssignments) AssignForInstance(ctx context.Context, in app.Workflow
 	return domain.Assignment{ID: uuid.New()}, nil
 }
 
-func (f *fakeAssignments) RequestApprovalForInstance(context.Context, app.WorkflowApproval) (domain.Approval, error) {
+func (f *fakeAssignments) RequestApprovalForInstance(_ context.Context, in app.WorkflowApproval) (domain.Approval, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.requested = append(f.requested, in)
 	return domain.Approval{ID: uuid.New()}, f.err
 }
 
 func (f *fakeAssignments) Approvers(context.Context, uuid.UUID, domain.ApprovalSubject) ([]string, error) {
-	return nil, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.approvers), nil
 }
 
 type fakeActors struct {
@@ -590,3 +614,51 @@ func (t *memTx) SeedDefault(context.Context, *domain.DefinitionRecord, *domain.V
 func (t *memTx) Seeded(context.Context) (bool, error) { return t.seeded, nil }
 
 func (t *memTx) HasTenantDefinition(context.Context, string) (bool, error) { return false, nil }
+
+// The default definition (RFC 0006 §12.1, as the owner decided): a
+// source change sends an approved translation back to review and asks
+// one reviewer, and that reviewer's approval — never its author's —
+// approves it as the reviewer.
+func TestTheDefaultReReviewsAfterASourceChange(t *testing.T) {
+	w := newRunWorld(t, string(defaults.Review()))
+	w.tr.state = "approved"
+	reviewer := w.person([]string{"reviewer"}, "de")
+
+	// The projection catching up names a system actor: Workflow's own
+	// principal holds translations.write, which is what needs_review
+	// takes, and never review.
+	w.send(domain.EventTranslationOutdated, system)
+	inst, _ := w.only()
+	if inst.State != "reviewing" || w.tr.state != "needs_review" {
+		t.Fatalf("after the source change: instance %s, translation %s; want reviewing, needs_review", inst.State, w.tr.state)
+	}
+	if len(w.as.requested) != 1 || w.as.requested[0].Params.N != 1 || w.as.requested[0].Params.From.Role != "reviewer" {
+		t.Fatalf("approvals requested = %+v, want one from a reviewer", w.as.requested)
+	}
+
+	// The reviewer grants: the guard counts them, and the approve action
+	// runs as them.
+	w.as.approvers = []string{string(reviewer)}
+	w.send(domain.EventApprovalGranted, reviewer)
+	inst, log := w.only()
+	if inst.Status != domain.StatusFinished || w.tr.state != "approved" {
+		t.Fatalf("after the approval: instance %+v, translation %s", inst, w.tr.state)
+	}
+	if last := log[len(log)-1]; last.Actor != reviewer {
+		t.Errorf("approved by %s, want the reviewer", last.Actor)
+	}
+}
+
+// A translator's own revision is not a source change: the default
+// finishes at once, so instances count work in flight and not every
+// translation ever written (§2.5).
+func TestTheDefaultLeavesNothingBehindForARevision(t *testing.T) {
+	w := newRunWorld(t, string(defaults.Review()))
+	w.send(domain.EventTranslationRevised, w.person([]string{"translator"}, "de"))
+	if inst, _ := w.only(); inst.Status != domain.StatusFinished {
+		t.Fatalf("a revision left an instance %s in %s", inst.Status, inst.State)
+	}
+	if len(w.as.requested) != 0 {
+		t.Errorf("a revision asked for approval: %+v", w.as.requested)
+	}
+}
