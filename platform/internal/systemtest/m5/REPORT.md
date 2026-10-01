@@ -26,28 +26,29 @@ missing; the steps after the first missing one are listed as *not reached*.
 
 What is missing, in one line each:
 
-- **§12.1**: refuse a definition naming a guard the vocabulary does not have with 422 `invalid_workflow` — saving a workflow definition (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
-  - refuse a definition with an unreachable state with 422 `invalid_workflow` — saving a workflow definition (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
-  - refuse a definition with a delayed transition with 422 `invalid_workflow` — saving a workflow definition (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
-  - §2.1's architecture test passes — there is no `internal/workflow` package, so there is no architecture test to run
-  - save `vendor-then-four-eyes` (testdata) through the API — saving a workflow definition (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
-- **§12.2**: creating the vendor — POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/vendors does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+- **§12.1**: refuse a definition naming a guard the vocabulary does not have with 422 `invalid_workflow` — saving a workflow definition (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+  - refuse a definition with an unreachable state with 422 `invalid_workflow` — saving a workflow definition (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+  - refuse a definition with a delayed transition with 422 `invalid_workflow` — saving a workflow definition (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+  - §2.1's architecture test passes — `go test -run Architecture ./internal/workflow/...` ran no architecture test: ?   	github.com/felixgeelhaar/glossa/platform/internal/workflow/app	[no test files] / ?   	github.com/felixgeelhaar/glossa/platform/internal/workflow/defaults	[no test files] / ok  	github.com/felixgeelhaar/glossa/platform/internal/workflow/domain	0.247s [no tests to run]
+  - save `vendor-then-four-eyes` (testdata) through the API — saving a workflow definition (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+- **§12.2**: creating the vendor — POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/vendors does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
   - the vendor's translator was invited, but the member the API returned has visibility "", not "assigned": the field was dropped, so the platform restricts nothing
-  - the vendor exists and its translator is a vendor member with visibility `assigned`, scoped to project B — the platform could not create a vendor (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/vendors); the member is an ordinary `de` translator
-  - assign 20 `de` units of project B to the vendor — creating an assignment (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/assignments) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+  - the vendor exists and its translator is a vendor member with visibility `assigned`, scoped to project B — the platform could not create a vendor (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/vendors); the member is an ordinary `de` translator
+  - assign 20 `de` units of project B to the vendor — creating an assignment (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/assignments) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
   - the generated sweep: 57 of 99 GET operations show the vendor member something outside the assignment (first: listExportJobs, getExportJob, downloadExportFile, listProjects, getProject, … 52 more) — reads are not filtered through `Assignments.Covers`
   - the generated sweep: 13 operations have no verdict because the fixture had no id to address them (getAIFill, getAIJob, getAISuggestion, getGitConnection, getImportJob, listImportResults, getBranch, listBranchProposals, … 5 more); an operation with no verdict is a failure
   - writes outside the assignment are refused — the vendor member wrote `b.unit.21` and `a.unit.01`, outside the assignment
   - export, import and TM search are refused — the vendor member was not refused: an export job (201), an import job (201), `GET /tm-concordance` (200)
 - **§12.3**: `production` requires two approvals, distinct from the requester — the environment was saved without its `approval`: the field does not exist, so nothing will wait
-  - a publish creates a release request and the edge still serves the previous release — the publish answered 201 and moved the pointer at once: the edge serves the new release b56a66a3, not the previous 7a91d202 — no request was made and no approval waited
-- **§12.4**: the generator's cohort table: 10,000 installation ids with their SPEC §1.4 cohorts — the generator's cohort table runtimes/testdata/rollout/cohorts.json does not exist (open /Users/felixgeelhaar/Developer/klarlabs/oss/glossa/.claude/worktrees/agent-af684e69adbeac235/runtimes/testdata/rollout/cohorts.json: no such file or directory): SPEC §1.4's fixtures are not generated
-- **§12.5**: the tenant's audit entries can be listed — listing audit entries (GET /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
-  - export the run's range as an audit export job — starting an audit export job (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+  - a publish creates a release request and the edge still serves the previous release — the publish answered 201 and moved the pointer at once: the edge serves the new release 268dfadc, not the previous fee66533 — no request was made and no approval waited
+- **§12.4**: each runtime implements SPEC §1.4 (probe: the edge's manifests, a 10 % rollout under the table's salt) — runtimes without SPEC §1.4 rollout: js: 0 of 10000 ids activate the candidate and 1004 disagree with the generator — first `7a8d04dd33be8a887e8f4df849268a6b` (cohort 373) is on ef7970c1, want 3151eb1d; go: the runtime has no rollout surface — the driver does not compile: unknown field I…
+  - start a rollout of the candidate at 10 % in project A's `production` — starting a rollout (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/projects/01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4/environments/production/rollouts) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+- **§12.5**: the tenant's audit entries can be listed — listing audit entries (GET /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+  - export the run's range as an audit export job — starting an audit export job (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
   - `glossa audit verify` passes on the export, offline — there is no export to verify, and `glossa audit verify` exits 2: error: unknown command "audit" /   fix:   run `glossa help` for the list of commands
-- **§12.6**: dump it and restore the dump with `platform/scripts/v0-restore.sh`, which writes the restore marker — there is no restore script: platform/scripts/v0-restore.sh does not exist
-  - publish, and render every key in every locale both ways: zero mismatches (imported by the v0.3 API importer (early signal; `--v0-db` failed)) — 51 of 2400 renderings differ (first: `copy.bare_11` de map[name:Ada] — v0.3 "Gehts gut, {name}?", runtime "Geht's gut, Ada?")
-  - the importer refuses a DSN without the restore marker — it exited 2, but not because the marker is missing: error: flag provided but not defined: -v0-db /   fix:   run `glossa import --help` for the flags it takes
+- **§12.6**: publish, and render every key in every locale both ways: zero mismatches (imported by --v0-db) — 51 of 2400 renderings differ (first: `copy.bare_11` de map[name:Ada] — v0.3 "Gehts gut, {name}?", runtime "Geht's gut, Ada?")
+  - the three users are invitations with mapped roles and locales — no matching invitation for admin@acme-v03.example (admin []), tomas@acme-v03.example (translator [en]), lucia@acme-v03.example (translator [es])
+  - v0.3's history is visible as imported audit entries — listing audit entries does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
 
 ## The fixture
 
@@ -69,11 +70,11 @@ What is missing, in one line each:
 
 | | Step | What happened |
 |---|---|---|
-| ❌ | refuse a definition naming a guard the vocabulary does not have with 422 `invalid_workflow` | saving a workflow definition (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
-| ❌ | refuse a definition with an unreachable state with 422 `invalid_workflow` | saving a workflow definition (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
-| ❌ | refuse a definition with a delayed transition with 422 `invalid_workflow` | saving a workflow definition (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
-| ❌ | §2.1's architecture test passes | there is no `internal/workflow` package, so there is no architecture test to run |
-| ❌ | save `vendor-then-four-eyes` (testdata) through the API | saving a workflow definition (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | refuse a definition naming a guard the vocabulary does not have with 422 `invalid_workflow` | saving a workflow definition (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | refuse a definition with an unreachable state with 422 `invalid_workflow` | saving a workflow definition (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | refuse a definition with a delayed transition with 422 `invalid_workflow` | saving a workflow definition (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | §2.1's architecture test passes | `go test -run Architecture ./internal/workflow/...` ran no architecture test: ?   	github.com/felixgeelhaar/glossa/platform/internal/workflow/app	[no test files] / ?   	github.com/felixgeelhaar/glossa/platform/internal/workflow/defaults	[no test files] / ok  	github.com/felixgeelhaar/glossa/platform/internal/workflow/domain	0.247s [no tests to run] |
+| ❌ | save `vendor-then-four-eyes` (testdata) through the API | saving a workflow definition (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/workflow-definitions) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
 | · | find the seeded default definition | _not reached_ |
 | · | bind A and B | _not reached_ |
 | · | revise the shared source | _not reached_ |
@@ -88,14 +89,14 @@ What is missing, in one line each:
 | · | B: two distinct reviewers make it `approved` | _not reached_ |
 | · | both instances reached a final state, every action ran as a person, never as Workflow's principal | _not reached_ |
 
-§2.1's architecture test: not run: no internal/workflow
+§2.1's architecture test: ?   	github.com/felixgeelhaar/glossa/platform/internal/workflow/app	[no test files] / ?   	github.com/felixgeelhaar/glossa/platform/internal/workflow/defaults	[no test files] / ok  	github.com/felixgeelhaar/glossa/platform/internal/workflow/domain	0.247s [no tests to run]
 
 ## §12.2 — vendor visibility on every surface
 
 | | Step | What happened |
 |---|---|---|
-| ❌ | the vendor exists and its translator is a vendor member with visibility `assigned`, scoped to project B | the platform could not create a vendor (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/vendors); the member is an ordinary `de` translator |
-| ❌ | assign 20 `de` units of project B to the vendor | creating an assignment (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/assignments) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | the vendor exists and its translator is a vendor member with visibility `assigned`, scoped to project B | the platform could not create a vendor (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/vendors); the member is an ordinary `de` translator |
+| ❌ | assign 20 `de` units of project B to the vendor | creating an assignment (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/assignments) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
 | ❌ | writes outside the assignment are refused | the vendor member wrote `b.unit.21` and `a.unit.01`, outside the assignment |
 | ❌ | export, import and TM search are refused | the vendor member was not refused: an export job (201), an import job (201), `GET /tm-concordance` (200) |
 
@@ -132,8 +133,8 @@ outside the assignment or answer undocumented, 13 have no verdict** (no fixture 
 | ✅ | `listAISuggestions` | 200 | — |  |
 | ∅ | `getAISuggestion` | — | — | no fixture id for `{ai_suggestion}` |
 | ✅ | `getEffectiveStyleGuide` | 200 | — |  |
-| ❌ | `listExportJobs` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
-| ❌ | `getExportJob` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
+| ❌ | `listExportJobs` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
+| ❌ | `getExportJob` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
 | ❌ | `downloadExportFile` | 200 | — | the answer holds `Quokkafjordine`, which is outside the assignment |
 | ✅ | `listGitConnections` | 503 | — |  |
 | ∅ | `getGitConnection` | — | — | no fixture id for `{connection}` |
@@ -143,8 +144,8 @@ outside the assignment or answer undocumented, 13 have no verdict** (no fixture 
 | ∅ | `listImportResults` | — | — | no fixture id for `{import_job}` |
 | ✅ | `listMembers` | 200 | — |  |
 | ✅ | `getMember` | 200 | — |  |
-| ❌ | `listProjects` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
-| ❌ | `getProject` | 200 | 200 | an id outside the assignment answered 200, want 404 (it holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`) |
+| ❌ | `listProjects` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
+| ❌ | `getProject` | 200 | 200 | an id outside the assignment answered 200, want 404 (it holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`) |
 | ❌ | `getAIMetrics` | 200 | 200 | an id outside the assignment answered 200, want 404 |
 | ❌ | `getAIReviewQueue` | 200 | 200 | an id outside the assignment answered 200, want 404 |
 | ❌ | `getProjectAIRoutingPolicy` | 200 | 200 | an id outside the assignment answered 200, want 404 |
@@ -183,7 +184,7 @@ outside the assignment or answer undocumented, 13 have no verdict** (no fixture 
 | ❌ | `listMessageUsages` | 200 | 200, 200 | an id outside the assignment answered 200, want 404 (it holds `a.unit.01`) |
 | ❌ | `listNamespaces` | 200 | 200 | an id outside the assignment answered 200, want 404 |
 | ❌ | `listPreviewOrigins` | 200 | 200 | an id outside the assignment answered 200, want 404 |
-| ❌ | `getQualitySummary` | 200 | 200 | an id outside the assignment answered 200, want 404 (it holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`) |
+| ❌ | `getQualitySummary` | 200 | 200 | an id outside the assignment answered 200, want 404 (it holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`) |
 | ❌ | `listReleaseSigningKeys` | 200 | 200 | an id outside the assignment answered 200, want 404 |
 | ❌ | `listReleases` | 200 | 200 | an id outside the assignment answered 200, want 404 |
 | ❌ | `getRelease` | 200 | 200 | an id outside the assignment answered 200, want 404 |
@@ -196,19 +197,19 @@ outside the assignment or answer undocumented, 13 have no verdict** (no fixture 
 | ❌ | `listUnusedMessages` | 200 | 200 | the answer holds `b.unit.21`, which is outside the assignment |
 | ❌ | `listUsages` | 200 | 200 | an id outside the assignment answered 200, want 404 |
 | ❌ | `listWaivers` | 200 | 200 | an id outside the assignment answered 200, want 404 |
-| ❌ | `listStyleGuides` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
-| ❌ | `getStyleGuide` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
-| ❌ | `listStyleGuideVersions` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
-| ❌ | `listTermConcepts` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
-| ❌ | `getTermConcept` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
-| ❌ | `listTermConceptRevisions` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
+| ❌ | `listStyleGuides` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
+| ❌ | `getStyleGuide` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
+| ❌ | `listStyleGuideVersions` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
+| ❌ | `listTermConcepts` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
+| ❌ | `getTermConcept` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
+| ❌ | `listTermConceptRevisions` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
 | ✅ | `listTermbaseExportJobs` | 200 | — |  |
 | ✅ | `listTermbaseImportJobs` | 200 | — |  |
 | ✅ | `searchTranslationMemory` | 400 | — |  |
 | ✅ | `listTMExportJobs` | 200 | — |  |
 | ✅ | `listTMImportJobs` | 200 | — |  |
-| ❌ | `listTranslationMemoryUnits` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
-| ❌ | `getTranslationMemoryUnit` | 200 | — | the answer holds `01a0f69e-25e9-70a0-bdd9-3c8ca8751f7d`, which is outside the assignment |
+| ❌ | `listTranslationMemoryUnits` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
+| ❌ | `getTranslationMemoryUnit` | 200 | — | the answer holds `01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4`, which is outside the assignment |
 | ✅ | `listTokens` | 403 | — |  |
 | ✅ | `getToken` | 403 | — |  |
 
@@ -223,7 +224,7 @@ The MCP read tools, as the same member:
 | | Step | What happened |
 |---|---|---|
 | ❌ | `production` requires two approvals, distinct from the requester | the environment was saved without its `approval`: the field does not exist, so nothing will wait |
-| ❌ | a publish creates a release request and the edge still serves the previous release | the publish answered 201 and moved the pointer at once: the edge serves the new release b56a66a3, not the previous 7a91d202 — no request was made and no approval waited |
+| ❌ | a publish creates a release request and the edge still serves the previous release | the publish answered 201 and moved the pointer at once: the edge serves the new release 268dfadc, not the previous fee66533 — no request was made and no approval waited |
 | · | the requester's own approval is refused | _not reached_ |
 | · | after the first approval the edge still serves the previous release | _not reached_ |
 | · | after the second approval the edge serves the new release | _not reached_ |
@@ -235,57 +236,69 @@ What `glossa-edge` served for project B's `production`, read over HTTP from the 
 | | When | The edge served |
 |---|---|---|
 | ✅ | before approvals are required | v2 |
-| ❌ | right after the publish | the new release b56a66a3 |
+| ❌ | right after the publish | the new release 268dfadc |
 | ✅ | after a rollback, no approval | the earlier release, within 5.1s |
 
 ## §12.4 — staged rollout across three runtimes
 
 | | Step | What happened |
 |---|---|---|
-| ❌ | the generator's cohort table: 10,000 installation ids with their SPEC §1.4 cohorts | the generator's cohort table runtimes/testdata/rollout/cohorts.json does not exist (open /Users/felixgeelhaar/Developer/klarlabs/oss/glossa/.claude/worktrees/agent-af684e69adbeac235/runtimes/testdata/rollout/cohorts.json: no such file or directory): SPEC §1.4's fixtures are not generated |
-| · | each runtime implements SPEC §1.4 | _not reached_ |
-| · | start a rollout at 10 % | _not reached_ |
+| ✅ | the generator's cohort table: 10,000 installation ids with their SPEC §1.4 cohorts | held |
+| ❌ | each runtime implements SPEC §1.4 (probe: the edge's manifests, a 10 % rollout under the table's salt) | runtimes without SPEC §1.4 rollout: js: 0 of 10000 ids activate the candidate and 1004 disagree with the generator — first `7a8d04dd33be8a887e8f4df849268a6b` (cohort 373) is on ef7970c1, want 3151eb1d; go: the runtime has no rollout surface — the driver does not compile: unknown field InstallationID in struct literal of type glossa.Config; unknown field DisableRollout in struct literal of typ… |
+| ❌ | start a rollout of the candidate at 10 % in project A's `production` | starting a rollout (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/projects/01a0f6ad-7fd5-7c5c-b2a3-137e5609fce4/environments/production/rollouts) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
 | · | the edge's manifest carries it | _not reached_ |
-| · | three runtimes at 10 % | _not reached_ |
+| · | three runtimes at 10 %, against the generator | _not reached_ |
 | · | rollout support off | _not reached_ |
-| · | advance to 50 % | _not reached_ |
-| · | abort | _not reached_ |
-| · | complete | _not reached_ |
+| · | advance to 50 % keeps every 10 % installation | _not reached_ |
+| · | abort returns all of them to stable | _not reached_ |
+| · | complete moves the pointer | _not reached_ |
+
+The generator's table (`runtimes/testdata/rollout/cohorts.json`): 10000 installation ids; under its salt `c3RhZ2VkLXJvbGxvdXQtMQ`, 1004 are in the candidate at 10 %.
+
+| | Phase | Runtime | In the candidate | Disagree with the generator | Note |
+|---|---|---|---:|---:|---|
+| ❌ | probe at 10 % | js | 0 | 1004 | `7a8d04dd33be8a887e8f4df849268a6b` (cohort 373) is on ef7970c1, want 3151eb1d |
+| ❌ | probe at 10 % | go | 0 | 0 | the runtime has no rollout surface — the driver does not compile: unknown field InstallationID in struct literal of type glossa.Config; unknown field DisableRollout in struct literal of type glossa.Config |
+| ❌ | probe at 10 % | dart | 0 | 0 | the runtime has no rollout surface — the driver does not compile: No named parameter with the name 'installationId'. |
+| ✅ | probe, rollout support off | js | 0 | 0 |  |
+| ❌ | probe, rollout support off | go | 0 | 0 | the runtime has no rollout surface — the driver does not compile: unknown field InstallationID in struct literal of type glossa.Config; unknown field DisableRollout in struct literal of type glossa.Config |
+| ❌ | probe, rollout support off | dart | 0 | 0 | the runtime has no rollout surface — the driver does not compile: No named parameter with the name 'installationId'. |
 
 ## §12.5 — audit export
 
 | | Step | What happened |
 |---|---|---|
-| ❌ | the tenant's audit entries can be listed | listing audit entries (GET /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
-| ❌ | export the run's range as an audit export job | starting an audit export job (POST /v1/tenants/01a0f69e-25e2-7971-8177-d1a5f3295f4b/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | the tenant's audit entries can be listed | listing audit entries (GET /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | export the run's range as an audit export job | starting an audit export job (POST /v1/tenants/01a0f6ad-7fd0-78f8-9bf2-8b200c36304c/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
 | ❌ | `glossa audit verify` passes on the export, offline | there is no export to verify, and `glossa audit verify` exits 2: error: unknown command "audit" /   fix:   run `glossa help` for the list of commands |
 | · | an entry for every call the harness recorded, with its actor | _not reached_ |
 | · | one altered byte makes `glossa audit verify` fail | _not reached_ |
 | · | no canary string appears anywhere in the export | _not reached_ |
 
-The harness recorded 10 successful mutating calls in §12.1–§12.4 itself, never from the platform: map[12.2:4 12.3:6].
+The harness recorded 14 successful mutating calls in §12.1–§12.4 itself, never from the platform: map[12.2:4 12.3:6 12.4:4].
 
 | § | Successful mutating calls the harness recorded |
 |---|---:|
 | 12.2 | 4 |
 | 12.3 | 6 |
+| 12.4 | 4 |
 
 ## §12.6 — v0.3 imports and renders the same
 
 | | Step | What happened |
 |---|---|---|
 | ✅ | a v0.3 server built from apps/api, migrated with its own migrations, seeded: 300 keys in de/en/es, descriptions, a change history, three users | held |
-| ❌ | dump it and restore the dump with `platform/scripts/v0-restore.sh`, which writes the restore marker | there is no restore script: platform/scripts/v0-restore.sh does not exist |
-| · | `glossa import --from v0 --v0-db` imports the restore | _not reached_ |
-| ❌ | publish, and render every key in every locale both ways: zero mismatches (imported by the v0.3 API importer (early signal; `--v0-db` failed)) | 51 of 2400 renderings differ (first: `copy.bare_11` de map[name:Ada] — v0.3 "Gehts gut, {name}?", runtime "Geht's gut, Ada?") |
-| · | descriptions are on the messages | _not reached_ |
-| · | the three users are invitations with mapped roles and locales | _not reached_ |
-| · | v0.3's history is visible as imported audit entries | _not reached_ |
-| ❌ | the importer refuses a DSN without the restore marker | it exited 2, but not because the marker is missing: error: flag provided but not defined: -v0-db /   fix:   run `glossa import --help` for the flags it takes |
+| ✅ | dump it and restore the dump with `platform/scripts/v0-restore.sh`, which writes the restore marker | held |
+| ✅ | `glossa import --from v0 --v0-db` imports the restore | held |
+| ❌ | publish, and render every key in every locale both ways: zero mismatches (imported by --v0-db) | 51 of 2400 renderings differ (first: `copy.bare_11` de map[name:Ada] — v0.3 "Gehts gut, {name}?", runtime "Geht's gut, Ada?") |
+| ✅ | descriptions are on the messages | held |
+| ❌ | the three users are invitations with mapped roles and locales | no matching invitation for admin@acme-v03.example (admin []), tomas@acme-v03.example (translator [en]), lucia@acme-v03.example (translator [es]) |
+| ❌ | v0.3's history is visible as imported audit entries | listing audit entries does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ✅ | the importer refuses a DSN without the restore marker | held |
 
 v0.3 holds 300 keys × 3 locales, 100 audit-log rows and 3 users.
 
-Imported by the v0.3 API importer (early signal; `--v0-db` failed); **2400 renderings** of 300 keys in de/en/es, **51 differ**.
+Imported by --v0-db; **2400 renderings** of 300 keys in de/en/es, **51 differ**.
 
 | Key | Locale | Arguments | v0.3's formatter | @glossa/runtime |
 |---|---|---|---|---|
@@ -333,38 +346,38 @@ Imported by the v0.3 API importer (early signal; `--v0-db` failed); **2400 rende
 
 ## §12.7 — earlier exits hold
 
-M2's exit test passed in 81s.
+M2's exit test passed in 55s.
 
-M3's exit test passed in 153s.
+M3's exit test passed in 89s.
 
-M4's exit test passed in 157s.
+M4's exit test passed in 308s.
 
-### M2 — **passed** in 81s
-
-```text
---- PASS: TestM2Exit (76.30s)
---- PASS: TestFixtureIsCurrent (0.78s)
---- PASS: TestFixtureShape (0.01s)
---- PASS: TestInterchangeFilesRead (0.30s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2	77.204s
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture	1.450s
-```
-
-### M3 — **passed** in 153s
+### M2 — **passed** in 55s
 
 ```text
---- PASS: TestM3Exit (134.02s)
---- PASS: TestFixtureIsCurrent (0.02s)
+--- PASS: TestM2Exit (53.42s)
+--- PASS: TestFixtureIsCurrent (0.11s)
 --- PASS: TestFixtureShape (0.00s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3	135.020s
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture	0.371s
+--- PASS: TestInterchangeFilesRead (0.03s)
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2	53.835s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture	0.356s
 ```
 
-### M4 — **passed** in 157s
+### M3 — **passed** in 89s
 
 ```text
---- PASS: TestM4Exit (154.14s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	154.577s
+--- PASS: TestM3Exit (82.43s)
+--- PASS: TestFixtureIsCurrent (0.03s)
+--- PASS: TestFixtureShape (0.01s)
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3	83.562s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture	0.472s
+```
+
+### M4 — **passed** in 308s
+
+```text
+--- PASS: TestM4Exit (305.08s)
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	305.456s
 **8 of the 8 exit criteria hold.**
 | § | Criterion | Verdict |
 |---|---|---|
