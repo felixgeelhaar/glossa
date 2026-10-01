@@ -69,6 +69,11 @@ internal/mcp/               the Model Context Protocol endpoint (RFC 0005 §7), 
   adapters/                 mcpgo (streamable HTTP on the official Go MCP SDK), identity (the
                             Authenticator over Identity), sources (one adapter per bounded
                             context), postgres (the audit ledger, sqlc), metrics (Prometheus)
+internal/audit/             the tenant's tamper-evident trail (RFC 0006 §6)
+  domain/                   the entry, its canonical form and hash chain, the verifier, the
+                            per-event-type projection table, content-free summaries
+  app/                      the outbox subscriber, the Recorder (sign-ins, MCP calls), the backfill
+  adapters/postgres/        audit_entries (sqlc), append-only, serialized per tenant
 internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
   domain/                   Person, Member, roles, locale scopes, Grant, APIToken, events
@@ -348,6 +353,10 @@ events.Subscribe("catalog.message.source_revised", "localization.mark_outdated",
   `outbox.ActorUnknown`. `TestEveryEventTypeNamesItsActor` scans the
   code for every `outbox.Event` literal and fails on one that names no
   actor.
+- **Every event type has an audit projection** (see *Audit*): a new
+  `Event… = "<context>.…"` constant fails
+  `TestEveryEventTypeHasAProjection` until `audit/domain.Projections`
+  names it.
 - **Delivery is at least once.** A handler must be idempotent on
   `d.EventID`, for example by recording processed IDs in its own
   transaction or by upserting.
@@ -1715,6 +1724,46 @@ binding, the audit rows), `internal/mcp/adapters/postgres`
 toolset the domain knows is one the column's CHECK admits) and
 `internal/cli` (the stdio proxy end to end: a real MCP client over real
 pipes, through `glossa mcp`, to a real `/mcp` endpoint).
+
+## Audit
+
+RFC 0006 §6. `audit_entries` (migration 0045) is a projection: the
+`audit.record` subscriber turns every outbox event into one entry, and
+the security-relevant acts that never reach the outbox are written
+through `audit/app.Recorder` — sign-ins and failed sign-ins (Identity's
+`SignInAudit` port, recorded in every tenant the person belongs to; a
+failure is written in the background so it takes no longer for an
+existing account) and MCP tool calls (beside their `mcp_tool_calls`
+row, which the entry points at by id).
+
+- **Content-free.** An entry holds the action (the event type, or
+  `identity.person.signed_in`, `identity.person.sign_in_failed`,
+  `mcp.tool.called`), the actor, the target, the project and locale,
+  the request or trace id, and a summary in which the payload paths a
+  projection lists as identifiers or selectors are verbatim and
+  everything else is its shape (`"string(len=27)"`). Never message
+  text, an email, a name or a secret.
+- **Hash-chained per tenant.** `hash = sha256(prev_hash ‖ JCS(entry))`,
+  the first `prev_hash` 32 zero bytes, sequences 1, 2, 3… with no gaps.
+  Appends to one tenant serialize on a transaction-scoped advisory
+  lock; a trigger refuses an entry that skips a sequence or links to the
+  wrong hash. `domain.Verifier` recomputes a chain or a range.
+- **Append-only** for `glossa_app` (SELECT and INSERT), under forced
+  RLS. The chain proves an export wasn't edited; it is no protection
+  against a database superuser (§9.5).
+- **Idempotent.** An entry's `event_id` is unique per tenant, so a
+  redelivered event or a re-run backfill records nothing twice.
+- **History.** At startup every replica runs the backfill until it
+  succeeds once (like the key index task): it reads the outbox's
+  history (`outbox.History`, system scope `outbox.history` for the
+  tenant list) in the order events occurred and appends what is
+  missing; a tenant whose entry count already matches its event count
+  is skipped. An event from before migration 0042 takes its payload's
+  by-field as its actor when that is a well-formed actor, and is
+  `unknown` otherwise; the log line reports both counts.
+
+The read API and export jobs are RFC 0006 wave 5; the export format and
+`glossa audit verify` are wave 4.
 
 ## Release
 

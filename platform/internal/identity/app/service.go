@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	authgo "github.com/klarlabs-studio/auth-go/domain"
@@ -63,6 +64,9 @@ type Deps struct {
 	// (ErrEmailDisabled), and password sign-in doesn't wait for a
 	// verified address.
 	Mailer Mailer
+	// Audit records sign-in attempts in the audit trail (RFC 0006 §6.1);
+	// nil records nothing, which is a configuration only tests have.
+	Audit  SignInAudit
 	Logger *slog.Logger
 	// Clock defaults to time.Now.
 	Clock func() time.Time
@@ -81,8 +85,11 @@ type Service struct {
 	lockout     *authgo.LockoutService
 	passkeys    authgo.PasskeyAuthenticator
 	mailer      Mailer
-	logger      *slog.Logger
-	now         func() time.Time
+	audit       SignInAudit
+	// auditing tracks failed attempts being recorded in the background.
+	auditing sync.WaitGroup
+	logger   *slog.Logger
+	now      func() time.Time
 	// decoy is verified when an email has no password, so a failed
 	// sign-in takes as long whether or not the account exists.
 	decoy authgo.PasswordHash
@@ -147,6 +154,7 @@ func New(cfg Config, d Deps) (*Service, error) {
 		lockout:     authgo.NewLockoutService(d.LoginAttempts, authgo.DefaultLockoutPolicy(), clock),
 		passkeys:    d.Passkeys,
 		mailer:      d.Mailer,
+		audit:       d.Audit,
 		logger:      logger,
 		now:         func() time.Time { return now().UTC() },
 		decoy:       decoy,

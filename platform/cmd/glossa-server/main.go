@@ -22,6 +22,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/trace"
 
+	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
+	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	integrationapp "github.com/felixgeelhaar/glossa/platform/internal/integration/app"
 	intelligenceapp "github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
@@ -132,7 +134,12 @@ type app struct {
 	// githubChecks renders pull requests' Glossa checks; nil when the
 	// deployment has no GitHub App or the check worker is off.
 	githubChecks *integrationapp.CheckWorker
-	shutdownTP   observability.ShutdownFunc
+	// audit is the Audit context; its backfill runs once at startup.
+	audit *auditapp.Service
+	// identity is waited on at shutdown for the failed sign-ins it is
+	// still recording in the background.
+	identity   *identityapp.Service
+	shutdownTP observability.ShutdownFunc
 }
 
 func serve(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup config.LookupFunc) error {
@@ -164,7 +171,12 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
-	identity, identitySvc, err := newIdentity(cfg.Identity, logger, pool)
+	audit, err := newAudit(pool, events, logger)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+	identity, identitySvc, err := newIdentity(cfg.Identity, logger, pool, audit)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -190,7 +202,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
-	mcpHandler, err := newMCP(cfg.MCP, identitySvc, pool, bounded.mcpTools, registry, tp, logger)
+	mcpHandler, err := newMCP(cfg.MCP, identitySvc, pool, bounded.mcpTools, audit, registry, tp, logger)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -207,7 +219,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, aiWorker: bounded.aiWorker,
 		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger, workflowTimers: workflowTimers,
 		branchPublisher: bounded.branchPublisher, githubInbox: bounded.githubInbox,
-		githubChecks: bounded.githubChecks, shutdownTP: shutdownTP,
+		githubChecks: bounded.githubChecks, audit: audit, identity: identitySvc, shutdownTP: shutdownTP,
 	}, nil
 }
 
@@ -268,6 +280,7 @@ func (a *app) run(ctx context.Context) error {
 	delivered := a.startGitHubInbox(dispatchCtx)
 	checked := a.startGitHubChecks(dispatchCtx)
 	a.startKeyIndexTask(dispatchCtx)
+	a.startAuditBackfill(dispatchCtx)
 
 	var runErr error
 	select {
@@ -443,6 +456,15 @@ func (a *app) shutdown(stopDispatch context.CancelFunc,
 	var errs []error
 	if err := a.server.Shutdown(ctx); err != nil {
 		errs = append(errs, err)
+	}
+	if a.identity != nil {
+		audited := make(chan struct{})
+		go func() { a.identity.WaitAudits(); close(audited) }()
+		select {
+		case <-audited:
+		case <-ctx.Done():
+			errs = append(errs, errors.New("failed sign-ins were still being audited at the shutdown timeout; those entries are lost"))
+		}
 	}
 	stopDispatch()
 	select {

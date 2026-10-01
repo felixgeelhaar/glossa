@@ -181,6 +181,8 @@ var guardedTables = []string{
 	// A Git connection names a tenant's repositories and projects, and
 	// an installation names their GitHub account (RFC 0004 §6.1).
 	"integration_github_installations", "integration_git_connections",
+	// The audit trail says who did what in a tenant (RFC 0006 §6.1).
+	"audit_entries",
 }
 
 func TestRLSGuard(t *testing.T) {

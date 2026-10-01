@@ -47,7 +47,7 @@ const tracerName = "github.com/felixgeelhaar/glossa/platform/internal/mcp"
 type Service struct {
 	auth    Authenticator
 	tools   *Registry
-	audit   Audit
+	audits  []Audit
 	metrics Metrics
 	limiter Limiter
 	tracer  trace.Tracer
@@ -59,12 +59,14 @@ type Service struct {
 // Option configures the service.
 type Option func(*Service)
 
-// WithAudit writes every tool call to the ledger. Without one nothing
-// is recorded, which is a configuration only tests should have.
+// WithAudit writes every tool call to a. Given more than once, each is
+// written in turn — the MCP ledger, then the tenant's audit trail
+// (RFC 0006 §6.1). Without one nothing is recorded, which is a
+// configuration only tests should have.
 func WithAudit(a Audit) Option {
 	return func(s *Service) {
 		if a != nil {
-			s.audit = a
+			s.audits = append(s.audits, a)
 		}
 	}
 }
@@ -138,11 +140,6 @@ func WithTools(tools ...Tool) Option {
 	}
 }
 
-// discardAudit is the default: nothing is written down.
-type discardAudit struct{}
-
-func (discardAudit) Record(context.Context, AuditEntry) error { return nil }
-
 // New returns the service. The capability probe is always registered;
 // everything else is a deployment's choice.
 func New(auth Authenticator, opts ...Option) (*Service, error) {
@@ -150,7 +147,7 @@ func New(auth Authenticator, opts ...Option) (*Service, error) {
 		return nil, errors.New("mcp: an authenticator is required")
 	}
 	s := &Service{
-		auth: auth, tools: &Registry{}, audit: discardAudit{}, metrics: NoMetrics{},
+		auth: auth, tools: &Registry{}, metrics: NoMetrics{},
 		tracer: noop.NewTracerProvider().Tracer(tracerName),
 		logger: slog.New(slog.DiscardHandler),
 		now:    func() time.Time { return time.Now().UTC() },
@@ -288,10 +285,12 @@ func (s *Service) record(
 	}
 	// The ledger is the tenant's own table, so the write runs in the
 	// session's scope even when the call was refused before it got there.
-	if err := s.audit.Record(sess.Context(ctx), entry); err != nil {
-		s.logger.ErrorContext(ctx, "mcp: the tool call was not audited",
-			slog.String("session", sess.ID), slog.String("tool", name),
-			slog.String("actor", sess.Actor().String()), slog.Any("error", err))
+	for _, a := range s.audits {
+		if err := a.Record(sess.Context(ctx), entry); err != nil {
+			s.logger.ErrorContext(ctx, "mcp: the tool call was not audited",
+				slog.String("session", sess.ID), slog.String("tool", name),
+				slog.String("actor", sess.Actor().String()), slog.Any("error", err))
+		}
 	}
 }
 

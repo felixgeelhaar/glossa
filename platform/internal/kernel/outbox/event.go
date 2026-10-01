@@ -36,6 +36,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -99,8 +100,27 @@ type Delivery struct {
 	Actor      Actor
 	Payload    json.RawMessage
 	OccurredAt time.Time
+	// TraceID is the W3C trace id of the publisher's trace — the request
+	// that caused the event — or "" when it published untraced. It is
+	// the event's correlation id (the audit trail records it).
+	TraceID string
 	// Attempt counts deliveries of this event, starting at 1.
 	Attempt int
+}
+
+// traceIDOf reads the trace id out of a stored W3C trace context
+// carrier ("traceparent": "00-<trace id>-<span id>-<flags>"), or "".
+func traceIDOf(carrier map[string]string) string {
+	parts := strings.Split(carrier["traceparent"], "-")
+	if len(parts) != 4 || len(parts[1]) != 32 || parts[1] == strings.Repeat("0", 32) {
+		return ""
+	}
+	for _, r := range parts[1] {
+		if !strings.ContainsRune("0123456789abcdef", r) {
+			return ""
+		}
+	}
+	return parts[1]
 }
 
 // Decode unmarshals the payload into v.

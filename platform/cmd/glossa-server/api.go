@@ -11,8 +11,10 @@ import (
 	"github.com/klarlabs-studio/auth-go/aesgcm"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
+	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
 	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
 	contextapi "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/httpapi"
+	identityaudit "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/audit"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/mail"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/passkey"
@@ -107,7 +109,9 @@ func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts, mcp http.Handle
 // newIdentity wires the Identity context: auth-go's services over
 // Postgres adapters, a mailer and passkeys when configured, and the HTTP
 // edge.
-func newIdentity(cfg config.Identity, logger *slog.Logger, pool *pgxpool.Pool) (*httpapi.API, *identityapp.Service, error) {
+func newIdentity(
+	cfg config.Identity, logger *slog.Logger, pool *pgxpool.Pool, trail auditapp.Recorder,
+) (*httpapi.API, *identityapp.Service, error) {
 	root := cfg.AuthKey()
 	csrfKey, err := deriveKey(root, "csrf")
 	if err != nil {
@@ -135,6 +139,7 @@ func newIdentity(cfg config.Identity, logger *slog.Logger, pool *pgxpool.Pool) (
 		TOTP:          postgres.NewTOTPRepo(uow, cipher),
 		LoginAttempts: postgres.NewLoginAttemptRepo(uow),
 		Mailer:        mailer,
+		Audit:         identityaudit.New(trail),
 		Logger:        logger,
 	}
 	if cfg.WebAuthn.Enabled() {

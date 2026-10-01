@@ -60,6 +60,7 @@ func toClaim(r outboxsql.ClaimOutboxEventsRow) Claim {
 			Actor:         actorRead(r.Actor),
 			Payload:       r.Payload,
 			OccurredAt:    r.OccurredAt,
+			TraceID:       traceIDOf(traceCtx),
 			Attempt:       int(r.Attempts),
 		},
 		ClaimToken:   r.ClaimToken.UUID,

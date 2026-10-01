@@ -101,7 +101,7 @@ func newHarness(t *testing.T) *harness { return newHarnessMailing(t, true) }
 
 // newHarnessMailing builds the service with or without a mailer (a
 // deployment without email).
-func newHarnessMailing(t *testing.T, mailing bool) *harness {
+func newHarnessMailing(t *testing.T, mailing bool, with ...func(*app.Deps)) *harness {
 	t.Helper()
 	if err := env.Reset(context.Background()); err != nil {
 		t.Fatalf("reset: %v", err)
@@ -135,6 +135,9 @@ func newHarnessMailing(t *testing.T, mailing bool) *harness {
 	}
 	if mailing {
 		deps.Mailer = h.mail
+	}
+	for _, w := range with {
+		w(&deps)
 	}
 	h.svc, err = app.New(cfg, deps)
 	if err != nil {
