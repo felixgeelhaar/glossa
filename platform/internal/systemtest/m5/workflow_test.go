@@ -455,16 +455,34 @@ func (s *scenario) architectureTest() string {
 		})
 		return "not run: no internal/workflow"
 	}
-	cmd := exec.Command("go", "test", "-count=1", "-run", "Architecture", "./internal/workflow/...")
+	// The §2.1 rules, by the names they were written under, each of
+	// which must report its own pass: a -run pattern that matches
+	// nothing passes vacuously, which is how this step once "ran" no
+	// test at all.
+	rules := []string{
+		"TestReviewStateHasExactlyFourValues",      // rule 1
+		"TestNoProcessIsCompiledIntoGo",            // rule 2
+		"TestGuardedContextsDoNotBranchOnWho",      // rule 3
+		"TestGuardedContextsDoNotDependOnWorkflow", // the dependency rule
+		"TestTheVocabularyIsClosed",                // no process-named primitive
+	}
+	cmd := exec.Command("go", "test", "-count=1", "-v", "-run", "^("+strings.Join(rules, "|")+")$",
+		"./internal/workflow/...")
 	cmd.Dir = platformDir()
 	out, err := cmd.CombinedOutput()
 	verdict := strings.TrimSpace(string(out))
 	s.step(id, "§2.1's architecture test passes", func() error {
 		if err != nil {
-			return fmt.Errorf("`go test -run Architecture ./internal/workflow/...` failed: %s", lastLines(verdict, 6))
+			return fmt.Errorf("§2.1's architecture tests failed: %s", lastLines(verdict, 6))
 		}
-		if strings.Contains(verdict, "no tests to run") || !strings.Contains(verdict, "ok") {
-			return fmt.Errorf("`go test -run Architecture ./internal/workflow/...` ran no architecture test: %s", lastLines(verdict, 3))
+		var missing []string
+		for _, r := range rules {
+			if !strings.Contains(verdict, "--- PASS: "+r+" ") {
+				missing = append(missing, r)
+			}
+		}
+		if len(missing) > 0 {
+			return fmt.Errorf("§2.1's architecture tests did not all run: %s reported no pass", strings.Join(missing, ", "))
 		}
 		return nil
 	})
