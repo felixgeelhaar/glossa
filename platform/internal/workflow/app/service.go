@@ -12,13 +12,14 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
 )
 
-// The permissions RFC 0006 §4.2 adds for workflows. Identity's role
-// matrix grants them (owner and admin manage; the M5 identity slice pins
-// the matrix); they are named here because this service is what checks
-// them.
+// The permissions RFC 0006 §4.2 adds for workflows are Identity's, and
+// this service checks them by Identity's names. They were string copies
+// here while the two slices were built in parallel; a second spelling of
+// a permission is how a rename in one place silently stops matching in
+// the other, so the copies are gone.
 const (
-	PermWorkflowsRead   authz.Permission = "workflows.read"
-	PermWorkflowsManage authz.Permission = "workflows.manage"
+	PermWorkflowsRead   = authz.WorkflowsRead
+	PermWorkflowsManage = authz.WorkflowsManage
 )
 
 // Service implements Workflow's definition and binding use cases.
