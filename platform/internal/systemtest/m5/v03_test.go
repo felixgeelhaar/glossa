@@ -53,26 +53,37 @@ var v03Users = []struct {
 
 type v03Report struct {
 	Keys, Renderings int
-	Mismatches       []renderRow
-	Importer         string
-	History          int
-	Mode             string
+	// KnownDefects differ only by v0.3's known apostrophe defect
+	// (`--verify`'s known_defect category, RFC 0006 §7.3): reported with
+	// their count and every row, never counted as a match. Mismatches
+	// are every other difference.
+	KnownDefects []renderRow
+	Mismatches   []renderRow
+	Importer     string
+	History      int
+	Mode         string
 }
 
-// renderRow is one rendering of one key, locale and arguments, both ways.
+// renderRow is one rendering of one key, locale and arguments, both
+// ways, as `glossa import --from v0 --verify --json` reports it.
 type renderRow struct {
 	Key          string         `json:"key"`
 	Locale       string         `json:"locale"`
 	Args         map[string]any `json:"args"`
 	V0           *string        `json:"v0"`
 	Runtime      *string        `json:"runtime"`
-	V0Error      string         `json:"v0Error"`
-	RuntimeError string         `json:"runtimeError"`
+	V0Error      string         `json:"v0_error"`
+	RuntimeError string         `json:"runtime_error"`
+	Defect       string         `json:"defect"`
+	V0Requoted   *string        `json:"v0_requoted"`
 }
 
 // v03Key is one seeded key: its text in each locale, its description,
-// and the arguments the renderings use, generated from the arguments
-// the key's ICU text declares.
+// and the argument sets the fixture was written for. The renderings do
+// not use them: `glossa import --from v0 --verify` generates its own
+// from each message's argument metadata (every plural count and exact
+// key, every select key and the catch-all), which reach every variant
+// these name.
 type v03Key struct {
 	Name        string
 	Description string
@@ -244,10 +255,22 @@ func (s *scenario) migratable() {
 		}
 	}
 
-	s.step(id, fmt.Sprintf("publish, and render every key in every locale both ways: zero mismatches (imported by %s)", s.v03.Mode), func() error {
-		return s.renderBothWays(p.ID, keys, srv)
+	s.step(id, fmt.Sprintf("publish, and render every key in every locale both ways with `glossa import --from v0 --verify`: "+
+		"zero mismatches apart from v0.3's known apostrophe defect, which is reported with its count (imported by %s)", s.v03.Mode), func() error {
+		return s.renderBothWays(p.ID, keys, srv, dir, env)
 	})
 	if imported {
+		// §7.2: the history goes to the audit trail with `--history`,
+		// which only an owner may do (audit.import, amended in wave 4).
+		s.step(id, "`glossa import --from v0 --v0-db --history` sends v0.3's history to the audit trail as the owner", func() error {
+			res := glossa(dir, env, append(cliImportV0DB, srv.dsn(restored), "--v0-project", v03Project, "--v0-tenant", v03Tenant,
+				"--history")...)
+			if res.code != 0 {
+				return fmt.Errorf("exit %d: %s — the CLI signs in with an API token, and no token scope reaches audit.import; "+
+					"it sends the history once it can hold the owner's session", res.code, res.String())
+			}
+			return nil
+		})
 		s.carriedFields(p.ID, keys, srv)
 	} else {
 		s.unreached(id, "descriptions are on the messages", "the three users are invitations with mapped roles and locales",
@@ -272,7 +295,7 @@ func (s *scenario) markerRefusal(dir string, env map[string]string, srv *v03Serv
 	})
 }
 
-func (s *scenario) renderBothWays(project string, keys []v03Key, srv *v03Server) error {
+func (s *scenario) renderBothWays(project string, keys []v03Key, srv *v03Server, dir string, env map[string]string) error {
 	s.owner.do(http.MethodPost, s.projectPathOf(project, "/environments"), map[string]any{
 		"name": "v0-check", "policy": map[string]any{"states": []string{"draft", "needs_review", "approved"}, "include_outdated": true},
 	}, http.StatusCreated, nil)
@@ -289,22 +312,6 @@ func (s *scenario) renderBothWays(project string, keys []v03Key, srv *v03Server)
 	if ok, served := s.edgeServes(key.Key, "v0-check", rel.ID, 20*time.Second); !ok {
 		return fmt.Errorf("the edge never served the import's release (it served %s)", served)
 	}
-	var cases []map[string]any
-	for _, k := range keys {
-		for _, l := range v03Locales {
-			for _, a := range k.ArgSets {
-				cases = append(cases, map[string]any{"key": k.Name, "locale": l, "args": a})
-			}
-		}
-	}
-	in, _ := json.Marshal(map[string]any{
-		"cases": cases, "v0": srv.bundles, "edgeURL": s.d.edgeURL, "deliveryKey": key.Key, "environment": "v0-check",
-	})
-	tmp := s.t.TempDir()
-	inPath, outPath := filepath.Join(tmp, "in.json"), filepath.Join(tmp, "out.json")
-	if err := os.WriteFile(inPath, in, 0o644); err != nil {
-		return err
-	}
 	formatDir := filepath.Join(repoRoot(), "packages", "format")
 	runtimeDir := filepath.Join(repoRoot(), "runtimes", "js", "runtime")
 	for _, d := range []string{formatDir, runtimeDir} {
@@ -312,35 +319,50 @@ func (s *scenario) renderBothWays(project string, keys []v03Key, srv *v03Server)
 			return fmt.Errorf("%s is not built: `make system-m5` builds it", strings.TrimPrefix(d, repoRoot()+"/"))
 		}
 	}
-	here, _ := filepath.Abs(".")
-	cmd := exec.Command("node", filepath.Join(here, "testdata", "render", "render.mjs"), inPath, outPath, formatDir, runtimeDir)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("rendering failed: %v: %s", err, lastLines(string(out), 4))
+	// §7.3: the comparison is the CLI's own command, the one a product's
+	// migration runs. v0.3's side is the text v0.3's API serves; the
+	// runtime's is the artifact the edge serves; the arguments are
+	// generated from each message's argument metadata.
+	venv := map[string]string{"GLOSSA_DELIVERY_KEY": key.Key}
+	for k, v := range env {
+		venv[k] = v
 	}
-	raw, err := os.ReadFile(outPath)
-	if err != nil {
-		return err
+	res := glossa(dir, venv, "import", "--from", "v0", "--v0-url", srv.api, "--v0-project", v03Project, "--verify",
+		"--edge", s.d.edgeURL, "--environment", "v0-check", "--format-module", formatDir, "--runtime-module", runtimeDir, "--json")
+	if res.code != 0 && res.code != 1 {
+		return fmt.Errorf("`glossa import --from v0 --verify` exited %d: %s", res.code, res.String())
 	}
-	var res struct {
-		Rows   []renderRow `json:"rows"`
-		Errors []string    `json:"errors"`
+	var out struct {
+		Release       string         `json:"release"`
+		Summary       map[string]int `json:"summary"`
+		KnownDefects  []renderRow    `json:"known_defects"`
+		Mismatches    []renderRow    `json:"mismatches"`
+		RuntimeErrors []string       `json:"runtime_errors"`
 	}
-	if err := json.Unmarshal(raw, &res); err != nil {
-		return err
+	if err := json.Unmarshal([]byte(res.stdout), &out); err != nil {
+		return fmt.Errorf("`--verify --json` printed no report: %v: %s", err, lastLines(res.String(), 4))
 	}
-	s.v03.Renderings = len(res.Rows)
-	for _, r := range res.Rows {
-		if r.V0Error != "" || r.RuntimeError != "" || r.V0 == nil || r.Runtime == nil || *r.V0 != *r.Runtime {
-			s.v03.Mismatches = append(s.v03.Mismatches, r)
+	s.v03.Renderings, s.v03.KnownDefects, s.v03.Mismatches = out.Summary["renderings"], out.KnownDefects, out.Mismatches
+	if len(out.RuntimeErrors) > 0 {
+		s.note("12.6", "The runtime reported: %s.", strings.Join(out.RuntimeErrors, "; "))
+	}
+	if n := len(out.KnownDefects); n > 0 {
+		s.note("12.6", "%d renderings differ only by v0.3's known apostrophe defect (`v0_bare_apostrophe`): v0.3's formatter "+
+			"reads a bare apostrophe as opening a quoted run; each is listed below with v0.3's text requoted as evidence.", n)
+	}
+	// Every key in every locale, not a sample: what --verify compared is
+	// what v0.3 holds.
+	if out.Release != rel.ID || out.Summary["keys"] != len(keys) || out.Summary["locales"] != len(v03Locales) {
+		return fmt.Errorf("--verify compared %d keys in %d locales against release %q; v0.3 holds %d keys in %d, the edge serves %s",
+			out.Summary["keys"], out.Summary["locales"], out.Release, len(keys), len(v03Locales), rel.ID)
+	}
+	if n := len(out.Mismatches); n > 0 || res.code != 0 {
+		if n == 0 {
+			return fmt.Errorf("--verify exited %d with no mismatch listed", res.code)
 		}
-	}
-	if len(res.Errors) > 0 {
-		s.note("12.6", "The runtime reported: %s.", strings.Join(res.Errors, "; "))
-	}
-	if n := len(s.v03.Mismatches); n > 0 {
-		m := s.v03.Mismatches[0]
-		return fmt.Errorf("%d of %d renderings differ (first: `%s` %s %v — v0.3 %s, runtime %s)",
-			n, len(res.Rows), m.Key, m.Locale, m.Args, quoteOr(m.V0, m.V0Error), quoteOr(m.Runtime, m.RuntimeError))
+		m := out.Mismatches[0]
+		return fmt.Errorf("%d of %d renderings differ other than by v0.3's known apostrophe defect (first: `%s` %s %v — v0.3 %s, runtime %s)",
+			n, out.Summary["renderings"], m.Key, m.Locale, m.Args, quoteOr(m.V0, m.V0Error), quoteOr(m.Runtime, m.RuntimeError))
 	}
 	return nil
 }

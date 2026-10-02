@@ -17,7 +17,7 @@ var failsIf = map[string]string{
 	"12.3": "any pointer moves before the second approval as seen at the edge, or a rollback waits.",
 	"12.4": "any runtime disagrees with the generator on any id, the share is outside 9–11 %, or an aborted installation stays on the candidate. Runtimes are compared with the generator, never with each other.",
 	"12.5": "a call the harness recorded has no entry (compared with the harness's own log, not the outbox), an entry has the wrong actor, a tampered export verifies, or a canary leaks.",
-	"12.6": "any rendering differs between v0.3's formatter and @glossa/runtime (two implementations that share no code), or a carried field is missing.",
+	"12.6": "any rendering differs between v0.3's formatter and @glossa/runtime (two implementations that share no code) other than by v0.3's known apostrophe defect, which is reported with its count and every row, or a carried field is missing.",
 	"12.7": "any earlier exit criterion fails. A failure here blocks the M5 verdict whatever 12.1–12.6 say.",
 }
 
@@ -273,14 +273,17 @@ func (s *scenario) reportAudit(b *bytes.Buffer) {
 func (s *scenario) reportV03(b *bytes.Buffer) {
 	w := func(format string, args ...any) { fmt.Fprintf(b, format, args...) }
 	if s.v03.Renderings > 0 {
-		w("Imported by %s; **%d renderings** of %d keys in de/en/es, **%d differ**.\n\n",
-			s.v03.Mode, s.v03.Renderings, s.v03.Keys, len(s.v03.Mismatches))
+		w("Imported by %s; **%d renderings** of %d keys in de/en/es: **%d differ only by v0.3's known apostrophe defect**, "+
+			"**%d differ otherwise**.\n\n", s.v03.Mode, s.v03.Renderings, s.v03.Keys, len(s.v03.KnownDefects), len(s.v03.Mismatches))
 	}
-	if n := len(s.v03.Mismatches); n > 0 {
-		w("| Key | Locale | Arguments | v0.3's formatter | @glossa/runtime |\n|---|---|---|---|---|\n")
-		for i, m := range s.v03.Mismatches {
+	table := func(title string, rows []renderRow) {
+		if len(rows) == 0 {
+			return
+		}
+		w("%s\n\n| Key | Locale | Arguments | v0.3's formatter | @glossa/runtime |\n|---|---|---|---|---|\n", title)
+		for i, m := range rows {
 			if i == 40 {
-				w("| … | | | %d more | |\n", n-40)
+				w("| … | | | %d more | |\n", len(rows)-40)
 				break
 			}
 			w("| `%s` | %s | `%v` | %s | %s |\n", m.Key, m.Locale, m.Args,
@@ -288,6 +291,10 @@ func (s *scenario) reportV03(b *bytes.Buffer) {
 		}
 		w("\n")
 	}
+	table("Known v0.3 defect (`v0_bare_apostrophe`): v0.3's formatter reads a bare apostrophe as opening a quoted run. "+
+		"Each row is in this category only because v0.3's own formatter, given the same text with its apostrophes requoted "+
+		"the ICU way, renders exactly the runtime's output.", s.v03.KnownDefects)
+	table("Every other difference:", s.v03.Mismatches)
 }
 
 func (s *scenario) reportEarlier(b *bytes.Buffer) {
