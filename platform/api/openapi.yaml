@@ -71,7 +71,13 @@ info:
     every unsafe request made with it must also send `X-CSRF-Token` with
     the `csrf_token` from the sign-in response or `GET /v1/me`. The CLI,
     CI and agents send `Authorization: Bearer glossa_api_…` API tokens,
-    which need no CSRF token. The in-product editor sends
+    which need no CSRF token. A person signed in to the CLI through
+    the device flow (`POST /v1/auth/device-authorizations`, RFC 8628)
+    sends `Authorization: Bearer glossa_dev_…`: that is the person's
+    session presented as a bearer, accepted wherever `session` is and
+    nowhere else, and it needs no CSRF token because nothing sends it
+    ambiently. It is not an API token and is accepted on no operation
+    that takes only `bearer`. The in-product editor sends
     `Authorization: Bearer glossa_ctx_…` in-context grants, which are
     accepted only on the operations that list the `in_context` scheme.
 
@@ -512,6 +518,129 @@ paths:
             Set-Cookie: { $ref: "#/components/headers/ClearedSessionCookie" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ── CLI: device sign-in (RFC 8628) ─────────────────────────────────
+  /v1/auth/device-authorizations:
+    post:
+      operationId: startDeviceAuthorization
+      tags: [auth]
+      summary: Start signing a device in as a person
+      description: |
+        How `glossa login` signs a person in on a machine with no
+        browser session (RFC 0006 §7.2, the OAuth 2.0 device
+        authorization grant, RFC 8628). The CLI asks for a
+        `device_code`, shows the `user_code` and `verification_uri`,
+        and polls `POST /v1/auth/device-sessions` every `interval`
+        seconds while the person approves the code in Studio, signed
+        in as themselves.
+
+        The `device_code` is the CLI's secret and is never shown; the
+        `user_code` is eight characters from an alphabet without
+        look-alikes, shown as `XXXX-XXXX`, and is only good for
+        approving or denying. Both expire after `expires_in` seconds
+        (15 minutes). Unauthenticated, rate limited per client address.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceAuthorizationRequest" }
+      responses:
+        "200":
+          description: The codes to show and poll with.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceAuthorization" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/device-authorizations/{user_code}:
+    parameters:
+      - name: user_code
+        in: path
+        required: true
+        description: The code the device shows, with or without its hyphen, in any case.
+        schema: { type: string, minLength: 8, maxLength: 9 }
+    get:
+      operationId: getDeviceAuthorization
+      tags: [auth]
+      summary: What a device code would sign in
+      description: |
+        What Studio shows before the person approves: the name the
+        device gave itself and when it asked, so a code read out by
+        someone else is recognisable as not one's own. Only a browser
+        session may look a code up. A code that is unknown, expired or
+        already decided answers `404` `device_authorization_not_found`,
+        whichever it is.
+      security:
+        - session: []
+      responses:
+        "200":
+          description: The pending request.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceAuthorizationView" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/auth/device-approvals:
+    post:
+      operationId: decideDeviceAuthorization
+      tags: [auth]
+      summary: Approve or deny a device code
+      description: |
+        The signed-in person approves the code, which signs the device
+        in as them, or denies it, which ends it. Only a browser session
+        decides — never an API token, and never a device session, so a
+        signed-in CLI cannot sign further devices in. The device's
+        session belongs to the person and to nobody else: it acts with
+        exactly the person's memberships, roles, project scope and
+        visibility, in every tenant, and ends when the person signs out
+        everywhere. Problem codes: `device_authorization_not_found`
+        (404: unknown, expired or already decided).
+      security:
+        - session: []
+          csrf: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceApproval" }
+      responses:
+        "204": { description: Decided. The device's next poll learns the outcome. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/auth/device-sessions:
+    post:
+      operationId: redeemDeviceAuthorization
+      tags: [auth]
+      summary: Poll for the device's session
+      description: |
+        The device polls with its `device_code`. Until the person
+        decides, the answer is `400` `authorization_pending`; polling
+        faster than `interval` answers `400` `slow_down`, and the device
+        adds five seconds to its interval (RFC 8628 §3.5). A denied code
+        answers `400` `access_denied`, an expired or unknown one `400`
+        `expired_token`. Once approved, the first poll returns the
+        session's bearer and spends the code: a second poll with it is
+        `expired_token`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceSessionRequest" }
+      responses:
+        "200":
+          description: "Signed in. Send `access_token` as `Authorization: Bearer`."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceSession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
 
   # ── CI: GitHub Actions OIDC ─────────────────────────────────────────
   /v1/auth/github-oidc-exchanges:
@@ -9760,6 +9889,52 @@ components:
       required: [email]
       properties:
         email: { $ref: "#/components/schemas/Email" }
+    DeviceAuthorizationRequest:
+      type: object
+      required: [client_name]
+      properties:
+        client_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: What the device calls itself, shown to the person who approves it — e.g. `glossa CLI on build-01`.
+    DeviceAuthorization:
+      type: object
+      required: [device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval]
+      properties:
+        device_code: { type: string, description: The device's secret for polling. Never shown to a person. }
+        user_code: { type: string, description: "Shown to the person, as `XXXX-XXXX`." }
+        verification_uri: { type: string, format: uri, description: Studio's page where the person enters the code. }
+        verification_uri_complete: { type: string, format: uri, description: The same page with the code filled in. }
+        expires_in: { type: integer, minimum: 1, description: Seconds until both codes expire. }
+        interval: { type: integer, minimum: 1, description: Seconds to wait between polls. }
+    DeviceAuthorizationView:
+      type: object
+      required: [user_code, client_name, requested_at, expires_at]
+      properties:
+        user_code: { type: string }
+        client_name: { type: string }
+        requested_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+    DeviceApproval:
+      type: object
+      required: [user_code, decision]
+      properties:
+        user_code: { type: string, minLength: 8, maxLength: 9 }
+        decision: { type: string, enum: [approved, denied] }
+    DeviceSessionRequest:
+      type: object
+      required: [device_code]
+      properties:
+        device_code: { type: string, minLength: 1, maxLength: 256 }
+    DeviceSession:
+      type: object
+      required: [access_token, token_type, expires_at, person_id]
+      properties:
+        access_token: { type: string, description: "`glossa_dev_…`: the person's session as a bearer." }
+        token_type: { type: string, enum: [Bearer] }
+        expires_at: { type: string, format: date-time, description: When the session ends unless the person signs out sooner. }
+        person_id: { type: string, format: uuid }
     TokenRedemption:
       type: object
       required: [token]

@@ -88,8 +88,14 @@ var (
 // sweep (TestRestrictionsOverHTTP) holds the GET operations to the
 // decisions recorded here.
 var restrictions = map[string]restriction{
-	"DELETE /v1/auth/session":                                                         public,
-	"DELETE /v1/auth/sessions":                                                        public,
+	"DELETE /v1/auth/session":  public,
+	"DELETE /v1/auth/sessions": public,
+	// Device sign-in acts on the person, never on a tenant's data: the
+	// device's session then carries the person's own scope and visibility.
+	"GET /v1/auth/device-authorizations/{user_code}":                                  public,
+	"POST /v1/auth/device-approvals":                                                  public,
+	"POST /v1/auth/device-authorizations":                                             public,
+	"POST /v1/auth/device-sessions":                                                   public,
 	"DELETE /v1/me/passkeys/{passkey}":                                                public,
 	"DELETE /v1/tenants/{tenant}/ai-providers/{ai_provider}":                          {projectUnscoped, assignedDenied},
 	"DELETE /v1/tenants/{tenant}/github/connections/{connection}":                     rowsDenied,

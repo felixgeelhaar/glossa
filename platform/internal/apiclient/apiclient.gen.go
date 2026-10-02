@@ -948,6 +948,39 @@ func (e DeploymentAction) Valid() bool {
 	}
 }
 
+// Defines values for DeviceApprovalDecision.
+const (
+	DeviceApprovalDecisionApproved DeviceApprovalDecision = "approved"
+	DeviceApprovalDecisionDenied   DeviceApprovalDecision = "denied"
+)
+
+// Valid indicates whether the value is a known member of the DeviceApprovalDecision enum.
+func (e DeviceApprovalDecision) Valid() bool {
+	switch e {
+	case DeviceApprovalDecisionApproved:
+		return true
+	case DeviceApprovalDecisionDenied:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeviceSessionTokenType.
+const (
+	Bearer DeviceSessionTokenType = "Bearer"
+)
+
+// Valid indicates whether the value is a known member of the DeviceSessionTokenType enum.
+func (e DeviceSessionTokenType) Valid() bool {
+	switch e {
+	case Bearer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Direction.
 const (
 	Ltr Direction = "ltr"
@@ -4850,6 +4883,69 @@ type DeploymentAction string
 type DeploymentList struct {
 	Items         []Deployment `json:"items"`
 	NextPageToken *string      `json:"next_page_token,omitempty"`
+}
+
+// DeviceApproval defines model for DeviceApproval.
+type DeviceApproval struct {
+	Decision DeviceApprovalDecision `json:"decision"`
+	UserCode string                 `json:"user_code"`
+}
+
+// DeviceApprovalDecision defines model for DeviceApproval.Decision.
+type DeviceApprovalDecision string
+
+// DeviceAuthorization defines model for DeviceAuthorization.
+type DeviceAuthorization struct {
+	// DeviceCode The device's secret for polling. Never shown to a person.
+	DeviceCode string `json:"device_code"`
+
+	// ExpiresIn Seconds until both codes expire.
+	ExpiresIn int `json:"expires_in"`
+
+	// Interval Seconds to wait between polls.
+	Interval int `json:"interval"`
+
+	// UserCode Shown to the person, as `XXXX-XXXX`.
+	UserCode string `json:"user_code"`
+
+	// VerificationUri Studio's page where the person enters the code.
+	VerificationUri string `json:"verification_uri"`
+
+	// VerificationUriComplete The same page with the code filled in.
+	VerificationUriComplete string `json:"verification_uri_complete"`
+}
+
+// DeviceAuthorizationRequest defines model for DeviceAuthorizationRequest.
+type DeviceAuthorizationRequest struct {
+	// ClientName What the device calls itself, shown to the person who approves it — e.g. `glossa CLI on build-01`.
+	ClientName string `json:"client_name"`
+}
+
+// DeviceAuthorizationView defines model for DeviceAuthorizationView.
+type DeviceAuthorizationView struct {
+	ClientName  string    `json:"client_name"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	RequestedAt time.Time `json:"requested_at"`
+	UserCode    string    `json:"user_code"`
+}
+
+// DeviceSession defines model for DeviceSession.
+type DeviceSession struct {
+	// AccessToken `glossa_dev_…`: the person's session as a bearer.
+	AccessToken string `json:"access_token"`
+
+	// ExpiresAt When the session ends unless the person signs out sooner.
+	ExpiresAt time.Time              `json:"expires_at"`
+	PersonId  openapi_types.UUID     `json:"person_id"`
+	TokenType DeviceSessionTokenType `json:"token_type"`
+}
+
+// DeviceSessionTokenType defines model for DeviceSession.TokenType.
+type DeviceSessionTokenType string
+
+// DeviceSessionRequest defines model for DeviceSessionRequest.
+type DeviceSessionRequest struct {
+	DeviceCode string `json:"device_code"`
 }
 
 // Direction Derived from the locale's (likely) script.
@@ -10422,6 +10518,15 @@ type SaveWorkflowDefinitionVersionParams struct {
 	IfMatch IfMatch `json:"If-Match"`
 }
 
+// DecideDeviceAuthorizationJSONRequestBody defines body for DecideDeviceAuthorization for application/json ContentType.
+type DecideDeviceAuthorizationJSONRequestBody = DeviceApproval
+
+// StartDeviceAuthorizationJSONRequestBody defines body for StartDeviceAuthorization for application/json ContentType.
+type StartDeviceAuthorizationJSONRequestBody = DeviceAuthorizationRequest
+
+// RedeemDeviceAuthorizationJSONRequestBody defines body for RedeemDeviceAuthorization for application/json ContentType.
+type RedeemDeviceAuthorizationJSONRequestBody = DeviceSessionRequest
+
 // ExchangeGitHubOIDCTokenJSONRequestBody defines body for ExchangeGitHubOIDCToken for application/json ContentType.
 type ExchangeGitHubOIDCTokenJSONRequestBody = GitHubOIDCExchange
 
@@ -10843,6 +10948,126 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+
+	// DecideDeviceAuthorizationWithBody Approve or deny a device code
+	//
+	// The signed-in person approves the code, which signs the device
+	// in as them, or denies it, which ends it. Only a browser session
+	// decides — never an API token, and never a device session, so a
+	// signed-in CLI cannot sign further devices in. The device's
+	// session belongs to the person and to nobody else: it acts with
+	// exactly the person's memberships, roles, project scope and
+	// visibility, in every tenant, and ends when the person signs out
+	// everywhere. Problem codes: `device_authorization_not_found`
+	// (404: unknown, expired or already decided).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+	DecideDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DecideDeviceAuthorization Approve or deny a device code
+	//
+	// The signed-in person approves the code, which signs the device
+	// in as them, or denies it, which ends it. Only a browser session
+	// decides — never an API token, and never a device session, so a
+	// signed-in CLI cannot sign further devices in. The device's
+	// session belongs to the person and to nobody else: it acts with
+	// exactly the person's memberships, roles, project scope and
+	// visibility, in every tenant, and ends when the person signs out
+	// everywhere. Problem codes: `device_authorization_not_found`
+	// (404: unknown, expired or already decided).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+	DecideDeviceAuthorization(ctx context.Context, body DecideDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartDeviceAuthorizationWithBody Start signing a device in as a person
+	//
+	// How `glossa login` signs a person in on a machine with no
+	// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+	// authorization grant, RFC 8628). The CLI asks for a
+	// `device_code`, shows the `user_code` and `verification_uri`,
+	// and polls `POST /v1/auth/device-sessions` every `interval`
+	// seconds while the person approves the code in Studio, signed
+	// in as themselves.
+	//
+	// The `device_code` is the CLI's secret and is never shown; the
+	// `user_code` is eight characters from an alphabet without
+	// look-alikes, shown as `XXXX-XXXX`, and is only good for
+	// approving or denying. Both expire after `expires_in` seconds
+	// (15 minutes). Unauthenticated, rate limited per client address.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+	StartDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartDeviceAuthorization Start signing a device in as a person
+	//
+	// How `glossa login` signs a person in on a machine with no
+	// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+	// authorization grant, RFC 8628). The CLI asks for a
+	// `device_code`, shows the `user_code` and `verification_uri`,
+	// and polls `POST /v1/auth/device-sessions` every `interval`
+	// seconds while the person approves the code in Studio, signed
+	// in as themselves.
+	//
+	// The `device_code` is the CLI's secret and is never shown; the
+	// `user_code` is eight characters from an alphabet without
+	// look-alikes, shown as `XXXX-XXXX`, and is only good for
+	// approving or denying. Both expire after `expires_in` seconds
+	// (15 minutes). Unauthenticated, rate limited per client address.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+	StartDeviceAuthorization(ctx context.Context, body StartDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceAuthorization What a device code would sign in
+	//
+	// What Studio shows before the person approves: the name the
+	// device gave itself and when it asked, so a code read out by
+	// someone else is recognisable as not one's own. Only a browser
+	// session may look a code up. A code that is unknown, expired or
+	// already decided answers `404` `device_authorization_not_found`,
+	// whichever it is.
+	//
+	// Corresponds with GET /v1/auth/device-authorizations/{user_code} (the `GetDeviceAuthorization` operationId).
+	GetDeviceAuthorization(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RedeemDeviceAuthorizationWithBody Poll for the device's session
+	//
+	// The device polls with its `device_code`. Until the person
+	// decides, the answer is `400` `authorization_pending`; polling
+	// faster than `interval` answers `400` `slow_down`, and the device
+	// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+	// answers `400` `access_denied`, an expired or unknown one `400`
+	// `expired_token`. Once approved, the first poll returns the
+	// session's bearer and spends the code: a second poll with it is
+	// `expired_token`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+	RedeemDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RedeemDeviceAuthorization Poll for the device's session
+	//
+	// The device polls with its `device_code`. Until the person
+	// decides, the answer is `400` `authorization_pending`; polling
+	// faster than `interval` answers `400` `slow_down`, and the device
+	// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+	// answers `400` `access_denied`, an expired or unknown one `400`
+	// `expired_token`. Once approved, the first poll returns the
+	// session's bearer and spends the code: a second poll with it is
+	// `expired_token`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+	RedeemDeviceAuthorization(ctx context.Context, body RedeemDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ExchangeGitHubOIDCTokenWithBody Exchange a GitHub Actions ID token for a CI token
 	//
@@ -16234,6 +16459,196 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version} (the `GetWorkflowDefinitionVersion` operationId).
 	GetWorkflowDefinitionVersion(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, version WorkflowVersionPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// DecideDeviceAuthorizationWithBody Approve or deny a device code
+//
+// The signed-in person approves the code, which signs the device
+// in as them, or denies it, which ends it. Only a browser session
+// decides — never an API token, and never a device session, so a
+// signed-in CLI cannot sign further devices in. The device's
+// session belongs to the person and to nobody else: it acts with
+// exactly the person's memberships, roles, project scope and
+// visibility, in every tenant, and ends when the person signs out
+// everywhere. Problem codes: `device_authorization_not_found`
+// (404: unknown, expired or already decided).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+func (c *Client) DecideDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideDeviceAuthorizationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DecideDeviceAuthorization Approve or deny a device code
+//
+// The signed-in person approves the code, which signs the device
+// in as them, or denies it, which ends it. Only a browser session
+// decides — never an API token, and never a device session, so a
+// signed-in CLI cannot sign further devices in. The device's
+// session belongs to the person and to nobody else: it acts with
+// exactly the person's memberships, roles, project scope and
+// visibility, in every tenant, and ends when the person signs out
+// everywhere. Problem codes: `device_authorization_not_found`
+// (404: unknown, expired or already decided).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+func (c *Client) DecideDeviceAuthorization(ctx context.Context, body DecideDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideDeviceAuthorizationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartDeviceAuthorizationWithBody Start signing a device in as a person
+//
+// How `glossa login` signs a person in on a machine with no
+// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+// authorization grant, RFC 8628). The CLI asks for a
+// `device_code`, shows the `user_code` and `verification_uri`,
+// and polls `POST /v1/auth/device-sessions` every `interval`
+// seconds while the person approves the code in Studio, signed
+// in as themselves.
+//
+// The `device_code` is the CLI's secret and is never shown; the
+// `user_code` is eight characters from an alphabet without
+// look-alikes, shown as `XXXX-XXXX`, and is only good for
+// approving or denying. Both expire after `expires_in` seconds
+// (15 minutes). Unauthenticated, rate limited per client address.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+func (c *Client) StartDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartDeviceAuthorizationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartDeviceAuthorization Start signing a device in as a person
+//
+// How `glossa login` signs a person in on a machine with no
+// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+// authorization grant, RFC 8628). The CLI asks for a
+// `device_code`, shows the `user_code` and `verification_uri`,
+// and polls `POST /v1/auth/device-sessions` every `interval`
+// seconds while the person approves the code in Studio, signed
+// in as themselves.
+//
+// The `device_code` is the CLI's secret and is never shown; the
+// `user_code` is eight characters from an alphabet without
+// look-alikes, shown as `XXXX-XXXX`, and is only good for
+// approving or denying. Both expire after `expires_in` seconds
+// (15 minutes). Unauthenticated, rate limited per client address.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+func (c *Client) StartDeviceAuthorization(ctx context.Context, body StartDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartDeviceAuthorizationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetDeviceAuthorization What a device code would sign in
+//
+// What Studio shows before the person approves: the name the
+// device gave itself and when it asked, so a code read out by
+// someone else is recognisable as not one's own. Only a browser
+// session may look a code up. A code that is unknown, expired or
+// already decided answers `404` `device_authorization_not_found`,
+// whichever it is.
+//
+// Corresponds with GET /v1/auth/device-authorizations/{user_code} (the `GetDeviceAuthorization` operationId).
+func (c *Client) GetDeviceAuthorization(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceAuthorizationRequest(c.Server, userCode)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RedeemDeviceAuthorizationWithBody Poll for the device's session
+//
+// The device polls with its `device_code`. Until the person
+// decides, the answer is `400` `authorization_pending`; polling
+// faster than `interval` answers `400` `slow_down`, and the device
+// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+// answers `400` `access_denied`, an expired or unknown one `400`
+// `expired_token`. Once approved, the first poll returns the
+// session's bearer and spends the code: a second poll with it is
+// `expired_token`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+func (c *Client) RedeemDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRedeemDeviceAuthorizationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RedeemDeviceAuthorization Poll for the device's session
+//
+// The device polls with its `device_code`. Until the person
+// decides, the answer is `400` `authorization_pending`; polling
+// faster than `interval` answers `400` `slow_down`, and the device
+// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+// answers `400` `access_denied`, an expired or unknown one `400`
+// `expired_token`. Once approved, the first poll returns the
+// session's bearer and spends the code: a second poll with it is
+// `expired_token`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+func (c *Client) RedeemDeviceAuthorization(ctx context.Context, body RedeemDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRedeemDeviceAuthorizationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // ExchangeGitHubOIDCTokenWithBody Exchange a GitHub Actions ID token for a CI token
@@ -25115,6 +25530,160 @@ func (c *Client) GetWorkflowDefinitionVersion(ctx context.Context, tenant Tenant
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewDecideDeviceAuthorizationRequest calls the generic DecideDeviceAuthorization builder with application/json body
+func NewDecideDeviceAuthorizationRequest(server string, body DecideDeviceAuthorizationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDecideDeviceAuthorizationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDecideDeviceAuthorizationRequestWithBody constructs an http.Request for the DecideDeviceAuthorization method, with any body, and a specified content type
+func NewDecideDeviceAuthorizationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/device-approvals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStartDeviceAuthorizationRequest calls the generic StartDeviceAuthorization builder with application/json body
+func NewStartDeviceAuthorizationRequest(server string, body StartDeviceAuthorizationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartDeviceAuthorizationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStartDeviceAuthorizationRequestWithBody constructs an http.Request for the StartDeviceAuthorization method, with any body, and a specified content type
+func NewStartDeviceAuthorizationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/device-authorizations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetDeviceAuthorizationRequest constructs an http.Request for the GetDeviceAuthorization method
+func NewGetDeviceAuthorizationRequest(server string, userCode string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "user_code", userCode, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/device-authorizations/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRedeemDeviceAuthorizationRequest calls the generic RedeemDeviceAuthorization builder with application/json body
+func NewRedeemDeviceAuthorizationRequest(server string, body RedeemDeviceAuthorizationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRedeemDeviceAuthorizationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRedeemDeviceAuthorizationRequestWithBody constructs an http.Request for the RedeemDeviceAuthorization method, with any body, and a specified content type
+func NewRedeemDeviceAuthorizationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/device-sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewExchangeGitHubOIDCTokenRequest calls the generic ExchangeGitHubOIDCToken builder with application/json body
@@ -41599,6 +42168,128 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
+	// DecideDeviceAuthorizationWithBodyWithResponse Approve or deny a device code
+	//
+	// The signed-in person approves the code, which signs the device
+	// in as them, or denies it, which ends it. Only a browser session
+	// decides — never an API token, and never a device session, so a
+	// signed-in CLI cannot sign further devices in. The device's
+	// session belongs to the person and to nobody else: it acts with
+	// exactly the person's memberships, roles, project scope and
+	// visibility, in every tenant, and ends when the person signs out
+	// everywhere. Problem codes: `device_authorization_not_found`
+	// (404: unknown, expired or already decided).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+	DecideDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideDeviceAuthorizationResponse, error)
+
+	// DecideDeviceAuthorizationWithResponse Approve or deny a device code
+	//
+	// The signed-in person approves the code, which signs the device
+	// in as them, or denies it, which ends it. Only a browser session
+	// decides — never an API token, and never a device session, so a
+	// signed-in CLI cannot sign further devices in. The device's
+	// session belongs to the person and to nobody else: it acts with
+	// exactly the person's memberships, roles, project scope and
+	// visibility, in every tenant, and ends when the person signs out
+	// everywhere. Problem codes: `device_authorization_not_found`
+	// (404: unknown, expired or already decided).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+	DecideDeviceAuthorizationWithResponse(ctx context.Context, body DecideDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideDeviceAuthorizationResponse, error)
+
+	// StartDeviceAuthorizationWithBodyWithResponse Start signing a device in as a person
+	//
+	// How `glossa login` signs a person in on a machine with no
+	// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+	// authorization grant, RFC 8628). The CLI asks for a
+	// `device_code`, shows the `user_code` and `verification_uri`,
+	// and polls `POST /v1/auth/device-sessions` every `interval`
+	// seconds while the person approves the code in Studio, signed
+	// in as themselves.
+	//
+	// The `device_code` is the CLI's secret and is never shown; the
+	// `user_code` is eight characters from an alphabet without
+	// look-alikes, shown as `XXXX-XXXX`, and is only good for
+	// approving or denying. Both expire after `expires_in` seconds
+	// (15 minutes). Unauthenticated, rate limited per client address.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+	StartDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartDeviceAuthorizationResponse, error)
+
+	// StartDeviceAuthorizationWithResponse Start signing a device in as a person
+	//
+	// How `glossa login` signs a person in on a machine with no
+	// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+	// authorization grant, RFC 8628). The CLI asks for a
+	// `device_code`, shows the `user_code` and `verification_uri`,
+	// and polls `POST /v1/auth/device-sessions` every `interval`
+	// seconds while the person approves the code in Studio, signed
+	// in as themselves.
+	//
+	// The `device_code` is the CLI's secret and is never shown; the
+	// `user_code` is eight characters from an alphabet without
+	// look-alikes, shown as `XXXX-XXXX`, and is only good for
+	// approving or denying. Both expire after `expires_in` seconds
+	// (15 minutes). Unauthenticated, rate limited per client address.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+	StartDeviceAuthorizationWithResponse(ctx context.Context, body StartDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*StartDeviceAuthorizationResponse, error)
+
+	// GetDeviceAuthorizationWithResponse What a device code would sign in
+	//
+	// What Studio shows before the person approves: the name the
+	// device gave itself and when it asked, so a code read out by
+	// someone else is recognisable as not one's own. Only a browser
+	// session may look a code up. A code that is unknown, expired or
+	// already decided answers `404` `device_authorization_not_found`,
+	// whichever it is.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/auth/device-authorizations/{user_code} (the `GetDeviceAuthorization` operationId).
+	GetDeviceAuthorizationWithResponse(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*GetDeviceAuthorizationResponse, error)
+
+	// RedeemDeviceAuthorizationWithBodyWithResponse Poll for the device's session
+	//
+	// The device polls with its `device_code`. Until the person
+	// decides, the answer is `400` `authorization_pending`; polling
+	// faster than `interval` answers `400` `slow_down`, and the device
+	// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+	// answers `400` `access_denied`, an expired or unknown one `400`
+	// `expired_token`. Once approved, the first poll returns the
+	// session's bearer and spends the code: a second poll with it is
+	// `expired_token`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+	RedeemDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RedeemDeviceAuthorizationResponse, error)
+
+	// RedeemDeviceAuthorizationWithResponse Poll for the device's session
+	//
+	// The device polls with its `device_code`. Until the person
+	// decides, the answer is `400` `authorization_pending`; polling
+	// faster than `interval` answers `400` `slow_down`, and the device
+	// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+	// answers `400` `access_denied`, an expired or unknown one `400`
+	// `expired_token`. Once approved, the first poll returns the
+	// session's bearer and spends the code: a second poll with it is
+	// `expired_token`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+	RedeemDeviceAuthorizationWithResponse(ctx context.Context, body RedeemDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*RedeemDeviceAuthorizationResponse, error)
+
 	// ExchangeGitHubOIDCTokenWithBodyWithResponse Exchange a GitHub Actions ID token for a CI token
 	//
 	// How a GitHub Actions run authenticates without a stored secret
@@ -47309,6 +48000,233 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version} (the `GetWorkflowDefinitionVersion` operationId).
 	GetWorkflowDefinitionVersionWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, version WorkflowVersionPath, reqEditors ...RequestEditorFn) (*GetWorkflowDefinitionVersionResponse, error)
+}
+
+type DecideDeviceAuthorizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r DecideDeviceAuthorizationResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DecideDeviceAuthorizationResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DecideDeviceAuthorizationResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DecideDeviceAuthorizationResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DecideDeviceAuthorizationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DecideDeviceAuthorizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DecideDeviceAuthorizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DecideDeviceAuthorizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartDeviceAuthorizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeviceAuthorization
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON429 the response for an HTTP 429 `application/problem+json` response
+	ApplicationproblemJSON429 *TooManyRequests
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r StartDeviceAuthorizationResponse) GetJSON200() *DeviceAuthorization {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r StartDeviceAuthorizationResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON429 returns the response for an HTTP 429 `application/problem+json` response
+func (r StartDeviceAuthorizationResponse) GetApplicationproblemJSON429() *TooManyRequests {
+	return r.ApplicationproblemJSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r StartDeviceAuthorizationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartDeviceAuthorizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartDeviceAuthorizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartDeviceAuthorizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDeviceAuthorizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeviceAuthorizationView
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetDeviceAuthorizationResponse) GetJSON200() *DeviceAuthorizationView {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetDeviceAuthorizationResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetDeviceAuthorizationResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetDeviceAuthorizationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceAuthorizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceAuthorizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeviceAuthorizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RedeemDeviceAuthorizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeviceSession
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON429 the response for an HTTP 429 `application/problem+json` response
+	ApplicationproblemJSON429 *TooManyRequests
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RedeemDeviceAuthorizationResponse) GetJSON200() *DeviceSession {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r RedeemDeviceAuthorizationResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON429 returns the response for an HTTP 429 `application/problem+json` response
+func (r RedeemDeviceAuthorizationResponse) GetApplicationproblemJSON429() *TooManyRequests {
+	return r.ApplicationproblemJSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r RedeemDeviceAuthorizationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RedeemDeviceAuthorizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RedeemDeviceAuthorizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RedeemDeviceAuthorizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type ExchangeGitHubOIDCTokenResponse struct {
@@ -65697,6 +66615,170 @@ func (r GetWorkflowDefinitionVersionResponse) ContentType() string {
 	return ""
 }
 
+// DecideDeviceAuthorizationWithBodyWithResponse Approve or deny a device code
+//
+// The signed-in person approves the code, which signs the device
+// in as them, or denies it, which ends it. Only a browser session
+// decides — never an API token, and never a device session, so a
+// signed-in CLI cannot sign further devices in. The device's
+// session belongs to the person and to nobody else: it acts with
+// exactly the person's memberships, roles, project scope and
+// visibility, in every tenant, and ends when the person signs out
+// everywhere. Problem codes: `device_authorization_not_found`
+// (404: unknown, expired or already decided).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+func (c *ClientWithResponses) DecideDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideDeviceAuthorizationResponse, error) {
+	rsp, err := c.DecideDeviceAuthorizationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDecideDeviceAuthorizationResponse(rsp)
+}
+
+// DecideDeviceAuthorizationWithResponse Approve or deny a device code
+//
+// The signed-in person approves the code, which signs the device
+// in as them, or denies it, which ends it. Only a browser session
+// decides — never an API token, and never a device session, so a
+// signed-in CLI cannot sign further devices in. The device's
+// session belongs to the person and to nobody else: it acts with
+// exactly the person's memberships, roles, project scope and
+// visibility, in every tenant, and ends when the person signs out
+// everywhere. Problem codes: `device_authorization_not_found`
+// (404: unknown, expired or already decided).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+func (c *ClientWithResponses) DecideDeviceAuthorizationWithResponse(ctx context.Context, body DecideDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideDeviceAuthorizationResponse, error) {
+	rsp, err := c.DecideDeviceAuthorization(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDecideDeviceAuthorizationResponse(rsp)
+}
+
+// StartDeviceAuthorizationWithBodyWithResponse Start signing a device in as a person
+//
+// How `glossa login` signs a person in on a machine with no
+// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+// authorization grant, RFC 8628). The CLI asks for a
+// `device_code`, shows the `user_code` and `verification_uri`,
+// and polls `POST /v1/auth/device-sessions` every `interval`
+// seconds while the person approves the code in Studio, signed
+// in as themselves.
+//
+// The `device_code` is the CLI's secret and is never shown; the
+// `user_code` is eight characters from an alphabet without
+// look-alikes, shown as `XXXX-XXXX`, and is only good for
+// approving or denying. Both expire after `expires_in` seconds
+// (15 minutes). Unauthenticated, rate limited per client address.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+func (c *ClientWithResponses) StartDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartDeviceAuthorizationResponse, error) {
+	rsp, err := c.StartDeviceAuthorizationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartDeviceAuthorizationResponse(rsp)
+}
+
+// StartDeviceAuthorizationWithResponse Start signing a device in as a person
+//
+// How `glossa login` signs a person in on a machine with no
+// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+// authorization grant, RFC 8628). The CLI asks for a
+// `device_code`, shows the `user_code` and `verification_uri`,
+// and polls `POST /v1/auth/device-sessions` every `interval`
+// seconds while the person approves the code in Studio, signed
+// in as themselves.
+//
+// The `device_code` is the CLI's secret and is never shown; the
+// `user_code` is eight characters from an alphabet without
+// look-alikes, shown as `XXXX-XXXX`, and is only good for
+// approving or denying. Both expire after `expires_in` seconds
+// (15 minutes). Unauthenticated, rate limited per client address.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+func (c *ClientWithResponses) StartDeviceAuthorizationWithResponse(ctx context.Context, body StartDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*StartDeviceAuthorizationResponse, error) {
+	rsp, err := c.StartDeviceAuthorization(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartDeviceAuthorizationResponse(rsp)
+}
+
+// GetDeviceAuthorizationWithResponse What a device code would sign in
+//
+// What Studio shows before the person approves: the name the
+// device gave itself and when it asked, so a code read out by
+// someone else is recognisable as not one's own. Only a browser
+// session may look a code up. A code that is unknown, expired or
+// already decided answers `404` `device_authorization_not_found`,
+// whichever it is.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/auth/device-authorizations/{user_code} (the `GetDeviceAuthorization` operationId).
+func (c *ClientWithResponses) GetDeviceAuthorizationWithResponse(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*GetDeviceAuthorizationResponse, error) {
+	rsp, err := c.GetDeviceAuthorization(ctx, userCode, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceAuthorizationResponse(rsp)
+}
+
+// RedeemDeviceAuthorizationWithBodyWithResponse Poll for the device's session
+//
+// The device polls with its `device_code`. Until the person
+// decides, the answer is `400` `authorization_pending`; polling
+// faster than `interval` answers `400` `slow_down`, and the device
+// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+// answers `400` `access_denied`, an expired or unknown one `400`
+// `expired_token`. Once approved, the first poll returns the
+// session's bearer and spends the code: a second poll with it is
+// `expired_token`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+func (c *ClientWithResponses) RedeemDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RedeemDeviceAuthorizationResponse, error) {
+	rsp, err := c.RedeemDeviceAuthorizationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRedeemDeviceAuthorizationResponse(rsp)
+}
+
+// RedeemDeviceAuthorizationWithResponse Poll for the device's session
+//
+// The device polls with its `device_code`. Until the person
+// decides, the answer is `400` `authorization_pending`; polling
+// faster than `interval` answers `400` `slow_down`, and the device
+// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+// answers `400` `access_denied`, an expired or unknown one `400`
+// `expired_token`. Once approved, the first poll returns the
+// session's bearer and spends the code: a second poll with it is
+// `expired_token`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+func (c *ClientWithResponses) RedeemDeviceAuthorizationWithResponse(ctx context.Context, body RedeemDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*RedeemDeviceAuthorizationResponse, error) {
+	rsp, err := c.RedeemDeviceAuthorization(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRedeemDeviceAuthorizationResponse(rsp)
+}
+
 // ExchangeGitHubOIDCTokenWithBodyWithResponse Exchange a GitHub Actions ID token for a CI token
 //
 // How a GitHub Actions run authenticates without a stored secret
@@ -73500,6 +74582,176 @@ func (c *ClientWithResponses) GetWorkflowDefinitionVersionWithResponse(ctx conte
 		return nil, err
 	}
 	return ParseGetWorkflowDefinitionVersionResponse(rsp)
+}
+
+// ParseDecideDeviceAuthorizationResponse parses an HTTP response from a DecideDeviceAuthorizationWithResponse call
+func ParseDecideDeviceAuthorizationResponse(rsp *http.Response) (*DecideDeviceAuthorizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DecideDeviceAuthorizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartDeviceAuthorizationResponse parses an HTTP response from a StartDeviceAuthorizationWithResponse call
+func ParseStartDeviceAuthorizationResponse(rsp *http.Response) (*StartDeviceAuthorizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartDeviceAuthorizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceAuthorization
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest TooManyRequests
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceAuthorizationResponse parses an HTTP response from a GetDeviceAuthorizationWithResponse call
+func ParseGetDeviceAuthorizationResponse(rsp *http.Response) (*GetDeviceAuthorizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceAuthorizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceAuthorizationView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRedeemDeviceAuthorizationResponse parses an HTTP response from a RedeemDeviceAuthorizationWithResponse call
+func ParseRedeemDeviceAuthorizationResponse(rsp *http.Response) (*RedeemDeviceAuthorizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RedeemDeviceAuthorizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest TooManyRequests
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON429 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseExchangeGitHubOIDCTokenResponse parses an HTTP response from a ExchangeGitHubOIDCTokenWithResponse call

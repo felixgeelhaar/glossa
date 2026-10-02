@@ -246,6 +246,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/device-authorizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start signing a device in as a person
+         * @description How `glossa login` signs a person in on a machine with no
+         *     browser session (RFC 0006 §7.2, the OAuth 2.0 device
+         *     authorization grant, RFC 8628). The CLI asks for a
+         *     `device_code`, shows the `user_code` and `verification_uri`,
+         *     and polls `POST /v1/auth/device-sessions` every `interval`
+         *     seconds while the person approves the code in Studio, signed
+         *     in as themselves.
+         *
+         *     The `device_code` is the CLI's secret and is never shown; the
+         *     `user_code` is eight characters from an alphabet without
+         *     look-alikes, shown as `XXXX-XXXX`, and is only good for
+         *     approving or denying. Both expire after `expires_in` seconds
+         *     (15 minutes). Unauthenticated, rate limited per client address.
+         */
+        post: operations["startDeviceAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/device-authorizations/{user_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The code the device shows, with or without its hyphen, in any case. */
+                user_code: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * What a device code would sign in
+         * @description What Studio shows before the person approves: the name the
+         *     device gave itself and when it asked, so a code read out by
+         *     someone else is recognisable as not one's own. Only a browser
+         *     session may look a code up. A code that is unknown, expired or
+         *     already decided answers `404` `device_authorization_not_found`,
+         *     whichever it is.
+         */
+        get: operations["getDeviceAuthorization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/device-approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or deny a device code
+         * @description The signed-in person approves the code, which signs the device
+         *     in as them, or denies it, which ends it. Only a browser session
+         *     decides — never an API token, and never a device session, so a
+         *     signed-in CLI cannot sign further devices in. The device's
+         *     session belongs to the person and to nobody else: it acts with
+         *     exactly the person's memberships, roles, project scope and
+         *     visibility, in every tenant, and ends when the person signs out
+         *     everywhere. Problem codes: `device_authorization_not_found`
+         *     (404: unknown, expired or already decided).
+         */
+        post: operations["decideDeviceAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/device-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Poll for the device's session
+         * @description The device polls with its `device_code`. Until the person
+         *     decides, the answer is `400` `authorization_pending`; polling
+         *     faster than `interval` answers `400` `slow_down`, and the device
+         *     adds five seconds to its interval (RFC 8628 §3.5). A denied code
+         *     answers `400` `access_denied`, an expired or unknown one `400`
+         *     `expired_token`. Once approved, the first poll returns the
+         *     session's bearer and spends the code: a second poll with it is
+         *     `expired_token`.
+         */
+        post: operations["redeemDeviceAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/github-oidc-exchanges": {
         parameters: {
             query?: never;
@@ -6583,6 +6698,59 @@ export interface components {
         EmailRequest: {
             email: components["schemas"]["Email"];
         };
+        DeviceAuthorizationRequest: {
+            /** @description What the device calls itself, shown to the person who approves it — e.g. `glossa CLI on build-01`. */
+            client_name: string;
+        };
+        DeviceAuthorization: {
+            /** @description The device's secret for polling. Never shown to a person. */
+            device_code: string;
+            /** @description Shown to the person, as `XXXX-XXXX`. */
+            user_code: string;
+            /**
+             * Format: uri
+             * @description Studio's page where the person enters the code.
+             */
+            verification_uri: string;
+            /**
+             * Format: uri
+             * @description The same page with the code filled in.
+             */
+            verification_uri_complete: string;
+            /** @description Seconds until both codes expire. */
+            expires_in: number;
+            /** @description Seconds to wait between polls. */
+            interval: number;
+        };
+        DeviceAuthorizationView: {
+            user_code: string;
+            client_name: string;
+            /** Format: date-time */
+            requested_at: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        DeviceApproval: {
+            user_code: string;
+            /** @enum {string} */
+            decision: "approved" | "denied";
+        };
+        DeviceSessionRequest: {
+            device_code: string;
+        };
+        DeviceSession: {
+            /** @description `glossa_dev_…`: the person's session as a bearer. */
+            access_token: string;
+            /** @enum {string} */
+            token_type: "Bearer";
+            /**
+             * Format: date-time
+             * @description When the session ends unless the person signs out sooner.
+             */
+            expires_at: string;
+            /** Format: uuid */
+            person_id: string;
+        };
         TokenRedemption: {
             /** @description The token from the emailed link. */
             token: string;
@@ -11248,6 +11416,109 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    startDeviceAuthorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceAuthorizationRequest"];
+            };
+        };
+        responses: {
+            /** @description The codes to show and poll with. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceAuthorization"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getDeviceAuthorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The code the device shows, with or without its hyphen, in any case. */
+                user_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pending request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceAuthorizationView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    decideDeviceAuthorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceApproval"];
+            };
+        };
+        responses: {
+            /** @description Decided. The device's next poll learns the outcome. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    redeemDeviceAuthorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in. Send `access_token` as `Authorization: Bearer`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     exchangeGitHubOIDCToken: {
