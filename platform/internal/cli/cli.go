@@ -88,7 +88,7 @@ func commands() []command {
 		{"import", "Import XLIFF, JSON, PO, TMX or TBX files (--format), or Glossa v0.3 (--from v0)", runImport},
 		{"export", "Export XLIFF, JSON, TMX or TBX files, verified by SHA-256", runExport},
 		{"jobs", "List, show and cancel import and export jobs", runJobs},
-		{"release", "Publish, promote and roll back releases", runRelease},
+		{"release", "Publish, promote, roll back and roll out releases; release requests", runRelease},
 		{"branch", "Show or close a feature branch's proposals", runBranch},
 		{"preview", "Register where CI deployed a branch's preview", runPreview},
 		{"github", "List, add and remove Git connections (repository → project)", runGitHub},
@@ -99,6 +99,8 @@ func commands() []command {
 		{"review", "Review AI suggestions: list, accept, reject", runReview},
 		{"workflow", "Lint, push, pull and bind workflow definitions; list instances and their log", runWorkflow},
 		{"assignments", "My work: list, show, accept, complete, decline; create assignments", runAssignments},
+		{"approve", "Approve a release request or a translation (a person's session); list what waits", runApprove},
+		{"deny", "Deny a release request or a translation, with a reason", runDeny},
 		{"ai", "Show AI consent, budget, providers and project policy", runAI},
 		{"audit", "Verify a signed audit export offline (glossa.audit/v1)", runAudit},
 		{"mcp", "Speak MCP on stdin/stdout, proxying to the server's /mcp endpoint", runMCP},
@@ -167,7 +169,7 @@ Flags every command takes:
   --no-color   never color output (also NO_COLOR=1)
   --config     path to glossa.yaml (default: nearest one up from here)
 
-Exit codes: 0 ok · 1 check failed · 2 usage or config · 3 network or auth · 4 partial failure
+Exit codes: 0 ok · 1 check failed · 2 usage or config · 3 network or auth · 4 partial failure · 5 held for approval
 Run "glossa <command> --help" for a command's flags.
 `)
 }

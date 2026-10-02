@@ -22,6 +22,9 @@ type fakeEnv struct {
 	current string   // release ID
 	served  []string // release IDs, oldest first
 	version int
+	// approvals is the environment's approval requirement (0: none):
+	// that many distinct people of role reviewer (fakeapprovals_test.go).
+	approvals int
 }
 
 type fakeRel struct {
@@ -170,12 +173,19 @@ func (f *fakeServer) publish(w http.ResponseWriter, r *http.Request) {
 	key := r.Header.Get("Idempotency-Key")
 	if id, ok := f.rel.idem[key]; ok && key != "" {
 		w.Header().Set("Idempotent-Replayed", "true")
+		if q := f.heldByKey(key); q != nil {
+			f.writeHeld(w, q)
+			return
+		}
 		writeJSONResp(w, 201, f.relJSON(f.findRelease(id)))
 		return
 	}
 	e := f.rel.envs[body.Environment]
 	if e == nil {
 		problemResp(w, 400, "invalid_environment", fmt.Sprintf("no environment %q", body.Environment))
+		return
+	}
+	if f.refuseUnderRollout(w, e) {
 		return
 	}
 	if len(f.messages) == 0 {
@@ -189,10 +199,14 @@ func (f *fakeServer) publish(w http.ResponseWriter, r *http.Request) {
 		f.rel.stored[digest(b)] = true
 	}
 	f.rel.releases = append(f.rel.releases, rel)
-	e.current, e.served = rel.id, append(e.served, rel.id)
 	if key != "" {
 		f.rel.idem[key] = rel.id
 	}
+	if e.approvals > 0 {
+		f.writeHeld(w, f.hold(r, e, rel, "publish", key))
+		return
+	}
+	e.current, e.served = rel.id, append(e.served, rel.id)
 	writeJSONResp(w, 201, f.relJSON(rel))
 }
 
@@ -396,6 +410,13 @@ func (f *fakeServer) promote(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if f.refuseUnderRollout(w, e) {
+		return
+	}
+	if e.approvals > 0 {
+		f.writeHeld(w, f.hold(r, e, rel, "promote", ""))
+		return
+	}
 	if e.current != rel.id {
 		e.current, e.served = rel.id, append(e.served, rel.id)
 	}
@@ -435,6 +456,10 @@ func (f *fakeServer) rollback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	e.current, e.served = target.id, append(e.served, target.id)
+	// A rollback is never refused: it aborts the rollout (RFC 0006 §5.2).
+	if ro := f.activeRolloutOf(e.name); ro != nil {
+		ro.end("aborted", "rolled_back")
+	}
 	writeJSONResp(w, 200, f.envJSON(e))
 }
 

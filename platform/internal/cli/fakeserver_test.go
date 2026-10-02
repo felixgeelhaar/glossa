@@ -50,13 +50,14 @@ type fakeServer struct {
 	members      *fakeMembers
 	wf           *fakeWorkflows
 	audit        *fakeAuditImports
+	appr         *fakeApprovals
 	requests     []string
 }
 
 // accepts reports whether an Authorization header names a credential
 // this server knows: the API token, or a CI token it minted.
 func (f *fakeServer) accepts(header string) bool {
-	if header == "Bearer "+testToken {
+	if header == "Bearer "+testToken || personOf(header) != "" {
 		return true
 	}
 	f.mu.Lock()
@@ -125,6 +126,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 	f.routeMembers(mux)
 	f.routeWorkflows(mux)
 	f.routeAuditImports(mux, p)
+	f.routeApprovals(mux, p)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path+" "+r.Header.Get("Idempotency-Key"))
