@@ -55,6 +55,7 @@ var (
 		Selectors: []string{"vendor_id", "locales", "created_by", "changed_by", "deleted_by"},
 	}
 	identityGroup  = Projection{Selectors: []string{"group_id", "member_id", "by"}, By: "by"}
+	identityDevice = Projection{Selectors: []string{"authorization_id", "person_id", "status", "by"}, By: "by"}
 	integrationJob = Projection{
 		// The payload's by is the job's requester; the event's actor is
 		// whoever ended it (often the worker), so by is not taken.
@@ -223,6 +224,11 @@ var Projections = map[string]Projection{
 	"identity.group.created":  identityGroup, "identity.group.renamed": identityGroup,
 	"identity.group.deleted": identityGroup, "identity.group.member_added": identityGroup,
 	"identity.group.member_removed": identityGroup,
+	// Device sign-in (RFC 0006 §7.2): the authorization, the person and
+	// the outcome. The name the device gave itself is whatever it sent,
+	// so it is recorded as its length.
+	"identity.device_authorization.approved": identityDevice, "identity.device_authorization.denied": identityDevice,
+	"identity.device_authorization.redeemed": identityDevice,
 
 	"integration.import.completed": integrationJob, "integration.export.completed": integrationJob,
 

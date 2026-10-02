@@ -124,14 +124,15 @@ func newHarnessMailing(t *testing.T, mailing bool, with ...func(*app.Deps)) *har
 		t.Fatal(err)
 	}
 	deps := app.Deps{
-		Passkeys:      passkeys,
-		Tx:            postgres.NewTransactor(uow, cipher),
-		Sessions:      postgres.NewSessionRepo(uow),
-		SignInLinks:   postgres.NewLinkRepo(uow, postgres.PurposeSignIn),
-		ResetLinks:    postgres.NewLinkRepo(uow, postgres.PurposePasswordReset),
-		TOTP:          postgres.NewTOTPRepo(uow, cipher),
-		LoginAttempts: postgres.NewLoginAttemptRepo(uow),
-		Clock:         h.clock.Now,
+		Passkeys:       passkeys,
+		Tx:             postgres.NewTransactor(uow, cipher),
+		Sessions:       postgres.NewSessionRepo(uow),
+		DeviceSessions: postgres.NewDeviceSessionRepo(uow),
+		SignInLinks:    postgres.NewLinkRepo(uow, postgres.PurposeSignIn),
+		ResetLinks:     postgres.NewLinkRepo(uow, postgres.PurposePasswordReset),
+		TOTP:           postgres.NewTOTPRepo(uow, cipher),
+		LoginAttempts:  postgres.NewLoginAttemptRepo(uow),
+		Clock:          h.clock.Now,
 	}
 	if mailing {
 		deps.Mailer = h.mail

@@ -20,6 +20,9 @@ var (
 	ErrDuplicate    = errors.New("identity: already a member")
 	ErrStaleVersion = errors.New("identity: version changed")
 	ErrNameTaken    = errors.New("identity: name already used in this tenant")
+	// ErrUserCodeTaken means a fresh user code is already held by a
+	// pending device authorization.
+	ErrUserCodeTaken = errors.New("identity: user code already pending")
 )
 
 // Transactor runs units of work in the kernel's two scopes. Calls don't
@@ -150,6 +153,24 @@ type SystemStore interface {
 	// DeletePasskeyOf removes the person's passkey (ErrNotFound if they
 	// have no such passkey).
 	DeletePasskeyOf(ctx context.Context, person domain.PersonID, credentialID []byte) error
+
+	// Device sign-in (RFC 0006 §7.2). Authorizations are found by the
+	// hash of a code, never the code; Lock… holds the row until the
+	// transaction ends, so a decision and a poll never interleave.
+	InsertDeviceAuthorization(ctx context.Context, d domain.DeviceAuthorization) error
+	// PurgeDeviceAuthorizations drops authorizations that expired
+	// before the time given.
+	PurgeDeviceAuthorizations(ctx context.Context, before time.Time) (int64, error)
+	// LockPendingDeviceAuthorization finds the pending, unexpired
+	// authorization a user code names (ErrNotFound otherwise).
+	LockPendingDeviceAuthorization(ctx context.Context, userCodeHash string, now time.Time) (domain.DeviceAuthorization, error)
+	// LockDeviceAuthorization finds the authorization a device code
+	// names, in whatever state (ErrNotFound when there is none).
+	LockDeviceAuthorization(ctx context.Context, deviceCodeHash string) (domain.DeviceAuthorization, error)
+	UpdateDeviceAuthorization(ctx context.Context, d domain.DeviceAuthorization) error
+	// WithdrawDeviceApprovals denies every device the person approved
+	// that has not yet taken its session (sign out everywhere).
+	WithdrawDeviceApprovals(ctx context.Context, person domain.PersonID) error
 
 	SaveCeremony(ctx context.Context, c Ceremony) error
 	// TakeCeremony deletes and returns a ceremony (ErrNotFound if absent).

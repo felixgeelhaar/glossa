@@ -149,7 +149,8 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_OUTBOX_HANDLER_TIMEOUT` | `30s` | Budget for one subscriber, retries included. |
 | `GLOSSA_AUTH_SECRET` | required | Base64 of ≥ 32 random bytes. The CSRF, TOTP-sealing, passkey-state and secret-sealing keys are derived from it (HKDF). Rotating it invalidates CSRF tokens and in-flight passkey ceremonies and makes enrolled TOTP secrets and tenants' AI provider keys unreadable (they are entered again). |
 | `GLOSSA_STUDIO_URL` | `http://localhost:5173` | Studio's origin; emailed links point into it. |
-| `GLOSSA_SESSION_TTL` | `336h` | Session lifetime. |
+| `GLOSSA_SESSION_TTL` | `336h` | Session lifetime, the CLI's device sessions (`glossa login --device`) included. |
+| `GLOSSA_TRUSTED_PROXIES` | — | Comma-separated CIDRs (or addresses) of the reverse proxies whose `X-Forwarded-For` names the client. Limits per client address — starting a device sign-in, ten a minute — key on the rightmost untrusted hop; unset, the TCP peer is the client, so behind an ingress set it to the ingress's pod range. |
 | `GLOSSA_MAIL_DRIVER` | `none` | `none` (no email: magic links and password reset by email are off, password accounts work unverified), `smtp`, or `log` (development only: mail goes to the log, links included). |
 | `GLOSSA_MAIL_FROM` | `Glossa <no-reply@localhost>` | Sender. |
 | `GLOSSA_SMTP_ADDR` / `_USERNAME` / `_PASSWORD` | — | Submission server (`host:587`) and AUTH PLAIN credentials. STARTTLS is required. |

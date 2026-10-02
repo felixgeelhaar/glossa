@@ -334,15 +334,31 @@ func (s *Service) ResetPassword(ctx context.Context, token, password string) err
 
 // SignOut revokes one session by its raw cookie value.
 func (s *Service) SignOut(ctx context.Context, sessionToken string) error {
-	tok, err := authgo.TokenFromString(sessionToken)
+	return s.signOutWith(ctx, s.sessions, sessionToken)
+}
+
+func (s *Service) signOutWith(ctx context.Context, sessions *authgo.SessionService, raw string) error {
+	tok, err := authgo.TokenFromString(raw)
 	if err != nil {
 		return ErrUnauthenticated
 	}
-	return s.sessions.Revoke(ctx, tok)
+	return sessions.Revoke(ctx, tok)
 }
 
-// SignOutEverywhere revokes all of a person's sessions.
+// SignOutEverywhere revokes all of a person's sessions, the sessions of
+// the devices they signed in included (RFC 0006 §7.2), and withdraws
+// any device they approved that has not yet taken its session, so no
+// device signs in after the person signed out everywhere.
 func (s *Service) SignOutEverywhere(ctx context.Context, person domain.PersonID) error {
+	// Approvals first: a device redeeming meanwhile either took its
+	// session before this (and RevokeAll ends it) or finds its
+	// approval withdrawn.
+	err := s.tx.InSystem(ctx, func(ctx context.Context, st SystemStore) error {
+		return st.WithdrawDeviceApprovals(ctx, person)
+	})
+	if err != nil {
+		return err
+	}
 	return s.sessions.RevokeAll(ctx, userID(person))
 }
 

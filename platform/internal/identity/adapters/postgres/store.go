@@ -63,6 +63,9 @@ var uniqueErrors = map[string]error{
 	"identity_group_members_pkey": domain.ErrAlreadyInGroup,
 	// Two requests with one idempotency key race for the same ID.
 	"tenants_pkey": app.ErrIdempotencyBusy,
+	// 0054: a fresh user code that a pending authorization already
+	// holds; the start draws another.
+	"identity_device_authorizations_pending_user_code": app.ErrUserCodeTaken,
 }
 
 // storeError maps storage errors to the application's.

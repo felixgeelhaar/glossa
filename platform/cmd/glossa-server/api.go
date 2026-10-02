@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/klarlabs-studio/auth-go/aesgcm"
@@ -25,6 +26,7 @@ import (
 	intelligenceapi "github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/ratelimit"
 	knowledgeapi "github.com/felixgeelhaar/glossa/platform/internal/knowledge/adapters/httpapi"
 	localizationapi "github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/mcpgo"
@@ -136,15 +138,20 @@ func newIdentity(
 
 	uow := db.NewUnitOfWork(pool)
 	deps := identityapp.Deps{
-		Tx:            postgres.NewTransactor(uow, cipher),
-		Sessions:      postgres.NewSessionRepo(uow),
-		SignInLinks:   postgres.NewLinkRepo(uow, postgres.PurposeSignIn),
-		ResetLinks:    postgres.NewLinkRepo(uow, postgres.PurposePasswordReset),
-		TOTP:          postgres.NewTOTPRepo(uow, cipher),
-		LoginAttempts: postgres.NewLoginAttemptRepo(uow),
-		Mailer:        mailer,
-		Audit:         identityaudit.New(trail),
-		Logger:        logger,
+		Tx:       postgres.NewTransactor(uow, cipher),
+		Sessions: postgres.NewSessionRepo(uow),
+		// Device sign-in (RFC 0006 §7.2): the CLI's sessions, and the
+		// limits on starting one (per client address) and on looking up
+		// and deciding codes (per person).
+		DeviceSessions: postgres.NewDeviceSessionRepo(uow),
+		DeviceLimits:   ratelimit.New(deviceSignInLimit()),
+		SignInLinks:    postgres.NewLinkRepo(uow, postgres.PurposeSignIn),
+		ResetLinks:     postgres.NewLinkRepo(uow, postgres.PurposePasswordReset),
+		TOTP:           postgres.NewTOTPRepo(uow, cipher),
+		LoginAttempts:  postgres.NewLoginAttemptRepo(uow),
+		Mailer:         mailer,
+		Audit:          identityaudit.New(trail),
+		Logger:         logger,
 	}
 	if cfg.WebAuthn.Enabled() {
 		stateKey, err := deriveKey(root, "webauthn-state")
@@ -165,7 +172,20 @@ func newIdentity(
 		return nil, nil, err
 	}
 	api, err := httpapi.New(svc, csrfKey, logger)
-	return api, svc, err
+	if err != nil {
+		return nil, nil, err
+	}
+	api.SetTrustedProxies(cfg.TrustedProxies)
+	return api, svc, nil
+}
+
+// deviceSignInLimit bounds device sign-in per key (RFC 0006 §7.2): ten
+// a minute with bursts of twenty, per client address for starts and per
+// person for user-code look-ups and decisions. A person types a code
+// once or twice; at this rate guessing one of 20^8 codes takes longer
+// than the fifteen minutes any code lives, by nine orders of magnitude.
+func deviceSignInLimit() ratelimit.Config {
+	return ratelimit.Config{Rate: 10, Interval: time.Minute, Burst: 20}
 }
 
 // deriveKey gives each use of the auth secret its own key (HKDF-SHA256),

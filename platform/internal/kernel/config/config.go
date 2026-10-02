@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -294,6 +295,10 @@ type Identity struct {
 	SessionTTL time.Duration
 	Mail       Mail
 	WebAuthn   WebAuthn
+	// TrustedProxies are the reverse proxies (CIDRs) whose
+	// X-Forwarded-For names the client, for limits per client address
+	// such as device sign-in starts. Empty: the peer is the client.
+	TrustedProxies []netip.Prefix
 }
 
 // AuthKey returns the decoded AuthSecret (validated by Load).
@@ -544,6 +549,21 @@ func (r *reader) identity() Identity {
 		}
 	default:
 		r.fail("GLOSSA_MAIL_DRIVER", "must be none, smtp or log (got %q)", id.Mail.Driver)
+	}
+	for _, raw := range strings.Split(r.str("GLOSSA_TRUSTED_PROXIES", ""), ",") {
+		if raw = strings.TrimSpace(raw); raw == "" {
+			continue
+		}
+		p, err := netip.ParsePrefix(raw)
+		if err != nil {
+			addr, aerr := netip.ParseAddr(raw)
+			if aerr != nil {
+				r.fail("GLOSSA_TRUSTED_PROXIES", "%q is not a CIDR or an address", raw)
+				continue
+			}
+			p = netip.PrefixFrom(addr, addr.BitLen())
+		}
+		id.TrustedProxies = append(id.TrustedProxies, p.Masked())
 	}
 	if id.WebAuthn.Enabled() {
 		for _, o := range strings.Split(r.str("GLOSSA_WEBAUTHN_ORIGINS", id.StudioURL), ",") {

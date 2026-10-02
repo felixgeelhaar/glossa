@@ -27,6 +27,21 @@ type IdentityApiToken struct {
 	Projects   []uuid.UUID
 }
 
+type IdentityDeviceAuthorization struct {
+	ID              uuid.UUID
+	DeviceCodeHash  string
+	UserCodeHash    string
+	ClientName      string
+	Status          string
+	PersonID        uuid.NullUUID
+	IntervalSeconds int32
+	RequestedAt     time.Time
+	ExpiresAt       time.Time
+	LastPolledAt    pgtype.Timestamptz
+	DecidedAt       pgtype.Timestamptz
+	RedeemedAt      pgtype.Timestamptz
+}
+
 type IdentityEmailLink struct {
 	Hash      string
 	Purpose   string
@@ -88,13 +103,6 @@ type IdentityPreviewOrigin struct {
 	Label     string
 	CreatedBy string
 	CreatedAt time.Time
-}
-
-type IdentitySession struct {
-	TokenHash string
-	PersonID  uuid.UUID
-	CreatedAt time.Time
-	ExpiresAt time.Time
 }
 
 type IdentityTotp struct {

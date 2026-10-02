@@ -45,7 +45,9 @@ var systemTables = map[string]string{
 	"identity_passkeys":            "a person's passkeys, checked at sign-in",
 	"identity_webauthn_ceremonies": "passkey challenges in flight, before the tenant is known",
 	"identity_login_attempts":      "brute-force counters per email, checked at sign-in",
-	"system_leases":                "which replica leads a periodic job, and when it last ran; a deployment's own bookkeeping, never a tenant's",
+	"identity_device_authorizations": "a device signing a person in (RFC 0006 §7.2) asks and polls before any tenant is known, " +
+		"and the session it receives spans all the person's tenants",
+	"system_leases": "which replica leads a periodic job, and when it last ran; a deployment's own bookkeeping, never a tenant's",
 }
 
 // systemPolicies are the only policies allowed to target a role other
@@ -159,13 +161,14 @@ var systemPolicies = map[string][]string{
 	// may act on and nothing about anyone else's.
 	"integration_git_connections": {"integration_git_connections_system_select"},
 	// Identity's global tables are system scope only (see systemTables).
-	"identity_people":              {"identity_people_system"},
-	"identity_sessions":            {"identity_sessions_system"},
-	"identity_email_links":         {"identity_email_links_system"},
-	"identity_totp":                {"identity_totp_system"},
-	"identity_passkeys":            {"identity_passkeys_system"},
-	"identity_webauthn_ceremonies": {"identity_webauthn_ceremonies_system"},
-	"identity_login_attempts":      {"identity_login_attempts_system"},
+	"identity_people":                {"identity_people_system"},
+	"identity_sessions":              {"identity_sessions_system"},
+	"identity_email_links":           {"identity_email_links_system"},
+	"identity_totp":                  {"identity_totp_system"},
+	"identity_passkeys":              {"identity_passkeys_system"},
+	"identity_webauthn_ceremonies":   {"identity_webauthn_ceremonies_system"},
+	"identity_login_attempts":        {"identity_login_attempts_system"},
+	"identity_device_authorizations": {"identity_device_authorizations_system"},
 }
 
 type tableSecurity struct {

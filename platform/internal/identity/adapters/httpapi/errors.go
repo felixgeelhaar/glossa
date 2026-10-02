@@ -136,6 +136,7 @@ var problems = []struct {
 	{app.ErrAccessDenied, mapping{400, "access_denied", "the person denied this sign-in"}},
 	{app.ErrExpiredToken, mapping{400, "expired_token", "the device code is unknown, expired or already used; start again"}},
 	{app.ErrInvalidClientName, mapping{400, "invalid_request", "client_name is 1-100 characters"}},
+	{app.ErrDeviceRateLimited, mapping{429, "rate_limited", "too many device sign-in attempts; wait a minute and try again"}},
 	{tenancy.ErrInvalidSlug, mapping{400, "invalid_slug", "lowercase letters, digits and inner hyphens, at most 63"}},
 	{tenancy.ErrInvalidName, mapping{400, "invalid_name", "1-200 characters"}},
 }
