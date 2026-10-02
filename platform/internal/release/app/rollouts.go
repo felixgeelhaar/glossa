@@ -154,11 +154,7 @@ func (s *Service) StartRollout(ctx context.Context, project uuid.UUID, name stri
 // such an environment needs them as a publish would; until a release
 // request can carry a rollout, StartRollout refuses it
 // (domain.ErrRolloutNeedsApproval) rather than starting it unapproved.
-//
-// Environments carry no approval policy before the release-approvals
-// slice of M5 wave 3 (migration 0047) lands beside this one; merging it
-// makes this read the environment's `approval`.
-func approvalRequired(domain.Environment) bool { return false }
+func approvalRequired(env domain.Environment) bool { return env.Approval != nil }
 
 // AdvanceRollout changes the share of installations in the candidate.
 // Any percent may follow any other (RFC 0006 §15 Q5), and advancing

@@ -337,3 +337,24 @@ func gauge(t *testing.T, reg *prometheus.Registry) float64 {
 	t.Fatal("glossa_release_rollouts{state=\"active\"} was never set")
 	return 0
 }
+
+// A rollout puts a release in front of real installations, so into an
+// environment that requires release approvals it is refused until a
+// release request can carry one (RFC 0006 §5.2) — never started
+// unapproved. The two slices were built apart, and before they met
+// this check read no approval at all.
+func TestARolloutIntoAnApprovalEnvironmentIsRefused(t *testing.T) {
+	h := newHarness(t)
+	p, _, v2 := h.rolloutProject(t)
+	h.requireApproval(t, p, "production", 2)
+	before := h.current(t, p, "production")
+	if _, _, err := h.svc.StartRollout(h.as("developer"), p, "production", app.RolloutInput{Release: v2.ID, Percent: 10}, ""); !errors.Is(err, domain.ErrRolloutNeedsApproval) {
+		t.Fatalf("starting a rollout into an environment that needs approval: err = %v, want ErrRolloutNeedsApproval", err)
+	}
+	if rs, err := h.svc.ListRollouts(h.owner(), p, "production"); err != nil || len(rs) != 0 {
+		t.Fatalf("rollouts = %+v, %v; want none", rs, err)
+	}
+	if after := h.current(t, p, "production"); after != before {
+		t.Fatal("the refused rollout moved the pointer")
+	}
+}
